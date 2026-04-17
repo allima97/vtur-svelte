@@ -1,0 +1,242 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
+  import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
+  import { Plus, Pencil, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+
+  type Cambio = {
+    id: string;
+    moeda: string;
+    data: string;
+    valor: number | null;
+    created_at: string | null;
+    owner_user?: { nome_completo?: string | null } | null;
+  };
+
+  let cambios: Cambio[] = [];
+  let loading = true;
+  let modalOpen = false;
+  let saving = false;
+  let deletingId = '';
+  let editingId: string | null = null;
+
+  const MOEDAS = ['USD', 'EUR', 'ARS', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'MXN', 'CLP', 'UYU', 'PYG'];
+
+  let form = { moeda: 'USD', data: new Date().toISOString().slice(0, 10), valor: '' };
+
+  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('cambios', 'edit') || permissoes.can('parametros', 'edit');
+  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('cambios', 'delete') || permissoes.can('parametros', 'delete');
+
+  const columns = [
+    { key: 'moeda', label: 'Moeda', sortable: true, width: '100px' },
+    {
+      key: 'data',
+      label: 'Data',
+      sortable: true,
+      width: '120px',
+      formatter: (value: string) => value ? new Date(value + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
+    },
+    {
+      key: 'valor',
+      label: 'Valor (R$)',
+      sortable: true,
+      align: 'right' as const,
+      formatter: (value: number | null) =>
+        value != null
+          ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(value)
+          : '-'
+    },
+    {
+      key: 'owner_user',
+      label: 'Registrado por',
+      sortable: false,
+      formatter: (_: any, row: Cambio) => String(row.owner_user?.nome_completo || '-')
+    }
+  ];
+
+  async function load() {
+    loading = true;
+    try {
+      const response = await fetch('/api/v1/parametros/cambios');
+      if (!response.ok) throw new Error(await response.text());
+      const payload = await response.json();
+      cambios = payload.items || [];
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar câmbios.');
+    } finally {
+      loading = false;
+    }
+  }
+
+  function openNew() {
+    editingId = null;
+    form = { moeda: 'USD', data: new Date().toISOString().slice(0, 10), valor: '' };
+    modalOpen = true;
+  }
+
+  function openEdit(cambio: Cambio) {
+    editingId = cambio.id;
+    form = {
+      moeda: cambio.moeda,
+      data: cambio.data,
+      valor: String(cambio.valor ?? '')
+    };
+    modalOpen = true;
+  }
+
+  async function save() {
+    if (!form.moeda.trim()) { toast.error('Informe a moeda.'); return; }
+    if (!form.data) { toast.error('Informe a data.'); return; }
+    if (!form.valor) { toast.error('Informe o valor.'); return; }
+
+    saving = true;
+    try {
+      const response = await fetch('/api/v1/parametros/cambios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingId || undefined,
+          moeda: form.moeda.trim().toUpperCase(),
+          data: form.data,
+          valor: Number(String(form.valor).replace(',', '.'))
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success(editingId ? 'Câmbio atualizado.' : 'Câmbio registrado.');
+      modalOpen = false;
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar câmbio.');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deleteCambio(id: string) {
+    if (!confirm('Deseja excluir este câmbio?')) return;
+    deletingId = id;
+    try {
+      const response = await fetch(`/api/v1/parametros/cambios?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Câmbio excluído.');
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir câmbio.');
+    } finally {
+      deletingId = '';
+    }
+  }
+
+  onMount(load);
+</script>
+
+<svelte:head>
+  <title>Câmbios | VTUR</title>
+</svelte:head>
+
+<PageHeader
+  title="Câmbios"
+  subtitle="Registre as cotações de moedas estrangeiras para uso nos orçamentos e relatórios."
+  color="financeiro"
+  breadcrumbs={[
+    { label: 'Parâmetros', href: '/parametros' },
+    { label: 'Câmbios' }
+  ]}
+  actions={[
+    { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw },
+    ...(canEdit ? [{ label: 'Novo Câmbio', onClick: openNew, variant: 'primary' as const, icon: Plus }] : [])
+  ]}
+/>
+
+<DataTable
+  {columns}
+  data={cambios}
+  color="financeiro"
+  {loading}
+  title="Histórico de câmbios"
+  searchable={true}
+  emptyMessage="Nenhum câmbio registrado"
+>
+  <svelte:fragment slot="row-actions" let:row>
+    <div class="flex items-center gap-1">
+      {#if canEdit}
+        <button
+          on:click|stopPropagation={() => openEdit(row)}
+          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          title="Editar"
+        >
+          <Pencil size={15} />
+        </button>
+      {/if}
+      {#if canDelete}
+        <button
+          on:click|stopPropagation={() => deleteCambio(row.id)}
+          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+          title="Excluir"
+          disabled={deletingId === row.id}
+        >
+          <Trash2 size={15} />
+        </button>
+      {/if}
+    </div>
+  </svelte:fragment>
+</DataTable>
+
+<Dialog
+  bind:open={modalOpen}
+  title={editingId ? 'Editar Câmbio' : 'Novo Câmbio'}
+  color="financeiro"
+  size="sm"
+  showCancel={true}
+  cancelText="Cancelar"
+  showConfirm={true}
+  confirmText={editingId ? 'Salvar' : 'Registrar'}
+  loading={saving}
+  onConfirm={save}
+  onCancel={() => (modalOpen = false)}
+>
+  <div class="space-y-4">
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-moeda">Moeda *</label>
+      <div class="flex gap-2">
+        <select id="cambio-moeda" bind:value={form.moeda} class="vtur-input flex-1">
+          {#each MOEDAS as m}
+            <option value={m}>{m}</option>
+          {/each}
+        </select>
+        <input
+          type="text"
+          bind:value={form.moeda}
+          class="vtur-input w-24"
+          placeholder="Outra"
+          maxlength="5"
+        />
+      </div>
+      <p class="mt-1 text-xs text-slate-500">Selecione ou digite o código da moeda (ex: USD, EUR).</p>
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-data">Data *</label>
+      <input id="cambio-data" type="date" bind:value={form.data} class="vtur-input w-full" />
+    </div>
+
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-valor">Valor em R$ *</label>
+      <input
+        id="cambio-valor"
+        type="number"
+        step="0.000001"
+        min="0"
+        bind:value={form.valor}
+        class="vtur-input w-full"
+        placeholder="Ex: 5.123456"
+      />
+      <p class="mt-1 text-xs text-slate-500">Valor de 1 unidade da moeda em reais.</p>
+    </div>
+  </div>
+</Dialog>

@@ -1,0 +1,215 @@
+<script lang="ts">
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { Bell, Save, Mail, MessageSquare, Calendar, AlertTriangle } from 'lucide-svelte';
+  import { toast } from '$lib/stores/ui';
+
+  let saving = false;
+  
+  let notificacoes = {
+    email: {
+      ativo: true,
+      novo_cliente: true,
+      nova_venda: true,
+      pagamento_confirmado: true,
+      pagamento_atrasado: true,
+      aniversario_cliente: false,
+      relatorio_diario: false
+    },
+    sistema: {
+      ativo: true,
+      novo_orcamento: true,
+      orcamento_aprovado: true,
+      vencimento_voucher: true,
+      tarefa_atrasada: true,
+      meta_atingida: true
+    },
+    whatsapp: {
+      ativo: false,
+      novo_cliente: false,
+      nova_venda: true,
+      lembrete_viagem: true,
+      feedback_pos_viagem: true
+    }
+  };
+
+  async function handleSubmit() {
+    saving = true;
+    await new Promise(resolve => setTimeout(resolve, 800));
+    toast.success('Configurações de notificações salvas!');
+    saving = false;
+  }
+</script>
+
+<svelte:head>
+  <title>Notificações | VTUR</title>
+</svelte:head>
+
+<PageHeader 
+  title="Notificações"
+  subtitle="Configurar alertas e comunicações"
+  color="financeiro"
+  breadcrumbs={[
+    { label: 'Parâmetros', href: '/parametros' },
+    { label: 'Notificações' }
+  ]}
+/>
+
+<form on:submit|preventDefault={handleSubmit}>
+  <!-- Email -->
+  <Card header="Notificações por Email" color="financeiro" class="mb-6">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-blue-50 rounded-lg">
+          <Mail size={20} class="text-blue-600" />
+        </div>
+        <div>
+          <p class="font-medium text-slate-900">Email</p>
+          <p class="text-sm text-slate-500">Receber notificações por email</p>
+        </div>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" bind:checked={notificacoes.email.ativo} class="sr-only peer">
+        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-financeiro-500"></div>
+      </label>
+    </div>
+
+    {#if notificacoes.email.ativo}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.novo_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Novo cliente cadastrado</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.nova_venda} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Nova venda realizada</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.pagamento_confirmado} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Pagamento confirmado</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.pagamento_atrasado} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Pagamento em atraso</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.aniversario_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Aniversário de cliente</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.email.relatorio_diario} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Relatório diário de vendas</span>
+        </label>
+      </div>
+    {/if}
+  </Card>
+
+  <!-- Sistema -->
+  <Card header="Notificações no Sistema" color="financeiro" class="mb-6">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-financeiro-50 rounded-lg">
+          <Bell size={20} class="text-financeiro-600" />
+        </div>
+        <div>
+          <p class="font-medium text-slate-900">Sistema</p>
+          <p class="text-sm text-slate-500">Notificações dentro da plataforma</p>
+        </div>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" bind:checked={notificacoes.sistema.ativo} class="sr-only peer">
+        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-financeiro-500"></div>
+      </label>
+    </div>
+
+    {#if notificacoes.sistema.ativo}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.sistema.novo_orcamento} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Novo orçamento</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.sistema.orcamento_aprovado} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Orçamento aprovado</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.sistema.vencimento_voucher} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Voucher próximo do vencimento</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.sistema.tarefa_atrasada} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Tarefa atrasada</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.sistema.meta_atingida} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Meta de vendas atingida</span>
+        </label>
+      </div>
+    {/if}
+  </Card>
+
+  <!-- WhatsApp -->
+  <Card header="Notificações WhatsApp" color="financeiro" class="mb-6">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-green-50 rounded-lg">
+          <MessageSquare size={20} class="text-green-600" />
+        </div>
+        <div>
+          <p class="font-medium text-slate-900">WhatsApp</p>
+          <p class="text-sm text-slate-500">Integração com WhatsApp Business API</p>
+        </div>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" bind:checked={notificacoes.whatsapp.ativo} class="sr-only peer">
+        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+      </label>
+    </div>
+
+    {#if notificacoes.whatsapp.ativo}
+      <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+        <div class="flex items-start gap-3">
+          <AlertTriangle size={20} class="text-amber-600 mt-0.5" />
+          <div>
+            <p class="text-sm font-medium text-amber-800">Configuração necessária</p>
+            <p class="text-sm text-amber-700">Para enviar mensagens via WhatsApp, configure a integração na aba "Integrações".</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.whatsapp.novo_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Boas-vindas novo cliente</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.whatsapp.nova_venda} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Confirmação de venda</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.whatsapp.lembrete_viagem} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Lembrete de viagem (D-1)</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
+          <input type="checkbox" bind:checked={notificacoes.whatsapp.feedback_pos_viagem} class="w-4 h-4 text-financeiro-600 rounded" />
+          <span class="text-sm text-slate-700">Pesquisa pós-viagem</span>
+        </label>
+      </div>
+    {/if}
+  </Card>
+
+  <!-- Botões -->
+  <div class="flex items-center justify-end gap-3">
+    <Button variant="secondary" on:click={() => history.back()}>Cancelar</Button>
+    <Button variant="primary" color="financeiro" type="submit" disabled={saving}>
+      {#if saving}
+        <span class="animate-spin mr-2">⟳</span>
+        Salvando...
+      {:else}
+        <Save size={18} class="mr-2" />
+        Salvar Configurações
+      {/if}
+    </Button>
+  </div>
+</form>

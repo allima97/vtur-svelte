@@ -1,0 +1,305 @@
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
+  import DataTable from '$lib/components/ui/DataTable.svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp } from 'lucide-svelte';
+  import { toast } from '$lib/stores/ui';
+
+  // ─── Tipos ───────────────────────────────────────────────────────────────────
+  interface Orcamento {
+    id: string;
+    codigo: string;
+    cliente: string;
+    cliente_id: string;
+    destino: string;
+    data_criacao: string | null;
+    data_validade: string | null;
+    valor_total: number;
+    status: 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'novo';
+    status_negociacao: string | null;
+    vendedor: string;
+    vendedor_id: string;
+    origem: 'manual' | 'site' | 'indicacao';
+    quantidade_itens: number;
+  }
+
+  // ─── Estado ──────────────────────────────────────────────────────────────────
+  let orcamentosFiltrados: Orcamento[] = [];
+  let loading = true;
+  let errorMessage: string | null = null;
+
+  // Filtros
+  let filtroStatus = '';
+  let filtroPeriodo = '';
+  let filtroBusca = '';
+
+  // AbortController para cancelar fetch anterior
+  let abortController: AbortController | null = null;
+  let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ─── KPIs reativos (derivados diretamente, sem função intermediária) ──────────
+  $: resumo = {
+    total:         orcamentosFiltrados.length,
+    novos:         orcamentosFiltrados.filter(o => o.status === 'novo').length,
+    pendentes:     orcamentosFiltrados.filter(o => o.status === 'pendente').length,
+    enviados:      orcamentosFiltrados.filter(o => o.status === 'enviado').length,
+    aprovados:     orcamentosFiltrados.filter(o => o.status === 'aprovado').length,
+    valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
+    valorAprovado: orcamentosFiltrados
+                     .filter(o => o.status === 'aprovado')
+                     .reduce((s, o) => s + o.valor_total, 0),
+    get taxaConversao() {
+      return this.total > 0
+        ? ((this.aprovados / this.total) * 100).toFixed(1)
+        : '0';
+    }
+  };
+
+  // ─── Fetch com AbortController ───────────────────────────────────────────────
+  async function loadOrcamentos() {
+    // Cancela requisição em voo anterior
+    if (abortController) abortController.abort();
+    abortController = new AbortController();
+
+    loading = true;
+    errorMessage = null;
+
+    try {
+      const params = new URLSearchParams();
+      if (filtroStatus)  params.set('status',  filtroStatus);
+      if (filtroPeriodo) params.set('periodo', filtroPeriodo);
+      if (filtroBusca.trim()) params.set('q', filtroBusca.trim());
+
+      const response = await fetch(
+        `/api/v1/orcamentos/list?${params.toString()}`,
+        { signal: abortController.signal }
+      );
+
+      if (!response.ok) throw new Error(await response.text());
+
+      const payload = await response.json();
+      orcamentosFiltrados = Array.isArray(payload) ? payload : [];
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar orçamentos.';
+      errorMessage = msg;
+      orcamentosFiltrados = [];
+      toast.error(msg);
+    } finally {
+      loading = false;
+    }
+  }
+
+  // ─── Handlers de filtro ───────────────────────────────────────────────────
+  function handleFiltroChange(key: string, value: string) {
+    if (key === 'status')  filtroStatus  = value;
+    if (key === 'periodo') filtroPeriodo = value;
+    void loadOrcamentos();
+  }
+
+  /** Busca com debounce 300ms para não disparar a cada tecla */
+  function handleBuscaChange(valor: string) {
+    filtroBusca = valor;
+    if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
+    buscaDebounceTimer = setTimeout(() => void loadOrcamentos(), 300);
+  }
+
+  onMount(() => void loadOrcamentos());
+
+  onDestroy(() => {
+    abortController?.abort();
+    if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
+  });
+
+  // ─── Navegação e export ──────────────────────────────────────────────────
+  function handleRowClick(row: Orcamento) {
+    goto(`/orcamentos/${row.id}`);
+  }
+
+  function handleExport() {
+    if (orcamentosFiltrados.length === 0) {
+      toast.info('Não há orçamentos para exportar');
+      return;
+    }
+
+    const headers = ['Código', 'Cliente', 'Destino', 'Criação', 'Validade', 'Valor', 'Status', 'Responsável'];
+    const rows = orcamentosFiltrados.map(o => [
+      o.codigo,
+      o.cliente,
+      o.destino,
+      o.data_criacao ? new Date(o.data_criacao).toLocaleDateString('pt-BR') : '',
+      o.data_validade ? new Date(o.data_validade).toLocaleDateString('pt-BR') : '',
+      o.valor_total.toFixed(2).replace('.', ','),
+      o.status,
+      o.vendedor
+    ]);
+
+    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `orcamentos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast.success('Orçamentos exportados com sucesso!');
+  }
+
+  // ─── Colunas e filtros da tabela ────────────────────────────────────────────
+  const columns = [
+    { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
+    {
+      key: 'cliente',
+      label: 'Cliente',
+      sortable: true,
+      formatter: (value: string, row: Orcamento) =>
+        `<div class="flex flex-col">
+          <span class="font-medium text-slate-900">${value}</span>
+          <span class="text-xs text-slate-500">${row.destino || 'Sem destino'}</span>
+        </div>`
+    },
+    {
+      key: 'data_criacao',
+      label: 'Criação',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string | null) =>
+        value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+    },
+    {
+      key: 'data_validade',
+      label: 'Validade',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string | null) => {
+        if (!value) return '-';
+        const data = new Date(value);
+        const diff = Math.ceil(
+          (data.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        const classe =
+          diff < 0  ? 'text-red-600 font-medium' :
+          diff <= 3 ? 'text-amber-600 font-medium' : '';
+        return `<span class="${classe}">${data.toLocaleDateString('pt-BR')}</span>`;
+      }
+    },
+    {
+      key: 'valor_total',
+      label: 'Valor',
+      sortable: true,
+      align: 'right' as const,
+      width: '130px',
+      formatter: (value: number) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      width: '120px',
+      formatter: (value: string) => {
+        const styles: Record<string, string> = {
+          pendente: 'bg-amber-100 text-amber-700',
+          enviado:  'bg-blue-100 text-blue-700',
+          aprovado: 'bg-green-100 text-green-700',
+          rejeitado:'bg-red-100 text-red-700',
+          expirado: 'bg-slate-100 text-slate-600',
+          novo:     'bg-slate-100 text-slate-700'
+        };
+        const labels: Record<string, string> = {
+          pendente: 'Pendente', enviado: 'Enviado', aprovado: 'Aprovado',
+          rejeitado: 'Rejeitado', expirado: 'Expirado', novo: 'Novo'
+        };
+        const cl = styles[value] || 'bg-slate-100 text-slate-700';
+        const lb = labels[value] || value;
+        return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cl}">${lb}</span>`;
+      }
+    },
+    { key: 'vendedor', label: 'Responsável', sortable: true, width: '150px' }
+  ];
+
+  const filters = [
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select' as const,
+      options: [
+        { value: '', label: 'Todos' },
+        { value: 'novo',      label: 'Novo' },
+        { value: 'pendente',  label: 'Pendente' },
+        { value: 'enviado',   label: 'Enviado' },
+        { value: 'aprovado',  label: 'Aprovado' },
+        { value: 'rejeitado', label: 'Rejeitado' },
+        { value: 'expirado',  label: 'Expirado' }
+      ]
+    },
+    {
+      key: 'periodo',
+      label: 'Período',
+      type: 'select' as const,
+      options: [
+        { value: '',            label: 'Todos' },
+        { value: 'hoje',        label: 'Hoje' },
+        { value: 'semana',      label: 'Esta semana' },
+        { value: 'mes',         label: 'Este mês' },
+        { value: 'mes_passado', label: 'Mês passado' }
+      ]
+    }
+  ];
+</script>
+
+<svelte:head>
+  <title>Orçamentos | VTUR</title>
+</svelte:head>
+
+<PageHeader
+  title="Orçamentos"
+  subtitle="Acompanhe o pipeline de propostas com uma leitura mais limpa, profissional e orientada à decisão."
+  color="orcamentos"
+  breadcrumbs={[{ label: 'Orçamentos' }]}
+  actions={[{
+    label: 'Novo Orçamento',
+    href: '/orcamentos/novo',
+    variant: 'primary',
+    icon: Plus
+  }]}
+/>
+
+{#if errorMessage}
+  <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {errorMessage}
+  </div>
+{/if}
+
+<!-- KPIs -->
+<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+  <KPICard title="Total"         value={resumo.total}     color="orcamentos" icon={FileText} />
+  <KPICard title="Novos"         value={resumo.novos}     color="orcamentos" icon={FileText}    subtitle="Aguardando ação" />
+  <KPICard title="Pendentes"     value={resumo.pendentes} color="orcamentos" icon={Clock}        subtitle="Em negociação" />
+  <KPICard title="Enviados"      value={resumo.enviados}  color="orcamentos" icon={Send}         subtitle="Aguardando cliente" />
+  <KPICard title="Aprovados"     value={resumo.aprovados} color="orcamentos" icon={CheckCircle}  subtitle={`${resumo.taxaConversao}% conversão`} />
+  <KPICard
+    title="Valor Pipeline"
+    value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorTotal)}
+    color="orcamentos"
+    icon={TrendingUp}
+    subtitle={`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorAprovado)} aprovados`}
+  />
+</div>
+
+<DataTable
+  {columns}
+  data={orcamentosFiltrados}
+  color="orcamentos"
+  {loading}
+  title="Lista de Orçamentos"
+  {filters}
+  searchable={true}
+  filterable={true}
+  exportable={true}
+  onRowClick={handleRowClick}
+  onExport={handleExport}
+  onSearch={handleBuscaChange}
+  onFilterChange={handleFiltroChange}
+  emptyMessage="Nenhum orçamento encontrado para o escopo atual"
+/>

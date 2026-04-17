@@ -1,0 +1,751 @@
+/**
+ * TEMA VTUR-APP
+ * Sistema de Gestão de Viagens - Tema Limpo e Profissional
+ * 
+ * Estrutura:
+ * 1. Variáveis CSS (design tokens)
+ * 2. Configurações base
+ * 3. Classes utilitárias específicas
+ * 
+ * Componentes visuais devem usar Flowbite Svelte quando disponível
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== VARIÁVEIS DE DESIGN ========== */
+:root {
+  /* Cores Primárias */
+  --vtur-primary-50: #eff6ff;
+  --vtur-primary-100: #dbeafe;
+  --vtur-primary-500: #3b82f6;
+  --vtur-primary-600: #2563eb;
+  --vtur-primary-700: #1d4ed8;
+  
+  /* Cores dos Módulos - VTUR */
+  --vtur-blue-50: #eff6ff; --vtur-blue-100: #dbeafe; --vtur-blue-500: #3b82f6; --vtur-blue-600: #2563eb; --vtur-blue-700: #1d4ed8;
+  --vtur-teal-50: #f0fdfa; --vtur-teal-100: #ccfbf1; --vtur-teal-500: #14b8a6; --vtur-teal-600: #0d9488; --vtur-teal-700: #0f766e;
+  --vtur-green-50: #f0fdf4; --vtur-green-100: #dcfce7; --vtur-green-500: #22c55e; --vtur-green-600: #16a34a; --vtur-green-700: #15803d;
+  --vtur-orange-50: #fff7ed; --vtur-orange-100: #ffedd5; --vtur-orange-500: #f97316; --vtur-orange-600: #ea580c; --vtur-orange-700: #c2410c;
+  --vtur-red-50: #fef2f2; --vtur-red-100: #fee2e2; --vtur-red-500: #ef4444; --vtur-red-600: #dc2626; --vtur-red-700: #b91c1c;
+  
+  /* Cores dos Módulos - Formato --color-* para compatibilidade */
+  --color-clientes-50: #eff6ff; --color-clientes-100: #dbeafe; --color-clientes-500: #3b82f6; --color-clientes-600: #2563eb; --color-clientes-700: #1d4ed8;
+  --color-orcamentos-50: #eff6ff; --color-orcamentos-100: #dbeafe; --color-orcamentos-500: #3b82f6; --color-orcamentos-600: #2563eb; --color-orcamentos-700: #1d4ed8;
+  --color-vendas-50: #f0fdf4; --color-vendas-100: #dcfce7; --color-vendas-500: #22c55e; --color-vendas-600: #16a34a; --color-vendas-700: #15803d;
+  --color-financeiro-50: #fff7ed; --color-financeiro-100: #ffedd5; --color-financeiro-500: #f97316; --color-financeiro-600: #ea580c; --color-financeiro-700: #c2410c;
+  --color-operacao-50: #f0fdfa; --color-operacao-100: #ccfbf1; --color-operacao-500: #14b8a6; --color-operacao-600: #0d9488; --color-operacao-700: #0f766e;
+  
+  /* Cores Semânticas */
+  --color-success-50: #f0fdf4; --color-success-100: #dcfce7; --color-success-500: #22c55e; --color-success-600: #16a34a; --color-success-700: #15803d;
+  --color-warning-50: #fff7ed; --color-warning-100: #ffedd5; --color-warning-500: #f97316; --color-warning-600: #ea580c; --color-warning-700: #c2410c;
+  --color-danger-50: #fef2f2; --color-danger-100: #fee2e2; --color-danger-500: #ef4444; --color-danger-600: #dc2626; --color-danger-700: #b91c1c;
+  --color-info-50: #eff6ff; --color-info-100: #dbeafe; --color-info-500: #3b82f6; --color-info-600: #2563eb; --color-info-700: #1d4ed8;
+  
+  /* Surface */
+  --vtur-bg: #f4f1eb;
+  --vtur-bg-card: #ffffff;
+  --vtur-border: rgba(9, 17, 46, 0.12);
+  
+  /* Texto */
+  --vtur-text: #0f172a;
+  --vtur-text-secondary: #475569;
+  --vtur-text-muted: #94a3b8;
+  
+  /* Sidebar */
+  --vtur-sidebar-bg: #0f172a;
+  --vtur-sidebar-text: #e2e8f0;
+  --vtur-sidebar-muted: rgba(226, 232, 240, 0.72);
+  
+  /* Layout */
+  --vtur-sidebar-width: 286px;
+  --vtur-topbar-height: 4.6rem;
+  --vtur-desktop-shell-top: 5.6rem;
+  --vtur-desktop-content-top: var(--vtur-desktop-shell-top);
+}
+
+/* ========== BASE ========== */
+@layer base {
+  html {
+    font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  body {
+    margin: 0;
+    background-color: var(--vtur-bg);
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.95)),
+      radial-gradient(circle at 12% 12%, rgba(142, 40, 226, 0.1), transparent 30%),
+      radial-gradient(circle at 88% 16%, rgba(86, 48, 255, 0.08), transparent 30%);
+    background-attachment: fixed;
+    color: var(--vtur-text);
+    overflow-x: hidden;
+  }
+}
+
+/* ========== COMPONENTES ========== */
+@layer components {
+  .vtur-app-shell {
+    min-height: 100vh;
+  }
+
+  /* Layout Principal */
+  .vtur-layout {
+    margin-left: calc(1rem + var(--vtur-sidebar-width) + 1rem);
+    padding: var(--vtur-desktop-content-top) 1rem 1.25rem 0.75rem;
+    min-height: 100vh;
+    min-width: 0;
+  }
+
+  .vtur-page-wrap {
+    min-width: 0;
+  }
+
+  .vtur-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 997;
+    height: var(--vtur-topbar-height);
+    padding: 0 1.5rem;
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid #e5e7eb;
+    backdrop-filter: blur(16px);
+  }
+
+  .vtur-topbar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  .vtur-topbar__left,
+  .vtur-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .vtur-topbar__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: var(--vtur-text);
+  }
+
+  .vtur-topbar__brand-image {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .vtur-topbar__brand-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .vtur-topbar__brand-wordmark {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: 0.02em;
+    color: #0f172a;
+  }
+
+  .vtur-topbar__brand-tagline {
+    font-size: 0.72rem;
+    line-height: 1;
+    color: #64748b;
+  }
+
+  .vtur-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #334155;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .vtur-icon-button:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .vtur-icon-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .vtur-icon-button--danger:hover:not(:disabled) {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+
+  .vtur-user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0.7rem 0.4rem 0.45rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  .vtur-user-chip__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .vtur-user-chip__copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .vtur-user-chip__name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+
+  .vtur-user-chip__email {
+    font-size: 0.72rem;
+    color: #64748b;
+    line-height: 1.1;
+  }
+
+  .vtur-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background: rgba(15, 23, 42, 0.5);
+  }
+
+  .vtur-sidebar {
+    position: fixed;
+    top: var(--vtur-desktop-shell-top);
+    left: 1rem;
+    z-index: 999;
+    width: var(--vtur-sidebar-width);
+    height: calc(100vh - 6.6rem);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    background: #0f172a;
+    color: #e2e8f0;
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.28);
+  }
+
+  .vtur-sidebar__header {
+    padding: 1rem 1rem 0.25rem;
+  }
+
+  .vtur-sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .vtur-sidebar__brand-image {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+  }
+
+  .vtur-sidebar__brand-copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .vtur-sidebar__brand-wordmark {
+    color: #f8fafc;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+
+  .vtur-sidebar__brand-tagline {
+    color: rgba(226, 232, 240, 0.82);
+    font-size: 0.72rem;
+    line-height: 1;
+  }
+
+  .vtur-sidebar__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.35rem 0.7rem 0.9rem;
+  }
+
+  .vtur-sidebar__section + .vtur-sidebar__section {
+    margin-top: 0.55rem;
+  }
+
+  .vtur-sidebar__section-title {
+    margin: 0.9rem 0 0.3rem;
+    padding: 0 0.45rem;
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .vtur-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+  }
+
+  .vtur-sidebar__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.72rem 0.9rem;
+    border-radius: 12px;
+    color: #e2e8f0;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .vtur-sidebar__item:hover {
+    background: rgba(148, 163, 184, 0.2);
+    color: #f8fafc;
+  }
+
+  .vtur-sidebar__item--active {
+    background: #e0f2fe;
+    color: #0f172a;
+  }
+
+  .vtur-sidebar__item--active .vtur-sidebar__item-icon {
+    color: #2563eb;
+  }
+
+  .vtur-sidebar__item--disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .vtur-sidebar__item-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .vtur-sidebar__item-icon {
+    color: #93c5fd;
+    flex: 0 0 auto;
+    transition: color 0.2s ease;
+  }
+
+  .vtur-sidebar__item:hover .vtur-sidebar__item-icon {
+    color: #dbeafe;
+  }
+
+  .vtur-sidebar__item-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vtur-sidebar__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.16);
+    color: #bfdbfe;
+    font-size: 0.68rem;
+    line-height: 1;
+  }
+
+  .vtur-sidebar__footer {
+    padding: 0.85rem 1rem 1rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+  }
+
+  .vtur-sidebar__quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .vtur-sidebar__quick-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.72rem 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 12px;
+    background: rgba(51, 65, 85, 0.35);
+    color: #e2e8f0;
+    text-decoration: none;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .vtur-sidebar__quick-link:hover:not(:disabled) {
+    background: rgba(71, 85, 105, 0.72);
+    border-color: rgba(186, 230, 253, 0.45);
+    color: #f8fafc;
+  }
+
+  .vtur-sidebar__quick-link:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .vtur-sidebar__profile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .vtur-sidebar__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  .vtur-sidebar__profile-copy {
+    min-width: 0;
+  }
+
+  .vtur-sidebar__profile-name {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #f8fafc;
+  }
+
+  .vtur-sidebar__profile-meta {
+    margin: 0.1rem 0 0;
+    font-size: 0.74rem;
+    color: rgba(226, 232, 240, 0.72);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  @media (max-width: 1023px) {
+    .vtur-layout {
+      margin-left: 0;
+      padding: calc(var(--vtur-topbar-height) + 1rem) 1rem 1.25rem;
+    }
+
+    .vtur-topbar {
+      padding: 0 1rem;
+    }
+
+    .vtur-topbar__brand-tagline,
+    .vtur-user-chip__email {
+      display: none;
+    }
+
+    .vtur-user-chip {
+      padding-right: 0.5rem;
+    }
+
+    .vtur-sidebar {
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: min(92vw, 320px);
+      border-radius: 0 18px 18px 0;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+    }
+
+    .vtur-sidebar--open {
+      transform: translateX(0);
+    }
+  }
+  
+  /* Cards - usar Flowbite quando possível, essas são extensões */
+  .vtur-card-header {
+    @apply flex items-center justify-between pb-3 mb-4 border-b border-slate-100;
+  }
+  
+  .vtur-card-title {
+    @apply text-lg font-bold text-slate-900 tracking-tight;
+  }
+  
+  /* Cores de módulo para bordas */
+  .vtur-border-clientes { border-top-color: var(--vtur-blue-500); }
+  .vtur-border-vendas { border-top-color: var(--vtur-green-500); }
+  .vtur-border-financeiro { border-top-color: var(--vtur-orange-500); }
+  .vtur-border-operacao { border-top-color: var(--vtur-teal-500); }
+  
+  /* Status badges */
+  .vtur-status {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .vtur-status-success { @apply bg-green-100 text-green-800; }
+  .vtur-status-warning { @apply bg-amber-100 text-amber-800; }
+  .vtur-status-danger { @apply bg-red-100 text-red-800; }
+  .vtur-status-info { @apply bg-blue-100 text-blue-800; }
+  
+  /* Tabela - headers temáticos */
+  .vtur-table-header-clientes { @apply bg-gradient-to-b from-blue-50 to-blue-100/50 text-blue-700; }
+  .vtur-table-header-vendas { @apply bg-gradient-to-b from-green-50 to-green-100/50 text-green-700; }
+  .vtur-table-header-financeiro { @apply bg-gradient-to-b from-orange-50 to-orange-100/50 text-orange-700; }
+  .vtur-table-header-operacao { @apply bg-gradient-to-b from-teal-50 to-teal-100/50 text-teal-700; }
+}
+
+/* ========== COMPONENTES UTILITÁRIOS VTUR ========== */
+@layer components {
+  /* Card padrão VTUR */
+  .vtur-card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200;
+  }
+  
+  /* Input padrão VTUR */
+  .vtur-input {
+    @apply w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm
+           focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none
+           disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed
+           transition-all duration-200;
+  }
+  
+  /* Select estilizado */
+  select.vtur-input {
+    @apply appearance-none bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-size: 1.5em 1.5em;
+    background-position: right 0.5rem center;
+  }
+  
+  /* Textarea estilizado */
+  textarea.vtur-input {
+    @apply resize-y min-h-[80px];
+  }
+  
+  /* Tabela padrão VTUR */
+  .vtur-table {
+    @apply w-full text-sm text-left;
+  }
+  
+  .vtur-table thead {
+    @apply bg-slate-50 text-slate-700 uppercase text-xs font-semibold;
+  }
+  
+  .vtur-table th {
+    @apply px-6 py-3 tracking-wider;
+  }
+  
+  .vtur-table tbody {
+    @apply divide-y divide-slate-200 bg-white;
+  }
+  
+  .vtur-table td {
+    @apply px-6 py-4 whitespace-nowrap text-slate-900;
+  }
+  
+  .vtur-table tbody tr {
+    @apply hover:bg-slate-50 transition-colors;
+  }
+}
+
+/* ========== UTILITÁRIOS ========== */
+@layer utilities {
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+  }
+  
+  .scrollbar-dark::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 20px;
+  }
+  
+  /* Animações */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+
+.vtur-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+@media (min-width: 640px) {
+  .vtur-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .vtur-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .vtur-kpi-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+.vtur-kpi-card {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 1rem;
+  min-height: 122px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.vtur-kpi-card__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #64748b;
+}
+
+.vtur-kpi-card__value {
+  margin: 0 0 0.35rem;
+  font-size: 1.3rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vtur-kpi-card__subtext {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: #94a3b8;
+}
+
+.vtur-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 1200px) {
+  .vtur-dashboard-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.vtur-table__head th {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.vtur-table__body tr {
+  border-bottom: 1px solid rgba(241, 245, 249, 0.95);
+  transition: background-color 140ms ease;
+}
+
+.vtur-table__body tr:hover {
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.vtur-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  background: #fff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.vtur-status-badge--success {
+  border-color: rgba(16, 185, 129, 0.18);
+  background: rgba(236, 253, 245, 0.95);
+  color: #047857;
+}
+
+.vtur-status-badge--warning {
+  border-color: rgba(245, 158, 11, 0.22);
+  background: rgba(255, 251, 235, 0.98);
+  color: #b45309;
+}
+
+.vtur-status-badge--info {
+  border-color: rgba(59, 130, 246, 0.18);
+  background: rgba(239, 246, 255, 0.98);
+  color: #1d4ed8;
+}
+
+.vtur-status-badge--danger {
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(254, 242, 242, 0.98);
+  color: #b91c1c;
+}

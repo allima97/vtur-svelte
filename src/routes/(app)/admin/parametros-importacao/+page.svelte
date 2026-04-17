@@ -1,0 +1,178 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
+  import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { toast } from '$lib/stores/ui';
+  import { Plus, Pencil, Trash2, RefreshCw } from 'lucide-svelte';
+
+  type Termo = {
+    id: string;
+    termo: string;
+    descricao: string | null;
+    ativo: boolean;
+    created_at: string | null;
+  };
+
+  let termos: Termo[] = [];
+  let loading = true;
+  let modalOpen = false;
+  let saving = false;
+  let deletingId = '';
+  let editingId: string | null = null;
+
+  let form = { termo: '', descricao: '', ativo: true };
+
+  const columns = [
+    { key: 'termo', label: 'Termo', sortable: true },
+    { key: 'descricao', label: 'Descrição', sortable: true, formatter: (v: string | null) => v || '-' },
+    {
+      key: 'ativo',
+      label: 'Status',
+      sortable: true,
+      width: '90px',
+      formatter: (v: boolean) =>
+        v ? '<span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Ativo</span>'
+          : '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Inativo</span>'
+    }
+  ];
+
+  async function load() {
+    loading = true;
+    try {
+      const response = await fetch('/api/v1/parametros/nao-comissionaveis');
+      if (!response.ok) throw new Error(await response.text());
+      const payload = await response.json();
+      termos = payload.items || [];
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar termos.');
+    } finally {
+      loading = false;
+    }
+  }
+
+  function openNew() {
+    editingId = null;
+    form = { termo: '', descricao: '', ativo: true };
+    modalOpen = true;
+  }
+
+  function openEdit(t: Termo) {
+    editingId = t.id;
+    form = { termo: t.termo, descricao: t.descricao || '', ativo: t.ativo };
+    modalOpen = true;
+  }
+
+  async function save() {
+    if (!form.termo.trim()) { toast.error('Termo obrigatório.'); return; }
+    saving = true;
+    try {
+      const response = await fetch('/api/v1/parametros/nao-comissionaveis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId || undefined, ...form })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success(editingId ? 'Termo atualizado.' : 'Termo criado.');
+      modalOpen = false;
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deleteTermo(id: string) {
+    if (!confirm('Deseja excluir este termo?')) return;
+    deletingId = id;
+    try {
+      const response = await fetch(`/api/v1/parametros/nao-comissionaveis?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Termo excluído.');
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
+    } finally {
+      deletingId = '';
+    }
+  }
+
+  onMount(load);
+</script>
+
+<svelte:head>
+  <title>Parâmetros de Importação | VTUR</title>
+</svelte:head>
+
+<PageHeader
+  title="Parâmetros de Importação"
+  subtitle="Gerencie os termos não comissionáveis usados na importação e conciliação de vendas."
+  breadcrumbs={[
+    { label: 'Admin', href: '/admin' },
+    { label: 'Parâmetros de Importação' }
+  ]}
+  actions={[
+    { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw },
+    { label: 'Novo Termo', onClick: openNew, variant: 'primary', icon: Plus }
+  ]}
+/>
+
+<Card color="financeiro" class="mb-4">
+  <p class="text-sm text-slate-600">
+    Termos não comissionáveis são palavras ou expressões que, quando encontradas nos recibos durante a importação ou conciliação, fazem com que o valor correspondente não seja incluído no cálculo de comissões.
+  </p>
+</Card>
+
+<DataTable
+  {columns}
+  data={termos}
+  color="financeiro"
+  {loading}
+  title="Termos não comissionáveis"
+  searchable={true}
+  emptyMessage="Nenhum termo cadastrado"
+>
+  <svelte:fragment slot="row-actions" let:row>
+    <div class="flex items-center gap-1">
+      <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar">
+        <Pencil size={15} />
+      </button>
+      <button on:click|stopPropagation={() => deleteTermo(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+        <Trash2 size={15} />
+      </button>
+    </div>
+  </svelte:fragment>
+</DataTable>
+
+<Dialog
+  bind:open={modalOpen}
+  title={editingId ? 'Editar Termo' : 'Novo Termo'}
+  color="financeiro"
+  size="sm"
+  showCancel={true}
+  cancelText="Cancelar"
+  showConfirm={true}
+  confirmText={editingId ? 'Salvar' : 'Criar'}
+  loading={saving}
+  onConfirm={save}
+  onCancel={() => (modalOpen = false)}
+>
+  <div class="space-y-4">
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="nc-termo">Termo *</label>
+      <input id="nc-termo" bind:value={form.termo} class="vtur-input w-full" placeholder="Ex: SEGURO, DU, RAV" />
+      <p class="mt-1 text-xs text-slate-500">Texto que será buscado nos recibos (case-insensitive).</p>
+    </div>
+    <div>
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="nc-desc">Descrição</label>
+      <input id="nc-desc" bind:value={form.descricao} class="vtur-input w-full" placeholder="Explicação do termo" />
+    </div>
+    <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+      <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
+      Termo ativo
+    </label>
+  </div>
+</Dialog>

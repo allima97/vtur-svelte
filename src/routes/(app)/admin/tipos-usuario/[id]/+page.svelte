@@ -1,0 +1,248 @@
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { toast } from '$lib/stores/ui';
+
+  type PermissionEntry = {
+    label: string;
+    modulo: string;
+    permissao: string;
+    ativo: boolean;
+  };
+
+  const emptyForm = {
+    id: '',
+    name: '',
+    description: ''
+  };
+
+  let loading = true;
+  let saving = false;
+  let deleting = false;
+  let form = { ...emptyForm };
+  let users: Array<{ id: string; nome: string; email: string | null }> = [];
+  let permissions: PermissionEntry[] = [];
+  let levels = [
+    { value: 'none', label: 'Nenhum' },
+    { value: 'view', label: 'Ver' },
+    { value: 'create', label: 'Criar' },
+    { value: 'edit', label: 'Editar' },
+    { value: 'delete', label: 'Excluir' },
+    { value: 'admin', label: 'Admin' }
+  ];
+  let sections: Array<{ id: string; titulo: string; modulos: string[] }> = [];
+  let lastLoadedId = '';
+
+  $: isCreateMode = $page.params.id === 'novo';
+
+  function entriesForSection(section: { modulos: string[] }) {
+    return permissions.filter((entry) => section.modulos.includes(entry.label));
+  }
+
+  async function loadPage() {
+    loading = true;
+    try {
+      if (isCreateMode) {
+        const permsResponse = await fetch('/api/v1/admin/permissoes');
+        if (!permsResponse.ok) throw new Error(await permsResponse.text());
+        const payload = await permsResponse.json();
+        permissions = (payload.system_module_catalog || []).map((item: any) => ({
+          label: item.label,
+          modulo: item.key,
+          permissao: 'none',
+          ativo: false
+        }));
+        sections = payload.sections || [];
+        users = [];
+        form = { ...emptyForm };
+      } else {
+        const [detailResponse, permsResponse] = await Promise.all([
+          fetch(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
+          fetch(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
+        ]);
+        if (!detailResponse.ok) throw new Error(await detailResponse.text());
+        if (!permsResponse.ok) throw new Error(await permsResponse.text());
+
+        const [detailPayload, permsPayload] = await Promise.all([detailResponse.json(), permsResponse.json()]);
+        form = {
+          id: detailPayload.tipo.id,
+          name: detailPayload.tipo.name,
+          description: detailPayload.tipo.description || ''
+        };
+        users = detailPayload.usuarios || [];
+        permissions = permsPayload.permissions || [];
+        sections = permsPayload.sections || [];
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Nao foi possivel carregar o tipo de usuario.');
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function saveType() {
+    saving = true;
+    try {
+      if (!form.name.trim()) throw new Error('Informe o nome do tipo de usuario.');
+
+      const typeResponse = await fetch('/api/v1/admin/tipos-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: isCreateMode ? undefined : form.id,
+          name: form.name,
+          description: form.description
+        })
+      });
+      if (!typeResponse.ok) throw new Error(await typeResponse.text());
+      const typePayload = await typeResponse.json();
+
+      const targetId = typePayload.id || form.id;
+      const permsResponse = await fetch(`/api/v1/admin/tipos-usuario/${targetId}/permissoes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissions })
+      });
+      if (!permsResponse.ok) throw new Error(await permsResponse.text());
+
+      toast.success('Tipo de usuario salvo com sucesso.');
+      if (isCreateMode && targetId) {
+        await goto(`/admin/tipos-usuario/${targetId}`);
+      } else {
+        await loadPage();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar tipo de usuario.');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deleteType() {
+    deleting = true;
+    try {
+      const response = await fetch('/api/v1/admin/tipos-usuario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          id: form.id
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Tipo de usuario removido.');
+      await goto('/admin/tipos-usuario');
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover tipo de usuario.');
+    } finally {
+      deleting = false;
+    }
+  }
+
+  $: if ($page.params.id && $page.params.id !== lastLoadedId) {
+    lastLoadedId = $page.params.id;
+    loadPage();
+  }
+</script>
+
+<svelte:head>
+  <title>{isCreateMode ? 'Novo tipo de usuario' : form.name || 'Tipo de usuario'} | VTUR</title>
+</svelte:head>
+
+<PageHeader
+  title={isCreateMode ? 'Novo tipo de usuario' : form.name || 'Tipo de usuario'}
+  subtitle="Definicao do cargo e da matriz default que sera aplicada aos novos usuarios."
+  breadcrumbs={[
+    { label: 'Administracao', href: '/admin' },
+    { label: 'Tipos de usuario', href: '/admin/tipos-usuario' },
+    { label: isCreateMode ? 'Novo' : form.name || 'Detalhe' }
+  ]}
+/>
+
+<div class="space-y-6">
+  <Card color="financeiro" title="Dados do perfil">
+    <div class="grid gap-4 md:grid-cols-2">
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tipo-nome">Nome</label>
+        <input id="tipo-nome" bind:value={form.name} class="vtur-input w-full" />
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="tipo-descricao">Descricao</label>
+        <input id="tipo-descricao" bind:value={form.description} class="vtur-input w-full" />
+      </div>
+    </div>
+  </Card>
+
+  {#each sections as section}
+    <Card color="financeiro" title={section.titulo}>
+      <div class="space-y-3">
+        {#each entriesForSection(section) as entry}
+          <div class="grid gap-3 rounded-xl border border-slate-200 p-4 lg:grid-cols-[minmax(0,1fr)_180px_100px]">
+            <div>
+              <p class="font-medium text-slate-900">{entry.label}</p>
+              <p class="text-xs text-slate-500">{entry.modulo}</p>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700" for={`tipo-perm-${entry.modulo}`}>Nivel</label>
+              <select
+                id={`tipo-perm-${entry.modulo}`}
+                bind:value={entry.permissao}
+                class="vtur-input w-full"
+                disabled={!entry.ativo}
+              >
+                {#each levels as level}
+                  <option value={level.value}>{level.label}</option>
+                {/each}
+              </select>
+            </div>
+
+            <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 lg:self-end">
+              <input
+                type="checkbox"
+                bind:checked={entry.ativo}
+                on:change={() => {
+                  if (!entry.ativo) entry.permissao = 'none';
+                  if (entry.ativo && entry.permissao === 'none') entry.permissao = 'view';
+                  permissions = [...permissions];
+                }}
+              />
+              <span class="text-sm text-slate-700">Ativo</span>
+            </label>
+          </div>
+        {/each}
+      </div>
+    </Card>
+  {/each}
+
+  {#if !isCreateMode}
+    <Card color="financeiro" title="Usuarios vinculados">
+      <div class="space-y-3">
+        {#each users as user}
+          <div class="rounded-xl border border-slate-200 p-3">
+            <p class="font-medium text-slate-900">{user.nome}</p>
+            <p class="text-sm text-slate-500">{user.email || '-'}</p>
+          </div>
+        {/each}
+
+        {#if users.length === 0}
+          <p class="text-sm text-slate-500">Nenhum usuario vinculado a este perfil.</p>
+        {/if}
+      </div>
+    </Card>
+  {/if}
+
+  <div class="flex flex-wrap gap-3">
+    <Button variant="secondary" href="/admin/tipos-usuario">Voltar</Button>
+    {#if !isCreateMode}
+      <Button variant="danger" on:click={deleteType} loading={deleting}>Excluir tipo</Button>
+    {/if}
+    <Button variant="primary" color="financeiro" on:click={saveType} loading={saving}>Salvar tipo</Button>
+  </div>
+</div>

@@ -1,0 +1,39 @@
+/// <reference types="@sveltejs/kit" />
+
+declare global {
+  namespace App {
+    interface Error {
+      message: string;
+      code?: string;
+    }
+    
+    interface Locals {
+      supabase: import('@supabase/supabase-js').SupabaseClient;
+      safeGetSession(): Promise<{ session: import('@supabase/supabase-js').Session | null; user: import('@supabase/supabase-js').User | null }>;
+      session?: import('@supabase/supabase-js').Session | null;
+      user?: import('@supabase/supabase-js').User | null;
+      userType?: string;
+      isSystemAdmin?: boolean;
+      acessos?: Record<string, string>;
+    }
+    
+    interface PageData {
+      session: import('@supabase/supabase-js').Session | null;
+      user: import('@supabase/supabase-js').User | null;
+    }
+    
+    interface PageState {
+      [key: string]: unknown;
+    }
+    
+    interface Platform {
+      env?: {
+        SUPABASE_URL: string;
+        SUPABASE_ANON_KEY: string;
+        SUPABASE_SERVICE_ROLE_KEY?: string;
+      };
+    }
+  }
+}
+
+export {};

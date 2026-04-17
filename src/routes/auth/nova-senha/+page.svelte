@@ -1,0 +1,176 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { supabase } from '$lib/db/supabase';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import { Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
+
+  let password = '';
+  let confirmPassword = '';
+  let showPassword = false;
+  let showConfirm = false;
+  let loading = false;
+  let validating = true;
+  let error: string | null = null;
+  let success = false;
+  let validLink = false;
+
+  onMount(async () => {
+    try {
+      // Tenta trocar o code por sessão (fluxo PKCE)
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) throw exchangeError;
+        // Limpa a URL
+        url.searchParams.delete('code');
+        window.history.replaceState({}, '', url.pathname);
+        validLink = true;
+      } else {
+        // Tenta verificar sessão existente (fluxo hash)
+        const hash = window.location.hash;
+        if (hash) {
+          const params = new URLSearchParams(hash.replace(/^#/, ''));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          const type = params.get('type');
+
+          if (type === 'recovery' && accessToken && refreshToken) {
+            const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+            if (sessionError) throw sessionError;
+            window.history.replaceState({}, '', window.location.pathname);
+            validLink = true;
+          }
+        }
+
+        if (!validLink) {
+          const { data } = await supabase.auth.getUser();
+          validLink = Boolean(data?.user?.id);
+        }
+      }
+
+      if (!validLink) {
+        error = 'Link de recuperação inválido ou expirado. Solicite um novo.';
+      }
+    } catch (err: any) {
+      error = err.message || 'Link inválido ou expirado.';
+    } finally {
+      validating = false;
+    }
+  });
+
+  async function handleSubmit() {
+    if (!password) { error = 'Informe a nova senha.'; return; }
+    if (password.length < 6) { error = 'A senha deve ter pelo menos 6 caracteres.'; return; }
+    if (password !== confirmPassword) { error = 'As senhas não conferem.'; return; }
+
+    loading = true;
+    error = null;
+
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) throw updateError;
+      success = true;
+      setTimeout(() => goto('/auth/login'), 2500);
+    } catch (err: any) {
+      error = err.message || 'Erro ao redefinir senha.';
+    } finally {
+      loading = false;
+    }
+  }
+</script>
+
+<svelte:head>
+  <title>Nova Senha | VTUR</title>
+</svelte:head>
+
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white text-3xl font-bold shadow-lg shadow-blue-500/30 mb-4">V</div>
+      <h1 class="text-2xl font-bold text-slate-900">Nova Senha</h1>
+      <p class="text-slate-500 mt-1">Defina sua nova senha de acesso</p>
+    </div>
+
+    <Card padding="lg">
+      {#if validating}
+        <div class="text-center py-8 text-slate-500">Validando link...</div>
+      {:else if success}
+        <div class="text-center py-4">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 mb-4">
+            <CheckCircle size={24} />
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Senha redefinida!</h3>
+          <p class="text-slate-500 text-sm">Redirecionando para o login...</p>
+        </div>
+      {:else if !validLink}
+        <div class="text-center py-4">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-600 mb-4">
+            <AlertCircle size={24} />
+          </div>
+          <h3 class="text-lg font-semibold text-slate-900 mb-2">Link inválido</h3>
+          <p class="text-slate-500 text-sm mb-4">{error}</p>
+          <a href="/auth/recuperar-senha" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
+            Solicitar novo link
+          </a>
+        </div>
+      {:else}
+        {#if error}
+          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+        {/if}
+
+        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Nova senha</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock size={18} class="text-slate-400" />
+              </div>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                bind:value={password}
+                class="vtur-input pl-10 pr-10 w-full"
+                placeholder="Mínimo 6 caracteres"
+                disabled={loading}
+              />
+              <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" on:click={() => (showPassword = !showPassword)}>
+                {#if showPassword}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label for="confirm" class="block text-sm font-medium text-slate-700 mb-1">Confirmar senha</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock size={18} class="text-slate-400" />
+              </div>
+              <input
+                id="confirm"
+                type={showConfirm ? 'text' : 'password'}
+                bind:value={confirmPassword}
+                class="vtur-input pl-10 pr-10 w-full"
+                placeholder="Repita a senha"
+                disabled={loading}
+              />
+              <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" on:click={() => (showConfirm = !showConfirm)}>
+                {#if showConfirm}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
+              </button>
+            </div>
+          </div>
+
+          <Button type="submit" variant="primary" size="lg" loading={loading} class_name="w-full justify-center">
+            Redefinir senha
+          </Button>
+        </form>
+      {/if}
+    </Card>
+  </div>
+</div>

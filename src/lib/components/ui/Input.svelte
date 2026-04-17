@@ -1,0 +1,42 @@
+<script lang="ts">
+  import { Input, Label } from 'flowbite-svelte';
+  
+  export let label: string | null = null;
+  export let value: string = '';
+  export let placeholder: string = '';
+  export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'tel' = 'text';
+  export let required = false;
+  export let disabled = false;
+  export let error: string | null = null;
+  export let helper: string | null = null;
+  export let icon: any = null;
+  export let class_name = '';
+</script>
+
+<div class="{class_name}">
+  {#if label}
+    <Label class="mb-2 {required ? 'after:content-["*"] after:ml-0.5 after:text-red-500' : ''}">
+      {label}
+    </Label>
+  {/if}
+  
+  <Input
+    {type}
+    bind:value
+    {placeholder}
+    {disabled}
+    {required}
+    color={error ? 'red' : 'base'}
+    class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
+  >
+    {#if icon}
+      <svelte:component this={icon} slot="left" class="w-5 h-5 text-gray-500" />
+    {/if}
+  </Input>
+  
+  {#if error}
+    <p class="mt-1 text-sm text-red-600">{error}</p>
+  {:else if helper}
+    <p class="mt-1 text-sm text-gray-500">{helper}</p>
+  {/if}
+</div>

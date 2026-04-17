@@ -1,0 +1,294 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { toast } from '$lib/stores/ui';
+  import { Save, User, Phone, MapPin, Mail, Building2, Loader2 } from 'lucide-svelte';
+
+  type Perfil = {
+    id: string;
+    nome_completo: string | null;
+    assinatura_exibicao: string | null;
+    cpf: string | null;
+    data_nascimento: string | null;
+    telefone: string | null;
+    whatsapp: string | null;
+    rg: string | null;
+    cep: string | null;
+    endereco: string | null;
+    numero: string | null;
+    complemento: string | null;
+    cidade: string | null;
+    estado: string | null;
+    email: string;
+    uso_individual: boolean | null;
+    avatar_url: string | null;
+    company_id: string | null;
+    cargo: string | null;
+    company?: {
+      nome_empresa?: string | null;
+      nome_fantasia?: string | null;
+      cnpj?: string | null;
+    } | null;
+  };
+
+  let perfil: Perfil | null = null;
+  let loading = true;
+  let saving = false;
+  let cepStatus: string | null = null;
+
+  let form = {
+    nome_completo: '',
+    assinatura_exibicao: '',
+    cpf: '',
+    data_nascimento: '',
+    telefone: '',
+    whatsapp: '',
+    rg: '',
+    cep: '',
+    endereco: '',
+    numero: '',
+    complemento: '',
+    cidade: '',
+    estado: '',
+    cargo: '',
+    uso_individual: null as boolean | null
+  };
+
+  const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+  async function load() {
+    loading = true;
+    try {
+      const response = await fetch('/api/v1/user/profile');
+      if (!response.ok) throw new Error(await response.text());
+      perfil = await response.json();
+      if (perfil) {
+        form = {
+          nome_completo: perfil.nome_completo || '',
+          assinatura_exibicao: perfil.assinatura_exibicao || '',
+          cpf: perfil.cpf || '',
+          data_nascimento: perfil.data_nascimento || '',
+          telefone: perfil.telefone || '',
+          whatsapp: perfil.whatsapp || '',
+          rg: perfil.rg || '',
+          cep: perfil.cep || '',
+          endereco: perfil.endereco || '',
+          numero: perfil.numero || '',
+          complemento: perfil.complemento || '',
+          cidade: perfil.cidade || '',
+          estado: perfil.estado || '',
+          cargo: perfil.cargo || '',
+          uso_individual: perfil.uso_individual
+        };
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar perfil.');
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function buscarCep() {
+    const digits = String(form.cep || '').replace(/\D/g, '');
+    if (digits.length !== 8) { cepStatus = null; return; }
+    cepStatus = 'Buscando CEP...';
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await response.json();
+      if (data?.erro) throw new Error('CEP não encontrado.');
+      form = {
+        ...form,
+        endereco: data.logradouro || form.endereco,
+        complemento: data.complemento || form.complemento,
+        cidade: data.localidade || form.cidade,
+        estado: data.uf || form.estado
+      };
+      cepStatus = 'Endereço carregado.';
+    } catch {
+      cepStatus = 'CEP não encontrado.';
+    }
+  }
+
+  async function save() {
+    if (!form.nome_completo.trim()) { toast.error('Nome completo obrigatório.'); return; }
+
+    saving = true;
+    try {
+      const response = await fetch('/api/v1/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Perfil atualizado com sucesso.');
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar perfil.');
+    } finally {
+      saving = false;
+    }
+  }
+
+  onMount(load);
+</script>
+
+<svelte:head>
+  <title>Meu Perfil | VTUR</title>
+</svelte:head>
+
+{#if loading}
+  <div class="flex items-center justify-center py-20">
+    <Loader2 size={32} class="animate-spin text-slate-400" />
+    <span class="ml-3 text-slate-600">Carregando perfil...</span>
+  </div>
+{:else}
+  <PageHeader
+    title="Meu Perfil"
+    subtitle="Dados pessoais, contato e endereço do seu cadastro no sistema."
+    breadcrumbs={[{ label: 'Perfil' }]}
+  />
+
+  <form on:submit|preventDefault={save} class="space-y-6">
+    {#if perfil?.company}
+      <Card title="Empresa" color="clientes">
+        <div class="flex items-center gap-4">
+          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+            <Building2 size={22} class="text-slate-500" />
+          </div>
+          <div>
+            <p class="font-semibold text-slate-900">{perfil.company.nome_fantasia || perfil.company.nome_empresa || 'Empresa'}</p>
+            {#if perfil.company.cnpj}
+              <p class="text-sm text-slate-500">CNPJ: {perfil.company.cnpj}</p>
+            {/if}
+          </div>
+        </div>
+      </Card>
+    {/if}
+
+    <Card title="Dados pessoais" color="clientes">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="lg:col-span-2">
+          <label for="perfil-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome completo *</label>
+          <div class="relative">
+            <User size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input id="perfil-nome" bind:value={form.nome_completo} class="vtur-input w-full pl-9" placeholder="Seu nome completo" />
+          </div>
+        </div>
+
+        <div>
+          <label for="perfil-cargo" class="mb-1 block text-sm font-medium text-slate-700">Cargo</label>
+          <input id="perfil-cargo" bind:value={form.cargo} class="vtur-input w-full" placeholder="Ex: Consultor de Viagens" />
+        </div>
+
+        <div>
+          <label for="perfil-assinatura" class="mb-1 block text-sm font-medium text-slate-700">Assinatura de exibição</label>
+          <input id="perfil-assinatura" bind:value={form.assinatura_exibicao} class="vtur-input w-full" placeholder="Nome para exibição em documentos" />
+        </div>
+
+        <div>
+          <label for="perfil-cpf" class="mb-1 block text-sm font-medium text-slate-700">CPF</label>
+          <input id="perfil-cpf" bind:value={form.cpf} class="vtur-input w-full" placeholder="000.000.000-00" maxlength="14" />
+        </div>
+
+        <div>
+          <label for="perfil-rg" class="mb-1 block text-sm font-medium text-slate-700">RG</label>
+          <input id="perfil-rg" bind:value={form.rg} class="vtur-input w-full" placeholder="Documento de identidade" />
+        </div>
+
+        <div>
+          <label for="perfil-nascimento" class="mb-1 block text-sm font-medium text-slate-700">Data de nascimento</label>
+          <input id="perfil-nascimento" type="date" bind:value={form.data_nascimento} class="vtur-input w-full" />
+        </div>
+
+        <div>
+          <label for="perfil-email" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
+          <div class="relative">
+            <Mail size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input id="perfil-email" type="email" value={perfil?.email || ''} class="vtur-input w-full pl-9 bg-slate-50" disabled />
+          </div>
+          <p class="mt-1 text-xs text-slate-500">O e-mail não pode ser alterado aqui.</p>
+        </div>
+      </div>
+    </Card>
+
+    <Card title="Contato" color="clientes">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label for="perfil-telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone</label>
+          <div class="relative">
+            <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input id="perfil-telefone" bind:value={form.telefone} class="vtur-input w-full pl-9" placeholder="(00) 0000-0000" />
+          </div>
+        </div>
+        <div>
+          <label for="perfil-whatsapp" class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
+          <div class="relative">
+            <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-green-500" />
+            <input id="perfil-whatsapp" bind:value={form.whatsapp} class="vtur-input w-full pl-9" placeholder="(00) 00000-0000" />
+          </div>
+        </div>
+      </div>
+    </Card>
+
+    <Card title="Endereço" color="clientes">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label for="perfil-cep" class="mb-1 block text-sm font-medium text-slate-700">CEP</label>
+          <div class="relative">
+            <MapPin size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              id="perfil-cep"
+              bind:value={form.cep}
+              on:blur={buscarCep}
+              class="vtur-input w-full pl-9"
+              placeholder="00000-000"
+              maxlength="9"
+            />
+          </div>
+          {#if cepStatus}
+            <p class="mt-1 text-xs text-slate-500">{cepStatus}</p>
+          {/if}
+        </div>
+
+        <div class="lg:col-span-2">
+          <label for="perfil-endereco" class="mb-1 block text-sm font-medium text-slate-700">Endereço</label>
+          <input id="perfil-endereco" bind:value={form.endereco} class="vtur-input w-full" placeholder="Rua, avenida..." />
+        </div>
+
+        <div>
+          <label for="perfil-numero" class="mb-1 block text-sm font-medium text-slate-700">Número</label>
+          <input id="perfil-numero" bind:value={form.numero} class="vtur-input w-full" placeholder="123" />
+        </div>
+
+        <div>
+          <label for="perfil-complemento" class="mb-1 block text-sm font-medium text-slate-700">Complemento</label>
+          <input id="perfil-complemento" bind:value={form.complemento} class="vtur-input w-full" placeholder="Apto, sala..." />
+        </div>
+
+        <div>
+          <label for="perfil-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade</label>
+          <input id="perfil-cidade" bind:value={form.cidade} class="vtur-input w-full" />
+        </div>
+
+        <div>
+          <label for="perfil-estado" class="mb-1 block text-sm font-medium text-slate-700">Estado</label>
+          <select id="perfil-estado" bind:value={form.estado} class="vtur-input w-full">
+            <option value="">Selecione</option>
+            {#each ESTADOS as uf}
+              <option value={uf}>{uf}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    </Card>
+
+    <div class="flex items-center justify-end gap-3">
+      <Button type="submit" variant="primary" loading={saving}>
+        <Save size={16} class="mr-2" />
+        Salvar perfil
+      </Button>
+    </div>
+  </form>
+{/if}
