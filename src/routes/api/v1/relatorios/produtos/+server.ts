@@ -90,8 +90,8 @@ export async function GET(event) {
         produto_short: String(item.produto ?? '').slice(0, 20),
         produto_display_name: String(item.produto ?? ''),
         produto_display_short: String(item.produto ?? '').slice(0, 12),
-        produto_alternative_display: String(item.produto ?? '')
-          produto_display_alias: String(item.produto ?? ''),
+        produto_alternative_display: String(item.produto ?? ''),
+        produto_display_alias: String(item.produto ?? ''),
         produto_name_slug: String(item.produto ?? '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, ''),
         // Parity helper: URL for product detail pages
         produto_url: `/produtos/${(item.produto_id ?? item.produto_name_slug ?? '')}`,

@@ -70,7 +70,7 @@ export async function GET(event) {
         // New parity alias: display name and short name
         destino_display: item.destino,
         destino_short: String((item.destino ?? '')).slice(0, 20),
-        destino_display_name: String((item.destino ?? ''))
+        destino_display_name: String((item.destino ?? '')),
         destino_display_short: String((item.destino ?? '')).slice(0, 12),
         destino_slug: String((item.destino ?? '')).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\\-]/g, ''),
         destino_codigo: String((item.destino ?? '')).replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
