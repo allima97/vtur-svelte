@@ -164,6 +164,13 @@
     : Number(venda?.valor_total_pago || 0);
   $: diferencaFinanceira = Number((totalPagamentosValor - totalRecibosValor).toFixed(2));
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
+  $: conciliacaoPendente = venda?.conciliado === false;
+  $: vendaPendente = venda?.status === 'pendente';
+  $: alertaOperacionalClasse = vendaPendente
+    ? 'border-amber-200 bg-amber-50 text-amber-800'
+    : conciliacaoPendente || !fechamentoFinanceiroOk
+      ? 'border-red-200 bg-red-50 text-red-800'
+      : 'border-green-200 bg-green-50 text-green-700';
 </script>
 
 <svelte:head>
@@ -217,6 +224,25 @@
       </div>
       <div class="text-sm opacity-75">Última atualização: {formatDate(venda.updated_at || venda.data_venda)}</div>
     </div>
+  </div>
+
+  <div class="mb-6 rounded-lg border px-4 py-3 {alertaOperacionalClasse}">
+    {#if vendaPendente}
+      <p class="text-sm font-semibold">Venda com pendência operacional</p>
+      <p class="mt-1 text-sm">Esta venda ainda está pendente e precisa de acompanhamento até confirmação final.</p>
+    {:else if conciliacaoPendente && !fechamentoFinanceiroOk}
+      <p class="text-sm font-semibold">Conciliação e financeiro em aberto</p>
+      <p class="mt-1 text-sm">A venda não está conciliada e há diferença entre recibos e pagamentos de {formatCurrency(diferencaFinanceira)}.</p>
+    {:else if conciliacaoPendente}
+      <p class="text-sm font-semibold">Conciliação pendente</p>
+      <p class="mt-1 text-sm">Os valores batem, mas a venda ainda não foi marcada como conciliada.</p>
+    {:else if !fechamentoFinanceiroOk}
+      <p class="text-sm font-semibold">Diferença financeira identificada</p>
+      <p class="mt-1 text-sm">Há diferença entre recibos e pagamentos de {formatCurrency(diferencaFinanceira)} e vale revisar a composição financeira.</p>
+    {:else}
+      <p class="text-sm font-semibold">Venda operacionalmente estável</p>
+      <p class="mt-1 text-sm">Status, conciliação e fechamento financeiro estão alinhados nesta venda.</p>
+    {/if}
   </div>
 
   <div class="mb-6 rounded-lg border px-4 py-3 {fechamentoFinanceiroOk ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">
@@ -472,6 +498,10 @@
           <div class="flex justify-between items-center py-2 border-b border-slate-100">
             <span class="text-sm text-slate-500">Diferença</span>
             <span class="font-semibold {fechamentoFinanceiroOk ? 'text-green-700' : 'text-amber-700'}">{formatCurrency(diferencaFinanceira)}</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-500">Conciliação</span>
+            <span class="font-semibold {conciliacaoPendente ? 'text-red-700' : 'text-green-700'}">{conciliacaoPendente ? 'Pendente' : 'OK'}</span>
           </div>
           <div class="flex justify-between items-center py-2">
             <span class="text-sm text-slate-500">Não Comissionado</span>
