@@ -4,7 +4,6 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
@@ -26,21 +25,27 @@ export async function POST(event: RequestEvent) {
       return json({ error: 'ID invalido.' }, { status: 400 });
     }
 
-    const companyIds = resolveScopedCompanyIds(scope, null);
     const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
 
     // ✅ Verifica ownership antes de deletar
+    // quote usa created_by (FK auth.users) — sem company_id nem vendedor_id
     let checkQuery = client.from('quote').select('id').eq('id', id);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('vendedor_id', vendedorIds);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      checkQuery = checkQuery.eq('created_by', user.id);
+    } else if (vendedorIds.length > 0) {
+      checkQuery = checkQuery.in('created_by', vendedorIds);
+    }
     const { data: quote } = await checkQuery.maybeSingle();
     if (!quote) {
       return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
     }
 
     let deleteQuery = client.from('quote').delete().eq('id', id);
-    if (companyIds.length > 0) deleteQuery = deleteQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) deleteQuery = deleteQuery.in('vendedor_id', vendedorIds);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      deleteQuery = deleteQuery.eq('created_by', user.id);
+    } else if (vendedorIds.length > 0) {
+      deleteQuery = deleteQuery.in('created_by', vendedorIds);
+    }
 
     const { error } = await deleteQuery;
     if (error) throw error;

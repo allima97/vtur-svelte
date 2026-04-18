@@ -21,7 +21,7 @@
     cliente_id: string;
     descricao: string;
     valor: number;
-    data_pagamento: string;
+    data_pagamento: string; // mapeado de created_at (vendas_pagamentos nao tem data_pagamento)
     forma_pagamento: string;
     forma_pagamento_id: string;
     status: 'pendente' | 'conciliado' | 'divergente' | 'cancelado';
@@ -102,9 +102,9 @@
           cliente: p.cliente?.nome || p.cliente_nome || 'N/A',
           cliente_id: p.cliente_id,
           descricao: p.descricao || `Venda ${p.venda?.numero_venda || ''}`,
-          valor: Number(p.valor) || 0,
-          data_pagamento: p.data_pagamento,
-          forma_pagamento: p.forma_pagamento?.nome || p.forma_pagamento || 'N/A',
+          valor: Number(p.valor_total || p.valor) || 0,
+          data_pagamento: p.created_at || p.data_pagamento || '',
+          forma_pagamento: p.forma_pagamento?.nome || p.forma_nome || p.forma_pagamento || 'N/A',
           forma_pagamento_id: p.forma_pagamento_id,
           status: p.status || 'pendente',
           venda_id: p.venda_id,

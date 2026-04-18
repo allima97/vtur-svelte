@@ -1,0 +1,1172 @@
+{
+	"/(app)": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/aniversariantes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/avisos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/crm": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/email": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/empresas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/empresas/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/financeiro": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/modulos-sistema": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/parametros-importacao": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/permissoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/permissoes/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/planos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/tipos-usuario": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/tipos-usuario/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/usuarios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/usuarios/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/aniversariantes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/api/auth/set-session": [
+		"src/routes/api/auth/set-session/+server.ts"
+	],
+	"/api/v1/admin/auth/mfa-status": [
+		"src/routes/api/v1/admin/auth/mfa-status/+server.ts"
+	],
+	"/api/v1/admin/auth/reset-mfa": [
+		"src/routes/api/v1/admin/auth/reset-mfa/+server.ts"
+	],
+	"/api/v1/admin/auth/set-password": [
+		"src/routes/api/v1/admin/auth/set-password/+server.ts"
+	],
+	"/api/v1/admin/avisos": [
+		"src/routes/api/v1/admin/avisos/+server.ts"
+	],
+	"/api/v1/admin/avisos/send": [
+		"src/routes/api/v1/admin/avisos/send/+server.ts"
+	],
+	"/api/v1/admin/crm": [
+		"src/routes/api/v1/admin/crm/+server.ts"
+	],
+	"/api/v1/admin/email": [
+		"src/routes/api/v1/admin/email/+server.ts"
+	],
+	"/api/v1/admin/email/test": [
+		"src/routes/api/v1/admin/email/test/+server.ts"
+	],
+	"/api/v1/admin/empresas": [
+		"src/routes/api/v1/admin/empresas/+server.ts"
+	],
+	"/api/v1/admin/empresas/[id]": [
+		"src/routes/api/v1/admin/empresas/[id]/+server.ts"
+	],
+	"/api/v1/admin/logs": [
+		"src/routes/api/v1/admin/logs/+server.ts"
+	],
+	"/api/v1/admin/maintenance": [
+		"src/routes/api/v1/admin/maintenance/+server.ts"
+	],
+	"/api/v1/admin/master-empresas": [
+		"src/routes/api/v1/admin/master-empresas/+server.ts"
+	],
+	"/api/v1/admin/modulos-sistema": [
+		"src/routes/api/v1/admin/modulos-sistema/+server.ts"
+	],
+	"/api/v1/admin/permissoes": [
+		"src/routes/api/v1/admin/permissoes/+server.ts"
+	],
+	"/api/v1/admin/permissoes/[id]": [
+		"src/routes/api/v1/admin/permissoes/[id]/+server.ts"
+	],
+	"/api/v1/admin/planos": [
+		"src/routes/api/v1/admin/planos/+server.ts"
+	],
+	"/api/v1/admin/summary": [
+		"src/routes/api/v1/admin/summary/+server.ts"
+	],
+	"/api/v1/admin/system-modules": [
+		"src/routes/api/v1/admin/system-modules/+server.ts"
+	],
+	"/api/v1/admin/tipos-usuario": [
+		"src/routes/api/v1/admin/tipos-usuario/+server.ts"
+	],
+	"/api/v1/admin/tipos-usuario/[id]": [
+		"src/routes/api/v1/admin/tipos-usuario/[id]/+server.ts"
+	],
+	"/api/v1/admin/tipos-usuario/[id]/permissoes": [
+		"src/routes/api/v1/admin/tipos-usuario/[id]/permissoes/+server.ts"
+	],
+	"/api/v1/admin/usuarios": [
+		"src/routes/api/v1/admin/usuarios/+server.ts"
+	],
+	"/api/v1/admin/usuarios/[id]": [
+		"src/routes/api/v1/admin/usuarios/[id]/+server.ts"
+	],
+	"/api/v1/agenda": [
+		"src/routes/api/v1/agenda/+server.ts"
+	],
+	"/api/v1/agenda/create": [
+		"src/routes/api/v1/agenda/create/+server.ts"
+	],
+	"/api/v1/agenda/delete": [
+		"src/routes/api/v1/agenda/delete/+server.ts"
+	],
+	"/api/v1/agenda/range": [
+		"src/routes/api/v1/agenda/range/+server.ts"
+	],
+	"/api/v1/agenda/update": [
+		"src/routes/api/v1/agenda/update/+server.ts"
+	],
+	"/api/v1/cards/aniversario.svg": [
+		"src/routes/api/v1/cards/aniversario.svg/+server.ts"
+	],
+	"/api/v1/cards/render.png": [
+		"src/routes/api/v1/cards/render.png/+server.ts"
+	],
+	"/api/v1/cards/render.svg": [
+		"src/routes/api/v1/cards/render.svg/+server.ts"
+	],
+	"/api/v1/cards/render": [
+		"src/routes/api/v1/cards/render/+server.ts"
+	],
+	"/api/v1/cidades": [
+		"src/routes/api/v1/cidades/+server.ts"
+	],
+	"/api/v1/cidades/[id]": [
+		"src/routes/api/v1/cidades/[id]/+server.ts"
+	],
+	"/api/v1/circuitos": [
+		"src/routes/api/v1/circuitos/+server.ts"
+	],
+	"/api/v1/circuitos/[id]": [
+		"src/routes/api/v1/circuitos/[id]/+server.ts"
+	],
+	"/api/v1/client-error": [
+		"src/routes/api/v1/client-error/+server.ts"
+	],
+	"/api/v1/clientes": [
+		"src/routes/api/v1/clientes/+server.ts"
+	],
+	"/api/v1/clientes/create": [
+		"src/routes/api/v1/clientes/create/+server.ts"
+	],
+	"/api/v1/clientes/delete": [
+		"src/routes/api/v1/clientes/delete/+server.ts"
+	],
+	"/api/v1/clientes/historico": [
+		"src/routes/api/v1/clientes/historico/+server.ts"
+	],
+	"/api/v1/clientes/list": [
+		"src/routes/api/v1/clientes/list/+server.ts"
+	],
+	"/api/v1/clientes/resolve-import": [
+		"src/routes/api/v1/clientes/resolve-import/+server.ts"
+	],
+	"/api/v1/clientes/template-dispatches": [
+		"src/routes/api/v1/clientes/template-dispatches/+server.ts"
+	],
+	"/api/v1/clientes/templates/send": [
+		"src/routes/api/v1/clientes/templates/send/+server.ts"
+	],
+	"/api/v1/clientes/[id]": [
+		"src/routes/api/v1/clientes/[id]/+server.ts"
+	],
+	"/api/v1/clientes/[id]/acompanhantes": [
+		"src/routes/api/v1/clientes/[id]/acompanhantes/+server.ts"
+	],
+	"/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]": [
+		"src/routes/api/v1/clientes/[id]/acompanhantes/[acompanhanteId]/+server.ts"
+	],
+	"/api/v1/conciliacao": [
+		"src/routes/api/v1/conciliacao/+server.ts"
+	],
+	"/api/v1/conciliacao/assign": [
+		"src/routes/api/v1/conciliacao/assign/+server.ts"
+	],
+	"/api/v1/conciliacao/changes": [
+		"src/routes/api/v1/conciliacao/changes/+server.ts"
+	],
+	"/api/v1/conciliacao/delete": [
+		"src/routes/api/v1/conciliacao/delete/+server.ts"
+	],
+	"/api/v1/conciliacao/executions": [
+		"src/routes/api/v1/conciliacao/executions/+server.ts"
+	],
+	"/api/v1/conciliacao/existing": [
+		"src/routes/api/v1/conciliacao/existing/+server.ts"
+	],
+	"/api/v1/conciliacao/import": [
+		"src/routes/api/v1/conciliacao/import/+server.ts"
+	],
+	"/api/v1/conciliacao/list": [
+		"src/routes/api/v1/conciliacao/list/+server.ts"
+	],
+	"/api/v1/conciliacao/lookup": [
+		"src/routes/api/v1/conciliacao/lookup/+server.ts"
+	],
+	"/api/v1/conciliacao/options": [
+		"src/routes/api/v1/conciliacao/options/+server.ts"
+	],
+	"/api/v1/conciliacao/rateio-info": [
+		"src/routes/api/v1/conciliacao/rateio-info/+server.ts"
+	],
+	"/api/v1/conciliacao/revert": [
+		"src/routes/api/v1/conciliacao/revert/+server.ts"
+	],
+	"/api/v1/conciliacao/run": [
+		"src/routes/api/v1/conciliacao/run/+server.ts"
+	],
+	"/api/v1/conciliacao/summary": [
+		"src/routes/api/v1/conciliacao/summary/+server.ts"
+	],
+	"/api/v1/conciliacao/update-valores": [
+		"src/routes/api/v1/conciliacao/update-valores/+server.ts"
+	],
+	"/api/v1/consultorias": [
+		"src/routes/api/v1/consultorias/+server.ts"
+	],
+	"/api/v1/consultorias/ics": [
+		"src/routes/api/v1/consultorias/ics/+server.ts"
+	],
+	"/api/v1/convites/accept": [
+		"src/routes/api/v1/convites/accept/+server.ts"
+	],
+	"/api/v1/convites/send": [
+		"src/routes/api/v1/convites/send/+server.ts"
+	],
+	"/api/v1/crm/library": [
+		"src/routes/api/v1/crm/library/+server.ts"
+	],
+	"/api/v1/cron/alerta-comissao": [
+		"src/routes/api/v1/cron/alerta-comissao/+server.ts"
+	],
+	"/api/v1/cron/lembretes-consultoria": [
+		"src/routes/api/v1/cron/lembretes-consultoria/+server.ts"
+	],
+	"/api/v1/dashboard/aniversariantes": [
+		"src/routes/api/v1/dashboard/aniversariantes/+server.ts"
+	],
+	"/api/v1/dashboard/consultorias": [
+		"src/routes/api/v1/dashboard/consultorias/+server.ts"
+	],
+	"/api/v1/dashboard/debug-aggregates": [
+		"src/routes/api/v1/dashboard/debug-aggregates/+server.ts"
+	],
+	"/api/v1/dashboard/follow-ups": [
+		"src/routes/api/v1/dashboard/follow-ups/+server.ts"
+	],
+	"/api/v1/dashboard/summary": [
+		"src/routes/api/v1/dashboard/summary/+server.ts"
+	],
+	"/api/v1/dashboard/viagens": [
+		"src/routes/api/v1/dashboard/viagens/+server.ts"
+	],
+	"/api/v1/dashboard/widgets": [
+		"src/routes/api/v1/dashboard/widgets/+server.ts"
+	],
+	"/api/v1/debug/permissions": [
+		"src/routes/api/v1/debug/permissions/+server.ts"
+	],
+	"/api/v1/documentacao": [
+		"src/routes/api/v1/documentacao/+server.ts"
+	],
+	"/api/v1/documentos-viagens/create": [
+		"src/routes/api/v1/documentos-viagens/create/+server.ts"
+	],
+	"/api/v1/documentos-viagens/delete": [
+		"src/routes/api/v1/documentos-viagens/delete/+server.ts"
+	],
+	"/api/v1/documentos-viagens/list": [
+		"src/routes/api/v1/documentos-viagens/list/+server.ts"
+	],
+	"/api/v1/documentos-viagens/save-template": [
+		"src/routes/api/v1/documentos-viagens/save-template/+server.ts"
+	],
+	"/api/v1/documentos-viagens/update": [
+		"src/routes/api/v1/documentos-viagens/update/+server.ts"
+	],
+	"/api/v1/equipe/relacao": [
+		"src/routes/api/v1/equipe/relacao/+server.ts"
+	],
+	"/api/v1/financeiro/ajustes-vendas": [
+		"src/routes/api/v1/financeiro/ajustes-vendas/+server.ts"
+	],
+	"/api/v1/financeiro/ajustes-vendas/list": [
+		"src/routes/api/v1/financeiro/ajustes-vendas/list/+server.ts"
+	],
+	"/api/v1/financeiro/ajustes-vendas/save": [
+		"src/routes/api/v1/financeiro/ajustes-vendas/save/+server.ts"
+	],
+	"/api/v1/financeiro/caixa": [
+		"src/routes/api/v1/financeiro/caixa/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes": [
+		"src/routes/api/v1/financeiro/comissoes/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes/calcular": [
+		"src/routes/api/v1/financeiro/comissoes/calcular/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes/pagamento": [
+		"src/routes/api/v1/financeiro/comissoes/pagamento/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes/regras": [
+		"src/routes/api/v1/financeiro/comissoes/regras/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes/regras/[id]": [
+		"src/routes/api/v1/financeiro/comissoes/regras/[id]/+server.ts"
+	],
+	"/api/v1/financeiro/comissoes/vendedores": [
+		"src/routes/api/v1/financeiro/comissoes/vendedores/+server.ts"
+	],
+	"/api/v1/financeiro/formas-pagamento": [
+		"src/routes/api/v1/financeiro/formas-pagamento/+server.ts"
+	],
+	"/api/v1/fornecedores": [
+		"src/routes/api/v1/fornecedores/+server.ts"
+	],
+	"/api/v1/fornecedores/create": [
+		"src/routes/api/v1/fornecedores/create/+server.ts"
+	],
+	"/api/v1/fornecedores/[id]": [
+		"src/routes/api/v1/fornecedores/[id]/+server.ts"
+	],
+	"/api/v1/health": [
+		"src/routes/api/v1/health/+server.ts"
+	],
+	"/api/v1/importar-vendas": [
+		"src/routes/api/v1/importar-vendas/+server.ts"
+	],
+	"/api/v1/menu/prefs": [
+		"src/routes/api/v1/menu/prefs/+server.ts"
+	],
+	"/api/v1/mural/bootstrap": [
+		"src/routes/api/v1/mural/bootstrap/+server.ts"
+	],
+	"/api/v1/mural/company": [
+		"src/routes/api/v1/mural/company/+server.ts"
+	],
+	"/api/v1/mural/recados": [
+		"src/routes/api/v1/mural/recados/+server.ts"
+	],
+	"/api/v1/operacao/campanhas": [
+		"src/routes/api/v1/operacao/campanhas/+server.ts"
+	],
+	"/api/v1/operacao/documentos-viagens": [
+		"src/routes/api/v1/operacao/documentos-viagens/+server.ts"
+	],
+	"/api/v1/operacao/preferencias": [
+		"src/routes/api/v1/operacao/preferencias/+server.ts"
+	],
+	"/api/v1/operacao/recados": [
+		"src/routes/api/v1/operacao/recados/+server.ts"
+	],
+	"/api/v1/operacao/sac": [
+		"src/routes/api/v1/operacao/sac/+server.ts"
+	],
+	"/api/v1/orcamentos/cidades-busca": [
+		"src/routes/api/v1/orcamentos/cidades-busca/+server.ts"
+	],
+	"/api/v1/orcamentos/cliente-create": [
+		"src/routes/api/v1/orcamentos/cliente-create/+server.ts"
+	],
+	"/api/v1/orcamentos/clientes": [
+		"src/routes/api/v1/orcamentos/clientes/+server.ts"
+	],
+	"/api/v1/orcamentos/create": [
+		"src/routes/api/v1/orcamentos/create/+server.ts"
+	],
+	"/api/v1/orcamentos/delete": [
+		"src/routes/api/v1/orcamentos/delete/+server.ts"
+	],
+	"/api/v1/orcamentos/interacao": [
+		"src/routes/api/v1/orcamentos/interacao/+server.ts"
+	],
+	"/api/v1/orcamentos/interaction": [
+		"src/routes/api/v1/orcamentos/interaction/+server.ts"
+	],
+	"/api/v1/orcamentos/list": [
+		"src/routes/api/v1/orcamentos/list/+server.ts"
+	],
+	"/api/v1/orcamentos/produtos": [
+		"src/routes/api/v1/orcamentos/produtos/+server.ts"
+	],
+	"/api/v1/orcamentos/save": [
+		"src/routes/api/v1/orcamentos/save/+server.ts"
+	],
+	"/api/v1/orcamentos/status": [
+		"src/routes/api/v1/orcamentos/status/+server.ts"
+	],
+	"/api/v1/orcamentos/tipos": [
+		"src/routes/api/v1/orcamentos/tipos/+server.ts"
+	],
+	"/api/v1/orcamentos/[id]": [
+		"src/routes/api/v1/orcamentos/[id]/+server.ts"
+	],
+	"/api/v1/pagamentos": [
+		"src/routes/api/v1/pagamentos/+server.ts"
+	],
+	"/api/v1/pagamentos/upload": [
+		"src/routes/api/v1/pagamentos/upload/+server.ts"
+	],
+	"/api/v1/pagamentos/[id]": [
+		"src/routes/api/v1/pagamentos/[id]/+server.ts"
+	],
+	"/api/v1/pagamentos/[id]/conciliar": [
+		"src/routes/api/v1/pagamentos/[id]/conciliar/+server.ts"
+	],
+	"/api/v1/paises": [
+		"src/routes/api/v1/paises/+server.ts"
+	],
+	"/api/v1/parametros/cambios": [
+		"src/routes/api/v1/parametros/cambios/+server.ts"
+	],
+	"/api/v1/parametros/commission-rules": [
+		"src/routes/api/v1/parametros/commission-rules/+server.ts"
+	],
+	"/api/v1/parametros/empresa": [
+		"src/routes/api/v1/parametros/empresa/+server.ts"
+	],
+	"/api/v1/parametros/equipe": [
+		"src/routes/api/v1/parametros/equipe/+server.ts"
+	],
+	"/api/v1/parametros/escalas": [
+		"src/routes/api/v1/parametros/escalas/+server.ts"
+	],
+	"/api/v1/parametros/metas": [
+		"src/routes/api/v1/parametros/metas/+server.ts"
+	],
+	"/api/v1/parametros/nao-comissionaveis": [
+		"src/routes/api/v1/parametros/nao-comissionaveis/+server.ts"
+	],
+	"/api/v1/parametros/orcamentos-pdf": [
+		"src/routes/api/v1/parametros/orcamentos-pdf/+server.ts"
+	],
+	"/api/v1/parametros/sistema": [
+		"src/routes/api/v1/parametros/sistema/+server.ts"
+	],
+	"/api/v1/parametros/tipo-pacotes": [
+		"src/routes/api/v1/parametros/tipo-pacotes/+server.ts"
+	],
+	"/api/v1/preferencias/base": [
+		"src/routes/api/v1/preferencias/base/+server.ts"
+	],
+	"/api/v1/preferencias/cidades-busca": [
+		"src/routes/api/v1/preferencias/cidades-busca/+server.ts"
+	],
+	"/api/v1/preferencias/delete": [
+		"src/routes/api/v1/preferencias/delete/+server.ts"
+	],
+	"/api/v1/preferencias/list": [
+		"src/routes/api/v1/preferencias/list/+server.ts"
+	],
+	"/api/v1/preferencias/save": [
+		"src/routes/api/v1/preferencias/save/+server.ts"
+	],
+	"/api/v1/preferencias/share-accept": [
+		"src/routes/api/v1/preferencias/share-accept/+server.ts"
+	],
+	"/api/v1/preferencias/share-revoke": [
+		"src/routes/api/v1/preferencias/share-revoke/+server.ts"
+	],
+	"/api/v1/preferencias/share": [
+		"src/routes/api/v1/preferencias/share/+server.ts"
+	],
+	"/api/v1/produtos": [
+		"src/routes/api/v1/produtos/+server.ts"
+	],
+	"/api/v1/produtos/base": [
+		"src/routes/api/v1/produtos/base/+server.ts"
+	],
+	"/api/v1/produtos/create": [
+		"src/routes/api/v1/produtos/create/+server.ts"
+	],
+	"/api/v1/produtos/tarifas": [
+		"src/routes/api/v1/produtos/tarifas/+server.ts"
+	],
+	"/api/v1/produtos/[id]": [
+		"src/routes/api/v1/produtos/[id]/+server.ts"
+	],
+	"/api/v1/profile/signature": [
+		"src/routes/api/v1/profile/signature/+server.ts"
+	],
+	"/api/v1/push/subscribe": [
+		"src/routes/api/v1/push/subscribe/+server.ts"
+	],
+	"/api/v1/push/unsubscribe": [
+		"src/routes/api/v1/push/unsubscribe/+server.ts"
+	],
+	"/api/v1/relatorios/base": [
+		"src/routes/api/v1/relatorios/base/+server.ts"
+	],
+	"/api/v1/relatorios/cidades-busca": [
+		"src/routes/api/v1/relatorios/cidades-busca/+server.ts"
+	],
+	"/api/v1/relatorios/clientes": [
+		"src/routes/api/v1/relatorios/clientes/+server.ts"
+	],
+	"/api/v1/relatorios/destinos": [
+		"src/routes/api/v1/relatorios/destinos/+server.ts"
+	],
+	"/api/v1/relatorios/produtos-recibos": [
+		"src/routes/api/v1/relatorios/produtos-recibos/+server.ts"
+	],
+	"/api/v1/relatorios/produtos": [
+		"src/routes/api/v1/relatorios/produtos/+server.ts"
+	],
+	"/api/v1/relatorios/ranking-vendas": [
+		"src/routes/api/v1/relatorios/ranking-vendas/+server.ts"
+	],
+	"/api/v1/relatorios/ranking": [
+		"src/routes/api/v1/relatorios/ranking/+server.ts"
+	],
+	"/api/v1/relatorios/vendas-por-cliente": [
+		"src/routes/api/v1/relatorios/vendas-por-cliente/+server.ts"
+	],
+	"/api/v1/relatorios/vendas-por-destino": [
+		"src/routes/api/v1/relatorios/vendas-por-destino/+server.ts"
+	],
+	"/api/v1/relatorios/vendas-por-produto": [
+		"src/routes/api/v1/relatorios/vendas-por-produto/+server.ts"
+	],
+	"/api/v1/relatorios/vendas": [
+		"src/routes/api/v1/relatorios/vendas/+server.ts"
+	],
+	"/api/v1/roteiros": [
+		"src/routes/api/v1/roteiros/+server.ts"
+	],
+	"/api/v1/roteiros/delete": [
+		"src/routes/api/v1/roteiros/delete/+server.ts"
+	],
+	"/api/v1/roteiros/dias-busca": [
+		"src/routes/api/v1/roteiros/dias-busca/+server.ts"
+	],
+	"/api/v1/roteiros/gerar-orcamento": [
+		"src/routes/api/v1/roteiros/gerar-orcamento/+server.ts"
+	],
+	"/api/v1/roteiros/list": [
+		"src/routes/api/v1/roteiros/list/+server.ts"
+	],
+	"/api/v1/roteiros/save": [
+		"src/routes/api/v1/roteiros/save/+server.ts"
+	],
+	"/api/v1/roteiros/sugestoes-busca": [
+		"src/routes/api/v1/roteiros/sugestoes-busca/+server.ts"
+	],
+	"/api/v1/roteiros/sugestoes-remover": [
+		"src/routes/api/v1/roteiros/sugestoes-remover/+server.ts"
+	],
+	"/api/v1/roteiros/sugestoes-salvar": [
+		"src/routes/api/v1/roteiros/sugestoes-salvar/+server.ts"
+	],
+	"/api/v1/roteiros/[id]": [
+		"src/routes/api/v1/roteiros/[id]/+server.ts"
+	],
+	"/api/v1/subdivisoes": [
+		"src/routes/api/v1/subdivisoes/+server.ts"
+	],
+	"/api/v1/tarefas": [
+		"src/routes/api/v1/tarefas/+server.ts"
+	],
+	"/api/v1/tarefas/clientes": [
+		"src/routes/api/v1/tarefas/clientes/+server.ts"
+	],
+	"/api/v1/tarefas/usuarios": [
+		"src/routes/api/v1/tarefas/usuarios/+server.ts"
+	],
+	"/api/v1/tipo-produtos": [
+		"src/routes/api/v1/tipo-produtos/+server.ts"
+	],
+	"/api/v1/todo/batch": [
+		"src/routes/api/v1/todo/batch/+server.ts"
+	],
+	"/api/v1/todo/board": [
+		"src/routes/api/v1/todo/board/+server.ts"
+	],
+	"/api/v1/todo/category": [
+		"src/routes/api/v1/todo/category/+server.ts"
+	],
+	"/api/v1/todo/item": [
+		"src/routes/api/v1/todo/item/+server.ts"
+	],
+	"/api/v1/todo/item/[id]": [
+		"src/routes/api/v1/todo/item/[id]/+server.ts"
+	],
+	"/api/v1/users/aniversariantes": [
+		"src/routes/api/v1/users/aniversariantes/+server.ts"
+	],
+	"/api/v1/user/context": [
+		"src/routes/api/v1/user/context/+server.ts"
+	],
+	"/api/v1/user/profile": [
+		"src/routes/api/v1/user/profile/+server.ts"
+	],
+	"/api/v1/vendas": [
+		"src/routes/api/v1/vendas/+server.ts"
+	],
+	"/api/v1/vendas/cadastro-base": [
+		"src/routes/api/v1/vendas/cadastro-base/+server.ts"
+	],
+	"/api/v1/vendas/cadastro-save": [
+		"src/routes/api/v1/vendas/cadastro-save/+server.ts"
+	],
+	"/api/v1/vendas/cancel": [
+		"src/routes/api/v1/vendas/cancel/+server.ts"
+	],
+	"/api/v1/vendas/cidades-busca": [
+		"src/routes/api/v1/vendas/cidades-busca/+server.ts"
+	],
+	"/api/v1/vendas/complementares": [
+		"src/routes/api/v1/vendas/complementares/+server.ts"
+	],
+	"/api/v1/vendas/create": [
+		"src/routes/api/v1/vendas/create/+server.ts"
+	],
+	"/api/v1/vendas/gestor-equipe": [
+		"src/routes/api/v1/vendas/gestor-equipe/+server.ts"
+	],
+	"/api/v1/vendas/importar-contrato": [
+		"src/routes/api/v1/vendas/importar-contrato/+server.ts"
+	],
+	"/api/v1/vendas/kpis": [
+		"src/routes/api/v1/vendas/kpis/+server.ts"
+	],
+	"/api/v1/vendas/list": [
+		"src/routes/api/v1/vendas/list/+server.ts"
+	],
+	"/api/v1/vendas/merge-candidates": [
+		"src/routes/api/v1/vendas/merge-candidates/+server.ts"
+	],
+	"/api/v1/vendas/merge": [
+		"src/routes/api/v1/vendas/merge/+server.ts"
+	],
+	"/api/v1/vendas/recibo-complementar-link": [
+		"src/routes/api/v1/vendas/recibo-complementar-link/+server.ts"
+	],
+	"/api/v1/vendas/recibo-complementar-remove": [
+		"src/routes/api/v1/vendas/recibo-complementar-remove/+server.ts"
+	],
+	"/api/v1/vendas/recibo-delete": [
+		"src/routes/api/v1/vendas/recibo-delete/+server.ts"
+	],
+	"/api/v1/vendas/recibo-notas": [
+		"src/routes/api/v1/vendas/recibo-notas/+server.ts"
+	],
+	"/api/v1/vendas/recibo-principal": [
+		"src/routes/api/v1/vendas/recibo-principal/+server.ts"
+	],
+	"/api/v1/vendas/status": [
+		"src/routes/api/v1/vendas/status/+server.ts"
+	],
+	"/api/v1/vendas/[id]": [
+		"src/routes/api/v1/vendas/[id]/+server.ts"
+	],
+	"/api/v1/viagens": [
+		"src/routes/api/v1/viagens/+server.ts"
+	],
+	"/api/v1/viagens/cidades-busca": [
+		"src/routes/api/v1/viagens/cidades-busca/+server.ts"
+	],
+	"/api/v1/viagens/clientes": [
+		"src/routes/api/v1/viagens/clientes/+server.ts"
+	],
+	"/api/v1/viagens/cliente/[id]": [
+		"src/routes/api/v1/viagens/cliente/[id]/+server.ts"
+	],
+	"/api/v1/viagens/create": [
+		"src/routes/api/v1/viagens/create/+server.ts"
+	],
+	"/api/v1/viagens/delete": [
+		"src/routes/api/v1/viagens/delete/+server.ts"
+	],
+	"/api/v1/viagens/dossie-batch": [
+		"src/routes/api/v1/viagens/dossie-batch/+server.ts"
+	],
+	"/api/v1/viagens/dossie": [
+		"src/routes/api/v1/viagens/dossie/+server.ts"
+	],
+	"/api/v1/viagens/list": [
+		"src/routes/api/v1/viagens/list/+server.ts"
+	],
+	"/api/v1/viagens/[id]": [
+		"src/routes/api/v1/viagens/[id]/+server.ts"
+	],
+	"/api/v1/voucher-assets": [
+		"src/routes/api/v1/voucher-assets/+server.ts"
+	],
+	"/api/v1/vouchers": [
+		"src/routes/api/v1/vouchers/+server.ts"
+	],
+	"/api/v1/vouchers/create": [
+		"src/routes/api/v1/vouchers/create/+server.ts"
+	],
+	"/api/v1/vouchers/delete": [
+		"src/routes/api/v1/vouchers/delete/+server.ts"
+	],
+	"/api/v1/vouchers/[id]": [
+		"src/routes/api/v1/vouchers/[id]/+server.ts"
+	],
+	"/api/v1/welcome-email": [
+		"src/routes/api/v1/welcome-email/+server.ts"
+	],
+	"/auth/convite": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/auth/login": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/auth/logout": [
+		"src/routes/auth/logout/+server.ts"
+	],
+	"/auth/mfa": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/auth/nova-senha": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/auth/recuperar-senha": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/auth/register": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/cidades": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/circuitos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/circuitos/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/circuitos/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/destinos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/destinos/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/destinos/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/estados": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/fornecedores": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/fornecedores/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/fornecedores/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/lote": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/paises": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/produtos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/produtos/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/cadastros/produtos/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/clientes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/clientes/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/clientes/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/clientes/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/comissoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/comissoes/fechamento": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/consultoria-online": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/admin": [
+		"src/routes/(app)/dashboard/admin/+page.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/gestor": [
+		"src/routes/(app)/dashboard/gestor/+page.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/master": [
+		"src/routes/(app)/dashboard/master/+page.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/vendedor": [
+		"src/routes/(app)/dashboard/vendedor/+page.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/debug": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/diagnostico": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/documentacao": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/ajustes-vendas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/caixa": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/comissoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/comissoes/calculo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/comissoes/regras": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/conciliacao": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/formas-pagamento": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/regras": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/gestor/importar-vendas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/master/empresas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/master/permissoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/master/usuarios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/metas/vendedor": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/acompanhamento": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/agenda": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/campanhas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/comissionamento": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/conciliacao": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/controle-sac": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/documentos-viagens": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/minhas-preferencias": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/recados": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/tarefas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/viagens": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/viagens/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/vouchers": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/vouchers/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/vouchers/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/novo": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/roteiros": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/roteiros/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/avisos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/cambios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/empresa": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/equipe": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/escalas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/integracoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/metas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/notificacoes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/orcamentos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/tipo-pacotes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/tipo-produtos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/perfil": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/perfil/escala": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/perfil/mfa": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/perfil/onboarding": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/perfil/personalizar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios/clientes": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios/destinos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios/produtos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios/ranking": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/relatorios/vendas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/vendas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/vendas/importar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/vendas/nova": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/vendas/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/vendas/[id]/editar": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	]
+}

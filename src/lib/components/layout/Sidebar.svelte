@@ -29,6 +29,7 @@
     TrendingUp,
     Users,
     UserCircle,
+    Video,
     Wallet
   } from 'lucide-svelte';
 
@@ -72,7 +73,8 @@
         { name: 'Vouchers', href: '/operacao/vouchers', icon: Ticket },
         { name: 'Controle SAC', href: '/operacao/controle-sac', icon: AlertCircle },
         { name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
-        { name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText }
+        { name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
+        { name: 'Consultoria Online', href: '/consultoria-online', icon: Video }
       ]
     },
     {

@@ -1,7 +1,9 @@
 export function resolveDashboardPathByUserType(
   userTypeRaw?: string | null,
-  fallbackPath = '/dashboard/vendedor'
+  fallbackPath = '/'
 ): string {
+  // Todos os perfis usam o mesmo dashboard unificado em '/'
+  // Os paths /dashboard/vendedor|gestor|master|admin redirecionam para '/'
   const tipo = String(userTypeRaw || '').trim().toUpperCase();
 
   if (tipo.includes('ADMIN')) return '/dashboard/admin';

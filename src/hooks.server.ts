@@ -265,7 +265,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	// Dashboard canonico
 	const normalizedPathname = normalizePathname(pathname);
 	if (isDashboardCanonicalRoute(normalizedPathname)) {
-		const canonicalDashboardPath = resolveDashboardPathByUserType(userType, '/dashboard/vendedor');
+		const canonicalDashboardPath = resolveDashboardPathByUserType(userType, '/');
 		if (normalizedPathname !== canonicalDashboardPath) {
 			const targetUrl = new URL(canonicalDashboardPath, url);
 			targetUrl.search = url.search;

@@ -70,7 +70,7 @@ export async function GET(event) {
         cliente_id: row.cliente_id,
         vendedor: getVendaVendedorNome(row),
         vendedor_short: (getVendaVendedorNome(row) || '').slice(0, 20),
-        vendedor_label: (getVendaVendedorNome(row) || '')
+        vendedor_label: (getVendaVendedorNome(row) || ''),
         vendedor_id: row.vendedor_id,
         valor_venda: Number(row.valor_total || 0),
         valor_comissao: valorComissao,

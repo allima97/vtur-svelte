@@ -4,7 +4,6 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
@@ -27,7 +26,6 @@ export async function PATCH(event) {
 
     const body = await event.request.json().catch(() => ({}));
 
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(
       client,
       scope,
@@ -35,9 +33,13 @@ export async function PATCH(event) {
     );
 
     // ✅ Verifica ownership antes de atualizar
+    // quote usa created_by (FK auth.users) — sem company_id nem vendedor_id
     let checkQuery = client.from('quote').select('id').eq('id', id);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('vendedor_id', vendedorIds);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      checkQuery = checkQuery.eq('created_by', user.id);
+    } else if (vendedorIds.length > 0) {
+      checkQuery = checkQuery.in('created_by', vendedorIds);
+    }
     const { data: quote } = await checkQuery.maybeSingle();
     if (!quote) {
       return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
@@ -52,8 +54,11 @@ export async function PATCH(event) {
     }
 
     let updateQuery = client.from('quote').update(updateData).eq('id', id);
-    if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) updateQuery = updateQuery.in('vendedor_id', vendedorIds);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      updateQuery = updateQuery.eq('created_by', user.id);
+    } else if (vendedorIds.length > 0) {
+      updateQuery = updateQuery.in('created_by', vendedorIds);
+    }
 
     const { data, error } = await updateQuery.select().single();
     if (error) throw error;

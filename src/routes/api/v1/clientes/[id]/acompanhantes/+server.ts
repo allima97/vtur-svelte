@@ -66,7 +66,8 @@ export async function POST(event) {
         rg: String(body?.rg || '').trim() || null,
         data_nascimento: String(body?.data_nascimento || '').trim() || null,
         observacoes: String(body?.observacoes || '').trim() || null,
-        ativo: body?.ativo !== false
+        ativo: body?.ativo !== false,
+        created_by: user.id
       })
       .select('id, cliente_id, company_id, nome_completo, cpf, telefone, grau_parentesco, rg, data_nascimento, observacoes, ativo, created_at, updated_at')
       .single();

@@ -166,11 +166,12 @@ export async function POST(event) {
       return json({ error: 'Empresa não identificada.' }, { status: 400 });
     }
 
-    // ✅ Ownership: confirma que o recibo pertence à empresa do scope via join
+    // Confirma que o recibo pertence à empresa do scope via join e obtém vendedor_origem_id
     const { data: reciboRow, error: reciboErr } = await client
       .from('vendas_recibos')
-      .select('id, vendas!inner(company_id)')
+      .select('id, vendas!inner(company_id, vendedor_id, cancelada)')
       .eq('id', rawId)
+      .eq('vendas.cancelada', false)
       .maybeSingle();
 
     if (reciboErr) throw reciboErr;
@@ -181,7 +182,16 @@ export async function POST(event) {
       return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403 });
     }
 
-    // ✅ Confirma que o produto do recibo soma na meta (produtos diferenciados)
+    const vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
+    if (!isUuid(vendedorOrigemId)) {
+      return json({ error: 'Venda sem vendedor válido para rateio.' }, { status: 400 });
+    }
+
+    if (vendedor_destino_id === vendedorOrigemId) {
+      return json({ error: 'O vendedor destino deve ser diferente do vendedor de origem.' }, { status: 400 });
+    }
+
+    // Confirma que o produto do recibo soma na meta (produtos diferenciados)
     const { data: reciboProduto } = await client
       .from('vendas_recibos')
       .select(
@@ -193,26 +203,40 @@ export async function POST(event) {
     const somaNaMeta =
       (reciboProduto as any)?.produtos?.tipo_produtos?.soma_na_meta ?? null;
 
-    // ✅ Confirma que o vendedor destino pertence à mesma empresa
+    // Confirma que o vendedor destino pertence à mesma empresa e está ativo
     const { data: vendedorRow } = await client
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, active')
       .eq('id', vendedor_destino_id)
+      .eq('active', true)
       .maybeSingle();
 
-    if (!vendedorRow) return json({ error: 'Vendedor destino não encontrado.' }, { status: 404 });
+    if (!vendedorRow) return json({ error: 'Vendedor destino não encontrado ou inativo.' }, { status: 404 });
     if (!scope.isAdmin && vendedorRow.company_id !== companyId) {
       return json({ error: 'Vendedor destino fora do escopo da empresa.' }, { status: 403 });
     }
 
+    // Restrição de gestor: só pode ratear vendas da própria equipe
+    if (scope.isGestor) {
+      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+      const equipeSet = new Set(equipeIds.map((id) => String(id || '').trim()));
+      if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedor_destino_id)) {
+        return json({ error: 'Gestor só pode ratear vendas da própria equipe.' }, { status: 403 });
+      }
+    }
+
     const payload = {
       venda_recibo_id: rawId,
+      conciliacao_recibo_id: null,
       company_id: reciboCompany ?? companyId,
+      vendedor_origem_id: vendedorOrigemId,
       vendedor_destino_id,
       percentual_origem: 100 - pct,
       percentual_destino: pct,
       observacao: String(observacao || '').trim() || null,
-      ativo: true
+      ativo: true,
+      updated_by: user.id,
+      created_by: user.id
     };
 
     const { data: existing } = await client

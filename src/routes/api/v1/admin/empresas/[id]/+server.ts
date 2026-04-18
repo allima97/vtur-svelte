@@ -98,3 +98,49 @@ export async function GET(event) {
     return toErrorResponse(err, 'Erro ao carregar detalhe da empresa.');
   }
 }
+
+export async function PATCH(event) {
+  try {
+    const client = getAdminClient();
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+    const companyId = String(event.params.id || '').trim();
+
+    ensureCanManageCompanies(scope);
+
+    if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
+      return json({ error: 'Empresa fora do escopo permitido.' }, { status: 403 });
+    }
+
+    const body = await event.request.json();
+
+    // Apenas campos que existem na tabela companies
+    const ALLOWED: (keyof typeof body)[] = [
+      'nome_empresa', 'nome_fantasia', 'cnpj', 'telefone',
+      'endereco', 'cidade', 'estado', 'active'
+    ];
+
+    const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const field of ALLOWED) {
+      if (body[field] !== undefined) updatePayload[field] = body[field];
+    }
+
+    if (Object.keys(updatePayload).length === 1) {
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+    }
+
+    const { data, error } = await client
+      .from('companies')
+      .update(updatePayload)
+      .eq('id', companyId)
+      .select('id, nome_empresa, nome_fantasia, cnpj, telefone, endereco, cidade, estado, active')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404 });
+
+    return json({ ok: true, empresa: data });
+  } catch (err) {
+    return toErrorResponse(err, 'Erro ao atualizar empresa.');
+  }
+}

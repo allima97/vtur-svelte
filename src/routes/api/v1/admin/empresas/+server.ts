@@ -17,25 +17,24 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
     .select(
       `
         id,
-        nome_empresa,
-        nome_fantasia,
+        nome,
         cnpj,
         telefone,
         endereco,
         cidade,
         estado,
-        active,
+        ativo,
         billing:company_billing (
           id,
           status,
           valor_mensal,
           ultimo_pagamento,
           proximo_vencimento,
-          plan:plans (id, nome)
+          plan:plans (id, name)
         )
       `
     )
-    .order('nome_fantasia', { ascending: true });
+    .order('nome', { ascending: true });
 
   const scopedQuery =
     companyIds && companyIds.length > 0 ? queryWithBilling.in('id', companyIds) : queryWithBilling;
@@ -50,8 +49,8 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
 
   const fallback = await client
     .from('companies')
-    .select('id, nome_empresa, nome_fantasia, cnpj, telefone, endereco, cidade, estado, active')
-    .order('nome_fantasia', { ascending: true });
+    .select('id, nome, cnpj, telefone, endereco, cidade, estado, ativo')
+    .order('nome', { ascending: true });
 
   if (fallback.error) throw fallback.error;
   const rows = fallback.data || [];
@@ -92,14 +91,13 @@ export async function GET(event) {
     return json({
       items: rows.map((row: any) => ({
         id: row.id,
-        nome_empresa: row.nome_empresa || '',
-        nome_fantasia: row.nome_fantasia || row.nome_empresa || '',
+        nome: row.nome || '',
         cnpj: row.cnpj || '',
         cidade: row.cidade || '',
         estado: row.estado || '',
         telefone: row.telefone || '',
         endereco: row.endereco || '',
-        active: row.active !== false,
+        ativo: row.ativo !== false,
         billing: Array.isArray(row.billing) ? row.billing[0] || null : row.billing || null,
         master_links: Number(masterLinkCounts.get(String(row.id)) || 0)
       }))
@@ -120,18 +118,17 @@ export async function POST(event) {
 
     const id = String(body.id || '').trim();
     const payload = {
-      nome_empresa: String(body.nome_empresa || '').trim() || null,
-      nome_fantasia: String(body.nome_fantasia || '').trim() || null,
+      nome: String(body.nome || '').trim() || null,
       cnpj: String(body.cnpj || '').trim() || null,
       telefone: String(body.telefone || '').trim() || null,
       endereco: String(body.endereco || '').trim() || null,
       cidade: String(body.cidade || '').trim() || null,
       estado: String(body.estado || '').trim() || null,
-      active: body.active !== false
+      ativo: body.ativo !== false
     };
 
-    if (!payload.nome_fantasia && !payload.nome_empresa) {
-      return new Response('Informe ao menos o nome fantasia ou nome da empresa.', { status: 400 });
+    if (!payload.nome) {
+      return new Response('Informe o nome da empresa.', { status: 400 });
     }
 
     let companyId = id;

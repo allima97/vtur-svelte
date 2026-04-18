@@ -28,8 +28,7 @@ export async function POST(event) {
       return json({ error: 'Adicione pelo menos um item.' }, { status: 400 });
     }
 
-    const companyId = scope.companyId || (isUuid(body.company_id) ? body.company_id : null);
-
+    // quote nao tem company_id — usa created_by como FK auth.users
     const total = body.itens.reduce((acc: number, item: any) => {
       const valor = Number(item.total_amount || item.valor_total || 0);
       return acc + valor;
@@ -39,7 +38,6 @@ export async function POST(event) {
       .from('quote')
       .insert({
         client_id: body.client_id,
-        company_id: companyId,
         status: body.status || 'DRAFT',
         status_negociacao: body.status_negociacao || 'Enviado',
         total: total,
@@ -87,7 +85,6 @@ export async function POST(event) {
           id: quote.id,
           codigo: `ORC-${quote.id.slice(0, 8).toUpperCase()}`,
           client_id: quote.client_id,
-          company_id: quote.company_id,
           total: quote.total,
           status: quote.status,
           created_at: quote.created_at

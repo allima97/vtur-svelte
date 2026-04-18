@@ -4,11 +4,18 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+// quote nao tem company_id — scoping usa created_by (FK auth.users)
+function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
+  if (scope.isAdmin || scope.isMaster) return query;
+  if (scope.isGestor && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
+  if (scope.isGestor) return query; // gestor ve todos da sua empresa (sem filtro de company em quote)
+  return query.eq('created_by', user.id); // vendedor ve apenas os seus
+}
 
 export async function GET(event) {
   try {
@@ -22,13 +29,10 @@ export async function GET(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
 
-    // ✅ Filtra pelo escopo do usuario
     let quoteQuery = client.from('quote').select('*').eq('id', id);
-    if (companyIds.length > 0) quoteQuery = quoteQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) quoteQuery = quoteQuery.in('created_by', vendedorIds);
+    quoteQuery = applyQuoteScope(quoteQuery, scope, user, vendedorIds);
 
     const { data: quote, error: quoteError } = await quoteQuery.maybeSingle();
     if (quoteError) throw quoteError;
@@ -78,7 +82,6 @@ export async function GET(event) {
       last_interaction_at: quote.last_interaction_at || null,
       last_interaction_notes: quote.last_interaction_notes || null,
       vendedor,
-      company_id: quote.company_id,
       itens: items || []
     });
   } catch (err) {
@@ -98,13 +101,11 @@ export async function PATCH(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
 
-    // ✅ Confirma ownership
+    // Confirma ownership
     let checkQuery = client.from('quote').select('id').eq('id', id);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('created_by', vendedorIds);
+    checkQuery = applyQuoteScope(checkQuery, scope, user, vendedorIds);
     const { data: existingQuote } = await checkQuery.maybeSingle();
     if (!existingQuote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
 
@@ -119,8 +120,7 @@ export async function PATCH(event) {
     if (body.data_final !== undefined) updateData.data_final = body.data_final;
 
     let updateQuery = client.from('quote').update(updateData).eq('id', id);
-    if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) updateQuery = updateQuery.in('created_by', vendedorIds);
+    updateQuery = applyQuoteScope(updateQuery, scope, user, vendedorIds);
 
     const { data, error } = await updateQuery.select().single();
     if (error) throw error;
@@ -159,21 +159,18 @@ export async function DELETE(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const companyIds = resolveScopedCompanyIds(scope, null);
     const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
 
-    // ✅ Confirma ownership antes de deletar
+    // Confirma ownership antes de deletar
     let checkQuery = client.from('quote').select('id').eq('id', id);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('created_by', vendedorIds);
+    checkQuery = applyQuoteScope(checkQuery, scope, user, vendedorIds);
     const { data: existingQuote } = await checkQuery.maybeSingle();
     if (!existingQuote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
 
     await client.from('quote_item').delete().eq('quote_id', id);
 
     let deleteQuery = client.from('quote').delete().eq('id', id);
-    if (companyIds.length > 0) deleteQuery = deleteQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) deleteQuery = deleteQuery.in('created_by', vendedorIds);
+    deleteQuery = applyQuoteScope(deleteQuery, scope, user, vendedorIds);
     const { error } = await deleteQuery;
     if (error) throw error;
 

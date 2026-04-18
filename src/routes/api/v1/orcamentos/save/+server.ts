@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
-import { requireAuthenticatedUser, ensureModuloAccess, normalizeText } from '$lib/server/v1';
+import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, normalizeText } from '$lib/server/v1';
 import { getAdminClient } from '$lib/server/v1';
 
 const EXCLUDED_PRODUTO_TIPOS = new Set(
@@ -129,7 +129,7 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
 
-    const { scope } = event.locals;
+    const scope = await resolveUserScope(client, user.id);
     ensureModuloAccess(scope, ['orcamentos', 'vendas'], 3, 'Sem acesso para editar Orcamentos.');
 
     const body = await event.request.json().catch(() => null);
