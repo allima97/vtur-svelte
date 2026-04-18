@@ -689,34 +689,7 @@
   {getTextoPeriodoKpi()}
 </div>
 
-<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <p class="text-sm text-slate-500">Confirmadas</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdConfirmadas}</p>
-  </div>
-  <div class="vtur-card p-4 border-l-4 border-l-amber-500">
-    <p class="text-sm text-slate-500">Pendentes</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdPendentes}</p>
-  </div>
-  <div class="vtur-card p-4 border-l-4 border-l-red-500">
-    <p class="text-sm text-slate-500">Conciliação pendente</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdConciliacaoPendente}</p>
-  </div>
-  <div class="vtur-card p-4 border-l-4 border-l-slate-500">
-    <p class="text-sm text-slate-500">Backlog operacional</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdBacklogOperacional}</p>
-  </div>
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <p class="text-sm text-slate-500">Concluídas</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdConcluidas}</p>
-  </div>
-</div>
-
-<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  A consulta permite isolar rapidamente <strong>vendas pendentes</strong>, casos com <strong>conciliação pendente</strong> e um <strong>backlog operacional consolidado</strong>, facilitando a fila do financeiro e do atendimento.
-</div>
-
-<div class="mb-6 mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
   <div class="vtur-card p-4 shadow-md transition-shadow hover:shadow-lg">
     <div class="flex items-center gap-3">
       <div class="rounded-lg bg-green-50 p-2 text-green-600">
