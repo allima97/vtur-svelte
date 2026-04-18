@@ -229,6 +229,55 @@
     <span class="ml-3 text-slate-600">Carregando dashboard financeiro...</span>
   </div>
 {:else}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo financeiro com foco em fechamento, pendências e ação rápida.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-orange-50 p-3 text-orange-600"><AlertCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+      </div>
+      <p class="text-sm text-slate-500">Backlog de conciliação</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.divergencias}</p>
+      <p class="mt-2 text-sm text-slate-600">{resumo.conciliacoesPendentes} pendentes e {resumo.divergencias} divergências para tratar.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pagamento interno</span>
+      </div>
+      <p class="text-sm text-slate-500">Comissões pendentes</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
+      <p class="mt-2 text-sm text-slate-600">{formatCurrency(resumo.totalPagar)} ainda aguardando pagamento a vendedores.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><TrendingUp size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Caixa</span>
+      </div>
+      <p class="text-sm text-slate-500">Valor a receber</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
+      <p class="mt-2 text-sm text-slate-600">Use o caixa para acompanhar entradas, saídas e impacto no saldo.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/regras')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Settings size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Administração</span>
+      </div>
+      <p class="text-sm text-slate-500">Regras e cadastros</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">2</p>
+      <p class="mt-2 text-sm text-slate-600">Revise regras de comissão e formas de pagamento com leitura administrativa padronizada.</p>
+    </button>
+  </div>
+
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <div class="vtur-card p-5 border-l-4 border-l-financeiro-500">
       <div class="flex items-center justify-between">
@@ -293,26 +342,6 @@
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
     O financeiro agora consolida prioridades de fechamento: <strong>{resumo.conciliacoesPendentes}</strong> conciliações pendentes, <strong>{resumo.divergencias}</strong> divergências e <strong>{resumo.comissoesPendentes}</strong> comissões pendentes.
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <p class="text-sm text-slate-500 mb-1">Fila prioritária</p>
-      <p class="text-lg font-semibold text-slate-900">Backlog de Conciliação</p>
-      <p class="mt-2 text-sm text-slate-600">Atalhe direto para pendentes e divergentes do fechamento financeiro.</p>
-    </button>
-
-    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <p class="text-sm text-slate-500 mb-1">Pagamento interno</p>
-      <p class="text-lg font-semibold text-slate-900">Comissões Pendentes</p>
-      <p class="mt-2 text-sm text-slate-600">Acompanhe pagamentos a vendedores e backlog de comissões em aberto.</p>
-    </button>
-
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <p class="text-sm text-slate-500 mb-1">Visão executiva</p>
-      <p class="text-lg font-semibold text-slate-900">Fluxo de Caixa</p>
-      <p class="mt-2 text-sm text-slate-600">Use o caixa para analisar entradas, saídas e impacto financeiro consolidado.</p>
-    </button>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
