@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { DataTable, PageHeader, Card, Button } from '$lib/components/ui';
-  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Shield, Wallet, Filter, RotateCcw } from 'lucide-svelte';
+  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Shield, Wallet, Filter, RotateCcw, Clock, CheckCircle, AlertCircle } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
 
@@ -403,11 +403,88 @@
   ]}
 />
 
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+    <p class="text-sm text-slate-500">Resumo comercial com foco em backlog operacional, conciliação e fechamento da venda.</p>
+  </div>
+</div>
+
 {#if errorMessage}
   <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
     {errorMessage}
   </div>
 {/if}
+
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <button
+    on:click={() => {
+      somenteBacklogOperacional = true;
+      somentePendentes = false;
+      somenteConciliacaoPendente = false;
+    }}
+    class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200"
+  >
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-slate-100 p-3 text-slate-700"><AlertCircle size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Operação</span>
+    </div>
+    <p class="text-sm text-slate-500">Backlog operacional</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{qtdBacklogOperacional}</p>
+    <p class="mt-2 text-sm text-slate-600">Fila consolidada de vendas pendentes e conciliações em aberto.</p>
+  </button>
+
+  <button
+    on:click={() => {
+      somentePendentes = true;
+      somenteConciliacaoPendente = false;
+      somenteBacklogOperacional = false;
+    }}
+    class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200"
+  >
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
+    </div>
+    <p class="text-sm text-slate-500">Pendentes</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{qtdPendentes}</p>
+    <p class="mt-2 text-sm text-slate-600">Vendas ainda em andamento e sem fechamento operacional definitivo.</p>
+  </button>
+
+  <button
+    on:click={() => {
+      somenteConciliacaoPendente = true;
+      somentePendentes = false;
+      somenteBacklogOperacional = false;
+    }}
+    class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200"
+  >
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-red-50 p-3 text-red-600"><Shield size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Financeiro</span>
+    </div>
+    <p class="text-sm text-slate-500">Conciliação pendente</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{qtdConciliacaoPendente}</p>
+    <p class="mt-2 text-sm text-slate-600">Casos que ainda exigem validação financeira e acompanhamento do fechamento.</p>
+  </button>
+
+  <button
+    on:click={() => {
+      somentePendentes = false;
+      somenteConciliacaoPendente = false;
+      somenteBacklogOperacional = false;
+    }}
+    class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200"
+  >
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-green-50 p-3 text-green-600"><CheckCircle size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Resultado</span>
+    </div>
+    <p class="text-sm text-slate-500">Confirmadas</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{qtdConfirmadas}</p>
+    <p class="mt-2 text-sm text-slate-600">Vendas já consolidadas, fora do backlog operacional prioritário.</p>
+  </button>
+</div>
 
 <Card title="Filtros da Consulta" color="vendas">
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
