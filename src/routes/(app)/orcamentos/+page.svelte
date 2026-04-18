@@ -33,6 +33,7 @@
   let filtroStatus = '';
   let filtroPeriodo = '';
   let filtroBusca = '';
+  let somenteCriticos = false;
 
   let abortController: AbortController | null = null;
   let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,6 +55,13 @@
     if (['fechado', 'rejeitado', 'expirado'].includes(item.status)) return false;
     const dias = getDiasParaValidade(item.data_validade);
     return dias >= 0 && dias <= 3;
+  }
+
+  function isCritico(item: Orcamento) {
+    if (['fechado', 'rejeitado', 'expirado'].includes(item.status)) return false;
+    if (!item.last_interaction_at) return true;
+    if (getDiasSemInteracao(item.last_interaction_at) >= 7) return true;
+    return isExpirando(item);
   }
 
   function getPrioridadeFollowUp(item: Orcamento) {
@@ -81,6 +89,11 @@
       return dataCriacaoRight - dataCriacaoLeft;
     });
   }
+
+  $: criticosCount = orcamentosFiltrados.filter((o) => isCritico(o)).length;
+  $: orcamentosVisiveis = somenteCriticos
+    ? orcamentosFiltrados.filter((o) => isCritico(o))
+    : orcamentosFiltrados;
 
   $: resumo = {
     total:         orcamentosFiltrados.length,
@@ -164,13 +177,13 @@
   }
 
   function handleExport() {
-    if (orcamentosFiltrados.length === 0) {
+    if (orcamentosVisiveis.length === 0) {
       toast.info('Não há orçamentos para exportar');
       return;
     }
 
     const headers = ['Código', 'Cliente', 'Destino', 'Criação', 'Validade', 'Valor', 'Status', 'Última interação', 'Responsável'];
-    const rows = orcamentosFiltrados.map(o => [
+    const rows = orcamentosVisiveis.map(o => [
       o.codigo,
       o.cliente,
       o.destino,
@@ -349,13 +362,36 @@
   <KPICard title="Expirando" value={resumo.expirando} color="orcamentos" icon={Clock} subtitle="Vencem em até 3 dias" />
 </div>
 
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <button
+    type="button"
+    class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteCriticos ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+    on:click={() => (somenteCriticos = !somenteCriticos)}
+  >
+    {#if somenteCriticos}
+      Mostrando críticos ({criticosCount})
+    {:else}
+      Ver apenas críticos ({criticosCount})
+    {/if}
+  </button>
+  {#if somenteCriticos}
+    <button
+      type="button"
+      class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+      on:click={() => (somenteCriticos = false)}
+    >
+      Limpar filtro rápido
+    </button>
+  {/if}
+</div>
+
 <div class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
   A lista prioriza automaticamente orçamentos <strong>sem interação</strong>, depois follow-ups mais antigos, aproxima vencimentos no topo da fila e deixa os <strong>convertidos</strong> no fim da operação.
 </div>
 
 <DataTable
   {columns}
-  data={orcamentosFiltrados}
+  data={orcamentosVisiveis}
   color="orcamentos"
   {loading}
   title="Lista de Orçamentos"
