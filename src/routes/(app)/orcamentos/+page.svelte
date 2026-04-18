@@ -43,6 +43,19 @@
     return Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
   }
 
+  function getDiasParaValidade(value: string | null | undefined) {
+    if (!value) return Number.POSITIVE_INFINITY;
+    const data = new Date(value);
+    return Math.ceil((data.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  }
+
+  function isExpirando(item: Orcamento) {
+    if (!item.data_validade) return false;
+    if (['fechado', 'rejeitado', 'expirado'].includes(item.status)) return false;
+    const dias = getDiasParaValidade(item.data_validade);
+    return dias >= 0 && dias <= 3;
+  }
+
   function getPrioridadeFollowUp(item: Orcamento) {
     if (item.status === 'fechado') return 99;
     if (!item.last_interaction_at) return 0;
@@ -56,6 +69,9 @@
     return [...items].sort((left, right) => {
       const prioridade = getPrioridadeFollowUp(left) - getPrioridadeFollowUp(right);
       if (prioridade !== 0) return prioridade;
+
+      const expiraDiff = getDiasParaValidade(left.data_validade) - getDiasParaValidade(right.data_validade);
+      if (Number.isFinite(expiraDiff) && expiraDiff !== 0) return expiraDiff;
 
       const diasDiff = getDiasSemInteracao(right.last_interaction_at) - getDiasSemInteracao(left.last_interaction_at);
       if (diasDiff !== 0) return diasDiff;
@@ -75,6 +91,7 @@
     convertidos:   orcamentosFiltrados.filter(o => o.status === 'fechado').length,
     semInteracao:  orcamentosFiltrados.filter(o => !o.last_interaction_at && o.status !== 'fechado').length,
     followupAtrasado: orcamentosFiltrados.filter(o => o.last_interaction_at && getDiasSemInteracao(o.last_interaction_at) >= 7 && o.status !== 'fechado').length,
+    expirando:     orcamentosFiltrados.filter(o => isExpirando(o)).length,
     valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
     valorAprovado: orcamentosFiltrados
                      .filter(o => o.status === 'aprovado')
@@ -213,17 +230,20 @@
       key: 'data_validade',
       label: 'Validade',
       sortable: true,
-      width: '110px',
+      width: '130px',
       formatter: (value: string | null) => {
         if (!value) return '-';
         const data = new Date(value);
-        const diff = Math.ceil(
-          (data.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
+        const diff = getDiasParaValidade(value);
         const classe =
           diff < 0  ? 'text-red-600 font-medium' :
           diff <= 3 ? 'text-amber-600 font-medium' : '';
-        return `<span class="${classe}">${data.toLocaleDateString('pt-BR')}</span>`;
+        const alerta = diff < 0
+          ? '<div class="text-xs text-red-600">Expirado</div>'
+          : diff <= 3
+            ? `<div class="text-xs text-amber-600">Vence em ${diff}d</div>`
+            : '';
+        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${alerta}</div>`;
       }
     },
     {
@@ -317,7 +337,7 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-8">
+<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-9">
   <KPICard title="Total" value={resumo.total} color="orcamentos" icon={FileText} />
   <KPICard title="Novos" value={resumo.novos} color="orcamentos" icon={FileText} subtitle="Aguardando ação" />
   <KPICard title="Pendentes" value={resumo.pendentes} color="orcamentos" icon={Clock} subtitle="Em negociação" />
@@ -326,10 +346,11 @@
   <KPICard title="Convertidos" value={resumo.convertidos} color="orcamentos" icon={ShoppingCart} subtitle={`${resumo.taxaConversao}% conversão`} />
   <KPICard title="Sem interação" value={resumo.semInteracao} color="orcamentos" icon={Clock} subtitle="Prioridade máxima" />
   <KPICard title="Atrasados" value={resumo.followupAtrasado} color="orcamentos" icon={Clock} subtitle="7+ dias sem contato" />
+  <KPICard title="Expirando" value={resumo.expirando} color="orcamentos" icon={Clock} subtitle="Vencem em até 3 dias" />
 </div>
 
 <div class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  A lista prioriza automaticamente orçamentos <strong>sem interação</strong>, depois follow-ups mais antigos e deixa os <strong>convertidos</strong> no fim da fila operacional.
+  A lista prioriza automaticamente orçamentos <strong>sem interação</strong>, depois follow-ups mais antigos, aproxima vencimentos no topo da fila e deixa os <strong>convertidos</strong> no fim da operação.
 </div>
 
 <DataTable
