@@ -81,7 +81,7 @@
     valor_total_pago: '',
     valor_taxas: '',
     valor_nao_comissionado: '',
-    status: 'aberto',
+    status: 'pendente',
     cancelada: false,
     notas: ''
   };
@@ -167,7 +167,6 @@
       goto('/vendas');
     }
     
-    // Verificar se há parâmetro de orçamento para pré-carregar
     const orcamentoId = $page.url.searchParams.get('orcamento');
     if (orcamentoId) {
       await carregarOrcamento(orcamentoId);
@@ -186,10 +185,8 @@
       
       const orcamento = await response.json();
       
-      // Preencher dados do cliente
       if (orcamento.client_id) {
         venda.cliente_id = orcamento.client_id;
-        // Adicionar cliente à lista se não estiver
         const clienteExistente = clientes.find(c => c.id === orcamento.client_id);
         if (!clienteExistente && orcamento.cliente) {
           clientes = [...clientes, {
@@ -201,7 +198,6 @@
         }
       }
       
-      // Preencher observações
       if (orcamento.notes || orcamento.observacoes) {
         venda.notas = `Orçamento ${orcamento.codigo}:\n${orcamento.notes || orcamento.observacoes}`;
       }
@@ -657,6 +653,8 @@
   $: totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
   $: totalTaxas = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);
   $: totalPagamentos = pagamentos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
+  $: diferencaFinanceira = Number((totalPagamentos - totalRecibos).toFixed(2));
+  $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: produtosDestinoFiltrados = produtos.filter((item) => isProdutoCompativelCidade(item));
   $: if (venda.destino_cidade_id !== lastDestinoCidadeId) {
     lastDestinoCidadeId = venda.destino_cidade_id;
@@ -820,39 +818,16 @@
           </div>
 
           <div>
-            <FieldInput
-              label="Lançada em"
-              type="date"
-              bind:value={venda.data_lancamento}
-              class_name="w-full"
-            />
+            <FieldInput label="Lançada em" type="date" bind:value={venda.data_lancamento} class_name="w-full" />
           </div>
           <div>
-            <FieldInput
-              label="Data da venda *"
-              type="date"
-              bind:value={venda.data_venda}
-              class_name="w-full"
-              error={errors.data_venda}
-            />
+            <FieldInput label="Data da venda *" type="date" bind:value={venda.data_venda} class_name="w-full" error={errors.data_venda} />
           </div>
           <div>
-            <FieldInput
-              label="Data de embarque *"
-              type="date"
-              bind:value={venda.data_embarque}
-              class_name="w-full"
-              error={errors.data_embarque}
-            />
+            <FieldInput label="Data de embarque *" type="date" bind:value={venda.data_embarque} class_name="w-full" error={errors.data_embarque} />
           </div>
           <div>
-            <FieldInput
-              label="Data final *"
-              type="date"
-              bind:value={venda.data_final}
-              class_name="w-full"
-              error={errors.data_final}
-            />
+            <FieldInput label="Data final *" type="date" bind:value={venda.data_final} class_name="w-full" error={errors.data_final} />
           </div>
 
           <div class="xl:col-span-2">
@@ -861,10 +836,7 @@
               bind:value={venda.destino_id}
               options={[
                 { value: '', label: 'Selecione...' },
-                ...produtosDestinoFiltrados.map((produto) => ({
-                  value: produto.id,
-                  label: produto.nome
-                }))
+                ...produtosDestinoFiltrados.map((produto) => ({ value: produto.id, label: produto.nome }))
               ]}
               class_name="w-full"
               error={errors.destino_id}
@@ -1089,6 +1061,14 @@
       </FormPanel>
 
       <FormPanel title="Resumo e observações" description="Verifique totais e adicione notas" class_name="border-green-200">
+        <div class="mb-4 rounded-xl border px-4 py-3 {fechamentoFinanceiroOk ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">
+          {#if fechamentoFinanceiroOk}
+            <p class="text-sm font-medium">Recibos e pagamentos estão conciliados.</p>
+          {:else}
+            <p class="text-sm font-medium">Há diferença entre recibos e pagamentos: {formatMoney(diferencaFinanceira)}</p>
+          {/if}
+        </div>
+
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">Total recibos</p>
@@ -1105,7 +1085,6 @@
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
             <select bind:value={venda.status} class="vtur-input mt-2 w-full">
-              <option value="aberto">Aberto</option>
               <option value="pendente">Pendente</option>
               <option value="confirmada">Confirmada</option>
               <option value="concluida">Concluída</option>
@@ -1115,26 +1094,10 @@
         </div>
 
         <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <FieldInput
-            label="Valor total da venda"
-            bind:value={venda.valor_total}
-            class_name="w-full"
-          />
-          <FieldInput
-            label="Valor total bruto"
-            bind:value={venda.valor_total_bruto}
-            class_name="w-full"
-          />
-          <FieldInput
-            label="Valor total pago"
-            bind:value={venda.valor_total_pago}
-            class_name="w-full"
-          />
-          <FieldInput
-            label="Valor não comissionado"
-            bind:value={venda.valor_nao_comissionado}
-            class_name="w-full"
-          />
+          <FieldInput label="Valor total da venda" bind:value={venda.valor_total} class_name="w-full" />
+          <FieldInput label="Valor total bruto" bind:value={venda.valor_total_bruto} class_name="w-full" />
+          <FieldInput label="Valor total pago" bind:value={venda.valor_total_pago} class_name="w-full" />
+          <FieldInput label="Valor não comissionado" bind:value={venda.valor_nao_comissionado} class_name="w-full" />
         </div>
 
         <div class="mt-4 flex items-center gap-2">
