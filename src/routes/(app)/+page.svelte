@@ -5,7 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Filter, BarChart3, Settings } from 'lucide-svelte';
+  import { Filter, BarChart3, Settings, AlertCircle, ShoppingCart, Wallet, Clock } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import type { ChartData } from 'chart.js';
 
@@ -56,6 +56,8 @@
       status: string | null;
       status_negociacao: string | null;
       total: number | null;
+      data_validade?: string | null;
+      last_interaction_at?: string | null;
       cliente?: { id?: string | null; nome?: string | null } | null;
       quote_item?: Array<{
         id?: string | null;
@@ -65,6 +67,24 @@
         city_name?: string | null;
       }> | null;
     }>;
+  }
+
+  interface VendaOperacional {
+    id: string;
+    status: string;
+    conciliado: boolean | null;
+  }
+
+  interface PagamentoOperacional {
+    id: string;
+    status: string;
+    valor?: number;
+  }
+
+  interface ComissaoOperacional {
+    id: string;
+    status: string;
+    valor_comissao?: number;
   }
 
   const emptyDashboard: DashboardPayload = {
@@ -123,6 +143,18 @@
       .toLowerCase();
   }
 
+  function getDiasSemInteracao(value: string | null | undefined) {
+    if (!value) return Number.POSITIVE_INFINITY;
+    const data = new Date(value);
+    return Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function getDiasParaValidade(value: string | null | undefined) {
+    if (!value) return Number.POSITIVE_INFINITY;
+    const data = new Date(value);
+    return Math.ceil((data.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  }
+
   const currentMonth = getCurrentMonthRange();
 
   let dashboard: DashboardPayload = emptyDashboard;
@@ -135,6 +167,9 @@
   let vendedorSelecionado = '';
   let empresas: EmpresaFiltro[] = [];
   let vendedores: VendedorFiltro[] = [];
+  let vendasOperacionais: VendaOperacional[] = [];
+  let pagamentosOperacionais: PagamentoOperacional[] = [];
+  let comissoesOperacionais: ComissaoOperacional[] = [];
 
   async function loadBaseFilters() {
     try {
@@ -185,12 +220,54 @@
     }
   }
 
+  async function loadOperationalSummary() {
+    try {
+      const [vendasResponse, pagamentosResponse, comissoesResponse] = await Promise.all([
+        fetch('/api/v1/vendas/list?page=1&pageSize=200'),
+        fetch('/api/v1/pagamentos'),
+        fetch('/api/v1/financeiro/comissoes')
+      ]);
+
+      if (vendasResponse.ok) {
+        const vendasData = await vendasResponse.json();
+        vendasOperacionais = (vendasData.items || []).map((item: any) => ({
+          id: String(item.id),
+          status: String(item.status || ''),
+          conciliado: typeof item.conciliado === 'boolean' ? item.conciliado : null
+        }));
+      }
+
+      if (pagamentosResponse.ok) {
+        const pagamentosData = await pagamentosResponse.json();
+        pagamentosOperacionais = (pagamentosData.items || []).map((item: any) => ({
+          id: String(item.id),
+          status: String(item.status || ''),
+          valor: Number(item.valor_total || item.valor || 0)
+        }));
+      }
+
+      if (comissoesResponse.ok) {
+        const comissoesData = await comissoesResponse.json();
+        comissoesOperacionais = (comissoesData.items || []).map((item: any) => ({
+          id: String(item.id),
+          status: String(item.status || ''),
+          valor_comissao: Number(item.valor_comissao || 0)
+        }));
+      }
+    } catch (err) {
+      vendasOperacionais = [];
+      pagamentosOperacionais = [];
+      comissoesOperacionais = [];
+      toast.error('Erro ao consolidar resumo operacional');
+    }
+  }
+
   onMount(() => {
-    void Promise.all([loadBaseFilters(), loadDashboard()]);
+    void Promise.all([loadBaseFilters(), loadDashboard(), loadOperationalSummary()]);
   });
 
   function applyFilters() {
-    void loadDashboard();
+    void Promise.all([loadDashboard(), loadOperationalSummary()]);
   }
 
   function handleOrcamentoClick(id: string) {
@@ -202,17 +279,6 @@
     const end = new Date(`${periodoFim}T23:59:59`);
     const diff = end.getTime() - today.getTime();
     return Math.max(0, Math.ceil(diff / 86400000));
-  }
-
-  function getStatusColor(status: string) {
-    const normalized = normalizeStatus(status);
-
-    if (normalized.includes('enviado') || normalized.includes('confirm')) return 'text-green-600';
-    if (normalized.includes('pendente')) return 'text-amber-600';
-    if (normalized.includes('aprov')) return 'text-blue-600';
-    if (normalized.includes('rejeit') || normalized.includes('cancel')) return 'text-red-600';
-
-    return 'text-slate-600';
   }
 
   function getStatusBadgeClass(status: string) {
@@ -234,11 +300,35 @@
     return 'vtur-status-badge';
   }
 
+  function isOrcamentoCritico(orcamento: DashboardPayload['orcamentos'][number]) {
+    const status = normalizeStatus(String(orcamento.status || ''));
+    if (status.includes('fechado') || status.includes('cancel') || status.includes('rejeit') || status.includes('expir')) return false;
+    if (!orcamento.last_interaction_at) return true;
+    if (getDiasSemInteracao(orcamento.last_interaction_at) >= 7) return true;
+    const diasValidade = getDiasParaValidade(orcamento.data_validade);
+    return diasValidade >= 0 && diasValidade <= 3;
+  }
+
+  function isOrcamentoProntoVenda(orcamento: DashboardPayload['orcamentos'][number]) {
+    const status = normalizeStatus(String(orcamento.status || ''));
+    const negociacao = normalizeStatus(String(orcamento.status_negociacao || ''));
+    return status.includes('aprov') || negociacao.includes('aprov');
+  }
+
   $: metaTotal = dashboard.metas.reduce((sum, meta) => sum + Number(meta.meta_geral || 0), 0);
   $: diasRestantes = getRemainingDays();
   $: faltanteMeta = Math.max(metaTotal - dashboard.vendasAgg.totalVendas, 0);
   $: metaDiaria = diasRestantes > 0 ? faltanteMeta / diasRestantes : 0;
   $: atingimento = metaTotal > 0 ? (dashboard.vendasAgg.totalVendas / metaTotal) * 100 : 0;
+  $: orcamentosCriticos = dashboard.orcamentos.filter((orcamento) => isOrcamentoCritico(orcamento)).length;
+  $: orcamentosProntosVenda = dashboard.orcamentos.filter((orcamento) => isOrcamentoProntoVenda(orcamento)).length;
+  $: vendasPendentes = vendasOperacionais.filter((item) => normalizeStatus(item.status).includes('pendente')).length;
+  $: vendasConciliacaoPendente = vendasOperacionais.filter((item) => item.conciliado === false).length;
+  $: backlogVendas = vendasOperacionais.filter((item) => normalizeStatus(item.status).includes('pendente') || item.conciliado === false).length;
+  $: pagamentosPendentes = pagamentosOperacionais.filter((item) => normalizeStatus(item.status).includes('pendente')).length;
+  $: pagamentosDivergentes = pagamentosOperacionais.filter((item) => normalizeStatus(item.status).includes('diverg')).length;
+  $: comissoesPendentes = comissoesOperacionais.filter((item) => normalizeStatus(item.status).includes('pendente')).length;
+  $: backlogFinanceiro = pagamentosPendentes + pagamentosDivergentes + comissoesPendentes;
 
   $: kpis = [
     {
@@ -322,9 +412,7 @@
       id: orcamento.id,
       data: formatDate(orcamento.created_at),
       cliente: String(orcamento.cliente?.nome || 'Cliente sem nome'),
-      destino: String(
-        firstItem?.city_name || firstItem?.product_name || firstItem?.title || 'Orcamento sem itens'
-      ),
+      destino: String(firstItem?.city_name || firstItem?.product_name || firstItem?.title || 'Orcamento sem itens'),
       status: String(orcamento.status_negociacao || orcamento.status || 'Pendente'),
       valor: formatCurrency(Number(orcamento.total || 0))
     };
@@ -348,18 +436,18 @@
     <p class="text-sm text-slate-500">Visão consolidada do período selecionado.</p>
   </div>
   <div class="flex flex-wrap gap-3">
-  <Button color="light" size="sm" class="border border-slate-300 bg-white" on:click={() => (showFilters = !showFilters)}>
-    <Filter size={16} class="mr-2" />
-    Filtros
-  </Button>
-  <Button color="blue" size="sm" on:click={() => toast.info('A personalizacao de widgets sera portada na proxima etapa.')}>
-    <Settings size={16} class="mr-2" />
-    Personalizar dashboard
-  </Button>
-  <Button color="light" size="sm" class="border border-slate-300 bg-white" on:click={() => goto('/relatorios/ranking')}>
-    <BarChart3 size={16} class="mr-2" />
-    Ranking de vendas
-  </Button>
+    <Button color="light" size="sm" class="border border-slate-300 bg-white" on:click={() => (showFilters = !showFilters)}>
+      <Filter size={16} class="mr-2" />
+      Filtros
+    </Button>
+    <Button color="blue" size="sm" on:click={() => toast.info('A personalizacao de widgets sera portada na proxima etapa.')}>
+      <Settings size={16} class="mr-2" />
+      Personalizar dashboard
+    </Button>
+    <Button color="light" size="sm" class="border border-slate-300 bg-white" on:click={() => goto('/relatorios/ranking')}>
+      <BarChart3 size={16} class="mr-2" />
+      Ranking de vendas
+    </Button>
   </div>
 </div>
 
@@ -413,6 +501,52 @@
   </Card>
 {/if}
 
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><AlertCircle size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Comercial</span>
+    </div>
+    <p class="text-sm text-slate-500">Orçamentos críticos</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{orcamentosCriticos}</p>
+    <p class="mt-2 text-sm text-slate-600">Sem interação, follow-up atrasado ou vencimento próximo.</p>
+  </button>
+
+  <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-green-50 p-3 text-green-600"><ShoppingCart size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Conversão</span>
+    </div>
+    <p class="text-sm text-slate-500">Prontos para venda</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{orcamentosProntosVenda}</p>
+    <p class="mt-2 text-sm text-slate-600">Orçamentos aprovados aguardando conversão em venda.</p>
+  </button>
+
+  <button on:click={() => goto('/vendas')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Clock size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Operação</span>
+    </div>
+    <p class="text-sm text-slate-500">Backlog de vendas</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{backlogVendas}</p>
+    <p class="mt-2 text-sm text-slate-600">{vendasPendentes} pendentes e {vendasConciliacaoPendente} com conciliação em aberto.</p>
+  </button>
+
+  <button on:click={() => goto('/financeiro')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><Wallet size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Financeiro</span>
+    </div>
+    <p class="text-sm text-slate-500">Backlog financeiro</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{backlogFinanceiro}</p>
+    <p class="mt-2 text-sm text-slate-600">{pagamentosPendentes} pendentes, {pagamentosDivergentes} divergências e {comissoesPendentes} comissões.</p>
+  </button>
+</div>
+
+<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  O painel principal agora consolida prioridades entre comercial e financeiro: <strong>{orcamentosCriticos}</strong> orçamentos críticos, <strong>{orcamentosProntosVenda}</strong> prontos para conversão, <strong>{backlogVendas}</strong> itens no backlog de vendas e <strong>{backlogFinanceiro}</strong> pendências financeiras.
+</div>
+
 <div class="mb-6 w-full">
   <Card color="vendas" padding="md">
     <div class="mb-5 flex items-center justify-between">
@@ -429,9 +563,7 @@
       {#each kpis as kpi}
         <div class="vtur-kpi-card">
           <p class="vtur-kpi-card__title">{kpi.title}</p>
-          <p class="vtur-kpi-card__value" title={kpi.value}>
-            {kpi.value}
-          </p>
+          <p class="vtur-kpi-card__value" title={kpi.value}>{kpi.value}</p>
           <p class="vtur-kpi-card__subtext">{kpi.subtext}</p>
         </div>
       {/each}
@@ -485,9 +617,7 @@
 
 <Card color="vendas" padding="md">
   <div class="mb-4">
-    <h3 class="text-base font-semibold text-slate-900">
-      Orçamentos recentes ({orcamentosRecentes.length})
-    </h3>
+    <h3 class="text-base font-semibold text-slate-900">Orçamentos recentes ({orcamentosRecentes.length})</h3>
     <p class="text-xs text-slate-500">Últimas propostas comerciais registradas no período.</p>
   </div>
 
@@ -505,9 +635,7 @@
       <tbody class="vtur-table__body">
         {#if orcamentosRecentes.length === 0}
           <tr>
-            <td colspan="5" class="px-4 py-10 text-center text-slate-500">
-              Nenhum orçamento encontrado no período.
-            </td>
+            <td colspan="5" class="px-4 py-10 text-center text-slate-500">Nenhum orçamento encontrado no período.</td>
           </tr>
         {:else}
           {#each orcamentosRecentes as orcamento}
@@ -515,9 +643,7 @@
               <td class="px-4 py-4 text-slate-600">{orcamento.data}</td>
               <td class="px-4 py-4 font-medium text-slate-900">{orcamento.cliente}</td>
               <td class="max-w-md truncate px-4 py-4 text-slate-600">{orcamento.destino}</td>
-              <td class="px-4 py-4">
-                <span class={getStatusBadgeClass(orcamento.status)}>{orcamento.status}</span>
-              </td>
+              <td class="px-4 py-4"><span class={getStatusBadgeClass(orcamento.status)}>{orcamento.status}</span></td>
               <td class="px-4 py-4 text-right font-semibold text-slate-900">{orcamento.valor}</td>
             </tr>
           {/each}
