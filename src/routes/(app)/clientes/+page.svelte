@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { CalendarDays, Plus, Users, Wallet, ShoppingBag } from 'lucide-svelte';
+  import { CalendarDays, Plus, Users, Wallet, ShoppingBag, FileText } from 'lucide-svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -100,7 +100,11 @@
           inativo: 'Inativo',
           prospect: 'Prospect'
         };
-        const extra = row.total_viagens > 0 ? ` · ${row.total_viagens} viagens` : '';
+        const extra = row.total_viagens > 0
+          ? ` · ${row.total_viagens} viagens`
+          : row.total_orcamentos > 0
+            ? ` · ${row.total_orcamentos} orc.`
+            : '';
         return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[value as keyof typeof styles]}">${labels[value as keyof typeof labels]}${extra}</span>`;
       }
     },
@@ -132,6 +136,7 @@
   $: aniversariantesHoje = clientes.filter((item) => item.aniversario_hoje).length;
   $: totalCarteira = clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0);
   $: clientesComViagem = clientes.filter((item) => item.total_viagens > 0).length;
+  $: clientesEmNegociacao = clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length;
 
   $: filters = [
     {
@@ -242,9 +247,10 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
   <KPICard title="Clientes na carteira" value={clientes.length} color="clientes" icon={Users} />
   <KPICard title="Relacionamento ativo" value={statusAtivos} color="clientes" icon={ShoppingBag} />
+  <KPICard title="Em negociacao" value={clientesEmNegociacao} color="clientes" icon={FileText} />
   <KPICard title="Aniversariantes hoje" value={aniversariantesHoje} color="clientes" icon={CalendarDays} />
   <KPICard
     title="Total gasto consolidado"
@@ -255,8 +261,9 @@
 </div>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  <strong class="text-slate-900">{clientesComViagem}</strong> clientes com historico de viagens e{' '}
-  <strong class="text-slate-900">{clientes.length - clientesComViagem}</strong> ainda em fase de prospeccao ou sem venda concluida.
+  <strong class="text-slate-900">{clientesComViagem}</strong> clientes com historico de viagens,{' '}
+  <strong class="text-slate-900">{clientesEmNegociacao}</strong> em negociacao com orcamentos e{' '}
+  <strong class="text-slate-900">{clientes.length - clientesComViagem - clientesEmNegociacao}</strong> ainda em fase inicial sem conversao comercial.
 </div>
 
 <DataTable
