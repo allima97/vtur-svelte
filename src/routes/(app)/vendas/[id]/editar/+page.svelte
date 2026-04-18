@@ -83,7 +83,7 @@
     valor_total_pago: '',
     valor_taxas: '',
     valor_nao_comissionado: '',
-    status: 'aberto',
+    status: 'pendente',
     cancelada: false,
     notas: ''
   };
@@ -170,6 +170,7 @@
 
     const data = await response.json();
     const sale = data || {};
+    const statusNormalizado = String(sale?.status || 'pendente') === 'aberto' ? 'pendente' : String(sale?.status || 'pendente');
 
     venda = {
       vendedor_id: String(sale?.vendedor_id || currentUser?.id || ''),
@@ -191,7 +192,7 @@
       valor_total_pago: String(sale?.valor_total_pago || ''),
       valor_taxas: String(sale?.valor_taxas || ''),
       valor_nao_comissionado: String(sale?.valor_nao_comissionado || ''),
-      status: String(sale?.status || 'aberto'),
+      status: statusNormalizado,
       cancelada: Boolean(sale?.cancelada),
       notas: String(sale?.notas || '')
     };
@@ -220,7 +221,6 @@
         };
       });
 
-      // Pré-carregar produtos dos recibos que não estão na lista base
       const produtosFaltantes = new Set<string>();
       recibos.forEach((r) => {
         if (r.produto_id && !produtos.some((p) => String(p.id) === r.produto_id)) {
@@ -254,7 +254,6 @@
       }));
     }
 
-    // Garantir que vendedor, cliente e destino estejam disponíveis nos selects
     if (sale.vendedor && !vendedoresEquipe.some((v) => String(v.id) === String(sale.vendedor.id))) {
       vendedoresEquipe = [
         ...vendedoresEquipe,
@@ -283,7 +282,6 @@
       }
     }
 
-    // Sincronizar destino principal com o produto do recibo principal
     const reciboPrincipal = recibos.find((r) => r.principal) || recibos[0];
     const destinoDoRecibo = reciboPrincipal?.produto_id || '';
     if (destinoDoRecibo) {
@@ -292,14 +290,12 @@
 
     if (venda.destino_id) {
       await ensureProdutoLoaded(venda.destino_id);
-      // Se a cidade de destino ainda estiver vazia, preencher a partir do produto carregado
       if (!venda.destino_cidade_id) {
         const produtoDestino = produtos.find((p) => String(p.id) === String(venda.destino_id));
         if (produtoDestino?.cidade_id) {
           venda.destino_cidade_id = String(produtoDestino.cidade_id);
         }
       }
-      // Sincronizar o input da cidade
       if (venda.destino_cidade_id) {
         await ensureCidadeLoaded(venda.destino_cidade_id);
         const cidade = cidades.find((c) => String(c.id) === String(venda.destino_cidade_id));
@@ -804,9 +800,10 @@
   $: totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
   $: totalTaxas = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);
   $: totalPagamentos = pagamentos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
+  $: diferencaFinanceira = Number((totalPagamentos - totalRecibos).toFixed(2));
+  $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: produtosDestinoFiltrados = produtos.filter((item) => isProdutoCompativelCidade(item));
 
-  // Reação para preencher tipo_produto_id dos recibos quando o produto for carregado
   $: {
     recibos = recibos.map((recibo) => {
       if (recibo.tipo_produto_id) return recibo;
@@ -837,7 +834,6 @@
     });
     ensurePrincipalRecibo();
   }
-  // (removida reacao que limpava destino_id no carregamento — causava campos em branco)
 </script>
 
 <svelte:head>
@@ -1222,6 +1218,14 @@
       </FormPanel>
 
       <FormPanel title="Resumo e observações" description="Confira totais, status e notas internas" class_name="border-green-200">
+        <div class="mb-4 rounded-xl border px-4 py-3 {fechamentoFinanceiroOk ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">
+          {#if fechamentoFinanceiroOk}
+            <p class="text-sm font-medium">Recibos e pagamentos estão conciliados.</p>
+          {:else}
+            <p class="text-sm font-medium">Há diferença entre recibos e pagamentos: {formatMoney(diferencaFinanceira)}</p>
+          {/if}
+        </div>
+
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">Total recibos</p>
@@ -1238,7 +1242,6 @@
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
             <select bind:value={venda.status} class="vtur-input mt-2 w-full">
-              <option value="aberto">Aberto</option>
               <option value="pendente">Pendente</option>
               <option value="confirmada">Confirmada</option>
               <option value="concluida">Concluída</option>
