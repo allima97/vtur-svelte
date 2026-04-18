@@ -4,7 +4,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp, ShoppingCart } from 'lucide-svelte';
+  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp, ShoppingCart, AlertCircle } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Orcamento {
@@ -352,11 +352,60 @@
   }]}
 />
 
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+    <p class="text-sm text-slate-500">Resumo do pipeline com foco em follow-up, vencimento e conversão em venda.</p>
+  </div>
+</div>
+
 {#if errorMessage}
   <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
     {errorMessage}
   </div>
 {/if}
+
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <button on:click={() => { somenteCriticos = true; somenteProntosVenda = false; }} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><AlertCircle size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridade</span>
+    </div>
+    <p class="text-sm text-slate-500">Orçamentos críticos</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{criticosCount}</p>
+    <p class="mt-2 text-sm text-slate-600">Sem interação, follow-up atrasado ou vencimento próximo.</p>
+  </button>
+
+  <button on:click={() => { somenteProntosVenda = true; somenteCriticos = false; }} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-green-50 p-3 text-green-600"><ShoppingCart size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Conversão</span>
+    </div>
+    <p class="text-sm text-slate-500">Prontos para venda</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{prontosVendaCount}</p>
+    <p class="mt-2 text-sm text-slate-600">Propostas aprovadas aguardando conversão em venda.</p>
+  </button>
+
+  <button on:click={() => { somenteCriticos = false; somenteProntosVenda = false; }} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Send size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
+    </div>
+    <p class="text-sm text-slate-500">Enviados</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.enviados}</p>
+    <p class="mt-2 text-sm text-slate-600">Propostas já apresentadas ao cliente e aguardando retorno.</p>
+  </button>
+
+  <button on:click={() => { somenteCriticos = false; somenteProntosVenda = false; }} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-slate-100 p-3 text-slate-700"><TrendingUp size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Resultado</span>
+    </div>
+    <p class="text-sm text-slate-500">Taxa de conversão</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.taxaConversao}%</p>
+    <p class="mt-2 text-sm text-slate-600">Aprovados e convertidos sobre o total do pipeline filtrado.</p>
+  </button>
+</div>
 
 <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-9">
   <KPICard title="Total" value={resumo.total} color="orcamentos" icon={FileText} />
