@@ -4,10 +4,9 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp } from 'lucide-svelte';
+  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
-  // ─── Tipos ───────────────────────────────────────────────────────────────────
   interface Orcamento {
     id: string;
     codigo: string;
@@ -17,7 +16,7 @@
     data_criacao: string | null;
     data_validade: string | null;
     valor_total: number;
-    status: 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'novo';
+    status: 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'novo' | 'fechado';
     status_negociacao: string | null;
     vendedor: string;
     vendedor_id: string;
@@ -25,41 +24,39 @@
     quantidade_itens: number;
   }
 
-  // ─── Estado ──────────────────────────────────────────────────────────────────
   let orcamentosFiltrados: Orcamento[] = [];
   let loading = true;
   let errorMessage: string | null = null;
 
-  // Filtros
   let filtroStatus = '';
   let filtroPeriodo = '';
   let filtroBusca = '';
 
-  // AbortController para cancelar fetch anterior
   let abortController: AbortController | null = null;
   let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // ─── KPIs reativos (derivados diretamente, sem função intermediária) ──────────
   $: resumo = {
     total:         orcamentosFiltrados.length,
     novos:         orcamentosFiltrados.filter(o => o.status === 'novo').length,
     pendentes:     orcamentosFiltrados.filter(o => o.status === 'pendente').length,
     enviados:      orcamentosFiltrados.filter(o => o.status === 'enviado').length,
     aprovados:     orcamentosFiltrados.filter(o => o.status === 'aprovado').length,
+    convertidos:   orcamentosFiltrados.filter(o => o.status === 'fechado').length,
     valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
     valorAprovado: orcamentosFiltrados
                      .filter(o => o.status === 'aprovado')
                      .reduce((s, o) => s + o.valor_total, 0),
+    valorConvertido: orcamentosFiltrados
+                     .filter(o => o.status === 'fechado')
+                     .reduce((s, o) => s + o.valor_total, 0),
     get taxaConversao() {
       return this.total > 0
-        ? ((this.aprovados / this.total) * 100).toFixed(1)
+        ? (((this.aprovados + this.convertidos) / this.total) * 100).toFixed(1)
         : '0';
     }
   };
 
-  // ─── Fetch com AbortController ───────────────────────────────────────────────
   async function loadOrcamentos() {
-    // Cancela requisição em voo anterior
     if (abortController) abortController.abort();
     abortController = new AbortController();
 
@@ -92,14 +89,12 @@
     }
   }
 
-  // ─── Handlers de filtro ───────────────────────────────────────────────────
   function handleFiltroChange(key: string, value: string) {
     if (key === 'status')  filtroStatus  = value;
     if (key === 'periodo') filtroPeriodo = value;
     void loadOrcamentos();
   }
 
-  /** Busca com debounce 300ms para não disparar a cada tecla */
   function handleBuscaChange(valor: string) {
     filtroBusca = valor;
     if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
@@ -113,7 +108,6 @@
     if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
   });
 
-  // ─── Navegação e export ──────────────────────────────────────────────────
   function handleRowClick(row: Orcamento) {
     goto(`/orcamentos/${row.id}`);
   }
@@ -145,7 +139,6 @@
     toast.success('Orçamentos exportados com sucesso!');
   }
 
-  // ─── Colunas e filtros da tabela ────────────────────────────────────────────
   const columns = [
     { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
     {
@@ -196,7 +189,7 @@
       key: 'status',
       label: 'Status',
       sortable: true,
-      width: '120px',
+      width: '160px',
       formatter: (value: string) => {
         const styles: Record<string, string> = {
           pendente: 'bg-amber-100 text-amber-700',
@@ -204,11 +197,13 @@
           aprovado: 'bg-green-100 text-green-700',
           rejeitado:'bg-red-100 text-red-700',
           expirado: 'bg-slate-100 text-slate-600',
-          novo:     'bg-slate-100 text-slate-700'
+          novo:     'bg-slate-100 text-slate-700',
+          fechado:  'bg-emerald-100 text-emerald-700'
         };
         const labels: Record<string, string> = {
           pendente: 'Pendente', enviado: 'Enviado', aprovado: 'Aprovado',
-          rejeitado: 'Rejeitado', expirado: 'Expirado', novo: 'Novo'
+          rejeitado: 'Rejeitado', expirado: 'Expirado', novo: 'Novo',
+          fechado: 'Convertido em Venda'
         };
         const cl = styles[value] || 'bg-slate-100 text-slate-700';
         const lb = labels[value] || value;
@@ -229,6 +224,7 @@
         { value: 'pendente',  label: 'Pendente' },
         { value: 'enviado',   label: 'Enviado' },
         { value: 'aprovado',  label: 'Aprovado' },
+        { value: 'fechado',   label: 'Convertido em Venda' },
         { value: 'rejeitado', label: 'Rejeitado' },
         { value: 'expirado',  label: 'Expirado' }
       ]
@@ -271,19 +267,19 @@
   </div>
 {/if}
 
-<!-- KPIs -->
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-  <KPICard title="Total"         value={resumo.total}     color="orcamentos" icon={FileText} />
-  <KPICard title="Novos"         value={resumo.novos}     color="orcamentos" icon={FileText}    subtitle="Aguardando ação" />
-  <KPICard title="Pendentes"     value={resumo.pendentes} color="orcamentos" icon={Clock}        subtitle="Em negociação" />
-  <KPICard title="Enviados"      value={resumo.enviados}  color="orcamentos" icon={Send}         subtitle="Aguardando cliente" />
-  <KPICard title="Aprovados"     value={resumo.aprovados} color="orcamentos" icon={CheckCircle}  subtitle={`${resumo.taxaConversao}% conversão`} />
+<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-7">
+  <KPICard title="Total" value={resumo.total} color="orcamentos" icon={FileText} />
+  <KPICard title="Novos" value={resumo.novos} color="orcamentos" icon={FileText} subtitle="Aguardando ação" />
+  <KPICard title="Pendentes" value={resumo.pendentes} color="orcamentos" icon={Clock} subtitle="Em negociação" />
+  <KPICard title="Enviados" value={resumo.enviados} color="orcamentos" icon={Send} subtitle="Aguardando cliente" />
+  <KPICard title="Aprovados" value={resumo.aprovados} color="orcamentos" icon={CheckCircle} subtitle="Prontos para virar venda" />
+  <KPICard title="Convertidos" value={resumo.convertidos} color="orcamentos" icon={ShoppingCart} subtitle={`${resumo.taxaConversao}% conversão`} />
   <KPICard
     title="Valor Pipeline"
     value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorTotal)}
     color="orcamentos"
     icon={TrendingUp}
-    subtitle={`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorAprovado)} aprovados`}
+    subtitle={`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorConvertido)} convertidos`}
   />
 </div>
 
