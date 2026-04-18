@@ -37,6 +37,35 @@
   let abortController: AbortController | null = null;
   let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  function getDiasSemInteracao(value: string | null | undefined) {
+    if (!value) return Number.POSITIVE_INFINITY;
+    const data = new Date(value);
+    return Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function getPrioridadeFollowUp(item: Orcamento) {
+    if (item.status === 'fechado') return 99;
+    if (!item.last_interaction_at) return 0;
+    const dias = getDiasSemInteracao(item.last_interaction_at);
+    if (dias >= 7) return 1;
+    if (dias >= 3) return 2;
+    return 3;
+  }
+
+  function sortOrcamentosPorPrioridade(items: Orcamento[]) {
+    return [...items].sort((left, right) => {
+      const prioridade = getPrioridadeFollowUp(left) - getPrioridadeFollowUp(right);
+      if (prioridade !== 0) return prioridade;
+
+      const diasDiff = getDiasSemInteracao(right.last_interaction_at) - getDiasSemInteracao(left.last_interaction_at);
+      if (diasDiff !== 0) return diasDiff;
+
+      const dataCriacaoLeft = left.data_criacao ? new Date(left.data_criacao).getTime() : 0;
+      const dataCriacaoRight = right.data_criacao ? new Date(right.data_criacao).getTime() : 0;
+      return dataCriacaoRight - dataCriacaoLeft;
+    });
+  }
+
   $: resumo = {
     total:         orcamentosFiltrados.length,
     novos:         orcamentosFiltrados.filter(o => o.status === 'novo').length,
@@ -44,7 +73,8 @@
     enviados:      orcamentosFiltrados.filter(o => o.status === 'enviado').length,
     aprovados:     orcamentosFiltrados.filter(o => o.status === 'aprovado').length,
     convertidos:   orcamentosFiltrados.filter(o => o.status === 'fechado').length,
-    semInteracao:  orcamentosFiltrados.filter(o => !o.last_interaction_at).length,
+    semInteracao:  orcamentosFiltrados.filter(o => !o.last_interaction_at && o.status !== 'fechado').length,
+    followupAtrasado: orcamentosFiltrados.filter(o => o.last_interaction_at && getDiasSemInteracao(o.last_interaction_at) >= 7 && o.status !== 'fechado').length,
     valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
     valorAprovado: orcamentosFiltrados
                      .filter(o => o.status === 'aprovado')
@@ -80,7 +110,8 @@
       if (!response.ok) throw new Error(await response.text());
 
       const payload = await response.json();
-      orcamentosFiltrados = Array.isArray(payload) ? payload : [];
+      const items = Array.isArray(payload) ? payload : [];
+      orcamentosFiltrados = sortOrcamentosPorPrioridade(items);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       const msg = err instanceof Error ? err.message : 'Erro ao carregar orçamentos.';
@@ -171,10 +202,11 @@
       formatter: (value: string | null, row: Orcamento) => {
         if (!value) return '<span class="text-red-600 font-medium">Sem interação</span>';
         const data = new Date(value);
-        const diff = Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+        const diff = getDiasSemInteracao(value);
         const classe = diff >= 7 ? 'text-amber-700 font-medium' : 'text-slate-700';
         const nota = row.last_interaction_notes ? `<div class="text-xs text-slate-500">${row.last_interaction_notes}</div>` : '';
-        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${nota}</div>`;
+        const atraso = diff >= 7 ? `<div class="text-xs text-amber-700">${diff} dias sem contato</div>` : '';
+        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${atraso}${nota}</div>`;
       }
     },
     {
@@ -292,14 +324,12 @@
   <KPICard title="Enviados" value={resumo.enviados} color="orcamentos" icon={Send} subtitle="Aguardando cliente" />
   <KPICard title="Aprovados" value={resumo.aprovados} color="orcamentos" icon={CheckCircle} subtitle="Prontos para virar venda" />
   <KPICard title="Convertidos" value={resumo.convertidos} color="orcamentos" icon={ShoppingCart} subtitle={`${resumo.taxaConversao}% conversão`} />
-  <KPICard title="Sem interação" value={resumo.semInteracao} color="orcamentos" icon={Clock} subtitle="Precisam de follow-up" />
-  <KPICard
-    title="Valor Pipeline"
-    value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorTotal)}
-    color="orcamentos"
-    icon={TrendingUp}
-    subtitle={`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorConvertido)} convertidos`}
-  />
+  <KPICard title="Sem interação" value={resumo.semInteracao} color="orcamentos" icon={Clock} subtitle="Prioridade máxima" />
+  <KPICard title="Atrasados" value={resumo.followupAtrasado} color="orcamentos" icon={Clock} subtitle="7+ dias sem contato" />
+</div>
+
+<div class="mb-6 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  A lista prioriza automaticamente orçamentos <strong>sem interação</strong>, depois follow-ups mais antigos e deixa os <strong>convertidos</strong> no fim da fila operacional.
 </div>
 
 <DataTable
