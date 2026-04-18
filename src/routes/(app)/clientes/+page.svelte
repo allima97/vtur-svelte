@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { CalendarDays, Plus, Users, Wallet, ShoppingBag, FileText } from 'lucide-svelte';
+  import { CalendarDays, Plus, Users, Wallet, ShoppingBag, FileText, Clock } from 'lucide-svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -137,6 +137,7 @@
   $: totalCarteira = clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0);
   $: clientesComViagem = clientes.filter((item) => item.total_viagens > 0).length;
   $: clientesEmNegociacao = clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length;
+  $: clientesIniciais = Math.max(clientes.length - clientesComViagem - clientesEmNegociacao, 0);
 
   $: filters = [
     {
@@ -241,11 +242,60 @@
   ]}
 />
 
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+    <p class="text-sm text-slate-500">Resumo da carteira com foco em relacionamento, negociacao e reativacao.</p>
+  </div>
+</div>
+
 {#if errorMessage}
   <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
     {errorMessage}
   </div>
 {/if}
+
+<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+  <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-green-50 p-3 text-green-600"><Users size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
+    </div>
+    <p class="text-sm text-slate-500">Clientes ativos</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{statusAtivos}</p>
+    <p class="mt-2 text-sm text-slate-600">Base com relacionamento ativo e historico comercial recorrente.</p>
+  </button>
+
+  <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
+    </div>
+    <p class="text-sm text-slate-500">Em negociacao</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{clientesEmNegociacao}</p>
+    <p class="mt-2 text-sm text-slate-600">Clientes com orcamentos em aberto e sem conversao em viagem.</p>
+  </button>
+
+  <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-pink-50 p-3 text-pink-600"><CalendarDays size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
+    </div>
+    <p class="text-sm text-slate-500">Aniversariantes hoje</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{aniversariantesHoje}</p>
+    <p class="mt-2 text-sm text-slate-600">Oportunidade imediata de contato consultivo e reativacao comercial.</p>
+  </button>
+
+  <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="rounded-lg bg-slate-100 p-3 text-slate-700"><Wallet size={20} /></div>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Carteira</span>
+    </div>
+    <p class="text-sm text-slate-500">Base inicial</p>
+    <p class="mt-1 text-2xl font-bold text-slate-900">{clientesIniciais}</p>
+    <p class="mt-2 text-sm text-slate-600">Clientes sem conversao ainda, prontos para nutricao e qualificacao comercial.</p>
+  </button>
+</div>
 
 <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
   <KPICard title="Clientes na carteira" value={clientes.length} color="clientes" icon={Users} />
@@ -261,9 +311,7 @@
 </div>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  <strong class="text-slate-900">{clientesComViagem}</strong> clientes com historico de viagens,{' '}
-  <strong class="text-slate-900">{clientesEmNegociacao}</strong> em negociacao com orcamentos e{' '}
-  <strong class="text-slate-900">{clientes.length - clientesComViagem - clientesEmNegociacao}</strong> ainda em fase inicial sem conversao comercial.
+  A carteira consolida <strong class="text-slate-900">{clientesComViagem}</strong> clientes com historico de viagens, <strong class="text-slate-900">{clientesEmNegociacao}</strong> em negociacao com orcamentos e <strong class="text-slate-900">{clientesIniciais}</strong> ainda em fase inicial sem conversao comercial.
 </div>
 
 <DataTable
