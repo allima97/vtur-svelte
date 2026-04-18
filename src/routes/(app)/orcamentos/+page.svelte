@@ -34,6 +34,7 @@
   let filtroPeriodo = '';
   let filtroBusca = '';
   let somenteCriticos = false;
+  let somenteProntosVenda = false;
 
   let abortController: AbortController | null = null;
   let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -64,6 +65,10 @@
     return isExpirando(item);
   }
 
+  function isProntoParaVenda(item: Orcamento) {
+    return item.status === 'aprovado';
+  }
+
   function getPrioridadeFollowUp(item: Orcamento) {
     if (item.status === 'fechado') return 99;
     if (!item.last_interaction_at) return 0;
@@ -91,9 +96,12 @@
   }
 
   $: criticosCount = orcamentosFiltrados.filter((o) => isCritico(o)).length;
-  $: orcamentosVisiveis = somenteCriticos
-    ? orcamentosFiltrados.filter((o) => isCritico(o))
-    : orcamentosFiltrados;
+  $: prontosVendaCount = orcamentosFiltrados.filter((o) => isProntoParaVenda(o)).length;
+  $: orcamentosVisiveis = orcamentosFiltrados.filter((o) => {
+    if (somenteCriticos && !isCritico(o)) return false;
+    if (somenteProntosVenda && !isProntoParaVenda(o)) return false;
+    return true;
+  });
 
   $: resumo = {
     total:         orcamentosFiltrados.length,
@@ -366,7 +374,10 @@
   <button
     type="button"
     class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteCriticos ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
-    on:click={() => (somenteCriticos = !somenteCriticos)}
+    on:click={() => {
+      somenteCriticos = !somenteCriticos;
+      if (somenteCriticos) somenteProntosVenda = false;
+    }}
   >
     {#if somenteCriticos}
       Mostrando críticos ({criticosCount})
@@ -374,11 +385,30 @@
       Ver apenas críticos ({criticosCount})
     {/if}
   </button>
-  {#if somenteCriticos}
+
+  <button
+    type="button"
+    class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteProntosVenda ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}`}
+    on:click={() => {
+      somenteProntosVenda = !somenteProntosVenda;
+      if (somenteProntosVenda) somenteCriticos = false;
+    }}
+  >
+    {#if somenteProntosVenda}
+      Mostrando prontos para venda ({prontosVendaCount})
+    {:else}
+      Ver prontos para venda ({prontosVendaCount})
+    {/if}
+  </button>
+
+  {#if somenteCriticos || somenteProntosVenda}
     <button
       type="button"
       class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
-      on:click={() => (somenteCriticos = false)}
+      on:click={() => {
+        somenteCriticos = false;
+        somenteProntosVenda = false;
+      }}
     >
       Limpar filtro rápido
     </button>
