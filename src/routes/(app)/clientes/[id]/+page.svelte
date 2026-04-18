@@ -123,10 +123,25 @@
       prospect: 'bg-blue-100 text-blue-700',
       aprovado: 'bg-green-100 text-green-700',
       pendente: 'bg-amber-100 text-amber-700',
-      rejeitado: 'bg-red-100 text-red-700'
+      rejeitado: 'bg-red-100 text-red-700',
+      fechado: 'bg-emerald-100 text-emerald-700'
     };
 
     return styles[String(status || '').toLowerCase()] || 'bg-slate-100 text-slate-700';
+  }
+
+  function getStatusLabel(status: string | null | undefined) {
+    const key = String(status || '').toLowerCase();
+    const labels: Record<string, string> = {
+      ativo: 'Ativo',
+      inativo: 'Inativo',
+      prospect: 'Prospect',
+      aprovado: 'Aprovado',
+      pendente: 'Pendente',
+      rejeitado: 'Rejeitado',
+      fechado: 'Convertido em Venda'
+    };
+    return labels[key] || String(status || '-');
   }
 
   function getTipoPessoaLabel(value: string | null | undefined) {
@@ -244,7 +259,7 @@
             <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
               <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
               <span class={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadge(cliente.status)}`}>
-                {cliente.status}
+                {getStatusLabel(cliente.status)}
               </span>
             </div>
             <div class="rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
@@ -399,7 +414,7 @@
                     <td class="px-4 py-3 text-slate-700">{formatDate(orcamento.data_orcamento)}</td>
                     <td class="px-4 py-3">
                       <span class={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadge(orcamento.status)}`}>
-                        {orcamento.status || '-'}
+                        {getStatusLabel(orcamento.status)}
                       </span>
                     </td>
                     <td class="px-4 py-3 text-slate-900">{orcamento.produto_nome || '-'}</td>
