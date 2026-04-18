@@ -50,7 +50,9 @@
     totalReceber: 0,
     totalPagar: 0,
     comissoesPendentes: 0,
-    conciliacoesPendentes: 0
+    conciliacoesPendentes: 0,
+    divergencias: 0,
+    backlogFinanceiro: 0
   };
 
   let modulos = [
@@ -120,27 +122,37 @@
       comissoes = comData.items || [];
 
       const pagamentosPendentes = pagamentos.filter((p) => p.status === 'pendente');
+      const pagamentosDivergentes = pagamentos.filter((p) => p.status === 'divergente');
       const comissoesPendentesItems = comissoes.filter((c) => c.status === 'pendente');
 
       resumo = {
         totalReceber: pagamentosPendentes.reduce((acc, item) => acc + Number(item.valor || 0), 0),
         totalPagar: comissoesPendentesItems.reduce((acc, item) => acc + Number(item.valor_comissao || 0), 0),
         comissoesPendentes: comissoesPendentesItems.length,
-        conciliacoesPendentes: pagamentosPendentes.length
+        conciliacoesPendentes: pagamentosPendentes.length,
+        divergencias: pagamentosDivergentes.length,
+        backlogFinanceiro: pagamentosPendentes.length + pagamentosDivergentes.length + comissoesPendentesItems.length
       };
 
       modulos = modulos.map((modulo) => {
         if (modulo.titulo === 'Conciliação') {
           return {
             ...modulo,
-            stats: `${resumo.conciliacoesPendentes} pendentes`
+            stats: `${resumo.conciliacoesPendentes} pendentes · ${resumo.divergencias} divergências`
           };
         }
 
         if (modulo.titulo === 'Comissões') {
           return {
             ...modulo,
-            stats: formatCurrency(resumo.totalPagar)
+            stats: `${formatCurrency(resumo.totalPagar)} · ${resumo.comissoesPendentes} pendentes`
+          };
+        }
+
+        if (modulo.titulo === 'Caixa') {
+          return {
+            ...modulo,
+            stats: `${formatCurrency(resumo.totalReceber)} a receber`
           };
         }
 
@@ -217,7 +229,7 @@
     <span class="ml-3 text-slate-600">Carregando dashboard financeiro...</span>
   </div>
 {:else}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <div class="vtur-card p-5 border-l-4 border-l-financeiro-500">
       <div class="flex items-center justify-between">
         <div>
@@ -265,6 +277,42 @@
         </div>
       </div>
     </div>
+
+    <div class="vtur-card p-5 border-l-4 border-l-slate-500">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-500">Backlog Financeiro</p>
+          <p class="text-2xl font-bold text-slate-900">{resumo.backlogFinanceiro}</p>
+        </div>
+        <div class="p-3 bg-slate-100 rounded-lg">
+          <Clock size={24} class="text-slate-700" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    O financeiro agora consolida prioridades de fechamento: <strong>{resumo.conciliacoesPendentes}</strong> conciliações pendentes, <strong>{resumo.divergencias}</strong> divergências e <strong>{resumo.comissoesPendentes}</strong> comissões pendentes.
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <p class="text-sm text-slate-500 mb-1">Fila prioritária</p>
+      <p class="text-lg font-semibold text-slate-900">Backlog de Conciliação</p>
+      <p class="mt-2 text-sm text-slate-600">Atalhe direto para pendentes e divergentes do fechamento financeiro.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <p class="text-sm text-slate-500 mb-1">Pagamento interno</p>
+      <p class="text-lg font-semibold text-slate-900">Comissões Pendentes</p>
+      <p class="mt-2 text-sm text-slate-600">Acompanhe pagamentos a vendedores e backlog de comissões em aberto.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <p class="text-sm text-slate-500 mb-1">Visão executiva</p>
+      <p class="text-lg font-semibold text-slate-900">Fluxo de Caixa</p>
+      <p class="mt-2 text-sm text-slate-600">Use o caixa para analisar entradas, saídas e impacto financeiro consolidado.</p>
+    </button>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -274,20 +322,10 @@
         class="vtur-card p-6 text-left hover:shadow-lg transition-all duration-200 group"
       >
         <div class="flex items-start justify-between mb-4">
-          <div
-            class="p-3 rounded-lg"
-            style="background-color: var(--color-{modulo.cor}-50);"
-          >
-            <svelte:component
-              this={modulo.icone}
-              size={28}
-              style="color: var(--color-{modulo.cor}-600);"
-            />
+          <div class="p-3 rounded-lg" style="background-color: var(--color-{modulo.cor}-50);">
+            <svelte:component this={modulo.icone} size={28} style="color: var(--color-{modulo.cor}-600);" />
           </div>
-          <ArrowRight
-            size={20}
-            class="text-slate-400 group-hover:text-financeiro-600 group-hover:translate-x-1 transition-all"
-          />
+          <ArrowRight size={20} class="text-slate-400 group-hover:text-financeiro-600 group-hover:translate-x-1 transition-all" />
         </div>
 
         <h3 class="text-lg font-semibold text-slate-900 mb-1">{modulo.titulo}</h3>
@@ -322,9 +360,7 @@
           <tbody class="divide-y divide-slate-200">
             {#each movimentosRecentes as movimento}
               <tr class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-slate-700">
-                  {new Date(movimento.data).toLocaleDateString('pt-BR')}
-                </td>
+                <td class="px-4 py-3 text-slate-700">{new Date(movimento.data).toLocaleDateString('pt-BR')}</td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-900">{movimento.descricao}</p>
                   <p class="text-xs text-slate-500">{movimento.detalhe}</p>
