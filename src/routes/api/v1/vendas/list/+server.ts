@@ -99,11 +99,43 @@ function deriveVendaTipo(row: VendaRow): VendaTipo {
   return 'pacote';
 }
 
-function formatVendaItem(row: VendaRow): VendaItem {
-  const recibos = Array.isArray(row.recibos) ? row.recibos : [];
+function getReceipts(row: VendaRow) {
+  return Array.isArray(row.recibos) ? row.recibos : [];
+}
+
+function deriveValorTotal(row: VendaRow) {
+  const recibos = getReceipts(row);
+  if (recibos.length > 0) {
+    const totalRecibos = recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
+    if (totalRecibos > 0) return totalRecibos;
+  }
+  return Number(row.valor_total || 0);
+}
+
+function deriveValorTotalBruto(row: VendaRow) {
+  const valorBruto = Number(row.valor_total_bruto || 0);
+  if (valorBruto > 0) return valorBruto;
+  return deriveValorTotal(row);
+}
+
+function deriveValorTaxas(row: VendaRow) {
+  const recibos = getReceipts(row);
   const taxasRecibos = recibos.reduce((sum, recibo) => {
     return sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0) + Number(recibo?.valor_rav || 0);
   }, 0);
+  const valorTaxasBase = Number(row.valor_taxas || 0);
+  return valorTaxasBase > 0 ? valorTaxasBase : taxasRecibos;
+}
+
+function deriveConciliado(row: VendaRow): boolean | null {
+  const recibos = getReceipts(row);
+  if (recibos.length === 0) return null;
+  const allPositive = recibos.every((recibo) => Number(recibo?.valor_total || 0) > 0);
+  return allPositive;
+}
+
+function formatVendaItem(row: VendaRow): VendaItem {
+  const recibos = getReceipts(row);
   const totalSeguro = recibos.reduce((sum, recibo) => {
     const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
     const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
@@ -113,8 +145,6 @@ function formatVendaItem(row: VendaRow): VendaItem {
   const produtos = recibos
     .map((recibo) => String(recibo?.produto_resolvido?.nome || recibo?.tipo_produtos?.nome || '').trim())
     .filter(Boolean);
-  const valorTaxasBase = Number(row.valor_taxas || 0);
-  const valorTaxas = valorTaxasBase > 0 ? valorTaxasBase : taxasRecibos;
   const destinoNome = String(row.destinos?.nome || '').trim();
   const cidadeDestino = String(row.destino_cidade?.nome || '').trim();
 
@@ -129,9 +159,9 @@ function formatVendaItem(row: VendaRow): VendaItem {
     data_venda: row.data_venda,
     data_embarque: row.data_embarque,
     data_final: row.data_final,
-    valor_total: Number(row.valor_total || 0),
-    valor_total_bruto: Number(row.valor_total_bruto || 0),
-    valor_taxas: valorTaxas,
+    valor_total: deriveValorTotal(row),
+    valor_total_bruto: deriveValorTotalBruto(row),
+    valor_taxas: deriveValorTaxas(row),
     status: deriveVendaStatus(row),
     vendedor: String(row.vendedor?.nome_completo || 'Equipe VTUR'),
     tipo: deriveVendaTipo(row),
@@ -139,7 +169,7 @@ function formatVendaItem(row: VendaRow): VendaItem {
       .map((recibo) => String(recibo?.numero_recibo || recibo?.numero_reserva || '').trim())
       .filter(Boolean),
     produtos,
-    conciliado: null,
+    conciliado: deriveConciliado(row),
     total_seguro: totalSeguro
   };
 }
@@ -170,20 +200,19 @@ function computeKpisFromRows(rows: VendaRow[]) {
   let totalSeguro = 0;
 
   for (const row of rows) {
-    const recibos = Array.isArray(row.recibos) ? row.recibos : [];
+    const recibos = getReceipts(row);
     if (recibos.length > 0) {
-      for (const recibo of recibos) {
-        const valorTotal = Number(recibo?.valor_total || 0);
-        const valorTaxas = Number(recibo?.valor_taxas || 0);
-        totalVendas += valorTotal;
-        totalTaxas += valorTaxas;
-
+      totalVendas += recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
+      totalTaxas += recibos.reduce(
+        (sum, recibo) => sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0) + Number(recibo?.valor_rav || 0),
+        0
+      );
+      totalSeguro += recibos.reduce((sum, recibo) => {
         const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
         const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
-        if (tipo.includes('seguro') || nome.includes('seguro')) {
-          totalSeguro += valorTotal;
-        }
-      }
+        const isSeguro = tipo.includes('seguro') || nome.includes('seguro');
+        return sum + (isSeguro ? Number(recibo?.valor_total || 0) : 0);
+      }, 0);
       continue;
     }
 
@@ -283,7 +312,6 @@ export async function GET(event) {
 
     const payloadItems = all || openId ? items : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
-    // Busca lista completa de vendedores acessíveis quando solicitado (papel MASTER)
     let vendedores: Array<{ id: string; nome_completo: string }> = [];
     if (includeVendedores) {
       let usersQuery = client
