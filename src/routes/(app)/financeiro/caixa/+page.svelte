@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { 
-    TrendingUp, TrendingDown, DollarSign, Calendar, 
+  import {
+    TrendingUp, TrendingDown, DollarSign, Calendar,
     Plus, Download, ArrowUpRight, ArrowDownRight,
     Wallet, CreditCard, Banknote, Loader2, FileText
   } from 'lucide-svelte';
@@ -58,7 +59,6 @@
   let showMovimentacaoDialog = false;
   let processando = false;
 
-  // Formulário de nova movimentação
   let novaMovimentacao = {
     tipo: 'entrada' as 'entrada' | 'saida',
     categoria: 'outro',
@@ -77,7 +77,7 @@
     dataInicio = primeiroDia.toISOString().split('T')[0];
     dataFim = hoje.toISOString().split('T')[0];
     novaMovimentacao.data_movimentacao = hoje.toISOString().split('T')[0];
-    
+
     carregarDados();
     carregarFormasPagamento();
   });
@@ -133,11 +133,16 @@
     return new Date(dateStr).toLocaleDateString('pt-BR');
   }
 
+  $: backlogFinanceiroValor = Number(resumo.totalPendente || 0) + Number(resumo.totalDivergente || 0);
+  $: temBacklogFinanceiro = backlogFinanceiroValor > 0;
+  $: entradasRecentes = movimentacoes.filter((m) => m.tipo === 'entrada').length;
+  $: saidasRecentes = movimentacoes.filter((m) => m.tipo === 'saida').length;
+
   function getChartData() {
     const labels = porFormaPagamento.map(fp => fp.nome);
     const data = porFormaPagamento.map(fp => fp.valor);
     const colors = [
-      '#f97316', '#3b82f6', '#10b981', '#8b5cf6', 
+      '#f97316', '#3b82f6', '#10b981', '#8b5cf6',
       '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'
     ];
 
@@ -189,7 +194,7 @@
 
       toast.success('Movimentação registrada com sucesso!');
       showMovimentacaoDialog = false;
-      
+
       novaMovimentacao = {
         tipo: 'entrada',
         categoria: 'outro',
@@ -199,7 +204,7 @@
         forma_pagamento_id: '',
         observacoes: ''
       };
-      
+
       await carregarDados();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar movimentação');
@@ -253,7 +258,7 @@
   <title>Caixa | VTUR</title>
 </svelte:head>
 
-<PageHeader 
+<PageHeader
   title="Dashboard de Caixa"
   subtitle="Acompanhe o fluxo de caixa e movimentações financeiras"
   color="financeiro"
@@ -276,7 +281,6 @@
     <Loader2 size={48} class="animate-spin text-financeiro-600" />
   </div>
 {:else}
-  <!-- Filtros -->
   <Card color="financeiro" class="mb-6">
     <div class="flex flex-col sm:flex-row gap-4 items-end">
       <div class="flex-1 flex flex-wrap gap-4">
@@ -304,47 +308,42 @@
     </div>
   </Card>
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-    <KPICard 
-      title="Total Recebido" 
-      value={formatCurrency(resumo.totalEntradas)}
-      color="financeiro" 
-      icon={ArrowUpRight}
-    />
-
-    <KPICard 
-      title="Total Saídas" 
-      value={formatCurrency(resumo.totalSaidas)}
-      color="financeiro" 
-      icon={ArrowDownRight}
-    />
-
-    <KPICard 
-      title="Pendente" 
-      value={formatCurrency(resumo.totalPendente)}
-      color="financeiro" 
-      icon={Wallet}
-    />
-
-    <KPICard 
-      title="Divergente" 
-      value={formatCurrency(resumo.totalDivergente)}
-      color="financeiro" 
-      icon={TrendingDown}
-    />
-
-    <KPICard 
-      title="Saldo" 
-      value={formatCurrency(resumo.saldo)}
-      color="financeiro" 
-      icon={DollarSign}
-    />
+  <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+    <KPICard title="Total Recebido" value={formatCurrency(resumo.totalEntradas)} color="financeiro" icon={ArrowUpRight} />
+    <KPICard title="Total Saídas" value={formatCurrency(resumo.totalSaidas)} color="financeiro" icon={ArrowDownRight} />
+    <KPICard title="Pendente" value={formatCurrency(resumo.totalPendente)} color="financeiro" icon={Wallet} />
+    <KPICard title="Divergente" value={formatCurrency(resumo.totalDivergente)} color="financeiro" icon={TrendingDown} />
+    <KPICard title="Backlog" value={formatCurrency(backlogFinanceiroValor)} color="financeiro" icon={Banknote} />
+    <KPICard title="Saldo" value={formatCurrency(resumo.saldo)} color="financeiro" icon={DollarSign} />
   </div>
 
-  <!-- Gráfico e Lista -->
+  <div class="mb-6 rounded-[18px] border {temBacklogFinanceiro ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'} px-5 py-4 text-sm shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    {#if temBacklogFinanceiro}
+      O caixa aponta <strong>{formatCurrency(backlogFinanceiroValor)}</strong> em backlog financeiro, somando pendências e divergências que ainda exigem fechamento.
+    {:else}
+      O caixa está sem backlog financeiro relevante no período selecionado.
+    {/if}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <p class="text-sm text-slate-500 mb-1">Fechamento</p>
+      <p class="text-lg font-semibold text-slate-900">Ir para Conciliação</p>
+      <p class="mt-2 text-sm text-slate-600">Atalhe para tratar pendências e divergências financeiras.</p>
+    </button>
+    <div class="vtur-card p-5 text-left">
+      <p class="text-sm text-slate-500 mb-1">Movimento no período</p>
+      <p class="text-lg font-semibold text-slate-900">{entradasRecentes} entradas · {saidasRecentes} saídas</p>
+      <p class="mt-2 text-sm text-slate-600">Leitura rápida do volume operacional no período filtrado.</p>
+    </div>
+    <button on:click={() => goto('/financeiro')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <p class="text-sm text-slate-500 mb-1">Resumo executivo</p>
+      <p class="text-lg font-semibold text-slate-900">Voltar ao Financeiro</p>
+      <p class="mt-2 text-sm text-slate-600">Retorne ao painel executivo para navegar entre backlog, caixa e comissões.</p>
+    </button>
+  </div>
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Gráfico por Forma de Pagamento -->
     <Card header="Por Forma de Pagamento" icon={CreditCard} color="financeiro" class="lg:col-span-1">
       {#if porFormaPagamento.length > 0}
         <div class="h-64">
@@ -371,7 +370,6 @@
       {/if}
     </Card>
 
-    <!-- Lista de Movimentações -->
     <Card header="Movimentações Recentes" icon={FileText} color="financeiro" class="lg:col-span-2">
       {#if movimentacoes.length === 0}
         <div class="py-12 text-center text-slate-500">
@@ -408,8 +406,7 @@
                   </td>
                   <td class="px-4 py-3 text-center">
                     <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full {getStatusBadge(mov.status)}">
-                      {mov.status === 'conciliado' || mov.status === 'confirmado' ? 'Confirmado' : 
-                       mov.status === 'pendente' ? 'Pendente' : mov.status}
+                      {mov.status === 'conciliado' || mov.status === 'confirmado' ? 'Confirmado' : mov.status === 'pendente' ? 'Pendente' : mov.status}
                     </span>
                   </td>
                 </tr>
@@ -419,9 +416,7 @@
         </div>
         {#if movimentacoes.length > 10}
           <div class="mt-4 text-center">
-            <p class="text-sm text-slate-500">
-              Mostrando 10 de {movimentacoes.length} movimentações
-            </p>
+            <p class="text-sm text-slate-500">Mostrando 10 de {movimentacoes.length} movimentações</p>
           </div>
         {/if}
       {/if}
@@ -429,7 +424,6 @@
   </div>
 {/if}
 
-<!-- Dialog de Nova Movimentação -->
 <Dialog
   bind:open={showMovimentacaoDialog}
   title="Nova Movimentação"
@@ -465,33 +459,17 @@
 
     <div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
-      <input
-        type="text"
-        bind:value={novaMovimentacao.descricao}
-        placeholder="Descrição da movimentação"
-        class="vtur-input w-full"
-      />
+      <input type="text" bind:value={novaMovimentacao.descricao} placeholder="Descrição da movimentação" class="vtur-input w-full" />
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Valor *</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          bind:value={novaMovimentacao.valor}
-          placeholder="0,00"
-          class="vtur-input w-full"
-        />
+        <input type="number" step="0.01" min="0" bind:value={novaMovimentacao.valor} placeholder="0,00" class="vtur-input w-full" />
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Data *</label>
-        <input
-          type="date"
-          bind:value={novaMovimentacao.data_movimentacao}
-          class="vtur-input w-full"
-        />
+        <input type="date" bind:value={novaMovimentacao.data_movimentacao} class="vtur-input w-full" />
       </div>
     </div>
 
@@ -507,12 +485,7 @@
 
     <div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-      <textarea
-        bind:value={novaMovimentacao.observacoes}
-        rows="2"
-        placeholder="Observações opcionais"
-        class="vtur-input w-full"
-      ></textarea>
+      <textarea bind:value={novaMovimentacao.observacoes} rows="2" placeholder="Observações opcionais" class="vtur-input w-full"></textarea>
     </div>
   </div>
 </Dialog>
