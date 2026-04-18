@@ -124,7 +124,8 @@ export const nodes = [
 	() => import('./nodes/120'),
 	() => import('./nodes/121'),
 	() => import('./nodes/122'),
-	() => import('./nodes/123')
+	() => import('./nodes/123'),
+	() => import('./nodes/124')
 ];
 
 export const server_loads = [0];
@@ -202,6 +203,7 @@ export const dictionary = {
 		"/(app)/master/permissoes": [66,[2]],
 		"/(app)/master/usuarios": [67,[2]],
 		"/(app)/metas/vendedor": [68,[2]],
+		"/negado": [124],
 		"/(app)/operacao/acompanhamento": [69,[2]],
 		"/(app)/operacao/agenda": [70,[2]],
 		"/(app)/operacao/campanhas": [71,[2]],

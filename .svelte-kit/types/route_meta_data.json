@@ -990,6 +990,10 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/negado": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/operacao/acompanhamento": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"

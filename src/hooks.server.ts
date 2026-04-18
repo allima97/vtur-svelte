@@ -276,7 +276,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	if (
 		pathname.startsWith('/perfil') ||
 		pathname.startsWith('/negado') ||
-		pathname.startsWith('/documentacao')
+		pathname.startsWith('/documentacao') ||
+		// Dashboard é acessível a qualquer usuário autenticado — sem verificação de módulo
+		pathname === '/' ||
+		pathname.startsWith('/dashboard')
 	) {
 		return resolve(event);
 	}

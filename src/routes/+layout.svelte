@@ -22,31 +22,20 @@
           auth.setAuth(session.user, session);
           // Sincroniza sessão com cookies do servidor
           console.log('[Auth] Sincronizando tokens para cookies...');
-          let result = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            })
-          });
-          const text = await result.clone().text();
-          console.log('[Auth] Resultado sync:', result.ok, text);
-          if (!result.ok) {
-            console.error('[Auth] Falha ao sincronizar sessão com cookies no servidor');
-          }
-          // Simple retry on first failure to improve resilience
-          if (!result.ok) {
-            const retry = await fetch('/api/auth/set-session', {
+          try {
+            const result = await fetch('/api/auth/set-session', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 access_token: session.access_token,
                 refresh_token: session.refresh_token
               })
-            })
-            const retryText = await retry.clone().text();
-            console.log('[Auth] Retry result:', retry.ok, retryText);
+            });
+            if (!result.ok) {
+              console.warn('[Auth] Falha ao sincronizar sessão (status:', result.status, ')');
+            }
+          } catch (syncErr) {
+            console.warn('[Auth] Erro ao sincronizar sessão (ignorado):', syncErr);
           }
         } else if (event === 'SIGNED_OUT') {
           auth.clear();
@@ -58,14 +47,19 @@
       console.log('[Layout] Session no mount:', session ? 'existe' : 'nao existe');
       if (session) {
         console.log('[Layout] Sincronizando session existente...');
-        await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token
-          })
-        });
+        try {
+          await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            })
+          });
+        } catch (syncErr) {
+          // Falha silenciosa — o usuário continua autenticado via Supabase JS
+          console.warn('[Layout] Falha ao sincronizar cookie de sessão (ignorado):', syncErr);
+        }
       }
       
       // Inicializa Dexie Cloud se configurado
