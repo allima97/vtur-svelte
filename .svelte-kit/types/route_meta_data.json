@@ -899,6 +899,14 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/dashboard/financeiro": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/geral": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/dashboard/gestor": [
 		"src/routes/(app)/dashboard/gestor/+page.server.ts",
 		"src/routes/+layout.ts",

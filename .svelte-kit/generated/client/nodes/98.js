@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/(app)/parametros/tipo-pacotes/+page.svelte";
+export { default as component } from "../../../../src/routes/(app)/parametros/notificacoes/+page.svelte";
