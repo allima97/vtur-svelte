@@ -6,21 +6,21 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { 
-    ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone, 
+  import {
+    ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  
+
   const vendaId = $page.params.id;
-  
+
   let venda: any = null;
   let loading = true;
   let error: string | null = null;
   let processando = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let ensuringProdutos = new Set<string>();
-  
+
   onMount(async () => {
     await carregarVenda();
   });
@@ -43,14 +43,14 @@
       ensuringProdutos.delete(id);
     }
   }
-  
+
   async function carregarVenda() {
     try {
       loading = true;
       error = null;
-      
+
       const response = await fetch(`/api/v1/vendas/${vendaId}`);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         if (response.status === 404) {
@@ -59,11 +59,14 @@
         }
         throw new Error(`Erro ${response.status}: ${errorText}`);
       }
-      
+
       const data = await response.json();
       venda = data;
 
-      // Pré-carregar nomes de produtos dos recibos
+      if (venda?.status === 'aberto') {
+        venda.status = 'pendente';
+      }
+
       if (Array.isArray(venda?.recibos)) {
         const ids = new Set<string>();
         venda.recibos.forEach((r: any) => {
@@ -79,10 +82,10 @@
       loading = false;
     }
   }
-  
+
   async function handleCancelar() {
     if (!confirm('Tem certeza que deseja cancelar esta venda?')) return;
-    
+
     processando = true;
     try {
       const response = await fetch(`/api/v1/vendas/${vendaId}`, {
@@ -90,9 +93,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'cancelada', cancelada: true })
       });
-      
+
       if (!response.ok) throw new Error('Erro ao cancelar');
-      
+
       venda.status = 'cancelada';
       venda.cancelada = true;
       toast.success('Venda cancelada com sucesso!');
@@ -102,59 +105,65 @@
       processando = false;
     }
   }
-  
+
   async function handleExcluir() {
     if (!confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) return;
-    
+
     try {
       const response = await fetch(`/api/v1/vendas/${vendaId}`, {
         method: 'DELETE'
       });
-      
+
       if (!response.ok) throw new Error('Erro ao excluir');
-      
+
       toast.success('Venda excluída');
       goto('/vendas');
     } catch (err) {
       toast.error('Erro ao excluir venda');
     }
   }
-  
+
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   }
-  
+
   function formatDate(dateString: string | null): string {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('pt-BR');
   }
-  
+
   function getStatusColor(status: string): string {
     switch (status) {
       case 'confirmada': return 'bg-green-100 text-green-700 border-green-200';
       case 'pendente': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'cancelada': return 'bg-red-100 text-red-700 border-red-200';
       case 'concluida': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'aberto': return 'bg-purple-100 text-purple-700 border-purple-200';
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   }
-  
+
   function getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
-      'confirmada': 'Confirmada',
-      'pendente': 'Pendente',
-      'cancelada': 'Cancelada',
-      'concluida': 'Concluída',
-      'aberto': 'Aberto'
+      confirmada: 'Confirmada',
+      pendente: 'Pendente',
+      cancelada: 'Cancelada',
+      concluida: 'Concluída'
     };
     return labels[status] || status;
   }
-  
+
   $: valorTotal = Number(venda?.valor_total || 0);
   $: valorTaxas = Number(venda?.valor_taxas || 0);
   $: valorLiquido = valorTotal - valorTaxas;
   $: quantidadeRecibos = venda?.recibos?.length || 0;
+  $: totalRecibosValor = Array.isArray(venda?.recibos)
+    ? venda.recibos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
+    : 0;
+  $: totalPagamentosValor = Array.isArray(venda?.pagamentos)
+    ? venda.pagamentos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
+    : Number(venda?.valor_total_pago || 0);
+  $: diferencaFinanceira = Number((totalPagamentosValor - totalRecibosValor).toFixed(2));
+  $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
 </script>
 
 <svelte:head>
@@ -175,7 +184,7 @@
     </Button>
   </div>
 {:else if venda}
-  <PageHeader 
+  <PageHeader
     title="Venda {venda.codigo || vendaId.slice(0, 8).toUpperCase()}"
     subtitle="Criada em {formatDate(venda.created_at || venda.data_lancamento)} • Vendedor: {venda.vendedor?.nome || venda.vendedor || 'Não informado'}"
     color="vendas"
@@ -198,57 +207,35 @@
     ]}
   />
 
-  <!-- Status Banner -->
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(venda.status)} {venda.cancelada ? 'opacity-75' : ''}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3">
-        <span class="text-lg font-semibold">
-          Status: {getStatusLabel(venda.status)}
-        </span>
+        <span class="text-lg font-semibold">Status: {getStatusLabel(venda.status)}</span>
         {#if venda.cancelada}
-          <span class="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-            CANCELADA
-          </span>
+          <span class="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">CANCELADA</span>
         {/if}
       </div>
-      <div class="text-sm opacity-75">
-        Última atualização: {formatDate(venda.updated_at || venda.data_venda)}
-      </div>
+      <div class="text-sm opacity-75">Última atualização: {formatDate(venda.updated_at || venda.data_venda)}</div>
     </div>
   </div>
 
-  <!-- KPIs -->
+  <div class="mb-6 rounded-lg border px-4 py-3 {fechamentoFinanceiroOk ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">
+    {#if fechamentoFinanceiroOk}
+      <p class="text-sm font-medium">Recibos e pagamentos estão conciliados nesta venda.</p>
+    {:else}
+      <p class="text-sm font-medium">Há diferença entre recibos e pagamentos: {formatCurrency(diferencaFinanceira)}</p>
+    {/if}
+  </div>
+
   <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <KPICard 
-      title="Valor Total" 
-      value={formatCurrency(valorTotal)}
-      color="vendas"
-      icon={TrendingUp}
-    />
-    <KPICard 
-      title="Taxas" 
-      value={formatCurrency(valorTaxas)}
-      color="vendas"
-      icon={FileText}
-    />
-    <KPICard 
-      title="Líquido" 
-      value={formatCurrency(valorLiquido)}
-      color="vendas"
-      icon={ShoppingCart}
-    />
-    <KPICard 
-      title="Recibos" 
-      value={quantidadeRecibos}
-      color="vendas"
-      icon={Package}
-    />
+    <KPICard title="Valor Total" value={formatCurrency(valorTotal)} color="vendas" icon={TrendingUp} />
+    <KPICard title="Taxas" value={formatCurrency(valorTaxas)} color="vendas" icon={FileText} />
+    <KPICard title="Líquido" value={formatCurrency(valorLiquido)} color="vendas" icon={ShoppingCart} />
+    <KPICard title="Recibos" value={quantidadeRecibos} color="vendas" icon={Package} />
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Coluna Principal -->
     <div class="lg:col-span-2 space-y-6">
-      <!-- Dados do Cliente -->
       <Card header="Dados do Cliente" color="vendas">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="flex items-center gap-3">
@@ -287,7 +274,6 @@
         </div>
       </Card>
 
-      <!-- Dados da Venda -->
       <Card header="Dados da Venda" color="vendas">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="flex items-center gap-3">
@@ -328,8 +314,7 @@
           </div>
         </div>
       </Card>
-      
-      <!-- Recibos -->
+
       <Card header="Recibos" color="vendas">
         {#if venda.recibos && venda.recibos.length > 0}
           <div class="overflow-x-auto">
@@ -355,24 +340,16 @@
                     <td class="py-3 px-3 text-slate-700">
                       {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || venda.destino?.nome || 'N/A'}
                     </td>
-                    <td class="py-3 px-3 text-center text-slate-700">
-                      {recibo.numero_reserva || '-'}
-                    </td>
-                    <td class="py-3 px-3 text-center text-slate-700">
-                      {formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}
-                    </td>
-                    <td class="py-3 px-3 text-right font-medium text-slate-900">
-                      {formatCurrency(recibo.valor_total)}
-                    </td>
+                    <td class="py-3 px-3 text-center text-slate-700">{recibo.numero_reserva || '-'}</td>
+                    <td class="py-3 px-3 text-center text-slate-700">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
+                    <td class="py-3 px-3 text-right font-medium text-slate-900">{formatCurrency(recibo.valor_total)}</td>
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
                 <tr class="border-t-2 border-slate-200">
                   <td colspan="4" class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
-                  <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">
-                    {formatCurrency(venda.recibos.reduce((acc: number, item: any) => acc + (item.valor_total || 0), 0))}
-                  </td>
+                  <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">{formatCurrency(totalRecibosValor)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -384,8 +361,7 @@
           </div>
         {/if}
       </Card>
-      
-      <!-- Pagamentos -->
+
       <Card header="Pagamentos" color="vendas">
         {#if venda.pagamentos && venda.pagamentos.length > 0}
           <div class="overflow-x-auto">
@@ -407,26 +383,20 @@
                         <p class="text-sm text-slate-500">{pagamento.operacao}</p>
                       {/if}
                     </td>
-                    <td class="py-3 px-3 text-center text-slate-700">
-                      {pagamento.parcelas_qtd || pagamento.parcelas?.length || 1}x
-                    </td>
+                    <td class="py-3 px-3 text-center text-slate-700">{pagamento.parcelas_qtd || pagamento.parcelas?.length || 1}x</td>
                     <td class="py-3 px-3 text-center">
                       <span class="px-2 py-1 text-xs rounded-full {pagamento.paga_comissao !== false ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}">
                         {pagamento.paga_comissao !== false ? 'Sim' : 'Não'}
                       </span>
                     </td>
-                    <td class="py-3 px-3 text-right font-medium text-slate-900">
-                      {formatCurrency(pagamento.valor_total)}
-                    </td>
+                    <td class="py-3 px-3 text-right font-medium text-slate-900">{formatCurrency(pagamento.valor_total)}</td>
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
                 <tr class="border-t-2 border-slate-200">
                   <td colspan="3" class="py-4 px-3 text-right font-semibold text-slate-900">Total Pago:</td>
-                  <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">
-                    {formatCurrency(venda.pagamentos.reduce((acc: number, item: any) => acc + (item.valor_total || 0), 0))}
-                  </td>
+                  <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">{formatCurrency(totalPagamentosValor)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -438,8 +408,7 @@
           </div>
         {/if}
       </Card>
-      
-      <!-- Observações -->
+
       {#if venda.notas || venda.observacoes}
         <Card header="Observações" color="vendas">
           <div class="prose prose-slate max-w-none">
@@ -449,55 +418,35 @@
       {/if}
     </div>
 
-    <!-- Coluna Lateral -->
     <div class="space-y-6">
-      <!-- Ações -->
       <Card header="Ações" color="vendas">
         <div class="space-y-3">
           {#if venda.status !== 'cancelada'}
-            <Button
-              variant="danger"
-              on:click={handleCancelar}
-              loading={processando}
-              class_name="w-full justify-center"
-            >
+            <Button variant="danger" on:click={handleCancelar} loading={processando} class_name="w-full justify-center">
               <XCircle size={16} class="mr-2" />
               Cancelar Venda
             </Button>
           {/if}
-          
+
           <div class="grid grid-cols-2 gap-3 pt-3 {venda.status !== 'cancelada' ? 'border-t border-slate-200' : ''}">
-            <Button
-              variant="secondary"
-              on:click={() => goto(`/vendas/${vendaId}/editar`)}
-              class_name="w-full justify-center"
-            >
+            <Button variant="secondary" on:click={() => goto(`/vendas/${vendaId}/editar`)} class_name="w-full justify-center">
               <Edit size={16} class="mr-2" />
               Editar
             </Button>
-            
-            <Button
-              variant="secondary"
-              on:click={() => goto('/vendas')}
-              class_name="w-full justify-center"
-            >
+
+            <Button variant="secondary" on:click={() => goto('/vendas')} class_name="w-full justify-center">
               <ArrowLeft size={16} class="mr-2" />
               Voltar
             </Button>
           </div>
-          
-          <Button
-            variant="ghost"
-            class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
-            on:click={handleExcluir}
-          >
+
+          <Button variant="ghost" class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50" on:click={handleExcluir}>
             <Trash2 size={16} class="mr-2" />
             Excluir Venda
           </Button>
         </div>
       </Card>
 
-      <!-- Resumo Financeiro -->
       <Card header="Resumo Financeiro" color="vendas">
         <div class="space-y-4">
           <div class="flex justify-between items-center py-2 border-b border-slate-100">
@@ -514,7 +463,15 @@
           </div>
           <div class="flex justify-between items-center py-2 border-b border-slate-100">
             <span class="text-sm text-slate-500">Total Pago</span>
-            <span class="font-semibold text-slate-900">{formatCurrency(venda.valor_total_pago)}</span>
+            <span class="font-semibold text-slate-900">{formatCurrency(totalPagamentosValor)}</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-500">Total Recibos</span>
+            <span class="font-semibold text-slate-900">{formatCurrency(totalRecibosValor)}</span>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-500">Diferença</span>
+            <span class="font-semibold {fechamentoFinanceiroOk ? 'text-green-700' : 'text-amber-700'}">{formatCurrency(diferencaFinanceira)}</span>
           </div>
           <div class="flex justify-between items-center py-2">
             <span class="text-sm text-slate-500">Não Comissionado</span>
