@@ -9,7 +9,7 @@
   import { 
     ArrowLeft, Edit, Send, CheckCircle, XCircle, FileText, Printer, 
     Trash2, ShoppingCart, Loader2, User, Mail, Phone, MessageCircle, 
-    Calendar, Clock, History, TrendingUp, Package
+    Calendar, Clock, History, TrendingUp, Package, AlertCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import ModalInteracaoQuote from '$lib/components/modais/ModalInteracaoQuote.svelte';
@@ -269,6 +269,55 @@
     ]}
   />
 
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo do orçamento com foco em status comercial, follow-up, validade e conversão em venda.</p>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${statusAtual === 'aprovado' ? 'bg-green-50 text-green-600' : statusAtual === 'rejeitado' ? 'bg-red-50 text-red-600' : statusAtual === 'enviado' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}><FileText size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+      </div>
+      <p class="text-sm text-slate-500">Status comercial</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(orcamento.status)}</p>
+      <p class="mt-2 text-sm text-slate-600">Leitura rápida do estágio atual da proposta dentro do pipeline.</p>
+    </button>
+
+    <button on:click={() => (showInteracaoModal = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${!ultimaInteracao ? 'bg-red-50 text-red-600' : (diasSemInteracao || 0) >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}><Clock size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Follow-up</span>
+      </div>
+      <p class="text-sm text-slate-500">Última interação</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{!ultimaInteracao ? 'Sem registro' : `${diasSemInteracao || 0}d`}</p>
+      <p class="mt-2 text-sm text-slate-600">{!ultimaInteracao ? 'Ainda não há contato registrado para esta proposta.' : `Último contato em ${formatDateTime(ultimaInteracao.created_at)}.`}</p>
+    </button>
+
+    <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${isExpirado ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}><AlertCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Validade</span>
+      </div>
+      <p class="text-sm text-slate-500">Vencimento</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatDate(orcamento.valid_until || orcamento.data_validade)}</p>
+      <p class="mt-2 text-sm text-slate-600">{isExpirado ? 'A proposta já está expirada e exige revisão comercial.' : 'Use este prazo para priorizar aprovação, ajuste ou novo contato.'}</p>
+    </button>
+
+    <button on:click={() => (podeCriarVenda ? goto(`/vendas/nova?orcamento=${orcamentoId}`) : goto('/orcamentos'))} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${orcamentoConvertido ? 'bg-emerald-50 text-emerald-600' : podeCriarVenda ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-700'}`}><ShoppingCart size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Conversão</span>
+      </div>
+      <p class="text-sm text-slate-500">Próximo passo</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{orcamentoConvertido ? 'Convertido' : podeCriarVenda ? 'Criar venda' : 'Acompanhar'}</p>
+      <p class="mt-2 text-sm text-slate-600">{orcamentoConvertido ? 'Este orçamento já virou venda e segue como histórico comercial.' : podeCriarVenda ? 'A proposta está aprovada e pronta para conversão operacional.' : 'Acompanhe até a definição comercial final.'}</p>
+    </button>
+  </div>
+
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(orcamento.status)}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3 flex-wrap">
@@ -364,6 +413,10 @@
       color="clientes"
       icon={FileText}
     />
+  </div>
+
+  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    Este orçamento reúne <strong>{quantidadeItens}</strong> item(ns), total de <strong>{formatCurrency(orcamento.total || valorTotal)}</strong> e {#if ultimaInteracao}<strong>última interação em {formatDateTime(ultimaInteracao.created_at)}</strong>{:else}<strong>nenhuma interação registrada</strong>{/if}, facilitando a leitura rápida de prioridade comercial.
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
