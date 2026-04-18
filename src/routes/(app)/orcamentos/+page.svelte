@@ -22,6 +22,8 @@
     vendedor_id: string;
     origem: 'manual' | 'site' | 'indicacao';
     quantidade_itens: number;
+    last_interaction_at?: string | null;
+    last_interaction_notes?: string | null;
   }
 
   let orcamentosFiltrados: Orcamento[] = [];
@@ -42,6 +44,7 @@
     enviados:      orcamentosFiltrados.filter(o => o.status === 'enviado').length,
     aprovados:     orcamentosFiltrados.filter(o => o.status === 'aprovado').length,
     convertidos:   orcamentosFiltrados.filter(o => o.status === 'fechado').length,
+    semInteracao:  orcamentosFiltrados.filter(o => !o.last_interaction_at).length,
     valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
     valorAprovado: orcamentosFiltrados
                      .filter(o => o.status === 'aprovado')
@@ -118,7 +121,7 @@
       return;
     }
 
-    const headers = ['Código', 'Cliente', 'Destino', 'Criação', 'Validade', 'Valor', 'Status', 'Responsável'];
+    const headers = ['Código', 'Cliente', 'Destino', 'Criação', 'Validade', 'Valor', 'Status', 'Última interação', 'Responsável'];
     const rows = orcamentosFiltrados.map(o => [
       o.codigo,
       o.cliente,
@@ -127,6 +130,7 @@
       o.data_validade ? new Date(o.data_validade).toLocaleDateString('pt-BR') : '',
       o.valor_total.toFixed(2).replace('.', ','),
       o.status,
+      o.last_interaction_at ? new Date(o.last_interaction_at).toLocaleDateString('pt-BR') : '',
       o.vendedor
     ]);
 
@@ -158,6 +162,20 @@
       width: '110px',
       formatter: (value: string | null) =>
         value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+    },
+    {
+      key: 'last_interaction_at',
+      label: 'Última interação',
+      sortable: true,
+      width: '180px',
+      formatter: (value: string | null, row: Orcamento) => {
+        if (!value) return '<span class="text-red-600 font-medium">Sem interação</span>';
+        const data = new Date(value);
+        const diff = Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+        const classe = diff >= 7 ? 'text-amber-700 font-medium' : 'text-slate-700';
+        const nota = row.last_interaction_notes ? `<div class="text-xs text-slate-500">${row.last_interaction_notes}</div>` : '';
+        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${nota}</div>`;
+      }
     },
     {
       key: 'data_validade',
@@ -267,13 +285,14 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-7">
+<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4 xl:grid-cols-8">
   <KPICard title="Total" value={resumo.total} color="orcamentos" icon={FileText} />
   <KPICard title="Novos" value={resumo.novos} color="orcamentos" icon={FileText} subtitle="Aguardando ação" />
   <KPICard title="Pendentes" value={resumo.pendentes} color="orcamentos" icon={Clock} subtitle="Em negociação" />
   <KPICard title="Enviados" value={resumo.enviados} color="orcamentos" icon={Send} subtitle="Aguardando cliente" />
   <KPICard title="Aprovados" value={resumo.aprovados} color="orcamentos" icon={CheckCircle} subtitle="Prontos para virar venda" />
   <KPICard title="Convertidos" value={resumo.convertidos} color="orcamentos" icon={ShoppingCart} subtitle={`${resumo.taxaConversao}% conversão`} />
+  <KPICard title="Sem interação" value={resumo.semInteracao} color="orcamentos" icon={Clock} subtitle="Precisam de follow-up" />
   <KPICard
     title="Valor Pipeline"
     value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(resumo.valorTotal)}
