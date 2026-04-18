@@ -151,6 +151,12 @@
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('pt-BR');
   }
+
+  function getDiasSemInteracao(dateString: string | null) {
+    if (!dateString) return null;
+    const data = new Date(dateString);
+    return Math.ceil((Date.now() - data.getTime()) / (1000 * 60 * 60 * 24));
+  }
   
   function getStatusColor(status: string): string {
     switch (String(status || '').toLowerCase()) {
@@ -209,6 +215,17 @@
   $: isExpirado = orcamento?.valid_until 
     ? new Date(orcamento.valid_until) < new Date() 
     : false;
+  $: ultimaInteracao = interacoes.length > 0 ? interacoes[0] : null;
+  $: diasSemInteracao = getDiasSemInteracao(ultimaInteracao?.created_at || null);
+  $: cardProximoPassoClasse = orcamentoConvertido
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : podeCriarVenda
+      ? 'border-green-200 bg-green-50 text-green-700'
+      : !ultimaInteracao
+        ? 'border-red-200 bg-red-50 text-red-700'
+        : (diasSemInteracao || 0) >= 7
+          ? 'border-amber-200 bg-amber-50 text-amber-700'
+          : 'border-blue-200 bg-blue-50 text-blue-700';
 </script>
 
 <svelte:head>
@@ -273,6 +290,53 @@
         Última atualização: {formatDateTime(orcamento.updated_at || orcamento.created_at)}
       </div>
     </div>
+  </div>
+
+  <div class="mb-6 rounded-lg border px-4 py-3 {cardProximoPassoClasse}">
+    {#if orcamentoConvertido}
+      <p class="text-sm font-semibold">Próximo passo: acompanhar a venda</p>
+      <p class="mt-1 text-sm">Este orçamento já foi convertido. Use esta tela como histórico comercial.</p>
+    {:else if podeCriarVenda}
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p class="text-sm font-semibold">Próximo passo: criar a venda</p>
+          <p class="mt-1 text-sm">O orçamento já está aprovado e pronto para conversão operacional.</p>
+        </div>
+        <Button variant="secondary" on:click={() => goto(`/vendas/nova?orcamento=${orcamentoId}`)} class_name="shrink-0 justify-center">
+          Criar venda agora
+        </Button>
+      </div>
+    {:else if !ultimaInteracao}
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p class="text-sm font-semibold">Próximo passo: registrar o primeiro contato</p>
+          <p class="mt-1 text-sm">Este orçamento ainda não tem interação registrada e entrou na fila crítica de follow-up.</p>
+        </div>
+        <Button variant="secondary" on:click={() => (showInteracaoModal = true)} class_name="shrink-0 justify-center">
+          Registrar interação
+        </Button>
+      </div>
+    {:else if (diasSemInteracao || 0) >= 7}
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p class="text-sm font-semibold">Próximo passo: retomar follow-up</p>
+          <p class="mt-1 text-sm">Faz {diasSemInteracao} dias desde a última interação. Vale reabrir contato agora.</p>
+        </div>
+        <Button variant="secondary" on:click={() => (showInteracaoModal = true)} class_name="shrink-0 justify-center">
+          Registrar novo follow-up
+        </Button>
+      </div>
+    {:else}
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p class="text-sm font-semibold">Acompanhamento em dia</p>
+          <p class="mt-1 text-sm">O orçamento está com interação recente. Mantenha o acompanhamento até a definição comercial.</p>
+        </div>
+        <Button variant="secondary" on:click={() => (showInteracaoModal = true)} class_name="shrink-0 justify-center">
+          Registrar interação
+        </Button>
+      </div>
+    {/if}
   </div>
 
   <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
