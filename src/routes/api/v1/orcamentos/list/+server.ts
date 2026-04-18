@@ -22,6 +22,8 @@ type OrcamentoRow = {
   currency: string | null;
   client_id: string | null;
   created_by: string | null;
+  last_interaction_at?: string | null;
+  last_interaction_notes?: string | null;
   cliente?: { id?: string | null; nome?: string | null; cpf?: string | null; email?: string | null } | null;
 };
 
@@ -44,9 +46,10 @@ function addDays(isoDate: string | null, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function deriveStatus(row: OrcamentoRow): 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' {
+function deriveStatus(row: OrcamentoRow): 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'fechado' {
   const status = normalizeText(row.status_negociacao || row.status);
 
+  if (status.includes('fech')) return 'fechado';
   if (status.includes('aprov')) return 'aprovado';
   if (status.includes('rejeit')) return 'rejeitado';
   if (status.includes('expir')) return 'expirado';
@@ -100,7 +103,6 @@ export async function GET(event) {
     const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids'));
     const clientIds = await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
     
-    // Filtros
     const statusFilter = searchParams.get('status');
     const periodoFilter = getPeriodoFilter(searchParams.get('periodo'));
 
@@ -115,12 +117,13 @@ export async function GET(event) {
         currency,
         client_id,
         created_by,
+        last_interaction_at,
+        last_interaction_notes,
         cliente:client_id (id, nome, cpf, email)
       `)
       .order('created_at', { ascending: false })
       .limit(500);
 
-    // Aplicar filtros de escopo
     if (vendedorIds.length > 0) {
       query = query.in('created_by', vendedorIds);
     } else if (companyIds.length > 0) {
@@ -130,19 +133,17 @@ export async function GET(event) {
       query = query.in('client_id', clientIds);
     }
 
-    // Aplicar filtro de período
     if (periodoFilter?.from && periodoFilter?.to) {
       query = query.gte('created_at', periodoFilter.from).lte('created_at', periodoFilter.to + 'T23:59:59');
     }
 
     let { data, error: queryError } = await query;
 
-    // Fallback sem join se falhar
     if (queryError) {
       console.error('[orcamentos/list] Erro na query com join:', queryError.message);
       let fallbackQuery = client
         .from('quote')
-        .select('id, created_at, status, status_negociacao, total, currency, client_id, created_by')
+        .select('id, created_at, status, status_negociacao, total, currency, client_id, created_by, last_interaction_at, last_interaction_notes')
         .order('created_at', { ascending: false })
         .limit(500);
 
@@ -157,7 +158,6 @@ export async function GET(event) {
       data = fallback.data;
     }
 
-    // Busca dados dos clientes separadamente se necessário
     const clientIdsFromData = Array.from(new Set(
       ((data || []) as OrcamentoRow[]).map((row) => String(row.client_id || '').trim()).filter(Boolean)
     ));
@@ -266,11 +266,12 @@ export async function GET(event) {
         vendedor_id: String(row.created_by || ''),
         origem: 'manual',
         quantidade_itens: itensCount,
-        currency: row.currency || 'BRL'
+        currency: row.currency || 'BRL',
+        last_interaction_at: row.last_interaction_at || null,
+        last_interaction_notes: row.last_interaction_notes || null
       };
     });
 
-    // Aplicar filtro de status no resultado (já que pode ser derivado)
     if (statusFilter) {
       items = items.filter(item => item.status === statusFilter);
     }
