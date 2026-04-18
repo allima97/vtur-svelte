@@ -16,7 +16,6 @@
   
   const orcamentoId = $page.params.id;
   
-  // Estado
   let orcamento: any = null;
   let interacoes: any[] = [];
   let loading = true;
@@ -71,7 +70,7 @@
     }
   }
   
-  async function atualizarStatus(novoStatus: string) {
+  async function atualizarStatus(novoStatus: string, redirectToVenda = false) {
     processando = true;
     try {
       const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`, {
@@ -86,8 +85,11 @@
       orcamento.status_negociacao = novoStatus;
       toast.success(`Orçamento ${getStatusLabel(novoStatus).toLowerCase()} com sucesso!`);
       
-      // Recarregar interações (a mudança de status gera uma interação)
       await carregarInteracoes();
+
+      if (redirectToVenda) {
+        goto(`/vendas/nova?orcamento=${orcamentoId}`);
+      }
     } catch (err) {
       toast.error('Erro ao atualizar status');
     } finally {
@@ -96,9 +98,9 @@
   }
   
   function handleAprovar() {
-    if (confirm('Confirmar aprovação deste orçamento?')) {
-      atualizarStatus('aprovado');
-    }
+    if (!confirm('Confirmar aprovação deste orçamento?')) return;
+    const redirectToVenda = confirm('Deseja seguir agora para criar a venda a partir deste orçamento?');
+    atualizarStatus('aprovado', redirectToVenda);
   }
   
   function handleRejeitar() {
@@ -151,27 +153,30 @@
   }
   
   function getStatusColor(status: string): string {
-    switch (status) {
+    switch (String(status || '').toLowerCase()) {
       case 'aprovado': return 'bg-green-100 text-green-700 border-green-200';
       case 'pendente': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'enviado': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'rejeitado': return 'bg-red-100 text-red-700 border-red-200';
       case 'expirado': return 'bg-slate-100 text-slate-600 border-slate-200';
       case 'novo': return 'bg-purple-100 text-purple-700 border-purple-200';
+      case 'fechado': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   }
   
   function getStatusLabel(status: string): string {
+    const key = String(status || '').toLowerCase();
     const labels: Record<string, string> = {
-      'aprovado': 'Aprovado',
-      'pendente': 'Pendente',
-      'enviado': 'Enviado',
-      'rejeitado': 'Rejeitado',
-      'expirado': 'Expirado',
-      'novo': 'Novo'
+      aprovado: 'Aprovado',
+      pendente: 'Pendente',
+      enviado: 'Enviado',
+      rejeitado: 'Rejeitado',
+      expirado: 'Expirado',
+      novo: 'Novo',
+      fechado: 'Convertido em Venda'
     };
-    return labels[status] || status;
+    return labels[key] || status;
   }
   
   function getTipoInteracaoIcon(tipo: string) {
@@ -198,8 +203,9 @@
   
   $: valorTotal = orcamento?.itens?.reduce((acc: number, item: any) => acc + (item.total_amount || 0), 0) || 0;
   $: quantidadeItens = orcamento?.itens?.length || 0;
-  
-  // Verificar se orçamento está expirado
+  $: statusAtual = String(orcamento?.status || '').toLowerCase();
+  $: podeCriarVenda = statusAtual === 'aprovado';
+  $: orcamentoConvertido = statusAtual === 'fechado';
   $: isExpirado = orcamento?.valid_until 
     ? new Date(orcamento.valid_until) < new Date() 
     : false;
@@ -246,16 +252,20 @@
     ]}
   />
 
-  <!-- Status Banner -->
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(orcamento.status)}">
     <div class="flex items-center justify-between flex-wrap gap-4">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
         <span class="text-lg font-semibold">
           Status: {getStatusLabel(orcamento.status)}
         </span>
-        {#if isExpirado && orcamento.status !== 'aprovado' && orcamento.status !== 'rejeitado'}
+        {#if isExpirado && !['aprovado', 'rejeitado', 'fechado'].includes(statusAtual)}
           <span class="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
             EXPIRADO
+          </span>
+        {/if}
+        {#if orcamentoConvertido}
+          <span class="px-2 py-1 bg-emerald-200 text-emerald-800 text-xs font-medium rounded-full">
+            CONVERTIDO
           </span>
         {/if}
       </div>
@@ -265,7 +275,6 @@
     </div>
   </div>
 
-  <!-- KPIs -->
   <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
     <KPICard 
       title="Valor Total" 
@@ -294,9 +303,7 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Coluna Principal -->
     <div class="lg:col-span-2 space-y-6">
-      <!-- Dados do Cliente -->
       <Card header="Dados do Cliente" color="clientes">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="flex items-center gap-3">
@@ -335,7 +342,6 @@
         </div>
       </Card>
       
-      <!-- Itens do Orçamento -->
       <Card header="Itens do Orçamento" color="clientes">
         {#if orcamento.itens && orcamento.itens.length > 0}
           <div class="overflow-x-auto">
@@ -391,7 +397,6 @@
         {/if}
       </Card>
       
-      <!-- Observações -->
       {#if orcamento.notes || orcamento.observacoes}
         <Card header="Observações e Condições" color="clientes">
           <div class="prose prose-slate max-w-none">
@@ -401,12 +406,10 @@
       {/if}
     </div>
 
-    <!-- Coluna Lateral -->
     <div class="space-y-6">
-      <!-- Ações -->
       <Card header="Ações" color="clientes">
         <div class="space-y-3">
-          {#if orcamento.status === 'pendente' || orcamento.status === 'novo'}
+          {#if statusAtual === 'pendente' || statusAtual === 'novo'}
             <Button
               variant="primary"
               color="clientes"
@@ -419,7 +422,7 @@
             </Button>
           {/if}
           
-          {#if orcamento.status === 'pendente' || orcamento.status === 'enviado' || orcamento.status === 'novo'}
+          {#if ['pendente', 'enviado', 'novo'].includes(statusAtual)}
             <div class="grid grid-cols-2 gap-3">
               <Button
                 variant="primary"
@@ -444,7 +447,7 @@
             </div>
           {/if}
           
-          {#if orcamento.status === 'aprovado'}
+          {#if podeCriarVenda}
             <Button
               variant="primary"
               color="vendas"
@@ -454,6 +457,12 @@
               <ShoppingCart size={16} class="mr-2" />
               Criar Venda
             </Button>
+          {/if}
+
+          {#if orcamentoConvertido}
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Este orçamento já foi convertido em venda.
+            </div>
           {/if}
           
           <Button
@@ -497,7 +506,6 @@
         </div>
       </Card>
 
-      <!-- Histórico de Interações -->
       <Card header="Histórico de Interações" color="clientes">
         {#if loadingInteracoes}
           <div class="flex items-center justify-center py-8">
@@ -551,7 +559,6 @@
     </div>
   </div>
   
-  <!-- Modal de Interação -->
   <ModalInteracaoQuote
     bind:open={showInteracaoModal}
     orcamentoId={orcamentoId}
