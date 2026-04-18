@@ -21,6 +21,7 @@ type DashboardVendaRow = {
   data_embarque: string | null;
   data_final: string | null;
   valor_total: number | null;
+  valor_taxas?: number | null;
   cancelada: boolean | null;
   clientes?: { id?: string | null; nome?: string | null } | null;
   destinos?: { nome?: string | null } | null;
@@ -29,7 +30,10 @@ type DashboardVendaRow = {
     id?: string | null;
     valor_total?: number | null;
     valor_taxas?: number | null;
+    valor_du?: number | null;
+    valor_rav?: number | null;
     tipo_produtos?: { id?: string | null; nome?: string | null; tipo?: string | null } | null;
+    produto_resolvido?: { id?: string | null; nome?: string | null } | null;
   }> | null;
 };
 
@@ -50,9 +54,37 @@ type DashboardQuoteRow = {
   }> | null;
 };
 
+function getReceipts(row: DashboardVendaRow) {
+  return Array.isArray(row.recibos) ? row.recibos : [];
+}
+
 function isSeguro(recibo: NonNullable<DashboardVendaRow['recibos']>[number]) {
   const label = `${recibo?.tipo_produtos?.nome || ''} ${recibo?.tipo_produtos?.tipo || ''}`.toLowerCase();
   return label.includes('seguro');
+}
+
+function deriveValorTotal(row: DashboardVendaRow) {
+  const recibos = getReceipts(row);
+  if (recibos.length > 0) {
+    const totalRecibos = recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
+    if (totalRecibos > 0) return totalRecibos;
+  }
+  return Number(row.valor_total || 0);
+}
+
+function deriveValorTaxas(row: DashboardVendaRow) {
+  const recibos = getReceipts(row);
+  const taxasRecibos = recibos.reduce((sum, recibo) => {
+    return sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0) + Number(recibo?.valor_rav || 0);
+  }, 0);
+  if (taxasRecibos > 0) return taxasRecibos;
+  return Number(row.valor_taxas || 0);
+}
+
+function deriveTotalSeguro(row: DashboardVendaRow) {
+  return getReceipts(row)
+    .filter((recibo) => isSeguro(recibo))
+    .reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
 }
 
 export async function GET(event) {
@@ -87,6 +119,7 @@ export async function GET(event) {
         data_embarque,
         data_final,
         valor_total,
+        valor_taxas,
         cancelada,
         clientes:cliente_id (id, nome),
         destinos:produtos!destino_id (nome),
@@ -95,7 +128,10 @@ export async function GET(event) {
           id,
           valor_total,
           valor_taxas,
-          tipo_produtos (id, nome, tipo)
+          valor_du,
+          valor_rav,
+          tipo_produtos (id, nome, tipo),
+          produto_resolvido:produtos!produto_resolvido_id (id, nome)
         )
       `)
       .eq('cancelada', false)
@@ -120,26 +156,10 @@ export async function GET(event) {
 
     const sales = (salesData || []) as DashboardVendaRow[];
 
-    const totalVendas = sales.reduce((sum, row) => sum + Number(row.valor_total || 0), 0);
+    const totalVendas = sales.reduce((sum, row) => sum + deriveValorTotal(row), 0);
     const qtdVendas = sales.length;
-    const totalTaxas = sales.reduce(
-      (sum, row) =>
-        sum +
-        (Array.isArray(row.recibos)
-          ? row.recibos.reduce((receiptSum, recibo) => receiptSum + Number(recibo?.valor_taxas || 0), 0)
-          : 0),
-      0
-    );
-    const totalSeguro = sales.reduce(
-      (sum, row) =>
-        sum +
-        (Array.isArray(row.recibos)
-          ? row.recibos
-              .filter((recibo) => isSeguro(recibo))
-              .reduce((receiptSum, recibo) => receiptSum + Number(recibo?.valor_total || 0), 0)
-          : 0),
-      0
-    );
+    const totalTaxas = sales.reduce((sum, row) => sum + deriveValorTaxas(row), 0);
+    const totalSeguro = sales.reduce((sum, row) => sum + deriveTotalSeguro(row), 0);
 
     const timelineMap = new Map<string, number>();
     const destinoMap = new Map<string, number>();
@@ -147,16 +167,32 @@ export async function GET(event) {
 
     sales.forEach((row) => {
       const saleDate = String(row.data_venda || '').trim();
+      const valorTotal = deriveValorTotal(row);
       if (saleDate) {
-        timelineMap.set(saleDate, (timelineMap.get(saleDate) || 0) + Number(row.valor_total || 0));
+        timelineMap.set(saleDate, (timelineMap.get(saleDate) || 0) + valorTotal);
       }
 
       const destinoNome = String(row.destinos?.nome || row.destino_cidade?.nome || 'Destino nao informado');
-      destinoMap.set(destinoNome, (destinoMap.get(destinoNome) || 0) + Number(row.valor_total || 0));
+      destinoMap.set(destinoNome, (destinoMap.get(destinoNome) || 0) + valorTotal);
 
-      (row.recibos || []).forEach((recibo) => {
-        const productId = String(recibo?.tipo_produtos?.id || 'sem-produto');
-        const productName = String(recibo?.tipo_produtos?.nome || 'Produto');
+      const recibos = getReceipts(row);
+      if (recibos.length === 0) {
+        const current = produtoMap.get('sem-produto') || {
+          id: 'sem-produto',
+          name: 'Produto',
+          value: 0
+        };
+
+        produtoMap.set('sem-produto', {
+          ...current,
+          value: current.value + valorTotal
+        });
+        return;
+      }
+
+      recibos.forEach((recibo) => {
+        const productId = String(recibo?.tipo_produtos?.id || recibo?.produto_resolvido?.id || 'sem-produto');
+        const productName = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || 'Produto');
         const current = produtoMap.get(productId) || {
           id: productId,
           name: productName,
@@ -191,7 +227,6 @@ export async function GET(event) {
     let orcamentos: DashboardQuoteRow[] = [];
 
     if (includeOrcamentos) {
-      // Monta a query base de orçamentos com filtro de período
       let quotesQuery = client
         .from('quote')
         .select(`
@@ -209,10 +244,7 @@ export async function GET(event) {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Aplica filtro de escopo: vendedor → company → sem filtro adicional
       if (vendedorIds.length > 0) {
-        // FIX: antes o await estava ausente neste branch, retornando orcamentos=[]
-        // para qualquer usuário com papel VENDEDOR ou filtro de vendedor ativo.
         quotesQuery = quotesQuery.in('created_by', vendedorIds);
       } else if (companyIds.length > 0) {
         const clientIds = await resolveAccessibleClientIds(client, {
@@ -221,7 +253,6 @@ export async function GET(event) {
         });
 
         if (clientIds.length === 0) {
-          // Nenhum cliente acessível nesta empresa — retorna vazio sem executar query
           return json({
             inicio,
             fim,
@@ -258,7 +289,6 @@ export async function GET(event) {
         quotesQuery = quotesQuery.in('client_id', clientIds);
       }
 
-      // Executa a query única para todos os cenários (vendedor, empresa ou sem filtro)
       const { data: quotesData, error: quotesError } = await quotesQuery;
 
       if (quotesError) {
