@@ -2,8 +2,7 @@
   import { X, MessageCircle, Mail, Send, Phone, Copy } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { toast } from '$lib/stores/ui';
-  
-  // Props
+
   export let open: boolean = false;
   export let clienteId: string = '';
   export let clienteNome: string = '';
@@ -12,19 +11,21 @@
   export let clienteNascimento: string | null = null;
   export let onClose: () => void = () => {};
   export let onEnviar: (dados: any) => void = () => {};
-  
-  // Estado
+
   let canalAtivo: 'whatsapp' | 'email' = 'whatsapp';
-  let templateSelecionado: string = '';
-  let mensagemPersonalizada: string = '';
+  let templateSelecionado = '';
+  let mensagemPersonalizada = '';
   let enviando = false;
   let templates: any[] = [];
   let carregandoTemplates = false;
   let modalReady = false;
-  
-  // Detectar se é aniversariante
+
   $: isAniversariante = clienteNascimento ? isBirthdayToday(clienteNascimento) : false;
-  
+  $: templateAtual = templates.find((t) => t.id === templateSelecionado);
+  $: assuntoAtual = templateAtual?.assunto
+    ? aplicarVariaveis(templateAtual.assunto)
+    : `Aviso para ${clienteNome.split(' ')[0] || clienteNome}`;
+
   $: if (open && !modalReady) {
     modalReady = true;
     void prepararModal();
@@ -40,28 +41,22 @@
         id: '1',
         nome: 'Aniversario',
         tipo: 'aniversario',
-        conteudo:
-          'Feliz Aniversario {nome}! Desejamos um dia incrivel e muitas viagens maravilhosas!'
+        assunto: 'Feliz aniversario, {nome}',
+        conteudo: 'Feliz aniversario {nome}! Desejamos um dia incrivel e muitas viagens maravilhosas!'
       },
       {
         id: '2',
         nome: 'Follow-up padrao',
         tipo: 'follow_up',
-        conteudo:
-          'Ola {nome}, tudo bem? Estamos entrando em contato sobre seu orcamento. Podemos conversar?'
+        assunto: 'Seguimento VTUR',
+        conteudo: 'Ola {nome}, tudo bem? Estamos entrando em contato sobre seu orcamento. Podemos conversar?'
       },
       {
         id: '3',
         nome: 'Promocao',
         tipo: 'promocao',
-        conteudo:
-          'Oi {nome}! Temos uma promocao exclusiva para voce. Entre em contato conosco.'
-      },
-      {
-        id: '4',
-        nome: 'Confirmacao de viagem',
-        tipo: 'confirmacao',
-        conteudo: 'Ola {nome}, sua viagem esta confirmada! Em breve enviaremos mais detalhes.'
+        assunto: 'Promocao especial para voce',
+        conteudo: 'Oi {nome}! Temos uma promocao exclusiva para voce. Entre em contato conosco.'
       }
     ];
   }
@@ -71,21 +66,18 @@
     await carregarTemplates();
 
     if (!templateSelecionado && templates.length > 0) {
-      const preferred = isAniversariante
-        ? templates.find((template) => template.tipo === 'aniversario')
-        : templates[0];
-
+      const preferred = isAniversariante ? templates.find((t) => t.tipo === 'aniversario') : templates[0];
       if (preferred) {
         templateSelecionado = preferred.id;
         aplicarTemplate();
       }
     }
   }
-  
+
   async function carregarTemplates() {
     carregandoTemplates = true;
     try {
-      const response = await fetch('/api/v1/admin/avisos');
+      const response = await fetch('/api/v1/clientes/avisos/templates');
       if (response.ok) {
         const data = await response.json();
         templates = Array.isArray(data?.items) && data.items.length > 0 ? data.items : getTemplatesFallback();
@@ -99,74 +91,86 @@
       carregandoTemplates = false;
     }
   }
-  
+
+  function aplicarVariaveis(texto: string) {
+    return String(texto || '')
+      .replace(/\{nome\}/gi, clienteNome.split(' ')[0] || clienteNome)
+      .replace(/\{nome_completo\}/gi, clienteNome)
+      .replace(/\{email\}/gi, clienteEmail || '');
+  }
+
   function aplicarTemplate() {
-    const template = templates.find(t => t.id === templateSelecionado);
+    const template = templates.find((t) => t.id === templateSelecionado);
     if (template) {
-      mensagemPersonalizada = template.conteudo
-        .replace('{nome}', clienteNome.split(' ')[0])
-        .replace('{nome_completo}', clienteNome);
+      mensagemPersonalizada = aplicarVariaveis(template.conteudo || template.mensagem || '');
     }
   }
-  
+
   function isBirthdayToday(nascimento: string): boolean {
     if (!nascimento) return false;
     const today = new Date();
     const birth = new Date(nascimento);
     return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
   }
-  
+
   async function enviarMensagem() {
     if (!mensagemPersonalizada.trim()) {
       toast.error('Digite uma mensagem');
       return;
     }
-    
+
     enviando = true;
     try {
-      // Simulação de envio (implementar API real)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Registrar no histórico (cliente_template_dispatches — opcional)
-      try {
-        await fetch('/api/v1/admin/avisos/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cliente_id: clienteId,
-            canal: canalAtivo,
-            mensagem: mensagemPersonalizada,
-            status: 'enviado'
-          })
-        });
-      } catch (error) {
-        console.warn('Historico de avisos indisponivel:', error);
+      const response = await fetch('/api/v1/clientes/avisos/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id: clienteId,
+          canal: canalAtivo,
+          template_id: templateSelecionado || null,
+          assunto: assuntoAtual,
+          mensagem: mensagemPersonalizada
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Erro ao enviar mensagem');
       }
-      
-      toast.success(`Mensagem enviada por ${canalAtivo === 'whatsapp' ? 'WhatsApp' : 'Email'}!`);
+
+      if (payload?.canal === 'whatsapp' && payload?.whatsapp_url) {
+        window.open(payload.whatsapp_url, '_blank', 'noopener,noreferrer');
+        toast.success('WhatsApp preparado com sucesso');
+      } else {
+        toast.success('E-mail enviado com sucesso');
+      }
+
       onEnviar({
         canal: canalAtivo,
         mensagem: mensagemPersonalizada,
-        cliente_id: clienteId
+        assunto: assuntoAtual,
+        cliente_id: clienteId,
+        template_id: templateSelecionado || null,
+        response: payload
       });
       onClose();
     } catch (err) {
-      toast.error('Erro ao enviar mensagem');
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar mensagem');
     } finally {
       enviando = false;
     }
   }
-  
+
   function copiarMensagem() {
     navigator.clipboard.writeText(mensagemPersonalizada);
     toast.success('Mensagem copiada!');
   }
-  
+
   const templatesFiltrados = templates;
 </script>
 
 {#if open}
-  <div 
+  <div
     class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
     on:click={onClose}
     on:keydown={(event) => event.key === 'Escape' && onClose()}
@@ -174,14 +178,12 @@
     aria-modal="true"
     tabindex="-1"
   >
-    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_no_noninteractive_element_interactions -->
-    <div 
+    <div
       class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
       on:click|stopPropagation
       role="document"
     >
-      <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-100" 
+      <div class="flex items-center justify-between p-4 border-b border-slate-100"
         class:bg-pink-50={isAniversariante}
         class:bg-clientes-50={!isAniversariante}
       >
@@ -197,24 +199,17 @@
             {/if}
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-slate-900">
-              {isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}
-            </h3>
+            <h3 class="text-lg font-semibold text-slate-900">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3>
             <p class="text-sm text-slate-500">{clienteNome}</p>
           </div>
         </div>
-        <button
-          on:click={onClose}
-          class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-        >
+        <button on:click={onClose} class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
           <X size={20} />
         </button>
       </div>
-      
-      <!-- Content -->
+
       <div class="p-6 overflow-y-auto max-h-[60vh]">
-        <!-- Info do cliente -->
-        <div class="bg-slate-50 rounded-lg p-3 mb-4 flex items-center gap-4">
+        <div class="bg-slate-50 rounded-lg p-3 mb-4 flex items-center gap-4 flex-wrap">
           <div class="flex items-center gap-2">
             <Phone size={16} class="text-slate-400" />
             <span class="text-sm text-slate-600">{clienteTelefone || 'Sem telefone'}</span>
@@ -224,8 +219,7 @@
             <span class="text-sm text-slate-600">{clienteEmail || 'Sem email'}</span>
           </div>
         </div>
-        
-        <!-- Seleção de Canal -->
+
         <div class="mb-4">
           <p class="block text-sm font-medium text-slate-700 mb-2">Canal de Envio</p>
           <div class="flex gap-2">
@@ -249,14 +243,11 @@
             </button>
           </div>
         </div>
-        
-        <!-- Templates -->
+
         <div class="mb-4">
           <p class="block text-sm font-medium text-slate-700 mb-2">Template</p>
           {#if carregandoTemplates}
-            <div class="text-center py-2">
-              <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div>
-            </div>
+            <div class="text-center py-2"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div></div>
           {:else}
             <div class="flex flex-wrap gap-2">
               {#each templatesFiltrados as template}
@@ -271,33 +262,26 @@
             </div>
           {/if}
         </div>
-        
-        <!-- Mensagem -->
+
+        {#if canalAtivo === 'email'}
+          <div class="mb-4">
+            <label for="assunto-aviso" class="block text-sm font-medium text-slate-700 mb-2">Assunto</label>
+            <input id="assunto-aviso" class="vtur-input w-full" value={assuntoAtual} readonly />
+          </div>
+        {/if}
+
         <div class="mb-4">
           <div class="flex items-center justify-between mb-2">
             <label for="mensagem-aviso" class="block text-sm font-medium text-slate-700">Mensagem</label>
-            <button
-              type="button"
-              on:click={copiarMensagem}
-              class="text-xs text-clientes-600 hover:text-clientes-800 flex items-center gap-1"
-            >
+            <button type="button" on:click={copiarMensagem} class="text-xs text-clientes-600 hover:text-clientes-800 flex items-center gap-1">
               <Copy size={12} />
               Copiar
             </button>
           </div>
-          <textarea
-            id="mensagem-aviso"
-            bind:value={mensagemPersonalizada}
-            rows="5"
-            class="vtur-input w-full"
-            placeholder="Digite sua mensagem personalizada..."
-          ></textarea>
-          <p class="text-xs text-slate-500 mt-1">
-            Use {'{nome}'} para o primeiro nome ou {'{nome_completo}'} para o nome completo
-          </p>
+          <textarea id="mensagem-aviso" bind:value={mensagemPersonalizada} rows="5" class="vtur-input w-full" placeholder="Digite sua mensagem personalizada..."></textarea>
+          <p class="text-xs text-slate-500 mt-1">Use {'{nome}'} para o primeiro nome ou {'{nome_completo}'} para o nome completo</p>
         </div>
-        
-        <!-- Preview -->
+
         {#if mensagemPersonalizada}
           <div class="bg-slate-50 rounded-lg p-3">
             <p class="text-xs text-slate-500 mb-1">Preview:</p>
@@ -305,18 +289,10 @@
           </div>
         {/if}
       </div>
-      
-      <!-- Footer -->
+
       <div class="flex items-center justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
-        <Button variant="secondary" on:click={onClose}>
-          Cancelar
-        </Button>
-        <Button
-          variant="primary"
-          color={canalAtivo === 'whatsapp' ? 'green' : 'orange'}
-          on:click={enviarMensagem}
-          loading={enviando}
-        >
+        <Button variant="secondary" on:click={onClose}>Cancelar</Button>
+        <Button variant="primary" color={canalAtivo === 'whatsapp' ? 'green' : 'orange'} on:click={enviarMensagem} loading={enviando}>
           <Send size={16} class="mr-2" />
           Enviar por {canalAtivo === 'whatsapp' ? 'WhatsApp' : 'Email'}
         </Button>
