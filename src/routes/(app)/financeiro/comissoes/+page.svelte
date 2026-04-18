@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2 } from 'lucide-svelte';
+  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2, AlertCircle, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Comissao {
@@ -160,6 +160,8 @@
       await loadComissoes();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao registrar pagamentos');
+    } finally {
+      processando = false;
     }
   }
 
@@ -195,6 +197,55 @@
 {#if loading}
   <div class="flex items-center justify-center py-12"><Loader2 size={40} class="animate-spin text-financeiro-600" /><span class="ml-3 text-slate-600">Carregando comissões...</span></div>
 {:else}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo da fila de pagamento interno com foco em backlog, liquidação e priorização por vendedor.</p>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <button on:click={() => (somentePendentes = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Backlog</span>
+      </div>
+      <p class="text-sm text-slate-500">Comissões pendentes</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{pendentes.length}</p>
+      <p class="mt-2 text-sm text-slate-600">Fila atual de pagamento interno aguardando liquidação.</p>
+    </button>
+
+    <button on:click={() => (somentePendentes = false)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-green-50 p-3 text-green-600"><CheckCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Liquidação</span>
+      </div>
+      <p class="text-sm text-slate-500">Total pago</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p>
+      <p class="mt-2 text-sm text-slate-600">Volume já liquidado nas comissões registradas.</p>
+    </button>
+
+    <button on:click={() => (somentePendentes = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><Wallet size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Exposição</span>
+      </div>
+      <p class="text-sm text-slate-500">Valor pendente</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalPendente)}</p>
+      <p class="mt-2 text-sm text-slate-600">Montante ainda aberto para pagamento a vendedores.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/regras')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Users size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Gestão</span>
+      </div>
+      <p class="text-sm text-slate-500">Vendedores na base</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
+      <p class="mt-2 text-sm text-slate-600">Use regras e resumo por vendedor para revisar exposição e consistência.</p>
+    </button>
+  </div>
+
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
       <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label><select bind:value={filtroStatus} on:change={loadComissoes} class="vtur-input"><option value="todas">Todas</option><option value="pendente">Pendentes</option><option value="pago">Pagas</option></select></div>
@@ -232,7 +283,7 @@
     <div class="vtur-card p-4 border-l-4 border-l-green-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total Pago</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p></div><div class="p-3 bg-green-50 rounded-lg"><CheckCircle size={24} class="text-green-600" /></div></div></div>
     <div class="vtur-card p-4 border-l-4 border-l-financeiro-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total em Comissões</p><p class="text-2xl font-bold text-slate-900">{comissoes.length}</p></div><div class="p-3 bg-financeiro-50 rounded-lg"><DollarSign size={24} class="text-financeiro-600" /></div></div></div>
     <div class="vtur-card p-4 border-l-4 border-l-blue-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Vendedores</p><p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p></div><div class="p-3 bg-blue-50 rounded-lg"><Users size={24} class="text-blue-600" /></div></div></div>
-    <div class="vtur-card p-4 border-l-4 border-l-slate-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-slate-100 rounded-lg"><Clock size={24} class="text-slate-700" /></div></div><p class="mt-2 text-lg font-semibold text-slate-700">{formatCurrency(totalPendente)}</p></div>
+    <div class="vtur-card p-4 border-l-4 border-l-slate-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-slate-100 rounded-lg"><AlertCircle size={24} class="text-slate-700" /></div></div><p class="mt-2 text-lg font-semibold text-slate-700">{formatCurrency(totalPendente)}</p></div>
   </div>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
