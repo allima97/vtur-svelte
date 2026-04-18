@@ -24,12 +24,16 @@ const loggedOutState: AuthState = {
   error: null
 };
 
+// Sinaliza que o cookie de sessão já foi sincronizado com o servidor
+// O dashboard e outras páginas devem aguardar isso antes de chamar APIs
+export const sessionSynced = writable<boolean>(false);
+
 function createAuthStore() {
   const { subscribe, set, update } = writable<AuthState>(initialState);
-  
+
   return {
     subscribe,
-    
+
     // Set user e session
     setAuth: (user: User | null, session: Session | null) => {
       update(state => ({

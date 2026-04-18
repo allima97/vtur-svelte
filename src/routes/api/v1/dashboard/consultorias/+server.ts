@@ -1,6 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
-  ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
@@ -43,13 +42,11 @@ export async function GET(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['dashboard'], 1, 'Sem acesso ao Dashboard.');
-
     const canConsultoria =
       scope.isAdmin ||
       scope.isMaster ||
       scope.isGestor ||
-      ['consultoria_online', 'consultoria'].some((modulo) =>
+      ['consultoria_online', 'consultoria', 'dashboard'].some((modulo) =>
         Object.entries(scope.permissoes).some(([key, nivel]) => {
           const normalized = String(key || '').trim().toLowerCase();
           return normalized === modulo && ['view', 'create', 'edit', 'delete', 'admin'].includes(String(nivel));
@@ -57,7 +54,8 @@ export async function GET(event: RequestEvent) {
       );
 
     if (!canConsultoria) {
-      return new Response('Sem acesso a Consultoria.', { status: 403 });
+      // Retorna lista vazia em vez de 403 — o dashboard apenas não mostrará o widget
+      return json({ items: [] });
     }
 
     const mode = String(event.url.searchParams.get('mode') || 'geral').trim().toLowerCase();

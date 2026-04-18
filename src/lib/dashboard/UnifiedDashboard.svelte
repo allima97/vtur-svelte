@@ -288,7 +288,9 @@
     periodoFim = params.get('fim') || defaultPeriod.fim;
     empresaSelecionada = params.get('empresa_id') || '';
     vendedorSelecionado = params.get('vendedor_id') || '';
+
     await loadBase();
+    // loadDashboard primeiro para obter podeVerOperacao e podeVerConsultoria
     await loadDashboard();
     await loadOperacional();
   });

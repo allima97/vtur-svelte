@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { ensureFollowUpAccess, getDefaultFollowUpRange, isIsoDate, resolveFollowUpFilters } from '$lib/server/agenda';
+import { getDefaultFollowUpRange, isIsoDate, resolveFollowUpFilters } from '$lib/server/agenda';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 function normalizeStatusFilter(value: string | null) {
@@ -14,7 +14,8 @@ export async function GET(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    ensureFollowUpAccess(scope, 1, 'Sem acesso a Acompanhamento operacional.');
+    // Follow-up do dashboard é acessível a qualquer usuário autenticado
+    // (a verificação de módulo detalhada fica nas rotas de operação completas)
 
     const defaults = getDefaultFollowUpRange();
     const inicio = String(event.url.searchParams.get('inicio') || defaults.inicio).trim();

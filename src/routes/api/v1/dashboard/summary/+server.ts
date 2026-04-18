@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import {
-  ensureModuloAccess,
   getAdminClient,
   getMonthRange,
   hasModuloAccess,
@@ -93,10 +92,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['dashboard'], 1, 'Sem acesso ao Dashboard.');
-    }
-
+    // Dashboard é acessível a qualquer usuário autenticado — sem verificação de módulo
     const { searchParams } = event.url;
     const { inicio: defaultInicio, fim: defaultFim } = getMonthRange();
     const inicio = String(searchParams.get('inicio') || defaultInicio).trim();

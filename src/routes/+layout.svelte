@@ -3,14 +3,16 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { supabase } from '$lib/db/supabase';
-  import { auth } from '$lib/stores/auth';
+  import { auth, sessionSynced } from '$lib/stores/auth';
   import type { LayoutData } from './$types';
   
   export let data: LayoutData;
   
   // Inicializa auth store com dados do servidor
+  // Se o servidor já tem sessão (via cookie SSR), marca sessionSynced imediatamente
   $: if (data.session && data.user) {
     auth.setAuth(data.user, data.session);
+    sessionSynced.set(true);
   }
   
   onMount(async () => {
@@ -31,11 +33,16 @@
                 refresh_token: session.refresh_token
               })
             });
-            if (!result.ok) {
+            if (result.ok) {
+              sessionSynced.set(true);
+            } else {
               console.warn('[Auth] Falha ao sincronizar sessão (status:', result.status, ')');
+              // Marca como sincronizado mesmo assim — as APIs vão retornar 401 se necessário
+              sessionSynced.set(true);
             }
           } catch (syncErr) {
             console.warn('[Auth] Erro ao sincronizar sessão (ignorado):', syncErr);
+            sessionSynced.set(true);
           }
         } else if (event === 'SIGNED_OUT') {
           auth.clear();
@@ -48,7 +55,7 @@
       if (session) {
         console.log('[Layout] Sincronizando session existente...');
         try {
-          await fetch('/api/auth/set-session', {
+          const res = await fetch('/api/auth/set-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -56,9 +63,16 @@
               refresh_token: session.refresh_token
             })
           });
+          if (res.ok) {
+            sessionSynced.set(true);
+          } else {
+            console.warn('[Layout] set-session retornou', res.status, '— marcando synced mesmo assim');
+            sessionSynced.set(true);
+          }
         } catch (syncErr) {
           // Falha silenciosa — o usuário continua autenticado via Supabase JS
           console.warn('[Layout] Falha ao sincronizar cookie de sessão (ignorado):', syncErr);
+          sessionSynced.set(true);
         }
       }
       
