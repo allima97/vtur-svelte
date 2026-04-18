@@ -18,7 +18,7 @@
   };
 
   const accentClasses = {
-    default: '',
+    default: 'before:bg-slate-300',
     blue: 'before:bg-blue-500',
     green: 'before:bg-green-500',
     orange: 'before:bg-orange-500',
@@ -38,10 +38,10 @@
   };
 </script>
 
-<div class="relative overflow-hidden rounded-[14px] border bg-white shadow-[0_14px_34px_rgba(9,17,46,0.06)] before:absolute before:left-0 before:right-0 before:top-0 before:h-1 {colorClasses[color]} {accentClasses[color]} {$$props.class || ''}">
+<div class="relative overflow-hidden rounded-[18px] border bg-white shadow-[0_14px_34px_rgba(9,17,46,0.06)] before:absolute before:left-0 before:right-0 before:top-0 before:h-1.5 {colorClasses[color]} {accentClasses[color]} {$$props.class || ''}">
   {#if title || header}
-    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200/70 bg-gradient-to-b from-slate-100/60 to-white">
-      <h3 class="text-lg font-bold text-slate-900 tracking-tight">{title || header}</h3>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-gradient-to-b from-slate-50 to-white px-5 py-4">
+      <h3 class="text-base font-semibold tracking-tight text-slate-900">{title || header}</h3>
       <slot name="actions" />
     </div>
   {/if}
