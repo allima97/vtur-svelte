@@ -41,6 +41,8 @@
   let currentPage = 1;
   let pageSize = 20;
   let totalItems = 0;
+  let somentePendentes = false;
+  let somenteConciliacaoPendente = false;
 
   let currentAbortController: AbortController | null = null;
 
@@ -347,6 +349,8 @@
     filtroStatus = '';
     filtroTipo = '';
     filtroCompanyId = '';
+    somentePendentes = false;
+    somenteConciliacaoPendente = false;
     triggerLoad(true);
   }
 
@@ -367,6 +371,12 @@
   $: qtdPendentes = vendas.filter((item) => item.status === 'pendente').length;
   $: qtdConcluidas = vendas.filter((item) => item.status === 'concluida').length;
   $: qtdCanceladas = vendas.filter((item) => item.status === 'cancelada').length;
+  $: qtdConciliacaoPendente = vendas.filter((item) => item.conciliado === false).length;
+  $: vendasVisiveis = vendas.filter((item) => {
+    if (somentePendentes && item.status !== 'pendente') return false;
+    if (somenteConciliacaoPendente && item.conciliado !== false) return false;
+    return true;
+  });
 
   function handleRowClick(row: Venda) {
     goto(`/vendas/${row.id}`);
@@ -514,6 +524,51 @@
     </div>
   </div>
 
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somentePendentes = !somentePendentes;
+        if (somentePendentes) somenteConciliacaoPendente = false;
+      }}
+    >
+      {#if somentePendentes}
+        Mostrando pendentes ({qtdPendentes})
+      {:else}
+        Ver pendentes ({qtdPendentes})
+      {/if}
+    </button>
+
+    <button
+      type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteConciliacaoPendente ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somenteConciliacaoPendente = !somenteConciliacaoPendente;
+        if (somenteConciliacaoPendente) somentePendentes = false;
+      }}
+    >
+      {#if somenteConciliacaoPendente}
+        Mostrando conciliação pendente ({qtdConciliacaoPendente})
+      {:else}
+        Ver conciliação pendente ({qtdConciliacaoPendente})
+      {/if}
+    </button>
+
+    {#if somentePendentes || somenteConciliacaoPendente}
+      <button
+        type="button"
+        class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+        on:click={() => {
+          somentePendentes = false;
+          somenteConciliacaoPendente = false;
+        }}
+      >
+        Limpar filtro rápido
+      </button>
+    {/if}
+  </div>
+
   <div class="mt-4 flex flex-wrap justify-end gap-2">
     <Button type="button" variant="secondary" on:click={resetFiltros}>
       <RotateCcw size={16} class="mr-2" />Limpar filtros
@@ -528,7 +583,7 @@
   {getTextoPeriodoKpi()}
 </div>
 
-<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
   <div class="vtur-card p-4 border-l-4 border-l-green-500">
     <p class="text-sm text-slate-500">Confirmadas</p>
     <p class="text-2xl font-bold text-slate-900">{qtdConfirmadas}</p>
@@ -537,14 +592,22 @@
     <p class="text-sm text-slate-500">Pendentes</p>
     <p class="text-2xl font-bold text-slate-900">{qtdPendentes}</p>
   </div>
+  <div class="vtur-card p-4 border-l-4 border-l-red-500">
+    <p class="text-sm text-slate-500">Conciliação pendente</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdConciliacaoPendente}</p>
+  </div>
   <div class="vtur-card p-4 border-l-4 border-l-blue-500">
     <p class="text-sm text-slate-500">Concluídas</p>
     <p class="text-2xl font-bold text-slate-900">{qtdConcluidas}</p>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-red-500">
+  <div class="vtur-card p-4 border-l-4 border-l-slate-400">
     <p class="text-sm text-slate-500">Canceladas</p>
     <p class="text-2xl font-bold text-slate-900">{qtdCanceladas}</p>
   </div>
+</div>
+
+<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  A consulta permite isolar rapidamente <strong>vendas pendentes</strong> e casos com <strong>conciliação pendente</strong>, facilitando a fila operacional do financeiro e do atendimento.
 </div>
 
 <div class="mb-6 mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -599,7 +662,7 @@
 
 <DataTable
   columns={visibleColumns}
-  data={vendas}
+  data={vendasVisiveis}
   color="vendas"
   {loading}
   title="Base de vendas"
