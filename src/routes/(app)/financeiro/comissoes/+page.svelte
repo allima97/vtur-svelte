@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -38,6 +39,7 @@
   let loading = true;
   let filtroStatus = 'todas';
   let filtroVendedor = '';
+  let somentePendentes = false;
   let comissaoSelecionada: Comissao | null = null;
   let comissoesSelecionadas: string[] = [];
   let showPagamentoDialog = false;
@@ -162,8 +164,9 @@
   }
 
   function handleExport() {
+    const base = comissoesVisiveis;
     const headers = ['Venda', 'Vendedor', 'Cliente', 'Data Venda', 'Valor Venda', 'Comissão', 'Pago', 'Status'];
-    const rows = comissoes.map((c) => [c.numero_venda, c.vendedor, c.cliente, c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '', String(c.valor_venda || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
+    const rows = base.map((c) => [c.numero_venda, c.vendedor, c.cliente, c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '', String(c.valor_venda || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
     const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -178,9 +181,11 @@
   }
 
   $: pendentes = comissoes.filter((c) => c.status === 'pendente');
+  $: pagas = comissoes.filter((c) => c.status === 'pago');
   $: totalPendente = pendentes.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
-  $: totalPago = comissoes.filter((c) => c.status === 'pago').reduce((acc, c) => acc + Number(c.valor_pago || c.valor_comissao || 0), 0);
+  $: totalPago = pagas.reduce((acc, c) => acc + Number(c.valor_pago || c.valor_comissao || 0), 0);
   $: valorSelecionado = comissoes.filter((c) => comissoesSelecionadas.includes(c.id)).reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
+  $: comissoesVisiveis = somentePendentes ? pendentes : comissoes;
 </script>
 
 <svelte:head><title>Comissões | VTUR</title></svelte:head>
@@ -197,13 +202,41 @@
       <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+        on:click={() => (somentePendentes = !somentePendentes)}
+      >
+        {#if somentePendentes}
+          Mostrando backlog de comissões ({pendentes.length})
+        {:else}
+          Ver backlog de comissões ({pendentes.length})
+        {/if}
+      </button>
+      {#if somentePendentes}
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+          on:click={() => (somentePendentes = false)}
+        >
+          Limpar filtro rápido
+        </button>
+      {/if}
+    </div>
   </Card>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     <div class="vtur-card p-4 border-l-4 border-l-amber-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Pendentes</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-amber-50 rounded-lg"><Clock size={24} class="text-amber-600" /></div></div><p class="mt-2 text-lg font-semibold text-amber-600">{formatCurrency(totalPendente)}</p></div>
     <div class="vtur-card p-4 border-l-4 border-l-green-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total Pago</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p></div><div class="p-3 bg-green-50 rounded-lg"><CheckCircle size={24} class="text-green-600" /></div></div></div>
     <div class="vtur-card p-4 border-l-4 border-l-financeiro-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total em Comissões</p><p class="text-2xl font-bold text-slate-900">{comissoes.length}</p></div><div class="p-3 bg-financeiro-50 rounded-lg"><DollarSign size={24} class="text-financeiro-600" /></div></div></div>
     <div class="vtur-card p-4 border-l-4 border-l-blue-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Vendedores</p><p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p></div><div class="p-3 bg-blue-50 rounded-lg"><Users size={24} class="text-blue-600" /></div></div></div>
+    <div class="vtur-card p-4 border-l-4 border-l-slate-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-slate-100 rounded-lg"><Clock size={24} class="text-slate-700" /></div></div><p class="mt-2 text-lg font-semibold text-slate-700">{formatCurrency(totalPendente)}</p></div>
+  </div>
+
+  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    A tela de comissões agora funciona também como fila operacional: <strong>{pendentes.length}</strong> pendências de pagamento somando <strong>{formatCurrency(totalPendente)}</strong>.
   </div>
 
   {#if resumoVendedores.length > 0}
@@ -214,7 +247,7 @@
     <Card header="Pagamento em Lote" color="financeiro" class="mb-6"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-600"><strong>{comissoesSelecionadas.length}</strong> comissões selecionadas</p><p class="text-lg font-semibold text-financeiro-600">{formatCurrency(valorSelecionado)}</p></div><Button variant="primary" color="financeiro" on:click={() => { dataPagamento = new Date().toISOString().split('T')[0]; observacoesPagamento = ''; showPagamentoMultiploDialog = true; }}><CheckCircle size={16} class="mr-2" />Pagar Selecionadas</Button></div></Card>
   {/if}
 
-  <DataTable {columns} data={comissoes} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
+  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
       <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)} title="Ver detalhes"><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)}>Pagar</Button>{/if}</div>
     </svelte:fragment>
