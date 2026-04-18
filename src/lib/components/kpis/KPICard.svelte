@@ -5,6 +5,7 @@
   
   export let title: string;
   export let value: string | number;
+  export let subtitle: string = '';
   export let trend: number | null = null;
   export let trendLabel: string = '';
   export let loading: boolean = false;
@@ -58,11 +59,15 @@
         </div>
       {:else}
         <div class="mt-1">
-          <span class="text-2xl font-bold text-slate-900">{value}</span>
+          <span class="text-2xl font-bold text-slate-900 break-words">{value}</span>
         </div>
+
+        {#if subtitle}
+          <p class="mt-1 text-xs text-slate-500">{subtitle}</p>
+        {/if}
         
         {#if trend !== null}
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-2 flex-wrap">
             <span 
               class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
               class:bg-green-100={isPositive}
