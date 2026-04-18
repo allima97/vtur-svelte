@@ -43,7 +43,6 @@ export async function GET(event) {
       fim = range.fim;
     }
 
-    // Resolve venda_ids acessiveis pelo escopo antes de consultar pagamentos
     let vendaIds: string[] = [];
     if (companyIds.length > 0) {
       const { data: vendasScope } = await client
@@ -58,7 +57,14 @@ export async function GET(event) {
         return json({
           success: true,
           periodo: { inicio, fim },
-          resumo: { totalEntradas: 0, totalPendente: 0, totalDivergente: 0, totalMovimentacoes: 0, saldo: 0 },
+          resumo: {
+            totalEntradas: 0,
+            totalSaidas: 0,
+            totalPendente: 0,
+            totalDivergente: 0,
+            totalMovimentacoes: 0,
+            saldo: 0
+          },
           porFormaPagamento: [],
           movimentacoes: []
         });
@@ -80,7 +86,7 @@ export async function GET(event) {
 
     let movQuery = client
       .from('caixa_movimentacoes')
-      .select('*, forma_pagamento:forma_pagamento_id(*)')
+      .select('*, forma_pagamento:forma_pagamento_id(id, nome)')
       .gte('data_movimentacao', inicio)
       .lte('data_movimentacao', fim)
       .order('data_movimentacao', { ascending: false });
@@ -92,7 +98,17 @@ export async function GET(event) {
 
     const pagItems = pagamentos || [];
     const movItems = (movError ? [] : movimentacoes) || [];
-    const totalEntradas = pagItems.reduce((sum: number, p: any) => sum + Number(p.valor_total || 0), 0);
+
+    const totalEntradasPagamentos = pagItems.reduce((sum: number, p: any) => sum + Number(p.valor_total || 0), 0);
+    const totalEntradasMovimentacoes = movItems
+      .filter((m: any) => String(m.tipo || '').toLowerCase() === 'entrada')
+      .reduce((sum: number, m: any) => sum + Number(m.valor || 0), 0);
+    const totalSaidas = movItems
+      .filter((m: any) => String(m.tipo || '').toLowerCase() === 'saida')
+      .reduce((sum: number, m: any) => sum + Number(m.valor || 0), 0);
+
+    const totalEntradas = totalEntradasPagamentos + totalEntradasMovimentacoes;
+    const saldo = totalEntradas - totalSaidas;
 
     const porFormaPagamento = new Map();
     pagItems.forEach((p: any) => {
@@ -103,24 +119,53 @@ export async function GET(event) {
       porFormaPagamento.set(fp, atual);
     });
 
+    movItems.forEach((m: any) => {
+      const fp = m.forma_pagamento?.nome || 'Nao especificado';
+      const atual = porFormaPagamento.get(fp) || { nome: fp, valor: 0, quantidade: 0 };
+      const sinal = String(m.tipo || '').toLowerCase() === 'saida' ? -1 : 1;
+      atual.valor += sinal * Number(m.valor || 0);
+      atual.quantidade += 1;
+      porFormaPagamento.set(fp, atual);
+    });
+
     const movimentacoesUnificadas = [
       ...pagItems.map((p: any) => ({
-        id: p.id, tipo: 'entrada', categoria: 'venda',
+        id: p.id,
+        tipo: 'entrada',
+        categoria: 'venda',
         descricao: `Pagamento ${p.venda?.numero_venda || p.venda_id?.slice(0, 8) || ''}`,
-        valor: Number(p.valor_total || 0), data: p.created_at?.slice(0, 10) || '',
-        forma_pagamento: p.forma_nome || '-', status: 'confirmado', cliente: '-', origem: 'pagamento'
+        valor: Number(p.valor_total || 0),
+        data: p.created_at?.slice(0, 10) || '',
+        forma_pagamento: p.forma_nome || '-',
+        status: 'confirmado',
+        cliente: '-',
+        origem: 'pagamento'
       })),
       ...movItems.map((m: any) => ({
-        id: m.id, tipo: m.tipo, categoria: m.categoria, descricao: m.descricao,
-        valor: Number(m.valor || 0), data: m.data_movimentacao,
-        forma_pagamento: '-', status: 'confirmado', cliente: '-', origem: 'caixa'
+        id: m.id,
+        tipo: m.tipo,
+        categoria: m.categoria,
+        descricao: m.descricao,
+        valor: Number(m.valor || 0),
+        data: m.data_movimentacao,
+        forma_pagamento: m.forma_pagamento?.nome || '-',
+        status: 'confirmado',
+        cliente: '-',
+        origem: 'caixa'
       }))
     ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
     return json({
       success: true,
       periodo: { inicio, fim },
-      resumo: { totalEntradas, totalPendente: 0, totalDivergente: 0, totalMovimentacoes: movimentacoesUnificadas.length, saldo: totalEntradas },
+      resumo: {
+        totalEntradas,
+        totalSaidas,
+        totalPendente: 0,
+        totalDivergente: 0,
+        totalMovimentacoes: movimentacoesUnificadas.length,
+        saldo
+      },
       porFormaPagamento: Array.from(porFormaPagamento.values()),
       movimentacoes: movimentacoesUnificadas
     });
@@ -146,14 +191,17 @@ export async function POST(event) {
       .from('caixa_movimentacoes')
       .insert([{
         company_id: scope.companyId,
-        tipo: body.tipo, categoria: body.categoria || 'outro',
-        descricao: body.descricao, valor: body.valor,
+        tipo: body.tipo,
+        categoria: body.categoria || 'outro',
+        descricao: body.descricao,
+        valor: body.valor,
         data_movimentacao: body.data_movimentacao,
         forma_pagamento_id: body.forma_pagamento_id || null,
         observacoes: body.observacoes || null,
         user_id: user.id
       }])
-      .select().single();
+      .select()
+      .single();
 
     if (error) {
       if (String(error.code || '').includes('42P01') || String(error.message || '').includes('does not exist')) {
