@@ -19,7 +19,6 @@
     permite_desconto?: boolean;
     desconto_padrao_pct?: number | null;
     ativo: boolean;
-    // Colunas opcionais (podem não existir no DB)
     codigo?: string;
     icone?: string;
     cor?: string;
@@ -33,8 +32,8 @@
   let processando = false;
   let editando: FormaPagamento | null = null;
   let excluindo: FormaPagamento | null = null;
+  let filtroRapido: 'todas' | 'ativas' | 'inativas' | 'sem_comissao' | 'com_desconto' = 'todas';
 
-  // Formulário
   let form = {
     nome: '',
     descricao: '',
@@ -48,7 +47,13 @@
     { 
       key: 'nome', 
       label: 'Nome', 
-      sortable: true
+      sortable: true,
+      formatter: (value: string, row: FormaPagamento) => {
+        const detalhes: string[] = [];
+        if (row.permite_desconto) detalhes.push('Permite desconto');
+        if (row.paga_comissao === false) detalhes.push('Sem comissão');
+        return `<div class="flex flex-col"><span class="font-medium text-slate-900">${value}</span><span class="text-xs text-slate-500">${detalhes.join(' · ') || (row.descricao || '-')}</span></div>`;
+      }
     },
     { 
       key: 'descricao', 
@@ -62,6 +67,15 @@
       align: 'center' as const,
       formatter: (value: boolean) => value !== false
         ? '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Sim</span>'
+        : '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-600">Não</span>'
+    },
+    { 
+      key: 'permite_desconto', 
+      label: 'Desconto', 
+      width: '120px',
+      align: 'center' as const,
+      formatter: (value: boolean, row: FormaPagamento) => value
+        ? `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">${row.desconto_padrao_pct ?? 0}%</span>`
         : '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-600">Não</span>'
     },
     { 
@@ -187,6 +201,18 @@
       processando = false;
     }
   }
+
+  $: ativas = formasPagamento.filter(f => f.ativo);
+  $: inativas = formasPagamento.filter(f => !f.ativo);
+  $: semComissao = formasPagamento.filter(f => f.paga_comissao === false);
+  $: comDesconto = formasPagamento.filter(f => Boolean(f.permite_desconto));
+  $: formasVisiveis = formasPagamento.filter((f) => {
+    if (filtroRapido === 'ativas') return f.ativo;
+    if (filtroRapido === 'inativas') return !f.ativo;
+    if (filtroRapido === 'sem_comissao') return f.paga_comissao === false;
+    if (filtroRapido === 'com_desconto') return Boolean(f.permite_desconto);
+    return true;
+  });
 </script>
 
 <svelte:head>
@@ -211,8 +237,7 @@
   ]}
 />
 
-<!-- Resumo -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
   <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
     <div class="flex items-center justify-between">
       <div>
@@ -229,7 +254,7 @@
     <div class="flex items-center justify-between">
       <div>
         <p class="text-sm text-slate-500">Ativas</p>
-        <p class="text-2xl font-bold text-slate-900">{formasPagamento.filter(f => f.ativo).length}</p>
+        <p class="text-2xl font-bold text-slate-900">{ativas.length}</p>
       </div>
       <div class="p-3 bg-green-50 rounded-lg">
         <CheckCircle size={24} class="text-green-600" />
@@ -241,19 +266,44 @@
     <div class="flex items-center justify-between">
       <div>
         <p class="text-sm text-slate-500">Inativas</p>
-        <p class="text-2xl font-bold text-slate-900">{formasPagamento.filter(f => !f.ativo).length}</p>
+        <p class="text-2xl font-bold text-slate-900">{inativas.length}</p>
       </div>
       <div class="p-3 bg-slate-100 rounded-lg">
         <XCircle size={24} class="text-slate-600" />
       </div>
     </div>
   </div>
+
+  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">Com Desconto</p>
+        <p class="text-2xl font-bold text-slate-900">{comDesconto.length}</p>
+      </div>
+      <div class="p-3 bg-blue-50 rounded-lg">
+        <CheckCircle size={24} class="text-blue-600" />
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Tabela -->
+<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  A tela agora ajuda a revisar rapidamente formas <strong>ativas</strong>, <strong>inativas</strong>, sem comissão e com política de desconto.
+</div>
+
+<Card color="financeiro" class="mb-6">
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'todas' ? 'border-financeiro-300 bg-financeiro-50 text-financeiro-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'todas')}>Todas ({formasPagamento.length})</button>
+    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'ativas' ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'ativas')}>Ativas ({ativas.length})</button>
+    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'inativas' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'inativas')}>Inativas ({inativas.length})</button>
+    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'sem_comissao' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'sem_comissao')}>Sem comissão ({semComissao.length})</button>
+    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'com_desconto' ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'com_desconto')}>Com desconto ({comDesconto.length})</button>
+  </div>
+</Card>
+
 <DataTable
   {columns}
-  data={formasPagamento}
+  data={formasVisiveis}
   color="financeiro"
   {loading}
   title="Formas de Pagamento Cadastradas"
@@ -283,7 +333,6 @@
   </svelte:fragment>
 </DataTable>
 
-<!-- Dialog de Formulário -->
 <Dialog
   bind:open={showFormDialog}
   title={editando ? 'Editar Forma de Pagamento' : 'Nova Forma de Pagamento'}
@@ -361,7 +410,6 @@
   </div>
 </Dialog>
 
-<!-- Dialog de Confirmação de Exclusão -->
 <Dialog
   bind:open={showDeleteDialog}
   title="Excluir Forma de Pagamento"
