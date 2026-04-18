@@ -44,7 +44,6 @@ export type ReportVendaRow = {
   destino_cidade?: {
     id?: string | null;
     nome?: string | null;
-    estado?: string | null;
   } | null;
   destinos?: {
     id?: string | null;
@@ -80,7 +79,7 @@ export async function fetchSalesReportRows(
       cancelada,
       clientes (nome, email),
       vendedor:users!vendedor_id (nome_completo, email),
-      destino_cidade:cidades!destino_cidade_id (id, nome, estado),
+      destino_cidade:cidades!destino_cidade_id (id, nome),
       destinos:produtos!destino_id (id, nome, tipo_produto),
       recibos:vendas_recibos (
         id,

@@ -12,29 +12,31 @@ import {
 } from '$lib/server/v1';
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
+  // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active
   const queryWithBilling = client
     .from('companies')
     .select(
       `
         id,
-        nome,
+        nome_fantasia,
+        nome_empresa,
         cnpj,
         telefone,
         endereco,
         cidade,
         estado,
-        ativo,
+        active,
         billing:company_billing (
           id,
           status,
           valor_mensal,
           ultimo_pagamento,
           proximo_vencimento,
-          plan:plans (id, name)
+          plan:plans (id, nome)
         )
       `
     )
-    .order('nome', { ascending: true });
+    .order('nome_fantasia', { ascending: true });
 
   const scopedQuery =
     companyIds && companyIds.length > 0 ? queryWithBilling.in('id', companyIds) : queryWithBilling;
@@ -49,8 +51,8 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
 
   const fallback = await client
     .from('companies')
-    .select('id, nome, cnpj, telefone, endereco, cidade, estado, ativo')
-    .order('nome', { ascending: true });
+    .select('id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active')
+    .order('nome_fantasia', { ascending: true });
 
   if (fallback.error) throw fallback.error;
   const rows = fallback.data || [];
@@ -91,13 +93,16 @@ export async function GET(event) {
     return json({
       items: rows.map((row: any) => ({
         id: row.id,
-        nome: row.nome || '',
+        nome_fantasia: row.nome_fantasia || '',
+        nome_empresa: row.nome_empresa || '',
+        nome: row.nome_fantasia || row.nome_empresa || '',
         cnpj: row.cnpj || '',
         cidade: row.cidade || '',
         estado: row.estado || '',
         telefone: row.telefone || '',
         endereco: row.endereco || '',
-        ativo: row.ativo !== false,
+        active: row.active !== false,
+        ativo: row.active !== false,
         billing: Array.isArray(row.billing) ? row.billing[0] || null : row.billing || null,
         master_links: Number(masterLinkCounts.get(String(row.id)) || 0)
       }))
@@ -118,16 +123,17 @@ export async function POST(event) {
 
     const id = String(body.id || '').trim();
     const payload = {
-      nome: String(body.nome || '').trim() || null,
+      nome_fantasia: String(body.nome_fantasia || body.nome || '').trim() || null,
+      nome_empresa: String(body.nome_empresa || '').trim() || null,
       cnpj: String(body.cnpj || '').trim() || null,
       telefone: String(body.telefone || '').trim() || null,
       endereco: String(body.endereco || '').trim() || null,
       cidade: String(body.cidade || '').trim() || null,
       estado: String(body.estado || '').trim() || null,
-      ativo: body.ativo !== false
+      active: body.active !== false && body.ativo !== false
     };
 
-    if (!payload.nome) {
+    if (!payload.nome_fantasia) {
       return new Response('Informe o nome da empresa.', { status: 400 });
     }
 

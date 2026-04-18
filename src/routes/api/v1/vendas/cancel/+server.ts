@@ -56,20 +56,15 @@ export async function POST(event) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }
 
-    const { error: deleteReceiptsError } = await client
-      .from('vendas_recibos')
-      .delete()
-      .eq('venda_id', vendaId);
-    if (deleteReceiptsError) throw deleteReceiptsError;
+    // Soft-delete: vendas.cancelada boolean NOT NULL DEFAULT false
+    let cancelQuery = client.from('vendas').update({ cancelada: true }).eq('id', vendaId);
+    if (companyIds.length > 0) cancelQuery = cancelQuery.in('company_id', companyIds);
+    if (vendedorIds.length > 0) cancelQuery = cancelQuery.in('vendedor_id', vendedorIds);
 
-    let deleteSaleQuery = client.from('vendas').delete().eq('id', vendaId);
-    if (companyIds.length > 0) deleteSaleQuery = deleteSaleQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) deleteSaleQuery = deleteSaleQuery.in('vendedor_id', vendedorIds);
+    const { error: cancelError } = await cancelQuery;
+    if (cancelError) throw cancelError;
 
-    const { error: deleteSaleError } = await deleteSaleQuery;
-    if (deleteSaleError) throw deleteSaleError;
-
-    return json({ ok: true });
+    return json({ ok: true, cancelled: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao cancelar venda.');
   }

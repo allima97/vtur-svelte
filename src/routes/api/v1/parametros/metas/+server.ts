@@ -108,7 +108,8 @@ export async function POST(event) {
       periodo: periodoFull,
       meta_geral: Number(meta_geral || 0),
       meta_diferenciada: Number(meta_diferenciada || 0),
-      ativo: ativo !== false
+      ativo: ativo !== false,
+      scope: 'vendedor'
     };
 
     let result;

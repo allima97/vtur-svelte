@@ -81,17 +81,10 @@ export async function GET(event: RequestEvent) {
       .limit(5000);
     if (activeCompanyIds.length > 0) clientesQuery = clientesQuery.in('company_id', activeCompanyIds);
 
-    const cidadesQuery = client.from('cidades').select('id, nome').order('nome', { ascending: true }).limit(5000);
-    const cidadesEstadoQuery = client.from('cidades').select('id, estado').order('nome', { ascending: true }).limit(5000);
-    const cidadesUfQuery = client.from('cidades').select('id, uf').order('nome', { ascending: true }).limit(5000);
-    const cidadesSubdivisaoNomeQuery = client
+    // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
+    const cidadesQuery = client
       .from('cidades')
-      .select('id, subdivisao_nome')
-      .order('nome', { ascending: true })
-      .limit(5000);
-    const cidadesSubdivisaoRelQuery = client
-      .from('cidades')
-      .select('id, subdivisao:subdivisoes(nome, sigla)')
+      .select('id, nome, subdivisao:subdivisoes(nome, codigo_admin1)')
       .order('nome', { ascending: true })
       .limit(5000);
     const produtosQuery = client
@@ -110,10 +103,6 @@ export async function GET(event: RequestEvent) {
     const [
       clientesRes,
       cidadesRes,
-      cidadesEstadoRes,
-      cidadesUfRes,
-      cidadesSubdivisaoNomeRes,
-      cidadesSubdivisaoRelRes,
       produtosRes,
       tiposRes,
       pacotesRes,
@@ -121,10 +110,6 @@ export async function GET(event: RequestEvent) {
     ] = await Promise.all([
       clientesQuery,
       cidadesQuery,
-      cidadesEstadoQuery,
-      cidadesUfQuery,
-      cidadesSubdivisaoNomeQuery,
-      cidadesSubdivisaoRelQuery,
       produtosQuery,
       tiposQuery,
       pacotesQuery,
@@ -132,39 +117,15 @@ export async function GET(event: RequestEvent) {
     ]);
 
     clientes = safeRows(clientesRes);
-    const cidadesBase = safeRows(cidadesRes);
-    const cidadesEstado = safeRows(cidadesEstadoRes);
-    const cidadesUf = safeRows(cidadesUfRes);
-    const cidadesSubdivisaoNome = safeRows(cidadesSubdivisaoNomeRes);
-    const cidadesSubdivisaoRel = safeRows(cidadesSubdivisaoRelRes);
-    const cidadesById = new Map<string, any>();
-    cidadesBase.forEach((row: any) => cidadesById.set(String(row.id), { ...row }));
-    cidadesEstado.forEach((row: any) => {
-      const entry = cidadesById.get(String(row.id));
-      if (entry) entry.estado = row?.estado || entry.estado || null;
-    });
-    cidadesUf.forEach((row: any) => {
-      const entry = cidadesById.get(String(row.id));
-      if (entry) entry.uf = row?.uf || entry.uf || null;
-    });
-    cidadesSubdivisaoNome.forEach((row: any) => {
-      const entry = cidadesById.get(String(row.id));
-      if (entry) entry.subdivisao_nome = row?.subdivisao_nome || entry.subdivisao_nome || null;
-    });
-    cidadesSubdivisaoRel.forEach((row: any) => {
-      const entry = cidadesById.get(String(row.id));
-      if (entry) entry.subdivisao = row?.subdivisao || entry.subdivisao || null;
-    });
-    cidades = Array.from(cidadesById.values()).map((row: any) => {
-      const estado =
-        row?.estado ||
-        row?.uf ||
-        row?.subdivisao_nome ||
-        row?.subdivisao?.sigla ||
-        row?.subdivisao?.nome ||
-        null;
+    const cidadesRaw = safeRows(cidadesRes);
+    cidades = cidadesRaw.map((row: any) => {
+      // subdivisoes.codigo_admin1 = state code (e.g. "SP"), subdivisoes.nome = state name
+      const sub = row?.subdivisao;
+      const estado = sub?.codigo_admin1 || sub?.nome || null;
       return {
-        ...row,
+        id: row.id,
+        nome: row.nome,
+        subdivisao: sub,
         estado,
         label: estado ? `${row?.nome || ''} (${estado})` : row?.nome || ''
       };
@@ -177,10 +138,6 @@ export async function GET(event: RequestEvent) {
     const warningParts: string[] = [];
     if (clientesRes?.error) warningParts.push('clientes');
     if (cidadesRes?.error) warningParts.push('cidades');
-    if (cidadesEstadoRes?.error) warningParts.push('cidades.estado');
-    if (cidadesUfRes?.error) warningParts.push('cidades.uf');
-    if (cidadesSubdivisaoNomeRes?.error) warningParts.push('cidades.subdivisao_nome');
-    if (cidadesSubdivisaoRelRes?.error) warningParts.push('cidades.subdivisoes');
     if (produtosRes?.error) warningParts.push('produtos');
     if (tiposRes?.error) warningParts.push('tipo_produtos');
     if (pacotesRes?.error) warningParts.push('tipo_pacotes');

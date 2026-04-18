@@ -150,7 +150,7 @@ export async function fetchProdutosBase(
   ] = await Promise.all([
     optionalRows(client.from('paises').select('id, nome').order('nome')),
     optionalRows(client.from('subdivisoes').select('id, nome, codigo_admin1, pais_id').order('nome')),
-    optionalRows(client.from('tipo_produtos').select('id, nome, tipo, descricao, ativo').eq('ativo', true).order('nome')),
+    optionalRows(client.from('tipo_produtos').select('id, nome, tipo, ativo').eq('ativo', true).order('nome')),
     produtosQuery,
     optionalRows(
       client
@@ -282,7 +282,7 @@ export async function fetchProdutoById(client: SupabaseClient, id: string) {
         )
       : Promise.resolve(null),
     base.tipo_produto
-      ? optionalSingle(client.from('tipo_produtos').select('id, nome, tipo, descricao, ativo').eq('id', base.tipo_produto).maybeSingle())
+      ? optionalSingle(client.from('tipo_produtos').select('id, nome, tipo, ativo').eq('id', base.tipo_produto).maybeSingle())
       : Promise.resolve(null),
     base.fornecedor_id
       ? optionalSingle(client.from('fornecedores').select('id, nome_completo, nome_fantasia').eq('id', base.fornecedor_id).maybeSingle())

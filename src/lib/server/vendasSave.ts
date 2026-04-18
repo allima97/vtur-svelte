@@ -214,6 +214,7 @@ export function buildVendaPayload(venda: any, vendedorId: string, clienteId: str
     valor_total: toNullableNumber(venda?.valor_total),
     valor_taxas: toNullableNumber(venda?.valor_taxas),
     valor_nao_comissionado: toNullableNumber(venda?.valor_nao_comissionado),
+    produto_id: toNullableString(venda?.produto_id),
     status: normalizedStatus || 'pendente',
     cancelada: Boolean(venda?.cancelada),
     notas: toNullableString(venda?.notas),
