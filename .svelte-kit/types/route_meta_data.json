@@ -201,6 +201,15 @@
 	"/api/v1/clientes": [
 		"src/routes/api/v1/clientes/+server.ts"
 	],
+	"/api/v1/clientes/avisos/history": [
+		"src/routes/api/v1/clientes/avisos/history/+server.ts"
+	],
+	"/api/v1/clientes/avisos/send": [
+		"src/routes/api/v1/clientes/avisos/send/+server.ts"
+	],
+	"/api/v1/clientes/avisos/templates": [
+		"src/routes/api/v1/clientes/avisos/templates/+server.ts"
+	],
 	"/api/v1/clientes/create": [
 		"src/routes/api/v1/clientes/create/+server.ts"
 	],
