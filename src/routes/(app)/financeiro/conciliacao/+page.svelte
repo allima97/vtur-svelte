@@ -21,7 +21,7 @@
     cliente_id: string;
     descricao: string;
     valor: number;
-    data_pagamento: string; // mapeado de created_at (vendas_pagamentos nao tem data_pagamento)
+    data_pagamento: string;
     forma_pagamento: string;
     forma_pagamento_id: string;
     status: 'pendente' | 'conciliado' | 'divergente' | 'cancelado';
@@ -58,8 +58,10 @@
   let filtroFormaPagamento = 'todas';
   let dataInicio = '';
   let dataFim = '';
+  let somentePendentes = false;
+  let somenteDivergentes = false;
+  let somenteBacklogFinanceiro = false;
   
-  // Dialogs
   let showConciliarDialog = false;
   let showUploadDialog = false;
   let showDetalheDialog = false;
@@ -155,7 +157,6 @@
     }
   }
 
-  // Computed values
   $: pagamentosFiltrados = pagamentos;
   $: pendentes = pagamentos.filter(p => p.status === 'pendente');
   $: conciliados = pagamentos.filter(p => p.status === 'conciliado');
@@ -163,23 +164,23 @@
   $: totalPendente = pendentes.reduce((acc, p) => acc + p.valor, 0);
   $: totalConciliado = conciliados.reduce((acc, p) => acc + p.valor, 0);
   $: totalDivergente = divergentes.reduce((acc, p) => acc + p.valor, 0);
+  $: backlogFinanceiro = pagamentos.filter((p) => p.status === 'pendente' || p.status === 'divergente');
+  $: totalBacklogFinanceiro = backlogFinanceiro.reduce((acc, p) => acc + p.valor, 0);
+  $: pagamentosVisiveis = pagamentosFiltrados.filter((p) => {
+    if (somenteBacklogFinanceiro && !['pendente', 'divergente'].includes(p.status)) return false;
+    if (somentePendentes && p.status !== 'pendente') return false;
+    if (somenteDivergentes && p.status !== 'divergente') return false;
+    return true;
+  });
 
   const columns = [
-    { 
-      key: 'codigo', 
-      label: 'Código', 
-      sortable: true,
-      width: '120px'
-    },
+    { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
     { 
       key: 'cliente', 
       label: 'Cliente / Descrição', 
       sortable: true,
       formatter: (value: string, row: Pagamento) => {
-        return `<div class="flex flex-col">
-          <span class="font-medium text-slate-900">${value}</span>
-          <span class="text-xs text-slate-500">${row.descricao}</span>
-        </div>`;
+        return `<div class="flex flex-col"><span class="font-medium text-slate-900">${value}</span><span class="text-xs text-slate-500">${row.descricao}</span></div>`;
       }
     },
     { 
@@ -189,12 +190,7 @@
       width: '110px',
       formatter: (value: string) => new Date(value).toLocaleDateString('pt-BR')
     },
-    { 
-      key: 'forma_pagamento', 
-      label: 'Forma', 
-      sortable: true,
-      width: '140px'
-    },
+    { key: 'forma_pagamento', label: 'Forma', sortable: true, width: '140px' },
     { 
       key: 'valor', 
       label: 'Valor', 
@@ -229,10 +225,7 @@
   }
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value || 0);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
   }
 
   function abrirDetalhe(pagamento: Pagamento) {
@@ -256,30 +249,21 @@
 
   function handleFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      arquivoSelecionado = input.files[0];
-    }
+    if (input.files && input.files[0]) arquivoSelecionado = input.files[0];
   }
 
   async function handleUpload() {
     if (!pagamentoSelecionado || !arquivoSelecionado) return;
-    
     processando = true;
     try {
       const formData = new FormData();
       formData.append('file', arquivoSelecionado);
       formData.append('pagamento_id', pagamentoSelecionado.id);
-
-      const response = await fetch('/api/v1/pagamentos/upload', {
-        method: 'POST',
-        body: formData
-      });
-
+      const response = await fetch('/api/v1/pagamentos/upload', { method: 'POST', body: formData });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Erro ao fazer upload');
       }
-
       toast.success('Comprovante anexado com sucesso!');
       await carregarPagamentos();
       showUploadDialog = false;
@@ -294,21 +278,14 @@
 
   async function handleConciliar() {
     if (!pagamentoSelecionado) return;
-    
     processando = true;
     try {
       const response = await fetch(`/api/v1/pagamentos/${pagamentoSelecionado.id}/conciliar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          venda_id: vendaSelecionada,
-          status: 'conciliado',
-          status_anterior: pagamentoSelecionado.status
-        })
+        body: JSON.stringify({ venda_id: vendaSelecionada, status: 'conciliado', status_anterior: pagamentoSelecionado.status })
       });
-
       if (!response.ok) throw new Error('Erro ao conciliar');
-
       toast.success('Pagamento conciliado com sucesso!');
       await carregarPagamentos();
       showConciliarDialog = false;
@@ -324,20 +301,14 @@
 
   async function handleMarcarDivergente() {
     if (!pagamentoSelecionado) return;
-    
     processando = true;
     try {
       const response = await fetch(`/api/v1/pagamentos/${pagamentoSelecionado.id}/conciliar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'divergente',
-          status_anterior: pagamentoSelecionado.status
-        })
+        body: JSON.stringify({ status: 'divergente', status_anterior: pagamentoSelecionado.status })
       });
-
       if (!response.ok) throw new Error('Erro ao atualizar');
-
       toast.success('Marcado como divergente');
       await carregarPagamentos();
       showConciliarDialog = false;
@@ -352,7 +323,7 @@
 
   async function handleExportar() {
     try {
-      const dados = pagamentosFiltrados.map(p => ({
+      const dados = pagamentosVisiveis.map(p => ({
         Codigo: p.codigo,
         Cliente: p.cliente,
         Descricao: p.descricao,
@@ -365,17 +336,12 @@
       }));
 
       const headers = Object.keys(dados[0] || {});
-      const csv = [
-        headers.join(';'),
-        ...dados.map(row => headers.map(h => row[h as keyof typeof row]).join(';'))
-      ].join('\n');
-
+      const csv = [headers.join(';'), ...dados.map(row => headers.map(h => row[h as keyof typeof row]).join(';'))].join('\n');
       const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `conciliacao_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
-
       toast.success('Relatório exportado com sucesso!');
     } catch (err) {
       toast.error('Erro ao exportar relatório');
@@ -391,60 +357,23 @@
   title="Conciliação"
   subtitle="Concilie pagamentos recebidos com vendas"
   color="financeiro"
-  breadcrumbs={[
-    { label: 'Financeiro', href: '/financeiro' },
-    { label: 'Conciliação' }
-  ]}
+  breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Conciliação' }]}
 />
 
-<!-- KPIs -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <KPICard 
-    title="Pendentes" 
-    value={pendentes.length}
-    subtitle={formatCurrency(totalPendente)}
-    color="financeiro" 
-    icon={Clock}
-  />
-
-  <KPICard 
-    title="Conciliados" 
-    value={conciliados.length}
-    subtitle={formatCurrency(totalConciliado)}
-    color="financeiro" 
-    icon={CheckCircle}
-  />
-
-  <KPICard 
-    title="Divergentes" 
-    value={divergentes.length}
-    subtitle={formatCurrency(totalDivergente)}
-    color="financeiro" 
-    icon={AlertCircle}
-  />
-
-  <KPICard 
-    title="Total" 
-    value={pagamentos.length}
-    subtitle={formatCurrency(pagamentos.reduce((acc, p) => acc + p.valor, 0))}
-    color="financeiro" 
-    icon={TrendingUp}
-  />
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <KPICard title="Pendentes" value={pendentes.length} subtitle={formatCurrency(totalPendente)} color="financeiro" icon={Clock} />
+  <KPICard title="Conciliados" value={conciliados.length} subtitle={formatCurrency(totalConciliado)} color="financeiro" icon={CheckCircle} />
+  <KPICard title="Divergentes" value={divergentes.length} subtitle={formatCurrency(totalDivergente)} color="financeiro" icon={AlertCircle} />
+  <KPICard title="Backlog" value={backlogFinanceiro.length} subtitle={formatCurrency(totalBacklogFinanceiro)} color="financeiro" icon={AlertCircle} />
+  <KPICard title="Total" value={pagamentos.length} subtitle={formatCurrency(pagamentos.reduce((acc, p) => acc + p.valor, 0))} color="financeiro" icon={TrendingUp} />
 </div>
 
-<!-- Filtros -->
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-col lg:flex-row gap-4 items-end">
     <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="relative">
         <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Buscar pagamentos..."
-          bind:value={searchQuery}
-          on:change={carregarPagamentos}
-          class="vtur-input pl-10 w-full"
-        />
+        <input type="text" placeholder="Buscar pagamentos..." bind:value={searchQuery} on:change={carregarPagamentos} class="vtur-input pl-10 w-full" />
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -479,12 +408,85 @@
       Exportar
     </Button>
   </div>
+
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    <button
+      type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteBacklogFinanceiro ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somenteBacklogFinanceiro = !somenteBacklogFinanceiro;
+        if (somenteBacklogFinanceiro) {
+          somentePendentes = false;
+          somenteDivergentes = false;
+        }
+      }}
+    >
+      {#if somenteBacklogFinanceiro}
+        Mostrando backlog financeiro ({backlogFinanceiro.length})
+      {:else}
+        Ver backlog financeiro ({backlogFinanceiro.length})
+      {/if}
+    </button>
+
+    <button
+      type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somentePendentes = !somentePendentes;
+        if (somentePendentes) {
+          somenteDivergentes = false;
+          somenteBacklogFinanceiro = false;
+        }
+      }}
+    >
+      {#if somentePendentes}
+        Mostrando pendentes ({pendentes.length})
+      {:else}
+        Ver pendentes ({pendentes.length})
+      {/if}
+    </button>
+
+    <button
+      type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteDivergentes ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somenteDivergentes = !somenteDivergentes;
+        if (somenteDivergentes) {
+          somentePendentes = false;
+          somenteBacklogFinanceiro = false;
+        }
+      }}
+    >
+      {#if somenteDivergentes}
+        Mostrando divergentes ({divergentes.length})
+      {:else}
+        Ver divergentes ({divergentes.length})
+      {/if}
+    </button>
+
+    {#if somentePendentes || somenteDivergentes || somenteBacklogFinanceiro}
+      <button
+        type="button"
+        class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+        on:click={() => {
+          somentePendentes = false;
+          somenteDivergentes = false;
+          somenteBacklogFinanceiro = false;
+        }}
+      >
+        Limpar filtro rápido
+      </button>
+    {/if}
+  </div>
 </Card>
 
-<!-- Tabela de Pagamentos -->
+<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  A conciliação agora permite isolar rapidamente <strong>pendentes</strong>, <strong>divergentes</strong> e um <strong>backlog financeiro consolidado</strong>, acelerando a fila operacional do fechamento.
+</div>
+
 <DataTable
   {columns}
-  data={pagamentosFiltrados}
+  data={pagamentosVisiveis}
   color="financeiro"
   {loading}
   title="Pagamentos"
@@ -492,15 +494,7 @@
   onRowClick={abrirDetalhe}
 />
 
-<!-- Dialog de Detalhe do Pagamento -->
-<Dialog
-  bind:open={showDetalheDialog}
-  title="Detalhes do Pagamento"
-  color="financeiro"
-  showCancel={true}
-  cancelText="Fechar"
-  showConfirm={false}
->
+<Dialog bind:open={showDetalheDialog} title="Detalhes do Pagamento" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>
   {#if pagamentoSelecionado}
     <div class="space-y-4">
       <div class="p-4 bg-slate-50 rounded-lg">
@@ -509,27 +503,17 @@
             <p class="text-sm text-slate-500">Código</p>
             <p class="font-semibold text-slate-900">{pagamentoSelecionado.codigo}</p>
           </div>
-          <p class="text-2xl font-bold text-financeiro-600">
-            {formatCurrency(pagamentoSelecionado.valor)}
-          </p>
+          <p class="text-2xl font-bold text-financeiro-600">{formatCurrency(pagamentoSelecionado.valor)}</p>
         </div>
         <p class="text-slate-700">{pagamentoSelecionado.cliente}</p>
         <p class="text-sm text-slate-500">{pagamentoSelecionado.descricao}</p>
         <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
-          <span class="flex items-center gap-1">
-            <Calendar size={14} />
-            {new Date(pagamentoSelecionado.data_pagamento).toLocaleDateString('pt-BR')}
-          </span>
-          <span class="flex items-center gap-1">
-            <CreditCard size={14} />
-            {pagamentoSelecionado.forma_pagamento}
-          </span>
+          <span class="flex items-center gap-1"><Calendar size={14} />{new Date(pagamentoSelecionado.data_pagamento).toLocaleDateString('pt-BR')}</span>
+          <span class="flex items-center gap-1"><CreditCard size={14} />{pagamentoSelecionado.forma_pagamento}</span>
         </div>
         <div class="mt-3">
           <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full {getStatusHtml(pagamentoSelecionado.status).split('"')[1]}">
-            {pagamentoSelecionado.status === 'conciliado' ? 'Conciliado' : 
-             pagamentoSelecionado.status === 'pendente' ? 'Pendente' : 
-             pagamentoSelecionado.status === 'divergente' ? 'Divergente' : 'Cancelado'}
+            {pagamentoSelecionado.status === 'conciliado' ? 'Conciliado' : pagamentoSelecionado.status === 'pendente' ? 'Pendente' : pagamentoSelecionado.status === 'divergente' ? 'Divergente' : 'Cancelado'}
           </span>
         </div>
       </div>
@@ -544,47 +528,25 @@
       {#if pagamentoSelecionado.comprovante}
         <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
           <p class="text-sm text-blue-700 font-medium mb-2">Comprovante Anexado</p>
-          <a 
-            href={pagamentoSelecionado.comprovante}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700"
-          >
-            <FileCheck size={18} />
-            Visualizar Comprovante
+          <a href={pagamentoSelecionado.comprovante} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+            <FileCheck size={18} />Visualizar Comprovante
           </a>
         </div>
       {/if}
 
       <div class="flex gap-3 pt-2">
         {#if pagamentoSelecionado.status === 'pendente'}
-          <Button
-            variant="primary"
-            color="financeiro"
-            class_name="flex-1 justify-center"
-            on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}
-          >
-            <CheckCircle size={16} class="mr-2" />
-            Conciliar
+          <Button variant="primary" color="financeiro" class_name="flex-1 justify-center" on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}>
+            <CheckCircle size={16} class="mr-2" />Conciliar
           </Button>
         {:else if pagamentoSelecionado.status === 'divergente'}
-          <Button
-            variant="secondary"
-            class_name="flex-1 justify-center"
-            on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}
-          >
-            <AlertCircle size={16} class="mr-2" />
-            Revisar
+          <Button variant="secondary" class_name="flex-1 justify-center" on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}>
+            <AlertCircle size={16} class="mr-2" />Revisar
           </Button>
         {/if}
-        
         {#if !pagamentoSelecionado.comprovante}
-          <Button
-            variant="secondary"
-            on:click={() => { showDetalheDialog = false; showUploadDialog = true; }}
-          >
-            <Upload size={16} class="mr-2" />
-            Anexar Comprovante
+          <Button variant="secondary" on:click={() => { showDetalheDialog = false; showUploadDialog = true; }}>
+            <Upload size={16} class="mr-2" />Anexar Comprovante
           </Button>
         {/if}
       </div>
@@ -592,15 +554,7 @@
   {/if}
 </Dialog>
 
-<!-- Dialog de Conciliação -->
-<Dialog
-  bind:open={showConciliarDialog}
-  title="Conciliar Pagamento"
-  color="financeiro"
-  showCancel={true}
-  cancelText="Cancelar"
-  showConfirm={false}
->
+<Dialog bind:open={showConciliarDialog} title="Conciliar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={false}>
   {#if pagamentoSelecionado}
     <div class="space-y-4">
       <div class="p-4 bg-slate-50 rounded-lg">
@@ -609,9 +563,7 @@
             <p class="text-sm text-slate-500">Pagamento</p>
             <p class="font-semibold text-slate-900">{pagamentoSelecionado.codigo}</p>
           </div>
-          <p class="text-xl font-bold text-financeiro-600">
-            {formatCurrency(pagamentoSelecionado.valor)}
-          </p>
+          <p class="text-xl font-bold text-financeiro-600">{formatCurrency(pagamentoSelecionado.valor)}</p>
         </div>
         <p class="text-slate-700">{pagamentoSelecionado.cliente}</p>
         <p class="text-sm text-slate-500">{pagamentoSelecionado.descricao}</p>
@@ -625,53 +577,23 @@
             <option value={venda.id}>{venda.codigo} - {venda.cliente_nome} ({formatCurrency(venda.valor_total)})</option>
           {/each}
         </select>
-        <p class="text-xs text-slate-500 mt-1">
-          Selecione a venda correspondente a este pagamento
-        </p>
+        <p class="text-xs text-slate-500 mt-1">Selecione a venda correspondente a este pagamento</p>
       </div>
 
       <div class="flex gap-3 pt-4">
-        <Button
-          variant="primary"
-          color="financeiro"
-          class_name="flex-1 justify-center"
-          on:click={handleConciliar}
-          disabled={processando}
-        >
-          {#if processando}
-            <Loader2 size={16} class="mr-2 animate-spin" />
-          {:else}
-            <CheckCircle size={16} class="mr-2" />
-          {/if}
+        <Button variant="primary" color="financeiro" class_name="flex-1 justify-center" on:click={handleConciliar} disabled={processando}>
+          {#if processando}<Loader2 size={16} class="mr-2 animate-spin" />{:else}<CheckCircle size={16} class="mr-2" />{/if}
           Confirmar Conciliação
         </Button>
-        <Button
-          variant="secondary"
-          on:click={handleMarcarDivergente}
-          disabled={processando}
-        >
-          <AlertCircle size={16} class="mr-2" />
-          Divergente
+        <Button variant="secondary" on:click={handleMarcarDivergente} disabled={processando}>
+          <AlertCircle size={16} class="mr-2" />Divergente
         </Button>
       </div>
     </div>
   {/if}
 </Dialog>
 
-<!-- Dialog de Upload -->
-<Dialog
-  bind:open={showUploadDialog}
-  title="Anexar Comprovante"
-  color="financeiro"
-  showCancel={true}
-  cancelText="Cancelar"
-  showConfirm={true}
-  confirmText="Enviar"
-  confirmVariant="primary"
-  loading={processando}
-  onConfirm={handleUpload}
-  confirmDisabled={!arquivoSelecionado}
->
+<Dialog bind:open={showUploadDialog} title="Anexar Comprovante" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Enviar" confirmVariant="primary" loading={processando} onConfirm={handleUpload} confirmDisabled={!arquivoSelecionado}>
   {#if pagamentoSelecionado}
     <div class="space-y-4">
       <div class="p-4 bg-slate-50 rounded-lg">
@@ -681,27 +603,16 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-2">
-          Selecione o arquivo
-        </label>
-        <input
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf"
-          on:change={handleFileSelect}
-          class="vtur-input w-full"
-        />
-        <p class="text-xs text-slate-500 mt-1">
-          Formatos aceitos: JPG, PNG, PDF. Tamanho máximo: 5MB
-        </p>
+        <label class="block text-sm font-medium text-slate-700 mb-2">Selecione o arquivo</label>
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf" on:change={handleFileSelect} class="vtur-input w-full" />
+        <p class="text-xs text-slate-500 mt-1">Formatos aceitos: JPG, PNG, PDF. Tamanho máximo: 5MB</p>
       </div>
 
       {#if arquivoSelecionado}
         <div class="p-3 bg-green-50 rounded-lg flex items-center gap-2">
           <FileCheck size={18} class="text-green-600" />
           <span class="text-sm text-green-700">{arquivoSelecionado.name}</span>
-          <span class="text-xs text-green-600">
-            ({(arquivoSelecionado.size / 1024).toFixed(1)} KB)
-          </span>
+          <span class="text-xs text-green-600">({(arquivoSelecionado.size / 1024).toFixed(1)} KB)</span>
         </div>
       {/if}
     </div>
