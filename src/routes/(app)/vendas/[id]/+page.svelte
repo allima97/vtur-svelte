@@ -8,7 +8,8 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import {
     ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
-    Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle
+    Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
+    AlertCircle, Clock, CheckCircle, Shield
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -214,6 +215,55 @@
     ]}
   />
 
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo da venda com foco em status operacional, conciliação, fechamento financeiro e estabilidade do caso.</p>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <button on:click={() => goto('/vendas')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${vendaPendente ? 'bg-amber-50 text-amber-600' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-600' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}><FileText size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+      </div>
+      <p class="text-sm text-slate-500">Status operacional</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(venda.status)}</p>
+      <p class="mt-2 text-sm text-slate-600">Leitura rápida do estágio atual da venda dentro da operação.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${conciliacaoPendente ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}><Shield size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Financeiro</span>
+      </div>
+      <p class="text-sm text-slate-500">Conciliação</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
+      <p class="mt-2 text-sm text-slate-600">{conciliacaoPendente ? 'A venda ainda exige validação financeira e fechamento.' : 'A venda já está conciliada financeiramente.'}</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}><AlertCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+      </div>
+      <p class="text-sm text-slate-500">Diferença financeira</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(diferencaFinanceira)}</p>
+      <p class="mt-2 text-sm text-slate-600">{fechamentoFinanceiroOk ? 'Recibos e pagamentos estão alinhados nesta venda.' : 'Há diferença entre recibos e pagamentos e vale revisar a composição financeira.'}</p>
+    </button>
+
+    <button on:click={() => goto('/vendas')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`mb-3 flex items-center justify-between`}>
+        <div class={`rounded-lg p-3 ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-700'}`}><CheckCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Estabilidade</span>
+      </div>
+      <p class="text-sm text-slate-500">Situação geral</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estável' : 'Atenção'}</p>
+      <p class="mt-2 text-sm text-slate-600">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Status, conciliação e financeiro estão alinhados.' : 'Ainda há pontos operacionais ou financeiros exigindo acompanhamento.'}</p>
+    </button>
+  </div>
+
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(venda.status)} {venda.cancelada ? 'opacity-75' : ''}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3">
@@ -258,6 +308,10 @@
     <KPICard title="Taxas" value={formatCurrency(valorTaxas)} color="vendas" icon={FileText} />
     <KPICard title="Líquido" value={formatCurrency(valorLiquido)} color="vendas" icon={ShoppingCart} />
     <KPICard title="Recibos" value={quantidadeRecibos} color="vendas" icon={Package} />
+  </div>
+
+  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    Esta venda reúne <strong>{quantidadeRecibos}</strong> recibo(s), total pago de <strong>{formatCurrency(totalPagamentosValor)}</strong> e total em recibos de <strong>{formatCurrency(totalRecibosValor)}</strong>, facilitando a leitura rápida da estabilidade operacional e financeira.
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
