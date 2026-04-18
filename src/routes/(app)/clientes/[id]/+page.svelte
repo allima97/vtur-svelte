@@ -21,7 +21,11 @@
     ShoppingCart,
     Ticket,
     User,
-    Wallet
+    Wallet,
+    Users,
+    Clock,
+    AlertCircle,
+    CheckCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -91,6 +95,11 @@
   $: totalTaxas = historicoVendas.reduce((acc, item) => acc + Number(item.valor_taxas || 0), 0);
   $: totalGasto = historicoVendas.reduce((acc, item) => acc + Number(item.valor_total || 0), 0);
   $: ticketMedio = historicoVendas.length > 0 ? totalGasto / historicoVendas.length : 0;
+  $: statusCliente = String(cliente?.status || '').toLowerCase();
+  $: clienteAtivo = statusCliente === 'ativo';
+  $: clienteEmNegociacao = historicoOrcamentos.length > 0 && historicoVendas.length === 0;
+  $: clienteComHistorico = historicoVendas.length > 0;
+  $: clienteInicial = !clienteComHistorico && !clienteEmNegociacao;
 
   function formatCurrency(value: number | null | undefined) {
     return new Intl.NumberFormat('pt-BR', {
@@ -233,12 +242,65 @@
     ]}
   />
 
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo do relacionamento com foco em histórico, negociação, reativação e valor da carteira.</p>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-green-50 p-3 text-green-600"><Users size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
+      </div>
+      <p class="text-sm text-slate-500">Status comercial</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(cliente.status)}</p>
+      <p class="mt-2 text-sm text-slate-600">{clienteAtivo ? 'Cliente ativo na carteira, com base pronta para recorrência.' : statusCliente === 'prospect' ? 'Cliente ainda em fase comercial inicial.' : 'Cliente fora do ciclo ativo e candidato a reativação.'}</p>
+    </button>
+
+    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
+      </div>
+      <p class="text-sm text-slate-500">Negociação</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
+      <p class="mt-2 text-sm text-slate-600">{clienteEmNegociacao ? 'Cliente com orçamento em aberto e sem conversão em venda.' : 'Total de propostas vinculadas ao histórico deste cliente.'}</p>
+    </button>
+
+    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-pink-50 p-3 text-pink-600"><AlertCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Reativação</span>
+      </div>
+      <p class="text-sm text-slate-500">Última compra</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatDate(cliente.ultima_compra)}</p>
+      <p class="mt-2 text-sm text-slate-600">{clienteInicial ? 'Cliente sem histórico de viagem e pronto para nutrição comercial.' : clienteComHistorico ? 'Use esta referência para avaliar cadência de retorno e nova oferta.' : 'Sem compra registrada até o momento.'}</p>
+    </button>
+
+    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><CheckCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Carteira</span>
+      </div>
+      <p class="text-sm text-slate-500">Valor acumulado</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
+      <p class="mt-2 text-sm text-slate-600">Histórico consolidado de vendas vinculadas ao cliente titular ou passageiro.</p>
+    </button>
+  </div>
+
   <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
     <KPICard title="Total em vendas" value={formatCurrency(totalGasto)} color="clientes" icon={Wallet} />
     <KPICard title="Viagens vinculadas" value={historicoVendas.length} color="clientes" icon={ShoppingCart} />
     <KPICard title="Ticket medio" value={formatCurrency(ticketMedio)} color="clientes" icon={Ticket} />
     <KPICard title="Taxas acumuladas" value={formatCurrency(totalTaxas)} color="clientes" icon={FileText} />
     <KPICard title="Orcamentos" value={historicoOrcamentos.length} color="clientes" icon={Calendar} />
+  </div>
+
+  <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+    Este cliente reúne <strong>{historicoVendas.length}</strong> venda(s), <strong>{historicoOrcamentos.length}</strong> orçamento(s) e <strong>{cliente.acompanhantes_count}</strong> acompanhante(s), permitindo leitura rápida de recorrência, negociação e potencial de reativação.
   </div>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
