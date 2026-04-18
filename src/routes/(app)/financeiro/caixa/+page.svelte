@@ -10,7 +10,8 @@
   import {
     TrendingUp, TrendingDown, DollarSign, Calendar,
     Plus, Download, ArrowUpRight, ArrowDownRight,
-    Wallet, CreditCard, Banknote, Loader2, FileText
+    Wallet, CreditCard, Banknote, Loader2, FileText,
+    AlertCircle, CheckCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -281,6 +282,55 @@
     <Loader2 size={48} class="animate-spin text-financeiro-600" />
   </div>
 {:else}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Painel executivo</p>
+      <p class="text-sm text-slate-500">Resumo do caixa com foco em saldo, backlog financeiro, entradas e saídas do período.</p>
+    </div>
+  </div>
+
+  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}><AlertCircle size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+      </div>
+      <p class="text-sm text-slate-500">Backlog financeiro</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(backlogFinanceiroValor)}</p>
+      <p class="mt-2 text-sm text-slate-600">Pendências e divergências que ainda exigem fechamento financeiro.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class={`rounded-lg p-3 ${resumo.saldo >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}><DollarSign size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saldo</span>
+      </div>
+      <p class="text-sm text-slate-500">Situação de caixa</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.saldo)}</p>
+      <p class="mt-2 text-sm text-slate-600">Leitura consolidada do resultado entre entradas e saídas no período.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><ArrowUpRight size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Entradas</span>
+      </div>
+      <p class="text-sm text-slate-500">Total recebido</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalEntradas)}</p>
+      <p class="mt-2 text-sm text-slate-600">Volume de entradas confirmadas ou registradas no período filtrado.</p>
+    </button>
+
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="rounded-lg bg-red-50 p-3 text-red-600"><ArrowDownRight size={20} /></div>
+        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saídas</span>
+      </div>
+      <p class="text-sm text-slate-500">Total de saídas</p>
+      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalSaidas)}</p>
+      <p class="mt-2 text-sm text-slate-600">Despesas e movimentos de saída registrados no mesmo recorte temporal.</p>
+    </button>
+  </div>
+
   <Card color="financeiro" class="mb-6">
     <div class="flex flex-col sm:flex-row gap-4 items-end">
       <div class="flex-1 flex flex-wrap gap-4">
