@@ -43,6 +43,7 @@
   let totalItems = 0;
   let somentePendentes = false;
   let somenteConciliacaoPendente = false;
+  let somenteBacklogOperacional = false;
 
   let currentAbortController: AbortController | null = null;
 
@@ -351,6 +352,7 @@
     filtroCompanyId = '';
     somentePendentes = false;
     somenteConciliacaoPendente = false;
+    somenteBacklogOperacional = false;
     triggerLoad(true);
   }
 
@@ -372,7 +374,9 @@
   $: qtdConcluidas = vendas.filter((item) => item.status === 'concluida').length;
   $: qtdCanceladas = vendas.filter((item) => item.status === 'cancelada').length;
   $: qtdConciliacaoPendente = vendas.filter((item) => item.conciliado === false).length;
+  $: qtdBacklogOperacional = vendas.filter((item) => item.status === 'pendente' || item.conciliado === false).length;
   $: vendasVisiveis = vendas.filter((item) => {
+    if (somenteBacklogOperacional && !(item.status === 'pendente' || item.conciliado === false)) return false;
     if (somentePendentes && item.status !== 'pendente') return false;
     if (somenteConciliacaoPendente && item.conciliado !== false) return false;
     return true;
@@ -527,10 +531,31 @@
   <div class="mt-4 flex flex-wrap items-center gap-2">
     <button
       type="button"
+      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteBacklogOperacional ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-700'}`}
+      on:click={() => {
+        somenteBacklogOperacional = !somenteBacklogOperacional;
+        if (somenteBacklogOperacional) {
+          somentePendentes = false;
+          somenteConciliacaoPendente = false;
+        }
+      }}
+    >
+      {#if somenteBacklogOperacional}
+        Mostrando backlog operacional ({qtdBacklogOperacional})
+      {:else}
+        Ver backlog operacional ({qtdBacklogOperacional})
+      {/if}
+    </button>
+
+    <button
+      type="button"
       class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
       on:click={() => {
         somentePendentes = !somentePendentes;
-        if (somentePendentes) somenteConciliacaoPendente = false;
+        if (somentePendentes) {
+          somenteConciliacaoPendente = false;
+          somenteBacklogOperacional = false;
+        }
       }}
     >
       {#if somentePendentes}
@@ -545,7 +570,10 @@
       class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteConciliacaoPendente ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-white text-slate-700'}`}
       on:click={() => {
         somenteConciliacaoPendente = !somenteConciliacaoPendente;
-        if (somenteConciliacaoPendente) somentePendentes = false;
+        if (somenteConciliacaoPendente) {
+          somentePendentes = false;
+          somenteBacklogOperacional = false;
+        }
       }}
     >
       {#if somenteConciliacaoPendente}
@@ -555,13 +583,14 @@
       {/if}
     </button>
 
-    {#if somentePendentes || somenteConciliacaoPendente}
+    {#if somentePendentes || somenteConciliacaoPendente || somenteBacklogOperacional}
       <button
         type="button"
         class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
         on:click={() => {
           somentePendentes = false;
           somenteConciliacaoPendente = false;
+          somenteBacklogOperacional = false;
         }}
       >
         Limpar filtro rápido
@@ -596,18 +625,18 @@
     <p class="text-sm text-slate-500">Conciliação pendente</p>
     <p class="text-2xl font-bold text-slate-900">{qtdConciliacaoPendente}</p>
   </div>
+  <div class="vtur-card p-4 border-l-4 border-l-slate-500">
+    <p class="text-sm text-slate-500">Backlog operacional</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdBacklogOperacional}</p>
+  </div>
   <div class="vtur-card p-4 border-l-4 border-l-blue-500">
     <p class="text-sm text-slate-500">Concluídas</p>
     <p class="text-2xl font-bold text-slate-900">{qtdConcluidas}</p>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-slate-400">
-    <p class="text-sm text-slate-500">Canceladas</p>
-    <p class="text-2xl font-bold text-slate-900">{qtdCanceladas}</p>
-  </div>
 </div>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  A consulta permite isolar rapidamente <strong>vendas pendentes</strong> e casos com <strong>conciliação pendente</strong>, facilitando a fila operacional do financeiro e do atendimento.
+  A consulta permite isolar rapidamente <strong>vendas pendentes</strong>, casos com <strong>conciliação pendente</strong> e um <strong>backlog operacional consolidado</strong>, facilitando a fila do financeiro e do atendimento.
 </div>
 
 <div class="mb-6 mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
