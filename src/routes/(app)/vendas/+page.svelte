@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { DataTable, PageHeader, Card, Button } from '$lib/components/ui';
-  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Shield, Wallet, Filter } from 'lucide-svelte';
+  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Shield, Wallet, Filter, RotateCcw } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
 
@@ -42,7 +42,6 @@
   let pageSize = 20;
   let totalItems = 0;
 
-  // AbortController para cancelar requisições anteriores em caso de mudança rápida de filtros
   let currentAbortController: AbortController | null = null;
 
   $: canCreate = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'create') || permissoes.can('vendas_consulta', 'create');
@@ -178,18 +177,14 @@
       label: 'Valor',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) =>
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
+      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
     },
     {
       key: 'valor_taxas',
       label: 'Taxas',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) =>
-        value
-          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-          : '-'
+      formatter: (value: number) => value ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value) : '-'
     },
     {
       key: 'conciliado',
@@ -248,7 +243,6 @@
   }
 
   async function loadVendas() {
-    // Cancela a requisição anterior se ainda estiver em andamento
     if (currentAbortController) {
       currentAbortController.abort();
     }
@@ -264,17 +258,13 @@
       params.set('pageSize', String(pageSize));
       params.set('include_kpis', '1');
 
-      // Inclui vendedores no payload para popular filtro no papel MASTER
       if (isMaster) params.set('include_vendedores', '1');
 
       const periodo = getPeriodoRange();
       if (periodo) {
         params.set('inicio', periodo.inicio);
         params.set('fim', periodo.fim);
-        periodoCarregadoTexto =
-          periodo.inicio === periodo.fim
-            ? `Resultados do dia ${formatDate(periodo.inicio)}`
-            : `Resultados de ${formatDate(periodo.inicio)} até ${formatDate(periodo.fim)}`;
+        periodoCarregadoTexto = periodo.inicio === periodo.fim ? `Resultados do dia ${formatDate(periodo.inicio)}` : `Resultados de ${formatDate(periodo.inicio)} até ${formatDate(periodo.fim)}`;
       } else {
         periodoCarregadoTexto = 'Resultados de todas as vendas';
       }
@@ -295,18 +285,13 @@
       vendas = Array.isArray(payload?.items) ? payload.items : [];
       totalItems = Number(payload?.total || 0);
 
-      // Para papel MASTER: usa lista de vendedores do payload (completa)
-      // Para outros papéis: deriva dos itens retornados (comportamento anterior)
       if (isMaster && Array.isArray(payload?.vendedores) && payload.vendedores.length > 0) {
         vendedoresEquipe = payload.vendedores;
       } else {
         vendedoresEquipe = Array.from(
           new Map(
             vendas
-              .map((item) => ({
-                id: String(item.vendedor_id || '').trim(),
-                nome_completo: String(item.vendedor || '').trim()
-              }))
+              .map((item) => ({ id: String(item.vendedor_id || '').trim(), nome_completo: String(item.vendedor || '').trim() }))
               .filter((item) => item.id)
               .map((item) => [item.id, item])
           ).values()
@@ -320,7 +305,6 @@
         totalSeguro: Number(payload?.kpis?.totalSeguro || 0)
       };
     } catch (err) {
-      // Ignora erros de abort (requisição cancelada intencionalmente)
       if (err instanceof DOMException && err.name === 'AbortError') return;
       errorMessage = err instanceof Error ? err.message : 'Erro ao carregar vendas.';
       vendas = [];
@@ -352,6 +336,20 @@
     }, 350);
   }
 
+  function resetFiltros() {
+    filtroPeriodo = 'mes_atual';
+    campoBusca = 'todos';
+    busca = '';
+    filtroMes = monthValueLocal(new Date());
+    filtroDiaInicio = dateToISODateLocal(new Date());
+    filtroDiaFim = dateToISODateLocal(new Date());
+    filtroVendedorId = '';
+    filtroStatus = '';
+    filtroTipo = '';
+    filtroCompanyId = '';
+    triggerLoad(true);
+  }
+
   onMount(async () => {
     if ($permissoes.isMaster) await loadMasterEmpresas();
     if ($permissoes.isGestor) await loadGestorEquipe();
@@ -364,16 +362,17 @@
 
   let filtroBuscaTimer: ReturnType<typeof setTimeout> | null = null;
 
-  $: visibleColumns = canFilterSeller()
-    ? columns
-    : columns.filter((column) => column.key !== 'vendedor');
+  $: visibleColumns = canFilterSeller() ? columns : columns.filter((column) => column.key !== 'vendedor');
+  $: qtdConfirmadas = vendas.filter((item) => item.status === 'confirmada').length;
+  $: qtdPendentes = vendas.filter((item) => item.status === 'pendente').length;
+  $: qtdConcluidas = vendas.filter((item) => item.status === 'concluida').length;
+  $: qtdCanceladas = vendas.filter((item) => item.status === 'cancelada').length;
 
   function handleRowClick(row: Venda) {
     goto(`/vendas/${row.id}`);
   }
 
-  const fmt = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const fmt = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 </script>
 
 <svelte:head>
@@ -515,7 +514,10 @@
     </div>
   </div>
 
-  <div class="mt-4 flex justify-end">
+  <div class="mt-4 flex flex-wrap justify-end gap-2">
+    <Button type="button" variant="secondary" on:click={resetFiltros}>
+      <RotateCcw size={16} class="mr-2" />Limpar filtros
+    </Button>
     <Button type="button" variant="primary" color="vendas" on:click={() => triggerLoad(true)}>
       <Filter size={16} class="mr-2" />Aplicar filtros
     </Button>
@@ -526,7 +528,25 @@
   {getTextoPeriodoKpi()}
 </div>
 
-<!-- KPI Cards: elevação via shadow, sem border-left colorida -->
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div class="vtur-card p-4 border-l-4 border-l-green-500">
+    <p class="text-sm text-slate-500">Confirmadas</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdConfirmadas}</p>
+  </div>
+  <div class="vtur-card p-4 border-l-4 border-l-amber-500">
+    <p class="text-sm text-slate-500">Pendentes</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdPendentes}</p>
+  </div>
+  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
+    <p class="text-sm text-slate-500">Concluídas</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdConcluidas}</p>
+  </div>
+  <div class="vtur-card p-4 border-l-4 border-l-red-500">
+    <p class="text-sm text-slate-500">Canceladas</p>
+    <p class="text-2xl font-bold text-slate-900">{qtdCanceladas}</p>
+  </div>
+</div>
+
 <div class="mb-6 mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
   <div class="vtur-card p-4 shadow-md transition-shadow hover:shadow-lg">
     <div class="flex items-center gap-3">
