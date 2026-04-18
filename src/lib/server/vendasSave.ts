@@ -195,6 +195,9 @@ export function buildVendaPayload(venda: any, vendedorId: string, clienteId: str
   if (dataVenda > todayIso) dataVenda = todayIso;
   if (dataVenda > dataLancamento) dataVenda = dataLancamento;
 
+  const rawStatus = toNullableString(venda?.status);
+  const normalizedStatus = rawStatus === 'aberto' ? 'pendente' : rawStatus;
+
   return {
     vendedor_id: vendedorId,
     cliente_id: clienteId,
@@ -211,18 +214,13 @@ export function buildVendaPayload(venda: any, vendedorId: string, clienteId: str
     valor_total: toNullableNumber(venda?.valor_total),
     valor_taxas: toNullableNumber(venda?.valor_taxas),
     valor_nao_comissionado: toNullableNumber(venda?.valor_nao_comissionado),
-    status: toNullableString(venda?.status) || 'aberto',
+    status: normalizedStatus || 'pendente',
     cancelada: Boolean(venda?.cancelada),
     notas: toNullableString(venda?.notas),
     ...(companyId ? { company_id: companyId } : {})
   };
 }
 
-/**
- * syncVendaChildren — delega para a RPC do Postgres.
- * Toda a operacao roda dentro de uma transacao atomica no banco:
- * se qualquer insert falhar, tudo e revertido automaticamente.
- */
 export async function syncVendaChildren(params: {
   client: any;
   vendaId: string;
@@ -235,7 +233,6 @@ export async function syncVendaChildren(params: {
 }) {
   const { client, vendaId, companyId, clienteId, vendedorId, userId, recibos, pagamentos } = params;
 
-  // Preparar recibos: normalizar display do numero antes de enviar
   const recibosNormalizados = recibos.map((item) => ({
     ...item,
     numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
