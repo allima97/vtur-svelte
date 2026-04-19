@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Card } from 'flowbite-svelte';
   import { TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
   
@@ -13,15 +12,15 @@
   export let color: 'blue' | 'green' | 'orange' | 'teal' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' = 'blue';
   
   const colorClasses = {
-    blue: 'border-l-blue-500 bg-white',
-    green: 'border-l-green-500 bg-white',
-    orange: 'border-l-orange-500 bg-white',
-    teal: 'border-l-teal-500 bg-white',
-    clientes: 'border-l-blue-500 bg-white',
-    vendas: 'border-l-green-500 bg-white',
-    financeiro: 'border-l-orange-500 bg-white',
-    operacao: 'border-l-teal-500 bg-white',
-    orcamentos: 'border-l-blue-500 bg-white',
+    blue: 'vtur-kpi-card--blue',
+    green: 'vtur-kpi-card--green',
+    orange: 'vtur-kpi-card--orange',
+    teal: 'vtur-kpi-card--teal',
+    clientes: 'vtur-kpi-card--clientes',
+    vendas: 'vtur-kpi-card--vendas',
+    financeiro: 'vtur-kpi-card--financeiro',
+    operacao: 'vtur-kpi-card--operacao',
+    orcamentos: 'vtur-kpi-card--orcamentos'
   };
   
   const iconBgClasses = {
@@ -40,7 +39,7 @@
   $: isNegative = trend !== null && trend < 0;
 </script>
 
-<Card class="border-l-4 {colorClasses[color]} hover:shadow-lg transition-shadow shadow-sm border border-slate-200">
+<article class="vtur-kpi-card {colorClasses[color]}">
   <div class="flex items-start justify-between">
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
@@ -49,7 +48,7 @@
             <svelte:component this={icon} size={20} />
           </div>
         {/if}
-        <h3 class="text-sm font-medium text-slate-500">{title}</h3>
+        <h3 class="vtur-kpi-card__title">{title}</h3>
       </div>
       
       {#if loading}
@@ -59,11 +58,11 @@
         </div>
       {:else}
         <div class="mt-1">
-          <span class="text-2xl font-bold text-slate-900 break-words">{value}</span>
+          <span class="vtur-kpi-card__value break-words">{value}</span>
         </div>
 
         {#if subtitle}
-          <p class="mt-1 text-xs text-slate-500">{subtitle}</p>
+          <p class="vtur-kpi-card__subtext">{subtitle}</p>
         {/if}
         
         {#if trend !== null}
@@ -94,4 +93,4 @@
       {/if}
     </div>
   </div>
-</Card>
+</article>
