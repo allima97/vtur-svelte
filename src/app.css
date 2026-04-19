@@ -700,6 +700,8 @@
 
 .vtur-kpi-card {
   border: 1px solid rgba(148, 163, 184, 0.2);
+  border-left-width: 4px;
+  border-left-color: #3b82f6;
   border-radius: 16px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   padding: 1rem;
@@ -708,6 +710,28 @@
   flex-direction: column;
   justify-content: space-between;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.vtur-kpi-card--blue,
+.vtur-kpi-card--clientes,
+.vtur-kpi-card--orcamentos {
+  border-left-color: #3b82f6;
+}
+
+.vtur-kpi-card--green,
+.vtur-kpi-card--vendas {
+  border-left-color: #22c55e;
+}
+
+.vtur-kpi-card--orange,
+.vtur-kpi-card--financeiro,
+.vtur-kpi-card--comissoes {
+  border-left-color: #f97316;
+}
+
+.vtur-kpi-card--teal,
+.vtur-kpi-card--operacao {
+  border-left-color: #14b8a6;
 }
 
 .vtur-kpi-card__title {
