@@ -19,9 +19,15 @@
   export let confirmVariant: 'primary' | 'danger' = 'primary';
   export let loading: boolean = false;
   
+  // Props extras (aceitas mas ignoradas silenciosamente para compatibilidade)
+  export let description: string | null = null;
+  export let maxWidth: string | null = null;
+  export let confirmDisabled: boolean = false;
+
   // Eventos
   export let onCancel: ((e?: Event) => void) | undefined = undefined;
   export let onConfirm: ((e?: Event) => void) | undefined = undefined;
+  export let onclose: ((e?: Event) => void) | undefined = undefined;
   
   const sizeClasses = {
     sm: 'max-w-md',
@@ -33,6 +39,7 @@
   
   function handleCancel() {
     if (onCancel) onCancel();
+    if (onclose) onclose();
     open = false;
   }
   
@@ -56,8 +63,8 @@
 
 {#if open}
   <!-- Backdrop -->
-  <div 
-    class="fixed inset-0 bg-slate-900/50 z-[1100] flex items-center justify-center p-4"
+  <div
+    class="fixed inset-0 bg-slate-900/50 z-[1100] flex items-end sm:items-center justify-center sm:p-4"
     class:dialog-shell={respectAppShell}
     on:click={handleBackdropClick}
     on:keydown={handleKeydown}
@@ -65,29 +72,34 @@
     tabindex="-1"
     aria-label="Fechar modal"
   >
-    <!-- Modal -->
-    <div 
-      class="bg-white rounded-xl shadow-xl w-full {sizeClasses[size]} {size === 'full' ? 'max-h-[90vh]' : 'max-h-[90vh]'} overflow-hidden"
+    <!-- Modal: bottom sheet no mobile, centralizado no tablet+ -->
+    <div
+      class="bg-white w-full rounded-t-2xl sm:rounded-xl shadow-xl overflow-hidden sm:w-full {sizeClasses[size]} max-h-[92svh] sm:max-h-[90vh]"
       on:click|stopPropagation
       role="dialog"
       aria-modal="true"
       tabindex="-1"
     >
+      <!-- Drag handle (mobile only) -->
+      <div class="sm:hidden flex justify-center pt-3 pb-1">
+        <div class="w-10 h-1 rounded-full bg-slate-300"></div>
+      </div>
+
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-100">
-        <h3 class="text-lg font-semibold text-slate-900">{title}</h3>
+      <div class="flex items-center justify-between px-4 py-3 sm:p-4 border-b border-slate-100">
+        <h3 class="text-base sm:text-lg font-semibold text-slate-900">{title}</h3>
         {#if dismissable}
           <button
             on:click={handleCancel}
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center min-w-[36px] min-h-[36px]"
           >
             <X size={20} />
           </button>
         {/if}
       </div>
-      
+
       <!-- Content -->
-      <div class="p-4 {size === 'full' ? 'overflow-y-auto max-h-[72vh]' : 'overflow-y-auto max-h-[60vh]'}">
+      <div class="p-4 overflow-y-auto max-h-[60svh] sm:max-h-[60vh]">
         <slot />
       </div>
       
@@ -109,6 +121,7 @@
               color={confirmVariant === 'primary' ? color : undefined}
               on:click={handleConfirm}
               loading={loading}
+              disabled={confirmDisabled}
             >
               {confirmText}
             </Button>

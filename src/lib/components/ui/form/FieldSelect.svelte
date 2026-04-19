@@ -1,41 +1,49 @@
 <script lang="ts">
-  import { Label, Select } from 'flowbite-svelte';
+  import { Label, Select, Helper } from 'flowbite-svelte';
 
   export let label: string | null = null;
   export let value: string = '';
-  export let options: Array<{ value: string; label: string }> = [];
+  export let options: Array<{ value: string; label: string; disabled?: boolean }> = [];
   export let placeholder: string | null = 'Selecione uma opção';
   export let required = false;
   export let disabled = false;
   export let error: string | null = null;
   export let helper: string | null = null;
+  export let id: string | null = null;
+  export let name: string | null = null;
   export let class_name = '';
+
+  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 </script>
 
 <div class={class_name}>
   {#if label}
-    <Label class="mb-2 {required ? 'after:content-["*"] after:ml-0.5 after:text-red-500' : ''}">
-      {label}
+    <Label for={fieldId} class="mb-1.5 block text-sm font-medium text-slate-700">
+      {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
     </Label>
   {/if}
 
   <Select
+    id={fieldId}
+    {name}
     bind:value
     {disabled}
     {required}
-    class={error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+    class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+    on:change
+    on:blur
   >
     {#if placeholder}
       <option value="">{placeholder}</option>
     {/if}
     {#each options as option}
-      <option value={option.value}>{option.label}</option>
+      <option value={option.value} disabled={option.disabled}>{option.label}</option>
     {/each}
   </Select>
 
   {#if error}
-    <p class="mt-1 text-sm text-red-600">{error}</p>
+    <Helper class="mt-1 text-red-600">{error}</Helper>
   {:else if helper}
-    <p class="mt-1 text-sm text-gray-500">{helper}</p>
+    <Helper class="mt-1 text-slate-500">{helper}</Helper>
   {/if}
 </div>

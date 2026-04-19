@@ -349,7 +349,7 @@
         <Filter size={16} class="mr-2" />
         Aplicar
       </Button>
-      <Button variant="outline" color="financeiro" on:click={atualizar} title="Atualizar">
+      <Button variant="outline" color="financeiro" on:click={atualizar} class_name="px-3">
         <RefreshCw size={16} class={loading ? 'animate-spin' : ''} />
       </Button>
     </div>
@@ -363,7 +363,7 @@
 {/if}
 
 <!-- KPIs principais -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+<div class="grid grid-cols-2 gap-4 mb-6 {!loading && vendasAgg.totalSeguro > 0 ? 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'}">
   <!-- Vendas no período -->
   <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
     <div class="flex items-start justify-between">
@@ -459,6 +459,20 @@
       <p class="mt-1 text-xs text-slate-400">Meta atingida ✓</p>
     {/if}
   </div>
+
+  <!-- Seguro viagem (dentro do grid, só aparece se houver valor) -->
+  {#if !loading && vendasAgg.totalSeguro > 0}
+    <div class="vtur-card p-4 border-l-4 border-l-amber-400">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Seguro viagem</p>
+          <p class="text-xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
+        </div>
+        <Award size={20} class="text-amber-500 mt-1 shrink-0" />
+      </div>
+      <p class="mt-1 text-xs text-slate-400">No período</p>
+    </div>
+  {/if}
 </div>
 
 <!-- Gráficos: Timeline + Destinos + Produtos -->
@@ -657,15 +671,3 @@
   {/if}
 </div>
 
-<!-- Seguro viagem KPI (se tiver) -->
-{#if !loading && vendasAgg.totalSeguro > 0}
-  <div class="mb-6">
-    <div class="vtur-card p-4 border-l-4 border-l-amber-400 flex items-center gap-4">
-      <Award size={24} class="text-amber-500 shrink-0" />
-      <div>
-        <p class="text-xs text-slate-500">Seguro viagem no período</p>
-        <p class="text-xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
-      </div>
-    </div>
-  </div>
-{/if}

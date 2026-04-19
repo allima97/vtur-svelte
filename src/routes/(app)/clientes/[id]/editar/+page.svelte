@@ -124,7 +124,6 @@
       formData = {
         ...formData,
         endereco: String(data?.logradouro || formData.endereco || ''),
-        bairro: String(data?.bairro || formData.bairro || ''),
         cidade: String(data?.localidade || formData.cidade || ''),
         estado: String(data?.uf || formData.estado || '')
       };
@@ -436,11 +435,6 @@
           <div>
             <label for="complemento" class="mb-1 block text-sm font-medium text-slate-700">Complemento</label>
             <input id="complemento" bind:value={formData.complemento} class="vtur-input w-full" />
-          </div>
-
-          <div>
-            <label for="bairro" class="mb-1 block text-sm font-medium text-slate-700">Bairro</label>
-            <input id="bairro" bind:value={formData.bairro} class="vtur-input w-full" />
           </div>
 
           <div>

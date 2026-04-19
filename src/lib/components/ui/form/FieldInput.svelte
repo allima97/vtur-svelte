@@ -1,42 +1,62 @@
 <script lang="ts">
-  import { Input, Label } from 'flowbite-svelte';
+  import { Input, Label, Helper } from 'flowbite-svelte';
 
   export let label: string | null = null;
   export let value: string = '';
   export let placeholder: string = '';
-  export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'tel' = 'text';
+  export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'tel' | 'time' | 'url' = 'text';
   export let required = false;
   export let disabled = false;
+  export let readonly = false;
   export let error: string | null = null;
   export let helper: string | null = null;
   export let icon: any = null;
+  export let id: string | null = null;
+  export let name: string | null = null;
+  export let min: string | null = null;
+  export let max: string | null = null;
+  export let step: string | null = null;
+  export let maxlength: number | null = null;
   export let class_name = '';
+
+  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 </script>
 
 <div class={class_name}>
   {#if label}
-    <Label class="mb-2 {required ? 'after:content-["*"] after:ml-0.5 after:text-red-500' : ''}">
-      {label}
+    <Label for={fieldId} class="mb-1.5 block text-sm font-medium text-slate-700">
+      {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
     </Label>
   {/if}
 
   <Input
+    id={fieldId}
+    {name}
     {type}
     bind:value
     {placeholder}
     {disabled}
     {required}
+    {readonly}
+    {min}
+    {max}
+    {step}
+    {maxlength}
     color={error ? 'red' : 'base'}
-    class={error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+    class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+    on:input
+    on:change
+    on:blur
+    on:focus
   >
     {#if icon}
-      <svelte:component this={icon} slot="left" class="w-5 h-5 text-gray-500" />
+      <svelte:component this={icon} slot="left" class="h-4 w-4 text-slate-400" />
     {/if}
   </Input>
 
   {#if error}
-    <p class="mt-1 text-sm text-red-600">{error}</p>
+    <Helper class="mt-1 text-red-600">{error}</Helper>
   {:else if helper}
-    <p class="mt-1 text-sm text-gray-500">{helper}</p>
+    <Helper class="mt-1 text-slate-500">{helper}</Helper>
   {/if}
 </div>

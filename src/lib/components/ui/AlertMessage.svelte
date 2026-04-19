@@ -1,43 +1,53 @@
 <script lang="ts">
-  export let variant: "error" | "success" | "info" | "warning" = "info";
-  export let message = "";
+  import { Alert } from 'flowbite-svelte';
+  import { InfoCircleSolid, CheckCircleSolid, ExclamationCircleSolid, CloseCircleSolid } from 'flowbite-svelte-icons';
+
+  export let variant: 'error' | 'success' | 'info' | 'warning' = 'info';
+  export let message = '';
+  export let dismissable = false;
+  export let title: string | null = null;
+
+  let dismissed = false;
+
+  const colorMap: Record<string, 'blue' | 'green' | 'yellow' | 'red'> = {
+    info: 'blue',
+    success: 'green',
+    warning: 'yellow',
+    error: 'red'
+  };
+
+  const IconMap: Record<string, any> = {
+    info: InfoCircleSolid,
+    success: CheckCircleSolid,
+    warning: ExclamationCircleSolid,
+    error: CloseCircleSolid
+  };
+
+  $: color = colorMap[variant];
+  $: Icon = IconMap[variant];
 </script>
 
-{#if message}
-  <div class={`alert-message ${variant}`.trim()}>
-    {message}
-  </div>
+{#if (message || $$slots.default) && !dismissed}
+  <Alert {color} class="mb-3 flex items-start gap-3 text-sm">
+    <svelte:component this={Icon} slot="icon" class="h-5 w-5 shrink-0" />
+    <div class="min-w-0 flex-1">
+      {#if title}
+        <p class="mb-0.5 font-semibold">{title}</p>
+      {/if}
+      {#if message}<p class="m-0">{message}</p>{/if}
+      <slot />
+    </div>
+    {#if dismissable}
+      <button
+        type="button"
+        class="-mr-1 ml-auto shrink-0 rounded-lg p-1 transition-colors hover:bg-black/10 focus:outline-none"
+        aria-label="Fechar"
+        on:click={() => (dismissed = true)}
+      >
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    {/if}
+  </Alert>
 {/if}
-
-<style>
-  .alert-message {
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    font-size: 14px;
-  }
-
-  .alert-message.info {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1d4ed8;
-  }
-
-  .alert-message.success {
-    background: #ecfdf5;
-    border-color: #a7f3d0;
-    color: #047857;
-  }
-
-  .alert-message.warning {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #b45309;
-  }
-
-  .alert-message.error {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #b91c1c;
-  }
-</style>

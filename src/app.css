@@ -320,6 +320,23 @@
     letter-spacing: 0.08em;
   }
 
+  .vtur-sidebar__section-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0 0.45rem;
+    margin: 0.9rem 0 0.3rem;
+    color: rgba(226, 232, 240, 0.72);
+  }
+
+  .vtur-sidebar__section-toggle:hover {
+    color: rgba(226, 232, 240, 0.95);
+  }
+
   .vtur-sidebar__nav {
     display: flex;
     flex-direction: column;
@@ -559,11 +576,32 @@
     background-position: right 0.5rem center;
   }
   
+  /* Input de busca com ícone */
+  .vtur-input--search {
+    @apply pl-10;
+  }
+
   /* Textarea estilizado */
   textarea.vtur-input {
     @apply resize-y min-h-[80px];
   }
-  
+
+  /* Filter panel */
+  .vtur-filter-panel {
+    @apply rounded-xl border border-slate-200 bg-slate-50/70 p-4;
+  }
+
+  /* Table shell (container da tabela com bordas e sombra) */
+  .vtur-table-shell {
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  /* Table pagination bar */
+  .vtur-table-pagination {
+    @apply flex flex-col gap-3 border-t border-slate-200 bg-slate-50/60 px-4 py-3
+           sm:flex-row sm:items-center sm:justify-between;
+  }
+
   /* Tabela padrão VTUR */
   .vtur-table {
     @apply w-full text-sm text-left;
@@ -748,4 +786,281 @@
   border-color: rgba(239, 68, 68, 0.18);
   background: rgba(254, 242, 242, 0.98);
   color: #b91c1c;
+}
+
+/* ========== MOBILE-FIRST ========== */
+
+/* Safe area and mobile bottom clearance */
+:root {
+  --vtur-mobile-bottom-clearance: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* Bottom nav - visible only on mobile */
+.vtur-mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .vtur-layout {
+    padding-top: calc(var(--vtur-topbar-height) + 0.75rem);
+    padding-left: calc(0.75rem + env(safe-area-inset-left));
+    padding-right: calc(0.75rem + env(safe-area-inset-right));
+    padding-bottom: var(--vtur-mobile-bottom-clearance);
+    margin-left: 0;
+  }
+
+  /* Topbar mobile adjustments */
+  .vtur-topbar {
+    padding: 0 0.75rem;
+    padding-left: calc(0.75rem + env(safe-area-inset-left));
+    padding-right: calc(0.75rem + env(safe-area-inset-right));
+  }
+
+  .vtur-topbar__brand-copy {
+    display: none;
+  }
+
+  .vtur-user-chip__copy {
+    display: none;
+  }
+
+  .vtur-user-chip {
+    padding: 0.35rem;
+    border-radius: 999px;
+  }
+
+  /* Mobile bottom nav */
+  .vtur-mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 6px 4px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    background: rgba(15, 23, 42, 0.97);
+    border-top: 1px solid #1e293b;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 2px;
+    z-index: 996;
+    backdrop-filter: blur(10px);
+  }
+
+  .vtur-mobile-bottom-nav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    text-decoration: none;
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.6rem;
+    font-weight: 500;
+    flex: 1 1 0;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    padding: 8px 2px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+    letter-spacing: 0.02em;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .vtur-mobile-bottom-nav__item:active {
+    background: rgba(148, 163, 184, 0.15);
+  }
+
+  .vtur-mobile-bottom-nav__item--active {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+  }
+
+  .vtur-mobile-bottom-nav__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    position: relative;
+  }
+
+  .vtur-mobile-bottom-nav__label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+
+  /* Sidebar drawer on mobile: full-screen overlay */
+  .vtur-sidebar {
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    height: 100svh !important;
+    width: min(88vw, 300px) !important;
+    border-radius: 0 16px 16px 0 !important;
+    z-index: 999 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Page header on mobile */
+  .vtur-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .vtur-page-header__actions {
+    width: 100%;
+  }
+
+  /* Form grids collapse to 1 column on mobile */
+  .grid.grid-cols-2,
+  .grid.grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Dialog on mobile: full width */
+  .fixed.inset-0 > [role="dialog"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100svh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* ========== TABLE → MOBILE CARDS ========== */
+/* On mobile (<= 640px), transform <table> with class table-mobile-cards into stacked cards.
+   Each <td> must have a data-label attribute set to the column header. */
+@media (max-width: 640px) {
+  .table-mobile-cards {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    background: transparent !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .table-mobile-cards thead {
+    display: none !important;
+  }
+
+  .table-mobile-cards tfoot {
+    display: none !important;
+  }
+
+  .table-mobile-cards tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    background: transparent !important;
+  }
+
+  .table-mobile-cards tbody > tr {
+    display: block !important;
+    width: 100% !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06) !important;
+    overflow: hidden !important;
+  }
+
+  .table-mobile-cards tbody > tr > td {
+    display: grid !important;
+    grid-template-columns: minmax(72px, 90px) minmax(0, 1fr) !important;
+    align-items: start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 9px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    background: #ffffff !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
+    font-size: 0.83rem !important;
+  }
+
+  .table-mobile-cards tbody > tr > td:last-child {
+    border-bottom: 0 !important;
+  }
+
+  /* Label column from data-label */
+  .table-mobile-cards tbody > tr > td::before {
+    content: attr(data-label) !important;
+    display: block !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: #94a3b8 !important;
+    line-height: 1.4 !important;
+    padding-top: 1px !important;
+    white-space: normal !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  /* Hide actions column header label on mobile cards */
+  .table-mobile-cards tbody > tr > td.td-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .table-mobile-cards tbody > tr > td.td-actions::before {
+    display: none !important;
+  }
+
+  /* Overflow container for table shell */
+  .vtur-table-shell {
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Pagination on mobile */
+  .vtur-table-pagination {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    margin-top: 8px;
+  }
+}
+
+/* ========== TOUCH TARGETS ========== */
+/* All interactive elements should be at least 44px tall on mobile */
+@media (max-width: 640px) {
+  button,
+  a.vtur-sidebar__item,
+  .vtur-icon-button,
+  select.vtur-input,
+  input.vtur-input,
+  textarea.vtur-input {
+    min-height: 44px;
+  }
+
+  /* Buttons: full width in action areas */
+  .vtur-page-header__actions .flex > * {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+/* ========== SAFE AREA INSETS ========== */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 640px) {
+    body {
+      padding-bottom: 0;
+    }
+  }
 }

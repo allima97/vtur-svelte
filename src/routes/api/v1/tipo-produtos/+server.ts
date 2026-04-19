@@ -39,7 +39,7 @@ export async function GET(event) {
         .order('nome', { ascending: true })
         .limit(200);
       if (!fallback.error) {
-        data = fallback.data;
+        data = fallback.data as any;
         error = null;
       }
     }

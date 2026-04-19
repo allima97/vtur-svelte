@@ -49,24 +49,26 @@
     { value: 'fechada', label: 'Fechadas' }
   ];
 
-  let consultorias: Consultoria[] = $state([]);
-  let loading = $state(false);
-  let saving = $state(false);
-  let showModal = $state(false);
-  let editingId = $state<string | null>(null);
-  let statusFilter = $state('');
+  let consultorias: Consultoria[] = [];
+  let loading = false;
+  let saving = false;
+  let showModal = false;
+  let editingId: string | null = null;
+  let statusFilter = '';
 
-  const defaultForm = (): ConsultoriaForm => ({
-    cliente_nome: '',
-    data_hora: '',
-    lembrete: '15min',
-    destino: '',
-    quantidade_pessoas: 1,
-    taxa_consultoria: 0,
-    notas: ''
-  });
+  function defaultForm(): ConsultoriaForm {
+    return {
+      cliente_nome: '',
+      data_hora: '',
+      lembrete: '15min',
+      destino: '',
+      quantidade_pessoas: 1,
+      taxa_consultoria: 0,
+      notas: ''
+    };
+  }
 
-  let form = $state<ConsultoriaForm>(defaultForm());
+  let form: ConsultoriaForm = defaultForm();
 
   function formatDataHora(iso: string): string {
     if (!iso) return '-';
@@ -106,7 +108,6 @@
 
   function openEdit(c: Consultoria) {
     editingId = c.id;
-    // Converter data_hora ISO para formato datetime-local (YYYY-MM-DDTHH:mm)
     const dt = c.data_hora ? new Date(c.data_hora) : null;
     const dataHoraLocal = dt
       ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}T${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
@@ -130,14 +131,8 @@
   }
 
   async function saveConsultoria() {
-    if (!form.cliente_nome.trim()) {
-      toast.error('Nome do cliente é obrigatório.');
-      return;
-    }
-    if (!form.data_hora) {
-      toast.error('Data e hora são obrigatórias.');
-      return;
-    }
+    if (!form.cliente_nome.trim()) { toast.error('Nome do cliente é obrigatório.'); return; }
+    if (!form.data_hora) { toast.error('Data e hora são obrigatórias.'); return; }
 
     saving = true;
     try {
@@ -197,62 +192,69 @@
     window.open('/api/v1/consultorias/ics', '_blank');
   }
 
+  // Recarrega quando o filtro muda
+  $: statusFilter, void (typeof window !== 'undefined' && loadConsultorias());
+
   onMount(loadConsultorias);
-
-  $effect(() => {
-    // Recarrega quando o filtro muda
-    void statusFilter;
-    loadConsultorias();
-  });
-
-  $derived const filteredConsultorias = consultorias;
 </script>
 
-<PageHeader title="Consultoria Online" subtitle="Gerencie agendamentos de consultoria">
-  {#snippet actions()}
-    <Button variant="outline" size="sm" onclick={exportIcal} title="Exportar calendário">
-      <Download class="w-4 h-4 mr-1" />
-      iCal
-    </Button>
-    <Button variant="outline" size="sm" onclick={loadConsultorias} disabled={loading}>
-      <RefreshCw class="w-4 h-4 {loading ? 'animate-spin' : ''}" />
-    </Button>
-    <Button onclick={openCreate}>
-      <Plus class="w-4 h-4 mr-1" />
-      Nova Consultoria
-    </Button>
-  {/snippet}
-</PageHeader>
+<PageHeader
+  title="Consultoria Online"
+  subtitle="Gerencie agendamentos de consultoria"
+  color="operacao"
+  actions={[
+    { label: 'Nova Consultoria', onClick: openCreate, variant: 'primary', icon: Plus }
+  ]}
+/>
 
-<div class="p-4 space-y-4">
+<div class="space-y-4">
   <!-- Filtros -->
   <Card>
-    <div class="flex items-center gap-3 flex-wrap">
-      <span class="text-sm font-medium text-gray-600">Filtrar por status:</span>
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="text-sm font-medium text-slate-600">Filtrar por status:</span>
       {#each statusOptions as opt}
         <button
           type="button"
-          class="px-3 py-1 rounded-full text-sm border transition-colors {statusFilter === opt.value
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'}"
-          onclick={() => { statusFilter = opt.value; }}
+          class="rounded-full border px-3 py-1 text-sm transition-colors {statusFilter === opt.value
+            ? 'border-blue-600 bg-blue-600 text-white'
+            : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'}"
+          on:click={() => { statusFilter = opt.value; }}
         >
           {opt.label}
         </button>
       {/each}
-      <span class="ml-auto text-sm text-gray-500">{consultorias.length} registro(s)</span>
+      <div class="ml-auto flex items-center gap-2">
+        <span class="text-sm text-slate-500">{consultorias.length} registro(s)</span>
+        <button
+          type="button"
+          class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+          on:click={loadConsultorias}
+          aria-label="Atualizar"
+          disabled={loading}
+        >
+          <RefreshCw size={15} class={loading ? 'animate-spin' : ''} />
+        </button>
+        <button
+          type="button"
+          class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+          on:click={exportIcal}
+          aria-label="Exportar iCal"
+        >
+          <Download size={15} />
+        </button>
+      </div>
     </div>
   </Card>
 
   <!-- Lista -->
   {#if loading}
     <div class="flex justify-center py-12">
-      <Loader2 class="w-8 h-8 animate-spin text-blue-500" />
+      <Loader2 size={32} class="animate-spin text-blue-500" />
     </div>
   {:else if consultorias.length === 0}
     <EmptyState
       title="Nenhuma consultoria encontrada"
-      description="Clique em 'Nova Consultoria' para agendar a primeira."
+      message="Clique em 'Nova Consultoria' para agendar a primeira."
       icon={Video}
     />
   {:else}
@@ -260,19 +262,19 @@
       {#each consultorias as c (c.id)}
         <Card>
           <div class="flex items-start justify-between gap-4">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold text-gray-900">{c.cliente_nome}</span>
-                <Badge variant={c.fechada ? 'secondary' : 'success'}>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-slate-900">{c.cliente_nome}</span>
+                <Badge color={c.fechada ? 'gray' : 'teal'} dot>
                   {c.fechada ? 'Fechada' : 'Aberta'}
                 </Badge>
                 {#if c.destino}
-                  <span class="text-sm text-gray-500">— {c.destino}</span>
+                  <span class="text-sm text-slate-500">— {c.destino}</span>
                 {/if}
               </div>
-              <div class="flex items-center gap-4 mt-1 text-sm text-gray-600 flex-wrap">
+              <div class="mt-1 flex flex-wrap items-center gap-4 text-sm text-slate-600">
                 <span class="flex items-center gap-1">
-                  <Calendar class="w-3.5 h-3.5" />
+                  <Calendar size={14} />
                   {formatDataHora(c.data_hora)}
                 </span>
                 <span>{c.quantidade_pessoas} pessoa(s)</span>
@@ -280,27 +282,27 @@
                   <span>{formatCurrency(c.taxa_consultoria)}</span>
                 {/if}
                 {#if c.lembrete}
-                  <span class="text-xs bg-gray-100 px-2 py-0.5 rounded">Lembrete: {c.lembrete}</span>
+                  <span class="rounded bg-slate-100 px-2 py-0.5 text-xs">Lembrete: {c.lembrete}</span>
                 {/if}
               </div>
               {#if c.notas}
-                <p class="text-sm text-gray-500 mt-1 line-clamp-2">{c.notas}</p>
+                <p class="mt-1 line-clamp-2 text-sm text-slate-500">{c.notas}</p>
               {/if}
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                class="text-xs px-2 py-1 rounded border border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600 transition-colors"
-                onclick={() => openEdit(c)}
+                class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition-colors hover:border-blue-400 hover:text-blue-600"
+                on:click={() => openEdit(c)}
               >
                 Editar
               </button>
               <button
                 type="button"
-                class="text-xs px-2 py-1 rounded border transition-colors {c.fechada
+                class="rounded border px-2 py-1 text-xs transition-colors {c.fechada
                   ? 'border-green-300 text-green-700 hover:bg-green-50'
                   : 'border-orange-300 text-orange-700 hover:bg-orange-50'}"
-                onclick={() => toggleFechada(c)}
+                on:click={() => toggleFechada(c)}
               >
                 {c.fechada ? 'Reabrir' : 'Fechar'}
               </button>
@@ -313,106 +315,83 @@
 </div>
 
 <!-- Modal Nova/Editar Consultoria -->
-{#if showModal}
-  <Dialog title={editingId ? 'Editar Consultoria' : 'Nova Consultoria'} onclose={closeModal}>
-    <form
-      onsubmit={(e) => { e.preventDefault(); saveConsultoria(); }}
-      class="space-y-4"
-    >
+<Dialog
+  bind:open={showModal}
+  title={editingId ? 'Editar Consultoria' : 'Nova Consultoria'}
+  size="lg"
+  color="operacao"
+  onCancel={closeModal}
+>
+  <form
+    on:submit|preventDefault={saveConsultoria}
+    class="space-y-4"
+  >
+    <div>
+      <label for="cliente_nome" class="mb-1 block text-sm font-medium text-slate-700">
+        Nome do Cliente <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="cliente_nome"
+        type="text"
+        bind:value={form.cliente_nome}
+        class="vtur-input w-full"
+        placeholder="Nome do cliente"
+        required
+      />
+    </div>
+
+    <div>
+      <label for="data_hora" class="mb-1 block text-sm font-medium text-slate-700">
+        Data e Hora <span class="text-red-500">*</span>
+      </label>
+      <input
+        id="data_hora"
+        type="datetime-local"
+        bind:value={form.data_hora}
+        class="vtur-input w-full"
+        required
+      />
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Nome do Cliente <span class="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          bind:value={form.cliente_nome}
-          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Nome do cliente"
-          required
-        />
+        <label for="lembrete" class="mb-1 block text-sm font-medium text-slate-700">Lembrete</label>
+        <select id="lembrete" bind:value={form.lembrete} class="vtur-input w-full">
+          {#each lembreteOptions as opt}
+            <option value={opt.value}>{opt.label}</option>
+          {/each}
+        </select>
       </div>
-
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Data e Hora <span class="text-red-500">*</span>
-        </label>
-        <input
-          type="datetime-local"
-          bind:value={form.data_hora}
-          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
+        <label for="qtd_pessoas" class="mb-1 block text-sm font-medium text-slate-700">Qtd. Pessoas</label>
+        <input id="qtd_pessoas" type="number" bind:value={form.quantidade_pessoas} min="1" class="vtur-input w-full" />
       </div>
+    </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Lembrete</label>
-          <select
-            bind:value={form.lembrete}
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {#each lembreteOptions as opt}
-              <option value={opt.value}>{opt.label}</option>
-            {/each}
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Qtd. Pessoas</label>
-          <input
-            type="number"
-            bind:value={form.quantidade_pessoas}
-            min="1"
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Destino</label>
-          <input
-            type="text"
-            bind:value={form.destino}
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ex: Paris, Miami..."
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Taxa de Consultoria (R$)</label>
-          <input
-            type="number"
-            bind:value={form.taxa_consultoria}
-            min="0"
-            step="0.01"
-            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
-
+    <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-        <textarea
-          bind:value={form.notas}
-          rows="3"
-          class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Observações sobre a consultoria..."
-        ></textarea>
+        <label for="destino" class="mb-1 block text-sm font-medium text-slate-700">Destino</label>
+        <input id="destino" type="text" bind:value={form.destino} class="vtur-input w-full" placeholder="Ex: Paris, Miami..." />
       </div>
+      <div>
+        <label for="taxa" class="mb-1 block text-sm font-medium text-slate-700">Taxa de Consultoria (R$)</label>
+        <input id="taxa" type="number" bind:value={form.taxa_consultoria} min="0" step="0.01" class="vtur-input w-full" />
+      </div>
+    </div>
 
-      <div class="flex justify-end gap-2 pt-2 border-t">
-        <Button type="button" variant="outline" onclick={closeModal} disabled={saving}>
-          <X class="w-4 h-4 mr-1" />
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {#if saving}
-            <Loader2 class="w-4 h-4 mr-1 animate-spin" />
-            Salvando...
-          {:else}
-            {editingId ? 'Salvar Alterações' : 'Criar Consultoria'}
-          {/if}
-        </Button>
-      </div>
-    </form>
-  </Dialog>
-{/if}
+    <div>
+      <label for="notas" class="mb-1 block text-sm font-medium text-slate-700">Notas</label>
+      <textarea id="notas" bind:value={form.notas} rows={3} class="vtur-input w-full" placeholder="Observações sobre a consultoria..."></textarea>
+    </div>
+
+    <div class="flex justify-end gap-2 border-t pt-3">
+      <Button type="button" variant="secondary" on:click={closeModal} disabled={saving}>
+        <X size={16} class="mr-1" />
+        Cancelar
+      </Button>
+      <Button type="submit" variant="primary" color="operacao" loading={saving}>
+        {editingId ? 'Salvar Alterações' : 'Criar Consultoria'}
+      </Button>
+    </div>
+  </form>
+</Dialog>

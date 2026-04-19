@@ -274,7 +274,7 @@
 
   <div class="vtur-table-shell">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm table-mobile-cards">
         <thead class="vtur-table__head">
           <tr>
             {#if selectable}
@@ -307,7 +307,7 @@
                 {/if}
               </th>
             {/each}
-            {#if $$slots.actions}
+            {#if $$slots['row-actions'] || $$slots.actions}
               <th class="px-6 py-3 text-right">Ações</th>
             {/if}
           </tr>
@@ -315,14 +315,14 @@
         <tbody class="vtur-table__body">
           {#if loading}
             <tr>
-              <td colspan={columns.length + (selectable ? 1 : 0) + ($$slots.actions ? 1 : 0)} class="px-6 py-12 text-center">
+              <td colspan={columns.length + (selectable ? 1 : 0) + ($$slots['row-actions'] || $$slots.actions ? 1 : 0)} class="px-6 py-12 text-center">
                 <Loader2 size={32} class="mx-auto animate-spin text-slate-400" />
                 <p class="mt-2 text-slate-500">Carregando...</p>
               </td>
             </tr>
           {:else if paginatedData.length === 0}
             <tr>
-              <td colspan={columns.length + (selectable ? 1 : 0) + ($$slots.actions ? 1 : 0)} class="px-6 py-12 text-center text-slate-500">
+              <td colspan={columns.length + (selectable ? 1 : 0) + ($$slots['row-actions'] || $$slots.actions ? 1 : 0)} class="px-6 py-12 text-center text-slate-500">
                 {emptyMessage}
               </td>
             </tr>
@@ -340,7 +340,7 @@
                   </td>
                 {/if}
                 {#each columns as column}
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-label={column.label}>
                     {#if column.component}
                       <svelte:component this={column.component} {...column.componentProps?.(row) || {}} />
                     {:else}
@@ -353,8 +353,9 @@
                     {/if}
                   </td>
                 {/each}
-                {#if $$slots.actions}
-                  <td class="px-6 py-4 text-right" on:click|stopPropagation>
+                {#if $$slots['row-actions'] || $$slots.actions}
+                  <td class="px-6 py-4 text-right td-actions" on:click|stopPropagation>
+                    <slot name="row-actions" {row} />
                     <slot name="actions" {row} />
                   </td>
                 {/if}

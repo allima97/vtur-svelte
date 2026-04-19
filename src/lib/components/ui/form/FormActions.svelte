@@ -9,10 +9,10 @@
 </script>
 
 <div class="form-actions flex flex-wrap items-center gap-3">
-  <Button type="button" variant="primary" loading={saving} on:click={onSubmit}>
+  <Button type="button" variant="primary" loading={saving} on:click={() => onSubmit?.()}>
     {saving ? 'Salvando...' : submitLabel}
   </Button>
-  <Button type="button" variant="secondary" on:click={onCancel}>
+  <Button type="button" variant="secondary" on:click={() => onCancel?.()}>
     {cancelLabel}
   </Button>
 </div>
