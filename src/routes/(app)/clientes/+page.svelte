@@ -4,6 +4,8 @@
   import { CalendarDays, Plus, Users, Wallet, FileText, Clock } from 'lucide-svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
 
   type Cliente = {
@@ -253,28 +255,13 @@
   </div>
 {/if}
 
-<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Clientes na carteira</p><p class="text-2xl font-bold text-slate-900">{clientes.length}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Users size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Clientes ativos</p><p class="text-2xl font-bold text-slate-900">{statusAtivos}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Em negociação</p><p class="text-2xl font-bold text-slate-900">{clientesEmNegociacao}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-pink-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500"><CalendarDays size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Aniversariantes hoje</p><p class="text-2xl font-bold text-slate-900">{aniversariantesHoje}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Wallet size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Total gasto</p><p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)}</p></div>
-  </div>
-</div>
+<KPIGrid className="mb-6" columns={5}>
+  <KPICard title="Clientes na carteira" value={clientes.length} color="clientes" icon={Users} />
+  <KPICard title="Clientes ativos" value={statusAtivos} color="operacao" icon={Users} />
+  <KPICard title="Em negociação" value={clientesEmNegociacao} color="financeiro" icon={Clock} />
+  <KPICard title="Aniversariantes hoje" value={aniversariantesHoje} color="clientes" icon={CalendarDays} />
+  <KPICard title="Total gasto" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)} color="slate" icon={Wallet} />
+</KPIGrid>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
   A carteira consolida <strong class="text-slate-900">{clientesComViagem}</strong> clientes com histórico de viagens e <strong class="text-slate-900">{clientesEmNegociacao}</strong> em negociação com orçamentos em aberto.

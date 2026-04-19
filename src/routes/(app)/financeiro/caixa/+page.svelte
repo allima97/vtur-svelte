@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import {
     TrendingUp, TrendingDown, DollarSign, Calendar,
@@ -289,7 +290,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-grid mb-6">
+  <KPIGrid className="mb-6" columns={4}>
     <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
       <div>
@@ -321,7 +322,7 @@
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalSaidas)}</p>
       </div>
     </button>
-  </div>
+  </KPIGrid>
 
   <Card color="financeiro" class="mb-6">
     <div class="flex flex-col sm:flex-row gap-4 items-end">
@@ -350,14 +351,14 @@
     </div>
   </Card>
 
-  <div class="vtur-kpi-grid vtur-kpi-grid-6 mb-6">
+  <KPIGrid className="mb-6" columns={6}>
     <KPICard title="Total Recebido" value={formatCurrency(resumo.totalEntradas)} color="financeiro" icon={ArrowUpRight} />
     <KPICard title="Total Saídas" value={formatCurrency(resumo.totalSaidas)} color="financeiro" icon={ArrowDownRight} />
     <KPICard title="Pendente" value={formatCurrency(resumo.totalPendente)} color="financeiro" icon={Wallet} />
     <KPICard title="Divergente" value={formatCurrency(resumo.totalDivergente)} color="financeiro" icon={TrendingDown} />
     <KPICard title="Backlog" value={formatCurrency(backlogFinanceiroValor)} color="financeiro" icon={Banknote} />
     <KPICard title="Saldo" value={formatCurrency(resumo.saldo)} color="financeiro" icon={DollarSign} />
-  </div>
+  </KPIGrid>
 
   <div class="mb-6 rounded-[18px] border {temBacklogFinanceiro ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-700'} px-5 py-4 text-sm shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
     {#if temBacklogFinanceiro}

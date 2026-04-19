@@ -6,6 +6,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2, AlertCircle, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -45,6 +47,7 @@
   let showPagamentoDialog = false;
   let showPagamentoMultiploDialog = false;
   let showDetalhesDialog = false;
+  let processando = false;
   let dataPagamento = new Date().toISOString().split('T')[0];
   let observacoesPagamento = '';
 
@@ -204,7 +207,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-grid mb-6">
+  <KPIGrid className="mb-6" columns={4}>
     <button on:click={() => (somentePendentes = true)} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
       <div>
@@ -236,7 +239,7 @@
         <p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
       </div>
     </button>
-  </div>
+  </KPIGrid>
 
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
@@ -270,28 +273,13 @@
     </div>
   </Card>
 
-  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Pendentes</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Total Pago</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p></div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Total em Comissões</p><p class="text-2xl font-bold text-slate-900">{comissoes.length}</p></div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Vendedores</p><p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p></div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><AlertCircle size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div>
-    </div>
-  </div>
+  <KPIGrid className="mb-6" columns={5}>
+    <KPICard title="Pendentes" value={pendentes.length} color="financeiro" icon={Clock} />
+    <KPICard title="Total pago" value={formatCurrency(totalPago)} color="operacao" icon={CheckCircle} />
+    <KPICard title="Total em comissões" value={comissoes.length} color="financeiro" icon={DollarSign} />
+    <KPICard title="Vendedores" value={resumoVendedores.length} color="clientes" icon={Users} />
+    <KPICard title="Backlog" value={pendentes.length} color="slate" icon={AlertCircle} />
+  </KPIGrid>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
     A tela de comissões agora funciona também como fila operacional: <strong>{pendentes.length}</strong> pendências de pagamento somando <strong>{formatCurrency(totalPendente)}</strong>.
@@ -307,7 +295,7 @@
 
   <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
-      <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)} title="Ver detalhes"><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)}>Pagar</Button>{/if}</div>
+      <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)}>Pagar</Button>{/if}</div>
     </svelte:fragment>
   </DataTable>
 {/if}

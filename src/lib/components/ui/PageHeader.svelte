@@ -55,12 +55,12 @@
     </nav>
   {/if}
 
-  <div class="rounded-[14px] sm:rounded-[18px] border border-slate-200 bg-white px-4 py-3 sm:px-5 sm:py-4 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
+  <div class="vtur-card px-4 py-3 sm:px-5 sm:py-4">
     <div class="mb-3 h-1 w-14 rounded-full bg-gradient-to-r {accentClass} sm:mb-4 sm:h-1.5 sm:w-20"></div>
 
     <div class="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div class="min-w-0 flex-1">
-        <h1 class="text-xl sm:text-[1.7rem] font-semibold tracking-tight bg-gradient-to-r {accentClass} bg-clip-text text-transparent leading-tight">
+        <h1 class="text-xl sm:text-[1.7rem] font-semibold tracking-tight text-slate-900 leading-tight">
           {title}
         </h1>
         {#if subtitle}

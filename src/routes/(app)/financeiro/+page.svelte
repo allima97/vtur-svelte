@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
   import {
     DollarSign, CheckCircle, AlertCircle, Clock,
@@ -236,7 +237,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-grid mb-6">
+  <KPIGrid className="mb-6" columns={4}>
     <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
         <AlertCircle size={20} />
@@ -276,9 +277,9 @@
         <p class="text-2xl font-bold text-slate-900">2</p>
       </div>
     </button>
-  </div>
+  </KPIGrid>
 
-  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-8">
+  <KPIGrid className="mb-8" columns={5}>
     <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
         <TrendingUp size={20} />
@@ -328,7 +329,7 @@
         <p class="text-2xl font-bold text-slate-900">{resumo.backlogFinanceiro}</p>
       </div>
     </div>
-  </div>
+  </KPIGrid>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
     O financeiro agora consolida prioridades de fechamento: <strong>{resumo.conciliacoesPendentes}</strong> conciliações pendentes, <strong>{resumo.divergencias}</strong> divergências e <strong>{resumo.comissoesPendentes}</strong> comissões pendentes.

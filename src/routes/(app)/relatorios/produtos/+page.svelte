@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -265,60 +266,58 @@
   ]}
 />
 
-<Card color="financeiro" class="mb-6">
-  <div class="flex flex-col lg:flex-row gap-4 items-end">
-    <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
-      <div>
-        <label for="rel-produtos-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Inicio</label>
-        <input id="rel-produtos-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="rel-produtos-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-        <input id="rel-produtos-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="rel-produtos-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-        <select id="rel-produtos-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-          <option value="">Todas</option>
-          {#each empresas as empresa}
-            <option value={empresa.id}>{empresa.nome}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="rel-produtos-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-        <select id="rel-produtos-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each vendedores as vendedor}
-            <option value={vendedor.id}>{vendedor.nome}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="rel-produtos-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select id="rel-produtos-tipo" bind:value={tipoSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each tiposDisponiveis as tipo}
-            <option value={tipo}>{tipo}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="rel-produtos-ordenacao" class="block text-sm font-medium text-slate-700 mb-1">Ordenar Por</label>
-        <select id="rel-produtos-ordenacao" bind:value={ordenacao} class="vtur-input w-full">
-          <option value="receita">Receita</option>
-          <option value="lucro">Lucro</option>
-          <option value="margem">Margem</option>
-          <option value="quantidade">Quantidade</option>
-        </select>
-      </div>
-    </div>
+<FilterPanel color="financeiro">
+  <div>
+    <label for="rel-produtos-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Inicio</label>
+    <input id="rel-produtos-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
+  </div>
+  <div>
+    <label for="rel-produtos-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
+    <input id="rel-produtos-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
+  </div>
+  <div>
+    <label for="rel-produtos-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
+    <select id="rel-produtos-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
+      <option value="">Todas</option>
+      {#each empresas as empresa}
+        <option value={empresa.id}>{empresa.nome}</option>
+      {/each}
+    </select>
+  </div>
+  <div>
+    <label for="rel-produtos-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
+    <select id="rel-produtos-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
+      <option value="">Todos</option>
+      {#each vendedores as vendedor}
+        <option value={vendedor.id}>{vendedor.nome}</option>
+      {/each}
+    </select>
+  </div>
+  <div>
+    <label for="rel-produtos-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+    <select id="rel-produtos-tipo" bind:value={tipoSelecionado} class="vtur-input w-full">
+      <option value="">Todos</option>
+      {#each tiposDisponiveis as tipo}
+        <option value={tipo}>{tipo}</option>
+      {/each}
+    </select>
+  </div>
+  <div>
+    <label for="rel-produtos-ordenacao" class="block text-sm font-medium text-slate-700 mb-1">Ordenar Por</label>
+    <select id="rel-produtos-ordenacao" bind:value={ordenacao} class="vtur-input w-full">
+      <option value="receita">Receita</option>
+      <option value="lucro">Lucro</option>
+      <option value="margem">Margem</option>
+      <option value="quantidade">Quantidade</option>
+    </select>
+  </div>
+  <svelte:fragment slot="actions">
     <Button variant="primary" color="financeiro" on:click={gerarRelatorio}>
       <Filter size={16} class="mr-2" />
       Gerar
     </Button>
-  </div>
-</Card>
+  </svelte:fragment>
+</FilterPanel>
 
 <div class="vtur-kpi-grid mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">

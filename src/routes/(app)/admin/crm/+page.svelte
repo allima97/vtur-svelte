@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
 
@@ -143,18 +144,15 @@
 />
 
 <!-- Tabs -->
-<div class="mb-6 flex gap-2 border-b border-slate-200">
-  {#each [{ key: 'templates', label: 'Templates', icon: MessageSquare }, { key: 'temas', label: 'Temas de Arte', icon: Image }, { key: 'categorias', label: 'Categorias', icon: Tag }] as tab}
-    <button
-      type="button"
-      class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors {activeTab === tab.key ? 'border-financeiro-500 text-financeiro-700' : 'border-transparent text-slate-500 hover:text-slate-700'}"
-      on:click={() => (activeTab = tab.key as any)}
-    >
-      <svelte:component this={tab.icon} size={16} />
-      {tab.label}
-    </button>
-  {/each}
-</div>
+<Tabs
+  className="mb-6"
+  bind:activeKey={activeTab}
+  items={[
+    { key: 'templates', label: 'Templates', icon: MessageSquare },
+    { key: 'temas', label: 'Temas de Arte', icon: Image },
+    { key: 'categorias', label: 'Categorias', icon: Tag }
+  ]}
+/>
 
 {#if activeTab === 'templates'}
   <div class="mb-4 flex justify-end">
@@ -317,7 +315,7 @@
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-corpo">Corpo *</label>
-        <textarea id="crm-tpl-corpo" bind:value={formTemplate.corpo} rows="6" class="vtur-input w-full" placeholder="Use {{nome_cliente}}, {{primeiro_nome}}, {{consultor}}"></textarea>
+        <textarea id="crm-tpl-corpo" bind:value={formTemplate.corpo} rows="6" class="vtur-input w-full" placeholder={'Use {{nome_cliente}}, {{primeiro_nome}}, {{consultor}}'}></textarea>
       </div>
     </div>
   {/if}

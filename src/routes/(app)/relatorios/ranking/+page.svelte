@@ -6,6 +6,8 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -300,28 +302,13 @@
 </Card>
 
 <!-- KPIs -->
-<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Total receita</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.total_receita)}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Total comissões</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.total_comissao)}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingDown size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Total vendas</p><p class="text-2xl font-bold text-slate-900">{resumo.total_vendas}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Minus size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Orçamentos</p><p class="text-2xl font-bold text-slate-900">{resumo.total_orcamentos}</p></div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Trophy size={20} /></div>
-    <div><p class="text-sm font-medium text-slate-500">Meta total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.meta_total)}</p></div>
-  </div>
-</div>
+<KPIGrid className="mb-6" columns={5}>
+  <KPICard title="Total receita" value={formatCurrency(resumo.total_receita)} color="financeiro" icon={TrendingUp} />
+  <KPICard title="Total comissões" value={formatCurrency(resumo.total_comissao)} color="financeiro" icon={TrendingUp} />
+  <KPICard title="Total vendas" value={resumo.total_vendas} color="financeiro" icon={TrendingDown} />
+  <KPICard title="Orçamentos" value={resumo.total_orcamentos} color="financeiro" icon={Minus} />
+  <KPICard title="Meta total" value={formatCurrency(resumo.meta_total)} color="financeiro" icon={Trophy} />
+</KPIGrid>
 
 <!-- Pódio top 3 -->
 {#if !loading && top3.length > 0}

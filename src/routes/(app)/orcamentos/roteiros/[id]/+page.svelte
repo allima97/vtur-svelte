@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
 
@@ -573,25 +574,15 @@
   </Card>
 
   <!-- ─── Abas ──────────────────────────────────────────────────────────── -->
-  <div class="mb-2 flex flex-wrap gap-1 border-b border-slate-200">
-    {#each ABAS as aba}
-      <button
-        type="button"
-        class="relative rounded-t-lg px-4 py-2 text-sm font-medium transition-colors
-          {abaAtiva === aba.id
-            ? 'border-b-2 border-clientes-600 bg-white text-clientes-700'
-            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}"
-        on:click={() => { abaAtiva = aba.id; }}
-      >
-        {aba.label}
-        {#if tabCounts[aba.id] > 0}
-          <span class="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-clientes-100 px-1 text-[10px] font-bold text-clientes-700">
-            {tabCounts[aba.id]}
-          </span>
-        {/if}
-      </button>
-    {/each}
-  </div>
+  <Tabs
+    className="mb-4"
+    bind:activeKey={abaAtiva}
+    items={ABAS.map((aba) => ({
+      key: aba.id,
+      label: aba.label,
+      badge: tabCounts[aba.id] > 0 ? tabCounts[aba.id] : null
+    }))}
+  />
 
   <!-- ──────────────────── ABA: ITINERÁRIO ───────────────────────────────── -->
   {#if abaAtiva === 'itinerario'}

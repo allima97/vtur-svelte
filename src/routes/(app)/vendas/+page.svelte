@@ -3,6 +3,8 @@
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
@@ -114,7 +116,7 @@
     errorMessage = null;
 
     try {
-      const payload = await apiGet('/api/v1/vendas/list', {
+      const payload: any = await apiGet('/api/v1/vendas/list', {
         all: 1,
         include_kpis: 1
       });
@@ -223,49 +225,12 @@
   </div>
 {/if}
 
-<div class="vtur-kpi-grid mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
-      <ShoppingCart size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Total de Vendas</p>
-      <p class="text-2xl font-bold text-slate-900">{vendas.length}</p>
-    </div>
-  </div>
-
-  <div class="vtur-kpi-card border-t-[3px] border-t-emerald-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
-      <DollarSign size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Valor Total</p>
-      <p class="text-2xl font-bold text-slate-900">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumo.total)}
-      </p>
-    </div>
-  </div>
-
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-      <Calendar size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Confirmadas</p>
-      <p class="text-2xl font-bold text-slate-900">{resumo.confirmadas}</p>
-    </div>
-  </div>
-
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
-      <Calendar size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Pendentes</p>
-      <p class="text-2xl font-bold text-slate-900">{resumo.pendentes}</p>
-    </div>
-  </div>
-</div>
+<KPIGrid className="mb-6" columns={4}>
+  <KPICard title="Total de vendas" value={vendas.length} color="vendas" icon={ShoppingCart} />
+  <KPICard title="Valor total" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumo.total)} color="vendas" icon={DollarSign} />
+  <KPICard title="Confirmadas" value={resumo.confirmadas} color="clientes" icon={Calendar} />
+  <KPICard title="Pendentes" value={resumo.pendentes} color="financeiro" icon={Calendar} />
+</KPIGrid>
 
 <DataTable
   {columns}

@@ -7,7 +7,19 @@
   export let subtitle: string = '';
   export let loading: boolean = false;
   export let icon: ComponentType | null = null;
-  export let color: 'blue' | 'green' | 'orange' | 'teal' | 'violet' | 'slate' = 'blue';
+  export let color:
+    | 'blue'
+    | 'green'
+    | 'orange'
+    | 'teal'
+    | 'violet'
+    | 'slate'
+    | 'clientes'
+    | 'vendas'
+    | 'financeiro'
+    | 'operacao'
+    | 'orcamentos'
+    | 'comissoes' = 'blue';
 
   const iconBg: Record<string, string> = {
     blue:   'bg-blue-50 text-blue-500',
@@ -16,6 +28,12 @@
     teal:   'bg-teal-50 text-teal-500',
     violet: 'bg-violet-50 text-violet-500',
     slate:  'bg-slate-100 text-slate-500',
+    clientes: 'bg-blue-50 text-blue-500',
+    vendas: 'bg-green-50 text-green-500',
+    financeiro: 'bg-orange-50 text-orange-500',
+    operacao: 'bg-teal-50 text-teal-500',
+    orcamentos: 'bg-blue-50 text-blue-500',
+    comissoes: 'bg-orange-50 text-orange-500',
   };
 
   const borderColor: Record<string, string> = {
@@ -25,6 +43,12 @@
     teal:   'border-t-teal-400',
     violet: 'border-t-violet-400',
     slate:  'border-t-slate-300',
+    clientes: 'border-t-blue-400',
+    vendas: 'border-t-green-400',
+    financeiro: 'border-t-orange-400',
+    operacao: 'border-t-teal-400',
+    orcamentos: 'border-t-blue-400',
+    comissoes: 'border-t-orange-400',
   };
 </script>
 
@@ -33,7 +57,7 @@
   Estrutura: borda superior colorida → ícone → título → valor
 -->
 <div
-  class="vtur-kpi-card flex flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md border-t-[3px] {borderColor[color]}"
+  class="vtur-kpi-card flex flex-col items-start gap-3 border-t-[3px] p-5 {borderColor[color]}"
   style="min-height: 116px;"
 >
   {#if loading}
@@ -45,17 +69,17 @@
   {:else}
     <!-- Ícone -->
     {#if icon}
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl {iconBg[color]}">
+      <div class="flex h-11 w-11 items-center justify-center rounded-[14px] ring-1 ring-black/5 {iconBg[color]}">
         <svelte:component this={icon} size={20} strokeWidth={2} />
       </div>
     {/if}
 
     <!-- Título + Valor -->
     <div class="min-w-0 flex-1">
-      <p class="mb-1 text-sm font-medium leading-tight text-slate-500">{title}</p>
-      <p class="text-2xl font-bold leading-tight text-slate-900">{value}</p>
+      <p class="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] leading-tight text-slate-500">{title}</p>
+      <p class="text-[1.85rem] font-bold leading-none tracking-tight text-slate-900">{value}</p>
       {#if subtitle}
-        <p class="mt-1 text-xs text-slate-400">{subtitle}</p>
+        <p class="mt-1.5 text-xs text-slate-400">{subtitle}</p>
       {/if}
     </div>
   {/if}

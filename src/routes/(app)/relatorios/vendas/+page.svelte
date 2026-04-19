@@ -8,6 +8,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -441,7 +442,7 @@
   </div>
 </Card>
 
-<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
+<KPIGrid className="mb-6" columns={5}>
   <KPICard 
     title="Total vendas" 
     value={resumo.total_vendas} 
@@ -472,7 +473,7 @@
     color="financeiro" 
     icon={Users} 
   />
-</div>
+</KPIGrid>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
   <Card header="Receita por mês" color="financeiro">

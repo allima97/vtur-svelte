@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import {
     Filter, RefreshCw, TrendingUp, ShoppingCart,
@@ -363,7 +364,7 @@
 {/if}
 
 <!-- KPIs principais -->
-<div class="vtur-kpi-grid mb-6 {!loading && vendasAgg.totalSeguro > 0 ? 'vtur-kpi-grid-6' : 'vtur-kpi-grid-5'}">
+<KPIGrid className="mb-6" columns={!loading && vendasAgg.totalSeguro > 0 ? 6 : 5}>
   <!-- Vendas no período -->
   <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
@@ -470,7 +471,7 @@
       </div>
     </div>
   {/if}
-</div>
+</KPIGrid>
 
 <!-- Gráficos: Timeline + Destinos + Produtos -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -667,4 +668,3 @@
     </Card>
   {/if}
 </div>
-
