@@ -89,18 +89,27 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-  <div class="vtur-card p-4 border-l-4 border-l-slate-400">
-    <p class="text-sm text-slate-500">Total de módulos</p>
-    <p class="text-2xl font-bold text-slate-900">{modulos.length}</p>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Settings size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de módulos</p>
+      <p class="text-2xl font-bold text-slate-900">{modulos.length}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <p class="text-sm text-slate-500">Habilitados</p>
-    <p class="text-2xl font-bold text-slate-900">{habilitados}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Habilitados</p>
+      <p class="text-2xl font-bold text-slate-900">{habilitados}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-red-500">
-    <p class="text-sm text-slate-500">Desabilitados</p>
-    <p class="text-2xl font-bold text-slate-900">{desabilitados}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><XCircle size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Desabilitados</p>
+      <p class="text-2xl font-bold text-slate-900">{desabilitados}</p>
+    </div>
   </div>
 </div>
 

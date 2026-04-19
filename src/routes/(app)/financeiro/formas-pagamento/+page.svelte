@@ -237,52 +237,44 @@
   ]}
 />
 
-<div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Total</p>
-        <p class="text-2xl font-bold text-slate-900">{formasPagamento.length}</p>
-      </div>
-      <div class="p-3 bg-financeiro-50 rounded-lg">
-        <CreditCard size={24} class="text-financeiro-600" />
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <CreditCard size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total</p>
+      <p class="text-2xl font-bold text-slate-900">{formasPagamento.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Ativas</p>
-        <p class="text-2xl font-bold text-slate-900">{ativas.length}</p>
-      </div>
-      <div class="p-3 bg-green-50 rounded-lg">
-        <CheckCircle size={24} class="text-green-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <CheckCircle size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Ativas</p>
+      <p class="text-2xl font-bold text-slate-900">{ativas.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-slate-400">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Inativas</p>
-        <p class="text-2xl font-bold text-slate-900">{inativas.length}</p>
-      </div>
-      <div class="p-3 bg-slate-100 rounded-lg">
-        <XCircle size={24} class="text-slate-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <XCircle size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Inativas</p>
+      <p class="text-2xl font-bold text-slate-900">{inativas.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Com Desconto</p>
-        <p class="text-2xl font-bold text-slate-900">{comDesconto.length}</p>
-      </div>
-      <div class="p-3 bg-blue-50 rounded-lg">
-        <CheckCircle size={24} class="text-blue-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <CheckCircle size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Com Desconto</p>
+      <p class="text-2xl font-bold text-slate-900">{comDesconto.length}</p>
     </div>
   </div>
 </div>

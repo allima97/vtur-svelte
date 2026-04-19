@@ -441,7 +441,7 @@
   </div>
 </Card>
 
-<div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
   <KPICard 
     title="Total vendas" 
     value={resumo.total_vendas} 

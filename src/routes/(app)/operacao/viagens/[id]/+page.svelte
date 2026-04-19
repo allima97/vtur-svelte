@@ -379,7 +379,7 @@
   </div>
 
   <!-- KPIs -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="vtur-kpi-grid mb-6">
     <KPICard 
       title="Data de Saída" 
       value={formatDate(dataSaida)}

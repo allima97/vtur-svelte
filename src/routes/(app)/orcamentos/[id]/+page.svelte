@@ -276,45 +276,37 @@
     </div>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${statusAtual === 'aprovado' ? 'bg-green-50 text-green-600' : statusAtual === 'rejeitado' ? 'bg-red-50 text-red-600' : statusAtual === 'enviado' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}><FileText size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => goto('/orcamentos')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${statusAtual === 'aprovado' ? 'bg-green-50 text-green-500' : statusAtual === 'rejeitado' ? 'bg-red-50 text-red-500' : statusAtual === 'enviado' ? 'bg-blue-50 text-blue-500' : 'bg-amber-50 text-amber-500'}`}><FileText size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Status comercial</p>
+        <p class="text-2xl font-bold text-slate-900">{getStatusLabel(orcamento.status)}</p>
       </div>
-      <p class="text-sm text-slate-500">Status comercial</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(orcamento.status)}</p>
-      <p class="mt-2 text-sm text-slate-600">Leitura rápida do estágio atual da proposta dentro do pipeline.</p>
     </button>
 
-    <button on:click={() => (showInteracaoModal = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${!ultimaInteracao ? 'bg-red-50 text-red-600' : (diasSemInteracao || 0) >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'}`}><Clock size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Follow-up</span>
+    <button on:click={() => (showInteracaoModal = true)} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${!ultimaInteracao ? 'bg-red-50 text-red-500' : (diasSemInteracao || 0) >= 7 ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'}`}><Clock size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Última interação</p>
+        <p class="text-2xl font-bold text-slate-900">{!ultimaInteracao ? 'Sem registro' : `${diasSemInteracao || 0}d`}</p>
       </div>
-      <p class="text-sm text-slate-500">Última interação</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{!ultimaInteracao ? 'Sem registro' : `${diasSemInteracao || 0}d`}</p>
-      <p class="mt-2 text-sm text-slate-600">{!ultimaInteracao ? 'Ainda não há contato registrado para esta proposta.' : `Último contato em ${formatDateTime(ultimaInteracao.created_at)}.`}</p>
     </button>
 
-    <button on:click={() => goto('/orcamentos')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${isExpirado ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}><AlertCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Validade</span>
+    <button on:click={() => goto('/orcamentos')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${isExpirado ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Vencimento</p>
+        <p class="text-2xl font-bold text-slate-900">{formatDate(orcamento.valid_until || orcamento.data_validade)}</p>
       </div>
-      <p class="text-sm text-slate-500">Vencimento</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatDate(orcamento.valid_until || orcamento.data_validade)}</p>
-      <p class="mt-2 text-sm text-slate-600">{isExpirado ? 'A proposta já está expirada e exige revisão comercial.' : 'Use este prazo para priorizar aprovação, ajuste ou novo contato.'}</p>
     </button>
 
-    <button on:click={() => (podeCriarVenda ? goto(`/vendas/nova?orcamento=${orcamentoId}`) : goto('/orcamentos'))} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${orcamentoConvertido ? 'bg-emerald-50 text-emerald-600' : podeCriarVenda ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-700'}`}><ShoppingCart size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Conversão</span>
+    <button on:click={() => (podeCriarVenda ? goto(`/vendas/nova?orcamento=${orcamentoId}`) : goto('/orcamentos'))} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${orcamentoConvertido ? 'bg-green-50 text-green-500' : podeCriarVenda ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><ShoppingCart size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Próximo passo</p>
+        <p class="text-2xl font-bold text-slate-900">{orcamentoConvertido ? 'Convertido' : podeCriarVenda ? 'Criar venda' : 'Acompanhar'}</p>
       </div>
-      <p class="text-sm text-slate-500">Próximo passo</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{orcamentoConvertido ? 'Convertido' : podeCriarVenda ? 'Criar venda' : 'Acompanhar'}</p>
-      <p class="mt-2 text-sm text-slate-600">{orcamentoConvertido ? 'Este orçamento já virou venda e segue como histórico comercial.' : podeCriarVenda ? 'A proposta está aprovada e pronta para conversão operacional.' : 'Acompanhe até a definição comercial final.'}</p>
     </button>
   </div>
 
@@ -388,31 +380,43 @@
     {/if}
   </div>
 
-  <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <KPICard 
-      title="Valor Total" 
-      value={formatCurrency(orcamento.total || valorTotal)}
-      color="clientes"
-      icon={TrendingUp}
-    />
-    <KPICard 
-      title="Itens" 
-      value={quantidadeItens}
-      color="clientes"
-      icon={Package}
-    />
-    <KPICard 
-      title="Validade" 
-      value={formatDate(orcamento.valid_until || orcamento.data_validade)}
-      color={isExpirado ? 'danger' : 'clientes'}
-      icon={Calendar}
-    />
-    <KPICard 
-      title="Moeda" 
-      value={orcamento.currency === 'USD' ? 'US$' : orcamento.currency === 'EUR' ? '€' : 'R$'}
-      color="clientes"
-      icon={FileText}
-    />
+  <div class="vtur-kpi-grid mb-6">
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <TrendingUp size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Valor Total</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(orcamento.total || valorTotal)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <Package size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Itens</p>
+        <p class="text-2xl font-bold text-slate-900">{quantidadeItens}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] {isExpirado ? 'border-t-amber-400' : 'border-t-blue-400'}">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl {isExpirado ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'}">
+        <Calendar size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Validade</p>
+        <p class="text-2xl font-bold text-slate-900">{formatDate(orcamento.valid_until || orcamento.data_validade)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <FileText size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Moeda</p>
+        <p class="text-2xl font-bold text-slate-900">{orcamento.currency === 'USD' ? 'US$' : orcamento.currency === 'EUR' ? '€' : 'R$'}</p>
+      </div>
+    </div>
   </div>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">

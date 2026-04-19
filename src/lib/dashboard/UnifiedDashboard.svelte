@@ -363,114 +363,111 @@
 {/if}
 
 <!-- KPIs principais -->
-<div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 {!loading && vendasAgg.totalSeguro > 0 ? 'lg:grid-cols-4 xl:grid-cols-6' : 'lg:grid-cols-4 xl:grid-cols-5'}">
+<div class="vtur-kpi-grid mb-6 {!loading && vendasAgg.totalSeguro > 0 ? 'vtur-kpi-grid-6' : 'vtur-kpi-grid-5'}">
   <!-- Vendas no período -->
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-500 mb-1">Vendas no período</p>
-        {#if loading}
-          <div class="h-7 w-28 bg-slate-200 rounded animate-pulse"></div>
-        {:else}
-          <p class="text-xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalVendas)}</p>
-        {/if}
-      </div>
-      <TrendingUp size={20} class="text-financeiro-500 mt-1 shrink-0" />
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <TrendingUp size={20} />
     </div>
-    <p class="mt-1 text-xs text-slate-400">Lucro: {formatCurrency(vendasAgg.totalLiquido)}</p>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Vendas no período</p>
+      {#if loading}
+        <div class="h-7 w-28 bg-slate-200 rounded animate-pulse mt-1"></div>
+      {:else}
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalVendas)}</p>
+        <p class="mt-0.5 text-xs text-slate-400">Lucro: {formatCurrency(vendasAgg.totalLiquido)}</p>
+      {/if}
+    </div>
   </div>
 
   <!-- Qtd. vendas -->
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-500 mb-1">Qtd. vendas</p>
-        {#if loading}
-          <div class="h-7 w-16 bg-slate-200 rounded animate-pulse"></div>
-        {:else}
-          <p class="text-xl font-bold text-slate-900">{vendasAgg.qtdVendas}</p>
-        {/if}
-      </div>
-      <ShoppingCart size={20} class="text-financeiro-500 mt-1 shrink-0" />
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <ShoppingCart size={20} />
     </div>
-    <p class="mt-1 text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Qtd. vendas</p>
+      {#if loading}
+        <div class="h-7 w-16 bg-slate-200 rounded animate-pulse mt-1"></div>
+      {:else}
+        <p class="text-2xl font-bold text-slate-900">{vendasAgg.qtdVendas}</p>
+        <p class="mt-0.5 text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
+      {/if}
+    </div>
   </div>
 
   <!-- Orçamentos e conversão -->
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-500 mb-1">Orçamentos</p>
-        {#if loading}
-          <div class="h-7 w-16 bg-slate-200 rounded animate-pulse"></div>
-        {:else}
-          <p class="text-xl font-bold text-slate-900">{qtdOrcamentos}</p>
-        {/if}
-      </div>
-      <FileText size={20} class="text-financeiro-500 mt-1 shrink-0" />
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <FileText size={20} />
     </div>
-    <p class="mt-1 text-xs text-slate-400">Conv.: {conversaoPct.toFixed(1)}%</p>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Orçamentos</p>
+      {#if loading}
+        <div class="h-7 w-16 bg-slate-200 rounded animate-pulse mt-1"></div>
+      {:else}
+        <p class="text-2xl font-bold text-slate-900">{qtdOrcamentos}</p>
+        <p class="mt-0.5 text-xs text-slate-400">Conv.: {conversaoPct.toFixed(1)}%</p>
+      {/if}
+    </div>
   </div>
 
   <!-- Meta do mês -->
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-500 mb-1">Meta do mês</p>
-        {#if loading}
-          <div class="h-7 w-28 bg-slate-200 rounded animate-pulse"></div>
-        {:else}
-          <p class="text-xl font-bold text-slate-900">{formatCurrency(metaTotal)}</p>
-        {/if}
-      </div>
-      <Target size={20} class="text-financeiro-500 mt-1 shrink-0" />
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <Target size={20} />
     </div>
-    {#if metaTotal > 0}
-      <div class="mt-2">
-        <div class="h-1.5 w-full rounded-full bg-slate-200">
-          <div
-            class="h-1.5 rounded-full bg-financeiro-500 transition-all"
-            style="width: {Math.min(atingimentoPct, 100).toFixed(1)}%"
-          ></div>
-        </div>
-        <p class="mt-0.5 text-xs text-slate-400">{atingimentoPct.toFixed(1)}% atingido</p>
-      </div>
-    {:else}
-      <p class="mt-1 text-xs text-slate-400">Sem meta cadastrada</p>
-    {/if}
+    <div class="w-full">
+      <p class="text-sm font-medium text-slate-500">Meta do mês</p>
+      {#if loading}
+        <div class="h-7 w-28 bg-slate-200 rounded animate-pulse mt-1"></div>
+      {:else}
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(metaTotal)}</p>
+        {#if metaTotal > 0}
+          <div class="mt-2 w-full">
+            <div class="h-1.5 w-full rounded-full bg-slate-200">
+              <div class="h-1.5 rounded-full bg-teal-500 transition-all" style="width: {Math.min(atingimentoPct, 100).toFixed(1)}%"></div>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-400">{atingimentoPct.toFixed(1)}% atingido</p>
+          </div>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">Sem meta cadastrada</p>
+        {/if}
+      {/if}
+    </div>
   </div>
 
-  <!-- Dias restantes / meta diária -->
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-start justify-between">
-      <div>
-        <p class="text-xs text-slate-500 mb-1">Dias restantes</p>
-        {#if loading}
-          <div class="h-7 w-16 bg-slate-200 rounded animate-pulse"></div>
-        {:else}
-          <p class="text-xl font-bold text-slate-900">{diasRestantes}d</p>
-        {/if}
-      </div>
-      <Calendar size={20} class="text-financeiro-500 mt-1 shrink-0" />
+  <!-- Dias restantes -->
+  <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+      <Calendar size={20} />
     </div>
-    {#if metaDiaria > 0}
-      <p class="mt-1 text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
-    {:else}
-      <p class="mt-1 text-xs text-slate-400">Meta atingida ✓</p>
-    {/if}
+    <div>
+      <p class="text-sm font-medium text-slate-500">Dias restantes</p>
+      {#if loading}
+        <div class="h-7 w-16 bg-slate-200 rounded animate-pulse mt-1"></div>
+      {:else}
+        <p class="text-2xl font-bold text-slate-900">{diasRestantes}d</p>
+        {#if metaDiaria > 0}
+          <p class="mt-0.5 text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">Meta atingida ✓</p>
+        {/if}
+      {/if}
+    </div>
   </div>
 
-  <!-- Seguro viagem (dentro do grid, só aparece se houver valor) -->
+  <!-- Seguro viagem (só aparece se houver valor) -->
   {#if !loading && vendasAgg.totalSeguro > 0}
-    <div class="vtur-card p-4 border-l-4 border-l-amber-400">
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-xs text-slate-500 mb-1">Seguro viagem</p>
-          <p class="text-xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
-        </div>
-        <Award size={20} class="text-amber-500 mt-1 shrink-0" />
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <Award size={20} />
       </div>
-      <p class="mt-1 text-xs text-slate-400">No período</p>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Seguro viagem</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
+        <p class="mt-0.5 text-xs text-slate-400">No período</p>
+      </div>
     </div>
   {/if}
 </div>

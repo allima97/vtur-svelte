@@ -138,18 +138,33 @@
   ]}
 />
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Total de planos</p>
-    <p class="text-2xl font-bold text-slate-900">{planos.length}</p>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <DollarSign size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de planos</p>
+      <p class="text-2xl font-bold text-slate-900">{planos.length}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <p class="text-sm text-slate-500">Planos ativos</p>
-    <p class="text-2xl font-bold text-slate-900">{planos.filter((p) => p.ativo).length}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <DollarSign size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Planos ativos</p>
+      <p class="text-2xl font-bold text-slate-900">{planos.filter((p) => p.ativo).length}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <p class="text-sm text-slate-500">MRR potencial</p>
-    <p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMrr)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <DollarSign size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">MRR potencial</p>
+      <p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMrr)}</p>
+    </div>
   </div>
 </div>
 

@@ -300,26 +300,26 @@
 </Card>
 
 <!-- KPIs -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-xs text-slate-500">Total receita</p>
-    <p class="text-xl font-bold text-slate-900">{formatCurrency(resumo.total_receita)}</p>
+<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total receita</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.total_receita)}</p></div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-xs text-slate-500">Total comissões</p>
-    <p class="text-xl font-bold text-slate-900">{formatCurrency(resumo.total_comissao)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total comissões</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.total_comissao)}</p></div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-xs text-slate-500">Total vendas</p>
-    <p class="text-xl font-bold text-slate-900">{resumo.total_vendas}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingDown size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total vendas</p><p class="text-2xl font-bold text-slate-900">{resumo.total_vendas}</p></div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-xs text-slate-500">Orçamentos</p>
-    <p class="text-xl font-bold text-slate-900">{resumo.total_orcamentos}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Minus size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Orçamentos</p><p class="text-2xl font-bold text-slate-900">{resumo.total_orcamentos}</p></div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-xs text-slate-500">Meta total</p>
-    <p class="text-xl font-bold text-slate-900">{formatCurrency(resumo.meta_total)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Trophy size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Meta total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.meta_total)}</p></div>
   </div>
 </div>
 

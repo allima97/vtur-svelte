@@ -317,22 +317,30 @@
   </div>
 </Card>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Total de Clientes</p>
-    <p class="text-2xl font-bold text-slate-900">{totalClientes}</p>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de Clientes</p>
+      <p class="text-2xl font-bold text-slate-900">{totalClientes}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Receita Total</p>
-    <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div>
+      <p class="text-sm font-medium text-slate-500">Receita Total</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Ticket Medio</p>
-    <p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedioGeral)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div>
+      <p class="text-sm font-medium text-slate-500">Ticket Medio</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedioGeral)}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Clientes VIP</p>
-    <p class="text-2xl font-bold text-financeiro-600">{clientesVIP}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div>
+      <p class="text-sm font-medium text-slate-500">Clientes VIP</p>
+      <p class="text-2xl font-bold text-slate-900">{clientesVIP}</p>
+    </div>
   </div>
 </div>
 

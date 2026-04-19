@@ -426,52 +426,44 @@
   }
 />
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  <div class="vtur-card border-l-4 border-l-green-500 p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm text-slate-500">Regras Ativas</p>
-        <p class="text-2xl font-bold text-slate-900">{activeRules}</p>
-      </div>
-      <div class="rounded-xl bg-green-50 p-3 text-green-600">
-        <CheckCircle2 size={22} />
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <CheckCircle2 size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Regras Ativas</p>
+      <p class="text-2xl font-bold text-slate-900">{activeRules}</p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-slate-400 p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm text-slate-500">Regras Inativas</p>
-        <p class="text-2xl font-bold text-slate-900">{inactiveRules}</p>
-      </div>
-      <div class="rounded-xl bg-slate-100 p-3 text-slate-600">
-        <CircleOff size={22} />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <CircleOff size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Regras Inativas</p>
+      <p class="text-2xl font-bold text-slate-900">{inactiveRules}</p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-financeiro-500 p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm text-slate-500">Escalonáveis</p>
-        <p class="text-2xl font-bold text-slate-900">{escalonaveis}</p>
-      </div>
-      <div class="rounded-xl bg-financeiro-50 p-3 text-financeiro-600">
-        <GitBranch size={22} />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <GitBranch size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Escalonáveis</p>
+      <p class="text-2xl font-bold text-slate-900">{escalonaveis}</p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-blue-500 p-4">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm text-slate-500">Faixas Cadastradas</p>
-        <p class="text-2xl font-bold text-slate-900">{totalTiers}</p>
-      </div>
-      <div class="rounded-xl bg-blue-50 p-3 text-blue-600">
-        <Percent size={22} />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <Percent size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Faixas Cadastradas</p>
+      <p class="text-2xl font-bold text-slate-900">{totalTiers}</p>
     </div>
   </div>
 </div>

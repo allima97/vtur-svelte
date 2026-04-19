@@ -320,23 +320,43 @@
   </div>
 </Card>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Receita Total</p>
-    <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalReceita)}</p>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <Filter size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Receita Total</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalReceita)}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <p class="text-sm text-slate-500">Lucro Total</p>
-    <p class="text-2xl font-bold text-green-600">{formatCurrency(totalLucro)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <Filter size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Lucro Total</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalLucro)}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <p class="text-sm text-slate-500">Margem Media</p>
-    <p class="text-2xl font-bold text-slate-900">{margemMedia.toFixed(1)}%</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <Filter size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Margem Media</p>
+      <p class="text-2xl font-bold text-slate-900">{margemMedia.toFixed(1)}%</p>
+    </div>
   </div>
   {#if produtoTop}
-    <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-      <p class="text-sm text-slate-500">Produto Top</p>
-      <p class="text-lg font-bold text-slate-900 truncate">{produtoTop.produto}</p>
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <Filter size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Produto Top</p>
+        <p class="text-lg font-bold text-slate-900 truncate">{produtoTop.produto}</p>
+      </div>
     </div>
   {/if}
 </div>

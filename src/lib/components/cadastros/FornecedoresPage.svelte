@@ -147,30 +147,22 @@
   ]}
 />
 
-<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-  <div class="vtur-card border-l-4 border-l-financeiro-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-financeiro-50 p-2"><Building2 size={20} class="text-financeiro-600" /></div>
-      <div><p class="text-sm text-slate-500">Total</p><p class="text-2xl font-bold text-slate-900">{stats.total}</p></div>
-    </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total</p><p class="text-2xl font-bold text-slate-900">{stats.total}</p></div>
   </div>
-  <div class="vtur-card border-l-4 border-l-green-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-green-50 p-2"><Phone size={20} class="text-green-600" /></div>
-      <div><p class="text-sm text-slate-500">Ativos</p><p class="text-2xl font-bold text-slate-900">{stats.ativos}</p></div>
-    </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Phone size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Ativos</p><p class="text-2xl font-bold text-slate-900">{stats.ativos}</p></div>
   </div>
-  <div class="vtur-card border-l-4 border-l-sky-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-sky-50 p-2"><MapPin size={20} class="text-sky-600" /></div>
-      <div><p class="text-sm text-slate-500">Exterior</p><p class="text-2xl font-bold text-slate-900">{stats.exterior}</p></div>
-    </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><MapPin size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Exterior</p><p class="text-2xl font-bold text-slate-900">{stats.exterior}</p></div>
   </div>
-  <div class="vtur-card border-l-4 border-l-purple-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-purple-50 p-2"><Wallet size={20} class="text-purple-600" /></div>
-      <div><p class="text-sm text-slate-500">Com produtos</p><p class="text-2xl font-bold text-slate-900">{stats.vinculados}</p></div>
-    </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-violet-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Wallet size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Com produtos</p><p class="text-2xl font-bold text-slate-900">{stats.vinculados}</p></div>
   </div>
 </div>
 

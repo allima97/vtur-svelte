@@ -236,106 +236,96 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-orange-50 p-3 text-orange-600"><AlertCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+        <AlertCircle size={20} />
       </div>
-      <p class="text-sm text-slate-500">Backlog de conciliação</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.divergencias}</p>
-      <p class="mt-2 text-sm text-slate-600">{resumo.conciliacoesPendentes} pendentes e {resumo.divergencias} divergências para tratar.</p>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Backlog de conciliação</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.divergencias}</p>
+      </div>
     </button>
 
-    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pagamento interno</span>
+    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <Clock size={20} />
       </div>
-      <p class="text-sm text-slate-500">Comissões pendentes</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
-      <p class="mt-2 text-sm text-slate-600">{formatCurrency(resumo.totalPagar)} ainda aguardando pagamento a vendedores.</p>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Comissões pendentes</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
+      </div>
     </button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><TrendingUp size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Caixa</span>
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-teal-400 text-left">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <TrendingUp size={20} />
       </div>
-      <p class="text-sm text-slate-500">Valor a receber</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
-      <p class="mt-2 text-sm text-slate-600">Use o caixa para acompanhar entradas, saídas e impacto no saldo.</p>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Valor a receber</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
+      </div>
     </button>
 
-    <button on:click={() => goto('/financeiro/regras')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Settings size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Administração</span>
+    <button on:click={() => goto('/financeiro/regras')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <Settings size={20} />
       </div>
-      <p class="text-sm text-slate-500">Regras e cadastros</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">2</p>
-      <p class="mt-2 text-sm text-slate-600">Revise regras de comissão e formas de pagamento com leitura administrativa padronizada.</p>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Regras e cadastros</p>
+        <p class="text-2xl font-bold text-slate-900">2</p>
+      </div>
     </button>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-    <div class="vtur-card p-5 border-l-4 border-l-financeiro-500">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Total a Receber</p>
-          <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
-        </div>
-        <div class="p-3 bg-financeiro-50 rounded-lg">
-          <TrendingUp size={24} class="text-financeiro-600" />
-        </div>
+  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-8">
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <TrendingUp size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total a Receber</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
       </div>
     </div>
 
-    <div class="vtur-card p-5 border-l-4 border-l-red-500">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Total a Pagar</p>
-          <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalPagar)}</p>
-        </div>
-        <div class="p-3 bg-red-50 rounded-lg">
-          <TrendingDown size={24} class="text-red-600" />
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+        <TrendingDown size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total a Pagar</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalPagar)}</p>
       </div>
     </div>
 
-    <div class="vtur-card p-5 border-l-4 border-l-amber-500">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Comissões Pendentes</p>
-          <p class="text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
-        </div>
-        <div class="p-3 bg-amber-50 rounded-lg">
-          <Clock size={24} class="text-amber-600" />
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <Clock size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Comissões Pendentes</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
       </div>
     </div>
 
-    <div class="vtur-card p-5 border-l-4 border-l-orange-500">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Conciliações Pendentes</p>
-          <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes}</p>
-        </div>
-        <div class="p-3 bg-orange-50 rounded-lg">
-          <AlertCircle size={24} class="text-orange-600" />
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+        <AlertCircle size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Conciliações Pendentes</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes}</p>
       </div>
     </div>
 
-    <div class="vtur-card p-5 border-l-4 border-l-slate-500">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Backlog Financeiro</p>
-          <p class="text-2xl font-bold text-slate-900">{resumo.backlogFinanceiro}</p>
-        </div>
-        <div class="p-3 bg-slate-100 rounded-lg">
-          <Clock size={24} class="text-slate-700" />
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <Clock size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Backlog Financeiro</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.backlogFinanceiro}</p>
       </div>
     </div>
   </div>

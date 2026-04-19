@@ -183,7 +183,7 @@
 />
 
 <!-- KPIs -->
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+<div class="vtur-kpi-grid mb-6">
   <KPICard title="Total comissões" value={formatCurrency(totalComissoes)} color="comissoes" icon={DollarSign}  />
   <KPICard title="Total vendas"    value={formatCurrency(totalVendas)}    color="comissoes" icon={TrendingUp}  />
   <KPICard title="Pendentes"       value={pendentes}                       color="comissoes" icon={Calculator}  />

@@ -305,59 +305,40 @@
 </Card>
 
 <!-- Resumo -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Comissões Pendentes</p>
-        <p class="text-2xl font-bold text-slate-900">{comissoesPendentes.length}</p>
-      </div>
-      <div class="p-3 bg-financeiro-50 rounded-lg">
-        <Calculator size={24} class="text-financeiro-600" />
-      </div>
-    </div>
-    <p class="mt-2 text-lg font-semibold text-financeiro-600">
-      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumoComissoes.total_pendente)}
-    </p>
-  </div>
-
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Total em Vendas</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalVendasPeriodo)}
-        </p>
-      </div>
-      <div class="p-3 bg-green-50 rounded-lg">
-        <TrendingUp size={24} class="text-green-600" />
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Calculator size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Comissões Pendentes</p>
+      <p class="text-2xl font-bold text-slate-900">{comissoesPendentes.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Comissões no Período</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalComissoesPeriodo)}
-        </p>
-      </div>
-      <div class="p-3 bg-blue-50 rounded-lg">
-        <DollarSign size={24} class="text-blue-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><TrendingUp size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total em Vendas</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalVendasPeriodo)}
+      </p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-amber-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">% Médio</p>
-        <p class="text-2xl font-bold text-slate-900">{mediaPercentual}%</p>
-      </div>
-      <div class="p-3 bg-amber-50 rounded-lg">
-        <PercentIcon size={24} class="text-amber-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><DollarSign size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Comissões no Período</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalComissoesPeriodo)}
+      </p>
+    </div>
+  </div>
+
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><PercentIcon size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">% Médio</p>
+      <p class="text-2xl font-bold text-slate-900">{mediaPercentual}%</p>
     </div>
   </div>
 </div>

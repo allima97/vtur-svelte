@@ -331,54 +331,36 @@
 />
 
 <!-- Resumo -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Total de Regras</p>
-        <p class="text-2xl font-bold text-slate-900">{regras.length}</p>
-      </div>
-      <div class="p-3 bg-financeiro-50 rounded-lg">
-        <Percent size={24} class="text-financeiro-600" />
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Percent size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de Regras</p>
+      <p class="text-2xl font-bold text-slate-900">{regras.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Regras Ativas</p>
-        <p class="text-2xl font-bold text-slate-900">{regrasAtivas}</p>
-      </div>
-      <div class="p-3 bg-green-50 rounded-lg">
-        <CheckCircle size={24} class="text-green-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Regras Ativas</p>
+      <p class="text-2xl font-bold text-slate-900">{regrasAtivas}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Escalonáveis</p>
-        <p class="text-2xl font-bold text-slate-900">{regrasEscalonaveis}</p>
-      </div>
-      <div class="p-3 bg-blue-50 rounded-lg">
-        <TrendingUp size={24} class="text-blue-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><TrendingUp size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Escalonáveis</p>
+      <p class="text-2xl font-bold text-slate-900">{regrasEscalonaveis}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-amber-500">
-    <div class="flex items-center justify-between">
-      <div>
-        <p class="text-sm text-slate-500">Vendedores</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {regras.reduce((acc, r) => acc + (r.vendedores_count || 0), 0)}
-        </p>
-      </div>
-      <div class="p-3 bg-amber-50 rounded-lg">
-        <Users size={24} class="text-amber-600" />
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Users size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Vendedores</p>
+      <p class="text-2xl font-bold text-slate-900">{regras.reduce((acc, r) => acc + (r.vendedores_count || 0), 0)}</p>
     </div>
   </div>
 </div>

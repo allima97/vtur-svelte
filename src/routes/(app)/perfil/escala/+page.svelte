@@ -123,22 +123,34 @@
   </div>
 </Card>
 
-<div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <p class="text-sm text-slate-500">Dias trabalhados</p>
-    <p class="text-2xl font-bold text-slate-900">{diasTrabalhados}</p>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calendar size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Dias trabalhados</p>
+      <p class="text-2xl font-bold text-slate-900">{diasTrabalhados}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-slate-400">
-    <p class="text-sm text-slate-500">Folgas / Férias</p>
-    <p class="text-2xl font-bold text-slate-900">{diasFolga}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Folgas / Ferias</p>
+      <p class="text-2xl font-bold text-slate-900">{diasFolga}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-red-400">
-    <p class="text-sm text-slate-500">Feriados no mês</p>
-    <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><Calendar size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Feriados no mes</p>
+      <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
+    </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-slate-200">
-    <p class="text-sm text-slate-500">Sem registro</p>
-    <p class="text-2xl font-bold text-slate-900">{diasDoMes.length - diasTrabalhados - diasFolga}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400"><Calendar size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Sem registro</p>
+      <p class="text-2xl font-bold text-slate-900">{diasDoMes.length - diasTrabalhados - diasFolga}</p>
+    </div>
   </div>
 </div>
 

@@ -222,45 +222,37 @@
     </div>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <button on:click={() => goto('/vendas')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${vendaPendente ? 'bg-amber-50 text-amber-600' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-600' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}><FileText size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Status</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => goto('/vendas')} class="vtur-kpi-card border-t-[3px] {vendaPendente ? 'border-t-amber-400' : venda?.status === 'cancelada' ? 'border-t-red-400' : venda?.status === 'concluida' ? 'border-t-blue-400' : 'border-t-green-400'} text-left w-full">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${vendaPendente ? 'bg-amber-50 text-amber-500' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-500' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-500' : 'bg-green-50 text-green-500'}`}><FileText size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Status operacional</p>
+        <p class="text-2xl font-bold text-slate-900">{getStatusLabel(venda.status)}</p>
       </div>
-      <p class="text-sm text-slate-500">Status operacional</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(venda.status)}</p>
-      <p class="mt-2 text-sm text-slate-600">Leitura rápida do estágio atual da venda dentro da operação.</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${conciliacaoPendente ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}><Shield size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Financeiro</span>
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] {conciliacaoPendente ? 'border-t-red-400' : 'border-t-green-400'} text-left w-full">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${conciliacaoPendente ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}><Shield size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Conciliacao</p>
+        <p class="text-2xl font-bold text-slate-900">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
       </div>
-      <p class="text-sm text-slate-500">Conciliação</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
-      <p class="mt-2 text-sm text-slate-600">{conciliacaoPendente ? 'A venda ainda exige validação financeira e fechamento.' : 'A venda já está conciliada financeiramente.'}</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}><AlertCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] {fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-amber-400'} text-left w-full">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Diferenca financeira</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(diferencaFinanceira)}</p>
       </div>
-      <p class="text-sm text-slate-500">Diferença financeira</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(diferencaFinanceira)}</p>
-      <p class="mt-2 text-sm text-slate-600">{fechamentoFinanceiroOk ? 'Recibos e pagamentos estão alinhados nesta venda.' : 'Há diferença entre recibos e pagamentos e vale revisar a composição financeira.'}</p>
     </button>
 
-    <button on:click={() => goto('/vendas')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class={`mb-3 flex items-center justify-between`}>
-        <div class={`rounded-lg p-3 ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-700'}`}><CheckCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Estabilidade</span>
+    <button on:click={() => goto('/vendas')} class="vtur-kpi-card border-t-[3px] {!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-slate-400'} text-left w-full">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><CheckCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Situacao geral</p>
+        <p class="text-2xl font-bold text-slate-900">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estavel' : 'Atencao'}</p>
       </div>
-      <p class="text-sm text-slate-500">Situação geral</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estável' : 'Atenção'}</p>
-      <p class="mt-2 text-sm text-slate-600">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Status, conciliação e financeiro estão alinhados.' : 'Ainda há pontos operacionais ou financeiros exigindo acompanhamento.'}</p>
     </button>
   </div>
 
@@ -303,10 +295,10 @@
     {/if}
   </div>
 
-  <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+  <div class="vtur-kpi-grid mb-6">
     <KPICard title="Valor Total" value={formatCurrency(valorTotal)} color="vendas" icon={TrendingUp} />
     <KPICard title="Taxas" value={formatCurrency(valorTaxas)} color="vendas" icon={FileText} />
-    <KPICard title="Líquido" value={formatCurrency(valorLiquido)} color="vendas" icon={ShoppingCart} />
+    <KPICard title="Liquido" value={formatCurrency(valorLiquido)} color="vendas" icon={ShoppingCart} />
     <KPICard title="Recibos" value={quantidadeRecibos} color="vendas" icon={Package} />
   </div>
 

@@ -117,32 +117,32 @@
   ]}
 />
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-  <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-financeiro-50 p-2"><Users size={20} class="text-financeiro-600" /></div>
-      <div>
-        <p class="text-sm text-slate-500">Total de usuários</p>
-        <p class="text-2xl font-bold text-slate-900">{usuarios.length}</p>
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <Users size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de usuários</p>
+      <p class="text-2xl font-bold text-slate-900">{usuarios.length}</p>
     </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-green-50 p-2"><UserCheck size={20} class="text-green-600" /></div>
-      <div>
-        <p class="text-sm text-slate-500">Na equipe</p>
-        <p class="text-2xl font-bold text-slate-900">{equipeAtual.length}</p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <UserCheck size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Na equipe</p>
+      <p class="text-2xl font-bold text-slate-900">{equipeAtual.length}</p>
     </div>
   </div>
-  <div class="vtur-card p-4 border-l-4 border-l-amber-500">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-amber-50 p-2"><UserX size={20} class="text-amber-600" /></div>
-      <div>
-        <p class="text-sm text-slate-500">Convites pendentes</p>
-        <p class="text-2xl font-bold text-slate-900">{convites.filter((c) => c.status === 'pending').length}</p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+      <UserX size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Convites pendentes</p>
+      <p class="text-2xl font-bold text-slate-900">{convites.filter((c) => c.status === 'pending').length}</p>
     </div>
   </div>
 </div>

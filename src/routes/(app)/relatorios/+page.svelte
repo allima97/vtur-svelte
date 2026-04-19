@@ -332,12 +332,14 @@
   </div>
 {/if}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<div class="vtur-kpi-grid mb-8">
   {#each kpis as item}
-    <div class="vtur-card p-5 border-l-4 border-l-financeiro-500">
-      <p class="text-sm text-slate-500">{item.title}</p>
-      <p class="text-2xl font-bold text-slate-900">{item.value}</p>
-      <p class="mt-2 text-xs text-slate-500">{item.subtext}</p>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div>
+        <p class="text-sm font-medium text-slate-500">{item.title}</p>
+        <p class="text-2xl font-bold text-slate-900">{item.value}</p>
+        <p class="mt-1 text-xs text-slate-400">{item.subtext}</p>
+      </div>
     </div>
   {/each}
 </div>

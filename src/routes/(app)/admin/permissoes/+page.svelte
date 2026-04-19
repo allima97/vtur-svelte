@@ -7,7 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw } from 'lucide-svelte';
+  import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
 
   type UserPermissionRow = {
     id: string;
@@ -119,21 +119,19 @@
 />
 
 <div class="space-y-6">
-  <div class="grid gap-4 md:grid-cols-3">
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Usuarios no painel</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">{rows.length}</p>
-    </Card>
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Modulos globais</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">{systemModuleCatalog.length}</p>
-    </Card>
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Modulos desabilitados</p>
-      <p class="mt-2 text-3xl font-semibold text-rose-600">
-        {systemModuleCatalog.filter((item) => !getGlobalEnabled(item.key)).length}
-      </p>
-    </Card>
+  <div class="vtur-kpi-grid lg:[grid-template-columns:repeat(3,minmax(0,1fr))]">
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Usuários no painel</p><p class="text-2xl font-bold text-slate-900">{rows.length}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><LayoutGrid size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Módulos globais</p><p class="text-2xl font-bold text-slate-900">{systemModuleCatalog.length}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><XCircle size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Módulos desabilitados</p><p class="text-2xl font-bold text-slate-900">{systemModuleCatalog.filter((item) => !getGlobalEnabled(item.key)).length}</p></div>
+    </div>
   </div>
 
   <Card color="financeiro" title="Disponibilidade global dos modulos">

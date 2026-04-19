@@ -289,45 +289,37 @@
     </div>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}><AlertCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Fechamento</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Backlog financeiro</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(backlogFinanceiroValor)}</p>
       </div>
-      <p class="text-sm text-slate-500">Backlog financeiro</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(backlogFinanceiroValor)}</p>
-      <p class="mt-2 text-sm text-slate-600">Pendências e divergências que ainda exigem fechamento financeiro.</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class={`rounded-lg p-3 ${resumo.saldo >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}><DollarSign size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saldo</span>
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${resumo.saldo >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}><DollarSign size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Situação de caixa</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.saldo)}</p>
       </div>
-      <p class="text-sm text-slate-500">Situação de caixa</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.saldo)}</p>
-      <p class="mt-2 text-sm text-slate-600">Leitura consolidada do resultado entre entradas e saídas no período.</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><ArrowUpRight size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Entradas</span>
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><ArrowUpRight size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total recebido</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalEntradas)}</p>
       </div>
-      <p class="text-sm text-slate-500">Total recebido</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalEntradas)}</p>
-      <p class="mt-2 text-sm text-slate-600">Volume de entradas confirmadas ou registradas no período filtrado.</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-red-50 p-3 text-red-600"><ArrowDownRight size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Saídas</span>
+    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><ArrowDownRight size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total de saídas</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalSaidas)}</p>
       </div>
-      <p class="text-sm text-slate-500">Total de saídas</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalSaidas)}</p>
-      <p class="mt-2 text-sm text-slate-600">Despesas e movimentos de saída registrados no mesmo recorte temporal.</p>
     </button>
   </div>
 
@@ -358,7 +350,7 @@
     </div>
   </Card>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+  <div class="vtur-kpi-grid vtur-kpi-grid-6 mb-6">
     <KPICard title="Total Recebido" value={formatCurrency(resumo.totalEntradas)} color="financeiro" icon={ArrowUpRight} />
     <KPICard title="Total Saídas" value={formatCurrency(resumo.totalSaidas)} color="financeiro" icon={ArrowDownRight} />
     <KPICard title="Pendente" value={formatCurrency(resumo.totalPendente)} color="financeiro" icon={Wallet} />

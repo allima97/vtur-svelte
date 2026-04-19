@@ -198,58 +198,50 @@
 />
 
 <!-- Resumo -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-  <div class="vtur-card p-4 border-l-4 border-l-clientes-500">
-    <div class="flex items-center gap-3">
-      <div class="p-2 rounded-lg bg-clientes-50 text-clientes-600">
-        <Ticket size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Total</p>
-        <p class="text-2xl font-bold text-slate-900">{vouchers.length}</p>
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+      <Ticket size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total</p>
+      <p class="text-2xl font-bold text-slate-900">{vouchers.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-    <div class="flex items-center gap-3">
-      <div class="p-2 rounded-lg bg-blue-50 text-blue-600">
-        <Ticket size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Special Tours</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {vouchers.filter(v => v.provider === 'special_tours').length}
-        </p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <Ticket size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Special Tours</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {vouchers.filter(v => v.provider === 'special_tours').length}
+      </p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-orange-500">
-    <div class="flex items-center gap-3">
-      <div class="p-2 rounded-lg bg-orange-50 text-orange-600">
-        <Ticket size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Europamundo</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {vouchers.filter(v => v.provider === 'europamundo').length}
-        </p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <Ticket size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Europamundo</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {vouchers.filter(v => v.provider === 'europamundo').length}
+      </p>
     </div>
   </div>
 
-  <div class="vtur-card p-4 border-l-4 border-l-green-500">
-    <div class="flex items-center gap-3">
-      <div class="p-2 rounded-lg bg-green-50 text-green-600">
-        <FileText size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Ativos</p>
-        <p class="text-2xl font-bold text-slate-900">
-          {vouchers.filter(v => v.ativo).length}
-        </p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <FileText size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Ativos</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {vouchers.filter(v => v.ativo).length}
+      </p>
     </div>
   </div>
 </div>

@@ -6,7 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, RefreshCw } from 'lucide-svelte';
+  import { Plus, RefreshCw, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
 
   type Usuario = {
     id: string;
@@ -166,23 +166,23 @@
 />
 
 <div class="space-y-6">
-  <div class="grid gap-4 md:grid-cols-4">
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Total</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">{stats.total}</p>
-    </Card>
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Ativos</p>
-      <p class="mt-2 text-3xl font-semibold text-emerald-600">{stats.ativos}</p>
-    </Card>
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Inativos</p>
-      <p class="mt-2 text-3xl font-semibold text-rose-600">{stats.inativos}</p>
-    </Card>
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Uso individual</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">{stats.individuais}</p>
-    </Card>
+  <div class="vtur-kpi-grid">
+    <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Users size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Total</p><p class="text-2xl font-bold text-slate-900">{stats.total}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><UserCheck size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Ativos</p><p class="text-2xl font-bold text-slate-900">{stats.ativos}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><UserX size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Inativos</p><p class="text-2xl font-bold text-slate-900">{stats.inativos}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><UserCog size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Uso individual</p><p class="text-2xl font-bold text-slate-900">{stats.individuais}</p></div>
+    </div>
   </div>
 
   <Card color="financeiro" title="Filtros">

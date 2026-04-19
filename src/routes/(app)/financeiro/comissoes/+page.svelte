@@ -204,45 +204,37 @@
     </div>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <button on:click={() => (somentePendentes = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Backlog</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => (somentePendentes = true)} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Comissões pendentes</p>
+        <p class="text-2xl font-bold text-slate-900">{pendentes.length}</p>
       </div>
-      <p class="text-sm text-slate-500">Comissões pendentes</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{pendentes.length}</p>
-      <p class="mt-2 text-sm text-slate-600">Fila atual de pagamento interno aguardando liquidação.</p>
     </button>
 
-    <button on:click={() => (somentePendentes = false)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-green-50 p-3 text-green-600"><CheckCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Liquidação</span>
+    <button on:click={() => (somentePendentes = false)} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total pago</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p>
       </div>
-      <p class="text-sm text-slate-500">Total pago</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p>
-      <p class="mt-2 text-sm text-slate-600">Volume já liquidado nas comissões registradas.</p>
     </button>
 
-    <button on:click={() => (somentePendentes = true)} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-financeiro-50 p-3 text-financeiro-600"><Wallet size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Exposição</span>
+    <button on:click={() => (somentePendentes = true)} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Wallet size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Valor pendente</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPendente)}</p>
       </div>
-      <p class="text-sm text-slate-500">Valor pendente</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalPendente)}</p>
-      <p class="mt-2 text-sm text-slate-600">Montante ainda aberto para pagamento a vendedores.</p>
     </button>
 
-    <button on:click={() => goto('/financeiro/regras')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Users size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Gestão</span>
+    <button on:click={() => goto('/financeiro/regras')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Vendedores na base</p>
+        <p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
       </div>
-      <p class="text-sm text-slate-500">Vendedores na base</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
-      <p class="mt-2 text-sm text-slate-600">Use regras e resumo por vendedor para revisar exposição e consistência.</p>
     </button>
   </div>
 
@@ -278,12 +270,27 @@
     </div>
   </Card>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-    <div class="vtur-card p-4 border-l-4 border-l-amber-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Pendentes</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-amber-50 rounded-lg"><Clock size={24} class="text-amber-600" /></div></div><p class="mt-2 text-lg font-semibold text-amber-600">{formatCurrency(totalPendente)}</p></div>
-    <div class="vtur-card p-4 border-l-4 border-l-green-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total Pago</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p></div><div class="p-3 bg-green-50 rounded-lg"><CheckCircle size={24} class="text-green-600" /></div></div></div>
-    <div class="vtur-card p-4 border-l-4 border-l-financeiro-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Total em Comissões</p><p class="text-2xl font-bold text-slate-900">{comissoes.length}</p></div><div class="p-3 bg-financeiro-50 rounded-lg"><DollarSign size={24} class="text-financeiro-600" /></div></div></div>
-    <div class="vtur-card p-4 border-l-4 border-l-blue-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Vendedores</p><p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p></div><div class="p-3 bg-blue-50 rounded-lg"><Users size={24} class="text-blue-600" /></div></div></div>
-    <div class="vtur-card p-4 border-l-4 border-l-slate-500"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div><div class="p-3 bg-slate-100 rounded-lg"><AlertCircle size={24} class="text-slate-700" /></div></div><p class="mt-2 text-lg font-semibold text-slate-700">{formatCurrency(totalPendente)}</p></div>
+  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Pendentes</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Total Pago</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Total em Comissões</p><p class="text-2xl font-bold text-slate-900">{comissoes.length}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Vendedores</p><p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p></div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><AlertCircle size={20} /></div>
+      <div><p class="text-sm font-medium text-slate-500">Backlog</p><p class="text-2xl font-bold text-slate-900">{pendentes.length}</p></div>
+    </div>
   </div>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">

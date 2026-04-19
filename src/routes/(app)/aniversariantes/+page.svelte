@@ -104,7 +104,7 @@
   ]}
 />
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+<div class="vtur-kpi-grid mb-6">
   <KPICard title="Aniversário hoje" value={hoje} color="clientes" icon={Gift} />
   <KPICard title="Próximos 7 dias" value={proximos7} color="clientes" icon={CalendarDays} />
   <KPICard title={`Próximos ${diasAfrente} dias`} value={aniversariantes.length} color="clientes" icon={CalendarDays} />

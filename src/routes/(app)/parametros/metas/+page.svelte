@@ -213,10 +213,34 @@
   ]}
 />
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-  <KPICard title="Total de metas" value={metas.length} color="financeiro" icon={Target} />
-  <KPICard title="Metas ativas" value={metasAtivas} color="financeiro" icon={Target} />
-  <KPICard title="Volume total" value={formatCurrency(totalMetas)} color="financeiro" icon={Target} />
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <Target size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de metas</p>
+      <p class="text-2xl font-bold text-slate-900">{metas.length}</p>
+    </div>
+  </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <Target size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Metas ativas</p>
+      <p class="text-2xl font-bold text-slate-900">{metasAtivas}</p>
+    </div>
+  </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <Target size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Volume total</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalMetas)}</p>
+    </div>
+  </div>
 </div>
 
 <DataTable

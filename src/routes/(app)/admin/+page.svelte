@@ -13,7 +13,8 @@
     Users,
     UserRoundCog,
     BellRing,
-    CheckCircle2
+    CheckCircle2,
+    AlertCircle
   } from 'lucide-svelte';
 
   let loading = true;
@@ -109,42 +110,39 @@
     </div>
   </Card>
 
-  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Usuarios ativos</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">
-        {loading ? '...' : summary?.counts?.usuarios_ativos ?? 0}
-      </p>
-      <p class="mt-1 text-sm text-slate-500">
-        {loading ? '' : `${summary?.counts?.usuarios_inativos ?? 0} inativos`}
-      </p>
-    </Card>
-
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Empresas no escopo</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">
-        {loading ? '...' : summary?.counts?.empresas_total ?? 0}
-      </p>
-      <p class="mt-1 text-sm text-slate-500">
-        {loading ? '' : `${summary?.counts?.empresas_ativas ?? 0} ativas`}
-      </p>
-    </Card>
-
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Avisos ativos</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">
-        {loading ? '...' : summary?.counts?.avisos_ativos ?? 0}
-      </p>
-      <p class="mt-1 text-sm text-slate-500">Templates administrativos prontos para uso</p>
-    </Card>
-
-    <Card color="financeiro">
-      <p class="text-sm text-slate-500">Vinculos master pendentes</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900">
-        {loading ? '...' : summary?.counts?.vinculos_master_pendentes ?? 0}
-      </p>
-      <p class="mt-1 text-sm text-slate-500">Pendencias de portfolio entre master e empresa</p>
-    </Card>
+  <div class="vtur-kpi-grid">
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Usuários ativos</p>
+        <p class="text-2xl font-bold text-slate-900">{loading ? '…' : summary?.counts?.usuarios_ativos ?? 0}</p>
+        {#if !loading}<p class="text-xs text-slate-400">{summary?.counts?.usuarios_inativos ?? 0} inativos</p>{/if}
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Empresas no escopo</p>
+        <p class="text-2xl font-bold text-slate-900">{loading ? '…' : summary?.counts?.empresas_total ?? 0}</p>
+        {#if !loading}<p class="text-xs text-slate-400">{summary?.counts?.empresas_ativas ?? 0} ativas</p>{/if}
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><BellRing size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Avisos ativos</p>
+        <p class="text-2xl font-bold text-slate-900">{loading ? '…' : summary?.counts?.avisos_ativos ?? 0}</p>
+        <p class="text-xs text-slate-400">Templates prontos para uso</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Vínculos master pendentes</p>
+        <p class="text-2xl font-bold text-slate-900">{loading ? '…' : summary?.counts?.vinculos_master_pendentes ?? 0}</p>
+        <p class="text-xs text-slate-400">Pendências de portfólio</p>
+      </div>
+    </div>
   </div>
 
   <Card color="financeiro" title="Modulos administrativos">

@@ -249,54 +249,86 @@
     </div>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-green-50 p-3 text-green-600"><Users size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
+  <div class="vtur-kpi-grid mb-6">
+    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Users size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Status comercial</p>
+        <p class="text-2xl font-bold text-slate-900">{getStatusLabel(cliente.status)}</p>
       </div>
-      <p class="text-sm text-slate-500">Status comercial</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{getStatusLabel(cliente.status)}</p>
-      <p class="mt-2 text-sm text-slate-600">{clienteAtivo ? 'Cliente ativo na carteira, com base pronta para recorrência.' : statusCliente === 'prospect' ? 'Cliente ainda em fase comercial inicial.' : 'Cliente fora do ciclo ativo e candidato a reativação.'}</p>
     </button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
+    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Negociação</p>
+        <p class="text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
       </div>
-      <p class="text-sm text-slate-500">Negociação</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
-      <p class="mt-2 text-sm text-slate-600">{clienteEmNegociacao ? 'Cliente com orçamento em aberto e sem conversão em venda.' : 'Total de propostas vinculadas ao histórico deste cliente.'}</p>
     </button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-pink-50 p-3 text-pink-600"><AlertCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Reativação</span>
+    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><AlertCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Última compra</p>
+        <p class="text-2xl font-bold text-slate-900">{formatDate(cliente.ultima_compra)}</p>
       </div>
-      <p class="text-sm text-slate-500">Última compra</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatDate(cliente.ultima_compra)}</p>
-      <p class="mt-2 text-sm text-slate-600">{clienteInicial ? 'Cliente sem histórico de viagem e pronto para nutrição comercial.' : clienteComHistorico ? 'Use esta referência para avaliar cadência de retorno e nova oferta.' : 'Sem compra registrada até o momento.'}</p>
     </button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
-      <div class="mb-3 flex items-center justify-between">
-        <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><CheckCircle size={20} /></div>
-        <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Carteira</span>
+    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><CheckCircle size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Valor acumulado</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
       </div>
-      <p class="text-sm text-slate-500">Valor acumulado</p>
-      <p class="mt-1 text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
-      <p class="mt-2 text-sm text-slate-600">Histórico consolidado de vendas vinculadas ao cliente titular ou passageiro.</p>
     </button>
   </div>
 
-  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-    <KPICard title="Total em vendas" value={formatCurrency(totalGasto)} color="clientes" icon={Wallet} />
-    <KPICard title="Viagens vinculadas" value={historicoVendas.length} color="clientes" icon={ShoppingCart} />
-    <KPICard title="Ticket medio" value={formatCurrency(ticketMedio)} color="clientes" icon={Ticket} />
-    <KPICard title="Taxas acumuladas" value={formatCurrency(totalTaxas)} color="clientes" icon={FileText} />
-    <KPICard title="Orcamentos" value={historicoOrcamentos.length} color="clientes" icon={Calendar} />
+  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <Wallet size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total em vendas</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <ShoppingCart size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Viagens vinculadas</p>
+        <p class="text-2xl font-bold text-slate-900">{historicoVendas.length}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <Ticket size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Ticket medio</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedio)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <FileText size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Taxas acumuladas</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalTaxas)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <Calendar size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Orcamentos</p>
+        <p class="text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
+      </div>
+    </div>
   </div>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">

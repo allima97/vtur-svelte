@@ -180,60 +180,50 @@
   </div>
 {:else}
   <!-- Stats -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-    <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-financeiro-50 rounded-lg">
-          <Route size={20} class="text-financeiro-600" />
-        </div>
-        <div>
-          <p class="text-sm text-slate-500">Total</p>
-          <p class="text-2xl font-bold text-slate-900">{stats.total}</p>
-        </div>
+  <div class="vtur-kpi-grid-5 mb-6">
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <Route size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Total</p>
+        <p class="text-2xl font-bold text-slate-900">{stats.total}</p>
       </div>
     </div>
-    <div class="vtur-card p-4 border-l-4 border-l-green-500">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-green-50 rounded-lg">
-          <Calendar size={20} class="text-green-600" />
-        </div>
-        <div>
-          <p class="text-sm text-slate-500">Ativos</p>
-          <p class="text-2xl font-bold text-slate-900">{stats.ativos}</p>
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+        <Calendar size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Ativos</p>
+        <p class="text-2xl font-bold text-slate-900">{stats.ativos}</p>
       </div>
     </div>
-    <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-financeiro-50 rounded-lg">
-          <MapPin size={20} class="text-financeiro-600" />
-        </div>
-        <div>
-          <p class="text-sm text-slate-500">Nacionais</p>
-          <p class="text-2xl font-bold text-slate-900">{stats.nacionais}</p>
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <MapPin size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Nacionais</p>
+        <p class="text-2xl font-bold text-slate-900">{stats.nacionais}</p>
       </div>
     </div>
-    <div class="vtur-card p-4 border-l-4 border-l-blue-500">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-blue-50 rounded-lg">
-          <MapPin size={20} class="text-blue-600" />
-        </div>
-        <div>
-          <p class="text-sm text-slate-500">Internacionais</p>
-          <p class="text-2xl font-bold text-slate-900">{stats.internacionais}</p>
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <MapPin size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Internacionais</p>
+        <p class="text-2xl font-bold text-slate-900">{stats.internacionais}</p>
       </div>
     </div>
-    <div class="vtur-card p-4 border-l-4 border-l-purple-500">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-purple-50 rounded-lg">
-          <DollarSign size={20} class="text-purple-600" />
-        </div>
-        <div>
-          <p class="text-sm text-slate-500">Preço Médio</p>
-          <p class="text-2xl font-bold text-slate-900">{formatCurrency(stats.precoMedio)}</p>
-        </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <DollarSign size={20} />
+      </div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Preço Médio</p>
+        <p class="text-2xl font-bold text-slate-900">{formatCurrency(stats.precoMedio)}</p>
       </div>
     </div>
   </div>
