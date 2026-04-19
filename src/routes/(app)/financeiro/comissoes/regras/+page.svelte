@@ -479,7 +479,7 @@
       />
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
         <select bind:value={formData.tipo} class="vtur-input w-full">
@@ -501,7 +501,7 @@
         <Percent size={16} />
         Percentuais
       </h4>
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label class="block text-xs font-medium text-slate-600 mb-1">Meta Não Atingida (%)</label>
           <input

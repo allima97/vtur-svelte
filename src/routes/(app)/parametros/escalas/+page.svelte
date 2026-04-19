@@ -312,7 +312,7 @@
       </select>
     </div>
     {#if cellForm.tipo === 'TRABALHO' || cellForm.tipo === 'PLANTAO'}
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="esc-inicio">Início</label>
           <input id="esc-inicio" type="time" bind:value={cellForm.hora_inicio} class="vtur-input w-full" />

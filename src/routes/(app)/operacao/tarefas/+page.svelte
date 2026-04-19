@@ -556,7 +556,7 @@
   ]}
 />
 
-<div class="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
   <KPICard title="Ativas" value={resumo.ativos} color="operacao" icon={SquareCheckBig} />
   <KPICard title="A Fazer" value={resumo.aFazer} color="operacao" icon={List} />
   <KPICard title="Fazendo" value={resumo.fazendo} color="operacao" icon={FolderKanban} />

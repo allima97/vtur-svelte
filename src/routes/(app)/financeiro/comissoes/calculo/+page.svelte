@@ -401,7 +401,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 text-sm">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
       <div>
         <p class="text-slate-500">Período</p>
         <p class="font-medium">
@@ -443,7 +443,7 @@
   {#if resultadoCalculo}
     <div class="space-y-4">
       <!-- Resumo -->
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="p-4 bg-green-50 rounded-lg text-center">
           <p class="text-sm text-green-600">Processadas</p>
           <p class="text-2xl font-bold text-green-700">{resultadoCalculo.processadas}</p>

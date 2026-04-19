@@ -203,7 +203,7 @@
   ]}
 />
 
-<div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
   <KPICard title="Itens no periodo" value={resumo.total} color="operacao" icon={CalendarDays} />
   <KPICard title="Atrasados" value={resumo.atrasados} color="operacao" icon={CalendarDays} />
   <KPICard title="Sem texto" value={resumo.semTexto} color="operacao" icon={Search} />

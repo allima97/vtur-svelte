@@ -353,7 +353,7 @@
       />
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label for="lembrete" class="mb-1 block text-sm font-medium text-slate-700">Lembrete</label>
         <select id="lembrete" bind:value={form.lembrete} class="vtur-input w-full">
@@ -368,7 +368,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label for="destino" class="mb-1 block text-sm font-medium text-slate-700">Destino</label>
         <input id="destino" type="text" bind:value={form.destino} class="vtur-input w-full" placeholder="Ex: Paris, Miami..." />

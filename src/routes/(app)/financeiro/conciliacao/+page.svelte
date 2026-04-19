@@ -360,7 +360,7 @@
   breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Conciliação' }]}
 />
 
-<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
   <KPICard title="Pendentes" value={pendentes.length} subtitle={formatCurrency(totalPendente)} color="financeiro" icon={Clock} />
   <KPICard title="Conciliados" value={conciliados.length} subtitle={formatCurrency(totalConciliado)} color="financeiro" icon={CheckCircle} />
   <KPICard title="Divergentes" value={divergentes.length} subtitle={formatCurrency(totalDivergente)} color="financeiro" icon={AlertCircle} />

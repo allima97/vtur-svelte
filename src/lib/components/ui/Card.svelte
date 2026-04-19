@@ -40,7 +40,7 @@
   };
 </script>
 
-<div class="relative overflow-hidden rounded-[18px] border bg-white shadow-[0_14px_34px_rgba(9,17,46,0.06)] before:absolute before:left-0 before:right-0 before:top-0 before:h-1.5 {colorClasses[color] ?? colorClasses.default} {accentClasses[color] ?? accentClasses.default} {$$props.class || ''}">
+<div class="relative rounded-[18px] border bg-white shadow-[0_14px_34px_rgba(9,17,46,0.06)] before:absolute before:left-0 before:right-0 before:top-0 before:h-1.5 before:rounded-t-[18px] {colorClasses[color] ?? colorClasses.default} {accentClasses[color] ?? accentClasses.default} {$$props.class || ''}">
   {#if title || header}
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-gradient-to-b from-slate-50 to-white px-5 py-4">
       <h3 class="text-base font-semibold tracking-tight text-slate-900">{title || header}</h3>

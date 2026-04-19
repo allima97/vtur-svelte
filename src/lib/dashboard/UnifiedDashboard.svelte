@@ -363,7 +363,7 @@
 {/if}
 
 <!-- KPIs principais -->
-<div class="grid grid-cols-2 gap-4 mb-6 {!loading && vendasAgg.totalSeguro > 0 ? 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'}">
+<div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 {!loading && vendasAgg.totalSeguro > 0 ? 'lg:grid-cols-4 xl:grid-cols-6' : 'lg:grid-cols-4 xl:grid-cols-5'}">
   <!-- Vendas no período -->
   <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
     <div class="flex items-start justify-between">

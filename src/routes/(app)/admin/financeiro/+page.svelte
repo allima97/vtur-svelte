@@ -213,7 +213,7 @@
       <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-valor">Mensalidade (R$)</label>
       <input id="bill-valor" type="number" step="0.01" bind:value={form.valor_mensal} class="vtur-input w-full" placeholder="0,00" />
     </div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-ultimo">Último pagamento</label>
         <input id="bill-ultimo" type="date" bind:value={form.ultimo_pagamento} class="vtur-input w-full" />

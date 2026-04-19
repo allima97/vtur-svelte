@@ -261,7 +261,7 @@
         <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-url">URL da Arte</label>
         <input id="crm-tema-url" bind:value={formTema.asset_url} class="vtur-input w-full" placeholder="https://..." />
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-cat">Categoria</label>
           <select id="crm-tema-cat" bind:value={formTema.categoria_id} class="vtur-input w-full">
@@ -287,7 +287,7 @@
     </div>
   {:else}
     <div class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-nome">Nome *</label>
           <input id="crm-tpl-nome" bind:value={formTemplate.nome} class="vtur-input w-full" />

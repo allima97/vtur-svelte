@@ -430,7 +430,7 @@
   ]}
 />
 
-<div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
   <KPICard title="Eventos" value={resumo.total} color="operacao" icon={CalendarDays} />
   <KPICard title="Hoje" value={resumo.hoje} color="operacao" icon={Clock3} />
   <KPICard title="Proximos 7 dias" value={resumo.proximos7} color="operacao" icon={CalendarDays} />

@@ -128,7 +128,7 @@
       <label class="mb-1 block text-sm font-medium text-slate-700" for="pais-nome">Nome *</label>
       <input id="pais-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome do país" />
     </div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="pais-iso">Código ISO</label>
         <input id="pais-iso" bind:value={form.codigo_iso} class="vtur-input w-full" placeholder="Ex: BR, US" maxlength="3" />

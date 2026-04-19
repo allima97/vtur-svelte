@@ -288,7 +288,7 @@
       </select>
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
         <input type="checkbox" bind:checked={form.soma_na_meta} class="rounded border-slate-300" />
         Soma na meta
@@ -308,7 +308,7 @@
     </div>
 
     {#if form.usa_meta_produto}
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-meta-valor">Meta do produto (R$)</label>
           <input id="tprod-meta-valor" type="number" step="0.01" bind:value={form.meta_produto_valor} class="vtur-input w-full" />

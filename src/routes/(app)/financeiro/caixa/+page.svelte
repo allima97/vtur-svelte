@@ -358,7 +358,7 @@
     </div>
   </Card>
 
-  <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
     <KPICard title="Total Recebido" value={formatCurrency(resumo.totalEntradas)} color="financeiro" icon={ArrowUpRight} />
     <KPICard title="Total Saídas" value={formatCurrency(resumo.totalSaidas)} color="financeiro" icon={ArrowDownRight} />
     <KPICard title="Pendente" value={formatCurrency(resumo.totalPendente)} color="financeiro" icon={Wallet} />
@@ -487,7 +487,7 @@
   onConfirm={handleCriarMovimentacao}
 >
   <div class="space-y-4">
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
         <select bind:value={novaMovimentacao.tipo} class="vtur-input w-full">
@@ -512,7 +512,7 @@
       <input type="text" bind:value={novaMovimentacao.descricao} placeholder="Descrição da movimentação" class="vtur-input w-full" />
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Valor *</label>
         <input type="number" step="0.01" min="0" bind:value={novaMovimentacao.valor} placeholder="0,00" class="vtur-input w-full" />

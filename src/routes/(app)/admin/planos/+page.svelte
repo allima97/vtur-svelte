@@ -196,7 +196,7 @@
       <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-desc">Descrição</label>
       <textarea id="plano-desc" bind:value={form.descricao} rows="2" class="vtur-input w-full" placeholder="Descrição do plano..."></textarea>
     </div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-valor">Mensalidade</label>
         <input id="plano-valor" type="number" step="0.01" min="0" bind:value={form.valor_mensal} class="vtur-input w-full" placeholder="0,00" />

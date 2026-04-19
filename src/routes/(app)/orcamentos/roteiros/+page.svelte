@@ -191,7 +191,7 @@
       <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-nome">Nome *</label>
       <input id="rot-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Europa Clássica 10 dias" />
     </div>
-    <div class="grid grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-duracao">Duração (dias)</label>
         <input id="rot-duracao" type="number" min="1" bind:value={form.duracao} class="vtur-input w-full" placeholder="10" />

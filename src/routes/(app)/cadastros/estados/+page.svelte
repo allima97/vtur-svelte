@@ -171,7 +171,7 @@
         {/each}
       </select>
     </div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="mb-1 block text-sm font-medium text-slate-700" for="est-codigo">Código</label>
         <input id="est-codigo" bind:value={form.codigo_admin1} class="vtur-input w-full" placeholder="Ex: SP, RJ" />

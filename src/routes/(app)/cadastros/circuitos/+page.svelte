@@ -180,7 +180,7 @@
   </div>
 {:else}
   <!-- Stats -->
-  <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     <div class="vtur-card p-4 border-l-4 border-l-financeiro-500">
       <div class="flex items-center gap-3">
         <div class="p-2 bg-financeiro-50 rounded-lg">
