@@ -9,7 +9,7 @@
   export let trendLabel: string = '';
   export let loading: boolean = false;
   export let icon: ComponentType | null = null;
-  export let color: 'blue' | 'green' | 'orange' | 'teal' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' = 'blue';
+  export let color: 'blue' | 'green' | 'orange' | 'teal' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'blue';
   
   const colorClasses = {
     blue: 'vtur-kpi-card--blue',
@@ -20,7 +20,8 @@
     vendas: 'vtur-kpi-card--vendas',
     financeiro: 'vtur-kpi-card--financeiro',
     operacao: 'vtur-kpi-card--operacao',
-    orcamentos: 'vtur-kpi-card--orcamentos'
+    orcamentos: 'vtur-kpi-card--orcamentos',
+    comissoes: 'vtur-kpi-card--comissoes'
   };
   
   const iconBgClasses = {
@@ -33,6 +34,7 @@
     financeiro: 'bg-orange-100 text-orange-600',
     operacao: 'bg-teal-100 text-teal-600',
     orcamentos: 'bg-blue-100 text-blue-600',
+    comissoes: 'bg-orange-100 text-orange-600'
   };
   
   $: isPositive = trend !== null && trend > 0;
