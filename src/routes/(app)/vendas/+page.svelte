@@ -223,54 +223,46 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-  <div class="vtur-card border-l-4 border-l-green-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-green-50 p-2 text-green-600">
-        <ShoppingCart size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Total de Vendas</p>
-        <p class="text-xl font-bold text-slate-900">{vendas.length}</p>
-      </div>
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
+      <ShoppingCart size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Total de Vendas</p>
+      <p class="text-2xl font-bold text-slate-900">{vendas.length}</p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-green-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-green-50 p-2 text-green-600">
-        <DollarSign size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Valor Total</p>
-        <p class="text-xl font-bold text-slate-900">
-          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumo.total)}
-        </p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-emerald-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
+      <DollarSign size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Valor Total</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumo.total)}
+      </p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-blue-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-blue-50 p-2 text-blue-600">
-        <Calendar size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Confirmadas</p>
-        <p class="text-xl font-bold text-slate-900">{resumo.confirmadas}</p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+      <Calendar size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Confirmadas</p>
+      <p class="text-2xl font-bold text-slate-900">{resumo.confirmadas}</p>
     </div>
   </div>
 
-  <div class="vtur-card border-l-4 border-l-amber-500 p-4">
-    <div class="flex items-center gap-3">
-      <div class="rounded-lg bg-amber-50 p-2 text-amber-600">
-        <Calendar size={20} />
-      </div>
-      <div>
-        <p class="text-sm text-slate-500">Pendentes</p>
-        <p class="text-xl font-bold text-slate-900">{resumo.pendentes}</p>
-      </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+      <Calendar size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Pendentes</p>
+      <p class="text-2xl font-bold text-slate-900">{resumo.pendentes}</p>
     </div>
   </div>
 </div>

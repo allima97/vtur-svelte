@@ -253,50 +253,26 @@
   </div>
 {/if}
 
-<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-  <div class="vtur-card p-5">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="rounded-lg bg-blue-50 p-3 text-blue-600"><Users size={20} /></div>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Carteira</span>
-    </div>
-    <p class="text-sm text-slate-500">Clientes na carteira</p>
-    <p class="mt-1 text-2xl font-bold text-slate-900">{clientes.length}</p>
+<div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Clientes na carteira</p><p class="text-2xl font-bold text-slate-900">{clientes.length}</p></div>
   </div>
-
-  <div class="vtur-card p-5">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="rounded-lg bg-green-50 p-3 text-green-600"><Users size={20} /></div>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
-    </div>
-    <p class="text-sm text-slate-500">Clientes ativos</p>
-    <p class="mt-1 text-2xl font-bold text-slate-900">{statusAtivos}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Users size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Clientes ativos</p><p class="text-2xl font-bold text-slate-900">{statusAtivos}</p></div>
   </div>
-
-  <div class="vtur-card p-5">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="rounded-lg bg-amber-50 p-3 text-amber-600"><Clock size={20} /></div>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Pipeline</span>
-    </div>
-    <p class="text-sm text-slate-500">Em negociação</p>
-    <p class="mt-1 text-2xl font-bold text-slate-900">{clientesEmNegociacao}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Em negociação</p><p class="text-2xl font-bold text-slate-900">{clientesEmNegociacao}</p></div>
   </div>
-
-  <div class="vtur-card p-5">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="rounded-lg bg-pink-50 p-3 text-pink-600"><CalendarDays size={20} /></div>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Relacionamento</span>
-    </div>
-    <p class="text-sm text-slate-500">Aniversariantes hoje</p>
-    <p class="mt-1 text-2xl font-bold text-slate-900">{aniversariantesHoje}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-pink-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500"><CalendarDays size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Aniversariantes hoje</p><p class="text-2xl font-bold text-slate-900">{aniversariantesHoje}</p></div>
   </div>
-
-  <div class="vtur-card p-5">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="rounded-lg bg-slate-100 p-3 text-slate-700"><Wallet size={20} /></div>
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Financeiro</span>
-    </div>
-    <p class="text-sm text-slate-500">Total gasto</p>
-    <p class="mt-1 text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)}</p>
+  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Wallet size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total gasto</p><p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)}</p></div>
   </div>
 </div>
 

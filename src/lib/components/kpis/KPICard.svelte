@@ -1,97 +1,62 @@
 <script lang="ts">
-  import { Card } from 'flowbite-svelte';
-  import { TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-svelte';
+  import { Loader2 } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
-  
+
   export let title: string;
-  export let value: string | number;
+  export let value: string | number = '';
   export let subtitle: string = '';
-  export let trend: number | null = null;
-  export let trendLabel: string = '';
   export let loading: boolean = false;
   export let icon: ComponentType | null = null;
-  export let color: 'blue' | 'green' | 'orange' | 'teal' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' = 'blue';
-  
-  const colorClasses = {
-    blue: 'border-l-blue-500 bg-white',
-    green: 'border-l-green-500 bg-white',
-    orange: 'border-l-orange-500 bg-white',
-    teal: 'border-l-teal-500 bg-white',
-    clientes: 'border-l-blue-500 bg-white',
-    vendas: 'border-l-green-500 bg-white',
-    financeiro: 'border-l-orange-500 bg-white',
-    operacao: 'border-l-teal-500 bg-white',
-    orcamentos: 'border-l-blue-500 bg-white',
+  export let color: 'blue' | 'green' | 'orange' | 'teal' | 'violet' | 'slate' = 'blue';
+
+  const iconBg: Record<string, string> = {
+    blue:   'bg-blue-50 text-blue-500',
+    green:  'bg-green-50 text-green-500',
+    orange: 'bg-orange-50 text-orange-500',
+    teal:   'bg-teal-50 text-teal-500',
+    violet: 'bg-violet-50 text-violet-500',
+    slate:  'bg-slate-100 text-slate-500',
   };
-  
-  const iconBgClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    orange: 'bg-orange-100 text-orange-600',
-    teal: 'bg-teal-100 text-teal-600',
-    clientes: 'bg-blue-100 text-blue-600',
-    vendas: 'bg-green-100 text-green-600',
-    financeiro: 'bg-orange-100 text-orange-600',
-    operacao: 'bg-teal-100 text-teal-600',
-    orcamentos: 'bg-blue-100 text-blue-600',
+
+  const borderColor: Record<string, string> = {
+    blue:   'border-t-blue-400',
+    green:  'border-t-green-400',
+    orange: 'border-t-orange-400',
+    teal:   'border-t-teal-400',
+    violet: 'border-t-violet-400',
+    slate:  'border-t-slate-300',
   };
-  
-  $: isPositive = trend !== null && trend > 0;
-  $: isNegative = trend !== null && trend < 0;
 </script>
 
-<Card class="border-l-4 {colorClasses[color]} hover:shadow-lg transition-shadow shadow-sm border border-slate-200">
-  <div class="flex items-start justify-between">
-    <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2">
-        {#if icon}
-          <div class="p-2 rounded-lg mb-2 {iconBgClasses[color]}">
-            <svelte:component this={icon} size={20} />
-          </div>
-        {/if}
-        <h3 class="text-sm font-medium text-slate-500">{title}</h3>
+<!--
+  KPI Card padronizado — altura mínima fixa, layout consistente.
+  Estrutura: borda superior colorida → ícone → título → valor
+-->
+<div
+  class="vtur-kpi-card flex flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md border-t-[3px] {borderColor[color]}"
+  style="min-height: 116px;"
+>
+  {#if loading}
+    <div class="flex h-full w-full flex-col items-start gap-2">
+      <div class="h-9 w-9 animate-pulse rounded-xl bg-slate-100"></div>
+      <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-7 w-16 animate-pulse rounded bg-slate-100"></div>
+    </div>
+  {:else}
+    <!-- Ícone -->
+    {#if icon}
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl {iconBg[color]}">
+        <svelte:component this={icon} size={20} strokeWidth={2} />
       </div>
-      
-      {#if loading}
-        <div class="flex items-center gap-2 mt-2">
-          <Loader2 size={20} class="animate-spin text-slate-400" />
-          <span class="text-slate-400">Carregando...</span>
-        </div>
-      {:else}
-        <div class="mt-1">
-          <span class="text-2xl font-bold text-slate-900 break-words">{value}</span>
-        </div>
+    {/if}
 
-        {#if subtitle}
-          <p class="mt-1 text-xs text-slate-500">{subtitle}</p>
-        {/if}
-        
-        {#if trend !== null}
-          <div class="flex items-center gap-2 mt-2 flex-wrap">
-            <span 
-              class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
-              class:bg-green-100={isPositive}
-              class:text-green-700={isPositive}
-              class:bg-red-100={isNegative}
-              class:text-red-700={isNegative}
-              class:bg-slate-100={!isPositive && !isNegative}
-              class:text-slate-600={!isPositive && !isNegative}
-            >
-              {#if isPositive}
-                <TrendingUp size={12} class="mr-1" />
-              {:else if isNegative}
-                <TrendingDown size={12} class="mr-1" />
-              {:else}
-                <Minus size={12} class="mr-1" />
-              {/if}
-              {Math.abs(trend)}%
-            </span>
-            {#if trendLabel}
-              <span class="text-xs text-slate-400">{trendLabel}</span>
-            {/if}
-          </div>
-        {/if}
+    <!-- Título + Valor -->
+    <div class="min-w-0 flex-1">
+      <p class="mb-1 text-sm font-medium leading-tight text-slate-500">{title}</p>
+      <p class="text-2xl font-bold leading-tight text-slate-900">{value}</p>
+      {#if subtitle}
+        <p class="mt-1 text-xs text-slate-400">{subtitle}</p>
       {/if}
     </div>
-  </div>
-</Card>
+  {/if}
+</div>

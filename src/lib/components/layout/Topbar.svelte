@@ -3,7 +3,7 @@
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
   import { Dropdown, DropdownItem, DropdownDivider } from 'flowbite-svelte';
-  import { Bell, Calendar, LogOut, Menu, User, Settings, Shield } from 'lucide-svelte';
+  import { Bell, Calendar, LogOut, User, Settings, Shield } from 'lucide-svelte';
 
   let loggingOut = false;
   let userDropdownOpen = false;
@@ -36,45 +36,38 @@
 
 <header class="vtur-topbar">
   <div class="vtur-topbar__inner">
-    <!-- Esquerda: menu mobile + brand -->
+    <!-- Esquerda: brand (mobile: só logo; desktop: logo + nome) -->
     <div class="vtur-topbar__left">
-      <!-- Botão hambúrguer: visível apenas em telas < lg (1024px) -->
-      <button
-        class="vtur-icon-button lg:hidden"
-        type="button"
-        on:click={() => sidebar.toggle()}
-        aria-label="Abrir menu"
-      >
-        <Menu size={20} />
-      </button>
-
       <a href="/" class="vtur-topbar__brand" aria-label="VTUR inicio">
         <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-topbar__brand-image" />
-        <div class="vtur-topbar__brand-copy">
-          <span class="vtur-topbar__brand-wordmark">VTUR</span>
-          <span class="vtur-topbar__brand-tagline">CRM para Franquias CVC</span>
-        </div>
+        {#if !$isMobile}
+          <div class="vtur-topbar__brand-copy">
+            <span class="vtur-topbar__brand-wordmark">VTUR</span>
+            <span class="vtur-topbar__brand-tagline">CRM para Franquias CVC</span>
+          </div>
+        {/if}
       </a>
     </div>
 
-    <!-- Direita: ações rápidas + usuário -->
+    <!-- Direita: ações + avatar -->
     <div class="vtur-topbar__actions">
-      <!-- Atalho agenda -->
-      <a href="/operacao/agenda" class="vtur-icon-button" aria-label="Ir para Agenda">
-        <Calendar size={18} />
-      </a>
+      {#if !$isMobile}
+        <!-- Atalho agenda (só desktop) -->
+        <a href="/operacao/agenda" class="vtur-icon-button" aria-label="Ir para Agenda">
+          <Calendar size={18} />
+        </a>
+        <!-- Bell (só desktop) -->
+        <button
+          class="vtur-icon-button relative"
+          type="button"
+          on:click={openRecadosInfo}
+          aria-label="Recados"
+        >
+          <Bell size={18} />
+        </button>
+      {/if}
 
-      <!-- Bell de recados (futuro) -->
-      <button
-        class="vtur-icon-button relative"
-        type="button"
-        on:click={openRecadosInfo}
-        aria-label="Recados"
-      >
-        <Bell size={18} />
-      </button>
-
-      <!-- Chip de usuário com dropdown -->
+      <!-- Avatar com dropdown (sempre visível) -->
       <div class="relative">
         <button
           id="user-menu-btn"
@@ -86,10 +79,12 @@
           on:click={() => (userDropdownOpen = !userDropdownOpen)}
         >
           <div class="vtur-user-chip__avatar">{userInitials || 'VT'}</div>
-          <div class="vtur-user-chip__copy">
-            <span class="vtur-user-chip__name">{userDisplayName}</span>
-            <span class="vtur-user-chip__email">{userEmail}</span>
-          </div>
+          {#if !$isMobile}
+            <div class="vtur-user-chip__copy">
+              <span class="vtur-user-chip__name">{userDisplayName}</span>
+              <span class="vtur-user-chip__email">{userEmail}</span>
+            </div>
+          {/if}
         </button>
 
         <Dropdown

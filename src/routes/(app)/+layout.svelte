@@ -3,7 +3,7 @@
   import { get } from 'svelte/store';
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
   import Topbar from '$lib/components/layout/Topbar.svelte';
-  import { sidebar } from '$lib/stores/ui';
+  import { sidebar, isMobile } from '$lib/stores/ui';
   import { sessionSynced } from '$lib/stores/auth';
 
   let appReady = false;
@@ -15,13 +15,11 @@
   onMount(() => {
     handleResize();
 
-    // Se sessionSynced já está true (SSR com cookie válido), mostra imediatamente
     if (get(sessionSynced)) {
       appReady = true;
       return;
     }
 
-    // Aguarda o sinal de sessão sincronizada — máximo 5s
     const timeout = setTimeout(() => { appReady = true; }, 5000);
     const unsub = sessionSynced.subscribe((ready) => {
       if (ready) {
@@ -40,12 +38,16 @@
   <Topbar />
   <Sidebar />
 
-  <main class="vtur-layout">
+  <main
+    class="vtur-layout"
+    style={$isMobile
+      ? 'margin-left:0;padding-top:3.5rem;padding-left:0.75rem;padding-right:0.75rem;padding-bottom:calc(60px + env(safe-area-inset-bottom,0px) + 0.5rem);'
+      : ''}
+  >
     <div class="vtur-page-wrap">
       {#if appReady}
         <slot />
       {:else}
-        <!-- Aguardando sincronização de sessão com o servidor -->
         <div class="flex items-center justify-center min-h-[60vh]">
           <div class="flex flex-col items-center gap-3 text-slate-400">
             <svg class="animate-spin h-8 w-8 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

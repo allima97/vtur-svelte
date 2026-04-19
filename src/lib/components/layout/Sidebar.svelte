@@ -158,20 +158,11 @@
     { name: 'Param. Importação', href: '/admin/parametros-importacao', icon: Settings }
   ];
 
-  // Estado de colapso por seção (índice → collapsed?)
   let collapsed: Record<number, boolean> = {};
-
-  // Detecta se algum item da seção está ativo para manter aberto por padrão
-  function sectionHasActive(items: MenuItem[]): boolean {
-    return items.some((item) => isActive(item.href));
-  }
-
   let refreshingPerms = false;
 
   function handleItemClick() {
-    if ($isMobile) {
-      sidebar.close();
-    }
+    if ($isMobile) sidebar.close();
   }
 
   function isActive(href?: string): boolean {
@@ -184,6 +175,43 @@
     collapsed[idx] = !collapsed[idx];
     collapsed = { ...collapsed };
   }
+
+  // ── Mapa de rotas → (nome, ícone) para o bottom nav compacto ──
+  type NavEntry = { name: string; href: string; icon: typeof LayoutDashboard };
+
+  const mobileNavEntries: NavEntry[] = [
+    { name: 'Dashboard',      href: '/',                       icon: LayoutDashboard },
+    { name: 'Clientes',       href: '/clientes',               icon: Users },
+    { name: 'Vendas',         href: '/vendas',                 icon: ShoppingCart },
+    { name: 'Orçamentos',     href: '/orcamentos',             icon: FileText },
+    { name: 'Roteiros',       href: '/orcamentos/roteiros',    icon: MapIcon },
+    { name: 'Viagens',        href: '/operacao/viagens',       icon: Plane },
+    { name: 'Vouchers',       href: '/operacao/vouchers',      icon: Ticket },
+    { name: 'Tarefas',        href: '/operacao/tarefas',       icon: SquareCheckBig },
+    { name: 'Agenda',         href: '/operacao/agenda',        icon: Calendar },
+    { name: 'Acompanhamento', href: '/operacao/acompanhamento',icon: FileText },
+    { name: 'SAC',            href: '/operacao/controle-sac',  icon: AlertCircle },
+    { name: 'Campanhas',      href: '/operacao/campanhas',     icon: Megaphone },
+    { name: 'Documentos',     href: '/operacao/documentos-viagens', icon: FileText },
+    { name: 'Consultoria',    href: '/consultoria-online',     icon: Video },
+    { name: 'Aniversariantes',href: '/aniversariantes',        icon: Gift },
+    { name: 'Caixa',          href: '/financeiro/caixa',       icon: TrendingUp },
+    { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
+    { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
+    { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
+    { name: 'Relatórios',     href: '/relatorios',             icon: FileSpreadsheet },
+    { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
+    { name: 'Admin',          href: '/admin',                  icon: Shield },
+    { name: 'Perfil',         href: '/perfil',                 icon: UserCircle },
+  ];
+
+  // Encontra a entrada mais específica que bate com a rota atual
+  $: currentNavEntry = (() => {
+    // Ordena por href mais longo primeiro (mais específico)
+    const sorted = [...mobileNavEntries].sort((a, b) => b.href.length - a.href.length);
+    if (currentPath === '/') return mobileNavEntries.find(e => e.href === '/') ?? mobileNavEntries[0];
+    return sorted.find(e => e.href !== '/' && currentPath.startsWith(e.href)) ?? mobileNavEntries[0];
+  })();
 
   async function handleRefreshPermissions() {
     try {
@@ -200,204 +228,199 @@
   }
 </script>
 
+<!-- ============================================================
+     OVERLAY (mobile: fecha sidebar ao clicar fora)
+     ============================================================ -->
 {#if $isMobile && $sidebar.isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="vtur-sidebar-overlay"
+    class="fixed inset-0 bg-black/50 z-[998]"
     role="button"
     tabindex="0"
     aria-label="Fechar menu"
     on:click={() => sidebar.close()}
-    on:keypress={(event) => event.key === 'Enter' && sidebar.close()}
+    on:keypress={(e) => e.key === 'Enter' && sidebar.close()}
   ></div>
 {/if}
 
-<aside
-  class="vtur-sidebar"
-  class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
-  aria-label="Menu principal do sistema"
->
-  <!-- Brand Header -->
-  <div class="vtur-sidebar__header">
-    <a href="/" class="vtur-sidebar__brand" on:click={handleItemClick}>
-      <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-sidebar__brand-image" />
-      <div class="vtur-sidebar__brand-copy">
-        <span class="vtur-sidebar__brand-wordmark">VTUR</span>
-        <span class="vtur-sidebar__brand-tagline">CRM para Franquias CVC</span>
-      </div>
-    </a>
-  </div>
+<!-- ============================================================
+     SIDEBAR
+     Desktop: sempre visível, fixo à esquerda
+     Mobile: drawer que desliza da esquerda quando aberto
+     ============================================================ -->
+{#if !$isMobile || $sidebar.isOpen}
+  <aside
+    class="vtur-sidebar"
+    class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
+    aria-label="Menu principal do sistema"
+    style={$isMobile ? 'position:fixed;top:0;left:0;height:100svh;width:min(88vw,300px);z-index:999;' : ''}
+  >
+    <!-- Brand Header -->
+    <div class="vtur-sidebar__header">
+      <a href="/" class="vtur-sidebar__brand" on:click={handleItemClick}>
+        <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-sidebar__brand-image" />
+        <div class="vtur-sidebar__brand-copy">
+          <span class="vtur-sidebar__brand-wordmark">VTUR</span>
+          <span class="vtur-sidebar__brand-tagline">CRM para Franquias CVC</span>
+        </div>
+      </a>
+    </div>
 
-  <!-- Body com nav -->
-  <div class="vtur-sidebar__body scrollbar-dark">
-    {#each menuSections as section, idx}
-      <section class="vtur-sidebar__section">
-        {#if section.collapsible}
-          <button
-            type="button"
-            class="vtur-sidebar__section-toggle"
-            on:click={() => toggleSection(idx)}
-            aria-expanded={!collapsed[idx]}
-          >
-            <span class="vtur-sidebar__section-title">{section.title}</span>
-            <ChevronDown
-              size={12}
-              class="transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
-            />
-          </button>
-        {:else}
-          <h2 class="vtur-sidebar__section-title px-1">{section.title}</h2>
-        {/if}
+    <!-- Body com nav -->
+    <div class="vtur-sidebar__body scrollbar-dark">
+      {#each menuSections as section, idx}
+        <section class="vtur-sidebar__section">
+          {#if section.collapsible}
+            <button
+              type="button"
+              class="vtur-sidebar__section-toggle"
+              on:click={() => toggleSection(idx)}
+              aria-expanded={!collapsed[idx]}
+            >
+              <span class="vtur-sidebar__section-title">{section.title}</span>
+              <ChevronDown
+                size={12}
+                class="transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
+              />
+            </button>
+          {:else}
+            <h2 class="vtur-sidebar__section-title px-1">{section.title}</h2>
+          {/if}
 
-        {#if !section.collapsible || !collapsed[idx]}
-          <nav class="vtur-sidebar__nav" aria-label={section.title} transition:slide={{ duration: 180 }}>
-            {#each section.items as item}
-              {#if item.disabled}
-                <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true">
-                  <div class="vtur-sidebar__item-main">
-                    <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon" />
-                    <span class="vtur-sidebar__item-label">{item.name}</span>
+          {#if !section.collapsible || !collapsed[idx]}
+            <nav class="vtur-sidebar__nav" aria-label={section.title} transition:slide={{ duration: 180 }}>
+              {#each section.items as item}
+                {#if item.disabled}
+                  <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true">
+                    <div class="vtur-sidebar__item-main">
+                      <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon" />
+                      <span class="vtur-sidebar__item-label">{item.name}</span>
+                    </div>
+                    {#if item.badge}
+                      <span class="vtur-sidebar__badge">{item.badge}</span>
+                    {/if}
                   </div>
-                  {#if item.badge}
-                    <span class="vtur-sidebar__badge">{item.badge}</span>
-                  {/if}
+                {:else if item.href}
+                  <a
+                    href={item.href}
+                    class="vtur-sidebar__item"
+                    class:vtur-sidebar__item--active={isActive(item.href)}
+                    aria-current={isActive(item.href) ? 'page' : undefined}
+                    on:click={handleItemClick}
+                  >
+                    <div class="vtur-sidebar__item-main">
+                      <svelte:component
+                        this={item.icon}
+                        size={17}
+                        class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}"
+                      />
+                      <span class="vtur-sidebar__item-label">{item.name}</span>
+                    </div>
+                    {#if item.badge}
+                      <span class="vtur-sidebar__badge">{item.badge}</span>
+                    {/if}
+                  </a>
+                {/if}
+              {/each}
+            </nav>
+          {/if}
+        </section>
+      {/each}
+
+      {#if $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.permissoes.admin || $permissoes.permissoes.admin_users}
+        <section class="vtur-sidebar__section">
+          <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
+          <nav class="vtur-sidebar__nav" aria-label="Admin">
+            {#each adminItems as item}
+              <a
+                href={item.href}
+                class="vtur-sidebar__item"
+                class:vtur-sidebar__item--active={isActive(item.href)}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+                on:click={handleItemClick}
+              >
+                <div class="vtur-sidebar__item-main">
+                  <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
+                  <span class="vtur-sidebar__item-label">{item.name}</span>
                 </div>
-              {:else if item.href}
-                <a
-                  href={item.href}
-                  class="vtur-sidebar__item"
-                  class:vtur-sidebar__item--active={isActive(item.href)}
-                  aria-current={isActive(item.href) ? 'page' : undefined}
-                  on:click={handleItemClick}
-                >
-                  <div class="vtur-sidebar__item-main">
-                    <svelte:component
-                      this={item.icon}
-                      size={17}
-                      class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}"
-                    />
-                    <span class="vtur-sidebar__item-label">{item.name}</span>
-                  </div>
-                  {#if item.badge}
-                    <span class="vtur-sidebar__badge">{item.badge}</span>
-                  {/if}
-                </a>
-              {/if}
+              </a>
             {/each}
           </nav>
-        {/if}
-      </section>
-    {/each}
-
-    {#if $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.permissoes.admin || $permissoes.permissoes.admin_users}
-      <section class="vtur-sidebar__section">
-        <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
-        <nav class="vtur-sidebar__nav" aria-label="Admin">
-          {#each adminItems as item}
-            <a
-              href={item.href}
-              class="vtur-sidebar__item"
-              class:vtur-sidebar__item--active={isActive(item.href)}
-              aria-current={isActive(item.href) ? 'page' : undefined}
-              on:click={handleItemClick}
-            >
-              <div class="vtur-sidebar__item-main">
-                <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
-                <span class="vtur-sidebar__item-label">{item.name}</span>
-              </div>
-            </a>
-          {/each}
-        </nav>
-      </section>
-    {/if}
-  </div>
-
-  <!-- Footer -->
-  <div class="vtur-sidebar__footer">
-    <div class="vtur-sidebar__quick-actions">
-      <a href="/operacao/agenda" class="vtur-sidebar__quick-link" on:click={handleItemClick}>
-        <Calendar size={15} />
-        <span>Agenda</span>
-      </a>
-      <button
-        type="button"
-        class="vtur-sidebar__quick-link"
-        on:click={handleRefreshPermissions}
-        disabled={refreshingPerms}
-        aria-label="Atualizar permissões"
-      >
-        <RefreshCw size={15} class={refreshingPerms ? 'animate-spin' : ''} />
-        <span>{refreshingPerms ? 'Atualizando...' : 'Atualizar permissões'}</span>
-      </button>
+        </section>
+      {/if}
     </div>
 
-    <div class="vtur-sidebar__profile">
-      <div class="vtur-sidebar__avatar">
-        {userDisplayName.slice(0, 2).toUpperCase()}
+    <!-- Footer -->
+    <div class="vtur-sidebar__footer">
+      <div class="vtur-sidebar__quick-actions">
+        <a href="/operacao/agenda" class="vtur-sidebar__quick-link" on:click={handleItemClick}>
+          <Calendar size={15} />
+          <span>Agenda</span>
+        </a>
+        <button
+          type="button"
+          class="vtur-sidebar__quick-link"
+          on:click={handleRefreshPermissions}
+          disabled={refreshingPerms}
+          aria-label="Atualizar permissões"
+        >
+          <RefreshCw size={15} class={refreshingPerms ? 'animate-spin' : ''} />
+          <span>{refreshingPerms ? 'Atualizando...' : 'Atualizar permissões'}</span>
+        </button>
       </div>
-      <div class="vtur-sidebar__profile-copy">
-        <p class="vtur-sidebar__profile-name">{userDisplayName}</p>
-        <p class="vtur-sidebar__profile-meta">{userEmail}</p>
+
+      <div class="vtur-sidebar__profile">
+        <div class="vtur-sidebar__avatar">
+          {userDisplayName.slice(0, 2).toUpperCase()}
+        </div>
+        <div class="vtur-sidebar__profile-copy">
+          <p class="vtur-sidebar__profile-name">{userDisplayName}</p>
+          <p class="vtur-sidebar__profile-meta">{userEmail}</p>
+        </div>
       </div>
     </div>
-  </div>
-</aside>
+  </aside>
+{/if}
 
-<!-- ===== BOTTOM NAV MOBILE (visível apenas em telas ≤ 640px) ===== -->
-<nav class="vtur-mobile-bottom-nav" aria-label="Navegação principal mobile">
-  <!-- Hamburger / Menu -->
-  <button
-    type="button"
-    class="vtur-mobile-bottom-nav__item {$isMobile && $sidebar.isOpen ? 'vtur-mobile-bottom-nav__item--active' : ''}"
-    on:click={() => sidebar.toggle()}
-    aria-label="Abrir menu"
+<!-- ============================================================
+     BOTTOM NAV — só renderiza no mobile
+     ============================================================ -->
+{#if $isMobile}
+  <!--
+    BOTTOM NAV COMPACTO — padrão vtur-app:
+    3 colunas: [Menu] [Página atual com ícone + nome grande] [Spacer]
+  -->
+  <nav
+    class="fixed bottom-0 left-0 right-0 z-[996] border-t border-slate-700/60 bg-slate-900/96 backdrop-blur-md"
+    style="display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;gap:6px;padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom));box-sizing:border-box;"
+    aria-label="Navegação principal"
   >
-    <span class="vtur-mobile-bottom-nav__icon"><Menu size={20} /></span>
-    <span class="vtur-mobile-bottom-nav__label">Menu</span>
-  </button>
+    <!-- Coluna 1: Hamburguer / Menu -->
+    <button
+      type="button"
+      class="flex flex-col items-center justify-center gap-1 rounded-xl border-0 bg-transparent px-2 py-2 transition-colors {$sidebar.isOpen ? 'text-sky-400' : 'text-slate-400'}"
+      style="min-height:52px;"
+      on:click={() => sidebar.toggle()}
+      aria-label="Abrir menu"
+    >
+      <Menu size={24} />
+      <span class="text-[10px] font-medium leading-none">Menu</span>
+    </button>
 
-  <!-- Dashboard -->
-  <a
-    href="/"
-    class="vtur-mobile-bottom-nav__item {isActive('/') ? 'vtur-mobile-bottom-nav__item--active' : ''}"
-    aria-label="Dashboard"
-    on:click={() => $isMobile && sidebar.close()}
-  >
-    <span class="vtur-mobile-bottom-nav__icon"><LayoutDashboard size={20} /></span>
-    <span class="vtur-mobile-bottom-nav__label">Dashboard</span>
-  </a>
+    <!-- Coluna 2: Módulo/Página atual — ícone + nome em destaque -->
+    <a
+      href={currentNavEntry.href}
+      class="flex flex-row items-center justify-center gap-2 rounded-xl no-underline transition-colors text-sky-200"
+      style="background:rgba(37,99,235,0.22);min-height:52px;padding:10px 14px;"
+      on:click={() => sidebar.close()}
+      aria-label={currentNavEntry.name}
+    >
+      <svelte:component this={currentNavEntry.icon} size={24} />
+      <span class="text-base font-extrabold leading-tight truncate">{currentNavEntry.name}</span>
+    </a>
 
-  <!-- Clientes -->
-  <a
-    href="/clientes"
-    class="vtur-mobile-bottom-nav__item {isActive('/clientes') ? 'vtur-mobile-bottom-nav__item--active' : ''}"
-    aria-label="Clientes"
-    on:click={() => $isMobile && sidebar.close()}
-  >
-    <span class="vtur-mobile-bottom-nav__icon"><Users size={20} /></span>
-    <span class="vtur-mobile-bottom-nav__label">Clientes</span>
-  </a>
-
-  <!-- Vendas -->
-  <a
-    href="/vendas"
-    class="vtur-mobile-bottom-nav__item {isActive('/vendas') ? 'vtur-mobile-bottom-nav__item--active' : ''}"
-    aria-label="Vendas"
-    on:click={() => $isMobile && sidebar.close()}
-  >
-    <span class="vtur-mobile-bottom-nav__icon"><ShoppingCart size={20} /></span>
-    <span class="vtur-mobile-bottom-nav__label">Vendas</span>
-  </a>
-
-  <!-- Orçamentos -->
-  <a
-    href="/orcamentos"
-    class="vtur-mobile-bottom-nav__item {isActive('/orcamentos') ? 'vtur-mobile-bottom-nav__item--active' : ''}"
-    aria-label="Orçamentos"
-    on:click={() => $isMobile && sidebar.close()}
-  >
-    <span class="vtur-mobile-bottom-nav__icon"><FileText size={20} /></span>
-    <span class="vtur-mobile-bottom-nav__label">Orçamentos</span>
-  </a>
-</nav>
+    <!-- Coluna 3: Spacer invisível (simetria) -->
+    <span aria-hidden="true"></span>
+  </nav>
+{/if}
