@@ -300,6 +300,9 @@
 	"/api/v1/crm/library": [
 		"src/routes/api/v1/crm/library/+server.ts"
 	],
+	"/api/v1/crm/signature": [
+		"src/routes/api/v1/crm/signature/+server.ts"
+	],
 	"/api/v1/cron/alerta-comissao": [
 		"src/routes/api/v1/cron/alerta-comissao/+server.ts"
 	],
@@ -1090,6 +1093,10 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/parametros/cambios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/parametros/crm": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

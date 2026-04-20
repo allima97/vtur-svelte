@@ -125,7 +125,8 @@
         { name: 'Tipo Pacotes', href: '/parametros/tipo-pacotes', icon: Package },
         { name: 'Tipo Produtos', href: '/parametros/tipo-produtos', icon: Package },
         { name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
-        { name: 'Avisos / CRM', href: '/parametros/avisos', icon: MessageSquare },
+        { name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
+        { name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
         { name: 'Empresa', href: '/parametros/empresa', icon: Building2 }
       ]
     },

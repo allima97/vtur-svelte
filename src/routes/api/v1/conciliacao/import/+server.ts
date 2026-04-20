@@ -7,40 +7,16 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-type ConciliacaoLinhaInput = {
-  documento: string;
-  movimento_data: string;
-  status: string;
-  descricao?: string | null;
-  valor_lancamentos?: number | null;
-  valor_taxas?: number | null;
-  valor_descontos?: number | null;
-  valor_abatimentos?: number | null;
-  valor_nao_comissionavel?: number | null;
-  valor_calculada_loja?: number | null;
-  valor_visao_master?: number | null;
-  valor_opfax?: number | null;
-  valor_saldo?: number | null;
-  valor_venda_real?: number | null;
-  valor_comissao_loja?: number | null;
-  percentual_comissao_loja?: number | null;
-  faixa_comissao?: string | null;
-  is_seguro_viagem?: boolean;
-  origem?: string | null;
-};
-
-function normalizeText(value?: string | null) {
-  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
-}
-
-function isConciliacaoImportavel(params: { status?: string | null; descricao?: string | null }) {
-  const raw = normalizeText(params.descricao || params.status);
-  return raw.includes('BAIXA') || raw.includes('OPFAX') || raw.includes('ESTORNO');
-}
+import type { ConciliacaoLinhaInput } from '../_types';
+import {
+  isConciliacaoImportavel,
+  normalizeConciliacaoDescricaoKey,
+  buildConciliacaoMetrics,
+  resolveConciliacaoStatus,
+} from '$lib/conciliacao/business';
 
 function buildImportKey(companyId: string, movimentoData: string, documento: string, descricao?: string | null) {
-  return [companyId, movimentoData, documento, normalizeText(descricao)].join('::');
+  return [companyId, movimentoData, documento, normalizeConciliacaoDescricaoKey(descricao)].join('::');
 }
 
 export async function POST(event) {
@@ -90,29 +66,54 @@ export async function POST(event) {
       return json({ ok: true, importados: 0, ignorados: linhas.length, duplicados: importaveis.length, message: 'Todos os registros já existem.' });
     }
 
-    const rows = novas.map((l) => ({
-      company_id: companyId,
-      documento: String(l.documento || '').trim(),
-      movimento_data: String(l.movimento_data || '').trim(),
-      status: String(l.status || '').trim(),
-      descricao: String(l.descricao || '').trim() || null,
-      valor_lancamentos: l.valor_lancamentos ?? null,
-      valor_taxas: l.valor_taxas ?? null,
-      valor_descontos: l.valor_descontos ?? null,
-      valor_abatimentos: l.valor_abatimentos ?? null,
-      valor_nao_comissionavel: l.valor_nao_comissionavel ?? null,
-      valor_calculada_loja: l.valor_calculada_loja ?? null,
-      valor_visao_master: l.valor_visao_master ?? null,
-      valor_opfax: l.valor_opfax ?? null,
-      valor_saldo: l.valor_saldo ?? null,
-      valor_venda_real: l.valor_venda_real ?? null,
-      valor_comissao_loja: l.valor_comissao_loja ?? null,
-      percentual_comissao_loja: l.percentual_comissao_loja ?? null,
-      faixa_comissao: l.faixa_comissao ?? null,
-      is_seguro_viagem: Boolean(l.is_seguro_viagem),
-      origem: String(l.origem || 'manual').trim(),
-      conciliado: false
-    }));
+    const rows = novas.map((l) => {
+      // Resolve status + compute all metrics via shared business logic
+      const statusResolvido = resolveConciliacaoStatus({
+        status: l.status,
+        descricao: l.descricao,
+      });
+
+      const metrics = buildConciliacaoMetrics({
+        descricao: l.descricao,
+        valorLancamentos: l.valor_lancamentos,
+        valorTaxas: l.valor_taxas,
+        valorDescontos: l.valor_descontos,
+        valorAbatimentos: l.valor_abatimentos,
+        valorNaoComissionavel: l.valor_nao_comissionavel,
+        valorSaldo: l.valor_saldo,
+        valorOpfax: l.valor_opfax,
+        valorCalculadaLoja: l.valor_calculada_loja,
+        valorVisaoMaster: l.valor_visao_master,
+        valorComissaoLoja: l.valor_comissao_loja,
+        percentualComissaoLoja: l.percentual_comissao_loja,
+      });
+
+      return {
+        company_id: companyId,
+        documento: String(l.documento || '').trim(),
+        movimento_data: String(l.movimento_data || '').trim(),
+        status: statusResolvido,
+        descricao: String(l.descricao || '').trim() || null,
+        descricao_chave: metrics.descricaoChave || null,
+        valor_lancamentos: l.valor_lancamentos ?? null,
+        valor_taxas: l.valor_taxas ?? null,
+        valor_descontos: l.valor_descontos ?? null,
+        valor_abatimentos: l.valor_abatimentos ?? null,
+        valor_nao_comissionavel: l.valor_nao_comissionavel ?? null,
+        valor_calculada_loja: l.valor_calculada_loja ?? null,
+        valor_visao_master: l.valor_visao_master ?? null,
+        valor_opfax: l.valor_opfax ?? null,
+        valor_saldo: l.valor_saldo ?? null,
+        // Computed metrics (authoritative — overrides whatever was sent)
+        valor_venda_real: metrics.valorVendaReal,
+        valor_comissao_loja: metrics.valorComissaoLoja,
+        percentual_comissao_loja: metrics.percentualComissaoLoja,
+        faixa_comissao: metrics.faixaComissao,
+        is_seguro_viagem: metrics.isSeguroViagem,
+        origem: String(l.origem || 'manual').trim(),
+        conciliado: false,
+      };
+    });
 
     const BATCH = 100;
     let importados = 0;

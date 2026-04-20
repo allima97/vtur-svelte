@@ -1,4 +1,17 @@
 import { getAdminClient, type UserScope, fetchGestorEquipeIdsComGestor } from '$lib/server/v1';
+import {
+  normalizeConciliacaoStatus,
+  resolveConciliacaoStatus,
+  isConciliacaoEfetivada,
+  buildConciliacaoMetrics,
+} from '$lib/conciliacao/business';
+
+// Re-export para backward-compat com importadores desta função
+export { normalizeConciliacaoStatus, resolveConciliacaoStatus, isConciliacaoEfetivada };
+
+// ---------------------------------------------------------------------------
+// HELPERS LOCAIS (não fazem parte do business.ts mas são usados aqui)
+// ---------------------------------------------------------------------------
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -32,77 +45,9 @@ export function isFormaNaoComissionavel(nome?: string | null, termos?: string[])
   return lista.some((termo) => termo && normalized.includes(termo));
 }
 
-export function normalizeText(value?: string | null) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase();
-}
-
-export function normalizeConciliacaoStatus(value?: string | null): 'BAIXA' | 'OPFAX' | 'ESTORNO' | 'OUTRO' {
-  const raw = normalizeText(value);
-  if (!raw) return 'OUTRO';
-  if (raw.includes('ESTORNO')) return 'ESTORNO';
-  if (raw.includes('BAIXA')) return 'BAIXA';
-  if (raw.includes('OPFAX')) return 'OPFAX';
-  return 'OUTRO';
-}
-
-export function resolveConciliacaoStatus(params: { status?: string | null; descricao?: string | null }) {
-  const descricaoStatus = normalizeConciliacaoStatus(params.descricao);
-  if (descricaoStatus !== 'OUTRO') return descricaoStatus;
-  return normalizeConciliacaoStatus(params.status);
-}
-
-export function isConciliacaoEfetivada(params: { status?: string | null; descricao?: string | null }) {
-  return resolveConciliacaoStatus(params) === 'BAIXA';
-}
-
-export function buildConciliacaoMetrics(params: {
-  descricao?: string | null;
-  valorLancamentos?: number | null;
-  valorTaxas?: number | null;
-  valorDescontos?: number | null;
-  valorAbatimentos?: number | null;
-  valorNaoComissionavel?: number | null;
-  valorSaldo?: number | null;
-  valorOpfax?: number | null;
-  valorCalculadaLoja?: number | null;
-  valorVisaoMaster?: number | null;
-  valorComissaoLoja?: number | null;
-  percentualComissaoLoja?: number | null;
-}) {
-  const valorLancamentos = Number(params.valorLancamentos || 0);
-  const valorTaxas = Number(params.valorTaxas || 0);
-  const valorDescontos = Number(params.valorDescontos || 0);
-  const valorAbatimentos = Number(params.valorAbatimentos || 0);
-  const valorNaoComissionavel = Number(params.valorNaoComissionavel || 0);
-  const valorSaldo = Number(params.valorSaldo || 0);
-  const valorOpfax = Number(params.valorOpfax || 0);
-  const valorCalculadaLoja = Number(params.valorCalculadaLoja || 0);
-  const valorVisaoMaster = Number(params.valorVisaoMaster || 0);
-  const valorVendaReal =
-    valorCalculadaLoja ||
-    valorVisaoMaster ||
-    Math.max(0, valorLancamentos - valorTaxas - valorDescontos - valorAbatimentos - valorNaoComissionavel);
-  const valorComissaoLoja =
-    params.valorComissaoLoja != null ? Number(params.valorComissaoLoja) : valorSaldo || valorOpfax || 0;
-  const percentualComissaoLoja =
-    valorVendaReal > 0 ? Math.round((valorComissaoLoja / valorVendaReal) * 10000) / 100 : 0;
-  const faixaComissao =
-    percentualComissaoLoja >= 12 ? '12%+' : percentualComissaoLoja >= 10 ? '10-11.99%' : percentualComissaoLoja > 0 ? '<10%' : '0%';
-  const isSeguroViagem = normalizeText(params.descricao).includes('SEGURO');
-
-  return {
-    valorVendaReal,
-    valorComissaoLoja,
-    percentualComissaoLoja,
-    faixaComissao,
-    isSeguroViagem
-  };
-}
+// ---------------------------------------------------------------------------
+// DEDUPLICAÇÃO
+// ---------------------------------------------------------------------------
 
 function rankDuplicateRow(row: any) {
   const metrics = buildConciliacaoMetrics({
@@ -162,12 +107,18 @@ export function dedupeConciliacaoRows(rows: any[]) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// NORMALIZAÇÃO DE CAMPOS COMPUTADOS
+// ---------------------------------------------------------------------------
+
 export function normalizeComputedFields(row: any) {
   const statusResolvido = resolveConciliacaoStatus({
     status: row?.status,
     descricao: row?.descricao
   });
 
+  // Se há valor direto de saldo/calculada/visao_master, não usa percentual explícito
+  // (o buildConciliacaoMetrics já trata isso internamente via cascata)
   const temValorDireto =
     Number(row?.valor_saldo || 0) > 0.009 ||
     Number(row?.valor_calculada_loja || 0) > 0.009 ||
@@ -184,6 +135,7 @@ export function normalizeComputedFields(row: any) {
     valorOpfax: row?.valor_opfax,
     valorCalculadaLoja: row?.valor_calculada_loja,
     valorVisaoMaster: row?.valor_visao_master,
+    // Se há valor direto, não passa o comissao_loja explícito (evita sobrescrever cascata)
     valorComissaoLoja: temValorDireto ? null : row?.valor_comissao_loja,
     percentualComissaoLoja: null
   });
@@ -205,6 +157,10 @@ export function isRankingEligibleStatus(row: any) {
     descricao: row?.descricao
   });
 }
+
+// ---------------------------------------------------------------------------
+// RANKING OPTIONS (vendedores + produtos para atribuição manual)
+// ---------------------------------------------------------------------------
 
 export async function fetchConciliacaoRankingOptions(params: {
   scope: UserScope;
@@ -248,4 +204,3 @@ export async function fetchConciliacaoRankingOptions(params: {
     produtoIdSet: new Set(produtosMeta.map((item: any) => String(item?.id || '').trim()).filter(Boolean))
   };
 }
-
