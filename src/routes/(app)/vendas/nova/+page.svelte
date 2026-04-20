@@ -7,6 +7,9 @@
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Calculator, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
 
+  let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
+  $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
+
   type Option = {
     id: string;
     nome?: string | null;
@@ -53,7 +56,6 @@
   let clienteSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let cidadeSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let ensuringCidadeId = '';
-  let currentUser: any = null;
   let errors: Record<string, string> = {};
   let lastDestinoCidadeId = '';
 
@@ -150,7 +152,7 @@
       if (!response.ok) throw new Error(await response.text());
 
       const data = await response.json();
-      currentUser = data.user;
+      currentUser = data.user ?? null;
       vendedoresEquipe = data.vendedoresEquipe || [];
       clientes = data.clientes || [];
       cidades = data.cidades || [];
@@ -718,6 +720,7 @@
     {#if currentStep === 0}
       <FormPanel title="Dados da venda" description="Preencha as informações básicas da venda" class_name="border-green-200">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {#if canAssignVendedor}
           <div>
             <FieldSelect
               label="Vendedor *"
@@ -733,6 +736,7 @@
               error={errors.vendedor_id}
             />
           </div>
+          {/if}
 
           <div class="md:col-span-2">
             <label class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>

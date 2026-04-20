@@ -98,6 +98,7 @@ Recriar o `vtur-app` (Astro 6 + React 18 + PrimeReact + Hono + Supabase) no `vtu
 | 10 | [10-paridade-fiel-vtur-app.md](./10-paridade-fiel-vtur-app.md) | Releitura fiel por módulo, com foco em regra de negócio e amarrações cruzadas |
 | 11 | [11-plano-execucao-paridade-total.md](./11-plano-execucao-paridade-total.md) | Ordem de execução detalhada por módulo, dependências cruzadas e critérios de aceite |
 | 12 | [12-plano-permissoes-e-escopo-fiel.md](./12-plano-permissoes-e-escopo-fiel.md) | Matriz de papéis, escopo por tela, menu, filtros, endpoints e regressão obrigatória por usuário |
+| 13 | [13-matriz-operacional-permissoes.md](./13-matriz-operacional-permissoes.md) | Checklist operacional da Fase 1 (papel x módulo x camada) para execução e auditoria contínua |
 
 ---
 

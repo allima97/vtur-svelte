@@ -11,6 +11,7 @@
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
 
   interface Recibo {
     id: string | null;
@@ -328,6 +329,18 @@
     void goto(`/vendas/${row.id}`);
   }
 
+  // Regra fiel de escopo: vendedor/uso individual não deve escolher empresa ou vendedor global.
+  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
+  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
+  $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) {
+    empresaSelecionada = '';
+  }
+
+  $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) {
+    vendedorSelecionado = '';
+  }
+
   $: vendasFiltradas = vendas;
   $: totalVendas = vendasFiltradas.reduce((acc, venda) => acc + (venda.valor_total || 0), 0);
   $: totalComissoes = vendasFiltradas.reduce((acc, venda) => acc + (venda.comissao || 0), 0);
@@ -382,24 +395,28 @@
         <label for="rel-vendas-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data fim</label>
         <input id="rel-vendas-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
       </div>
-      <div>
-        <label for="rel-vendas-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-        <select id="rel-vendas-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-          <option value="">Todas</option>
-          {#each empresas as empresa}
-            <option value={empresa.id}>{empresa.nome}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="rel-vendas-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-        <select id="rel-vendas-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each vendedores as vendedor}
-            <option value={vendedor.id}>{vendedor.nome}</option>
-          {/each}
-        </select>
-      </div>
+      {#if showEmpresaFiltro}
+        <div>
+          <label for="rel-vendas-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
+          <select id="rel-vendas-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
+            <option value="">Todas</option>
+            {#each empresas as empresa}
+              <option value={empresa.id}>{empresa.nome}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
+      {#if showVendedorFiltro}
+        <div>
+          <label for="rel-vendas-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
+          <select id="rel-vendas-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
+            <option value="">Todos</option>
+            {#each vendedores as vendedor}
+              <option value={vendedor.id}>{vendedor.nome}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
       <div>
         <label for="rel-vendas-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
         <select id="rel-vendas-status" bind:value={statusSelecionado} class="vtur-input w-full">

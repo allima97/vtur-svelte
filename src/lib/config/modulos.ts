@@ -134,6 +134,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/master/empresas': 'MasterEmpresas',
   '/master/usuarios': 'MasterUsuarios',
   '/master/permissoes': 'MasterPermissoes',
+  '/master': 'MasterEmpresas',
 
   // Vendas
   '/vendas': 'Vendas',

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { browser } from '$app/environment';
+  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -61,7 +63,26 @@
     }).format(date);
   }
 
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+    } catch {
+      // Falha silenciosa: o carregamento tratará 401 explicitamente.
+    }
+  }
+
   async function loadCreateReference() {
+    await ensureServerSessionCookie();
     const [typesResponse, companiesResponse, templatesResponse] = await Promise.all([
       fetch('/api/v1/admin/tipos-usuario'),
       fetch('/api/v1/admin/empresas'),
@@ -110,8 +131,28 @@
       if (isCreateMode) {
         await loadCreateReference();
       } else {
+        await ensureServerSessionCookie();
         const response = await fetch(`/api/v1/admin/usuarios/${currentId}`);
-        if (!response.ok) throw new Error(await response.text());
+        if (!response.ok) {
+          const message = (await response.text()) || 'Nao foi possivel carregar o detalhe do usuario.';
+          if (response.status === 401) {
+            toast.error('Sessão expirada. Faça login novamente para continuar.');
+            const next = `${$page.url.pathname}${$page.url.search}`;
+            await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+            return;
+          }
+          if (response.status === 403) {
+            toast.error(message || 'Você não tem permissão para acessar este usuário.');
+            await goto('/admin/usuarios');
+            return;
+          }
+          if (response.status === 404) {
+            toast.error(message || 'Usuário não encontrado.');
+            await goto('/admin/usuarios');
+            return;
+          }
+          throw new Error(message);
+        }
         const payload = await response.json();
 
         userMeta = payload.user;

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -292,7 +294,26 @@
         fetch('/api/v1/roteiros/sugestoes-busca').catch(() => null),
       ]);
 
-      if (!roteiroRes.ok) throw new Error(await roteiroRes.text());
+      if (!roteiroRes.ok) {
+        const message = (await roteiroRes.text()) || 'Erro ao carregar roteiro.';
+        if (roteiroRes.status === 401) {
+          toast.error('Sessão expirada. Faça login novamente para continuar.');
+          const next = `${$page.url.pathname}${$page.url.search}`;
+          await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (roteiroRes.status === 403) {
+          toast.error(message || 'Você não tem permissão para acessar este roteiro.');
+          await goto('/orcamentos/roteiros');
+          return;
+        }
+        if (roteiroRes.status === 404) {
+          toast.error(message || 'Roteiro não encontrado.');
+          await goto('/orcamentos/roteiros');
+          return;
+        }
+        throw new Error(message);
+      }
       const payload = await roteiroRes.json();
       const r = payload.roteiro;
 
@@ -323,7 +344,6 @@
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiro.');
-      goto('/orcamentos/roteiros');
     } finally {
       loading = false;
     }
@@ -512,7 +532,28 @@
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
   }
 
-  onMount(load);
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        }),
+      });
+    } catch {
+      // Falha silenciosa: a tela ainda tentará carregar e tratará 401 explicitamente.
+    }
+  }
+
+  onMount(async () => {
+    await ensureServerSessionCookie();
+    await load();
+  });
 </script>
 
 <svelte:head>

@@ -1,11 +1,16 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { supabase } from '$lib/db/supabase';
   import { PageHeader, Card, Button, FormPanel } from '$lib/components/ui';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Calculator, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+
+  let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
+  $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
 
   type Option = {
     id: string;
@@ -55,7 +60,6 @@
   let cidadeSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let ensuringCidadeId = '';
   let ensuringProdutoId = '';
-  let currentUser: any = null;
   let errors: Record<string, string> = {};
   let lastDestinoCidadeId = '';
 
@@ -152,7 +156,7 @@
     }
 
     const data = await response.json();
-    currentUser = data.user;
+    currentUser = data.user ?? null;
     vendedoresEquipe = data.vendedoresEquipe || [];
     clientes = data.clientes || [];
     cidades = data.cidades || [];
@@ -165,7 +169,24 @@
   async function loadVenda() {
     const response = await fetch(`/api/v1/vendas/${vendaId}`);
     if (!response.ok) {
-      throw new Error(await response.text());
+      const message = (await response.text()) || 'Erro ao carregar dados da venda.';
+      if (response.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente para continuar.');
+        const next = `${$page.url.pathname}${$page.url.search}`;
+        await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (response.status === 403) {
+        toast.error(message || 'Você não tem permissão para editar esta venda.');
+        await goto('/vendas');
+        return;
+      }
+      if (response.status === 404) {
+        toast.error(message || 'Venda não encontrada.');
+        await goto('/vendas');
+        return;
+      }
+      throw new Error(message);
     }
 
     const data = await response.json();
@@ -308,15 +329,33 @@
     ensurePrincipalRecibo();
   }
 
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+    } catch {
+      // Falha silenciosa: o carregamento tratará 401 explicitamente.
+    }
+  }
+
   onMount(async () => {
     loading = true;
     try {
+      await ensureServerSessionCookie();
       await loadBase();
       await loadVenda();
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao carregar dados da venda.');
-      goto('/vendas');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da venda.');
     } finally {
       loading = false;
     }
@@ -875,6 +914,7 @@
     {#if currentStep === 0}
       <FormPanel title="Dados da venda" description="Atualize os dados principais da venda" class_name="border-green-200">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {#if canAssignVendedor}
           <div>
             <label class="mb-1 block text-sm font-medium text-slate-700">Vendedor *</label>
             <select bind:value={venda.vendedor_id} class="vtur-input w-full" class:border-red-500={errors.vendedor_id}>
@@ -885,6 +925,7 @@
             </select>
             {#if errors.vendedor_id}<p class="mt-1 text-xs text-red-600">{errors.vendedor_id}</p>{/if}
           </div>
+          {/if}
 
           <div class="md:col-span-2">
             <label class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>

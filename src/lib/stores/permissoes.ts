@@ -41,6 +41,10 @@ export interface PermissoesState {
   userEmail: string;
   userType: string;
   papel: Papel;
+  /** Compat: flags de papel usadas em páginas legadas do projeto */
+  isMaster: boolean;
+  isGestor: boolean;
+  isVendedor: boolean;
   /** Se true, o usuário é admin do sistema (acesso irrestrito) */
   isSystemAdmin: boolean;
   /** Se true, uso individual — o usuário só vê seus próprios dados */
@@ -53,6 +57,8 @@ export interface PermissoesState {
   acessos: Record<string, PermissaoNivel>;
   /** Módulos desabilitados globalmente no sistema (system_module_settings) */
   disabledModules: string[];
+  /** Compat: alias legado para acessos */
+  permissoes: Record<string, PermissaoNivel>;
   ready: boolean;
   loading: boolean;
   error: string | null;
@@ -126,10 +132,14 @@ const initialState: PermissoesState = {
   userEmail: '',
   userType: '',
   papel: 'OUTRO',
+  isMaster: false,
+  isGestor: false,
+  isVendedor: false,
   isSystemAdmin: false,
   usoIndividual: false,
   acessos: {},
   disabledModules: [],
+  permissoes: {},
   ready: false,
   loading: false,
   error: null,
@@ -259,10 +269,14 @@ function createPermissoesStore() {
         userEmail: profile?.email || user.email || '',
         userType,
         papel,
+        isMaster: papel === 'MASTER',
+        isGestor: papel === 'GESTOR',
+        isVendedor: papel === 'VENDEDOR',
         isSystemAdmin,
         usoIndividual,
         acessos,
         disabledModules,
+        permissoes: acessos,
         ready: true,
         loading: false,
         error: null,

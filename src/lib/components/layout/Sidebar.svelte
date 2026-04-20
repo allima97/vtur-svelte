@@ -4,6 +4,7 @@
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { descobrirModulo } from '$lib/config/modulos';
   import {
     AlertCircle,
     Banknote,
@@ -143,6 +144,13 @@
     }
   ];
 
+  const masterItems: MenuItem[] = [
+    { name: 'Master', href: '/master', icon: Shield },
+    { name: 'Usuários', href: '/master/usuarios', icon: Users },
+    { name: 'Permissões', href: '/master/permissoes', icon: Shield },
+    { name: 'Empresas', href: '/master/empresas', icon: Building2 }
+  ];
+
   const adminItems: MenuItem[] = [
     { name: 'Administração', href: '/admin', icon: Shield },
     { name: 'Usuários', href: '/admin/usuarios', icon: Users },
@@ -162,6 +170,44 @@
   let collapsed: Record<number, boolean> = {};
   let refreshingPerms = false;
 
+  function canAccessAdminArea() {
+    return (
+      $permissoes.isSystemAdmin ||
+      $permissoes.papel === 'MASTER' ||
+      Boolean($permissoes.acessos.admin) ||
+      Boolean($permissoes.acessos.admin_users)
+    );
+  }
+
+  function canSeeItem(item: MenuItem) {
+    if (!item.href) return true;
+    if (!$permissoes.ready) return true;
+
+    // Perfil e autenticacao devem permanecer acessiveis mesmo sem modulo mapeado.
+    if (item.href.startsWith('/perfil')) return true;
+
+    // Rotas master seguem gate exclusivo do papel MASTER.
+    if (item.href.startsWith('/master')) return $permissoes.isMaster;
+
+    // Rotas de administracao seguem gate explicito da secao admin.
+    if (item.href.startsWith('/admin')) return canAccessAdminArea();
+
+    const modulo = descobrirModulo(item.href);
+    if (!modulo) return true;
+
+    return permissoes.can(modulo, 'view');
+  }
+
+  $: visibleMenuSections = menuSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canSeeItem(item)),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  $: visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
+  $: visibleAdminItems = adminItems.filter((item) => canSeeItem(item));
+
   function handleItemClick() {
     if ($isMobile) sidebar.close();
   }
@@ -180,7 +226,9 @@
   // ── Mapa de rotas → (nome, ícone) para o bottom nav compacto ──
   type NavEntry = { name: string; href: string; icon: typeof LayoutDashboard };
 
-  const mobileNavEntries: NavEntry[] = [
+  let mobileNavEntries: NavEntry[] = [];
+
+  $: mobileNavEntries = [
     { name: 'Dashboard',      href: '/',                       icon: LayoutDashboard },
     { name: 'Clientes',       href: '/clientes',               icon: Users },
     { name: 'Vendas',         href: '/vendas',                 icon: ShoppingCart },
@@ -202,16 +250,25 @@
     { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
     { name: 'Relatórios',     href: '/relatorios',             icon: FileSpreadsheet },
     { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
-    { name: 'Admin',          href: '/admin',                  icon: Shield },
+    $permissoes.isMaster
+      ? { name: 'Master',     href: '/master',                 icon: Shield }
+      : { name: 'Admin',      href: '/admin',                  icon: Shield },
     { name: 'Perfil',         href: '/perfil',                 icon: UserCircle },
   ];
+
+  $: visibleMobileNavEntries = mobileNavEntries.filter((entry) =>
+    canSeeItem({ name: entry.name, href: entry.href, icon: entry.icon })
+  );
 
   // Encontra a entrada mais específica que bate com a rota atual
   $: currentNavEntry = (() => {
     // Ordena por href mais longo primeiro (mais específico)
-    const sorted = [...mobileNavEntries].sort((a, b) => b.href.length - a.href.length);
-    if (currentPath === '/') return mobileNavEntries.find(e => e.href === '/') ?? mobileNavEntries[0];
-    return sorted.find(e => e.href !== '/' && currentPath.startsWith(e.href)) ?? mobileNavEntries[0];
+    const candidates = visibleMobileNavEntries.length > 0 ? visibleMobileNavEntries : mobileNavEntries;
+    const sorted = [...candidates].sort((a, b) => b.href.length - a.href.length);
+    if (currentPath === '/') return candidates.find((entry) => entry.href === '/') ?? candidates[0];
+    return sorted.find((entry) => entry.href !== '/' && currentPath.startsWith(entry.href))
+      ?? candidates.find((entry) => entry.href === '/perfil')
+      ?? candidates[0];
   })();
 
   async function handleRefreshPermissions() {
@@ -271,7 +328,7 @@
 
     <!-- Body com nav -->
     <div class="vtur-sidebar__body scrollbar-dark">
-      {#each menuSections as section, idx}
+      {#each visibleMenuSections as section, idx}
         <section class="vtur-sidebar__section">
           {#if section.collapsible}
             <button
@@ -330,11 +387,33 @@
         </section>
       {/each}
 
-      {#if $permissoes.isSystemAdmin || $permissoes.papel === 'MASTER' || $permissoes.acessos.admin || $permissoes.acessos.admin_users}
+      {#if $permissoes.isMaster && visibleMasterItems.length > 0}
+        <section class="vtur-sidebar__section">
+          <h2 class="vtur-sidebar__section-title px-1">MASTER</h2>
+          <nav class="vtur-sidebar__nav" aria-label="Master">
+            {#each visibleMasterItems as item}
+              <a
+                href={item.href}
+                class="vtur-sidebar__item"
+                class:vtur-sidebar__item--active={isActive(item.href)}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+                on:click={handleItemClick}
+              >
+                <div class="vtur-sidebar__item-main">
+                  <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
+                  <span class="vtur-sidebar__item-label">{item.name}</span>
+                </div>
+              </a>
+            {/each}
+          </nav>
+        </section>
+      {/if}
+
+      {#if canAccessAdminArea() && visibleAdminItems.length > 0}
         <section class="vtur-sidebar__section">
           <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
           <nav class="vtur-sidebar__nav" aria-label="Admin">
-            {#each adminItems as item}
+            {#each visibleAdminItems as item}
               <a
                 href={item.href}
                 class="vtur-sidebar__item"

@@ -12,6 +12,7 @@ import {
 import {
 	extractUserTypeName,
 	isSystemAdminRole,
+	isMasterRole,
 	normalizeUserType
 } from '$lib/server/admin';
 import { hasVerifiedTotpFactor, normalizeMfaRedirectPath } from '$lib/server/authMfa';
@@ -281,6 +282,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		pathname === '/' ||
 		pathname.startsWith('/dashboard')
 	) {
+		return resolve(event);
+	}
+
+	// Rotas master: exclusivas do papel MASTER
+	if (pathname.startsWith('/master')) {
+		if (!isMasterRole(userType)) throw redirect(303, '/negado');
 		return resolve(event);
 	}
 

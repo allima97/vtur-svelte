@@ -1,7 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -24,7 +26,26 @@
   let showInteracaoModal = false;
   let loadingInteracoes = false;
   
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+    } catch {
+      // Falha silenciosa: a tela tratará 401 explicitamente no carregamento.
+    }
+  }
+
   onMount(async () => {
+    await ensureServerSessionCookie();
     await carregarOrcamento();
     await carregarInteracoes();
   });
@@ -38,6 +59,17 @@
       
       if (!response.ok) {
         const errorText = await response.text();
+        if (response.status === 401) {
+          toast.error('Sessão expirada. Faça login novamente para continuar.');
+          const next = `${$page.url.pathname}${$page.url.search}`;
+          await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (response.status === 403) {
+          error = 'Você não tem permissão para acessar este orçamento';
+          await goto('/orcamentos');
+          return;
+        }
         if (response.status === 404) {
           error = 'Orçamento não encontrado';
           return;
@@ -59,6 +91,9 @@
     loadingInteracoes = true;
     try {
       const response = await fetch(`/api/v1/orcamentos/interacao?quote_id=${orcamentoId}`);
+      if (response.status === 401) {
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         interacoes = data.interacoes || [];

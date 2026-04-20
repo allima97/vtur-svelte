@@ -1,7 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
+  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -12,6 +14,7 @@
     AlertCircle, Clock, CheckCircle, Shield
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
 
   const vendaId = $page.params.id;
 
@@ -22,7 +25,26 @@
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let ensuringProdutos = new Set<string>();
 
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+    } catch {
+      // Falha silenciosa: a tela tratará 401 explicitamente no carregamento.
+    }
+  }
+
   onMount(async () => {
+    await ensureServerSessionCookie();
     await carregarVenda();
   });
 
@@ -54,6 +76,17 @@
 
       if (!response.ok) {
         const errorText = await response.text();
+        if (response.status === 401) {
+          toast.error('Sessão expirada. Faça login novamente para continuar.');
+          const next = `${$page.url.pathname}${$page.url.search}`;
+          await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (response.status === 403) {
+          error = 'Você não tem permissão para acessar esta venda';
+          await goto('/vendas');
+          return;
+        }
         if (response.status === 404) {
           error = 'Venda não encontrada';
           return;
@@ -167,6 +200,9 @@
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: conciliacaoPendente = venda?.conciliado === false;
   $: vendaPendente = venda?.status === 'pendente';
+  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'edit');
+  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'delete');
+  $: canCancel = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'edit') || permissoes.can('vendas', 'delete');
   $: alertaOperacionalClasse = vendaPendente
     ? 'border-amber-200 bg-amber-50 text-amber-800'
     : conciliacaoPendente || !fechamentoFinanceiroOk
@@ -201,12 +237,12 @@
       { label: venda.codigo || 'Detalhes' }
     ]}
     actions={[
-      {
+      ...(canEdit ? [{
         label: 'Editar',
         href: `/vendas/${vendaId}/editar`,
         variant: 'secondary',
         icon: Edit
-      },
+      }] : []),
       {
         label: 'Voltar',
         href: '/vendas',
@@ -493,7 +529,7 @@
     <div class="space-y-6">
       <Card header="Ações" color="vendas">
         <div class="space-y-3">
-          {#if venda.status !== 'cancelada'}
+          {#if venda.status !== 'cancelada' && canCancel}
             <Button variant="danger" on:click={handleCancelar} loading={processando} class_name="w-full justify-center">
               <XCircle size={16} class="mr-2" />
               Cancelar Venda
@@ -501,10 +537,12 @@
           {/if}
 
           <div class="grid grid-cols-2 gap-3 pt-3 {venda.status !== 'cancelada' ? 'border-t border-slate-200' : ''}">
+            {#if canEdit}
             <Button variant="secondary" on:click={() => goto(`/vendas/${vendaId}/editar`)} class_name="w-full justify-center">
               <Edit size={16} class="mr-2" />
               Editar
             </Button>
+            {/if}
 
             <Button variant="secondary" on:click={() => goto('/vendas')} class_name="w-full justify-center">
               <ArrowLeft size={16} class="mr-2" />
@@ -512,10 +550,12 @@
             </Button>
           </div>
 
+          {#if canDelete}
           <Button variant="ghost" class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50" on:click={handleExcluir}>
             <Trash2 size={16} class="mr-2" />
             Excluir Venda
           </Button>
+          {/if}
         </div>
       </Card>
 

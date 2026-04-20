@@ -1,7 +1,9 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { browser } from '$app/environment';
   import { onMount, onDestroy } from 'svelte';
+  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -100,7 +102,26 @@
     try {
       loading = true;
       const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`);
-      if (!response.ok) throw new Error('Erro ao carregar orçamento');
+      if (!response.ok) {
+        const message = (await response.text()) || 'Erro ao carregar orçamento';
+        if (response.status === 401) {
+          toast.error('Sessão expirada. Faça login novamente para continuar.');
+          const next = `${$page.url.pathname}${$page.url.search}`;
+          await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (response.status === 403) {
+          toast.error(message || 'Você não tem permissão para editar este orçamento.');
+          await goto('/orcamentos');
+          return;
+        }
+        if (response.status === 404) {
+          toast.error(message || 'Orçamento não encontrado.');
+          await goto('/orcamentos');
+          return;
+        }
+        throw new Error(message);
+      }
 
       const data = await response.json();
       orcamentoOriginal = data;
@@ -204,7 +225,30 @@
     formData.valid_until = data.toISOString().split('T')[0];
   }
 
-  onMount(() => void carregarOrcamento());
+  async function ensureServerSessionCookie() {
+    if (!browser) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+    } catch {
+      // Falha silenciosa: o carregamento tratará 401 explicitamente.
+    }
+  }
+
+  onMount(() => {
+    void (async () => {
+      await ensureServerSessionCookie();
+      await carregarOrcamento();
+    })();
+  });
 
   onDestroy(() => {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer);

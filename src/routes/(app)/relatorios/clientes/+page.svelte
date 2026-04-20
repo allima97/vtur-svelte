@@ -10,6 +10,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
 
   interface ClienteRelatorio {
     cliente_id?: string;
@@ -247,6 +248,13 @@
       }
     ]
   } satisfies ChartData;
+
+  // Regra de escopo: vendedor/uso individual não escolhe empresa ou vendedor global.
+  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
+  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
+  $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
+  $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
 </script>
 
 <svelte:head>
@@ -272,6 +280,7 @@
     <label for="rel-clientes-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
     <input id="rel-clientes-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
   </div>
+  {#if showEmpresaFiltro}
   <div>
     <label for="rel-clientes-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
     <select id="rel-clientes-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
@@ -281,6 +290,8 @@
       {/each}
     </select>
   </div>
+  {/if}
+  {#if showVendedorFiltro}
   <div>
     <label for="rel-clientes-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
     <select id="rel-clientes-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
@@ -290,6 +301,7 @@
       {/each}
     </select>
   </div>
+  {/if}
   <div>
     <label for="rel-clientes-categoria" class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
     <select id="rel-clientes-categoria" bind:value={categoriaSelecionada} class="vtur-input w-full">

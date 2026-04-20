@@ -980,7 +980,15 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/master": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/master/empresas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/master/empresas/[id]": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -988,7 +996,15 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/master/permissoes/[id]": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/master/usuarios": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/master/usuarios/[id]": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

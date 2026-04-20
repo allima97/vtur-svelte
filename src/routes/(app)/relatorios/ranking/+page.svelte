@@ -11,7 +11,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { permissoes } from '$lib/stores/permissoes';
 
   interface VendedorRanking {
     posicao: number;
@@ -247,6 +247,13 @@
       }
     ]
   } satisfies ChartData;
+
+  // Regra de escopo: vendedor/uso individual não escolhe empresa ou vendedor global.
+  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
+  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
+  $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
+  $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
 </script>
 
 <svelte:head>
@@ -274,6 +281,7 @@
       <label for="rank-fim" class="block text-sm font-medium text-slate-700 mb-1">Data fim</label>
       <input id="rank-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
     </div>
+    {#if showEmpresaFiltro}
     <div>
       <label for="rank-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
       <select id="rank-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
@@ -283,6 +291,8 @@
         {/each}
       </select>
     </div>
+    {/if}
+    {#if showVendedorFiltro}
     <div>
       <label for="rank-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
       <select id="rank-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
@@ -292,6 +302,7 @@
         {/each}
       </select>
     </div>
+    {/if}
     <div class="flex items-end">
       <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRanking}>
         <Filter size={16} class="mr-2" />

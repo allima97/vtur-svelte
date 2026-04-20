@@ -8,6 +8,7 @@
   import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
+  import { permissoes } from '$lib/stores/permissoes';
 
   interface Venda {
     id: string;
@@ -136,6 +137,8 @@
     void loadVendas();
   });
 
+  $: showVendedorFilter = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
   $: filters = [
     {
       key: 'status',
@@ -159,20 +162,24 @@
         { value: 'servico', label: 'Serviço' }
       ]
     },
-    {
-      key: 'vendedor',
-      label: 'Vendedor',
-      type: 'select',
-      options: Array.from(
-        new Set(
-          vendas
-            .map((venda) => String(venda.vendedor || '').trim())
-            .filter(Boolean)
-        )
-      )
-        .sort((left, right) => left.localeCompare(right, 'pt-BR'))
-        .map((vendedor) => ({ value: vendedor, label: vendedor }))
-    }
+    ...(showVendedorFilter
+      ? [
+          {
+            key: 'vendedor',
+            label: 'Vendedor',
+            type: 'select' as const,
+            options: Array.from(
+              new Set(
+                vendas
+                  .map((venda) => String(venda.vendedor || '').trim())
+                  .filter(Boolean)
+              )
+            )
+              .sort((left, right) => left.localeCompare(right, 'pt-BR'))
+              .map((vendedor) => ({ value: vendedor, label: vendedor }))
+          }
+        ]
+      : [])
   ];
 
   function handleRowClick(row: Venda) {
