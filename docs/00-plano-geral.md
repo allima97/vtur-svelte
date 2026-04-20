@@ -1,6 +1,6 @@
 # Plano de Migração — vtur-app → vtur-svelte
 
-> **Versão:** 2026-04-18  
+> **Versão:** 2026-04-20  
 > **Status geral:** ~92% concluído  
 > **Fonte de verdade:** sempre `vtur-app` (read-only)
 
@@ -97,3 +97,10 @@ Recriar o `vtur-app` (Astro 6 + React 18 + PrimeReact + Hono + Supabase) no `vtu
 | 09 | [09-extras-e-rollout.md](./09-extras-e-rollout.md) | Chat, consultoria, documentação, QA, rollout |
 | 10 | [10-paridade-fiel-vtur-app.md](./10-paridade-fiel-vtur-app.md) | Releitura fiel por módulo, com foco em regra de negócio e amarrações cruzadas |
 | 11 | [11-plano-execucao-paridade-total.md](./11-plano-execucao-paridade-total.md) | Ordem de execução detalhada por módulo, dependências cruzadas e critérios de aceite |
+| 12 | [12-plano-permissoes-e-escopo-fiel.md](./12-plano-permissoes-e-escopo-fiel.md) | Matriz de papéis, escopo por tela, menu, filtros, endpoints e regressão obrigatória por usuário |
+
+---
+
+## Nota de governança
+
+O status “completo” de um módulo neste índice não significa paridade final de permissões e escopo. A partir de 2026-04-20, a validação fiel de cada módulo passa a depender também do documento [12-plano-permissoes-e-escopo-fiel.md](./12-plano-permissoes-e-escopo-fiel.md).

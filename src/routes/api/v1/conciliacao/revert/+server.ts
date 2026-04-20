@@ -39,7 +39,9 @@ export async function POST(event) {
     const revertAll = Boolean(body?.revertAll);
     const limit = Math.max(1, Math.min(500, Number(body?.limit || 200)));
     const ids = Array.isArray(body?.changeIds)
-      ? body.changeIds.map((v: unknown) => String(v || '').trim()).filter((v) => isUuid(v))
+      ? body.changeIds
+          .map((v: unknown) => String(v || '').trim())
+          .filter((v: string) => isUuid(v))
       : [];
 
     if (!revertAll && ids.length === 0) {

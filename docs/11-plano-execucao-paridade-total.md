@@ -198,6 +198,10 @@ Validar fielmente:
 Critério de aceite:
 - o mesmo usuário não pode ganhar acesso extra no `vtur-svelte`
 - nenhum endpoint pode ficar mais permissivo do que no legado
+- menu, filtros, abas e botões também precisam respeitar o mesmo papel e o mesmo escopo do legado
+
+Documento complementar obrigatório:
+- `docs/12-plano-permissoes-e-escopo-fiel.md`
 
 ### 7. CRM no cliente
 
@@ -266,6 +270,8 @@ Sem isso, comissão, conciliação e ajustes continuam quebrando em cascata.
 
 1. garantir que parâmetros realmente alterem o sistema
 2. consolidar permissões de menu, tela e endpoint
+3. validar escopo por papel em filtros, KPIs, listas e ações
+4. revisar regressão completa por `VENDEDOR`, `GESTOR`, `MASTER` e `ADMIN`
 
 ### Fase F — CRM do cliente
 
@@ -361,6 +367,7 @@ Cada entrega só fecha quando passar nestes 5 pontos:
 ### Sprint 5
 - revisar permissões de admin/master/tipos de usuário
 - alinhar menu, página e endpoint
+- alinhar filtros por papel e remover selects indevidos para vendedor/gestor
 
 ### Sprint 6
 - separar CRM do cliente do CRM do admin

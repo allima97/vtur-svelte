@@ -15,8 +15,18 @@ import {
   resolveConciliacaoStatus,
 } from '$lib/conciliacao/business';
 
-function buildImportKey(companyId: string, movimentoData: string, documento: string, descricao?: string | null) {
-  return [companyId, movimentoData, documento, normalizeConciliacaoDescricaoKey(descricao)].join('::');
+function buildImportKey(
+  companyId: string,
+  movimentoData?: string | null,
+  documento?: string | null,
+  descricao?: string | null
+) {
+  return [
+    companyId,
+    String(movimentoData || '').trim(),
+    String(documento || '').trim(),
+    normalizeConciliacaoDescricaoKey(descricao)
+  ].join('::');
 }
 
 export async function POST(event) {

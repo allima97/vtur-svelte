@@ -5,347 +5,561 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
+  import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { 
-    CheckCircle, XCircle, AlertCircle, Search, 
-    DollarSign, Calendar, FileText, Loader2, 
-    Upload, Download, FileCheck, CreditCard,
-    TrendingUp, Clock, Filter, ChevronRight
-  } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
+  import { parseConciliacaoImportText } from '$lib/conciliacao/importParser';
+  import {
+    AlertCircle,
+    Bot,
+    Calendar,
+    CheckCircle,
+    Clock3,
+    Database,
+    Download,
+    FileClock,
+    FileSpreadsheet,
+    GitBranch,
+    Loader2,
+    RefreshCcw,
+    Save,
+    ShieldAlert,
+    Upload,
+    Users
+  } from 'lucide-svelte';
 
-  interface Pagamento {
+  type ConciliacaoItem = {
     id: string;
-    codigo: string;
-    cliente: string;
-    cliente_id: string;
-    descricao: string;
-    valor: number;
-    data_pagamento: string;
-    forma_pagamento: string;
-    forma_pagamento_id: string;
-    status: 'pendente' | 'conciliado' | 'divergente' | 'cancelado';
-    venda_id?: string;
-    venda_codigo?: string;
-    comprovante?: string;
-    tipo: 'entrada' | 'saida';
-    categoria: string;
+    documento: string;
+    movimento_data: string | null;
+    status: string;
+    descricao: string | null;
+    valor_lancamentos: number | null;
+    valor_taxas: number | null;
+    valor_descontos: number | null;
+    valor_abatimentos: number | null;
+    valor_nao_comissionavel: number | null;
+    valor_calculada_loja: number | null;
+    valor_visao_master: number | null;
+    valor_opfax: number | null;
+    valor_saldo: number | null;
+    valor_venda_real: number | null;
+    valor_comissao_loja: number | null;
+    percentual_comissao_loja: number | null;
+    faixa_comissao: string | null;
+    is_seguro_viagem: boolean;
+    origem: string | null;
+    conciliado: boolean;
+    match_total: boolean | null;
+    match_taxas: boolean | null;
+    sistema_valor_total: number | null;
+    sistema_valor_taxas: number | null;
+    diff_total: number | null;
+    diff_taxas: number | null;
+    venda_id: string | null;
+    venda_recibo_id: string | null;
+    ranking_vendedor_id: string | null;
+    ranking_produto_id: string | null;
+    ranking_assigned_at: string | null;
+    ranking_vendedor?: { id: string; nome_completo: string | null } | null;
+    ranking_produto?: { id: string; nome: string | null } | null;
+    is_baixa_rac?: boolean | null;
+    is_nao_comissionavel?: boolean | null;
+    last_checked_at: string | null;
+    conciliado_em?: string | null;
+    status_display?: string;
+    status_label?: string;
+  };
+
+  type ConciliacaoSummary = {
+    total: number;
+    efetivados: number;
+    pendentes: number;
+    semRanking: number;
+    baixaRac: number;
+    totalValor: number;
+    timeline: Array<{ date: string; value: number }>;
+  };
+
+  type ConciliacaoChange = {
+    id: string;
+    numero_recibo: string | null;
+    field: string;
+    old_value: number | null;
+    new_value: number | null;
+    changed_at: string;
+    reverted_at: string | null;
+    actor: string;
+    changed_by_user?: { nome_completo?: string | null; email?: string | null } | null;
+  };
+
+  type ConciliacaoExecution = {
+    id: string;
+    actor: string;
+    checked: number;
+    reconciled: number;
+    updated_taxes: number;
+    still_pending: number;
+    status: string;
+    error_message: string | null;
     created_at: string;
-    data_conciliacao?: string;
-  }
+    actor_user?: { nome_completo?: string | null; email?: string | null } | null;
+  };
 
-  interface Venda {
-    id: string;
-    codigo: string;
-    cliente_nome: string;
-    valor_total: number;
-  }
+  type VendedorOption = { id: string; nome_completo: string };
+  type ProdutoOption = { id: string; nome: string };
+  type ImportPreviewRow = {
+    documento: string;
+    movimento_data: string | null;
+    status: string | null | undefined;
+    descricao: string | null | undefined;
+    valor_lancamentos: number | null | undefined;
+    valor_taxas: number | null | undefined;
+    valor_saldo: number | null | undefined;
+    percentual_comissao_loja: number | null | undefined;
+    faixa_comissao: string | null | undefined;
+  };
 
-  interface FormaPagamento {
-    id: string;
-    codigo: string;
-    nome: string;
-    cor: string;
-    icone: string;
-  }
-
-  let pagamentos: Pagamento[] = [];
-  let vendas: Venda[] = [];
-  let formasPagamento: FormaPagamento[] = [];
+  let activeTab = 'registros';
   let loading = true;
-  let searchQuery = '';
-  let filtroStatus = 'todas';
-  let filtroFormaPagamento = 'todas';
-  let dataInicio = '';
-  let dataFim = '';
-  let somentePendentes = false;
-  let somenteDivergentes = false;
-  let somenteBacklogFinanceiro = false;
-  
-  let showConciliarDialog = false;
-  let showUploadDialog = false;
-  let showDetalheDialog = false;
-  let pagamentoSelecionado: Pagamento | null = null;
-  let vendaSelecionada = '';
-  let processando = false;
-  let arquivoSelecionado: File | null = null;
+  let running = false;
+  let saving = false;
+  let importing = false;
+  let reverting = false;
 
-  onMount(async () => {
-    const hoje = new Date();
-    const trintaDiasAtras = new Date();
-    trintaDiasAtras.setDate(hoje.getDate() - 30);
-    
-    dataFim = hoje.toISOString().split('T')[0];
-    dataInicio = trintaDiasAtras.toISOString().split('T')[0];
-    
-    await Promise.all([
-      carregarPagamentos(),
-      carregarVendas(),
-      carregarFormasPagamento()
-    ]);
+  let summary: ConciliacaoSummary = {
+    total: 0,
+    efetivados: 0,
+    pendentes: 0,
+    semRanking: 0,
+    baixaRac: 0,
+    totalValor: 0,
+    timeline: []
+  };
+  let registros: ConciliacaoItem[] = [];
+  let changes: ConciliacaoChange[] = [];
+  let executions: ConciliacaoExecution[] = [];
+  let vendedores: VendedorOption[] = [];
+  let produtosMeta: ProdutoOption[] = [];
+
+  let monthFilter = currentMonth();
+  let dayFilter = '';
+  let searchQuery = '';
+  let showPendingOnly = false;
+  let rankingStatus: 'all' | 'pending' | 'assigned' | 'system' = 'all';
+  let showBaixaRac = false;
+
+  let selectedRow: ConciliacaoItem | null = null;
+  let showDetailsDialog = false;
+  let rankingVendedorId = '';
+  let rankingProdutoId = '';
+  let isBaixaRac = false;
+  let marcadoConciliado = false;
+
+  let importText = '';
+  let importFallbackDate = new Date().toISOString().slice(0, 10);
+  let importFileName = '';
+  let importIgnored = 0;
+  let importPreview: ImportPreviewRow[] = [];
+
+  const tabs = [
+    { key: 'registros', label: 'Registros', icon: Database, badge: registros.length },
+    { key: 'importacao', label: 'Importação', icon: Upload, badge: importPreview.length || null },
+    { key: 'alteracoes', label: 'Alterações', icon: GitBranch, badge: changes.filter((item) => !item.reverted_at).length || null },
+    { key: 'execucoes', label: 'Execuções', icon: Bot, badge: executions.length || null }
+  ];
+
+  const recordColumns = [
+    { key: 'documento', label: 'Documento', sortable: true, width: '140px' },
+    {
+      key: 'movimento_data',
+      label: 'Data',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string) => formatDate(value)
+    },
+    {
+      key: 'descricao',
+      label: 'Descrição / Status',
+      formatter: (_: unknown, row: ConciliacaoItem) =>
+        `<div class="flex flex-col gap-1"><span class="font-medium text-slate-900">${escapeHtml(row.descricao || 'Sem descrição')}</span><span class="text-xs text-slate-500">${escapeHtml(row.status_label || row.status || '-')}</span></div>`
+    },
+    {
+      key: 'valor_calculada_loja',
+      label: 'Valor Loja',
+      sortable: true,
+      align: 'right' as const,
+      width: '130px',
+      formatter: (value: number) => formatCurrency(value)
+    },
+    {
+      key: 'percentual_comissao_loja',
+      label: '% Loja',
+      sortable: true,
+      width: '90px',
+      formatter: (value: number | null) => formatPercent(value)
+    },
+    {
+      key: 'faixa_comissao',
+      label: 'Faixa',
+      width: '130px',
+      formatter: (value: string | null) => `<span class="text-xs font-semibold text-slate-700">${escapeHtml(value || 'SEM_COMISSAO')}</span>`
+    },
+    {
+      key: 'conciliado',
+      label: 'Situação',
+      width: '150px',
+      formatter: (_: unknown, row: ConciliacaoItem) => buildSituacaoCell(row)
+    }
+  ];
+
+  const changeColumns = [
+    { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
+    { key: 'field', label: 'Campo', sortable: true, width: '140px' },
+    { key: 'old_value', label: 'Antes', align: 'right' as const, formatter: (value: number | null) => formatCurrency(value) },
+    { key: 'new_value', label: 'Depois', align: 'right' as const, formatter: (value: number | null) => formatCurrency(value) },
+    { key: 'changed_at', label: 'Alterado em', sortable: true, width: '160px', formatter: (value: string) => formatDateTime(value) },
+    {
+      key: 'reverted_at',
+      label: 'Status',
+      width: '120px',
+      formatter: (value: string | null) =>
+        value
+          ? '<span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">Revertido</span>'
+          : '<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">Pendente</span>'
+    }
+  ];
+
+  const executionColumns = [
+    { key: 'created_at', label: 'Data', sortable: true, width: '160px', formatter: (value: string) => formatDateTime(value) },
+    { key: 'actor', label: 'Origem', width: '100px' },
+    { key: 'checked', label: 'Lidos', sortable: true, width: '90px' },
+    { key: 'reconciled', label: 'Conciliados', sortable: true, width: '110px' },
+    { key: 'still_pending', label: 'Pendentes', sortable: true, width: '100px' },
+    {
+      key: 'status',
+      label: 'Status',
+      width: '120px',
+      formatter: (value: string) =>
+        value === 'success'
+          ? '<span class="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Sucesso</span>'
+          : '<span class="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">Erro</span>'
+    }
+  ];
+
+  $: filteredRecords = registros.filter((row) => {
+    if (showPendingOnly && row.conciliado) return false;
+    if (showBaixaRac && !row.is_baixa_rac) return false;
+    if (searchQuery) {
+      const haystack = [row.documento, row.descricao, row.status, row.ranking_vendedor?.nome_completo, row.ranking_produto?.nome]
+        .join(' ')
+        .toLowerCase();
+      if (!haystack.includes(searchQuery.toLowerCase())) return false;
+    }
+    return true;
   });
 
-  async function carregarPagamentos() {
+  $: importPreview = buildImportPreview(importText, importFallbackDate);
+
+  onMount(async () => {
+    await loadAll();
+  });
+
+  async function loadAll() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus !== 'todas') params.append('status', filtroStatus);
-      if (filtroFormaPagamento !== 'todas') params.append('forma_pagamento_id', filtroFormaPagamento);
-      if (dataInicio) params.append('data_inicio', dataInicio);
-      if (dataFim) params.append('data_fim', dataFim);
-      if (searchQuery) params.append('q', searchQuery);
-
-      const response = await fetch(`/api/v1/pagamentos?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        pagamentos = (data.items || []).map((p: any) => ({
-          id: p.id,
-          codigo: p.codigo || `PAG-${p.id.slice(0, 8).toUpperCase()}`,
-          cliente: p.cliente?.nome || p.cliente_nome || 'N/A',
-          cliente_id: p.cliente_id,
-          descricao: p.descricao || `Venda ${p.venda?.numero_venda || ''}`,
-          valor: Number(p.valor_total || p.valor) || 0,
-          data_pagamento: p.created_at || p.data_pagamento || '',
-          forma_pagamento: p.forma_pagamento?.nome || p.forma_nome || p.forma_pagamento || 'N/A',
-          forma_pagamento_id: p.forma_pagamento_id,
-          status: p.status || 'pendente',
-          venda_id: p.venda_id,
-          venda_codigo: p.venda?.numero_venda,
-          comprovante: p.comprovante,
-          tipo: p.tipo || 'entrada',
-          categoria: p.categoria || 'venda',
-          created_at: p.created_at,
-          data_conciliacao: p.data_conciliacao
-        }));
-      } else {
-        toast.error('Erro ao carregar pagamentos');
-      }
-    } catch (err) {
-      console.error('Erro ao carregar pagamentos:', err);
-      toast.error('Erro ao carregar pagamentos');
+      await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions()]);
     } finally {
       loading = false;
     }
   }
 
-  async function carregarVendas() {
-    try {
-      const response = await fetch('/api/v1/vendas/list');
-      if (response.ok) {
-        const data = await response.json();
-        vendas = (data.items || []).map((v: any) => ({
-          id: v.id,
-          codigo: v.codigo || v.numero_venda || `V${v.id.slice(0, 6).toUpperCase()}`,
-          cliente_nome: v.cliente || v.cliente_nome || 'N/A',
-          valor_total: Number(v.valor_total) || 0
-        }));
-      }
-    } catch (err) {
-      console.error('Erro ao carregar vendas:', err);
-    }
-  }
-
-  async function carregarFormasPagamento() {
-    try {
-      const response = await fetch('/api/v1/financeiro/formas-pagamento?ativas=true');
-      if (response.ok) {
-        const data = await response.json();
-        formasPagamento = data.items || [];
-      }
-    } catch (err) {
-      console.error('Erro ao carregar formas de pagamento:', err);
-    }
-  }
-
-  $: pagamentosFiltrados = pagamentos;
-  $: pendentes = pagamentos.filter(p => p.status === 'pendente');
-  $: conciliados = pagamentos.filter(p => p.status === 'conciliado');
-  $: divergentes = pagamentos.filter(p => p.status === 'divergente');
-  $: totalPendente = pendentes.reduce((acc, p) => acc + p.valor, 0);
-  $: totalConciliado = conciliados.reduce((acc, p) => acc + p.valor, 0);
-  $: totalDivergente = divergentes.reduce((acc, p) => acc + p.valor, 0);
-  $: backlogFinanceiro = pagamentos.filter((p) => p.status === 'pendente' || p.status === 'divergente');
-  $: totalBacklogFinanceiro = backlogFinanceiro.reduce((acc, p) => acc + p.valor, 0);
-  $: pagamentosVisiveis = pagamentosFiltrados.filter((p) => {
-    if (somenteBacklogFinanceiro && !['pendente', 'divergente'].includes(p.status)) return false;
-    if (somentePendentes && p.status !== 'pendente') return false;
-    if (somenteDivergentes && p.status !== 'divergente') return false;
-    return true;
-  });
-
-  const columns = [
-    { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
-    { 
-      key: 'cliente', 
-      label: 'Cliente / Descrição', 
-      sortable: true,
-      formatter: (value: string, row: Pagamento) => {
-        return `<div class="flex flex-col"><span class="font-medium text-slate-900">${value}</span><span class="text-xs text-slate-500">${row.descricao}</span></div>`;
-      }
-    },
-    { 
-      key: 'data_pagamento', 
-      label: 'Data', 
-      sortable: true,
-      width: '110px',
-      formatter: (value: string) => new Date(value).toLocaleDateString('pt-BR')
-    },
-    { key: 'forma_pagamento', label: 'Forma', sortable: true, width: '140px' },
-    { 
-      key: 'valor', 
-      label: 'Valor', 
-      sortable: true,
-      width: '130px',
-      align: 'right' as const,
-      formatter: (value: number) => formatCurrency(value)
-    },
-    { 
-      key: 'status', 
-      label: 'Status', 
-      sortable: true,
-      width: '120px',
-      formatter: (value: string) => getStatusHtml(value)
-    }
-  ];
-
-  function getStatusHtml(status: string): string {
-    const styles: Record<string, string> = {
-      conciliado: 'bg-green-100 text-green-700',
-      pendente: 'bg-amber-100 text-amber-700',
-      divergente: 'bg-red-100 text-red-700',
-      cancelado: 'bg-slate-100 text-slate-600'
+  async function loadSummary() {
+    const params = new URLSearchParams();
+    if (monthFilter) params.set('mes', monthFilter);
+    const response = await fetch(`/api/v1/conciliacao/summary?${params.toString()}`);
+    const data = await parseJson(response, 'Erro ao carregar resumo da conciliação.');
+    summary = {
+      total: Number(data.total || 0),
+      efetivados: Number(data.efetivados || 0),
+      pendentes: Number(data.pendentes || 0),
+      semRanking: Number(data.semRanking || 0),
+      baixaRac: Number(data.baixaRac || 0),
+      totalValor: Number(data.totalValor || 0),
+      timeline: Array.isArray(data.timeline) ? data.timeline : []
     };
-    const labels: Record<string, string> = {
-      conciliado: 'Conciliado',
-      pendente: 'Pendente',
-      divergente: 'Divergente',
-      cancelado: 'Cancelado'
-    };
-    return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[status] || styles.pendente}">${labels[status] || status}</span>`;
   }
 
-  function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  async function loadRegistros() {
+    const params = new URLSearchParams();
+    if (monthFilter) params.set('month', monthFilter);
+    if (dayFilter) params.set('day', dayFilter);
+    if (showPendingOnly) params.set('pending', '1');
+    if (showBaixaRac) params.set('baixa_rac', '1');
+    if (rankingStatus !== 'all') params.set('ranking_status', rankingStatus);
+
+    const response = await fetch(`/api/v1/conciliacao/list?${params.toString()}`);
+    const data = await parseJson(response, 'Erro ao carregar registros de conciliação.');
+    registros = Array.isArray(data) ? data : [];
   }
 
-  function abrirDetalhe(pagamento: Pagamento) {
-    pagamentoSelecionado = pagamento;
-    vendaSelecionada = pagamento.venda_id || '';
-    showDetalheDialog = true;
+  async function loadOptions() {
+    const response = await fetch('/api/v1/conciliacao/options');
+    const data = await parseJson(response, 'Erro ao carregar opções da conciliação.');
+    vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
+    produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
   }
 
-  function abrirConciliacao(pagamento: Pagamento) {
-    pagamentoSelecionado = pagamento;
-    vendaSelecionada = pagamento.venda_id || '';
-    showDetalheDialog = false;
-    showConciliarDialog = true;
+  async function loadChanges() {
+    const params = new URLSearchParams();
+    if (monthFilter) params.set('month', monthFilter);
+    const response = await fetch(`/api/v1/conciliacao/changes?${params.toString()}`);
+    const data = await parseJson(response, 'Erro ao carregar alterações da conciliação.');
+    changes = Array.isArray(data) ? data : [];
   }
 
-  function abrirUpload(pagamento: Pagamento) {
-    pagamentoSelecionado = pagamento;
-    arquivoSelecionado = null;
-    showUploadDialog = true;
+  async function loadExecutions() {
+    const response = await fetch('/api/v1/conciliacao/executions?limit=20');
+    const data = await parseJson(response, 'Erro ao carregar execuções da conciliação.');
+    executions = Array.isArray(data) ? data : [];
   }
 
-  function handleFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) arquivoSelecionado = input.files[0];
+  function openDetails(row: ConciliacaoItem) {
+    selectedRow = row;
+    rankingVendedorId = row.ranking_vendedor_id || '';
+    rankingProdutoId = row.ranking_produto_id || '';
+    isBaixaRac = Boolean(row.is_baixa_rac);
+    marcadoConciliado = Boolean(row.conciliado);
+    showDetailsDialog = true;
   }
 
-  async function handleUpload() {
-    if (!pagamentoSelecionado || !arquivoSelecionado) return;
-    processando = true;
+  async function saveAssignment() {
+    if (!selectedRow) return;
+    saving = true;
     try {
-      const formData = new FormData();
-      formData.append('file', arquivoSelecionado);
-      formData.append('pagamento_id', pagamentoSelecionado.id);
-      const response = await fetch('/api/v1/pagamentos/upload', { method: 'POST', body: formData });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao fazer upload');
-      }
-      toast.success('Comprovante anexado com sucesso!');
-      await carregarPagamentos();
-      showUploadDialog = false;
-      pagamentoSelecionado = null;
-      arquivoSelecionado = null;
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao fazer upload do comprovante');
-    } finally {
-      processando = false;
-    }
-  }
-
-  async function handleConciliar() {
-    if (!pagamentoSelecionado) return;
-    processando = true;
-    try {
-      const response = await fetch(`/api/v1/pagamentos/${pagamentoSelecionado.id}/conciliar`, {
+      const response = await fetch('/api/v1/conciliacao/assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venda_id: vendaSelecionada, status: 'conciliado', status_anterior: pagamentoSelecionado.status })
+        body: JSON.stringify({
+          conciliacaoId: selectedRow.id,
+          rankingVendedorId: rankingVendedorId || null,
+          rankingProdutoId: rankingProdutoId || null,
+          vendaId: selectedRow.venda_id || null,
+          vendaReciboId: selectedRow.venda_recibo_id || null,
+          isBaixaRac,
+          conciliado: marcadoConciliado
+        })
       });
-      if (!response.ok) throw new Error('Erro ao conciliar');
-      toast.success('Pagamento conciliado com sucesso!');
-      await carregarPagamentos();
-      showConciliarDialog = false;
-      showDetalheDialog = false;
-      pagamentoSelecionado = null;
-      vendaSelecionada = '';
-    } catch (err) {
-      toast.error('Erro ao conciliar pagamento');
+      await parseJson(response, 'Erro ao salvar atribuição de conciliação.');
+      toast.success('Atribuição salva com sucesso.');
+      showDetailsDialog = false;
+      await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao salvar atribuição.');
     } finally {
-      processando = false;
+      saving = false;
     }
   }
 
-  async function handleMarcarDivergente() {
-    if (!pagamentoSelecionado) return;
-    processando = true;
+  async function runAutoConciliacao(reciboId?: string) {
+    running = true;
     try {
-      const response = await fetch(`/api/v1/pagamentos/${pagamentoSelecionado.id}/conciliar`, {
+      const response = await fetch('/api/v1/conciliacao/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'divergente', status_anterior: pagamentoSelecionado.status })
+        body: JSON.stringify({
+          limit: reciboId ? 1 : 200,
+          conciliacaoReciboId: reciboId || null
+        })
       });
-      if (!response.ok) throw new Error('Erro ao atualizar');
-      toast.success('Marcado como divergente');
-      await carregarPagamentos();
-      showConciliarDialog = false;
-      showDetalheDialog = false;
-      pagamentoSelecionado = null;
-    } catch (err) {
-      toast.error('Erro ao atualizar pagamento');
+      const data = await parseJson(response, 'Erro ao executar a conciliação automática.');
+      toast.success(`Conciliação executada: ${Number(data.reconciliados || 0)} registros conciliados.`);
+      await Promise.all([loadRegistros(), loadSummary(), loadExecutions()]);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao executar conciliação.');
     } finally {
-      processando = false;
+      running = false;
     }
   }
 
-  async function handleExportar() {
+  async function revertPendingChanges() {
+    reverting = true;
     try {
-      const dados = pagamentosVisiveis.map(p => ({
-        Codigo: p.codigo,
-        Cliente: p.cliente,
-        Descricao: p.descricao,
-        Valor: p.valor,
-        DataPagamento: p.data_pagamento,
-        FormaPagamento: p.forma_pagamento,
-        Status: p.status,
-        Venda: p.venda_codigo || '',
-        TemComprovante: p.comprovante ? 'Sim' : 'Não'
-      }));
-
-      const headers = Object.keys(dados[0] || {});
-      const csv = [headers.join(';'), ...dados.map(row => headers.map(h => row[h as keyof typeof row]).join(';'))].join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `conciliacao_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
-      toast.success('Relatório exportado com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao exportar relatório');
+      const response = await fetch('/api/v1/conciliacao/revert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revertAll: true, limit: 500 })
+      });
+      const data = await parseJson(response, 'Erro ao reverter alterações.');
+      toast.success(`Alterações revertidas: ${Number(data.reverted || 0)} recibos atualizados.`);
+      await Promise.all([loadRegistros(), loadChanges()]);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao reverter alterações.');
+    } finally {
+      reverting = false;
     }
+  }
+
+  async function importPreviewRows() {
+    if (importPreview.length === 0) {
+      toast.error('Nenhuma linha válida para importar.');
+      return;
+    }
+
+    importing = true;
+    try {
+      const response = await fetch('/api/v1/conciliacao/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          linhas: importPreview.map((row) => ({
+            ...row,
+            origem: importFileName ? `arquivo:${importFileName}` : 'arquivo'
+          }))
+        })
+      });
+      const data = await parseJson(response, 'Erro ao importar arquivo de conciliação.');
+      toast.success(
+        `Importação concluída: ${Number(data.importados || 0)} importados, ${Number(data.duplicados || 0)} duplicados.`
+      );
+      importText = '';
+      importFileName = '';
+      importIgnored = 0;
+      await Promise.all([loadRegistros(), loadSummary()]);
+      activeTab = 'registros';
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao importar conciliação.');
+    } finally {
+      importing = false;
+    }
+  }
+
+  async function handleFileChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    importFileName = file.name;
+    importText = await file.text();
+    importIgnored = parseConciliacaoImportText(importText, importFallbackDate).ignored;
+  }
+
+  function buildImportPreview(text: string, fallbackDate: string): ImportPreviewRow[] {
+    const parsed = parseConciliacaoImportText(text, fallbackDate);
+    importIgnored = parsed.ignored;
+    return parsed.linhas.slice(0, 200).map((row) => {
+      const metrics = buildConciliacaoMetrics({
+        descricao: row.descricao,
+        valorLancamentos: row.valor_lancamentos,
+        valorTaxas: row.valor_taxas,
+        valorDescontos: row.valor_descontos,
+        valorAbatimentos: row.valor_abatimentos,
+        valorNaoComissionavel: row.valor_nao_comissionavel,
+        valorSaldo: row.valor_saldo,
+        valorOpfax: row.valor_opfax,
+        valorCalculadaLoja: row.valor_calculada_loja,
+        valorVisaoMaster: row.valor_visao_master,
+        valorComissaoLoja: row.valor_comissao_loja,
+        percentualComissaoLoja: row.percentual_comissao_loja
+      });
+      return {
+        documento: row.documento,
+        movimento_data: row.movimento_data || fallbackDate,
+        status: row.status || null,
+        descricao: row.descricao || null,
+        valor_lancamentos: row.valor_lancamentos ?? null,
+        valor_taxas: row.valor_taxas ?? null,
+        valor_saldo: row.valor_saldo ?? null,
+        percentual_comissao_loja: metrics.percentualComissaoLoja,
+        faixa_comissao: metrics.faixaComissao
+      };
+    });
+  }
+
+  function exportRows() {
+    if (filteredRecords.length === 0) {
+      toast.error('Nenhum registro para exportar.');
+      return;
+    }
+    const headers = ['Documento', 'Data', 'Status', 'Descricao', 'Valor Loja', 'Taxas', '% Loja', 'Faixa', 'Conciliado'];
+    const rows = filteredRecords.map((row) => [
+      row.documento,
+      row.movimento_data || '',
+      row.status_label || row.status || '',
+      (row.descricao || '').replace(/;/g, ','),
+      String(Number(row.valor_calculada_loja || 0).toFixed(2)).replace('.', ','),
+      String(Number(row.valor_taxas || 0).toFixed(2)).replace('.', ','),
+      String(Number(row.percentual_comissao_loja || 0).toFixed(2)).replace('.', ','),
+      row.faixa_comissao || '',
+      row.conciliado ? 'Sim' : 'Nao'
+    ]);
+    const csv = [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `conciliacao_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  }
+
+  function currentMonth() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function formatCurrency(value: number | null | undefined) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+  }
+
+  function formatPercent(value: number | null | undefined) {
+    const num = Number(value || 0);
+    if (!num) return '-';
+    return `${num.toFixed(2)}%`;
+  }
+
+  function formatDate(value?: string | null) {
+    if (!value) return '-';
+    return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR');
+  }
+
+  function formatDateTime(value?: string | null) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('pt-BR');
+  }
+
+  function escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function buildSituacaoCell(row: ConciliacaoItem) {
+    const chips = [];
+    chips.push(
+      row.conciliado
+        ? '<span class="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Conciliado</span>'
+        : '<span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">Pendente</span>'
+    );
+    if (row.ranking_vendedor?.nome_completo) {
+      chips.push(`<span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">${escapeHtml(row.ranking_vendedor.nome_completo)}</span>`);
+    } else if (!row.venda_id) {
+      chips.push('<span class="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">Sem ranking</span>');
+    }
+    if (row.is_baixa_rac) {
+      chips.push('<span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">Baixa RAC</span>');
+    }
+    return `<div class="flex flex-wrap gap-1">${chips.join('')}</div>`;
+  }
+
+  async function parseJson(response: Response, fallbackMessage: string) {
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data?.error || fallbackMessage);
+    }
+    return data;
   }
 </script>
 
@@ -353,268 +567,360 @@
   <title>Conciliação | VTUR</title>
 </svelte:head>
 
-<PageHeader 
-  title="Conciliação"
-  subtitle="Concilie pagamentos recebidos com vendas"
+<PageHeader
+  title="Conciliação de Vendas"
+  subtitle="Importe extratos, execute o vínculo com recibos e audite ranking, taxas e histórico."
   color="financeiro"
   breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Conciliação' }]}
 />
 
 <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
-  <KPICard title="Pendentes" value={pendentes.length} subtitle={formatCurrency(totalPendente)} color="financeiro" icon={Clock} />
-  <KPICard title="Conciliados" value={conciliados.length} subtitle={formatCurrency(totalConciliado)} color="financeiro" icon={CheckCircle} />
-  <KPICard title="Divergentes" value={divergentes.length} subtitle={formatCurrency(totalDivergente)} color="financeiro" icon={AlertCircle} />
-  <KPICard title="Backlog" value={backlogFinanceiro.length} subtitle={formatCurrency(totalBacklogFinanceiro)} color="financeiro" icon={AlertCircle} />
-  <KPICard title="Total" value={pagamentos.length} subtitle={formatCurrency(pagamentos.reduce((acc, p) => acc + p.valor, 0))} color="financeiro" icon={TrendingUp} />
+  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; showPendingOnly = true; showBaixaRac = false; loadRegistros(); }}>
+    <KPICard title="Pendentes" value={summary.pendentes} subtitle="Aguardando vínculo" color="financeiro" icon={Clock3} />
+  </button>
+  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; rankingStatus = 'pending'; showPendingOnly = false; loadRegistros(); }}>
+    <KPICard title="Sem ranking" value={summary.semRanking} subtitle="Baixas sem responsável" color="clientes" icon={Users} />
+  </button>
+  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; showBaixaRac = true; showPendingOnly = false; loadRegistros(); }}>
+    <KPICard title="Baixa RAC" value={summary.baixaRac} subtitle="Tratamento manual" color="operacao" icon={ShieldAlert} />
+  </button>
+  <KPICard title="Efetivados" value={summary.efetivados} subtitle={formatCurrency(summary.totalValor)} color="vendas" icon={CheckCircle} />
+  <KPICard title="Importados" value={summary.total} subtitle="No período selecionado" color="clientes" icon={Database} />
 </div>
 
+<FilterPanel title="Filtros da Conciliação" color="financeiro" fieldsClass="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+  <div>
+    <label for="conciliacao-mes" class="mb-1 block text-sm font-medium text-slate-700">Mês</label>
+    <input id="conciliacao-mes" type="month" bind:value={monthFilter} class="vtur-input w-full" />
+  </div>
+  <div>
+    <label for="conciliacao-dia" class="mb-1 block text-sm font-medium text-slate-700">Dia específico</label>
+    <input id="conciliacao-dia" type="date" bind:value={dayFilter} class="vtur-input w-full" />
+  </div>
+  <div>
+    <label for="conciliacao-busca" class="mb-1 block text-sm font-medium text-slate-700">Busca</label>
+    <input id="conciliacao-busca" type="text" bind:value={searchQuery} placeholder="Documento, descrição, vendedor..." class="vtur-input w-full" />
+  </div>
+  <div>
+    <label for="conciliacao-ranking-status" class="mb-1 block text-sm font-medium text-slate-700">Ranking</label>
+    <select id="conciliacao-ranking-status" bind:value={rankingStatus} class="vtur-input w-full">
+      <option value="all">Todos</option>
+      <option value="pending">Pendentes</option>
+      <option value="assigned">Atribuídos</option>
+      <option value="system">Vinculados ao sistema</option>
+    </select>
+  </div>
+  <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+    <input type="checkbox" bind:checked={showPendingOnly} class="rounded border-slate-300" />
+    Somente pendentes
+  </label>
+  <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+    <input type="checkbox" bind:checked={showBaixaRac} class="rounded border-slate-300" />
+    Somente Baixa RAC
+  </label>
+
+  <svelte:fragment slot="actions">
+    <div class="flex flex-wrap gap-2">
+      <Button variant="secondary" on:click={loadAll}>
+        <RefreshCcw size={16} class="mr-2" />
+        Atualizar
+      </Button>
+      <Button variant="secondary" on:click={exportRows}>
+        <Download size={16} class="mr-2" />
+        Exportar
+      </Button>
+      <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
+        <Bot size={16} class="mr-2" />
+        Conciliar automático
+      </Button>
+    </div>
+  </svelte:fragment>
+</FilterPanel>
+
 <Card color="financeiro" class="mb-6">
-  <div class="flex flex-col lg:flex-row gap-4 items-end">
-    <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="relative">
-        <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="text" placeholder="Buscar pagamentos..." bind:value={searchQuery} on:change={carregarPagamentos} class="vtur-input pl-10 w-full" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-        <select bind:value={filtroStatus} on:change={carregarPagamentos} class="vtur-input w-full">
-          <option value="todas">Todos</option>
-          <option value="pendente">Pendentes</option>
-          <option value="conciliado">Conciliados</option>
-          <option value="divergente">Divergentes</option>
-          <option value="cancelado">Cancelados</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-        <select bind:value={filtroFormaPagamento} on:change={carregarPagamentos} class="vtur-input w-full">
-          <option value="todas">Todas</option>
-          {#each formasPagamento as fp}
-            <option value={fp.id}>{fp.nome}</option>
+  <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+    <div>
+      <h3 class="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Linha do tempo</h3>
+      {#if summary.timeline.length > 0}
+        <div class="space-y-2">
+          {#each summary.timeline.slice(-7).reverse() as item}
+            <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <span class="text-sm font-medium text-slate-700">{formatDate(item.date)}</span>
+              <span class="text-sm font-semibold text-slate-900">{formatCurrency(item.value)}</span>
+            </div>
           {/each}
-        </select>
+        </div>
+      {:else}
+        <div class="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
+          Nenhum movimento de conciliação no período selecionado.
+        </div>
+      {/if}
+    </div>
+
+    <div class="grid gap-3">
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Operação recomendada</p>
+        <p class="mt-2 text-sm text-slate-700">
+          Importe o extrato, execute a conciliação automática e revise primeiro as linhas sem ranking ou marcadas como Baixa RAC.
+        </p>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
-        <input type="date" bind:value={dataInicio} on:change={carregarPagamentos} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-        <input type="date" bind:value={dataFim} on:change={carregarPagamentos} class="vtur-input w-full" />
+      <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Pendências abertas</p>
+        <p class="mt-2 text-sm font-semibold text-amber-900">{summary.pendentes} linhas aguardando vínculo operacional.</p>
       </div>
     </div>
-    <Button variant="secondary" on:click={handleExportar}>
-      <Download size={18} class="mr-2" />
-      Exportar
-    </Button>
-  </div>
-
-  <div class="mt-4 flex flex-wrap items-center gap-2">
-    <button
-      type="button"
-      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteBacklogFinanceiro ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200 bg-white text-slate-700'}`}
-      on:click={() => {
-        somenteBacklogFinanceiro = !somenteBacklogFinanceiro;
-        if (somenteBacklogFinanceiro) {
-          somentePendentes = false;
-          somenteDivergentes = false;
-        }
-      }}
-    >
-      {#if somenteBacklogFinanceiro}
-        Mostrando backlog financeiro ({backlogFinanceiro.length})
-      {:else}
-        Ver backlog financeiro ({backlogFinanceiro.length})
-      {/if}
-    </button>
-
-    <button
-      type="button"
-      class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
-      on:click={() => {
-        somentePendentes = !somentePendentes;
-        if (somentePendentes) {
-          somenteDivergentes = false;
-          somenteBacklogFinanceiro = false;
-        }
-      }}
-    >
-      {#if somentePendentes}
-        Mostrando pendentes ({pendentes.length})
-      {:else}
-        Ver pendentes ({pendentes.length})
-      {/if}
-    </button>
-
-    <button
-      type="button"
-      class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteDivergentes ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-white text-slate-700'}`}
-      on:click={() => {
-        somenteDivergentes = !somenteDivergentes;
-        if (somenteDivergentes) {
-          somentePendentes = false;
-          somenteBacklogFinanceiro = false;
-        }
-      }}
-    >
-      {#if somenteDivergentes}
-        Mostrando divergentes ({divergentes.length})
-      {:else}
-        Ver divergentes ({divergentes.length})
-      {/if}
-    </button>
-
-    {#if somentePendentes || somenteDivergentes || somenteBacklogFinanceiro}
-      <button
-        type="button"
-        class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
-        on:click={() => {
-          somentePendentes = false;
-          somenteDivergentes = false;
-          somenteBacklogFinanceiro = false;
-        }}
-      >
-        Limpar filtro rápido
-      </button>
-    {/if}
   </div>
 </Card>
 
-<div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-  A conciliação agora permite isolar rapidamente <strong>pendentes</strong>, <strong>divergentes</strong> e um <strong>backlog financeiro consolidado</strong>, acelerando a fila operacional do fechamento.
-</div>
+<Tabs bind:activeKey={activeTab} items={tabs} className="mb-6" />
 
-<DataTable
-  {columns}
-  data={pagamentosVisiveis}
-  color="financeiro"
-  {loading}
-  title="Pagamentos"
-  emptyMessage="Nenhum pagamento encontrado"
-  onRowClick={abrirDetalhe}
-/>
+{#if activeTab === 'registros'}
+  <Card header="Registros conciliados/importados" color="financeiro">
+    <DataTable
+      data={filteredRecords}
+      columns={recordColumns}
+      color="financeiro"
+      {loading}
+      title="Conciliação"
+      searchable={false}
+      filterable={false}
+      exportable={false}
+      emptyMessage="Nenhum registro de conciliação encontrado."
+      onRowClick={openDetails}
+    />
+  </Card>
+{:else if activeTab === 'importacao'}
+  <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
+    <Card header="Importar extrato" color="financeiro">
+      <div class="space-y-4">
+        <div>
+          <label for="conciliacao-arquivo" class="mb-1 block text-sm font-medium text-slate-700">Arquivo do extrato</label>
+          <input id="conciliacao-arquivo" type="file" accept=".csv,.txt,.tsv" class="vtur-input w-full" on:change={handleFileChange} />
+          <p class="mt-1 text-xs text-slate-500">Aceita CSV, TXT e TSV. O parser usa o cabeçalho para localizar as colunas.</p>
+        </div>
 
-<Dialog bind:open={showDetalheDialog} title="Detalhes do Pagamento" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>
-  {#if pagamentoSelecionado}
-    <div class="space-y-4">
-      <div class="p-4 bg-slate-50 rounded-lg">
-        <div class="flex justify-between items-start mb-2">
-          <div>
-            <p class="text-sm text-slate-500">Código</p>
-            <p class="font-semibold text-slate-900">{pagamentoSelecionado.codigo}</p>
-          </div>
-          <p class="text-2xl font-bold text-financeiro-600">{formatCurrency(pagamentoSelecionado.valor)}</p>
+        <div>
+          <label for="conciliacao-fallback-date" class="mb-1 block text-sm font-medium text-slate-700">Data padrão para linhas sem data</label>
+          <input id="conciliacao-fallback-date" type="date" bind:value={importFallbackDate} class="vtur-input w-full" />
         </div>
-        <p class="text-slate-700">{pagamentoSelecionado.cliente}</p>
-        <p class="text-sm text-slate-500">{pagamentoSelecionado.descricao}</p>
-        <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
-          <span class="flex items-center gap-1"><Calendar size={14} />{new Date(pagamentoSelecionado.data_pagamento).toLocaleDateString('pt-BR')}</span>
-          <span class="flex items-center gap-1"><CreditCard size={14} />{pagamentoSelecionado.forma_pagamento}</span>
+
+        <div>
+          <label for="conciliacao-paste" class="mb-1 block text-sm font-medium text-slate-700">Ou cole o conteúdo do extrato</label>
+          <textarea
+            id="conciliacao-paste"
+            bind:value={importText}
+            rows="12"
+            class="vtur-input w-full"
+            placeholder="Cole aqui as linhas do extrato com cabeçalho: documento;movimento_data;status;descricao;valor_lancamentos..."
+          ></textarea>
         </div>
-        <div class="mt-3">
-          <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full {getStatusHtml(pagamentoSelecionado.status).split('"')[1]}">
-            {pagamentoSelecionado.status === 'conciliado' ? 'Conciliado' : pagamentoSelecionado.status === 'pendente' ? 'Pendente' : pagamentoSelecionado.status === 'divergente' ? 'Divergente' : 'Cancelado'}
-          </span>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+          <p><strong>{importPreview.length}</strong> linhas prontas para importar.</p>
+          <p><strong>{importIgnored}</strong> linhas ignoradas por falta de documento.</p>
+          {#if importFileName}
+            <p class="mt-1 text-xs text-slate-500">Arquivo carregado: {importFileName}</p>
+          {/if}
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <Button color="financeiro" on:click={importPreviewRows} disabled={importPreview.length === 0} loading={importing}>
+            <Upload size={16} class="mr-2" />
+            Importar para conciliação
+          </Button>
+          <Button variant="secondary" on:click={() => { importText = ''; importFileName = ''; importIgnored = 0; }}>
+            Limpar
+          </Button>
         </div>
       </div>
+    </Card>
 
-      {#if pagamentoSelecionado.venda_codigo}
-        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-          <p class="text-sm text-green-700 font-medium mb-1">Venda Vinculada</p>
-          <p class="text-green-900">{pagamentoSelecionado.venda_codigo}</p>
+    <Card header="Prévia da importação" color="financeiro">
+      {#if importPreview.length === 0}
+        <div class="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">
+          Carregue um arquivo ou cole o extrato para visualizar a prévia antes de importar.
         </div>
-      {/if}
-
-      {#if pagamentoSelecionado.comprovante}
-        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p class="text-sm text-blue-700 font-medium mb-2">Comprovante Anexado</p>
-          <a href={pagamentoSelecionado.comprovante} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
-            <FileCheck size={18} />Visualizar Comprovante
-          </a>
-        </div>
-      {/if}
-
-      <div class="flex gap-3 pt-2">
-        {#if pagamentoSelecionado.status === 'pendente'}
-          <Button variant="primary" color="financeiro" class_name="flex-1 justify-center" on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}>
-            <CheckCircle size={16} class="mr-2" />Conciliar
-          </Button>
-        {:else if pagamentoSelecionado.status === 'divergente'}
-          <Button variant="secondary" class_name="flex-1 justify-center" on:click={() => { showDetalheDialog = false; showConciliarDialog = true; }}>
-            <AlertCircle size={16} class="mr-2" />Revisar
-          </Button>
-        {/if}
-        {#if !pagamentoSelecionado.comprovante}
-          <Button variant="secondary" on:click={() => { showDetalheDialog = false; showUploadDialog = true; }}>
-            <Upload size={16} class="mr-2" />Anexar Comprovante
-          </Button>
-        {/if}
-      </div>
-    </div>
-  {/if}
-</Dialog>
-
-<Dialog bind:open={showConciliarDialog} title="Conciliar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={false}>
-  {#if pagamentoSelecionado}
-    <div class="space-y-4">
-      <div class="p-4 bg-slate-50 rounded-lg">
-        <div class="flex justify-between items-start mb-2">
-          <div>
-            <p class="text-sm text-slate-500">Pagamento</p>
-            <p class="font-semibold text-slate-900">{pagamentoSelecionado.codigo}</p>
-          </div>
-          <p class="text-xl font-bold text-financeiro-600">{formatCurrency(pagamentoSelecionado.valor)}</p>
-        </div>
-        <p class="text-slate-700">{pagamentoSelecionado.cliente}</p>
-        <p class="text-sm text-slate-500">{pagamentoSelecionado.descricao}</p>
-      </div>
-
-      <div>
-        <p class="text-sm font-medium text-slate-700 mb-2">Vincular à Venda</p>
-        <select bind:value={vendaSelecionada} class="vtur-input w-full">
-          <option value="">Selecione a venda...</option>
-          {#each vendas as venda}
-            <option value={venda.id}>{venda.codigo} - {venda.cliente_nome} ({formatCurrency(venda.valor_total)})</option>
+      {:else}
+        <div class="space-y-3">
+          {#each importPreview.slice(0, 12) as row}
+            <div class="rounded-xl border border-slate-200 px-4 py-3">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <p class="font-semibold text-slate-900">{row.documento}</p>
+                  <p class="text-sm text-slate-500">{row.descricao || 'Sem descrição'}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-semibold text-slate-900">{formatCurrency(row.valor_lancamentos)}</p>
+                  <p class="text-xs text-slate-500">{formatDate(row.movimento_data)}</p>
+                </div>
+              </div>
+              <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                <span class="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">{row.status || 'OUTRO'}</span>
+                <span class="rounded-full bg-blue-100 px-2 py-1 font-semibold text-blue-700">{row.faixa_comissao || 'SEM_COMISSAO'}</span>
+                <span class="rounded-full bg-amber-100 px-2 py-1 font-semibold text-amber-700">{formatPercent(row.percentual_comissao_loja)}</span>
+              </div>
+            </div>
           {/each}
-        </select>
-        <p class="text-xs text-slate-500 mt-1">Selecione a venda correspondente a este pagamento</p>
-      </div>
-
-      <div class="flex gap-3 pt-4">
-        <Button variant="primary" color="financeiro" class_name="flex-1 justify-center" on:click={handleConciliar} disabled={processando}>
-          {#if processando}<Loader2 size={16} class="mr-2 animate-spin" />{:else}<CheckCircle size={16} class="mr-2" />{/if}
-          Confirmar Conciliação
-        </Button>
-        <Button variant="secondary" on:click={handleMarcarDivergente} disabled={processando}>
-          <AlertCircle size={16} class="mr-2" />Divergente
-        </Button>
-      </div>
-    </div>
-  {/if}
-</Dialog>
-
-<Dialog bind:open={showUploadDialog} title="Anexar Comprovante" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Enviar" confirmVariant="primary" loading={processando} onConfirm={handleUpload} confirmDisabled={!arquivoSelecionado}>
-  {#if pagamentoSelecionado}
-    <div class="space-y-4">
-      <div class="p-4 bg-slate-50 rounded-lg">
-        <p class="text-sm text-slate-500">Pagamento</p>
-        <p class="font-semibold text-slate-900">{pagamentoSelecionado.codigo}</p>
-        <p class="text-financeiro-600 font-medium">{formatCurrency(pagamentoSelecionado.valor)}</p>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-2">Selecione o arquivo</label>
-        <input type="file" accept=".jpg,.jpeg,.png,.pdf" on:change={handleFileSelect} class="vtur-input w-full" />
-        <p class="text-xs text-slate-500 mt-1">Formatos aceitos: JPG, PNG, PDF. Tamanho máximo: 5MB</p>
-      </div>
-
-      {#if arquivoSelecionado}
-        <div class="p-3 bg-green-50 rounded-lg flex items-center gap-2">
-          <FileCheck size={18} class="text-green-600" />
-          <span class="text-sm text-green-700">{arquivoSelecionado.name}</span>
-          <span class="text-xs text-green-600">({(arquivoSelecionado.size / 1024).toFixed(1)} KB)</span>
+          {#if importPreview.length > 12}
+            <p class="text-xs text-slate-500">Mostrando 12 de {importPreview.length} linhas preparadas para importação.</p>
+          {/if}
         </div>
       {/if}
+    </Card>
+  </div>
+{:else if activeTab === 'alteracoes'}
+  <Card color="financeiro" header="Histórico de alterações da conciliação">
+    <div class="mb-4 flex justify-end">
+      <Button variant="secondary" on:click={revertPendingChanges} disabled={changes.filter((item) => !item.reverted_at).length === 0} loading={reverting}>
+        <RefreshCcw size={16} class="mr-2" />
+        Reverter pendentes
+      </Button>
+    </div>
+
+    <DataTable
+      data={changes}
+      columns={changeColumns}
+      color="financeiro"
+      {loading}
+      title="Alterações"
+      searchable={false}
+      filterable={false}
+      exportable={false}
+      emptyMessage="Nenhuma alteração registrada."
+    />
+  </Card>
+{:else if activeTab === 'execucoes'}
+  <Card color="financeiro" header="Execuções automáticas e manuais">
+    <DataTable
+      data={executions}
+      columns={executionColumns}
+      color="financeiro"
+      {loading}
+      title="Execuções"
+      searchable={false}
+      filterable={false}
+      exportable={false}
+      emptyMessage="Nenhuma execução registrada."
+    />
+  </Card>
+{/if}
+
+<Dialog
+  bind:open={showDetailsDialog}
+  title="Detalhes da conciliação"
+  color="financeiro"
+  showConfirm={true}
+  confirmText="Salvar atribuição"
+  onConfirm={saveAssignment}
+  loading={saving}
+  maxWidth="840px"
+>
+  {#if selectedRow}
+    <div class="space-y-5">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Extrato</p>
+          <p class="mt-2 text-lg font-semibold text-slate-900">{selectedRow.documento}</p>
+          <p class="text-sm text-slate-500">{selectedRow.descricao || 'Sem descrição'}</p>
+          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p class="text-slate-500">Data</p>
+              <p class="font-medium text-slate-900">{formatDate(selectedRow.movimento_data)}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Status</p>
+              <p class="font-medium text-slate-900">{selectedRow.status_label || selectedRow.status}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Valor loja</p>
+              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.valor_calculada_loja)}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">% loja</p>
+              <p class="font-medium text-slate-900">{formatPercent(selectedRow.percentual_comissao_loja)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Auditoria do sistema</p>
+          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p class="text-slate-500">Venda vinculada</p>
+              <p class="font-medium text-slate-900">{selectedRow.venda_id || '-'}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Recibo vinculado</p>
+              <p class="font-medium text-slate-900">{selectedRow.venda_recibo_id || '-'}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Match total</p>
+              <p class="font-medium text-slate-900">{selectedRow.match_total == null ? '-' : selectedRow.match_total ? 'Sim' : 'Não'}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Match taxas</p>
+              <p class="font-medium text-slate-900">{selectedRow.match_taxas == null ? '-' : selectedRow.match_taxas ? 'Sim' : 'Não'}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Dif. total</p>
+              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_total)}</p>
+            </div>
+            <div>
+              <p class="text-slate-500">Dif. taxas</p>
+              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_taxas)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label for="conciliacao-vendedor" class="mb-1 block text-sm font-medium text-slate-700">Vendedor de ranking</label>
+          <select id="conciliacao-vendedor" bind:value={rankingVendedorId} class="vtur-input w-full">
+            <option value="">Selecione...</option>
+            {#each vendedores as vendedor}
+              <option value={vendedor.id}>{vendedor.nome_completo}</option>
+            {/each}
+          </select>
+        </div>
+        <div>
+          <label for="conciliacao-produto" class="mb-1 block text-sm font-medium text-slate-700">Produto para meta</label>
+          <select id="conciliacao-produto" bind:value={rankingProdutoId} class="vtur-input w-full">
+            <option value="">Selecione...</option>
+            {#each produtosMeta as produto}
+              <option value={produto.id}>{produto.nome}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+          <input type="checkbox" bind:checked={marcadoConciliado} class="rounded border-slate-300" />
+          Marcar como conciliado
+        </label>
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+          <input type="checkbox" bind:checked={isBaixaRac} class="rounded border-slate-300" />
+          Marcar como Baixa RAC
+        </label>
+      </div>
+
+      <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+        <Button variant="secondary" on:click={() => selectedRow && runAutoConciliacao(selectedRow.id)} disabled={running} loading={running}>
+          <Bot size={16} class="mr-2" />
+          Tentar vínculo automático
+        </Button>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          Última checagem: {formatDateTime(selectedRow.last_checked_at)}
+        </div>
+      </div>
     </div>
   {/if}
+
+  <svelte:fragment slot="actions">
+    <Button color="financeiro" on:click={saveAssignment} loading={saving}>
+      <Save size={16} class="mr-2" />
+      Salvar atribuição
+    </Button>
+  </svelte:fragment>
 </Dialog>
