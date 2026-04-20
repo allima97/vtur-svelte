@@ -8,7 +8,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Filter } from 'lucide-svelte';
+  import { Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface ProdutoRelatorio {
@@ -319,39 +319,22 @@
   </svelte:fragment>
 </FilterPanel>
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid {produtoTop ? '' : 'vtur-kpi-grid-3'} mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
-      <Filter size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Receita Total</p>
-      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalReceita)}</p>
-    </div>
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><Wallet size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Receita Total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalReceita)}</p></div>
   </div>
   <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
-      <Filter size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Lucro Total</p>
-      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalLucro)}</p>
-    </div>
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><TrendingUp size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Lucro Total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalLucro)}</p></div>
   </div>
   <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-      <Filter size={20} />
-    </div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Margem Media</p>
-      <p class="text-2xl font-bold text-slate-900">{margemMedia.toFixed(1)}%</p>
-    </div>
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><BarChart2 size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Margem Média</p><p class="text-2xl font-bold text-slate-900">{margemMedia.toFixed(1)}%</p></div>
   </div>
   {#if produtoTop}
     <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
-        <Filter size={20} />
-      </div>
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Trophy size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Produto Top</p>
         <p class="text-lg font-bold text-slate-900 truncate">{produtoTop.produto}</p>

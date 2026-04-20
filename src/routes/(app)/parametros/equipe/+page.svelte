@@ -117,7 +117,7 @@
   ]}
 />
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <Users size={20} />

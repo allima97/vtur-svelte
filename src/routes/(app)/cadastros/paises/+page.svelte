@@ -5,7 +5,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Pencil, Trash2, RefreshCw } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Pais = {
     id: string;
@@ -113,12 +113,10 @@
   ]}
 />
 
-<DataTable {columns} data={paises} {loading} title="Países cadastrados" searchable={true} emptyMessage="Nenhum país encontrado">
+<DataTable {columns} data={paises} {loading} title="Países cadastrados" searchable={true} emptyMessage="Nenhum país encontrado"
+  onRowClick={(row) => openEdit(row)}>
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex gap-1">
-      <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil size={15} /></button>
-      <button on:click|stopPropagation={() => deletePais(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
-    </div>
+    <button on:click|stopPropagation={() => deletePais(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
   </svelte:fragment>
 </DataTable>
 

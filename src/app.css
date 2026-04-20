@@ -627,6 +627,8 @@
   */
   .vtur-kpi-card {
     min-height: 116px;
+    width: 100%;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -658,28 +660,39 @@
     padding: 1.25rem !important;
   }
 
-  /* Grid de KPIs: todos os filhos com mesma altura */
+  /* Grid de KPIs: todos os filhos com mesma altura, preenchem 100% da linha */
   .vtur-kpi-grid {
     display: grid;
     gap: 1rem;
-    grid-template-columns: repeat(1, 1fr);
+    grid-template-columns: repeat(1, minmax(0, 1fr));
     align-items: stretch;
+    width: 100%;
     margin-bottom: 1.5rem;
   }
 
   .vtur-kpi-grid > * {
-    min-height: 100px;
+    min-width: 0;
+    width: 100%;
   }
 
   @media (min-width: 640px) {
-    .vtur-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .vtur-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (min-width: 1024px) {
-    .vtur-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+    .vtur-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
+  /* Variantes para grids com número fixo de colunas */
+  /* 3 colunas: expande para 3 a partir de sm, fica em 3 no lg+ */
+  @media (min-width: 640px) {
+    .vtur-kpi-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  }
+  @media (min-width: 1024px) {
+    .vtur-kpi-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  }
+
   @media (min-width: 1280px) {
-    .vtur-kpi-grid-5 { grid-template-columns: repeat(5, 1fr) !important; }
-    .vtur-kpi-grid-6 { grid-template-columns: repeat(6, 1fr) !important; }
+    .vtur-kpi-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+    .vtur-kpi-grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
   }
 
   /* Table shell (container da tabela com bordas e sombra) */
@@ -755,70 +768,6 @@
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
   }
-}
-
-
-.vtur-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-
-@media (min-width: 640px) {
-  .vtur-kpi-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .vtur-kpi-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1440px) {
-  .vtur-kpi-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-}
-
-.vtur-kpi-card {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
-  padding: 1rem;
-  min-height: 122px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-shadow: 0 14px 34px rgba(9, 17, 46, 0.06);
-}
-
-.vtur-kpi-card__title {
-  margin: 0 0 0.45rem;
-  font-size: 0.68rem;
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: #64748b;
-}
-
-.vtur-kpi-card__value {
-  margin: 0 0 0.35rem;
-  font-size: 1.3rem;
-  line-height: 1.2;
-  font-weight: 700;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vtur-kpi-card__subtext {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  color: #94a3b8;
 }
 
 .vtur-dashboard-grid {

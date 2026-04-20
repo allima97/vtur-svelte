@@ -160,12 +160,14 @@
   $: qtdOrcamentos = orcamentos.length;
   $: conversaoPct = qtdOrcamentos > 0 ? (vendasAgg.qtdVendas / qtdOrcamentos) * 100 : 0;
 
-  // Dias restantes no mês
+  // Dias restantes no mês corrente (sempre mês atual, independente do filtro)
   $: diasRestantes = (() => {
-    const fim = new Date(periodoFim);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+    // Último dia do mês corrente
+    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    fimMes.setHours(0, 0, 0, 0);
+    const diff = Math.ceil((fimMes.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, diff);
   })();
 
@@ -444,13 +446,15 @@
       <Calendar size={20} />
     </div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Dias restantes</p>
+      <p class="text-sm font-medium text-slate-500">Dias no mês</p>
       {#if loading}
         <div class="h-7 w-16 bg-slate-200 rounded animate-pulse mt-1"></div>
       {:else}
         <p class="text-2xl font-bold text-slate-900">{diasRestantes}d</p>
         {#if metaDiaria > 0}
           <p class="mt-0.5 text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
+        {:else if diasRestantes === 0}
+          <p class="mt-0.5 text-xs text-slate-400">Fim do mês</p>
         {:else}
           <p class="mt-0.5 text-xs text-slate-400">Meta atingida ✓</p>
         {/if}

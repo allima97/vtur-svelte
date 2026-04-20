@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { RefreshCw, DollarSign, Building2, Pencil } from 'lucide-svelte';
+  import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
 
   type BillingRow = {
     id: string;
@@ -156,7 +156,7 @@
   ]}
 />
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Building2 size={20} /></div>
     <div>
@@ -188,13 +188,8 @@
   title="Billing por empresa"
   searchable={true}
   emptyMessage="Nenhuma empresa encontrada"
->
-  <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar billing">
-      <Pencil size={15} />
-    </button>
-  </svelte:fragment>
-</DataTable>
+  onRowClick={(row) => openEdit(row)}
+/>
 
 <Dialog
   bind:open={modalOpen}

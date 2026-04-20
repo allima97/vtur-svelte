@@ -3,8 +3,7 @@
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, FileText, Clock, CheckCircle, Send, TrendingUp, ShoppingCart, AlertCircle } from 'lucide-svelte';
+  import { Plus, FileText, Send, ShoppingCart, AlertCircle } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Orcamento {
@@ -366,49 +365,37 @@
 {/if}
 
 <div class="vtur-kpi-grid mb-6">
-  <button on:click={() => { somenteCriticos = true; somenteProntosVenda = false; }} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><AlertCircle size={20} /></div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><FileText size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Orçamentos críticos</p>
-      <p class="text-2xl font-bold text-slate-900">{criticosCount}</p>
+      <p class="text-sm font-medium text-slate-500">Total</p>
+      <p class="text-2xl font-bold text-slate-900">{resumo.total}</p>
     </div>
-  </button>
-
-  <button on:click={() => { somenteProntosVenda = true; somenteCriticos = false; }} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Prontos para venda</p>
-      <p class="text-2xl font-bold text-slate-900">{prontosVendaCount}</p>
-    </div>
-  </button>
-
-  <button on:click={() => { somenteCriticos = false; somenteProntosVenda = false; }} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Send size={20} /></div>
+  </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-sky-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-500"><Send size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Enviados</p>
       <p class="text-2xl font-bold text-slate-900">{resumo.enviados}</p>
+      <p class="mt-0.5 text-xs text-slate-400">Aguardando cliente</p>
     </div>
-  </button>
-
-  <button on:click={() => { somenteCriticos = false; somenteProntosVenda = false; }} class="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><TrendingUp size={20} /></div>
+  </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><AlertCircle size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Taxa de conversão</p>
-      <p class="text-2xl font-bold text-slate-900">{resumo.taxaConversao}%</p>
+      <p class="text-sm font-medium text-slate-500">Sem interação</p>
+      <p class="text-2xl font-bold text-slate-900">{resumo.semInteracao}</p>
+      <p class="mt-0.5 text-xs text-slate-400">Prioridade máxima</p>
     </div>
-  </button>
-</div>
-
-<div class="vtur-kpi-grid mb-6">
-  <KPICard title="Total" value={resumo.total} color="orcamentos" icon={FileText} />
-  <KPICard title="Novos" value={resumo.novos} color="orcamentos" icon={FileText} subtitle="Aguardando ação" />
-  <KPICard title="Pendentes" value={resumo.pendentes} color="orcamentos" icon={Clock} subtitle="Em negociação" />
-  <KPICard title="Enviados" value={resumo.enviados} color="orcamentos" icon={Send} subtitle="Aguardando cliente" />
-  <KPICard title="Aprovados" value={resumo.aprovados} color="orcamentos" icon={CheckCircle} subtitle="Prontos para virar venda" />
-  <KPICard title="Convertidos" value={resumo.convertidos} color="orcamentos" icon={ShoppingCart} subtitle={`${resumo.taxaConversao}% conversão`} />
-  <KPICard title="Sem interação" value={resumo.semInteracao} color="orcamentos" icon={Clock} subtitle="Prioridade máxima" />
-  <KPICard title="Atrasados" value={resumo.followupAtrasado} color="orcamentos" icon={Clock} subtitle="7+ dias sem contato" />
-  <KPICard title="Expirando" value={resumo.expirando} color="orcamentos" icon={Clock} subtitle="Vencem em até 3 dias" />
+  </div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Convertidos</p>
+      <p class="text-2xl font-bold text-slate-900">{resumo.convertidos}</p>
+      <p class="mt-0.5 text-xs text-slate-400">{resumo.taxaConversao}% conversão</p>
+    </div>
+  </div>
 </div>
 
 <div class="mb-4 flex flex-wrap items-center gap-3">

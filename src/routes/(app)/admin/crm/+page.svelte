@@ -161,12 +161,10 @@
       Novo Template
     </Button>
   </div>
-  <DataTable columns={colsTemplate} data={templates} color="financeiro" {loading} title="Templates de mensagem" searchable={true} emptyMessage="Nenhum template">
+  <DataTable columns={colsTemplate} data={templates} color="financeiro" {loading} title="Templates de mensagem" searchable={true} emptyMessage="Nenhum template"
+    onRowClick={(row) => openEdit('template', row)}>
     <svelte:fragment slot="row-actions" let:row>
-      <div class="flex gap-1">
-        <button on:click|stopPropagation={() => openEdit('template', row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil size={15} /></button>
-        <button on:click|stopPropagation={() => deleteEntity('template', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
-      </div>
+      <button on:click|stopPropagation={() => deleteEntity('template', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
     </svelte:fragment>
   </DataTable>
 
@@ -177,12 +175,10 @@
       Novo Tema
     </Button>
   </div>
-  <DataTable columns={colsTema} data={temas} color="financeiro" {loading} title="Temas de arte" searchable={true} emptyMessage="Nenhum tema">
+  <DataTable columns={colsTema} data={temas} color="financeiro" {loading} title="Temas de arte" searchable={true} emptyMessage="Nenhum tema"
+    onRowClick={(row) => openEdit('tema', row)}>
     <svelte:fragment slot="row-actions" let:row>
-      <div class="flex gap-1">
-        <button on:click|stopPropagation={() => openEdit('tema', row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil size={15} /></button>
-        <button on:click|stopPropagation={() => deleteEntity('tema', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
-      </div>
+      <button on:click|stopPropagation={() => deleteEntity('tema', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
     </svelte:fragment>
   </DataTable>
 

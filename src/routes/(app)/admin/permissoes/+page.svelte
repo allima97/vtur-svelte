@@ -119,7 +119,7 @@
 />
 
 <div class="space-y-6">
-  <div class="vtur-kpi-grid lg:[grid-template-columns:repeat(3,minmax(0,1fr))]">
+  <div class="vtur-kpi-grid vtur-kpi-grid-3">
     <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Usuários no painel</p><p class="text-2xl font-bold text-slate-900">{rows.length}</p></div>

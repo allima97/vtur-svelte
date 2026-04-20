@@ -7,7 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { RefreshCw, Search, Pencil } from 'lucide-svelte';
+  import { RefreshCw, Search } from 'lucide-svelte';
 
   type AjusteItem = {
     id: string;
@@ -212,19 +212,8 @@
   title="Recibos disponíveis para rateio"
   searchable={false}
   emptyMessage="Nenhum recibo encontrado para o período"
->
-  <svelte:fragment slot="row-actions" let:row>
-    {#if canEdit}
-      <button
-        on:click|stopPropagation={() => openEdit(row)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-        title="Configurar rateio"
-      >
-        <Pencil size={15} />
-      </button>
-    {/if}
-  </svelte:fragment>
-</DataTable>
+  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
+/>
 
 <Dialog
   bind:open={modalOpen}

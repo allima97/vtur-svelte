@@ -7,7 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Pencil, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
 
   type MessageTemplate = {
     id: string;
@@ -174,18 +174,14 @@
   title="Templates de mensagem"
   searchable={true}
   emptyMessage="Nenhum template cadastrado"
+  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      {#if canEdit}
-        <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar">
-          <Pencil size={15} />
-        </button>
-        <button on:click|stopPropagation={() => deleteTemplate(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
-          <Trash2 size={15} />
-        </button>
-      {/if}
-    </div>
+    {#if canEdit}
+      <button on:click|stopPropagation={() => deleteTemplate(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+        <Trash2 size={15} />
+      </button>
+    {/if}
   </svelte:fragment>
 </DataTable>
 

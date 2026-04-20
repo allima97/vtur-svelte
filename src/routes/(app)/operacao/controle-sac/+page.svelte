@@ -8,7 +8,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Pencil, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock, Search } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock, Search } from 'lucide-svelte';
 
   type SacRegistro = {
     id: string;
@@ -239,7 +239,7 @@
   ]}
 />
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <AlertCircle size={20} />
@@ -296,29 +296,19 @@
   title="Registros SAC"
   searchable={false}
   emptyMessage="Nenhum registro SAC encontrado"
+  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      {#if canEdit}
-        <button
-          on:click|stopPropagation={() => openEdit(row)}
-          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          title="Editar"
-        >
-          <Pencil size={15} />
-        </button>
-      {/if}
-      {#if canDelete}
-        <button
-          on:click|stopPropagation={() => deleteRegistro(row.id)}
-          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          title="Excluir"
-          disabled={deletingId === row.id}
-        >
-          <Trash2 size={15} />
-        </button>
-      {/if}
-    </div>
+    {#if canDelete}
+      <button
+        on:click|stopPropagation={() => deleteRegistro(row.id)}
+        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+        title="Excluir"
+        disabled={deletingId === row.id}
+      >
+        <Trash2 size={15} />
+      </button>
+    {/if}
   </svelte:fragment>
 </DataTable>
 

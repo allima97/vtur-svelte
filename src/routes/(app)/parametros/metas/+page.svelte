@@ -8,7 +8,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Target, Trash2, Pencil, RefreshCw } from 'lucide-svelte';
+  import { Plus, Target, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Meta = {
     id: string;
@@ -213,7 +213,7 @@
   ]}
 />
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
       <Target size={20} />
@@ -251,29 +251,19 @@
   title="Metas cadastradas"
   searchable={true}
   emptyMessage="Nenhuma meta cadastrada"
+  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      {#if canEdit}
-        <button
-          on:click|stopPropagation={() => openEdit(row)}
-          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          title="Editar"
-        >
-          <Pencil size={15} />
-        </button>
-      {/if}
-      {#if canDelete}
-        <button
-          on:click|stopPropagation={() => deleteMeta(row.id)}
-          class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-          title="Excluir"
-          disabled={deletingId === row.id}
-        >
-          <Trash2 size={15} />
-        </button>
-      {/if}
-    </div>
+    {#if canDelete}
+      <button
+        on:click|stopPropagation={() => deleteMeta(row.id)}
+        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+        title="Excluir"
+        disabled={deletingId === row.id}
+      >
+        <Trash2 size={15} />
+      </button>
+    {/if}
   </svelte:fragment>
 </DataTable>
 

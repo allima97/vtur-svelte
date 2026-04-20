@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { Plus, Route, MapPin, Calendar, DollarSign, Loader2, Search } from 'lucide-svelte';
+  import { Plus, Route, MapPin, Calendar, DollarSign, Loader2, Search, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Circuito {
@@ -43,8 +43,7 @@
     { key: 'dias', label: 'Duração', sortable: true, width: '100px', formatter: (v: number, row: Circuito) => `${v}d/${row.noites}n` },
     { key: 'destinos_str', label: 'Destinos', sortable: false },
     { key: 'preco_base', label: 'Preço', sortable: true, align: 'right' as const, width: '110px', formatter: (v: number) => formatCurrency(v) },
-    { key: 'ativo', label: 'Status', sortable: true, width: '90px', formatter: (v: boolean) => getStatusBadge(v) },
-    { key: 'acoes', label: '', sortable: false, width: '100px', align: 'center' as const, formatter: (_v: any, row: Circuito) => getAcoes(row) }
+    { key: 'ativo', label: 'Status', sortable: true, width: '90px', formatter: (v: boolean) => getStatusBadge(v) }
   ];
 
   onMount(async () => {
@@ -91,31 +90,8 @@
     return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-slate-200 text-slate-600">Inativo</span>`;
   }
 
-  function getAcoes(circuito: Circuito): string {
-    return `
-      <div class="flex items-center justify-center gap-1">
-        <button class="p-1.5 text-slate-400 hover:text-financeiro-600 hover:bg-financeiro-50 rounded-lg transition-colors" data-action="edit" data-id="${circuito.id}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-        </button>
-        <button class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" data-action="delete" data-id="${circuito.id}">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-        </button>
-      </div>
-    `;
-  }
-
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value || 0);
-  }
-
-  function handleRowAction(e: CustomEvent) {
-    const { action, row } = e.detail;
-    if (action === 'edit') {
-      goto(`/cadastros/circuitos/${row.id}/editar`);
-    } else if (action === 'delete') {
-      circuitoToDelete = row;
-      showDeleteDialog = true;
-    }
   }
 
   async function confirmDelete() {
@@ -278,9 +254,13 @@
     {loading}
     title="Lista de Circuitos"
     searchable={true}
-    on:rowaction={handleRowAction}
+    onRowClick={(row) => goto(`/cadastros/circuitos/${row.id}/editar`)}
     emptyMessage="Nenhum circuito encontrado"
-  />
+  >
+    <svelte:fragment slot="row-actions" let:row>
+      <button on:click|stopPropagation={() => { circuitoToDelete = row; showDeleteDialog = true; }} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+    </svelte:fragment>
+  </DataTable>
 {/if}
 
 <!-- Dialog de confirmação -->

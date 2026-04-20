@@ -18,7 +18,8 @@
     data_venda: string | null;
     data_embarque: string | null;
     valor_total: number;
-    comissao: number;
+    valor_taxas: number | null;
+    comissao: number | null;
     status: 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
     vendedor: string;
     tipo: 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -64,22 +65,22 @@
       label: 'Valor Total',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) =>
+      formatter: (value: number | null | undefined) =>
         new Intl.NumberFormat('pt-BR', {
           style: 'currency',
           currency: 'BRL'
-        }).format(value)
+        }).format(Number(value) || 0)
     },
     {
-      key: 'comissao',
+      key: 'valor_taxas',
       label: 'Taxas',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) =>
+      formatter: (value: number | null | undefined) =>
         new Intl.NumberFormat('pt-BR', {
           style: 'currency',
           currency: 'BRL'
-        }).format(value)
+        }).format(Number(value) || 0)
     },
     {
       key: 'status',
@@ -183,8 +184,8 @@
   }
 
   function getResumoVendas() {
-    const total = vendas.reduce((acc, venda) => acc + venda.valor_total, 0);
-    const taxas = vendas.reduce((acc, venda) => acc + venda.comissao, 0);
+    const total = vendas.reduce((acc, venda) => acc + Number(venda.valor_total || 0), 0);
+    const taxas = vendas.reduce((acc, venda) => acc + Number(venda.valor_taxas || 0), 0);
     const confirmadas = vendas.filter((venda) => venda.status === 'confirmada').length;
     const pendentes = vendas.filter((venda) => venda.status === 'pendente').length;
 

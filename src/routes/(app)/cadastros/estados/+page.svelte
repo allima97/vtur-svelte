@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Pencil, Trash2, RefreshCw } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Subdivisao = {
     id: string;
@@ -147,12 +147,10 @@
   </div>
 </Card>
 
-<DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={true} emptyMessage="Nenhum estado encontrado">
+<DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={true} emptyMessage="Nenhum estado encontrado"
+  onRowClick={(row) => openEdit(row)}>
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex gap-1">
-      <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil size={15} /></button>
-      <button on:click|stopPropagation={() => deleteEstado(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
-    </div>
+    <button on:click|stopPropagation={() => deleteEstado(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
   </svelte:fragment>
 </DataTable>
 

@@ -110,7 +110,7 @@
     </div>
   </Card>
 
-  <div class="vtur-kpi-grid">
+  <div class="vtur-kpi-grid mb-6">
     <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
       <div>

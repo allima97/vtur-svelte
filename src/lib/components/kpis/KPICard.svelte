@@ -58,7 +58,6 @@
 -->
 <div
   class="vtur-kpi-card flex flex-col items-start gap-3 border-t-[3px] p-5 {borderColor[color]}"
-  style="min-height: 116px;"
 >
   {#if loading}
     <div class="flex h-full w-full flex-col items-start gap-2">

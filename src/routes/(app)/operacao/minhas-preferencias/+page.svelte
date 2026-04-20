@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Pencil, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
   type Preferencia = {
     id: string;
@@ -218,16 +218,12 @@
   title="Preferências cadastradas"
   searchable={true}
   emptyMessage="Nenhuma preferência cadastrada"
+  onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar">
-        <Pencil size={15} />
-      </button>
-      <button on:click|stopPropagation={() => deletePref(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
-        <Trash2 size={15} />
-      </button>
-    </div>
+    <button on:click|stopPropagation={() => deletePref(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+      <Trash2 size={15} />
+    </button>
   </svelte:fragment>
 </DataTable>
 

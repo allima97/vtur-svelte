@@ -123,7 +123,7 @@
 />
 
 <div class="space-y-6">
-  <div class="vtur-kpi-grid">
+  <div class="vtur-kpi-grid mb-6">
     <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Total</p><p class="text-2xl font-bold text-slate-900">{stats.total}</p></div>

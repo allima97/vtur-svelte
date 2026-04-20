@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Plus, Pencil, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
 
   type Plano = {
     id: string;
@@ -138,7 +138,7 @@
   ]}
 />
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <DollarSign size={20} />
@@ -176,16 +176,12 @@
   title="Planos cadastrados"
   searchable={true}
   emptyMessage="Nenhum plano cadastrado"
+  onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <div class="flex items-center gap-1">
-      <button on:click|stopPropagation={() => openEdit(row)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Editar">
-        <Pencil size={15} />
-      </button>
-      <button on:click|stopPropagation={() => deletePlano(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
-        <Trash2 size={15} />
-      </button>
-    </div>
+    <button on:click|stopPropagation={() => deletePlano(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+      <Trash2 size={15} />
+    </button>
   </svelte:fragment>
 </DataTable>
 

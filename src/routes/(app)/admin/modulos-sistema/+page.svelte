@@ -89,7 +89,7 @@
   </div>
 {/if}
 
-<div class="vtur-kpi-grid mb-6">
+<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Settings size={20} /></div>
     <div>
