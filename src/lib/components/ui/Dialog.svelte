@@ -1,117 +1,129 @@
 <script lang="ts">
-  import { X, Loader2 } from 'lucide-svelte';
-  import type { ModuleColor } from '$lib/theme/colors';
+  import { createEventDispatcher } from 'svelte';
+  import { Modal } from 'flowbite-svelte';
   import Button from './Button.svelte';
-  
-  // Props
-  export let open: boolean = false;
-  export let title: string = '';
+
+  export let open = false;
+  export let title = '';
   export let size: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'md';
-  export let color: 'clientes' | 'orcamentos' | 'operacao' | 'financeiro' | 'vendas' | 'blue' | 'green' | 'orange' | 'teal' = 'blue';
-  export let dismissable: boolean = true;
-  export let respectAppShell: boolean = false;
-  
-  // Botões de ação
-  export let showCancel: boolean = true;
-  export let cancelText: string = 'Cancelar';
-  export let showConfirm: boolean = false;
-  export let confirmText: string = 'Confirmar';
+  export let color:
+    | 'clientes'
+    | 'orcamentos'
+    | 'operacao'
+    | 'financeiro'
+    | 'vendas'
+    | 'blue'
+    | 'green'
+    | 'orange'
+    | 'teal' = 'blue';
+  export let dismissable = true;
+  export let respectAppShell = false;
+
+  export let showCancel = true;
+  export let cancelText = 'Cancelar';
+  export let showConfirm = false;
+  export let confirmText = 'Confirmar';
   export let confirmVariant: 'primary' | 'danger' = 'primary';
-  export let loading: boolean = false;
-  
-  // Props extras (aceitas mas ignoradas silenciosamente para compatibilidade)
+  export let loading = false;
+
   export let description: string | null = null;
   export let maxWidth: string | null = null;
-  export let confirmDisabled: boolean = false;
+  export let confirmDisabled = false;
 
-  // Eventos
   export let onCancel: ((e?: Event) => void) | undefined = undefined;
   export let onConfirm: ((e?: Event) => void) | undefined = undefined;
   export let onclose: ((e?: Event) => void) | undefined = undefined;
-  
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-[calc(100vw-22rem)]'
+
+  const dispatch = createEventDispatcher<{
+    cancel: Event | undefined;
+    confirm: Event | undefined;
+    close: Event | undefined;
+  }>();
+
+  const toneClasses: Record<string, string> = {
+    clientes: 'vtur-dialog--clientes',
+    orcamentos: 'vtur-dialog--orcamentos',
+    operacao: 'vtur-dialog--operacao',
+    financeiro: 'vtur-dialog--financeiro',
+    vendas: 'vtur-dialog--vendas',
+    blue: 'vtur-dialog--clientes',
+    green: 'vtur-dialog--vendas',
+    orange: 'vtur-dialog--financeiro',
+    teal: 'vtur-dialog--operacao'
   };
-  
-  function handleCancel() {
-    if (onCancel) onCancel();
-    if (onclose) onclose();
+
+  const sizeMap: Record<typeof size, 'sm' | 'md' | 'lg' | 'xl'> = {
+    sm: 'sm',
+    md: 'md',
+    lg: 'lg',
+    xl: 'xl',
+    full: 'xl'
+  };
+
+  function emitClose(e?: Event) {
+    onclose?.(e);
+    dispatch('close', e);
+  }
+
+  function handleCancel(e?: Event) {
     open = false;
+    onCancel?.(e);
+    dispatch('cancel', e);
+    emitClose(e);
   }
-  
-  function handleConfirm() {
-    if (onConfirm) onConfirm();
-    if (!loading) open = false;
+
+  function handleConfirm(e?: Event) {
+    onConfirm?.(e);
+    dispatch('confirm', e);
   }
-  
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && dismissable) {
-      handleCancel();
-    }
-  }
-  
-  function handleBackdropClick() {
-    if (dismissable) {
-      handleCancel();
-    }
-  }
+
+  $: dialogToneClass = toneClasses[color] ?? toneClasses.blue;
+  $: dialogSize = sizeMap[size] ?? 'md';
+  $: contentClass = size === 'full'
+    ? 'vtur-dialog__surface vtur-dialog__surface--full'
+    : 'vtur-dialog__surface';
+  $: dialogClass = respectAppShell
+    ? 'vtur-dialog-shell vtur-dialog-shell--respect-app'
+    : 'vtur-dialog-shell';
+  $: inlineStyle = maxWidth ? `max-width:${maxWidth};` : undefined;
 </script>
 
-{#if open}
-  <!-- Backdrop -->
-  <div
-    class="fixed inset-0 bg-slate-900/50 z-[1100] flex items-end sm:items-center justify-center sm:p-4"
-    class:dialog-shell={respectAppShell}
-    on:click={handleBackdropClick}
-    on:keydown={handleKeydown}
-    role="button"
-    tabindex="-1"
-    aria-label="Fechar modal"
-  >
-    <!-- Modal: bottom sheet no mobile, centralizado no tablet+ -->
-    <div
-      class="bg-white w-full rounded-t-2xl sm:rounded-xl shadow-xl overflow-hidden sm:w-full {sizeClasses[size]} max-h-[92svh] sm:max-h-[90vh]"
-      on:click|stopPropagation
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-    >
-      <!-- Drag handle (mobile only) -->
-      <div class="sm:hidden flex justify-center pt-3 pb-1">
-        <div class="w-10 h-1 rounded-full bg-slate-300"></div>
-      </div>
-
-      <!-- Header -->
-      <div class="flex items-center justify-between px-4 py-3 sm:p-4 border-b border-slate-100">
-        <h3 class="text-base sm:text-lg font-semibold text-slate-900">{title}</h3>
-        {#if dismissable}
-          <button
-            on:click={handleCancel}
-            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center min-w-[36px] min-h-[36px]"
-          >
-            <X size={20} />
-          </button>
+<Modal
+  bind:open
+  title=""
+  size={dialogSize}
+  autoclose={false}
+  outsideclose={dismissable}
+  {dismissable}
+  class={contentClass}
+  classDialog={dialogClass}
+  classBackdrop="vtur-dialog-backdrop"
+  on:close={(e) => {
+    if (!open) emitClose(e);
+  }}
+>
+  <svelte:fragment slot="header">
+    <div class={`vtur-dialog__accent ${dialogToneClass}`.trim()}></div>
+    <div class="vtur-dialog__header">
+      <div class="min-w-0">
+        <h3 class="vtur-dialog__title">{title}</h3>
+        {#if description}
+          <p class="vtur-dialog__description">{description}</p>
         {/if}
       </div>
+    </div>
+  </svelte:fragment>
 
-      <!-- Content -->
-      <div class="p-4 overflow-y-auto max-h-[60svh] sm:max-h-[60vh]">
-        <slot />
-      </div>
-      
-      <!-- Footer -->
-      {#if showCancel || showConfirm}
-        <div class="flex items-center justify-end gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
+  <div class="vtur-dialog__body" style={inlineStyle}>
+    <slot />
+  </div>
+
+  <svelte:fragment slot="footer">
+    {#if showCancel || showConfirm || $$slots.actions}
+      <div class="vtur-dialog__footer">
+        <div class="vtur-dialog__footer-actions">
           {#if showCancel}
-            <Button
-              variant="secondary"
-              on:click={handleCancel}
-              disabled={loading}
-            >
+            <Button variant="secondary" on:click={handleCancel} disabled={loading}>
               {cancelText}
             </Button>
           {/if}
@@ -120,31 +132,15 @@
               variant={confirmVariant}
               color={confirmVariant === 'primary' ? color : undefined}
               on:click={handleConfirm}
-              loading={loading}
               disabled={confirmDisabled}
+              {loading}
             >
               {confirmText}
             </Button>
           {/if}
           <slot name="actions" />
         </div>
-      {/if}
-    </div>
-  </div>
-{/if}
-
-<style>
-  @media (min-width: 1024px) {
-    .dialog-shell {
-      top: var(--vtur-topbar-height);
-      left: calc(1rem + var(--vtur-sidebar-width) + 1rem);
-      right: 0;
-      bottom: 0;
-      width: calc(100vw - (1rem + var(--vtur-sidebar-width) + 1rem));
-      padding: 1rem;
-      padding-top: 1rem;
-      justify-content: center;
-      align-items: center;
-    }
-  }
-</style>
+      </div>
+    {/if}
+  </svelte:fragment>
+</Modal>

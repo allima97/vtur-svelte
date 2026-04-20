@@ -31,6 +31,7 @@ export type ReportVendaRow = {
   data_embarque: string | null;
   data_final: string | null;
   valor_total: number | null;
+  valor_nao_comissionado: number | null;
   valor_taxas: number | null;
   cancelada: boolean | null;
   clientes?: {
@@ -75,6 +76,7 @@ export async function fetchSalesReportRows(
       data_embarque,
       data_final,
       valor_total,
+      valor_nao_comissionado,
       valor_taxas,
       cancelada,
       clientes (nome, email),

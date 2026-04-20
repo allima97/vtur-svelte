@@ -41,7 +41,7 @@
   <main
     class="vtur-layout"
     style={$isMobile
-      ? 'margin-left:0;padding-top:3.5rem;padding-left:0.75rem;padding-right:0.75rem;padding-bottom:calc(60px + env(safe-area-inset-bottom,0px) + 0.5rem);'
+      ? 'margin-left:0;padding-top:calc(var(--vtur-topbar-height) + 1rem);padding-left:0.75rem;padding-right:0.75rem;padding-bottom:calc(72px + env(safe-area-inset-bottom,0px));'
       : ''}
   >
     <div class="vtur-page-wrap">

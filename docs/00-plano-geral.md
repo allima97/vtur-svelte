@@ -95,3 +95,4 @@ Recriar o `vtur-app` (Astro 6 + React 18 + PrimeReact + Hono + Supabase) no `vtu
 | 07 | [07-financeiro-e-relatorios.md](./07-financeiro-e-relatorios.md) | Financeiro, comissões, relatórios |
 | 08 | [08-admin-e-master.md](./08-admin-e-master.md) | Admin, master, cadastros, permissões |
 | 09 | [09-extras-e-rollout.md](./09-extras-e-rollout.md) | Chat, consultoria, documentação, QA, rollout |
+| 10 | [10-paridade-fiel-vtur-app.md](./10-paridade-fiel-vtur-app.md) | Releitura fiel por módulo, com foco em regra de negócio e amarrações cruzadas |

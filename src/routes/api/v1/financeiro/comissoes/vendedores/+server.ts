@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { fetchCommissionContext } from '$lib/server/comissoes';
 
 // Retorna vendedores com suas regras de comissão (commission_rule)
 export async function GET(event) {
@@ -35,25 +36,33 @@ export async function GET(event) {
     else if (scope.companyId) usersQuery = usersQuery.eq('company_id', scope.companyId);
 
     const { data: usersData } = await usersQuery;
+    const commissionContext = await fetchCommissionContext(client, companyIds);
 
-    // Busca regras disponíveis
-    const { data: regras } = await client
-      .from('commission_rule')
-      .select('id, nome, tipo, meta_atingida, ativo')
-      .eq('ativo', true)
-      .order('nome')
-      .limit(100);
+    const regras = commissionContext.rules.map((rule) => ({
+      id: rule.id,
+      nome: rule.nome || 'Regra',
+      tipo: rule.tipo || 'GERAL',
+      meta_atingida: Number(rule.meta_atingida || 0),
+      ativo: rule.ativo !== false
+    }));
 
-    const items = (usersData || []).map((u: any) => ({
+    const items = (usersData || []).map((u: any) => {
+      const regraBase =
+        commissionContext.rules.find((rule) => rule.company_id && String(rule.company_id) === String(u.company_id || '')) ||
+        commissionContext.rules.find((rule) => !rule.company_id) ||
+        null;
+
+      return {
       id: u.id,
       vendedor_id: u.id,
       vendedor_nome: u.nome_completo || u.email || 'Vendedor',
-      regra_id: null,
-      regra_nome: 'Padrão',
-      percentual_base: 0,
+      regra_id: regraBase?.id || null,
+      regra_nome: regraBase?.nome || 'Sem regra',
+      percentual_base: Number(regraBase?.meta_atingida || 0),
       ativo: true,
       vigente: true
-    }));
+      };
+    });
 
     return json({ items, total: items.length, regras: regras || [] });
   } catch (err) {

@@ -408,6 +408,9 @@
 	"/api/v1/mural/company": [
 		"src/routes/api/v1/mural/company/+server.ts"
 	],
+	"/api/v1/mural/read": [
+		"src/routes/api/v1/mural/read/+server.ts"
+	],
 	"/api/v1/mural/recados": [
 		"src/routes/api/v1/mural/recados/+server.ts"
 	],

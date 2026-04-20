@@ -1,62 +1,200 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { toast } from '$lib/stores/ui';
-  import { MessageCircle, Plus, Send, Trash2, RefreshCw, Users } from 'lucide-svelte';
+  import {
+    ArrowLeft,
+    Building2,
+    MessageCircle,
+    Plus,
+    RefreshCw,
+    Search,
+    Send,
+    Trash2,
+    Users
+  } from 'lucide-svelte';
+  import {
+    buildAttachmentUrl,
+    buildThreads,
+    formatBadge,
+    formatDateTimeBR,
+    formatThreadTime,
+    getInitials,
+    getNomeExibicao,
+    normalizeSortKey,
+    type EmpresaOption,
+    type RecadoRow,
+    type Thread,
+    type UserMini
+  } from '$lib/mural/helpers';
 
-  type Usuario = { id: string; nome_completo: string | null; email: string | null };
-  type Recado = {
-    id: string;
-    sender_id: string;
-    receiver_id: string | null;
-    assunto: string | null;
-    conteudo: string;
-    created_at: string;
-    sender?: Usuario | null;
-    receiver?: Usuario | null;
+  type BootstrapPayload = {
+    userId: string | null;
+    userTypeName: string | null;
+    companyId: string | null;
+    empresas: EmpresaOption[];
+    usuariosEmpresa: UserMini[];
+    recados: RecadoRow[];
+    supportsAttachments: boolean;
   };
 
-  let recados: Recado[] = [];
-  let usuarios: Usuario[] = [];
+  type CompanyPayload = {
+    usuariosEmpresa: UserMini[];
+    recados: RecadoRow[];
+    supportsAttachments: boolean;
+  };
+
+  type RecadosPayload = {
+    recados: RecadoRow[];
+    supportsAttachments: boolean;
+  };
+
   let loading = true;
-  let modalOpen = false;
+  let recadosLoading = false;
   let sending = false;
-  let deletingId = '';
+  let deleting = false;
+  let errorMessage: string | null = null;
 
-  let form = { receiver_id: '', assunto: '', conteudo: '' };
+  let userId: string | null = null;
+  let userCompanyId: string | null = null;
+  let userTypeName = '';
+  let empresas: EmpresaOption[] = [];
+  let empresaSelecionada = '';
+  let usuariosEmpresa: UserMini[] = [];
+  let recados: RecadoRow[] = [];
+  let supportsAttachments = true;
 
-  async function load() {
+  let threadQuery = '';
+  let conteudo = '';
+  let selectedThreadId = 'company';
+  let mobileScreen: 'list' | 'chat' = 'list';
+  let mobileTab: 'chats' | 'contacts' = 'chats';
+  let isMobile = false;
+
+  let deleteTarget: RecadoRow | null = null;
+  let lastLoadedCompanyId = '';
+  let lastReadKey = '';
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  const isMaster = () => /MASTER/i.test(userTypeName);
+  const companyContextId = () => empresaSelecionada || userCompanyId || '';
+
+  function clearPoller() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function startPoller() {
+    clearPoller();
+    if (!companyContextId()) return;
+    pollTimer = setInterval(() => {
+      void loadRecados();
+    }, 15000);
+  }
+
+  function getVisibleRecados(rows: RecadoRow[], targetUserId = userId) {
+    if (!targetUserId) return rows;
+    return rows.filter((recado) => {
+      if (recado.sender_id === targetUserId && recado.sender_deleted) return false;
+      if (recado.receiver_id === targetUserId && recado.receiver_deleted) return false;
+      return true;
+    });
+  }
+
+  async function loadBootstrap() {
     loading = true;
+    errorMessage = null;
     try {
-      const response = await fetch('/api/v1/operacao/recados');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
-      recados = payload.items || [];
-      usuarios = payload.usuarios || [];
+      const payload = await apiGet<BootstrapPayload>('/api/v1/mural/bootstrap');
+      userId = payload.userId ? String(payload.userId) : null;
+      userCompanyId = payload.companyId ? String(payload.companyId) : null;
+      userTypeName = String(payload.userTypeName || '');
+      empresas = payload.empresas || [];
+      empresaSelecionada = empresaSelecionada || payload.companyId || '';
+      usuariosEmpresa = payload.usuariosEmpresa || [];
+      supportsAttachments = payload.supportsAttachments !== false;
+      recados = getVisibleRecados(payload.recados || [], payload.userId || null);
+      lastLoadedCompanyId = companyContextId();
+      startPoller();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar recados.');
+      errorMessage = err instanceof Error ? err.message : 'Erro ao carregar mural.';
+      toast.error(errorMessage);
     } finally {
       loading = false;
     }
   }
 
-  async function send() {
-    if (!form.conteudo.trim()) { toast.error('Informe o conteúdo do recado.'); return; }
+  async function loadCompanyData(companyId: string) {
+    if (!companyId) {
+      usuariosEmpresa = [];
+      recados = [];
+      return;
+    }
+    recadosLoading = true;
+    try {
+      const payload = await apiGet<CompanyPayload>('/api/v1/mural/company', { company_id: companyId });
+      usuariosEmpresa = payload.usuariosEmpresa || [];
+      supportsAttachments = payload.supportsAttachments !== false;
+      recados = getVisibleRecados(payload.recados || []);
+      startPoller();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao trocar empresa.');
+    } finally {
+      recadosLoading = false;
+    }
+  }
+
+  async function loadRecados() {
+    const companyId = companyContextId();
+    if (!companyId) {
+      recados = [];
+      return;
+    }
+    recadosLoading = true;
+    try {
+      const payload = await apiGet<RecadosPayload>('/api/v1/mural/recados', { company_id: companyId });
+      supportsAttachments = payload.supportsAttachments !== false;
+      recados = getVisibleRecados(payload.recados || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar recados.');
+    } finally {
+      recadosLoading = false;
+    }
+  }
+
+  async function enviarRecado() {
+    const companyId = companyContextId();
+    const currentThread = currentThreadData;
+    if (!companyId) {
+      toast.error('Selecione uma empresa antes de enviar.');
+      return;
+    }
+    if (!currentThread) {
+      toast.error('Selecione uma conversa antes de enviar.');
+      return;
+    }
+    if (!conteudo.trim()) {
+      toast.error('Digite uma mensagem.');
+      return;
+    }
+
     sending = true;
     try {
-      const response = await fetch('/api/v1/operacao/recados', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+      await apiPost('/api/v1/mural/recados', {
+        company_id: companyId,
+        receiver_id: currentThread.type === 'user' ? currentThread.id : null,
+        conteudo: conteudo.trim()
       });
-      if (!response.ok) throw new Error(await response.text());
+      conteudo = '';
+      await loadRecados();
+      mobileScreen = 'chat';
       toast.success('Recado enviado.');
-      modalOpen = false;
-      form = { receiver_id: '', assunto: '', conteudo: '' };
-      await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar recado.');
     } finally {
@@ -64,30 +202,154 @@
     }
   }
 
-  async function deleteRecado(id: string) {
-    if (!confirm('Deseja excluir este recado?')) return;
-    deletingId = id;
+  async function confirmarExclusao() {
+    if (!deleteTarget) return;
+    deleting = true;
     try {
-      const response = await fetch(`/api/v1/operacao/recados?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/mural/recados', { id: deleteTarget.id });
+      recados = recados.filter((recado) => recado.id !== deleteTarget?.id);
+      deleteTarget = null;
       toast.success('Recado excluído.');
-      await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao excluir recado.');
     } finally {
-      deletingId = '';
+      deleting = false;
     }
   }
 
-  function formatDate(value: string) {
-    return new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  async function marcarComoLidos(ids: string[]) {
+    if (!ids.length) return;
+    try {
+      await Promise.all(ids.map((id) => apiPost('/api/v1/mural/read', { id })));
+      await loadRecados();
+    } catch (err) {
+      console.error('Falha ao marcar leitura do mural', err);
+    }
   }
 
-  function getNome(u?: Usuario | null) {
-    return u?.nome_completo || u?.email || 'Usuário';
+  function canDeleteRecado(recado: RecadoRow) {
+    return recado.sender_id === userId || recado.receiver_id === userId;
   }
 
-  onMount(load);
+  function formatConversationStatus(recado: RecadoRow) {
+    if (recado.sender_id === userId) {
+      const lidoPeloDestino = Boolean(
+        recado.receiver_id && recado.leituras?.some((entry) => entry.user_id === recado.receiver_id)
+      );
+      return lidoPeloDestino ? 'Lido' : 'Enviado';
+    }
+    const minhaLeitura = recado.leituras?.some((entry) => entry.user_id === userId);
+    return minhaLeitura ? 'Lido' : 'Ainda não lido';
+  }
+
+  let threads: Thread[] = [];
+  let orderedThreads: Thread[] = [];
+  let filteredThreads: Thread[] = [];
+  let orderedContacts: UserMini[] = [];
+  let currentThreadData: Thread | null = null;
+  let conversation: RecadoRow[] = [];
+
+  $: threads = buildThreads(recados, usuariosEmpresa, userId);
+
+  $: orderedThreads = (() => {
+    const company = threads.find((thread) => thread.id === 'company');
+    const others = threads.filter((thread) => thread.id !== 'company');
+    const sorted = others.slice().sort((a, b) => {
+      const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+      const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      return normalizeSortKey(a.name).localeCompare(normalizeSortKey(b.name), 'pt-BR', {
+        sensitivity: 'base'
+      });
+    });
+    return company ? [company, ...sorted] : sorted;
+  })();
+
+  $: filteredThreads = (() => {
+    const query = normalizeSortKey(threadQuery);
+    if (!query) return orderedThreads;
+    return orderedThreads.filter((thread) => {
+      const haystack = `${thread.name} ${thread.subtitle}`.trim();
+      return normalizeSortKey(haystack).includes(query);
+    });
+  })();
+
+  $: orderedContacts = (() => {
+    const query = normalizeSortKey(threadQuery);
+    const pool = usuariosEmpresa.filter((user) => user.id && user.id !== userId);
+    const filtered = query
+      ? pool.filter((user) => normalizeSortKey(getNomeExibicao(user)).includes(query))
+      : pool;
+    return filtered.slice().sort((a, b) =>
+      normalizeSortKey(getNomeExibicao(a)).localeCompare(normalizeSortKey(getNomeExibicao(b)), 'pt-BR', {
+        sensitivity: 'base'
+      })
+    );
+  })();
+
+  $: if (threads.length > 0 && !threads.some((thread) => thread.id === selectedThreadId)) {
+    selectedThreadId = threads[0].id;
+  }
+
+  $: currentThreadData = threads.find((thread) => thread.id === selectedThreadId) ?? threads[0] ?? null;
+
+  $: conversation = recados
+    .filter((recado) => {
+      if (!selectedThreadId) return false;
+      if (selectedThreadId === 'company') return !recado.receiver_id;
+      return (
+        (recado.receiver_id === selectedThreadId && recado.sender_id === userId) ||
+        (recado.sender_id === selectedThreadId && recado.receiver_id === userId)
+      );
+    })
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  $: if (companyContextId() && companyContextId() !== lastLoadedCompanyId) {
+    lastLoadedCompanyId = companyContextId();
+    void loadCompanyData(lastLoadedCompanyId);
+  }
+
+  $: {
+    const unreadIds = conversation
+      .filter((recado) => {
+        if (!userId) return false;
+        if (selectedThreadId === 'company') {
+          return !recado.receiver_id && !recado.leituras?.some((entry) => entry.user_id === userId);
+        }
+        return recado.receiver_id === userId && !recado.leituras?.some((entry) => entry.user_id === userId);
+      })
+      .map((recado) => recado.id);
+    const nextKey = `${selectedThreadId}:${unreadIds.join(',')}`;
+    if (unreadIds.length > 0 && nextKey !== lastReadKey) {
+      lastReadKey = nextKey;
+      void marcarComoLidos(unreadIds);
+    }
+  }
+
+  onMount(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1024px)');
+    const syncMobile = () => {
+      isMobile = mediaQuery.matches;
+      mobileScreen = mediaQuery.matches ? 'list' : 'chat';
+    };
+    syncMobile();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncMobile);
+    } else {
+      mediaQuery.addListener(syncMobile);
+    }
+
+    void loadBootstrap();
+
+    return () => {
+      clearPoller();
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', syncMobile);
+      } else {
+        mediaQuery.removeListener(syncMobile);
+      }
+    };
+  });
 </script>
 
 <svelte:head>
@@ -96,101 +358,428 @@
 
 <PageHeader
   title="Mural de Recados"
-  subtitle="Troca de mensagens internas entre membros da equipe."
+  subtitle="Troca de mensagens internas com navegação no padrão do mural do VTUR."
   color="operacao"
   breadcrumbs={[
     { label: 'Operação', href: '/operacao' },
     { label: 'Recados' }
   ]}
-  actions={[
-    { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw },
-    { label: 'Novo Recado', onClick: () => (modalOpen = true), variant: 'primary', icon: Plus }
-  ]}
+  actions={[{ label: 'Atualizar', onClick: loadRecados, variant: 'secondary', icon: RefreshCw }]}
 />
 
-{#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
-{:else if recados.length === 0}
-  <Card color="operacao">
-    <div class="flex flex-col items-center justify-center py-16 text-slate-500">
-      <MessageCircle size={48} class="mb-4 opacity-30" />
-      <p class="font-medium">Nenhum recado encontrado.</p>
-      <p class="mt-1 text-sm">Clique em "Novo Recado" para enviar uma mensagem.</p>
-    </div>
-  </Card>
-{:else}
-  <div class="space-y-4">
-    {#each recados as recado}
-      <Card color="operacao">
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex items-start gap-3 flex-1 min-w-0">
-            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-operacao-100 text-operacao-700 font-semibold text-sm flex-shrink-0">
-              {getNome(recado.sender).slice(0, 2).toUpperCase()}
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2 mb-1">
-                <span class="font-semibold text-slate-900">{getNome(recado.sender)}</span>
-                {#if recado.receiver}
-                  <span class="text-slate-400">→</span>
-                  <span class="font-medium text-slate-700">{getNome(recado.receiver)}</span>
-                {:else}
-                  <span class="inline-flex rounded-full bg-operacao-100 px-2 py-0.5 text-xs font-medium text-operacao-700">
-                    <Users size={12} class="mr-1 mt-0.5" />
-                    Todos
-                  </span>
-                {/if}
-                <span class="text-xs text-slate-400">{formatDate(recado.created_at)}</span>
-              </div>
-              {#if recado.assunto}
-                <p class="text-sm font-medium text-slate-800 mb-1">{recado.assunto}</p>
-              {/if}
-              <p class="text-sm text-slate-700 whitespace-pre-wrap">{recado.conteudo}</p>
-            </div>
-          </div>
-          <button
-            on:click={() => deleteRecado(recado.id)}
-            class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 flex-shrink-0"
-            title="Excluir"
-            disabled={deletingId === recado.id}
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      </Card>
-    {/each}
+{#if errorMessage}
+  <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {errorMessage}
   </div>
 {/if}
 
+{#if loading}
+  <Card color="operacao">
+    <div class="py-16 text-center text-slate-500">Carregando mural...</div>
+  </Card>
+{:else if !companyContextId()}
+  <Card color="operacao">
+    <div class="py-16 text-center text-slate-500">
+      Você ainda não está vinculado a uma empresa aprovada para usar o mural.
+    </div>
+  </Card>
+{:else}
+  <Card color="operacao" class="mb-4">
+    <div class="mural-topbar">
+      <div class="mural-topbar__copy">
+        <div class="mural-topbar__title">Conversas internas</div>
+        <div class="mural-topbar__subtitle">Painel contínuo de comunicação entre equipe e empresa.</div>
+      </div>
+      {#if empresas.length > 1}
+        <div class="mural-topbar__company">
+          <label class="sr-only" for="mural-empresa">Empresa</label>
+          <select id="mural-empresa" bind:value={empresaSelecionada} class="vtur-input w-full min-w-[240px]">
+            {#each empresas as empresa}
+              <option value={empresa.id}>{empresa.nome_fantasia}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
+    </div>
+  </Card>
+
+  {#if isMobile}
+    <div class="mural-wa-mobile">
+      {#if mobileScreen === 'list'}
+        <section class="mural-wa-mobile-list vtur-card">
+          <div class="mural-wa-mobile-topbar">
+            <div>
+              <div class="mural-wa-mobile-title">Recados</div>
+              <div class="mural-muted">{filteredThreads.length} conversa(s)</div>
+            </div>
+            <Button
+              variant="primary"
+              color="operacao"
+              size="sm"
+              on:click={() => {
+                mobileScreen = 'chat';
+                if (!selectedThreadId && filteredThreads[0]) selectedThreadId = filteredThreads[0].id;
+              }}
+            >
+              <Plus size={15} class="mr-1.5" />
+              Abrir
+            </Button>
+          </div>
+
+          <div class="mural-wa-mobile-tabs" role="tablist" aria-label="Seções do mural">
+            <button
+              type="button"
+              class:active={mobileTab === 'chats'}
+              class="mural-wa-tab"
+              on:click={() => (mobileTab = 'chats')}
+            >
+              Chats
+            </button>
+            <button
+              type="button"
+              class:active={mobileTab === 'contacts'}
+              class="mural-wa-tab"
+              on:click={() => (mobileTab = 'contacts')}
+            >
+              Contatos
+            </button>
+          </div>
+
+          <label class="sr-only" for="mural-mobile-search">Buscar</label>
+          <div class="mural-search-shell">
+            <Search size={16} />
+            <input
+              id="mural-mobile-search"
+              bind:value={threadQuery}
+              class="mural-whatsapp-search"
+              placeholder={mobileTab === 'chats' ? 'Buscar chats...' : 'Buscar contatos...'}
+            />
+          </div>
+
+          <div class="mural-whatsapp-thread-list">
+            {#if mobileTab === 'chats'}
+              {#each filteredThreads as thread}
+                <button
+                  type="button"
+                  class:active={currentThreadData?.id === thread.id}
+                  class="mural-whatsapp-thread"
+                  on:click={() => {
+                    selectedThreadId = thread.id;
+                    mobileScreen = 'chat';
+                  }}
+                >
+                  <span class:company={thread.type === 'company'} class="mural-thread-avatar">
+                    {getInitials(thread.name)}
+                  </span>
+                  <span class="mural-thread-content">
+                    <span class="mural-whatsapp-thread-line">
+                      <span class="mural-whatsapp-thread-name">{thread.name}</span>
+                      {#if thread.lastAt}
+                        <span class="mural-whatsapp-thread-time">{formatThreadTime(thread.lastAt)}</span>
+                      {/if}
+                    </span>
+                    <span class="mural-whatsapp-thread-subtitle">{thread.subtitle}</span>
+                  </span>
+                  {#if thread.unreadCount > 0}
+                    <span class="mural-thread-unread">{formatBadge(thread.unreadCount)}</span>
+                  {/if}
+                </button>
+              {/each}
+            {:else}
+              {#each orderedContacts as contato}
+                <button
+                  type="button"
+                  class="mural-whatsapp-thread"
+                  on:click={() => {
+                    selectedThreadId = contato.id;
+                    mobileScreen = 'chat';
+                  }}
+                >
+                  <span class="mural-thread-avatar">{getInitials(getNomeExibicao(contato))}</span>
+                  <span class="mural-thread-content">
+                    <span class="mural-whatsapp-thread-line">
+                      <span class="mural-whatsapp-thread-name">{getNomeExibicao(contato)}</span>
+                    </span>
+                    <span class="mural-whatsapp-thread-subtitle">Contato da empresa</span>
+                  </span>
+                </button>
+              {/each}
+            {/if}
+          </div>
+        </section>
+      {:else}
+        <section class="mural-whatsapp-chat vtur-card">
+          <div class="mural-whatsapp-chat-header">
+            <div class="mural-chat-header-left">
+              <button type="button" class="mural-wa-back" on:click={() => (mobileScreen = 'list')}>
+                <ArrowLeft size={16} />
+              </button>
+              <span class:company={currentThreadData?.type === 'company'} class="mural-thread-avatar mural-chat-avatar">
+                {getInitials(currentThreadData?.name)}
+              </span>
+              <div class="mural-chat-header-info">
+                <div class="mural-chat-title">{currentThreadData?.name || 'Conversa'}</div>
+                <div class="mural-chat-subtitle">
+                  {currentThreadData?.type === 'company' ? 'Canal geral da empresa' : 'Conversa privada'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mural-whatsapp-chat-body">
+            {#if recadosLoading && conversation.length === 0}
+              <div class="chat-empty">Carregando mensagens...</div>
+            {:else if conversation.length === 0}
+              <div class="chat-empty">Nenhuma mensagem nesta conversa.</div>
+            {:else}
+              {#each conversation as recado}
+                <div class:sent={recado.sender_id === userId} class:received={recado.sender_id !== userId} class="chat-bubble">
+                  <div class="chat-bubble-body">
+                    {#if recado.sender_id !== userId}
+                      <div class="chat-bubble-header">
+                        <span>{getNomeExibicao(recado.sender)}</span>
+                        <span class="chat-bubble-status">{formatConversationStatus(recado)}</span>
+                      </div>
+                    {/if}
+                    {#if String(recado.conteudo || '').trim()}
+                      <div class="chat-bubble-text">{recado.conteudo}</div>
+                    {/if}
+                    {#if recado.arquivos && recado.arquivos.length > 0}
+                      <div class="chat-attachments-files">
+                        {#each recado.arquivos as arquivo}
+                          <a
+                            class="chat-attachment-file"
+                            href={buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <span class="chat-attachment-file-icon">•</span>
+                            <span class="chat-attachment-file-info">
+                              <span class="chat-attachment-file-name">{arquivo.file_name}</span>
+                            </span>
+                          </a>
+                        {/each}
+                      </div>
+                    {/if}
+                    <div class="chat-bubble-meta">
+                      <span>{formatDateTimeBR(recado.created_at)}</span>
+                      {#if canDeleteRecado(recado)}
+                        <button type="button" class="chat-inline-btn chat-inline-btn--danger" on:click={() => (deleteTarget = recado)}>
+                          Excluir
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            {/if}
+          </div>
+
+          <form
+            class="mural-whatsapp-input"
+            on:submit|preventDefault={() => {
+              void enviarRecado();
+            }}
+          >
+            {#if supportsAttachments === false}
+              <div class="mural-inline-note">Anexos ainda não estão disponíveis neste ambiente.</div>
+            {/if}
+            <div class="mural-input-row">
+              <textarea
+                bind:value={conteudo}
+                rows="3"
+                class="vtur-input w-full"
+                placeholder="Digite sua mensagem..."
+              ></textarea>
+              <Button type="submit" color="operacao" variant="primary" loading={sending} class_name="min-w-[128px] justify-center">
+                <Send size={15} class="mr-1.5" />
+                Enviar
+              </Button>
+            </div>
+          </form>
+        </section>
+      {/if}
+    </div>
+  {:else}
+    <div class="mural-desktop-grid">
+      <aside class="mural-whatsapp-sidebar vtur-card">
+        <div class="mural-whatsapp-sidebar-head">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h4>Chats</h4>
+              <p class="mural-muted">{orderedThreads.length} contato(s) no escopo</p>
+            </div>
+            <div class="mural-sidebar-badge">
+              <Building2 size={14} />
+              {isMaster() ? 'Master' : 'Equipe'}
+            </div>
+          </div>
+          <label class="sr-only" for="mural-search">Buscar conversa</label>
+          <div class="mural-search-shell">
+            <Search size={16} />
+            <input id="mural-search" bind:value={threadQuery} class="mural-whatsapp-search" placeholder="Buscar chats ou contatos..." />
+          </div>
+        </div>
+
+        <div class="mural-whatsapp-thread-list">
+          {#each filteredThreads as thread}
+            <button
+              type="button"
+              class:active={currentThreadData?.id === thread.id}
+              class="mural-whatsapp-thread"
+              on:click={() => (selectedThreadId = thread.id)}
+            >
+              <span class:company={thread.type === 'company'} class="mural-thread-avatar">
+                {getInitials(thread.name)}
+              </span>
+              <span class="mural-thread-content">
+                <span class="mural-whatsapp-thread-line">
+                  <span class="mural-whatsapp-thread-name">{thread.name}</span>
+                  {#if thread.lastAt}
+                    <span class="mural-whatsapp-thread-time">{formatThreadTime(thread.lastAt)}</span>
+                  {/if}
+                </span>
+                <span class="mural-whatsapp-thread-subtitle">{thread.subtitle}</span>
+              </span>
+              {#if thread.unreadCount > 0}
+                <span class="mural-thread-unread">{formatBadge(thread.unreadCount)}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </aside>
+
+      <section class="mural-whatsapp-chat vtur-card">
+        <div class="mural-whatsapp-chat-header">
+          <div class="mural-chat-header-left">
+            <span class:company={currentThreadData?.type === 'company'} class="mural-thread-avatar mural-chat-avatar">
+              {getInitials(currentThreadData?.name)}
+            </span>
+            <div class="mural-chat-header-info">
+              <div class="mural-chat-title">{currentThreadData?.name || 'Selecione uma conversa'}</div>
+              <div class="mural-chat-subtitle">
+                {currentThreadData?.type === 'company' ? 'Canal geral da empresa' : 'Conversa privada entre colaboradores'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mural-whatsapp-chat-body">
+          {#if recadosLoading && conversation.length === 0}
+            <div class="chat-empty">Carregando mensagens...</div>
+          {:else if conversation.length === 0}
+            <div class="chat-empty">
+              <MessageCircle size={28} class="mx-auto mb-3 opacity-40" />
+              Nenhuma mensagem nesta conversa.
+            </div>
+          {:else}
+            {#each conversation as recado}
+              <div class:sent={recado.sender_id === userId} class:received={recado.sender_id !== userId} class="chat-bubble">
+                <div class="chat-bubble-body">
+                  {#if recado.sender_id !== userId}
+                    <div class="chat-bubble-header">
+                      <span>{getNomeExibicao(recado.sender)}</span>
+                      <span class="chat-bubble-status">{formatConversationStatus(recado)}</span>
+                    </div>
+                  {/if}
+
+                  {#if String(recado.conteudo || '').trim()}
+                    <div class="chat-bubble-text">{recado.conteudo}</div>
+                  {/if}
+
+                  {#if recado.arquivos && recado.arquivos.length > 0}
+                    <div class="chat-attachments-files">
+                      {#each recado.arquivos as arquivo}
+                        <a
+                          class="chat-attachment-file"
+                          href={buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <span class="chat-attachment-file-icon">•</span>
+                          <span class="chat-attachment-file-info">
+                            <span class="chat-attachment-file-name">{arquivo.file_name}</span>
+                          </span>
+                        </a>
+                      {/each}
+                    </div>
+                  {/if}
+
+                  <div class="chat-bubble-meta">
+                    <span>{formatDateTimeBR(recado.created_at)}</span>
+                    <div class="chat-bubble-actions">
+                      {#if canDeleteRecado(recado)}
+                        <button type="button" class="chat-inline-btn chat-inline-btn--danger" on:click={() => (deleteTarget = recado)}>
+                          <Trash2 size={13} class="mr-1" />
+                          Excluir
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          {/if}
+        </div>
+
+        <form
+          class="mural-whatsapp-input"
+          on:submit|preventDefault={() => {
+            void enviarRecado();
+          }}
+        >
+          <div class="mural-input-toolbar">
+            <div class="mural-inline-target">
+              {#if currentThreadData?.type === 'company'}
+                <Users size={14} />
+              {:else}
+                <MessageCircle size={14} />
+              {/if}
+              <span>
+                {currentThreadData?.type === 'company'
+                  ? 'Enviando para todos da empresa'
+                  : `Enviando para ${currentThreadData?.name || 'contato'}`}
+              </span>
+            </div>
+            {#if supportsAttachments === false}
+              <div class="mural-inline-note">Anexos ainda não estão disponíveis neste ambiente.</div>
+            {/if}
+          </div>
+
+          <div class="mural-input-row">
+            <textarea
+              bind:value={conteudo}
+              rows="3"
+              class="vtur-input w-full"
+              placeholder="Digite sua mensagem..."
+            ></textarea>
+            <Button type="submit" color="operacao" variant="primary" loading={sending} class_name="min-w-[148px] justify-center">
+              <Send size={15} class="mr-1.5" />
+              Enviar
+            </Button>
+          </div>
+        </form>
+      </section>
+    </div>
+  {/if}
+{/if}
+
 <Dialog
-  bind:open={modalOpen}
-  title="Novo Recado"
+  open={deleteTarget !== null}
+  title="Excluir recado"
   color="operacao"
-  size="md"
+  size="sm"
   showCancel={true}
-  cancelText="Cancelar"
   showConfirm={true}
-  confirmText="Enviar"
-  loading={sending}
-  onConfirm={send}
-  onCancel={() => (modalOpen = false)}
+  confirmText={deleting ? 'Excluindo...' : 'Excluir'}
+  confirmVariant="danger"
+  confirmDisabled={deleting}
+  onCancel={() => (deleteTarget = null)}
+  onConfirm={() => {
+    void confirmarExclusao();
+  }}
 >
-  <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="recado-para">Para</label>
-      <select id="recado-para" bind:value={form.receiver_id} class="vtur-input w-full">
-        <option value="">Todos da equipe</option>
-        {#each usuarios as u}
-          <option value={u.id}>{u.nome_completo || u.email}</option>
-        {/each}
-      </select>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="recado-assunto">Assunto</label>
-      <input id="recado-assunto" bind:value={form.assunto} class="vtur-input w-full" placeholder="Assunto opcional" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="recado-conteudo">Mensagem *</label>
-      <textarea id="recado-conteudo" bind:value={form.conteudo} rows="5" class="vtur-input w-full" placeholder="Digite sua mensagem..."></textarea>
-    </div>
-  </div>
+  <p class="text-sm text-slate-600">
+    Este recado será removido da sua visualização. Deseja continuar?
+  </p>
 </Dialog>

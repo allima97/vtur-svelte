@@ -3,10 +3,13 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
+import { fetchSalesReportRows, getVendaClienteNome, getVendaVendedorNome } from '$lib/server/relatorios';
 
 export async function POST(event) {
   try {
@@ -25,67 +28,46 @@ export async function POST(event) {
     const mesRef = mes_referencia || hoje.getMonth() + 1;
     const anoRef = ano_referencia || hoje.getFullYear();
 
-    // Busca vendas
-    let vendasQuery = client
-      .from('vendas')
-      .select('id, numero_venda, cliente_id, vendedor_id, valor_total, valor_nao_comissionado, data_venda, company_id, cancelada')
-      .eq('cancelada', false)
-      .not('vendedor_id', 'is', null);
+    const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, vendedor_ids);
+    let vendas = await fetchSalesReportRows(client, {
+      dataInicio: data_inicio,
+      dataFim: data_fim,
+      companyIds,
+      vendedorIds
+    });
 
-    if (venda_ids?.length > 0) vendasQuery = vendasQuery.in('id', venda_ids);
-    if (vendedor_ids?.length > 0) vendasQuery = vendasQuery.in('vendedor_id', vendedor_ids);
-    if (data_inicio) vendasQuery = vendasQuery.gte('data_venda', data_inicio);
-    if (data_fim) vendasQuery = vendasQuery.lte('data_venda', data_fim);
-
-    const { data: vendas, error: vendasError } = await vendasQuery;
-    if (vendasError) throw vendasError;
+    if (Array.isArray(venda_ids) && venda_ids.length > 0) {
+      const allowedIds = new Set(venda_ids.map((id: string) => String(id)));
+      vendas = vendas.filter((venda) => allowedIds.has(String(venda.id)));
+    }
 
     if (!vendas || vendas.length === 0) {
       return json({ success: true, message: 'Nenhuma venda encontrada', processadas: 0, erro: 0, detalhes: [] });
     }
-
-    // Busca regra de comissão padrão
-    const { data: regras } = await client
-      .from('commission_rule')
-      .select('id, nome, meta_atingida, tipo')
-      .eq('ativo', true)
-      .limit(1);
-
-    const regraDefault = regras?.[0];
-    const percentualDefault = Number(regraDefault?.meta_atingida || 0);
-
-    // Busca clientes
-    const clienteIds = [...new Set((vendas as any[]).map((v: any) => v.cliente_id).filter(Boolean))];
-    const clientesMap = new Map<string, string>();
-    if (clienteIds.length > 0) {
-      const { data: clientesData } = await client.from('clientes').select('id, nome').in('id', clienteIds);
-      (clientesData || []).forEach((c: any) => clientesMap.set(c.id, c.nome));
-    }
+    const commissionContext = await fetchCommissionContext(client, companyIds);
 
     const resultados: any[] = [];
     let processadas = 0;
 
     for (const venda of vendas as any[]) {
-      const valorTotal = Number(venda.valor_total) || 0;
-      const valorNaoComissionado = Number(venda.valor_nao_comissionado) || 0;
-      const valorComissionavel = Math.max(0, valorTotal - valorNaoComissionado);
+      const resolved = resolveVendaCommission(venda, commissionContext);
 
-      if (valorComissionavel <= 0) {
+      if (resolved.valorComissionavel <= 0) {
         resultados.push({ venda_id: venda.id, numero_venda: venda.numero_venda, status: 'ignorada', motivo: 'Valor comissionável é zero' });
         continue;
       }
 
-      const valorComissao = (valorComissionavel * percentualDefault) / 100;
-
       resultados.push({
         venda_id: venda.id,
         numero_venda: venda.numero_venda,
-        cliente: clientesMap.get(venda.cliente_id) || 'Desconhecido',
-        valor_venda: valorTotal,
-        valor_comissionavel: valorComissionavel,
-        percentual: percentualDefault,
-        valor_comissao: valorComissao,
-        regra: regraDefault?.nome || 'Padrão',
+        cliente: getVendaClienteNome(venda),
+        vendedor: getVendaVendedorNome(venda),
+        valor_venda: resolved.valorVenda,
+        valor_comissionavel: resolved.valorComissionavel,
+        percentual: resolved.percentual,
+        valor_comissao: resolved.valorComissao,
+        regra: resolved.regraNome,
         status: 'calculada',
         mes_referencia: mesRef,
         ano_referencia: anoRef
@@ -120,6 +102,7 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const vendedorId = searchParams.get('vendedor_id');
+    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id') || searchParams.get('company_id'));
     const mes = searchParams.get('mes');
     const ano = searchParams.get('ano');
     const vendedorIds = await resolveScopedVendedorIds(client, scope, vendedorId);
@@ -129,44 +112,36 @@ export async function GET(event) {
     const dataInicio = `${anoNum}-${String(mesNum).padStart(2, '0')}-01`;
     const dataFim = new Date(anoNum, mesNum, 0).toISOString().slice(0, 10);
 
-    let vendasQuery = client
-      .from('vendas')
-      .select(`
-        id, numero_venda, vendedor_id, cliente_id, valor_total, valor_nao_comissionado,
-        data_venda, company_id, cancelada,
-        cliente:clientes!cliente_id(nome),
-        vendedor:users!vendedor_id(id, nome_completo)
-      `)
-      .eq('cancelada', false)
-      .gte('data_venda', dataInicio)
-      .lte('data_venda', dataFim)
-      .order('data_venda', { ascending: false })
-      .limit(500);
+    const vendas = await fetchSalesReportRows(client, {
+      dataInicio,
+      dataFim,
+      companyIds,
+      vendedorIds
+    });
+    const commissionContext = await fetchCommissionContext(client, companyIds);
 
-    if (vendedorIds.length > 0) vendasQuery = vendasQuery.in('vendedor_id', vendedorIds);
-    if (scope.companyId && !scope.isAdmin) vendasQuery = vendasQuery.eq('company_id', scope.companyId);
+    const items = (vendas || []).map((v: any) => {
+      const resolved = resolveVendaCommission(v, commissionContext);
+      return {
+        id: v.id,
+        venda_id: v.id,
+        numero_venda: v.numero_venda || `VD-${v.id.slice(0, 8)}`,
+        data_venda: v.data_venda,
+        cliente: getVendaClienteNome(v),
+        vendedor_id: v.vendedor_id,
+        vendedor: getVendaVendedorNome(v),
+        valor_venda: resolved.valorVenda,
+        valor_comissionavel: resolved.valorComissionavel,
+        percentual_aplicado: resolved.percentual,
+        valor_comissao: resolved.valorComissao,
+        regra_nome: resolved.regraNome,
+        status: 'PENDENTE',
+        mes_referencia: mesNum,
+        ano_referencia: anoNum
+      };
+    });
 
-    const { data: vendas, error: vendasError } = await vendasQuery;
-    if (vendasError) throw vendasError;
-
-    const items = (vendas || []).map((v: any) => ({
-      id: v.id,
-      venda_id: v.id,
-      numero_venda: v.numero_venda || `VD-${v.id.slice(0, 8)}`,
-      data_venda: v.data_venda,
-      cliente: v.cliente?.nome || 'Cliente',
-      vendedor_id: v.vendedor_id,
-      vendedor: v.vendedor?.nome_completo || 'Vendedor',
-      valor_venda: Number(v.valor_total || 0),
-      valor_comissionavel: Math.max(0, Number(v.valor_total || 0) - Number(v.valor_nao_comissionado || 0)),
-      percentual_aplicado: 0,
-      valor_comissao: 0,
-      status: 'PENDENTE',
-      mes_referencia: mesNum,
-      ano_referencia: anoNum
-    }));
-
-    const totalPendente = items.reduce((acc: number, i: any) => acc + i.valor_comissionavel, 0);
+    const totalPendente = items.reduce((acc: number, i: any) => acc + Number(i.valor_comissao || 0), 0);
 
     return json({
       items,

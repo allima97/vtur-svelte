@@ -9,6 +9,18 @@ import {
 } from '$lib/server/v1';
 import { normalizeText } from '$lib/normalizeText';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas/contratoCvcExtractor';
+import { ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
+
+const DEFAULT_NAO_COMISSIONAVEIS = [
+  'credito diversos',
+  'credito pax',
+  'credito passageiro',
+  'credito de viagem',
+  'credipax',
+  'vale viagem',
+  'carta de credito',
+  'credito'
+];
 
 function toISODateLocal(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -78,6 +90,46 @@ function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
     if (bruto > 0) return acc + Math.max(bruto - desconto, 0);
     return acc;
   }, 0);
+}
+
+async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
+  try {
+    const { data, error } = await client
+      .from('parametros_pagamentos_nao_comissionaveis')
+      .select('termo, termo_normalizado, ativo')
+      .eq('ativo', true)
+      .order('termo', { ascending: true });
+    if (error) throw error;
+
+    const termos = (data || [])
+      .map((row: any) => normalizeText(row?.termo_normalizado || row?.termo))
+      .filter(Boolean);
+
+    return termos.length > 0 ? Array.from(new Set(termos)) : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
+  } catch {
+    return DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
+  }
+}
+
+function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
+  const normalized = normalizeText(nome || '');
+  if (!normalized) return false;
+  if (normalized.includes('cartao') && normalized.includes('credito')) return false;
+  const base = termos && termos.length > 0 ? termos : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
+  return base.some((termo) => termo && normalized.includes(termo));
+}
+
+function guessPagaComissaoDefault(forma: string, termosNaoComissionaveis?: string[]) {
+  const normalized = normalizeText(forma || '');
+  const isCartaoCredito = normalized.includes('cartao') && normalized.includes('credito');
+  if (isFormaNaoComissionavel(forma, termosNaoComissionaveis)) return false;
+  if (isCartaoCredito) return true;
+  if (normalized.includes('credito')) return false;
+  if (normalized.includes('credipax')) return false;
+  if (normalized.includes('credito pax')) return false;
+  if (normalized.includes('vale viagem')) return false;
+  if (normalized.includes('credito de viagem')) return false;
+  return true;
 }
 
 function sanitizeDestinoTerm(destino?: string | null) {
@@ -326,9 +378,45 @@ export async function POST(event) {
       await client.from('clientes').update(contatos).eq('id', clientePrincipal.id);
     }
 
+    try {
+      await ensureReciboReservaUnicos({
+        client,
+        companyId,
+        clienteId: clientePrincipal.id,
+        recibos: contratos.map((contrato) => ({
+          numero_recibo: contrato.contrato_numero || null,
+          numero_reserva: contrato.reserva_numero || null
+        }))
+      });
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
+      if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA') {
+        return new Response(code, { status: 409 });
+      }
+      throw err;
+    }
+
+    const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
+
+    const datasInicio = contratos.map((contrato) => contrato.data_saida).filter(Boolean) as string[];
+    const datasFim = contratos.map((contrato) => contrato.data_retorno).filter(Boolean) as string[];
+    const dataInicioVenda = datasInicio.length ? datasInicio.sort()[0] : principal.data_saida || null;
+    const dataFimVenda = datasFim.length ? datasFim.sort().slice(-1)[0] : principal.data_retorno || null;
+
     const totalBruto = contratos.reduce((sum, c) => sum + parseMoney(c.total_bruto), 0);
     const totalPago = contratos.reduce((sum, c) => sum + parseMoney(c.total_pago), 0);
-    const totalTaxas = contratos.reduce((sum, c) => sum + parseMoney(c.taxas_embarque) + parseMoney(c.taxa_du), 0);
+    const totalTaxas = contratos.reduce((sum, c) => sum + parseMoney(c.taxas_embarque), 0);
+    const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney((c as any).desconto_comercial), 0);
+    const pagamentosDedup = dedupePagamentos(contratos.flatMap((c) => c.pagamentos || []));
+    const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
+    const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
+
+    const { data: produtoDestino } = await client
+      .from('produtos')
+      .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
+      .eq('id', destinoProdutoId)
+      .maybeSingle();
+    const tipoProdutoId = String((produtoDestino as any)?.tipo_produto || '').trim() || null;
 
     const { data: venda, error: vendaError } = await client
       .from('vendas')
@@ -340,13 +428,13 @@ export async function POST(event) {
         company_id: companyId,
         data_lancamento: dataLancamento,
         data_venda: dataVenda,
-        data_embarque: principal.data_saida || null,
-        data_final: principal.data_retorno || null,
-        desconto_comercial_aplicado: false,
-        desconto_comercial_valor: 0,
-        valor_total_bruto: totalBruto,
-        valor_total_pago: totalPago,
-        valor_taxas: totalTaxas,
+        data_embarque: dataInicioVenda,
+        data_final: dataFimVenda,
+        desconto_comercial_aplicado: descontoComercial > 0,
+        desconto_comercial_valor: descontoComercial || null,
+        valor_total_bruto: totalBruto || null,
+        valor_total_pago: totalPagoFinal || null,
+        valor_taxas: totalTaxas || null,
         status: 'aberto',
         cancelada: false
       })
@@ -362,12 +450,12 @@ export async function POST(event) {
         .from('vendas_recibos')
         .insert({
           venda_id: venda.id,
-          produto_id: null,
+          produto_id: tipoProdutoId,
           produto_resolvido_id: destinoProdutoId,
           numero_recibo: contrato.contrato_numero || null,
           numero_reserva: contrato.reserva_numero || null,
           tipo_pacote: contrato.tipo_pacote || null,
-          valor_total: parseMoney(contrato.total_bruto),
+          valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto),
           valor_taxas: parseMoney(contrato.taxas_embarque),
           valor_du: parseMoney(contrato.taxa_du),
           data_inicio: contrato.data_saida || null,
@@ -384,6 +472,8 @@ export async function POST(event) {
         allPagamentos.push(...contrato.pagamentos);
       }
 
+      const statusViagem = calcularStatusPeriodo(contrato.data_saida || null, contrato.data_retorno || null);
+
       const { data: viagem, error: viagemError } = await client
         .from('viagens')
         .insert({
@@ -396,7 +486,7 @@ export async function POST(event) {
           destino: principal.destino || null,
           data_inicio: contrato.data_saida || null,
           data_fim: contrato.data_retorno || null,
-          status: 'confirmada',
+          status: statusViagem,
           observacoes: null
         })
         .select('id')
@@ -440,25 +530,49 @@ export async function POST(event) {
     }
 
     const dedupedPagamentos = dedupePagamentos(allPagamentos);
+    let totalCreditosNaoComissionados = 0;
     for (const pagamento of dedupedPagamentos) {
       let formaId: string | null = null;
+      let pagaComissao: boolean | null = null;
       const formaNome = String(pagamento.forma || '').trim();
       if (formaNome) {
         const { data: existingForma } = await client
           .from('formas_pagamento')
-          .select('id')
+          .select('id, paga_comissao, permite_desconto')
           .ilike('nome', formaNome)
           .maybeSingle();
         if (existingForma?.id) {
           formaId = existingForma.id;
+          pagaComissao = existingForma.paga_comissao ?? true;
         } else {
           const { data: novaForma } = await client
             .from('formas_pagamento')
-            .insert({ nome: formaNome, ativo: true, company_id: companyId })
-            .select('id')
+            .insert({
+              nome: formaNome,
+              ativo: true,
+              company_id: companyId,
+              paga_comissao: guessPagaComissaoDefault(formaNome, termosNaoComissionaveis),
+              permite_desconto: Boolean(parseMoney(pagamento.desconto) > 0)
+            })
+            .select('id, paga_comissao')
             .single();
-          if (novaForma?.id) formaId = novaForma.id;
+          if (novaForma?.id) {
+            formaId = novaForma.id;
+            pagaComissao = novaForma.paga_comissao ?? true;
+          }
         }
+      }
+
+      const valorBruto = parseMoney(pagamento.valor_bruto);
+      const descontoValor = parseMoney(pagamento.desconto);
+      const valorTotalPagamento =
+        pagamento.total != null ? parseMoney(pagamento.total) : valorBruto > 0 ? Math.max(valorBruto - descontoValor, 0) : 0;
+      const pagamentoComissionavel = isFormaNaoComissionavel(formaNome, termosNaoComissionaveis)
+        ? false
+        : pagaComissao ?? true;
+
+      if (!pagamentoComissionavel) {
+        totalCreditosNaoComissionados += valorBruto || valorTotalPagamento || 0;
       }
 
       await client.from('vendas_pagamentos').insert({
@@ -468,24 +582,24 @@ export async function POST(event) {
         forma_nome: formaNome || null,
         operacao: pagamento.operacao || null,
         plano: pagamento.plano || null,
-        valor_bruto: parseMoney(pagamento.valor_bruto),
-        desconto_valor: parseMoney(pagamento.desconto),
-        valor_total: parseMoney(pagamento.total),
+        valor_bruto: valorBruto || null,
+        desconto_valor: descontoValor || null,
+        valor_total: valorTotalPagamento || null,
         parcelas: Array.isArray(pagamento.parcelas) && pagamento.parcelas.length > 0 ? pagamento.parcelas : null,
         parcelas_qtd: pagamento.parcelas?.length || null,
         parcelas_valor: pagamento.parcelas?.length
           ? parseMoney(pagamento.parcelas[0].valor)
-          : parseMoney(pagamento.total || pagamento.valor_bruto),
+          : valorTotalPagamento || valorBruto || null,
         vencimento_primeira: pagamento.parcelas?.[0]?.vencimento || null,
-        paga_comissao: null
+        paga_comissao: pagamentoComissionavel
       });
     }
 
-    const valorNaoComissionado = 0;
-    const valorTotal = Math.max(totalPago - valorNaoComissionado, 0);
+    const valorNaoComissionado = totalCreditosNaoComissionados || null;
+    const valorTotal = totalPagoFinal > 0 ? Math.max(totalPagoFinal - totalCreditosNaoComissionados, 0) : 0;
     await client
       .from('vendas')
-      .update({ valor_nao_comissionado: valorNaoComissionado, valor_total: valorTotal })
+      .update({ valor_nao_comissionado: valorNaoComissionado, valor_total: valorTotal || null })
       .eq('id', venda.id);
 
     return json({ venda_id: venda.id });

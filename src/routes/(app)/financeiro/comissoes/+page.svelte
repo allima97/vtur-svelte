@@ -20,6 +20,10 @@
     cliente: string;
     data_venda: string;
     valor_venda: number;
+    valor_comissionavel: number;
+    percentual_aplicado: number;
+    regra_nome?: string;
+    tipo_pacote?: string | null;
     valor_comissao: number;
     valor_pago: number;
     valor_taxas?: number;
@@ -68,6 +72,8 @@
       comissoes = (data.items || []).map((item: any) => ({
         ...item,
         valor_venda: Number(item.valor_venda || 0),
+        valor_comissionavel: Number(item.valor_comissionavel || 0),
+        percentual_aplicado: Number(item.percentual_aplicado || 0),
         valor_comissao: Number(item.valor_comissao || 0),
         valor_pago: Number(item.valor_pago || 0),
         valor_taxas: Number(item.valor_taxas || 0),
@@ -111,6 +117,7 @@
     { key: 'cliente', label: 'Cliente', sortable: true },
     { key: 'data_venda', label: 'Data Venda', sortable: true, width: '110px', formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-' },
     { key: 'valor_venda', label: 'Valor Venda', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
+    { key: 'percentual_aplicado', label: '%', sortable: true, width: '80px', align: 'center' as const, formatter: (value: number) => `${Number(value || 0).toFixed(2)}%` },
     { key: 'valor_comissao', label: 'Comissão', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
     { key: 'valor_pago', label: 'Pago', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
     { key: 'status', label: 'Status', sortable: true, width: '110px', formatter: (value: string) => getStatusBadge(value) }
@@ -170,8 +177,8 @@
 
   function handleExport() {
     const base = comissoesVisiveis;
-    const headers = ['Venda', 'Vendedor', 'Cliente', 'Data Venda', 'Valor Venda', 'Comissão', 'Pago', 'Status'];
-    const rows = base.map((c) => [c.numero_venda, c.vendedor, c.cliente, c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '', String(c.valor_venda || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
+    const headers = ['Venda', 'Vendedor', 'Cliente', 'Data Venda', 'Valor Venda', 'Percentual', 'Comissão', 'Pago', 'Status'];
+    const rows = base.map((c) => [c.numero_venda, c.vendedor, c.cliente, c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '', String(c.valor_venda || 0).replace('.', ','), String(c.percentual_aplicado || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
     const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -243,8 +250,8 @@
 
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
-      <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label><select bind:value={filtroStatus} on:change={loadComissoes} class="vtur-input"><option value="todas">Todas</option><option value="pendente">Pendentes</option><option value="pago">Pagas</option></select></div>
-      <div><label class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label><select bind:value={filtroVendedor} on:change={loadComissoes} class="vtur-input"><option value="">Todos</option>{#each vendedores as v}<option value={v.id}>{v.nome_completo || v.email}</option>{/each}</select></div>
+      <div><label for="comissoes-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label><select id="comissoes-status" bind:value={filtroStatus} on:change={loadComissoes} class="vtur-input"><option value="todas">Todas</option><option value="pendente">Pendentes</option><option value="pago">Pagas</option></select></div>
+      <div><label for="comissoes-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label><select id="comissoes-vendedor" bind:value={filtroVendedor} on:change={loadComissoes} class="vtur-input"><option value="">Todos</option>{#each vendedores as v}<option value={v.id}>{v.nome_completo || v.email}</option>{/each}</select></div>
       <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>
@@ -302,16 +309,16 @@
 
 <Dialog bind:open={showPagamentoDialog} title="Confirmar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Confirmar Pagamento" onConfirm={handleConfirmarPagamento}>
   {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><div><label class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações opcionais..." /></div></div>
+    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><div><label for="comissao-data-pagamento" class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input id="comissao-data-pagamento" type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label for="comissao-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea id="comissao-observacoes" bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações opcionais..."></textarea></div></div>
   {/if}
 </Dialog>
 
 <Dialog bind:open={showPagamentoMultiploDialog} title="Pagamento em Lote" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={`Pagar ${comissoesSelecionadas.length} Comissões`} onConfirm={handlePagamentoMultiplo}>
-  <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><div><label class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações para todos os pagamentos..." /></div></div>
+  <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><div><label for="comissao-data-pagamento-lote" class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input id="comissao-data-pagamento-lote" type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label for="comissao-observacoes-lote" class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea id="comissao-observacoes-lote" bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações para todos os pagamentos..."></textarea></div></div>
 </Dialog>
 
 <Dialog bind:open={showDetalhesDialog} title="Detalhes da Comissão" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>
   {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div><div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Data da Venda</p><p class="font-medium">{comissaoSelecionada.data_venda ? new Date(comissaoSelecionada.data_venda).toLocaleDateString('pt-BR') : '-'}</p></div><div><p class="text-slate-500">Taxas</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_taxas || 0)}</p></div></div><div class="border-t pt-4"><h4 class="font-medium text-slate-900 mb-2">Valores</h4><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Valor Comissão</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div><p class="text-slate-500">Valor Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago || 0)}</p></div></div></div></div>
+    <div class="space-y-4"><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div><div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Data da Venda</p><p class="font-medium">{comissaoSelecionada.data_venda ? new Date(comissaoSelecionada.data_venda).toLocaleDateString('pt-BR') : '-'}</p></div><div><p class="text-slate-500">Regra</p><p class="font-medium">{comissaoSelecionada.regra_nome || 'Sem regra'}</p></div><div><p class="text-slate-500">Tipo de pacote</p><p class="font-medium">{comissaoSelecionada.tipo_pacote || '-'}</p></div><div><p class="text-slate-500">Percentual aplicado</p><p class="font-medium">{Number(comissaoSelecionada.percentual_aplicado || 0).toFixed(2)}%</p></div></div><div class="border-t pt-4"><h4 class="font-medium text-slate-900 mb-2">Valores</h4><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Valor comissionável</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissionavel || 0)}</p></div><div><p class="text-slate-500">Valor Comissão</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div><p class="text-slate-500">Valor Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago || 0)}</p></div></div></div></div>
   {/if}
 </Dialog>

@@ -10,10 +10,10 @@ import {
 } from '$lib/server/v1';
 import {
   fetchSalesReportRows,
-  getVendaCommission,
   getVendaVendedorNome,
   getVendaClienteNome
 } from '$lib/server/relatorios';
+import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
 
 export async function GET(event) {
   try {
@@ -36,31 +36,16 @@ export async function GET(event) {
       vendedorIds = [vendedorIdParam];
     }
 
-    // Usa fetchSalesReportRows para incluir recibos com valor_taxas (necessario para getVendaCommission)
     const rows = await fetchSalesReportRows(client, {
       companyIds,
       vendedorIds
     });
-
-    // Busca valor total pago por venda via vendas_pagamentos
-    const vendaIds = rows.map((r) => r.id).filter(Boolean);
-    const pagoPorVenda = new Map<string, number>();
-    if (vendaIds.length > 0) {
-      const { data: pagamentos } = await client
-        .from('vendas_pagamentos')
-        .select('venda_id, valor_total')
-        .in('venda_id', vendaIds);
-      (pagamentos || []).forEach((p: any) => {
-        const vid = String(p.venda_id || '').trim();
-        if (!vid) return;
-        pagoPorVenda.set(vid, (pagoPorVenda.get(vid) || 0) + Number(p.valor_total || 0));
-      });
-    }
+    const commissionContext = await fetchCommissionContext(client, companyIds);
 
     let items = rows.map((row) => {
-      const valorComissao = getVendaCommission(row);
-      const valorPago = pagoPorVenda.get(row.id) || 0;
-      const itemStatus = valorPago >= valorComissao ? 'pago' : 'pendente';
+      const commission = resolveVendaCommission(row, commissionContext);
+      const valorPago = 0;
+      const itemStatus = 'pendente';
 
       return {
         id: row.id,
@@ -72,8 +57,12 @@ export async function GET(event) {
         vendedor_short: (getVendaVendedorNome(row) || '').slice(0, 20),
         vendedor_label: (getVendaVendedorNome(row) || ''),
         vendedor_id: row.vendedor_id,
-        valor_venda: Number(row.valor_total || 0),
-        valor_comissao: valorComissao,
+        valor_venda: commission.valorVenda,
+        valor_comissionavel: commission.valorComissionavel,
+        percentual_aplicado: commission.percentual,
+        regra_nome: commission.regraNome,
+        tipo_pacote: commission.tipoPacote,
+        valor_comissao: commission.valorComissao,
         valor_pago: valorPago,
         valor_taxas: Number(row.valor_taxas || 0),
         data_venda: row.data_venda,
@@ -90,7 +79,8 @@ export async function GET(event) {
 
     const resumoMap = new Map<string, any>();
     items.forEach((c) => {
-      const atual = resumoMap.get(c.vendedor_id) || {
+      const vendedorKey = String(c.vendedor_id || '').trim() || 'sem-vendedor';
+      const atual = resumoMap.get(vendedorKey) || {
         vendedor_id: c.vendedor_id,
         vendedor_nome: c.vendedor,
         total_vendas: 0,
@@ -105,7 +95,7 @@ export async function GET(event) {
       } else {
         atual.total_pendente += c.valor_comissao;
       }
-      resumoMap.set(c.vendedor_id, atual);
+      resumoMap.set(vendedorKey, atual);
     });
 
     return json({

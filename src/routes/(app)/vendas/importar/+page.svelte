@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { PageHeader, Card, Button, Dialog } from '$lib/components/ui';
+  import { Dropzone } from 'flowbite-svelte';
   import {
     ArrowLeft,
     Upload,
@@ -24,7 +25,6 @@
   import { extractContratosFromText, extractContratosFromPdf, extractPdfText } from '$lib/vendas/contratoCvcExtractor';
   import { extractCruzeiroFromText, extractCruzeiroFromPdf } from '$lib/vendas/cruzeiroExtractor';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
-  import { createSupabaseBrowserClient } from '$lib/db/supabase';
 
   type ContratoDraftUI = ContratoDraft & { aplica_du?: boolean | null };
 
@@ -53,8 +53,20 @@
     nome_completo: string | null;
   };
 
+  type CadastroBasePayload = {
+    user?: {
+      id?: string | null;
+      can_assign_vendedor?: boolean;
+    } | null;
+    vendedoresEquipe?: VendedorOption[];
+    produtos?: Produto[];
+    tiposPacote?: TipoPacote[];
+    warning?: string | null;
+  };
+
   let tipoImportacao: 'cvc' | 'roteiro' = 'cvc';
   let file: File | null = null;
+  let selectedFiles: FileList | undefined = undefined;
   let textInput = '';
   let contratos: ContratoDraftUI[] = [];
   let principalIndex = 0;
@@ -63,6 +75,9 @@
   let previewOpen = false;
   let previewText = '';
   let previewing = false;
+  let statusMessage = '';
+  let warningMessage = '';
+  let duplicateModal: { message: string } | null = null;
 
   let produtos: Produto[] = [];
   let tiposPacote: TipoPacote[] = [];
@@ -102,6 +117,14 @@
 
   $: principal = contratos[principalIndex] || contratos[0];
 
+  $: {
+    const nextFile = selectedFiles?.[0] || null;
+    if (nextFile !== file) {
+      file = nextFile;
+      if (file) textInput = '';
+    }
+  }
+
   $: if (principal && !cidadeManual && !cidadeAutoIndefinida) {
     const term = principal.destino || '';
     if (term && !cidadeId) {
@@ -116,44 +139,42 @@
   onMount(async () => {
     const hoje = new Date().toISOString().slice(0, 10);
     dataVenda = hoje;
-    await Promise.all([loadCadastroBase(), loadProdutos(), loadTiposPacote()]);
+    await loadCadastroBase();
   });
 
   async function loadCadastroBase() {
     try {
       const response = await fetch('/api/v1/vendas/cadastro-base');
       if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = (await response.json()) as CadastroBasePayload;
       currentUserId = payload?.user?.id || '';
       canAssignVendedor = Boolean(payload?.user?.can_assign_vendedor);
       vendedoresEquipe = Array.isArray(payload?.vendedoresEquipe) ? payload.vendedoresEquipe : [];
+      produtos = Array.isArray(payload?.produtos) ? payload.produtos : [];
+      tiposPacote = Array.isArray(payload?.tiposPacote) ? payload.tiposPacote.filter((item) => item.ativo !== false) : [];
+      warningMessage = String(payload?.warning || '').trim();
       vendedorId = currentUserId;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar contexto.');
     }
   }
 
-  async function loadProdutos() {
-    const supabase = createSupabaseBrowserClient();
-    const { data } = await supabase.from('produtos').select('id, nome, cidade_id, todas_as_cidades').order('nome');
-    produtos = (data || []) as Produto[];
-  }
-
-  async function loadTiposPacote() {
-    const supabase = createSupabaseBrowserClient();
-    const { data } = await supabase.from('tipo_pacotes').select('id, nome, ativo').eq('ativo', true).order('nome');
-    tiposPacote = (data || []) as TipoPacote[];
-  }
-
   async function forcarCidadeIndefinida() {
-    const supabase = createSupabaseBrowserClient();
-    const { data } = await supabase.from('cidades').select('id, nome').ilike('nome', 'Indefinida').maybeSingle();
-    if (data?.id) {
-      cidadeAutoIndefinida = true;
-      cidadeId = data.id;
-      cidadeNome = data.nome;
-      cidadeSelecionadaLabel = data.nome;
-      buscaCidade = data.nome;
+    try {
+      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent('Indefinida')}&limite=10`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
+      if (match?.id) {
+        cidadeAutoIndefinida = true;
+        cidadeId = match.id;
+        cidadeNome = match.nome;
+        cidadeSelecionadaLabel = match.subdivisao_nome ? `${match.nome} (${match.subdivisao_nome})` : match.nome;
+        buscaCidade = cidadeSelecionadaLabel;
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -244,12 +265,18 @@
     }
   }
 
+  function clearSelectedFile() {
+    selectedFiles = undefined;
+    file = null;
+  }
+
   async function handleExtract() {
     if (!file && !textInput.trim()) {
       toast.error('Selecione um PDF ou cole o texto do contrato.');
       return;
     }
     extracting = true;
+    statusMessage = '';
     try {
       let result: { contratos: ContratoDraft[]; raw_text: string } | null = null;
       if (tipoImportacao === 'cvc') {
@@ -271,11 +298,22 @@
         return;
       }
 
-      const novos = result.contratos.map((c) => ({ ...c, aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null }));
+      const novos = result.contratos.map((c) => {
+        const normalizedTipoPacote = normalizeText(c.tipo_pacote || '');
+        const tipoPacoteMatch = tiposPacote.find((item) => normalizeText(item.nome) === normalizedTipoPacote);
+        return {
+          ...c,
+          tipo_pacote: tipoPacoteMatch?.nome || c.tipo_pacote || (tipoImportacao === 'roteiro' ? 'Cruzeiro' : null),
+          aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null
+        };
+      });
       contratos = [...contratos, ...novos];
+      statusMessage = contratos.length > 0
+        ? `${novos.length} contrato(s) adicionado(s).`
+        : `${novos.length} contrato(s) encontrado(s).`;
       toast.success(`${novos.length} contrato(s) extraído(s).`);
 
-      file = null;
+      clearSelectedFile();
       textInput = '';
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro na extração.');
@@ -429,6 +467,15 @@
 
       if (!response.ok) {
         const text = await response.text();
+        if (response.status === 409 && (text === 'RECIBO_DUPLICADO' || text === 'RESERVA_DUPLICADA')) {
+          duplicateModal = {
+            message:
+              text === 'RECIBO_DUPLICADO'
+                ? 'Recibo já foi cadastrado no sistema. Só é possível cadastrar recibos novos.'
+                : 'Reserva já foi cadastrada no sistema. Só é possível cadastrar reservas novas.'
+          };
+          return;
+        }
         throw new Error(text);
       }
 
@@ -461,7 +508,19 @@
   ]}
 />
 
-<div class="mx-auto max-w-5xl space-y-6">
+<div class="vtur-page-shell-full space-y-6">
+  {#if statusMessage}
+    <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+      {statusMessage}
+    </div>
+  {/if}
+
+  {#if warningMessage}
+    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      {warningMessage}
+    </div>
+  {/if}
+
   <!-- Tipo de importação -->
   <Card title="Tipo de importação" color="vendas">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -496,35 +555,49 @@
 
   <!-- Fonte do contrato -->
   <Card title="Fonte do contrato" color="vendas">
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Upload de PDF</label>
-        <input
-          type="file"
+        <div class="mb-1 block text-sm font-medium text-slate-700">Upload de PDF</div>
+        <Dropzone
+          bind:files={selectedFiles}
           accept=".pdf"
-          class="vtur-input w-full"
-          on:change={(e) => {
-            const input = e.currentTarget;
-            file = input.files?.[0] || null;
-            if (file) textInput = '';
-          }}
-        />
-        <div class="mt-2 flex gap-2">
+          class="vtur-upload-dropzone"
+        >
+          <div class="flex flex-col items-center gap-3 px-5 py-6 text-center">
+            <div class="vtur-upload-dropzone__icon">
+              <FileText size={22} />
+            </div>
+            <div class="space-y-1">
+              <p class="vtur-upload-dropzone__title">Clique para escolher o PDF</p>
+              <p class="vtur-upload-dropzone__meta">Upload do contrato no padrão CVC ou reserva de cruzeiro</p>
+            </div>
+            {#if file}
+              <p class="vtur-upload-dropzone__file">{file.name}</p>
+            {:else}
+              <p class="vtur-upload-dropzone__hint">Aceita apenas `.pdf`</p>
+            {/if}
+          </div>
+        </Dropzone>
+        <div class="mt-3 flex flex-wrap gap-2">
           <Button type="button" variant="secondary" on:click={handlePreview} loading={previewing} disabled={!file}>
             <Eye size={16} class="mr-2" />Pré-visualizar PDF
+          </Button>
+          <Button type="button" variant="ghost" on:click={clearSelectedFile} disabled={!file}>
+            <X size={16} class="mr-2" />Limpar arquivo
           </Button>
         </div>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Ou cole o texto</label>
+        <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-contrato-texto">Ou cole o texto</label>
         <textarea
+          id="importar-contrato-texto"
           bind:value={textInput}
           class="vtur-input h-32 w-full"
           placeholder="Cole aqui o texto do contrato..."
           on:input={() => {
-            if (textInput.trim()) file = null;
+            if (textInput.trim()) clearSelectedFile();
           }}
-        />
+        ></textarea>
       </div>
     </div>
     <div class="mt-4 flex justify-end">
@@ -567,8 +640,9 @@
 
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">CPF/CNPJ do contratante</label>
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-cpf-${index}`}>CPF/CNPJ do contratante</label>
                 <input
+                  id={`contrato-cpf-${index}`}
                   type="text"
                   value={contrato.contratante?.cpf || ''}
                   class="vtur-input w-full"
@@ -578,8 +652,9 @@
               </div>
               {#if tipoImportacao !== 'roteiro'}
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Tipo de pacote</label>
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-pacote-${index}`}>Tipo de pacote</label>
                   <select
+                    id={`contrato-pacote-${index}`}
                     class="vtur-input w-full"
                     value={contrato.tipo_pacote || ''}
                     on:change={(e) => handleTipoPacoteChange(index, e.currentTarget.value)}
@@ -592,25 +667,25 @@
                 </div>
               {:else}
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Tipo de pacote</label>
-                  <input type="text" value="Cruzeiro" class="vtur-input w-full bg-slate-100" disabled />
+                  <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-pacote-readonly-${index}`}>Tipo de pacote</label>
+                  <input id={`contrato-pacote-readonly-${index}`} type="text" value="Cruzeiro" class="vtur-input w-full bg-slate-100" disabled />
                 </div>
               {/if}
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Produto principal</label>
-                <input type="text" value={contrato.produto_principal || '-'} class="vtur-input w-full bg-slate-100" disabled />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-produto-${index}`}>Produto principal</label>
+                <input id={`contrato-produto-${index}`} type="text" value={contrato.produto_principal || '-'} class="vtur-input w-full bg-slate-100" disabled />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Destino</label>
-                <input type="text" value={contrato.destino || '-'} class="vtur-input w-full bg-slate-100" disabled />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-destino-${index}`}>Destino</label>
+                <input id={`contrato-destino-${index}`} type="text" value={contrato.destino || '-'} class="vtur-input w-full bg-slate-100" disabled />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Total bruto</label>
-                <input type="text" value={formatCurrency(contrato.total_bruto)} class="vtur-input w-full bg-slate-100" disabled />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-total-${index}`}>Total bruto</label>
+                <input id={`contrato-total-${index}`} type="text" value={formatCurrency(contrato.total_bruto)} class="vtur-input w-full bg-slate-100" disabled />
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700">Taxas</label>
-                <input type="text" value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))} class="vtur-input w-full bg-slate-100" disabled />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-taxas-${index}`}>Taxas</label>
+                <input id={`contrato-taxas-${index}`} type="text" value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))} class="vtur-input w-full bg-slate-100" disabled />
               </div>
             </div>
 
@@ -664,7 +739,7 @@
               <details class="mt-4">
                 <summary class="cursor-pointer text-sm font-semibold text-vendas-600">+ Dados do roteiro</summary>
                 <div class="mt-2 space-y-1 text-sm text-slate-600">
-                  <p><strong>Navio:</strong> {contrato.roteiro_reserva.fornecedores?.navio || contrato.produto_principal || '-'}</p>
+                  <p><strong>Navio:</strong> {contrato.roteiro_reserva.fornecedores?.[0]?.nome || contrato.roteiro_reserva.fornecedores?.[0]?.hotel_nome || contrato.produto_principal || '-'}</p>
                   <p><strong>Roteiro:</strong> {contrato.roteiro_reserva.roteiro?.descricao || '-'}</p>
                   <p><strong>Origem:</strong> {contrato.roteiro_reserva.origem?.cidade || '-'}</p>
                   <p><strong>Destino:</strong> {contrato.roteiro_reserva.destino?.cidade || '-'}</p>
@@ -680,8 +755,9 @@
     <Card title="Destino principal da venda" color="vendas">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div class="relative">
-          <label class="mb-1 block text-sm font-medium text-slate-700"><MapPin size={14} class="mr-1 inline" />Cidade</label>
+          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-cidade"><MapPin size={14} class="mr-1 inline" />Cidade</label>
           <input
+            id="importar-cidade"
             type="text"
             bind:value={buscaCidade}
             class="vtur-input w-full"
@@ -709,8 +785,9 @@
           {/if}
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700">Produto / Destino</label>
+          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-destino">Produto / Destino</label>
           <input
+            id="importar-destino"
             type="text"
             bind:value={buscaDestino}
             class="vtur-input w-full"
@@ -726,13 +803,13 @@
           </datalist>
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700"><Calendar size={14} class="mr-1 inline" />Data da venda</label>
-          <input type="date" bind:value={dataVenda} class="vtur-input w-full" max={new Date().toISOString().slice(0, 10)} />
+          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-data-venda"><Calendar size={14} class="mr-1 inline" />Data da venda</label>
+          <input id="importar-data-venda" type="date" bind:value={dataVenda} class="vtur-input w-full" max={new Date().toISOString().slice(0, 10)} />
         </div>
         {#if canAssignVendedor}
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700"><User size={14} class="mr-1 inline" />Vendedor</label>
-            <select bind:value={vendedorId} class="vtur-input w-full">
+            <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-vendedor"><User size={14} class="mr-1 inline" />Vendedor</label>
+            <select id="importar-vendedor" bind:value={vendedorId} class="vtur-input w-full">
               {#each vendedoresEquipe as v}
                 <option value={v.id}>{v.nome_completo}</option>
               {/each}
@@ -761,7 +838,7 @@
   cancelText="Fechar"
   onCancel={() => (previewOpen = false)}
 >
-  <textarea class="vtur-input h-96 w-full font-mono text-xs" readonly value={previewText} />
+  <textarea class="vtur-input h-96 w-full font-mono text-xs" readonly value={previewText}></textarea>
 </Dialog>
 
 <!-- Modal de contato -->
@@ -775,16 +852,16 @@
 >
   <div class="space-y-4">
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700">Telefone</label>
-      <input type="text" bind:value={contatoTelefone} class="vtur-input w-full" placeholder="(00) 0000-0000" />
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-telefone">Telefone</label>
+      <input id="contato-telefone" type="text" bind:value={contatoTelefone} class="vtur-input w-full" placeholder="(00) 0000-0000" />
     </div>
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
-      <input type="text" bind:value={contatoWhatsapp} class="vtur-input w-full" placeholder="(00) 00000-0000" />
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-whatsapp">WhatsApp</label>
+      <input id="contato-whatsapp" type="text" bind:value={contatoWhatsapp} class="vtur-input w-full" placeholder="(00) 00000-0000" />
     </div>
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
-      <input type="email" bind:value={contatoEmail} class="vtur-input w-full" placeholder="cliente@email.com" />
+      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-email">E-mail</label>
+      <input id="contato-email" type="email" bind:value={contatoEmail} class="vtur-input w-full" placeholder="cliente@email.com" />
     </div>
     <div class="flex justify-end gap-3 pt-2">
       <Button type="button" variant="secondary" on:click={() => handleSave(true)} loading={saving}>
@@ -795,4 +872,15 @@
       </Button>
     </div>
   </div>
+</Dialog>
+
+<Dialog
+  open={duplicateModal !== null}
+  title="Duplicidade identificada"
+  size="sm"
+  showConfirm={false}
+  cancelText="Fechar"
+  onCancel={() => (duplicateModal = null)}
+>
+  <p class="text-sm text-slate-600">{duplicateModal?.message}</p>
 </Dialog>

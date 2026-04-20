@@ -252,9 +252,10 @@
 {#if !$isMobile || $sidebar.isOpen}
   <aside
     class="vtur-sidebar"
+    class:vtur-sidebar--mobile={$isMobile}
     class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
     aria-label="Menu principal do sistema"
-    style={$isMobile ? 'position:fixed;top:0;left:0;height:100svh;width:min(88vw,300px);z-index:999;' : ''}
+    style={$isMobile ? 'position:fixed;z-index:999;' : ''}
   >
     <!-- Brand Header -->
     <div class="vtur-sidebar__header">
@@ -392,15 +393,14 @@
     3 colunas: [Menu] [Página atual com ícone + nome grande] [Spacer]
   -->
   <nav
-    class="fixed bottom-0 left-0 right-0 z-[996] border-t border-slate-700/60 bg-slate-900/96 backdrop-blur-md"
-    style="display:grid;grid-template-columns:72px minmax(0,1fr) 72px;align-items:center;gap:6px;padding:8px 10px;padding-bottom:max(8px,env(safe-area-inset-bottom));box-sizing:border-box;"
+    class="vtur-mobile-nav"
     aria-label="Navegação principal"
   >
     <!-- Coluna 1: Hamburguer / Menu -->
     <button
       type="button"
-      class="flex flex-col items-center justify-center gap-1 rounded-xl border-0 bg-transparent px-2 py-2 transition-colors {$sidebar.isOpen ? 'text-sky-400' : 'text-slate-400'}"
-      style="min-height:52px;"
+      class="vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border-0 bg-transparent px-2 py-2 transition-colors"
+      class:vtur-mobile-nav__menu--open={$sidebar.isOpen}
       on:click={() => sidebar.toggle()}
       aria-label="Abrir menu"
     >
@@ -411,13 +411,12 @@
     <!-- Coluna 2: Módulo/Página atual — ícone + nome em destaque -->
     <a
       href={currentNavEntry.href}
-      class="flex flex-row items-center justify-center gap-2 rounded-xl no-underline transition-colors text-sky-200"
-      style="background:rgba(37,99,235,0.22);min-height:52px;padding:10px 14px;"
+      class="vtur-mobile-nav__current transition-colors"
       on:click={() => sidebar.close()}
       aria-label={currentNavEntry.name}
     >
       <svelte:component this={currentNavEntry.icon} size={24} />
-      <span class="text-base font-extrabold leading-tight truncate">{currentNavEntry.name}</span>
+      <span class="vtur-mobile-nav__label">{currentNavEntry.name}</span>
     </a>
 
     <!-- Coluna 3: Spacer invisível (simetria) -->
