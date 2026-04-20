@@ -218,16 +218,16 @@
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-          <select bind:value={filtroTipo} on:change={carregarCircuitos} class="vtur-input w-full">
+          <label for="filtro-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+          <select id="filtro-tipo" bind:value={filtroTipo} on:change={carregarCircuitos} class="vtur-input w-full">
             <option value="">Todos</option>
             <option value="nacional">Nacional</option>
             <option value="internacional">Internacional</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Duração</label>
-          <select bind:value={filtroDias} class="vtur-input w-full">
+          <label for="filtro-dias" class="block text-sm font-medium text-slate-700 mb-1">Duração</label>
+          <select id="filtro-dias" bind:value={filtroDias} class="vtur-input w-full">
             <option value="">Todas</option>
             <option value="curto">Curto (até 5 dias)</option>
             <option value="medio">Médio (6-10 dias)</option>
@@ -235,8 +235,8 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-          <select bind:value={filtroStatus} on:change={carregarCircuitos} class="vtur-input w-full">
+          <label for="filtro-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+          <select id="filtro-status" bind:value={filtroStatus} on:change={carregarCircuitos} class="vtur-input w-full">
             <option value="">Todos</option>
             <option value="ativo">Ativo</option>
             <option value="inativo">Inativo</option>

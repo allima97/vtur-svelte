@@ -93,12 +93,13 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <!-- Código -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
+        <label for="novo-circuito-codigo" class="block text-sm font-medium text-slate-700 mb-1">
           Código <span class="text-red-500">*</span>
         </label>
         <div class="relative">
           <Route size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
+            id="novo-circuito-codigo"
             type="text" 
             bind:value={circuito.codigo}
             placeholder="Ex: CIR-001"
@@ -110,10 +111,11 @@
 
       <!-- Nome -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
+        <label for="novo-circuito-nome" class="block text-sm font-medium text-slate-700 mb-1">
           Nome do Circuito <span class="text-red-500">*</span>
         </label>
         <input 
+          id="novo-circuito-nome"
           type="text" 
           bind:value={circuito.nome}
           placeholder="Ex: Rota das Emoções"
@@ -124,8 +126,8 @@
 
       <!-- Tipo -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select bind:value={circuito.tipo} class="vtur-input w-full">
+        <label for="novo-circuito-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+        <select id="novo-circuito-tipo" bind:value={circuito.tipo} class="vtur-input w-full">
           <option value="nacional">Nacional</option>
           <option value="internacional">Internacional</option>
         </select>
@@ -134,21 +136,22 @@
       <!-- Duração -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Dias</label>
-          <input type="number" bind:value={circuito.dias} min="1" class="vtur-input w-full" />
+          <label for="novo-circuito-dias" class="block text-sm font-medium text-slate-700 mb-1">Dias</label>
+          <input id="novo-circuito-dias" type="number" bind:value={circuito.dias} min="1" class="vtur-input w-full" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
-          <input type="number" bind:value={circuito.noites} min="1" class="vtur-input w-full" />
+          <label for="novo-circuito-noites" class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
+          <input id="novo-circuito-noites" type="number" bind:value={circuito.noites} min="1" class="vtur-input w-full" />
         </div>
       </div>
 
       <!-- Preço Base -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Preço Base</label>
+        <label for="novo-circuito-preco-base" class="block text-sm font-medium text-slate-700 mb-1">Preço Base</label>
         <div class="relative">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
           <input 
+            id="novo-circuito-preco-base"
             type="number" 
             bind:value={circuito.preco_base}
             placeholder="0,00"
@@ -161,14 +164,15 @@
 
       <!-- Vagas -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Vagas por Saída</label>
-        <input type="number" bind:value={circuito.vagas} min="1" class="vtur-input w-full" />
+        <label for="novo-circuito-vagas" class="block text-sm font-medium text-slate-700 mb-1">Vagas por Saída</label>
+        <input id="novo-circuito-vagas" type="number" bind:value={circuito.vagas} min="1" class="vtur-input w-full" />
       </div>
 
       <!-- Saídas -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Dias de Saída</label>
+        <label for="novo-circuito-saidas" class="block text-sm font-medium text-slate-700 mb-1">Dias de Saída</label>
         <input 
+          id="novo-circuito-saidas"
           type="text" 
           bind:value={circuito.saidas}
           placeholder="Ex: Ter, Sab / Semanal / Quinzenal"
@@ -178,7 +182,7 @@
 
       <!-- Guia -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Guia Acompanhante</label>
+        <p class="block text-sm font-medium text-slate-700 mb-1">Guia Acompanhante</p>
         <div class="flex items-center gap-4 mt-2">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" bind:group={circuito.guia} value={true} class="w-4 h-4 text-financeiro-600" />
@@ -193,7 +197,7 @@
 
       <!-- Status -->
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+        <p class="block text-sm font-medium text-slate-700 mb-1">Status</p>
         <div class="flex items-center gap-4 mt-2">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" bind:group={circuito.ativo} value={true} class="w-4 h-4 text-financeiro-600" />
@@ -208,8 +212,9 @@
 
       <!-- Descrição -->
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-slate-700 mb-1">Descrição Geral</label>
+        <label for="novo-circuito-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição Geral</label>
         <textarea 
+          id="novo-circuito-descricao"
           bind:value={circuito.descricao}
           rows="3"
           placeholder="Descrição do circuito, principais atrativos..."

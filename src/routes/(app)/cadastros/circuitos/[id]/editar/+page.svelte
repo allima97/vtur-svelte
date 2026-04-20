@@ -52,21 +52,21 @@
   <Card color="financeiro" class="mb-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Código *</label>
+        <label for="circuito-codigo" class="block text-sm font-medium text-slate-700 mb-1">Código *</label>
         <div class="relative">
           <Route size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" bind:value={circuito.codigo} class="vtur-input w-full pl-10" required />
+          <input id="circuito-codigo" type="text" bind:value={circuito.codigo} class="vtur-input w-full pl-10" required />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
-        <input type="text" bind:value={circuito.nome} class="vtur-input w-full" required />
+        <label for="circuito-nome" class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+        <input id="circuito-nome" type="text" bind:value={circuito.nome} class="vtur-input w-full" required />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select bind:value={circuito.tipo} class="vtur-input w-full">
+        <label for="circuito-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+        <select id="circuito-tipo" bind:value={circuito.tipo} class="vtur-input w-full">
           <option value="nacional">Nacional</option>
           <option value="internacional">Internacional</option>
         </select>
@@ -74,35 +74,35 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Dias</label>
-          <input type="number" bind:value={circuito.dias} min="1" class="vtur-input w-full" />
+          <label for="circuito-dias" class="block text-sm font-medium text-slate-700 mb-1">Dias</label>
+          <input id="circuito-dias" type="number" bind:value={circuito.dias} min="1" class="vtur-input w-full" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
-          <input type="number" bind:value={circuito.noites} min="1" class="vtur-input w-full" />
+          <label for="circuito-noites" class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
+          <input id="circuito-noites" type="number" bind:value={circuito.noites} min="1" class="vtur-input w-full" />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Preço Base</label>
+        <label for="circuito-preco-base" class="block text-sm font-medium text-slate-700 mb-1">Preço Base</label>
         <div class="relative">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
-          <input type="number" bind:value={circuito.preco_base} min="0" step="0.01" class="vtur-input w-full pl-10" />
+          <input id="circuito-preco-base" type="number" bind:value={circuito.preco_base} min="0" step="0.01" class="vtur-input w-full pl-10" />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Vagas</label>
-        <input type="number" bind:value={circuito.vagas} min="1" class="vtur-input w-full" />
+        <label for="circuito-vagas" class="block text-sm font-medium text-slate-700 mb-1">Vagas</label>
+        <input id="circuito-vagas" type="number" bind:value={circuito.vagas} min="1" class="vtur-input w-full" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Dias de Saída</label>
-        <input type="text" bind:value={circuito.saidas} class="vtur-input w-full" />
+        <label for="circuito-saidas" class="block text-sm font-medium text-slate-700 mb-1">Dias de Saída</label>
+        <input id="circuito-saidas" type="text" bind:value={circuito.saidas} class="vtur-input w-full" />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Guia</label>
+        <p class="block text-sm font-medium text-slate-700 mb-1">Guia</p>
         <div class="flex items-center gap-4 mt-2">
           <label class="flex items-center gap-2 cursor-pointer">
             <input type="radio" bind:group={circuito.guia} value={true} class="w-4 h-4 text-financeiro-600" />
@@ -116,8 +116,8 @@
       </div>
 
       <div class="md:col-span-2">
-        <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-        <textarea bind:value={circuito.descricao} rows="4" class="vtur-input w-full"></textarea>
+        <label for="circuito-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+        <textarea id="circuito-descricao" bind:value={circuito.descricao} rows="4" class="vtur-input w-full"></textarea>
       </div>
     </div>
   </Card>

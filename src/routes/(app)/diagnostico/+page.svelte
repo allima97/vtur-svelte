@@ -108,7 +108,7 @@
           <tr class="border-b border-slate-100">
             <td class="py-2 font-mono text-xs">{test.name}</td>
             <td class="py-2">
-              <span class: text-green-600={test.status === 'OK'}>
+              <span class:text-green-600={test.status === 'OK'}>
                 {test.status}
               </span>
             </td>
