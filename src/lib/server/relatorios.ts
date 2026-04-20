@@ -2,15 +2,33 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ReportReceiptRow = {
   id?: string | null;
+  numero_recibo?: string | null;
+  data_venda?: string | null;
+  produto_id?: string | null;
   valor_total?: number | null;
   valor_taxas?: number | null;
   valor_du?: number | null;
   valor_rav?: number | null;
   tipo_pacote?: string | null;
+  percentual_comissao_loja?: number | null;
+  faixa_comissao?: string | null;
+  valor_comissao_loja?: number | null;
+  cancelado_por_conciliacao_em?: string | null;
+  cancelado_por_conciliacao_observacao?: string | null;
+  valor_bruto_override?: number | null;
+  valor_liquido_override?: number | null;
+  valor_meta_override?: number | null;
   tipo_produtos?: {
     id?: string | null;
     nome?: string | null;
     tipo?: string | null;
+    regra_comissionamento?: string | null;
+    soma_na_meta?: boolean | null;
+    usa_meta_produto?: boolean | null;
+    meta_produto_valor?: number | null;
+    comissao_produto_meta_pct?: number | null;
+    descontar_meta_geral?: boolean | null;
+    exibe_kpi_comissao?: boolean | null;
   } | null;
   produto_resolvido?: {
     id?: string | null;
@@ -31,6 +49,9 @@ export type ReportVendaRow = {
   data_embarque: string | null;
   data_final: string | null;
   valor_total: number | null;
+  valor_total_bruto?: number | null;
+  valor_total_pago?: number | null;
+  desconto_comercial_valor?: number | null;
   valor_nao_comissionado: number | null;
   valor_taxas: number | null;
   cancelada: boolean | null;
@@ -54,6 +75,117 @@ export type ReportVendaRow = {
   recibos?: ReportReceiptRow[] | null;
 };
 
+function isMissingColumnError(error: unknown) {
+  const code = String((error as { code?: string })?.code || '').trim();
+  const message = String((error as { message?: string })?.message || '').toLowerCase();
+  return code === '42703' || (message.includes('column') && message.includes('does not exist'));
+}
+
+function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boolean) {
+  const tipoProdutoCols = includeAdvancedFields
+    ? [
+        'id',
+        'nome',
+        'tipo',
+        'regra_comissionamento',
+        'soma_na_meta',
+        'usa_meta_produto',
+        'meta_produto_valor',
+        'comissao_produto_meta_pct',
+        'descontar_meta_geral',
+        includeKpiField ? 'exibe_kpi_comissao' : null
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : 'id, nome, tipo';
+
+  const reciboCols = includeAdvancedFields
+    ? `
+        id,
+        numero_recibo,
+        data_venda,
+        produto_id,
+        valor_total,
+        valor_taxas,
+        valor_du,
+        valor_rav,
+        tipo_pacote,
+        percentual_comissao_loja,
+        faixa_comissao,
+        valor_comissao_loja,
+        cancelado_por_conciliacao_em,
+        cancelado_por_conciliacao_observacao,
+        valor_bruto_override,
+        valor_liquido_override,
+        valor_meta_override,
+        tipo_produtos (${tipoProdutoCols}),
+        produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)
+      `
+    : `
+        id,
+        numero_recibo,
+        data_venda,
+        produto_id,
+        valor_total,
+        valor_taxas,
+        valor_du,
+        valor_rav,
+        tipo_pacote,
+        percentual_comissao_loja,
+        faixa_comissao,
+        valor_comissao_loja,
+        cancelado_por_conciliacao_em,
+        cancelado_por_conciliacao_observacao,
+        tipo_produtos (id, nome, tipo),
+        produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)
+      `;
+
+  const vendaCols = includeAdvancedFields
+    ? `
+        id,
+        numero_venda,
+        cliente_id,
+        vendedor_id,
+        company_id,
+        data_venda,
+        data_embarque,
+        data_final,
+        valor_total,
+        valor_total_bruto,
+        valor_total_pago,
+        desconto_comercial_valor,
+        valor_nao_comissionado,
+        valor_taxas,
+        cancelada,
+        clientes (nome, email),
+        vendedor:users!vendedor_id (nome_completo, email),
+        destino_cidade:cidades!destino_cidade_id (id, nome),
+        destinos:produtos!destino_id (id, nome, tipo_produto),
+        recibos:vendas_recibos (${reciboCols})
+      `
+    : `
+        id,
+        numero_venda,
+        cliente_id,
+        vendedor_id,
+        company_id,
+        data_venda,
+        data_embarque,
+        data_final,
+        valor_total,
+        valor_nao_comissionado,
+        valor_taxas,
+        cancelada,
+        clientes (nome, email),
+        vendedor:users!vendedor_id (nome_completo, email),
+        destino_cidade:cidades!destino_cidade_id (id, nome),
+        destinos:produtos!destino_id (id, nome, tipo_produto),
+        recibos:vendas_recibos (${reciboCols})
+      `;
+
+  return vendaCols;
+}
+
 export async function fetchSalesReportRows(
   client: SupabaseClient,
   params: {
@@ -64,66 +196,56 @@ export async function fetchSalesReportRows(
     includeCancelled?: boolean;
   }
 ) {
-  let query = client
-    .from('vendas')
-    .select(`
-      id,
-      numero_venda,
-      cliente_id,
-      vendedor_id,
-      company_id,
-      data_venda,
-      data_embarque,
-      data_final,
-      valor_total,
-      valor_nao_comissionado,
-      valor_taxas,
-      cancelada,
-      clientes (nome, email),
-      vendedor:users!vendedor_id (nome_completo, email),
-      destino_cidade:cidades!destino_cidade_id (id, nome),
-      destinos:produtos!destino_id (id, nome, tipo_produto),
-      recibos:vendas_recibos (
-        id,
-        valor_total,
-        valor_taxas,
-        valor_du,
-        valor_rav,
-        tipo_pacote,
-        tipo_produtos (id, nome, tipo),
-        produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)
-      )
-    `)
-    .order('data_venda', { ascending: false })
-    .limit(5000);
+  const executeQuery = async (selectClause: string) => {
+    let query = client
+      .from('vendas')
+      .select(selectClause)
+      .order('data_venda', { ascending: false })
+      .limit(5000);
 
-  if (!params.includeCancelled) {
-    query = query.eq('cancelada', false);
+    if (!params.includeCancelled) {
+      query = query.eq('cancelada', false);
+    }
+
+    if (params.dataInicio) {
+      query = query.gte('data_venda', params.dataInicio);
+    }
+
+    if (params.dataFim) {
+      query = query.lte('data_venda', params.dataFim);
+    }
+
+    if ((params.companyIds || []).length > 0) {
+      query = query.in('company_id', params.companyIds || []);
+    }
+
+    if ((params.vendedorIds || []).length > 0) {
+      query = query.in('vendedor_id', params.vendedorIds || []);
+    }
+
+    return query;
+  };
+
+  const selectVariants = [
+    buildSalesSelect(true, true),
+    buildSalesSelect(true, false),
+    buildSalesSelect(false, false)
+  ];
+
+  let lastError: unknown = null;
+
+  for (const selectClause of selectVariants) {
+    const { data, error } = await executeQuery(selectClause);
+    if (!error) {
+      return ((data || []) as unknown) as ReportVendaRow[];
+    }
+    lastError = error;
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
   }
 
-  if (params.dataInicio) {
-    query = query.gte('data_venda', params.dataInicio);
-  }
-
-  if (params.dataFim) {
-    query = query.lte('data_venda', params.dataFim);
-  }
-
-  if ((params.companyIds || []).length > 0) {
-    query = query.in('company_id', params.companyIds || []);
-  }
-
-  if ((params.vendedorIds || []).length > 0) {
-    query = query.in('vendedor_id', params.vendedorIds || []);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return (data || []) as ReportVendaRow[];
+  throw lastError;
 }
 
 export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: string[]) {

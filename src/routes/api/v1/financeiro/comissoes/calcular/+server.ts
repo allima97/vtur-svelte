@@ -45,7 +45,7 @@ export async function POST(event) {
     if (!vendas || vendas.length === 0) {
       return json({ success: true, message: 'Nenhuma venda encontrada', processadas: 0, erro: 0, detalhes: [] });
     }
-    const commissionContext = await fetchCommissionContext(client, companyIds);
+    const commissionContext = await fetchCommissionContext(client, { companyIds, rows: vendas as any });
 
     const resultados: any[] = [];
     let processadas = 0;
@@ -118,7 +118,7 @@ export async function GET(event) {
       companyIds,
       vendedorIds
     });
-    const commissionContext = await fetchCommissionContext(client, companyIds);
+    const commissionContext = await fetchCommissionContext(client, { companyIds, rows: vendas as any });
 
     const items = (vendas || []).map((v: any) => {
       const resolved = resolveVendaCommission(v, commissionContext);

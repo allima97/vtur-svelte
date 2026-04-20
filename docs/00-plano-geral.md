@@ -96,3 +96,4 @@ Recriar o `vtur-app` (Astro 6 + React 18 + PrimeReact + Hono + Supabase) no `vtu
 | 08 | [08-admin-e-master.md](./08-admin-e-master.md) | Admin, master, cadastros, permissões |
 | 09 | [09-extras-e-rollout.md](./09-extras-e-rollout.md) | Chat, consultoria, documentação, QA, rollout |
 | 10 | [10-paridade-fiel-vtur-app.md](./10-paridade-fiel-vtur-app.md) | Releitura fiel por módulo, com foco em regra de negócio e amarrações cruzadas |
+| 11 | [11-plano-execucao-paridade-total.md](./11-plano-execucao-paridade-total.md) | Ordem de execução detalhada por módulo, dependências cruzadas e critérios de aceite |

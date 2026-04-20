@@ -330,7 +330,7 @@
         </section>
       {/each}
 
-      {#if $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.permissoes.admin || $permissoes.permissoes.admin_users}
+      {#if $permissoes.isSystemAdmin || $permissoes.papel === 'MASTER' || $permissoes.acessos.admin || $permissoes.acessos.admin_users}
         <section class="vtur-sidebar__section">
           <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
           <nav class="vtur-sidebar__nav" aria-label="Admin">

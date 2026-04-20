@@ -40,7 +40,7 @@ export async function GET(event) {
       companyIds,
       vendedorIds
     });
-    const commissionContext = await fetchCommissionContext(client, companyIds);
+    const commissionContext = await fetchCommissionContext(client, { companyIds, rows });
 
     let items = rows.map((row) => {
       const commission = resolveVendaCommission(row, commissionContext);

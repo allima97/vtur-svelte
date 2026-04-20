@@ -36,7 +36,7 @@ export async function GET(event) {
     else if (scope.companyId) usersQuery = usersQuery.eq('company_id', scope.companyId);
 
     const { data: usersData } = await usersQuery;
-    const commissionContext = await fetchCommissionContext(client, companyIds);
+    const commissionContext = await fetchCommissionContext(client, { companyIds });
 
     const regras = commissionContext.rules.map((rule) => ({
       id: rule.id,
@@ -47,17 +47,20 @@ export async function GET(event) {
     }));
 
     const items = (usersData || []).map((u: any) => {
-      const regraBase =
-        commissionContext.rules.find((rule) => rule.company_id && String(rule.company_id) === String(u.company_id || '')) ||
-        commissionContext.rules.find((rule) => !rule.company_id) ||
-        null;
+      const regrasEmpresa = commissionContext.rules.filter(
+        (rule) => !rule.company_id || String(rule.company_id) === String(u.company_id || '')
+      );
+      const regraBase = regrasEmpresa[0] || null;
 
       return {
       id: u.id,
       vendedor_id: u.id,
       vendedor_nome: u.nome_completo || u.email || 'Vendedor',
-      regra_id: regraBase?.id || null,
-      regra_nome: regraBase?.nome || 'Sem regra',
+      regra_id: regraId && regrasEmpresa.some((item) => item.id === regraId) ? regraId : regraBase?.id || null,
+      regra_nome:
+        regraId && regrasEmpresa.some((item) => item.id === regraId)
+          ? regrasEmpresa.find((item) => item.id === regraId)?.nome || 'Regra selecionada'
+          : regraBase?.nome || 'Calculada por produto/pacote/meta',
       percentual_base: Number(regraBase?.meta_atingida || 0),
       ativo: true,
       vigente: true

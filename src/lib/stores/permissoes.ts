@@ -7,7 +7,7 @@
  * FUNCIONAMENTO:
  *  1. Carrega perfil do usuário (user_types, uso_individual)
  *  2. Carrega modulo_acesso (permissões por módulo)
- *  3. Carrega system_module_catalog (módulos desabilitados globalmente)
+ *  3. Carrega system_module_settings (módulos desabilitados globalmente)
  *  4. Resolve papel: ADMIN | MASTER | GESTOR | VENDEDOR | OUTRO
  *  5. Armazena acessos: Record<moduloDb, PermissaoNivel>
  *  6. can(moduloLabel) usa MODULO_HERANCA para checar ancestrais
@@ -51,7 +51,7 @@ export interface PermissoesState {
    * Compatível com modulo_acesso.modulo do banco.
    */
   acessos: Record<string, PermissaoNivel>;
-  /** Módulos desabilitados globalmente no sistema (system_module_catalog) */
+  /** Módulos desabilitados globalmente no sistema (system_module_settings) */
   disabledModules: string[];
   ready: boolean;
   loading: boolean;
@@ -205,13 +205,34 @@ function createPermissoesStore() {
       // 3. Módulos desabilitados globalmente
       let disabledModules: string[] = [];
       try {
-        const { data: systemModules } = await supabase
-          .from('system_module_catalog')
-          .select('key, enabled')
+        const settingsResp = await supabase
+          .from('system_module_settings')
+          .select('module_key, enabled')
           .eq('enabled', false);
-        disabledModules = (systemModules || []).map((m) =>
-          String(m.key || '').toLowerCase(),
-        );
+
+        if (!settingsResp.error) {
+          disabledModules = (settingsResp.data || []).map((m) =>
+            String(m.module_key || '').toLowerCase(),
+          );
+        } else {
+          const code = String(settingsResp.error.code || '').toLowerCase();
+          const message = String(settingsResp.error.message || '').toLowerCase();
+          const relationMissing = code === '42p01' || message.includes('does not exist');
+
+          // Compatibilidade com bases antigas que ainda usam system_module_catalog.
+          if (relationMissing) {
+            const legacyResp = await supabase
+              .from('system_module_catalog')
+              .select('key, enabled')
+              .eq('enabled', false);
+
+            if (!legacyResp.error) {
+              disabledModules = (legacyResp.data || []).map((m) =>
+                String(m.key || '').toLowerCase(),
+              );
+            }
+          }
+        }
       } catch {
         // Tabela pode não existir em instâncias antigas — ignorar silenciosamente
       }

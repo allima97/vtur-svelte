@@ -64,7 +64,6 @@ declare module '$env/static/private' {
 	export const CODEX_SANDBOX: string;
 	export const ZSH_TMUX_AUTOSTART: string;
 	export const npm_package_json: string;
-	export const _: string;
 	export const LaunchInstanceID: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_init_module: string;
@@ -101,6 +100,7 @@ declare module '$env/static/private' {
 	export const npm_config_prefix: string;
 	export const COLORTERM: string;
 	export const CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
+	export const _: string;
 	export const NODE_ENV: string;
 }
 
@@ -216,7 +216,6 @@ declare module '$env/dynamic/private' {
 		CODEX_SANDBOX: string;
 		ZSH_TMUX_AUTOSTART: string;
 		npm_package_json: string;
-		_: string;
 		LaunchInstanceID: string;
 		npm_config_userconfig: string;
 		npm_config_init_module: string;
@@ -253,6 +252,7 @@ declare module '$env/dynamic/private' {
 		npm_config_prefix: string;
 		COLORTERM: string;
 		CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
+		_: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
