@@ -1,4 +1,4 @@
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 
 export type EmpresaOption = {
   id: string;
@@ -130,7 +130,9 @@ export function formatBadge(count: number) {
 
 export function buildAttachmentUrl(bucket?: string | null, path?: string | null) {
   if (!bucket || !path) return '';
-  return `${PUBLIC_SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+  const supabaseUrl = publicEnv.PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return '';
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 export function buildThreads(recados: RecadoRow[], usuariosEmpresa: UserMini[], userId: string | null): Thread[] {

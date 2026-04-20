@@ -339,8 +339,9 @@
 >
   <div class="space-y-4">
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+      <label for="forma-pagamento-nome" class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
       <input
+        id="forma-pagamento-nome"
         type="text"
         bind:value={form.nome}
         placeholder="ex: PIX"
@@ -349,8 +350,9 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+      <label for="forma-pagamento-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
       <input
+        id="forma-pagamento-descricao"
         type="text"
         bind:value={form.descricao}
         placeholder="Descrição opcional"
@@ -359,8 +361,9 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Desconto padrão (%)</label>
+      <label for="forma-pagamento-desconto" class="block text-sm font-medium text-slate-700 mb-1">Desconto padrão (%)</label>
       <input
+        id="forma-pagamento-desconto"
         type="number"
         bind:value={form.desconto_padrao_pct}
         min="0"

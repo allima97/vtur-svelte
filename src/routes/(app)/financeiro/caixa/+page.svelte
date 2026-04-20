@@ -328,20 +328,20 @@
     <div class="flex flex-col sm:flex-row gap-4 items-end">
       <div class="flex-1 flex flex-wrap gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Período</label>
-          <select bind:value={periodo} on:change={carregarDados} class="vtur-input">
+          <label for="caixa-periodo" class="block text-sm font-medium text-slate-700 mb-1">Período</label>
+          <select id="caixa-periodo" bind:value={periodo} on:change={carregarDados} class="vtur-input">
             <option value="mes_atual">Mês Atual</option>
             <option value="semana">Últimos 7 dias</option>
             <option value="personalizado">Personalizado</option>
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
-          <input type="date" bind:value={dataInicio} on:change={carregarDados} class="vtur-input" />
+          <label for="caixa-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
+          <input id="caixa-data-inicio" type="date" bind:value={dataInicio} on:change={carregarDados} class="vtur-input" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-          <input type="date" bind:value={dataFim} on:change={carregarDados} class="vtur-input" />
+          <label for="caixa-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
+          <input id="caixa-data-fim" type="date" bind:value={dataFim} on:change={carregarDados} class="vtur-input" />
         </div>
       </div>
       <Button variant="secondary" on:click={handleExportar}>
@@ -482,15 +482,15 @@
   <div class="space-y-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
-        <select bind:value={novaMovimentacao.tipo} class="vtur-input w-full">
+        <label for="caixa-mov-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
+        <select id="caixa-mov-tipo" bind:value={novaMovimentacao.tipo} class="vtur-input w-full">
           <option value="entrada">Entrada (Receita)</option>
           <option value="saida">Saída (Despesa)</option>
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-        <select bind:value={novaMovimentacao.categoria} class="vtur-input w-full">
+        <label for="caixa-mov-categoria" class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+        <select id="caixa-mov-categoria" bind:value={novaMovimentacao.categoria} class="vtur-input w-full">
           <option value="venda">Venda</option>
           <option value="comissao">Comissão</option>
           <option value="fornecedor">Fornecedor</option>
@@ -501,24 +501,24 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
-      <input type="text" bind:value={novaMovimentacao.descricao} placeholder="Descrição da movimentação" class="vtur-input w-full" />
+      <label for="caixa-mov-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
+      <input id="caixa-mov-descricao" type="text" bind:value={novaMovimentacao.descricao} placeholder="Descrição da movimentação" class="vtur-input w-full" />
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Valor *</label>
-        <input type="number" step="0.01" min="0" bind:value={novaMovimentacao.valor} placeholder="0,00" class="vtur-input w-full" />
+        <label for="caixa-mov-valor" class="block text-sm font-medium text-slate-700 mb-1">Valor *</label>
+        <input id="caixa-mov-valor" type="number" step="0.01" min="0" bind:value={novaMovimentacao.valor} placeholder="0,00" class="vtur-input w-full" />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Data *</label>
-        <input type="date" bind:value={novaMovimentacao.data_movimentacao} class="vtur-input w-full" />
+        <label for="caixa-mov-data" class="block text-sm font-medium text-slate-700 mb-1">Data *</label>
+        <input id="caixa-mov-data" type="date" bind:value={novaMovimentacao.data_movimentacao} class="vtur-input w-full" />
       </div>
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-      <select bind:value={novaMovimentacao.forma_pagamento_id} class="vtur-input w-full">
+      <label for="caixa-mov-forma-pagamento" class="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
+      <select id="caixa-mov-forma-pagamento" bind:value={novaMovimentacao.forma_pagamento_id} class="vtur-input w-full">
         <option value="">Selecione...</option>
         {#each formasPagamento as fp}
           <option value={fp.id}>{fp.nome}</option>
@@ -527,8 +527,8 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-      <textarea bind:value={novaMovimentacao.observacoes} rows="2" placeholder="Observações opcionais" class="vtur-input w-full"></textarea>
+      <label for="caixa-mov-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+      <textarea id="caixa-mov-observacoes" bind:value={novaMovimentacao.observacoes} rows="2" placeholder="Observações opcionais" class="vtur-input w-full"></textarea>
     </div>
   </div>
 </Dialog>

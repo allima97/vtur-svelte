@@ -371,7 +371,7 @@
     <Card header="Dados do Cliente" color="orcamentos">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">
+          <label for="orcamento-editar-cliente" class="block text-sm font-medium text-slate-700 mb-1">
             Cliente <span class="text-red-500">*</span>
           </label>
 
@@ -392,6 +392,7 @@
             <div class="relative">
               <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
+                id="orcamento-editar-cliente"
                 type="text"
                 bind:value={searchClienteQuery}
                 on:input={handleSearchInput}
@@ -504,14 +505,15 @@
             <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
 
               <div class="md:col-span-4">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Descrição *</label>
+                <label for={`orcamento-editar-item-titulo-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Descrição *</label>
                 <input type="text" bind:value={item.title} class="vtur-input w-full"
+                  id={`orcamento-editar-item-titulo-${index}`}
                   placeholder="Ex: Passagem Aérea Ida e Volta" />
               </div>
 
               <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
-                <select bind:value={item.item_type} class="vtur-input w-full">
+                <label for={`orcamento-editar-item-tipo-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+                <select id={`orcamento-editar-item-tipo-${index}`} bind:value={item.item_type} class="vtur-input w-full">
                   {#each tiposItem as tipo}
                     <option value={tipo.value}>{tipo.label}</option>
                   {/each}
@@ -519,19 +521,19 @@
               </div>
 
               <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Destino</label>
-                <input type="text" bind:value={item.city_name} class="vtur-input w-full" placeholder="Cidade" />
+                <label for={`orcamento-editar-item-destino-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Destino</label>
+                <input id={`orcamento-editar-item-destino-${index}`} type="text" bind:value={item.city_name} class="vtur-input w-full" placeholder="Cidade" />
               </div>
 
               <div class="md:col-span-1">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Qtd</label>
-                <input type="number" bind:value={item.quantity} min="1" class="vtur-input w-full"
+                <label for={`orcamento-editar-item-quantidade-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Qtd</label>
+                <input id={`orcamento-editar-item-quantidade-${index}`} type="number" bind:value={item.quantity} min="1" class="vtur-input w-full"
                   on:input={() => recalcularItem(index)} />
               </div>
 
               <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-500 mb-1">Valor Unit.</label>
-                <input type="number" bind:value={item.unit_price} min="0" step="0.01" class="vtur-input w-full"
+                <label for={`orcamento-editar-item-valor-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Valor Unit.</label>
+                <input id={`orcamento-editar-item-valor-${index}`} type="number" bind:value={item.unit_price} min="0" step="0.01" class="vtur-input w-full"
                   on:input={() => recalcularItem(index)} />
               </div>
 

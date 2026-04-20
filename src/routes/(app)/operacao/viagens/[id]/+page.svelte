@@ -769,6 +769,8 @@
           <h3 class="text-lg font-semibold text-slate-900">Editar Viagem</h3>
           <button
             on:click={() => showEditModal = false}
+            type="button"
+            aria-label="Fechar edição da viagem"
             class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -781,23 +783,23 @@
         <div class="p-6 overflow-y-auto max-h-[60vh]">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Data de Saída</label>
-              <input type="date" bind:value={editForm.data_inicio} class="vtur-input w-full" />
+              <label for="viagem-edit-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data de Saída</label>
+              <input id="viagem-edit-data-inicio" type="date" bind:value={editForm.data_inicio} class="vtur-input w-full" />
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Data de Retorno</label>
-              <input type="date" bind:value={editForm.data_fim} class="vtur-input w-full" />
+              <label for="viagem-edit-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data de Retorno</label>
+              <input id="viagem-edit-data-fim" type="date" bind:value={editForm.data_fim} class="vtur-input w-full" />
             </div>
 
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-              <textarea bind:value={editForm.observacoes} rows="3" class="vtur-input w-full"></textarea>
+              <label for="viagem-edit-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+              <textarea id="viagem-edit-observacoes" bind:value={editForm.observacoes} rows="3" class="vtur-input w-full"></textarea>
             </div>
 
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-700 mb-1">Follow Up</label>
-              <textarea bind:value={editForm.follow_up_text} rows="2" class="vtur-input w-full"></textarea>
+              <label for="viagem-edit-follow-up" class="block text-sm font-medium text-slate-700 mb-1">Follow Up</label>
+              <textarea id="viagem-edit-follow-up" bind:value={editForm.follow_up_text} rows="2" class="vtur-input w-full"></textarea>
               <label class="flex items-center gap-2 mt-2">
                 <input type="checkbox" bind:checked={editForm.follow_up_fechado} class="rounded" />
                 <span class="text-sm text-slate-600">Marcar como fechado</span>
@@ -821,7 +823,7 @@
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div class="flex items-center justify-between p-4 border-b border-slate-100">
           <h3 class="text-lg font-semibold text-slate-900">Mudar Status da Viagem</h3>
-          <button on:click={() => showStatusModal = false} class="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+          <button type="button" aria-label="Fechar mudança de status" on:click={() => showStatusModal = false} class="p-1 rounded-lg text-slate-400 hover:text-slate-600">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>

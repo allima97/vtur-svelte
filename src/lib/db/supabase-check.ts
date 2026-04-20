@@ -3,15 +3,17 @@
  * Use este arquivo para verificar se as credenciais estão configuradas
  */
 
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 
 export function checkSupabaseConfig() {
+  const url = publicEnv.PUBLIC_SUPABASE_URL;
+  const anonKey = publicEnv.PUBLIC_SUPABASE_ANON_KEY;
   const config = {
-    url: PUBLIC_SUPABASE_URL || 'NÃO CONFIGURADO',
-    key: PUBLIC_SUPABASE_ANON_KEY ? 'CONFIGURADA (oculta)' : 'NÃO CONFIGURADA',
-    isValid: !!(PUBLIC_SUPABASE_URL && PUBLIC_SUPABASE_ANON_KEY && 
-               !PUBLIC_SUPABASE_URL.includes('seu-projeto') &&
-               !PUBLIC_SUPABASE_ANON_KEY.includes('sua-anon-key'))
+    url: url || 'NÃO CONFIGURADO',
+    key: anonKey ? 'CONFIGURADA (oculta)' : 'NÃO CONFIGURADA',
+    isValid: !!(url && anonKey && 
+               !url.includes('seu-projeto') &&
+               !anonKey.includes('sua-anon-key'))
   };
   
   console.log('🔍 [Supabase Check] Configuração:', config);
@@ -21,11 +23,13 @@ export function checkSupabaseConfig() {
 
 export function isSupabaseConfigured(): boolean {
   try {
-    return !!(PUBLIC_SUPABASE_URL && PUBLIC_SUPABASE_ANON_KEY && 
-              !PUBLIC_SUPABASE_URL.includes('seu-projeto') &&
-              !PUBLIC_SUPABASE_ANON_KEY.includes('sua-anon-key') &&
-              !PUBLIC_SUPABASE_URL.includes('placeholder') &&
-              !PUBLIC_SUPABASE_ANON_KEY.includes('placeholder'));
+    const url = publicEnv.PUBLIC_SUPABASE_URL;
+    const anonKey = publicEnv.PUBLIC_SUPABASE_ANON_KEY;
+    return !!(url && anonKey && 
+              !url.includes('seu-projeto') &&
+              !anonKey.includes('sua-anon-key') &&
+              !url.includes('placeholder') &&
+              !anonKey.includes('placeholder'));
   } catch {
     return false;
   }

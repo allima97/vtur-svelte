@@ -440,10 +440,11 @@
 >
   <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">
+      <label for="regra-nome" class="block text-sm font-medium text-slate-700 mb-1">
         Nome <span class="text-red-500">*</span>
       </label>
       <input
+        id="regra-nome"
         type="text"
         bind:value={formData.nome}
         class="vtur-input w-full"
@@ -452,26 +453,27 @@
     </div>
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+      <label for="regra-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
       <textarea
+        id="regra-descricao"
         bind:value={formData.descricao}
         rows="2"
         class="vtur-input w-full"
         placeholder="Descrição opcional da regra..."
-      />
+      ></textarea>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select bind:value={formData.tipo} class="vtur-input w-full">
+        <label for="regra-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+        <select id="regra-tipo" bind:value={formData.tipo} class="vtur-input w-full">
           <option value="GERAL">Geral (Fixo)</option>
           <option value="ESCALONAVEL">Escalonável (Faixas)</option>
         </select>
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-        <select bind:value={formData.ativo} class="vtur-input w-full">
+        <label for="regra-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+        <select id="regra-status" bind:value={formData.ativo} class="vtur-input w-full">
           <option value={true}>Ativo</option>
           <option value={false}>Inativo</option>
         </select>
@@ -485,8 +487,9 @@
       </h4>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Meta Não Atingida (%)</label>
+          <label for="regra-meta-nao-atingida" class="block text-xs font-medium text-slate-600 mb-1">Meta Não Atingida (%)</label>
           <input
+            id="regra-meta-nao-atingida"
             type="number"
             min="0"
             max="100"
@@ -496,8 +499,9 @@
           />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Meta Atingida (%)</label>
+          <label for="regra-meta-atingida" class="block text-xs font-medium text-slate-600 mb-1">Meta Atingida (%)</label>
           <input
+            id="regra-meta-atingida"
             type="number"
             min="0"
             max="100"
@@ -507,8 +511,9 @@
           />
         </div>
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1">Super Meta (%)</label>
+          <label for="regra-super-meta" class="block text-xs font-medium text-slate-600 mb-1">Super Meta (%)</label>
           <input
+            id="regra-super-meta"
             type="number"
             min="0"
             max="100"

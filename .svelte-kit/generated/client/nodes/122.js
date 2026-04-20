@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/auth/nova-senha/+page.svelte";
+export { default as component } from "../../../../src/routes/(app)/vendas/nova/+page.svelte";

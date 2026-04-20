@@ -89,13 +89,14 @@
 {#if open}
   <div 
     class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    on:click={onClose}
+    on:click|self={onClose}
+    on:keydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
+    tabindex="0"
   >
     <div 
       class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-      on:click|stopPropagation
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-vendas-50">
@@ -109,7 +110,9 @@
           </div>
         </div>
         <button
+          type="button"
           on:click={onClose}
+          aria-label="Fechar calculadora"
           class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X size={20} />
@@ -123,12 +126,13 @@
           <div class="space-y-4">
             <!-- Valor Bruto -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+              <label for="calc-valor-bruto" class="block text-sm font-medium text-slate-700 mb-1">
                 Valor Bruto
               </label>
               <div class="relative">
                 <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
+                  id="calc-valor-bruto"
                   type="number"
                   bind:value={calc.valorBruto}
                   min="0"
@@ -140,10 +144,10 @@
             </div>
             
             <!-- Desconto -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+            <fieldset>
+              <legend class="block text-sm font-medium text-slate-700 mb-1">
                 Desconto
-              </label>
+              </legend>
               <div class="flex gap-2 mb-2">
                 <button
                   type="button"
@@ -191,6 +195,7 @@
                 <div class="relative">
                   <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
+                    id="calc-desconto-valor"
                     type="number"
                     bind:value={calc.descontoValor}
                     min="0"
@@ -200,16 +205,17 @@
                   />
                 </div>
               {/if}
-            </div>
+            </fieldset>
             
             <!-- Taxas -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+              <label for="calc-taxas" class="block text-sm font-medium text-slate-700 mb-1">
                 Taxas (cartão, etc.)
               </label>
               <div class="relative">
                 <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
+                  id="calc-taxas"
                   type="number"
                   bind:value={calc.taxas}
                   min="0"
@@ -222,12 +228,13 @@
             
             <!-- Comissão -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+              <label for="calc-comissao" class="block text-sm font-medium text-slate-700 mb-1">
                 % Comissão
               </label>
               <div class="relative">
                 <Percent size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
+                  id="calc-comissao"
                   type="number"
                   bind:value={calc.comissaoPercentual}
                   min="0"
@@ -241,12 +248,13 @@
             
             <!-- Parcelas -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+              <label for="calc-parcelas" class="block text-sm font-medium text-slate-700 mb-1">
                 Número de Parcelas
               </label>
               <div class="relative">
                 <CreditCard size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <select
+                  id="calc-parcelas"
                   bind:value={calc.parcelas}
                   class="vtur-input pl-10 w-full"
                 >

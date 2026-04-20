@@ -1,12 +1,19 @@
 import type { SupabaseClient as BaseSupabaseClient } from '@supabase/supabase-js';
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 import { browser } from '$app/environment';
 import { mockSupabaseClient, shouldUseMock } from './supabase-mock';
 
 // Cliente singleton para o browser
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 let usingMock = false;
+
+function getSupabasePublicConfig() {
+  return {
+    url: publicEnv.PUBLIC_SUPABASE_URL,
+    anonKey: publicEnv.PUBLIC_SUPABASE_ANON_KEY
+  };
+}
 
 /**
  * Cria ou retorna um cliente Supabase para o browser
@@ -23,7 +30,11 @@ export function createSupabaseBrowserClient() {
   }
   
   if (!browserClient) {
-    browserClient = createBrowserClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+    const { url, anonKey } = getSupabasePublicConfig();
+    if (!url || !anonKey) {
+      throw new Error('Credenciais publicas do Supabase nao configuradas');
+    }
+    browserClient = createBrowserClient(url, anonKey);
   }
   
   return browserClient;
@@ -51,8 +62,13 @@ export function createSupabaseServerClient(cookies: {
   if (shouldUseMock()) {
     return mockSupabaseClient as any;
   }
+
+  const { url, anonKey } = getSupabasePublicConfig();
+  if (!url || !anonKey) {
+    throw new Error('Credenciais publicas do Supabase nao configuradas');
+  }
   
-  return createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+  return createServerClient(url, anonKey, {
     cookies: {
       get: (name) => cookies.get(name),
       set: (name, value, options) => cookies.set(name, value, options),

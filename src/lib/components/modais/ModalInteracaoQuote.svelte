@@ -132,13 +132,14 @@
 {#if open}
   <div 
     class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    on:click={onClose}
+    on:click|self={onClose}
+    on:keydown={(event) => event.key === 'Escape' && onClose()}
     role="dialog"
     aria-modal="true"
+    tabindex="0"
   >
     <div 
       class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-      on:click|stopPropagation
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-clientes-50">
@@ -152,7 +153,9 @@
           </div>
         </div>
         <button
+          type="button"
           on:click={onClose}
+          aria-label="Fechar histórico de interações"
           class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X size={20} />
@@ -168,8 +171,8 @@
           <div class="space-y-4">
             <!-- Tipo e Status -->
             <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+              <fieldset>
+                <legend class="block text-sm font-medium text-slate-700 mb-1">Tipo</legend>
                 <div class="flex gap-2">
                   {#each tiposInteracao.slice(0, 4) as tipo}
                     <button
@@ -182,11 +185,11 @@
                     </button>
                   {/each}
                 </div>
-              </div>
+              </fieldset>
               
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                <select bind:value={novaInteracao.status} class="vtur-input w-full">
+                <label for="interacao-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select id="interacao-status" bind:value={novaInteracao.status} class="vtur-input w-full">
                   {#each statusNegociacao as status}
                     <option value={status.value}>{status.label}</option>
                   {/each}
@@ -196,11 +199,12 @@
             
             <!-- Data de Agendamento -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">
+              <label for="interacao-data-agendamento" class="block text-sm font-medium text-slate-700 mb-1">
                 <Clock size={14} class="inline mr-1" />
                 Próximo Contato (opcional)
               </label>
               <input
+                id="interacao-data-agendamento"
                 type="datetime-local"
                 bind:value={novaInteracao.data_agendamento}
                 class="vtur-input w-full"
@@ -209,8 +213,9 @@
             
             <!-- Observações -->
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+              <label for="interacao-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
               <textarea
+                id="interacao-observacoes"
                 bind:value={novaInteracao.observacoes}
                 rows="3"
                 class="vtur-input w-full"

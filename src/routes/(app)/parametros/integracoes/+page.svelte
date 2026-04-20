@@ -138,23 +138,25 @@
               Testar
             </Button>
           {/if}
-          <a 
-            href="#" 
+          <button
+            type="button"
             class="p-2 text-slate-400 hover:text-financeiro-600 hover:bg-financeiro-50 rounded-lg transition-colors"
             title="Documentação"
+            aria-label="Abrir documentação da integração"
           >
             <ExternalLink size={18} />
-          </a>
+          </button>
         </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {#each int.campos as campo}
+        {#each int.campos as campo, campoIndex}
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">{campo.nome}</label>
+            <label for={`integracao-${int.id}-${campoIndex}`} class="block text-sm font-medium text-slate-700 mb-1">{campo.nome}</label>
             {#if campo.readonly}
               <div class="flex items-center gap-2">
                 <input 
+                  id={`integracao-${int.id}-${campoIndex}`}
                   type="text" 
                   value={campo.valor}
                   readonly
@@ -170,6 +172,7 @@
               </div>
             {:else}
               <input 
+                id={`integracao-${int.id}-${campoIndex}`}
                 type={campo.tipo} 
                 value={campo.valor}
                 class="vtur-input w-full"

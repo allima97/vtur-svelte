@@ -592,7 +592,7 @@
         <label class="vtur-label" for="rot-orig">Cidade / Início</label>
         <input id="rot-orig" bind:value={inicioCidade} class="vtur-input w-full" placeholder="Ex: São Paulo" list="sugestoes-cidade" />
         <datalist id="sugestoes-cidade">
-          {#each (sugestoes['cidade'] || []) as s}<option value={s} />{/each}
+          {#each (sugestoes['cidade'] || []) as s}<option value={s}></option>{/each}
         </datalist>
       </div>
       <div>
@@ -602,12 +602,12 @@
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
-      <Button type="button" variant="secondary" size="sm" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
-      <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} on:click={save}>
+      <Button type="button" variant="secondary" size="sm" onclick={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+      <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} onclick={save}>
         <Save size={14} class="mr-1" />
         Salvar roteiro
       </Button>
-      <Button type="button" variant="secondary" size="sm" on:click={() => { showGerarModal = true; }}>
+      <Button type="button" variant="secondary" size="sm" onclick={() => { showGerarModal = true; }}>
         <DollarSign size={14} class="mr-1" />
         Gerar Orçamento
       </Button>
@@ -629,10 +629,10 @@
   {#if abaAtiva === 'itinerario'}
     <Card title="Itinerário dia a dia" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { showDiasBusca = true; }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { showDiasBusca = true; }}>
           Buscar dias no banco
         </Button>
-        <Button type="button" variant="secondary" size="sm" on:click={() => { dias = addItem(dias, newDia); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { dias = addItem(dias, newDia); }}>
           <Plus size={13} class="mr-1" />
           Adicionar dia
         </Button>
@@ -651,16 +651,16 @@
                 <div class="flex items-center gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
                     disabled={index === 0}
-                    on:click={() => { dias = moveUp(dias, index); }}>
+                    onclick={() => { dias = moveUp(dias, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
                     disabled={index === dias.length - 1}
-                    on:click={() => { dias = moveDown(dias, index); }}>
+                    onclick={() => { dias = moveDown(dias, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { dias = removeItem(dias, index); }}>
+                    onclick={() => { dias = removeItem(dias, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -693,7 +693,7 @@
   {:else if abaAtiva === 'hoteis'}
     <Card title="Hotéis" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { hoteis = addItem(hoteis, newHotel); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { hoteis = addItem(hoteis, newHotel); }}>
           <Plus size={13} class="mr-1" />
           Adicionar hotel
         </Button>
@@ -709,15 +709,15 @@
                 <span class="text-xs font-semibold text-slate-500">Hotel {index + 1}</span>
                 <div class="flex gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} on:click={() => { hoteis = moveUp(hoteis, index); }}>
+                    disabled={index === 0} onclick={() => { hoteis = moveUp(hoteis, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === hoteis.length - 1} on:click={() => { hoteis = moveDown(hoteis, index); }}>
+                    disabled={index === hoteis.length - 1} onclick={() => { hoteis = moveDown(hoteis, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { hoteis = removeItem(hoteis, index); }}>
+                    onclick={() => { hoteis = removeItem(hoteis, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -739,23 +739,23 @@
                 <div>
                   <label class="vtur-label-xs">Data entrada</label>
                   <input type="date" class="vtur-input w-full" value={hotel.data_inicio}
-                    on:change={(e) => onHotelDateChange(index, 'data_inicio', (e.target as HTMLInputElement).value)} />
+                    onchange={(e) => onHotelDateChange(index, 'data_inicio', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Data saída</label>
                   <input type="date" class="vtur-input w-full" value={hotel.data_fim}
-                    on:change={(e) => onHotelDateChange(index, 'data_fim', (e.target as HTMLInputElement).value)} />
+                    onchange={(e) => onHotelDateChange(index, 'data_fim', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Noites</label>
                   <input type="number" class="vtur-input w-full" value={hotel.noites ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { noites: Number((e.target as HTMLInputElement).value) || null }); }}
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { noites: Number((e.target as HTMLInputElement).value) || null }); }}
                     placeholder="Auto" />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Qtd. aptos</label>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_apto ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_apto: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_apto: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Apto (tipo)</label>
@@ -782,22 +782,22 @@
                 <div>
                   <label class="vtur-label-xs">Adultos</label>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_adultos ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Crianças</label>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_criancas ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor original (R$)</label>
                   <input type="number" class="vtur-input w-full" value={hotel.valor_original ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor final (R$)</label>
                   <input type="number" class="vtur-input w-full" value={hotel.valor_final ?? ''}
-                    on:input={(e) => { hoteis = updateItem(hoteis, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
               </div>
             </div>
@@ -811,7 +811,7 @@
         <textarea bind:value={hotelImportText} rows="4" class="vtur-input w-full font-mono text-xs"
           placeholder="Cole o texto com dados dos hotéis (um por linha ou texto livre)…"></textarea>
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" on:click={handleImportHotelText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" onclick={handleImportHotelText}>Importar</Button>
           {#if hotelImportMsg}<span class="text-xs text-green-600">{hotelImportMsg}</span>{/if}
           {#if hotelImportError}<span class="text-xs text-red-600">{hotelImportError}</span>{/if}
         </div>
@@ -822,7 +822,7 @@
   {:else if abaAtiva === 'passeios'}
     <Card title="Passeios e Serviços" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { passeios = addItem(passeios, newPasseio); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { passeios = addItem(passeios, newPasseio); }}>
           <Plus size={13} class="mr-1" />
           Adicionar passeio
         </Button>
@@ -838,15 +838,15 @@
                 <span class="text-xs font-semibold text-slate-500">Passeio {index + 1}</span>
                 <div class="flex gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} on:click={() => { passeios = moveUp(passeios, index); }}>
+                    disabled={index === 0} onclick={() => { passeios = moveUp(passeios, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === passeios.length - 1} on:click={() => { passeios = moveDown(passeios, index); }}>
+                    disabled={index === passeios.length - 1} onclick={() => { passeios = moveDown(passeios, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { passeios = removeItem(passeios, index); }}>
+                    onclick={() => { passeios = removeItem(passeios, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -888,22 +888,22 @@
                 <div>
                   <label class="vtur-label-xs">Adultos</label>
                   <input type="number" class="vtur-input w-full" value={passeio.qtd_adultos ?? ''}
-                    on:input={(e) => { passeios = updateItem(passeios, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { passeios = updateItem(passeios, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Crianças</label>
                   <input type="number" class="vtur-input w-full" value={passeio.qtd_criancas ?? ''}
-                    on:input={(e) => { passeios = updateItem(passeios, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { passeios = updateItem(passeios, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor original (R$)</label>
                   <input type="number" class="vtur-input w-full" value={passeio.valor_original ?? ''}
-                    on:input={(e) => { passeios = updateItem(passeios, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { passeios = updateItem(passeios, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor final (R$)</label>
                   <input type="number" class="vtur-input w-full" value={passeio.valor_final ?? ''}
-                    on:input={(e) => { passeios = updateItem(passeios, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { passeios = updateItem(passeios, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
               </div>
             </div>
@@ -916,7 +916,7 @@
         <textarea bind:value={passeioImportText} rows="4" class="vtur-input w-full font-mono text-xs"
           placeholder="Cole o texto com dados dos passeios (um por linha ou texto livre)…"></textarea>
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" on:click={handleImportPasseioText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" onclick={handleImportPasseioText}>Importar</Button>
           {#if passeioImportMsg}<span class="text-xs text-green-600">{passeioImportMsg}</span>{/if}
           {#if passeioImportError}<span class="text-xs text-red-600">{passeioImportError}</span>{/if}
         </div>
@@ -927,7 +927,7 @@
   {:else if abaAtiva === 'transporte'}
     <Card title="Passagem Aérea" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { transportes = addItem(transportes, newTransporte); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { transportes = addItem(transportes, newTransporte); }}>
           <Plus size={13} class="mr-1" />
           Adicionar trecho
         </Button>
@@ -943,15 +943,15 @@
                 <span class="text-xs font-semibold text-slate-500">Trecho {index + 1}</span>
                 <div class="flex gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} on:click={() => { transportes = moveUp(transportes, index); }}>
+                    disabled={index === 0} onclick={() => { transportes = moveUp(transportes, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === transportes.length - 1} on:click={() => { transportes = moveDown(transportes, index); }}>
+                    disabled={index === transportes.length - 1} onclick={() => { transportes = moveDown(transportes, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { transportes = removeItem(transportes, index); }}>
+                    onclick={() => { transportes = removeItem(transportes, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -1013,22 +1013,22 @@
                 <div>
                   <label class="vtur-label-xs">Adultos</label>
                   <input type="number" class="vtur-input w-full" value={transporte.qtd_adultos ?? ''}
-                    on:input={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
+                    oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Crianças</label>
                   <input type="number" class="vtur-input w-full" value={transporte.qtd_criancas ?? ''}
-                    on:input={(e) => { transportes = updateItem(transportes, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { transportes = updateItem(transportes, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor total (R$)</label>
                   <input type="number" class="vtur-input w-full" value={transporte.valor_total ?? ''}
-                    on:input={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
+                    oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Taxas (R$)</label>
                   <input type="number" class="vtur-input w-full" value={transporte.taxas ?? ''}
-                    on:input={(e) => onAereoValorChange(index, 'taxas', (e.target as HTMLInputElement).value)} />
+                    oninput={(e) => onAereoValorChange(index, 'taxas', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Categoria</label>
@@ -1049,7 +1049,7 @@
         <textarea bind:value={aereoImportText} rows="4" class="vtur-input w-full font-mono text-xs"
           placeholder="Cole o texto com dados das passagens (um trecho por linha ou texto livre)…"></textarea>
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" on:click={handleImportAereoText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" onclick={handleImportAereoText}>Importar</Button>
           {#if aereoImportMsg}<span class="text-xs text-green-600">{aereoImportMsg}</span>{/if}
           {#if aereoImportError}<span class="text-xs text-red-600">{aereoImportError}</span>{/if}
         </div>
@@ -1060,7 +1060,7 @@
   {:else if abaAtiva === 'investimento'}
     <Card title="Investimento" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { investimentos = addItem(investimentos, newInvestimento); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { investimentos = addItem(investimentos, newInvestimento); }}>
           <Plus size={13} class="mr-1" />
           Adicionar linha
         </Button>
@@ -1076,15 +1076,15 @@
                 <span class="text-xs font-semibold text-slate-500">Linha {index + 1}</span>
                 <div class="flex gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} on:click={() => { investimentos = moveUp(investimentos, index); }}>
+                    disabled={index === 0} onclick={() => { investimentos = moveUp(investimentos, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === investimentos.length - 1} on:click={() => { investimentos = moveDown(investimentos, index); }}>
+                    disabled={index === investimentos.length - 1} onclick={() => { investimentos = moveDown(investimentos, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { investimentos = removeItem(investimentos, index); }}>
+                    onclick={() => { investimentos = removeItem(investimentos, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -1101,12 +1101,12 @@
                 <div>
                   <label class="vtur-label-xs">Valor por pessoa (R$)</label>
                   <input type="number" class="vtur-input w-full" value={inv.valor_por_pessoa ?? ''}
-                    on:input={(e) => onInvestimentoChange(index, 'valor_por_pessoa', (e.target as HTMLInputElement).value)} />
+                    oninput={(e) => onInvestimentoChange(index, 'valor_por_pessoa', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Qtd. aptos</label>
                   <input type="number" class="vtur-input w-full" value={inv.qtd_apto ?? ''}
-                    on:input={(e) => onInvestimentoChange(index, 'qtd_apto', (e.target as HTMLInputElement).value)} />
+                    oninput={(e) => onInvestimentoChange(index, 'qtd_apto', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor por apto (R$) <span class="text-slate-400">(calc.)</span></label>
@@ -1127,7 +1127,7 @@
   {:else if abaAtiva === 'pagamento'}
     <Card title="Pagamento" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" on:click={() => { pagamentos = addItem(pagamentos, newPagamento); }}>
+        <Button type="button" variant="secondary" size="sm" onclick={() => { pagamentos = addItem(pagamentos, newPagamento); }}>
           <Plus size={13} class="mr-1" />
           Adicionar linha
         </Button>
@@ -1143,15 +1143,15 @@
                 <span class="text-xs font-semibold text-slate-500">Linha {index + 1}</span>
                 <div class="flex gap-1">
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} on:click={() => { pagamentos = moveUp(pagamentos, index); }}>
+                    disabled={index === 0} onclick={() => { pagamentos = moveUp(pagamentos, index); }}>
                     <ChevronUp size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === pagamentos.length - 1} on:click={() => { pagamentos = moveDown(pagamentos, index); }}>
+                    disabled={index === pagamentos.length - 1} onclick={() => { pagamentos = moveDown(pagamentos, index); }}>
                     <ChevronDown size={13} />
                   </button>
                   <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    on:click={() => { pagamentos = removeItem(pagamentos, index); }}>
+                    onclick={() => { pagamentos = removeItem(pagamentos, index); }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -1173,18 +1173,18 @@
                   <input class="vtur-input w-full" bind:value={pag.forma_pagamento}
                     placeholder="Ex: Crédito, PIX, Boleto" list="sugestoes-forma-pagamento" />
                   <datalist id="sugestoes-forma-pagamento">
-                    {#each (sugestoes['forma_pagamento'] || []) as s}<option value={s} />{/each}
+                    {#each (sugestoes['forma_pagamento'] || []) as s}<option value={s}></option>{/each}
                   </datalist>
                 </div>
                 <div>
                   <label class="vtur-label-xs">Valor total com taxas (R$)</label>
                   <input type="number" class="vtur-input w-full" value={pag.valor_total_com_taxas ?? ''}
-                    on:input={(e) => { pagamentos = updateItem(pagamentos, index, { valor_total_com_taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { pagamentos = updateItem(pagamentos, index, { valor_total_com_taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
                   <label class="vtur-label-xs">Taxas (R$)</label>
                   <input type="number" class="vtur-input w-full" value={pag.taxas ?? ''}
-                    on:input={(e) => { pagamentos = updateItem(pagamentos, index, { taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                    oninput={(e) => { pagamentos = updateItem(pagamentos, index, { taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
               </div>
             </div>
@@ -1243,8 +1243,8 @@
 
   <!-- ─── Botão salvar flutuante ─────────────────────────────────────────── -->
   <div class="mt-6 flex justify-end gap-3">
-    <Button type="button" variant="secondary" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
-    <Button type="button" variant="primary" color="clientes" loading={saving} on:click={save}>
+    <Button type="button" variant="secondary" onclick={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+    <Button type="button" variant="primary" color="clientes" loading={saving} onclick={save}>
       <Save size={16} class="mr-2" />
       Salvar roteiro
     </Button>
@@ -1271,7 +1271,7 @@
                 <li>
                   <button type="button"
                     class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 {gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700' : ''}"
-                    on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}>
+                    onclick={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}>
                     {cliente.nome}
                     {#if cliente.email}<span class="ml-2 text-xs text-slate-400">{cliente.email}</span>{/if}
                   </button>
@@ -1289,15 +1289,15 @@
           <div class="rounded-lg bg-clientes-50 px-3 py-2 text-sm text-clientes-700">
             Cliente selecionado: <strong>{gerarClienteSel.nome}</strong>
             <button type="button" class="ml-2 text-xs text-slate-400 underline"
-              on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}>Remover</button>
+              onclick={() => { gerarClienteSel = null; gerarClienteQ = ''; }}>Remover</button>
           </div>
         {/if}
       </div>
       <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-        <Button type="button" variant="secondary" on:click={() => { showGerarModal = false; gerarLoading = false; }}>
+        <Button type="button" variant="secondary" onclick={() => { showGerarModal = false; gerarLoading = false; }}>
           Cancelar
         </Button>
-        <Button type="button" variant="primary" color="clientes" loading={gerarLoading} on:click={handleGerarOrcamento}>
+        <Button type="button" variant="primary" color="clientes" loading={gerarLoading} onclick={handleGerarOrcamento}>
           <DollarSign size={14} class="mr-1" />
           Gerar Orçamento
         </Button>
@@ -1325,7 +1325,7 @@
             <input id="db-cidade" class="vtur-input w-full" bind:value={diasBuscaCidade} placeholder="Filtrar por cidade" list="sugestoes-cidade" />
           </div>
         </div>
-        <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} on:click={buscarDias}>
+        <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} onclick={buscarDias}>
           Buscar
         </Button>
 
@@ -1340,7 +1340,7 @@
                   {#if dia.descricao}<p class="mt-0.5 text-xs text-slate-600 line-clamp-2">{dia.descricao}</p>{/if}
                 </div>
                 <button type="button" class="shrink-0 rounded-lg bg-clientes-100 px-2.5 py-1 text-xs font-medium text-clientes-700 hover:bg-clientes-200"
-                  on:click={() => addDiaBanco(dia)}>
+                  onclick={() => addDiaBanco(dia)}>
                   Usar
                 </button>
               </div>
@@ -1351,7 +1351,7 @@
         {/if}
       </div>
       <div class="flex justify-end border-t border-slate-100 px-6 py-4">
-        <Button type="button" variant="secondary" on:click={() => { showDiasBusca = false; }}>Fechar</Button>
+        <Button type="button" variant="secondary" onclick={() => { showDiasBusca = false; }}>Fechar</Button>
       </div>
     </div>
   </div>

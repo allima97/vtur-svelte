@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
-import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
+import { env as publicEnv } from '$env/dynamic/public';
+import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export type Papel = 'ADMIN' | 'MASTER' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
@@ -43,10 +43,12 @@ let adminClient: SupabaseClient | null = null;
 
 export function getAdminClient() {
   if (!adminClient) {
-    if (!PUBLIC_SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    const supabaseUrl = publicEnv.PUBLIC_SUPABASE_URL;
+    const supabaseKey = privateEnv.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) {
       throw new Error('Variaveis de ambiente do Supabase nao configuradas: PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY');
     }
-    adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    adminClient = createClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false

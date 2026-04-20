@@ -525,10 +525,11 @@
               
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label for="voucher-modal-nome" class="block text-sm font-medium text-slate-700 mb-1">
                     Nome do Voucher <span class="text-red-500">*</span>
                   </label>
                   <input
+                    id="voucher-modal-nome"
                     type="text"
                     bind:value={form.nome}
                     class="vtur-input w-full {validationErrors.nome ? 'border-red-500' : ''}"
@@ -540,8 +541,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Código SYSTUR</label>
+                  <label for="voucher-modal-codigo-systur" class="block text-sm font-medium text-slate-700 mb-1">Código SYSTUR</label>
                   <input
+                    id="voucher-modal-codigo-systur"
                     type="text"
                     bind:value={form.codigo_systur}
                     class="vtur-input w-full"
@@ -550,8 +552,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Código Fornecedor</label>
+                  <label for="voucher-modal-codigo-fornecedor" class="block text-sm font-medium text-slate-700 mb-1">Código Fornecedor</label>
                   <input
+                    id="voucher-modal-codigo-fornecedor"
                     type="text"
                     bind:value={form.codigo_fornecedor}
                     class="vtur-input w-full"
@@ -560,8 +563,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Reserva Online</label>
+                  <label for="voucher-modal-reserva-online" class="block text-sm font-medium text-slate-700 mb-1">Reserva Online</label>
                   <input
+                    id="voucher-modal-reserva-online"
                     type="text"
                     bind:value={form.reserva_online}
                     class="vtur-input w-full"
@@ -570,8 +574,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Localizador Agência</label>
+                  <label for="voucher-modal-localizador-agencia" class="block text-sm font-medium text-slate-700 mb-1">Localizador Agência</label>
                   <input
+                    id="voucher-modal-localizador-agencia"
                     type="text"
                     bind:value={form.extra_data.localizador_agencia}
                     on:input={(e) => form.extra_data = { ...form.extra_data, localizador_agencia: e.currentTarget.value }}
@@ -591,10 +596,11 @@
               
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label for="voucher-modal-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">
                     Data Início <span class="text-red-500">*</span>
                   </label>
                   <input
+                    id="voucher-modal-data-inicio"
                     type="date"
                     bind:value={form.data_inicio}
                     on:change={syncDaysWithStartDate}
@@ -606,8 +612,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
+                  <label for="voucher-modal-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
                   <input
+                    id="voucher-modal-data-fim"
                     type="date"
                     bind:value={form.data_fim}
                     class="vtur-input w-full"
@@ -620,8 +627,8 @@
             <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Acomodação</label>
-                  <select bind:value={form.tipo_acomodacao} class="vtur-input w-full">
+                  <label for="voucher-modal-tipo-acomodacao" class="block text-sm font-medium text-slate-700 mb-1">Tipo de Acomodação</label>
+                  <select id="voucher-modal-tipo-acomodacao" bind:value={form.tipo_acomodacao} class="vtur-input w-full">
                     <option value="">Selecione...</option>
                     {#each acomodacaoOptions as opt}
                       <option value={opt}>{opt}</option>
@@ -630,8 +637,9 @@
                 </div>
                 
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Operador</label>
+                  <label for="voucher-modal-operador" class="block text-sm font-medium text-slate-700 mb-1">Operador</label>
                   <input
+                    id="voucher-modal-operador"
                     type="text"
                     bind:value={form.operador}
                     class="vtur-input w-full"
@@ -661,6 +669,8 @@
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">Passageiro {i + 1}</span>
                         <button
+                          type="button"
+                          aria-label={`Remover passageiro ${i + 1}`}
                           on:click={() => removePassenger(i)}
                           class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
@@ -669,8 +679,9 @@
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div class="md:col-span-2">
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Nome Completo</label>
+                          <label for={`voucher-modal-passageiro-nome-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nome Completo</label>
                           <input
+                            id={`voucher-modal-passageiro-nome-${i}`}
                             type="text"
                             value={passenger.nome}
                             on:input={(e) => updatePassenger(i, 'nome', e.currentTarget.value)}
@@ -679,8 +690,9 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Passaporte</label>
+                          <label for={`voucher-modal-passageiro-passaporte-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Passaporte</label>
                           <input
+                            id={`voucher-modal-passageiro-passaporte-${i}`}
                             type="text"
                             value={passenger.passaporte || ''}
                             on:input={(e) => updatePassenger(i, 'passaporte', e.currentTarget.value)}
@@ -689,8 +701,9 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Data Nascimento</label>
+                          <label for={`voucher-modal-passageiro-data-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Data Nascimento</label>
                           <input
+                            id={`voucher-modal-passageiro-data-${i}`}
                             type="date"
                             value={passenger.data_nascimento || ''}
                             on:input={(e) => updatePassenger(i, 'data_nascimento', e.currentTarget.value)}
@@ -698,8 +711,9 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Nacionalidade</label>
+                          <label for={`voucher-modal-passageiro-nacionalidade-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nacionalidade</label>
                           <input
+                            id={`voucher-modal-passageiro-nacionalidade-${i}`}
                             type="text"
                             value={passenger.nacionalidade || ''}
                             on:input={(e) => updatePassenger(i, 'nacionalidade', e.currentTarget.value)}
@@ -708,8 +722,9 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
+                          <label for={`voucher-modal-passageiro-tipo-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
                           <select
+                            id={`voucher-modal-passageiro-tipo-${i}`}
                             value={passenger.tipo || ''}
                             on:change={(e) => updatePassenger(i, 'tipo', e.currentTarget.value)}
                             class="vtur-input w-full"
@@ -735,8 +750,9 @@
 
             <!-- Resumo -->
             <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <label class="block text-sm font-medium text-slate-700 mb-2">Resumo da Viagem</label>
+              <label for="voucher-modal-resumo" class="block text-sm font-medium text-slate-700 mb-2">Resumo da Viagem</label>
               <textarea
+                id="voucher-modal-resumo"
                 bind:value={form.resumo}
                 rows="4"
                 class="vtur-input w-full"
@@ -750,10 +766,10 @@
           <div class="space-y-6" in:fade={{ duration: 200 }}>
             <!-- Import from paste -->
             <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
-              <label class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
+              <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
                 <FileText size={16} />
                 Importar do Special Tours (colar texto)
-              </label>
+              </p>
               <textarea
                 bind:value={circuitPasteText}
                 rows="4"
@@ -793,11 +809,13 @@
                 <div class="space-y-3">
                   {#each form.dias as dia, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                      <div
-                        class="w-full px-4 py-4 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white hover:from-slate-100 transition-colors cursor-pointer"
-                        on:click={() => toggleDayAccordion(i)}
-                      >
-                        <div class="flex items-center gap-4">
+                      <div class="flex items-stretch justify-between bg-gradient-to-r from-slate-50 to-white transition-colors">
+                        <button
+                          type="button"
+                          class="flex flex-1 items-center gap-4 px-4 py-4 text-left hover:from-slate-100 hover:to-slate-50 transition-colors"
+                          on:click={() => toggleDayAccordion(i)}
+                          aria-expanded={activeDayIndexes.includes(i)}
+                        >
                           <div class="w-10 h-10 rounded-full bg-clientes-100 text-clientes-700 flex items-center justify-center font-bold">
                             {dia.dia_numero}
                           </div>
@@ -811,9 +829,16 @@
                               <p class="text-sm text-slate-500">{formatDateBR(dia.data_referencia)}</p>
                             {/if}
                           </div>
-                        </div>
-                        <div class="flex items-center gap-2" on:click|stopPropagation>
+                          <svelte:component 
+                            this={activeDayIndexes.includes(i) ? ChevronUp : ChevronDown} 
+                            size={20} 
+                            class="text-slate-400 ml-auto"
+                          />
+                        </button>
+                        <div class="flex items-center gap-2 px-4">
                           <button
+                            type="button"
+                            aria-label={`Mover dia ${i + 1} para cima`}
                             on:click={() => moveDay(i, -1)}
                             disabled={i === 0}
                             class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors"
@@ -821,6 +846,8 @@
                             <MoveUp size={18} />
                           </button>
                           <button
+                            type="button"
+                            aria-label={`Mover dia ${i + 1} para baixo`}
                             on:click={() => moveDay(i, 1)}
                             disabled={i === form.dias.length - 1}
                             class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors"
@@ -828,16 +855,13 @@
                             <MoveDown size={18} />
                           </button>
                           <button
+                            type="button"
+                            aria-label={`Remover dia ${i + 1}`}
                             on:click={() => removeDay(i)}
                             class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 size={18} />
                           </button>
-                          <svelte:component 
-                            this={activeDayIndexes.includes(i) ? ChevronUp : ChevronDown} 
-                            size={20} 
-                            class="text-slate-400 ml-2"
-                          />
                         </div>
                       </div>
                       
@@ -845,8 +869,9 @@
                         <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Título do Dia</label>
+                              <label for={`voucher-modal-dia-titulo-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Título do Dia</label>
                               <input
+                                id={`voucher-modal-dia-titulo-${i}`}
                                 type="text"
                                 bind:value={dia.titulo}
                                 class="vtur-input w-full"
@@ -854,8 +879,9 @@
                               />
                             </div>
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
+                              <label for={`voucher-modal-dia-cidade-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
                               <input
+                                id={`voucher-modal-dia-cidade-${i}`}
                                 type="text"
                                 bind:value={dia.cidade}
                                 class="vtur-input w-full"
@@ -864,8 +890,9 @@
                             </div>
                           </div>
                           <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Descrição das Atividades</label>
+                            <label for={`voucher-modal-dia-descricao-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Descrição das Atividades</label>
                             <textarea
+                              id={`voucher-modal-dia-descricao-${i}`}
                               bind:value={dia.descricao}
                               rows="5"
                               class="vtur-input w-full"
@@ -886,10 +913,10 @@
           <div class="space-y-6" in:fade={{ duration: 200 }}>
             <!-- Import from paste -->
             <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
-              <label class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
+              <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
                 <FileText size={16} />
                 Importar Hotéis do Special Tours (colar texto)
-              </label>
+              </p>
               <textarea
                 bind:value={hotelPasteText}
                 rows="4"
@@ -929,11 +956,13 @@
                 <div class="space-y-3">
                   {#each form.hoteis as hotel, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                      <div
-                        class="w-full px-4 py-4 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white hover:from-slate-100 transition-colors cursor-pointer"
-                        on:click={() => toggleHotelAccordion(i)}
-                      >
-                        <div class="flex items-center gap-3">
+                      <div class="flex items-stretch justify-between bg-gradient-to-r from-slate-50 to-white transition-colors">
+                        <button
+                          type="button"
+                          class="flex flex-1 items-center gap-3 px-4 py-4 text-left hover:from-slate-100 hover:to-slate-50 transition-colors"
+                          on:click={() => toggleHotelAccordion(i)}
+                          aria-expanded={activeHotelIndexes.includes(i)}
+                        >
                           <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
                             <Hotel size={20} />
                           </div>
@@ -943,9 +972,16 @@
                               <p class="text-sm text-slate-500">{hotel.cidade}</p>
                             {/if}
                           </div>
-                        </div>
-                        <div class="flex items-center gap-2" on:click|stopPropagation>
+                          <svelte:component 
+                            this={activeHotelIndexes.includes(i) ? ChevronUp : ChevronDown} 
+                            size={20} 
+                            class="text-slate-400 ml-auto"
+                          />
+                        </button>
+                        <div class="flex items-center gap-2 px-4">
                           <button
+                            type="button"
+                            aria-label={`Mover hotel ${i + 1} para cima`}
                             on:click={() => moveHotel(i, -1)}
                             disabled={i === 0}
                             class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors"
@@ -953,6 +989,8 @@
                             <MoveUp size={18} />
                           </button>
                           <button
+                            type="button"
+                            aria-label={`Mover hotel ${i + 1} para baixo`}
                             on:click={() => moveHotel(i, 1)}
                             disabled={i === form.hoteis.length - 1}
                             class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30 transition-colors"
@@ -960,16 +998,13 @@
                             <MoveDown size={18} />
                           </button>
                           <button
+                            type="button"
+                            aria-label={`Remover hotel ${i + 1}`}
                             on:click={() => removeHotel(i)}
                             class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 size={18} />
                           </button>
-                          <svelte:component 
-                            this={activeHotelIndexes.includes(i) ? ChevronUp : ChevronDown} 
-                            size={20} 
-                            class="text-slate-400 ml-2"
-                          />
                         </div>
                       </div>
                       
@@ -977,8 +1012,9 @@
                         <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Cidade *</label>
+                              <label for={`voucher-modal-hotel-cidade-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Cidade *</label>
                               <input
+                                id={`voucher-modal-hotel-cidade-${i}`}
                                 type="text"
                                 bind:value={hotel.cidade}
                                 class="vtur-input w-full"
@@ -986,8 +1022,9 @@
                               />
                             </div>
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Hotel *</label>
+                              <label for={`voucher-modal-hotel-nome-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Hotel *</label>
                               <input
+                                id={`voucher-modal-hotel-nome-${i}`}
                                 type="text"
                                 bind:value={hotel.hotel}
                                 class="vtur-input w-full"
@@ -997,8 +1034,9 @@
                           </div>
                           
                           <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
+                            <label for={`voucher-modal-hotel-endereco-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
                             <input
+                              id={`voucher-modal-hotel-endereco-${i}`}
                               type="text"
                               bind:value={hotel.endereco}
                               class="vtur-input w-full"
@@ -1008,8 +1046,9 @@
                           
                           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Check-in</label>
+                              <label for={`voucher-modal-hotel-checkin-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Check-in</label>
                               <input
+                                id={`voucher-modal-hotel-checkin-${i}`}
                                 type="date"
                                 value={hotel.data_inicio}
                                 on:input={(e) => updateHotelDates(i, 'data_inicio', e.currentTarget.value)}
@@ -1017,8 +1056,9 @@
                               />
                             </div>
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Check-out</label>
+                              <label for={`voucher-modal-hotel-checkout-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Check-out</label>
                               <input
+                                id={`voucher-modal-hotel-checkout-${i}`}
                                 type="date"
                                 value={hotel.data_fim}
                                 on:input={(e) => updateHotelDates(i, 'data_fim', e.currentTarget.value)}
@@ -1026,8 +1066,9 @@
                               />
                             </div>
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
+                              <label for={`voucher-modal-hotel-noites-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
                               <input
+                                id={`voucher-modal-hotel-noites-${i}`}
                                 type="number"
                                 bind:value={hotel.noites}
                                 class="vtur-input w-full bg-slate-100"
@@ -1038,8 +1079,9 @@
                           
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                              <label for={`voucher-modal-hotel-telefone-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
                               <input
+                                id={`voucher-modal-hotel-telefone-${i}`}
                                 type="text"
                                 bind:value={hotel.telefone}
                                 class="vtur-input w-full"
@@ -1047,8 +1089,9 @@
                               />
                             </div>
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Contato</label>
+                              <label for={`voucher-modal-hotel-contato-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Contato</label>
                               <input
+                                id={`voucher-modal-hotel-contato-${i}`}
                                 type="text"
                                 bind:value={hotel.contato}
                                 class="vtur-input w-full"
@@ -1059,8 +1102,8 @@
                           
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                              <select bind:value={hotel.status} class="vtur-input w-full">
+                              <label for={`voucher-modal-hotel-status-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                              <select id={`voucher-modal-hotel-status-${i}`} bind:value={hotel.status} class="vtur-input w-full">
                                 <option value="">Selecione...</option>
                                 {#each statusOptions as opt}
                                   <option value={opt.value}>{opt.label}</option>
@@ -1070,8 +1113,9 @@
                           </div>
                           
                           <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Observação</label>
+                            <label for={`voucher-modal-hotel-observacao-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Observação</label>
                             <textarea
+                              id={`voucher-modal-hotel-observacao-${i}`}
                               bind:value={hotel.observacao}
                               rows="2"
                               class="vtur-input w-full"
@@ -1107,8 +1151,9 @@
                   </h4>
                   <div class="space-y-3">
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
+                      <label for="voucher-modal-traslado-chegada-detalhes" class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
                       <textarea
+                        id="voucher-modal-traslado-chegada-detalhes"
                         value={form.extra_data.traslado_chegada?.detalhes || ''}
                         on:input={(e) => form.extra_data = { 
                           ...form.extra_data, 
@@ -1123,8 +1168,9 @@
                       ></textarea>
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
+                      <label for="voucher-modal-traslado-chegada-notas" class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
                       <textarea
+                        id="voucher-modal-traslado-chegada-notas"
                         value={form.extra_data.traslado_chegada?.notas || ''}
                         on:input={(e) => form.extra_data = { 
                           ...form.extra_data, 
@@ -1139,8 +1185,9 @@
                       ></textarea>
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
+                      <label for="voucher-modal-traslado-chegada-telefone" class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
                       <input
+                        id="voucher-modal-traslado-chegada-telefone"
                         type="text"
                         value={form.extra_data.traslado_chegada?.telefone_transferista || ''}
                         on:input={(e) => form.extra_data = { 
@@ -1165,8 +1212,9 @@
                   </h4>
                   <div class="space-y-3">
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
+                      <label for="voucher-modal-traslado-saida-detalhes" class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
                       <textarea
+                        id="voucher-modal-traslado-saida-detalhes"
                         value={form.extra_data.traslado_saida?.detalhes || ''}
                         on:input={(e) => form.extra_data = { 
                           ...form.extra_data, 
@@ -1181,8 +1229,9 @@
                       ></textarea>
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
+                      <label for="voucher-modal-traslado-saida-notas" class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
                       <textarea
+                        id="voucher-modal-traslado-saida-notas"
                         value={form.extra_data.traslado_saida?.notas || ''}
                         on:input={(e) => form.extra_data = { 
                           ...form.extra_data, 
@@ -1197,8 +1246,9 @@
                       ></textarea>
                     </div>
                     <div>
-                      <label class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
+                      <label for="voucher-modal-traslado-saida-telefone" class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
                       <input
+                        id="voucher-modal-traslado-saida-telefone"
                         type="text"
                         value={form.extra_data.traslado_saida?.telefone_transferista || ''}
                         on:input={(e) => form.extra_data = { 
@@ -1252,6 +1302,8 @@
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">App {i + 1}</span>
                         <button
+                          type="button"
+                          aria-label={`Remover app ${i + 1}`}
                           on:click={() => removeApp(i)}
                           class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
@@ -1260,8 +1312,9 @@
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Nome do App</label>
+                          <label for={`voucher-modal-app-nome-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nome do App</label>
                           <input
+                            id={`voucher-modal-app-nome-${i}`}
                             type="text"
                             value={app.nome}
                             on:input={(e) => updateApp(i, 'nome', e.currentTarget.value)}
@@ -1270,8 +1323,9 @@
                           />
                         </div>
                         <div>
-                          <label class="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
+                          <label for={`voucher-modal-app-descricao-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
                           <input
+                            id={`voucher-modal-app-descricao-${i}`}
                             type="text"
                             value={app.descricao || ''}
                             on:input={(e) => updateApp(i, 'descricao', e.currentTarget.value)}
@@ -1301,8 +1355,9 @@
               
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Escritório</label>
+                  <label for="voucher-modal-emergencia-escritorio" class="block text-sm font-medium text-slate-700 mb-1">Escritório</label>
                   <input
+                    id="voucher-modal-emergencia-escritorio"
                     type="text"
                     value={form.extra_data.emergencia?.escritorio || ''}
                     on:input={(e) => form.extra_data = { 
@@ -1317,8 +1372,9 @@
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Emergência 24h</label>
+                  <label for="voucher-modal-emergencia-24h" class="block text-sm font-medium text-slate-700 mb-1">Emergência 24h</label>
                   <input
+                    id="voucher-modal-emergencia-24h"
                     type="text"
                     value={form.extra_data.emergencia?.emergencia_24h || ''}
                     on:input={(e) => form.extra_data = { 
@@ -1333,8 +1389,9 @@
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
+                  <label for="voucher-modal-emergencia-whatsapp" class="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
                   <input
+                    id="voucher-modal-emergencia-whatsapp"
                     type="text"
                     value={form.extra_data.emergencia?.whatsapp || ''}
                     on:input={(e) => form.extra_data = { 

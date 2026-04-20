@@ -5,7 +5,7 @@
 
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 
 const MOCK_USER = {
   id: 'mock-user-001',
@@ -138,8 +138,8 @@ export function shouldUseMock(): boolean {
     }
     
     // Verifica se as credenciais são válidas
-    const url = PUBLIC_SUPABASE_URL;
-    const key = PUBLIC_SUPABASE_ANON_KEY;
+    const url = publicEnv.PUBLIC_SUPABASE_URL;
+    const key = publicEnv.PUBLIC_SUPABASE_ANON_KEY;
     
     // Se não há URL ou key, ou são os valores padrão de exemplo, usa mock
     if (!url || !key) return true;
