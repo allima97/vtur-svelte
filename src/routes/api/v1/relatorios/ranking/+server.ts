@@ -265,7 +265,6 @@ export async function GET(event) {
         periodo_range_label: `${dataInicio} - ${dataFim}`,
         vendedor_short: (item.vendedor_nome ?? '').toString().slice(0, 20),
         vendedorDisplay: item.vendedor_nome,
-        vendedor_label: item.vendedor_nome,
         vendedor_slug: String((item.vendedor_nome ?? '')).toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9\\-]/g, ''),
         vendedor_name_for_template: item.vendedor_nome,
         periodo_range: item.periodo_label,

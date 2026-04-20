@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as a}from"../chunks/sJNcsBec.js";function e(o){a(o,{title:"Dashboard geral",subtitle:"Visão comercial padrão do sistema."})}export{e as component};

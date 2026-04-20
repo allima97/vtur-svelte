@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as t}from"../chunks/sJNcsBec.js";function r(o){t(o,{title:"Dashboard master",subtitle:"Visão multi-empresa e consolidação global."})}export{r as component};

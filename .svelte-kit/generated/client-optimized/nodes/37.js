@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/(app)/cadastros/produtos/[id]/editar/+page.svelte";

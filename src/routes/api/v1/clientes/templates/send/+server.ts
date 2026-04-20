@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import {
   ensureModuloAccess,
   getAdminClient,
-  hasServiceRoleKey,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -195,7 +194,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         companyIds.add(companyId);
       });
     }
-    const dataClient = hasServiceRoleKey ? client : client;
+    const dataClient = client;
 
     const body = await request.json() as Body;
 

@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as e}from"../chunks/sJNcsBec.js";function r(o){e(o,{title:"Dashboard do gestor",subtitle:"Visão consolidada da equipe e desempenho comercial."})}export{r as component};

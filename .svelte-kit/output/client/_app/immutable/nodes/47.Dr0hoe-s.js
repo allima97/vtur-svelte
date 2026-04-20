@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as o}from"../chunks/sJNcsBec.js";function s(i){o(i,{title:"Dashboard financeiro",subtitle:"Acompanhe indicadores financeiros, comissões e pendências."})}export{s as component};

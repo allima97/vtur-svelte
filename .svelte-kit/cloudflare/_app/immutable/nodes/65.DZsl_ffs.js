@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import{i as p}from"../chunks/DUp_1GFl.js";import{o as m}from"../chunks/BhVfrG3W.js";import{p as r,b as a}from"../chunks/Dri0jQJv.js";import{g as t}from"../chunks/CHB9pEM6.js";function g(i,o){r(o,!1),m(()=>t("/admin/empresas")),p(),a()}export{g as component};

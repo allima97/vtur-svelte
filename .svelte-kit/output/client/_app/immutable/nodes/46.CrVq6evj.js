@@ -1,0 +1,1 @@
+import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as o}from"../chunks/sJNcsBec.js";function e(i){o(i,{title:"Dashboard admin",subtitle:"Visão global do sistema e indicadores administrativos."})}export{e as component};

@@ -1124,7 +1124,7 @@
           <Button type="submit" variant="primary" color="vendas" loading={saving}>Salvar venda</Button>
         {/if}
       </div>
-    </div>
+    {/if}
   </form>
 {/if}
 

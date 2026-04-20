@@ -1,0 +1,146 @@
+const DEFAULT_BAND_DEFINITIONS = [
+  {
+    faixa_loja: "MENOR_10",
+    nome: "Menor que 10%",
+    percentual_min: null,
+    percentual_max: 9.9999,
+    ordem: 10,
+    tipo_calculo: "CONCILIACAO"
+  },
+  {
+    faixa_loja: "MAIOR_OU_IGUAL_10",
+    nome: "Igual ou maior que 10%",
+    percentual_min: 10,
+    percentual_max: 31.9999,
+    ordem: 20,
+    tipo_calculo: "CONCILIACAO"
+  },
+  {
+    faixa_loja: "SEGURO_32_35",
+    nome: "Igual ou maior que 32%",
+    percentual_min: 32,
+    percentual_max: null,
+    ordem: 30,
+    tipo_calculo: "PRODUTO_DIFERENCIADO"
+  }
+];
+function normalizeBandId(value) {
+  return String(value ?? "").trim().normalize("NFD").replace(new RegExp("\\p{Diacritic}", "gu"), "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").toUpperCase();
+}
+function normalizeBandName(value) {
+  const text = String(value ?? "").trim();
+  return text || "Nova faixa";
+}
+function parseNullableNumber(value) {
+  if (value == null || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+function normalizeBandKey(value) {
+  const normalized = normalizeBandId(value);
+  if (!normalized) return null;
+  if (normalized === "MENOR_10") return "MENOR_10";
+  if (normalized === "MAIOR_OU_IGUAL_10") return "MAIOR_OU_IGUAL_10";
+  if (normalized === "SEGURO_32_35" || normalized === "MAIOR_OU_IGUAL_32" || normalized === "MAIOR_OU_IGUAL_35") {
+    return "SEGURO_32_35";
+  }
+  return null;
+}
+function getDefaultBandDefinition(key) {
+  const normalized = normalizeBandKey(key);
+  if (!normalized) return null;
+  return DEFAULT_BAND_DEFINITIONS.find((item) => item.faixa_loja === normalized) || null;
+}
+function sanitizeTier(tier) {
+  const faixa = String(tier?.faixa || "").trim().toUpperCase();
+  if (faixa !== "PRE" && faixa !== "POS") return null;
+  const dePct = Number(tier?.de_pct ?? 0);
+  const atePct = Number(tier?.ate_pct ?? 0);
+  const incMeta = Number(tier?.inc_pct_meta ?? 0);
+  const incCom = Number(tier?.inc_pct_comissao ?? 0);
+  if (![dePct, atePct, incMeta, incCom].every(Number.isFinite)) return null;
+  return {
+    faixa,
+    de_pct: dePct,
+    ate_pct: atePct,
+    inc_pct_meta: incMeta,
+    inc_pct_comissao: incCom
+  };
+}
+function sortBandRules(rules) {
+  return [...rules].sort((left, right) => {
+    if (left.ordem !== right.ordem) return left.ordem - right.ordem;
+    const leftMin = left.percentual_min ?? Number.NEGATIVE_INFINITY;
+    const rightMin = right.percentual_min ?? Number.NEGATIVE_INFINITY;
+    if (leftMin !== rightMin) return leftMin - rightMin;
+    return left.nome.localeCompare(right.nome, "pt-BR");
+  });
+}
+function normalizeConciliacaoTipo(value) {
+  return String(value || "").trim().toUpperCase() === "ESCALONAVEL" ? "ESCALONAVEL" : "GERAL";
+}
+function sanitizeConciliacaoTiers(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((tier) => sanitizeTier(tier)).filter((tier) => Boolean(tier));
+}
+function createDefaultConciliacaoBandRules(params) {
+  const legacyTipo = normalizeConciliacaoTipo(params?.conciliacao_tipo);
+  const legacyTiers = sanitizeConciliacaoTiers(params?.conciliacao_tiers);
+  return DEFAULT_BAND_DEFINITIONS.map((definition) => ({
+    faixa_loja: definition.faixa_loja,
+    nome: definition.nome,
+    percentual_min: definition.percentual_min,
+    percentual_max: definition.percentual_max,
+    ordem: definition.ordem,
+    ativo: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? true : Boolean(params?.conciliacao_regra_ativa),
+    tipo_calculo: definition.tipo_calculo,
+    tipo: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? "GERAL" : legacyTipo,
+    meta_nao_atingida: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? null : params?.conciliacao_meta_nao_atingida ?? null,
+    meta_atingida: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? null : params?.conciliacao_meta_atingida ?? null,
+    super_meta: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? null : params?.conciliacao_super_meta ?? null,
+    tiers: definition.tipo_calculo === "PRODUTO_DIFERENCIADO" ? [] : legacyTiers
+  }));
+}
+function sanitizeConciliacaoBandRules(value, params) {
+  const defaults = createDefaultConciliacaoBandRules(params);
+  if (!Array.isArray(value) || value.length === 0) {
+    return sortBandRules(defaults);
+  }
+  const sanitized = value.map((item, index) => {
+    const legacyDefinition = getDefaultBandDefinition(item?.faixa_loja);
+    const normalizedId = normalizeBandId(item?.faixa_loja) || normalizeBandId(item?.id) || `FAIXA_${index + 1}`;
+    const base = defaults.find(
+      (entry) => normalizeBandId(entry.faixa_loja) === normalizedId
+    ) || (legacyDefinition ? defaults.find(
+      (entry) => entry.faixa_loja === legacyDefinition.faixa_loja
+    ) : null);
+    const tipoCalculo = String(item?.tipo_calculo || "").trim().toUpperCase() === "PRODUTO_DIFERENCIADO" ? "PRODUTO_DIFERENCIADO" : "CONCILIACAO";
+    const tipo = normalizeConciliacaoTipo(item?.tipo);
+    const tiers = Array.isArray(item?.tiers) ? item.tiers.map(sanitizeTier).filter(
+      (tier) => Boolean(tier)
+    ) : base?.tiers || [];
+    return {
+      faixa_loja: normalizedId,
+      nome: normalizeBandName(
+        item?.nome ?? legacyDefinition?.nome ?? base?.nome ?? item?.faixa_loja
+      ),
+      percentual_min: parseNullableNumber(item?.percentual_min) ?? legacyDefinition?.percentual_min ?? base?.percentual_min ?? null,
+      percentual_max: parseNullableNumber(item?.percentual_max) ?? legacyDefinition?.percentual_max ?? base?.percentual_max ?? null,
+      ordem: Number.isFinite(Number(item?.ordem)) ? Number(item.ordem) : base?.ordem ?? (index + 1) * 10,
+      ativo: item?.ativo == null ? base?.ativo ?? true : Boolean(item.ativo),
+      tipo_calculo: tipoCalculo,
+      tipo,
+      meta_nao_atingida: item?.meta_nao_atingida != null ? Number(item.meta_nao_atingida) : base?.meta_nao_atingida ?? null,
+      meta_atingida: item?.meta_atingida != null ? Number(item.meta_atingida) : base?.meta_atingida ?? null,
+      super_meta: item?.super_meta != null ? Number(item.super_meta) : base?.super_meta ?? null,
+      tiers
+    };
+  }).filter((item) => item.nome);
+  return sortBandRules(sanitized);
+}
+export {
+  sanitizeConciliacaoBandRules as a,
+  createDefaultConciliacaoBandRules as c,
+  normalizeConciliacaoTipo as n,
+  sanitizeConciliacaoTiers as s
+};

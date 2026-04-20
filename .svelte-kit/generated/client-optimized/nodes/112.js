@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/(app)/relatorios/vendas/+page.svelte";
