@@ -1,0 +1,7 @@
+name = "vtur-svelte"
+main = ".svelte-kit/cloudflare/_worker.js"
+compatibility_date = "2026-04-19"
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"

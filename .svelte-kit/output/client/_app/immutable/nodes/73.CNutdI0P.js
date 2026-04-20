@@ -1,1 +1,0 @@
-import"../chunks/CWj6FrbW.js";import{i}from"../chunks/DUp_1GFl.js";import{o as a}from"../chunks/BhVfrG3W.js";import{p,b as r}from"../chunks/Dri0jQJv.js";import{g as n}from"../chunks/CHB9pEM6.js";function g(t,o){p(o,!1),a(()=>n("/financeiro/conciliacao")),i(),r()}export{g as component};

@@ -1,1 +1,0 @@
-import"../chunks/CWj6FrbW.js";import{i}from"../chunks/DUp_1GFl.js";import{o as p}from"../chunks/BhVfrG3W.js";import{p as r,b as m}from"../chunks/Dri0jQJv.js";import{g as s}from"../chunks/CHB9pEM6.js";function g(t,o){r(o,!1),p(()=>s("/financeiro/comissoes")),i(),m()}export{g as component};

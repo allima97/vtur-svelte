@@ -8,5 +8,10 @@
 /dist
 /.astro
 /.wrangler
+/.svelte-kit
 /public/pdfs
+
+# Environment files
+.env
+.env.*
 

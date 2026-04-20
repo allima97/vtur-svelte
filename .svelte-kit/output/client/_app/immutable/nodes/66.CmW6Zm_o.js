@@ -1,1 +1,0 @@
-import"../chunks/CWj6FrbW.js";import{i as p}from"../chunks/DUp_1GFl.js";import{o as m}from"../chunks/BhVfrG3W.js";import{p as r,b as i}from"../chunks/Dri0jQJv.js";import{g as s}from"../chunks/CHB9pEM6.js";function g(t,o){r(o,!1),m(()=>s("/admin/permissoes")),p(),i()}export{g as component};

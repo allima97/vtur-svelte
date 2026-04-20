@@ -1,1 +1,0 @@
-import"../chunks/CWj6FrbW.js";import"../chunks/DUp_1GFl.js";import{U as a}from"../chunks/sJNcsBec.js";function s(o){a(o,{title:"Dashboard do vendedor",subtitle:"Acompanhe suas vendas e metas individuais."})}export{s as component};
