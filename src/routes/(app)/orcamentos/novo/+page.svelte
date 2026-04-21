@@ -457,7 +457,7 @@
             </div>
 
             <div class="md:col-span-1">
-              <label class="block text-xs font-medium text-slate-500 mb-1">Total</label>
+              <p class="block text-xs font-medium text-slate-500 mb-1">Total</p>
               <div class="px-2 py-2 bg-white rounded-lg text-sm font-semibold text-slate-800 text-right border border-slate-200">
                 {formatCurrency(item.total_amount)}
               </div>

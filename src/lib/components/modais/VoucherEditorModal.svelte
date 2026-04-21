@@ -38,6 +38,7 @@
   export let voucher: VoucherRecord | null = null;
   export let companyId: string | null = null;
   export let assets: VoucherAssetRecord[] = [];
+  $: assets;
 
   const dispatch = createEventDispatcher();
 
@@ -414,12 +415,16 @@
   <div 
     class="fixed inset-0 bg-slate-900/50 z-[100] flex items-start justify-center pt-4 pb-4 px-4"
     style="overflow-y: auto;"
-    on:click={close}
+    on:click|self={close}
+    on:keydown={(event) => event.key === 'Escape' && close()}
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
   >
     <div 
       class="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden flex flex-col"
       style="max-height: calc(100vh - 32px);"
-      on:click|stopPropagation
+      role="document"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-gradient-to-r from-clientes-50 to-white">
@@ -441,6 +446,8 @@
           </p>
         </div>
         <button 
+          type="button"
+          aria-label="Fechar editor de voucher"
           on:click={close}
           class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
         >
@@ -491,8 +498,8 @@
         {#if currentStep === 0}
           <div class="space-y-6" in:fade={{ duration: 200 }}>
             <!-- Provider -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <label class="block text-sm font-medium text-slate-700 mb-3">Fornecedor</label>
+            <fieldset class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor</legend>
               {#if voucher}
                 <div class="py-2 px-4 rounded-lg border-2 border-clientes-500 bg-clientes-50 text-clientes-700 inline-block font-medium">
                   {providers.find(p => p.value === form.provider)?.label}
@@ -514,7 +521,7 @@
                   {/each}
                 </div>
               {/if}
-            </div>
+            </fieldset>
 
             <!-- Informações Principais -->
             <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">

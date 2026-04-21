@@ -27,6 +27,7 @@
   export let data: any[] = [];
   export let columns: Column[] = [];
   export let color: ModuleColor = 'clientes';
+  $: color;
   export let loading: boolean = false;
   export let selectable: boolean = false;
   export let searchable: boolean = true;

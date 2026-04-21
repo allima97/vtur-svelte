@@ -187,8 +187,8 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" on:click={onClose} on:keydown={(event) => event.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="-1">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" on:click|stopPropagation role="document">
+  <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" on:click|self={onClose} on:keydown={(event) => event.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="-1">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" role="document">
       <div class="flex items-center justify-between p-4 border-b border-slate-100" class:bg-pink-50={isAniversariante} class:bg-clientes-50={!isAniversariante}>
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-lg flex items-center justify-center" class:bg-pink-100={isAniversariante} class:bg-clientes-100={!isAniversariante}>
@@ -196,7 +196,7 @@
           </div>
           <div><h3 class="text-lg font-semibold text-slate-900">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3><p class="text-sm text-slate-500">{clienteNome}</p></div>
         </div>
-        <button on:click={onClose} class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={20} /></button>
+        <button type="button" aria-label="Fechar aviso" on:click={onClose} class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={20} /></button>
       </div>
 
       <div class="p-6 overflow-y-auto max-h-[60vh] space-y-4">

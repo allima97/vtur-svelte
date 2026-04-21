@@ -667,19 +667,19 @@
               </div>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <label class="vtur-label-xs">Cidade</label>
+                  <p class="vtur-label-xs">Cidade</p>
                   <input class="vtur-input w-full" bind:value={dia.cidade} placeholder="Cidade" list="sugestoes-cidade" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Percurso</label>
+                  <p class="vtur-label-xs">Percurso</p>
                   <input class="vtur-input w-full" bind:value={dia.percurso} placeholder="Ex: São Paulo → Lisboa" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data</label>
+                  <p class="vtur-label-xs">Data</p>
                   <input type="date" class="vtur-input w-full" bind:value={dia.data} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Descrição</label>
+                  <p class="vtur-label-xs">Descrição</p>
                   <input class="vtur-input w-full" bind:value={dia.descricao} placeholder="Atividades do dia" />
                 </div>
               </div>
@@ -725,77 +725,77 @@
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Cidade</label>
+                  <p class="vtur-label-xs">Cidade</p>
                   <input class="vtur-input w-full" bind:value={hotel.cidade} placeholder="Cidade" list="sugestoes-cidade" />
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Hotel</label>
+                  <p class="vtur-label-xs">Hotel</p>
                   <input class="vtur-input w-full" bind:value={hotel.hotel} placeholder="Nome do hotel" />
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Endereço</label>
+                  <p class="vtur-label-xs">Endereço</p>
                   <input class="vtur-input w-full" bind:value={hotel.endereco} placeholder="Endereço" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data entrada</label>
+                  <p class="vtur-label-xs">Data entrada</p>
                   <input type="date" class="vtur-input w-full" value={hotel.data_inicio}
                     onchange={(e) => onHotelDateChange(index, 'data_inicio', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data saída</label>
+                  <p class="vtur-label-xs">Data saída</p>
                   <input type="date" class="vtur-input w-full" value={hotel.data_fim}
                     onchange={(e) => onHotelDateChange(index, 'data_fim', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Noites</label>
+                  <p class="vtur-label-xs">Noites</p>
                   <input type="number" class="vtur-input w-full" value={hotel.noites ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { noites: Number((e.target as HTMLInputElement).value) || null }); }}
                     placeholder="Auto" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Qtd. aptos</label>
+                  <p class="vtur-label-xs">Qtd. aptos</p>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_apto ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_apto: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Apto (tipo)</label>
+                  <p class="vtur-label-xs">Apto (tipo)</p>
                   <input class="vtur-input w-full" bind:value={hotel.apto} placeholder="Ex: Duplo" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Categoria</label>
+                  <p class="vtur-label-xs">Categoria</p>
                   <select class="vtur-input w-full" bind:value={hotel.categoria}>
                     <option value="">—</option>
                     {#each HOTEL_CATEGORIA_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Regime</label>
+                  <p class="vtur-label-xs">Regime</p>
                   <select class="vtur-input w-full" bind:value={hotel.regime}>
                     <option value="">—</option>
                     {#each HOTEL_REGIME_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Tipo tarifa</label>
+                  <p class="vtur-label-xs">Tipo tarifa</p>
                   <input class="vtur-input w-full" bind:value={hotel.tipo_tarifa} placeholder="Ex: Cortesia" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Adultos</label>
+                  <p class="vtur-label-xs">Adultos</p>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_adultos ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Crianças</label>
+                  <p class="vtur-label-xs">Crianças</p>
                   <input type="number" class="vtur-input w-full" value={hotel.qtd_criancas ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor original (R$)</label>
+                  <p class="vtur-label-xs">Valor original (R$)</p>
                   <input type="number" class="vtur-input w-full" value={hotel.valor_original ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor final (R$)</label>
+                  <p class="vtur-label-xs">Valor final (R$)</p>
                   <input type="number" class="vtur-input w-full" value={hotel.valor_final ?? ''}
                     oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
@@ -854,54 +854,54 @@
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Cidade</label>
+                  <p class="vtur-label-xs">Cidade</p>
                   <input class="vtur-input w-full" bind:value={passeio.cidade} placeholder="Cidade" list="sugestoes-cidade" />
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Passeio / Serviço</label>
+                  <p class="vtur-label-xs">Passeio / Serviço</p>
                   <input class="vtur-input w-full" bind:value={passeio.passeio} placeholder="Nome do passeio" />
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Fornecedor</label>
+                  <p class="vtur-label-xs">Fornecedor</p>
                   <input class="vtur-input w-full" bind:value={passeio.fornecedor} placeholder="Fornecedor" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data início</label>
+                  <p class="vtur-label-xs">Data início</p>
                   <input type="date" class="vtur-input w-full" bind:value={passeio.data_inicio} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data fim</label>
+                  <p class="vtur-label-xs">Data fim</p>
                   <input type="date" class="vtur-input w-full" bind:value={passeio.data_fim} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Tipo</label>
+                  <p class="vtur-label-xs">Tipo</p>
                   <select class="vtur-input w-full" bind:value={passeio.tipo}>
                     {#each PASSEIO_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 {#if passeio.tipo === 'Ingresso' || passeio.tipo === 'Passeio'}
                   <div>
-                    <label class="vtur-label-xs">Ingressos</label>
+                    <p class="vtur-label-xs">Ingressos</p>
                     <input class="vtur-input w-full" bind:value={passeio.ingressos} placeholder="Ex: Sim / Incluso" />
                   </div>
                 {/if}
                 <div>
-                  <label class="vtur-label-xs">Adultos</label>
+                  <p class="vtur-label-xs">Adultos</p>
                   <input type="number" class="vtur-input w-full" value={passeio.qtd_adultos ?? ''}
                     oninput={(e) => { passeios = updateItem(passeios, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Crianças</label>
+                  <p class="vtur-label-xs">Crianças</p>
                   <input type="number" class="vtur-input w-full" value={passeio.qtd_criancas ?? ''}
                     oninput={(e) => { passeios = updateItem(passeios, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor original (R$)</label>
+                  <p class="vtur-label-xs">Valor original (R$)</p>
                   <input type="number" class="vtur-input w-full" value={passeio.valor_original ?? ''}
                     oninput={(e) => { passeios = updateItem(passeios, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor final (R$)</label>
+                  <p class="vtur-label-xs">Valor final (R$)</p>
                   <input type="number" class="vtur-input w-full" value={passeio.valor_final ?? ''}
                     oninput={(e) => { passeios = updateItem(passeios, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
@@ -959,83 +959,83 @@
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div>
-                  <label class="vtur-label-xs">Tipo</label>
+                  <p class="vtur-label-xs">Tipo</p>
                   <select class="vtur-input w-full" bind:value={transporte.tipo}>
                     {#each TRANSPORTE_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Trecho</label>
+                  <p class="vtur-label-xs">Trecho</p>
                   <input class="vtur-input w-full" bind:value={transporte.trecho} placeholder="Ex: GRU → LIS" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Cia. Aérea</label>
+                  <p class="vtur-label-xs">Cia. Aérea</p>
                   <input class="vtur-input w-full" bind:value={transporte.cia_aerea} placeholder="Ex: LATAM" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Data do voo</label>
+                  <p class="vtur-label-xs">Data do voo</p>
                   <input type="date" class="vtur-input w-full" bind:value={transporte.data_voo} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Tipo voo</label>
+                  <p class="vtur-label-xs">Tipo voo</p>
                   <select class="vtur-input w-full" bind:value={transporte.tipo_voo}>
                     {#each TRANSPORTE_TIPO_VOO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Classe reserva</label>
+                  <p class="vtur-label-xs">Classe reserva</p>
                   <input class="vtur-input w-full" bind:value={transporte.classe_reserva} placeholder="Ex: Econômica" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Hora saída</label>
+                  <p class="vtur-label-xs">Hora saída</p>
                   <input class="vtur-input w-full" bind:value={transporte.hora_saida} placeholder="HH:MM" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Aeroporto saída</label>
+                  <p class="vtur-label-xs">Aeroporto saída</p>
                   <input class="vtur-input w-full" bind:value={transporte.aeroporto_saida} placeholder="Ex: GRU" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Duração voo</label>
+                  <p class="vtur-label-xs">Duração voo</p>
                   <input class="vtur-input w-full" bind:value={transporte.duracao_voo} placeholder="Ex: 11h30" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Hora chegada</label>
+                  <p class="vtur-label-xs">Hora chegada</p>
                   <input class="vtur-input w-full" bind:value={transporte.hora_chegada} placeholder="HH:MM" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Aeroporto chegada</label>
+                  <p class="vtur-label-xs">Aeroporto chegada</p>
                   <input class="vtur-input w-full" bind:value={transporte.aeroporto_chegada} placeholder="Ex: LIS" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Tarifa</label>
+                  <p class="vtur-label-xs">Tarifa</p>
                   <input class="vtur-input w-full" bind:value={transporte.tarifa_nome} placeholder="Ex: Light" />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Adultos</label>
+                  <p class="vtur-label-xs">Adultos</p>
                   <input type="number" class="vtur-input w-full" value={transporte.qtd_adultos ?? ''}
                     oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Crianças</label>
+                  <p class="vtur-label-xs">Crianças</p>
                   <input type="number" class="vtur-input w-full" value={transporte.qtd_criancas ?? ''}
                     oninput={(e) => { transportes = updateItem(transportes, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor total (R$)</label>
+                  <p class="vtur-label-xs">Valor total (R$)</p>
                   <input type="number" class="vtur-input w-full" value={transporte.valor_total ?? ''}
                     oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Taxas (R$)</label>
+                  <p class="vtur-label-xs">Taxas (R$)</p>
                   <input type="number" class="vtur-input w-full" value={transporte.taxas ?? ''}
                     oninput={(e) => onAereoValorChange(index, 'taxas', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Categoria</label>
+                  <p class="vtur-label-xs">Categoria</p>
                   <input class="vtur-input w-full" bind:value={transporte.categoria} placeholder="Ex: Executiva" />
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Observação</label>
+                  <p class="vtur-label-xs">Observação</p>
                   <input class="vtur-input w-full" bind:value={transporte.observacao} placeholder="Observações" />
                 </div>
               </div>
@@ -1092,24 +1092,24 @@
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
-                  <label class="vtur-label-xs">Tipo</label>
+                  <p class="vtur-label-xs">Tipo</p>
                   <select class="vtur-input w-full" bind:value={inv.tipo}>
                     <option value="">—</option>
                     {#each INVESTIMENTO_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
                   </select>
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor por pessoa (R$)</label>
+                  <p class="vtur-label-xs">Valor por pessoa (R$)</p>
                   <input type="number" class="vtur-input w-full" value={inv.valor_por_pessoa ?? ''}
                     oninput={(e) => onInvestimentoChange(index, 'valor_por_pessoa', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Qtd. aptos</label>
+                  <p class="vtur-label-xs">Qtd. aptos</p>
                   <input type="number" class="vtur-input w-full" value={inv.qtd_apto ?? ''}
                     oninput={(e) => onInvestimentoChange(index, 'qtd_apto', (e.target as HTMLInputElement).value)} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor por apto (R$) <span class="text-slate-400">(calc.)</span></label>
+                  <p class="vtur-label-xs">Valor por apto (R$) <span class="text-slate-400">(calc.)</span></p>
                   <input type="number" class="vtur-input w-full bg-slate-100" readonly value={inv.valor_por_apto ?? ''} />
                 </div>
               </div>
@@ -1159,7 +1159,7 @@
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Serviço</label>
+                  <p class="vtur-label-xs">Serviço</p>
                   <select class="vtur-input w-full" bind:value={pag.servico}>
                     <option value="">—</option>
                     {#each PAGAMENTO_SERVICO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
@@ -1169,7 +1169,7 @@
                   </select>
                 </div>
                 <div class="col-span-2">
-                  <label class="vtur-label-xs">Forma de pagamento</label>
+                  <p class="vtur-label-xs">Forma de pagamento</p>
                   <input class="vtur-input w-full" bind:value={pag.forma_pagamento}
                     placeholder="Ex: Crédito, PIX, Boleto" list="sugestoes-forma-pagamento" />
                   <datalist id="sugestoes-forma-pagamento">
@@ -1177,12 +1177,12 @@
                   </datalist>
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Valor total com taxas (R$)</label>
+                  <p class="vtur-label-xs">Valor total com taxas (R$)</p>
                   <input type="number" class="vtur-input w-full" value={pag.valor_total_com_taxas ?? ''}
                     oninput={(e) => { pagamentos = updateItem(pagamentos, index, { valor_total_com_taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>
                 <div>
-                  <label class="vtur-label-xs">Taxas (R$)</label>
+                  <p class="vtur-label-xs">Taxas (R$)</p>
                   <input type="number" class="vtur-input w-full" value={pag.taxas ?? ''}
                     oninput={(e) => { pagamentos = updateItem(pagamentos, index, { taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
                 </div>

@@ -916,8 +916,8 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {#if canAssignVendedor}
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Vendedor *</label>
-            <select bind:value={venda.vendedor_id} class="vtur-input w-full" class:border-red-500={errors.vendedor_id}>
+            <label for="venda-editar-vendedor" class="mb-1 block text-sm font-medium text-slate-700">Vendedor *</label>
+            <select id="venda-editar-vendedor" bind:value={venda.vendedor_id} class="vtur-input w-full" class:border-red-500={errors.vendedor_id}>
               <option value="">Selecione...</option>
               {#each vendedoresEquipe as vendedorEquipe}
                 <option value={vendedorEquipe.id}>{vendedorEquipe.nome_completo}</option>
@@ -928,9 +928,10 @@
           {/if}
 
           <div class="md:col-span-2">
-            <label class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>
+            <label for="venda-editar-cliente" class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>
             <div class="relative">
               <input
+                id="venda-editar-cliente"
                 bind:value={clienteInput}
                 on:input={(event) => {
                   const term = String((event.currentTarget as HTMLInputElement)?.value || '');
@@ -971,9 +972,10 @@
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Cidade de destino</label>
+            <label for="venda-editar-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade de destino</label>
             <div class="relative">
               <input
+                id="venda-editar-cidade"
                 bind:value={cidadeInput}
                 on:input={(event) => {
                   const term = String((event.currentTarget as HTMLInputElement)?.value || '');
@@ -1011,28 +1013,28 @@
           </div>
 
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Lançada em</label>
-            <input type="date" bind:value={venda.data_lancamento} class="vtur-input w-full" />
+            <label for="venda-editar-data-lancamento" class="mb-1 block text-sm font-medium text-slate-700">Lançada em</label>
+            <input id="venda-editar-data-lancamento" type="date" bind:value={venda.data_lancamento} class="vtur-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Data da venda *</label>
-            <input type="date" bind:value={venda.data_venda} class="vtur-input w-full" class:border-red-500={errors.data_venda} />
+            <label for="venda-editar-data-venda" class="mb-1 block text-sm font-medium text-slate-700">Data da venda *</label>
+            <input id="venda-editar-data-venda" type="date" bind:value={venda.data_venda} class="vtur-input w-full" class:border-red-500={errors.data_venda} />
             {#if errors.data_venda}<p class="mt-1 text-xs text-red-600">{errors.data_venda}</p>{/if}
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Data de embarque *</label>
-            <input type="date" bind:value={venda.data_embarque} class="vtur-input w-full" class:border-red-500={errors.data_embarque} />
+            <label for="venda-editar-data-embarque" class="mb-1 block text-sm font-medium text-slate-700">Data de embarque *</label>
+            <input id="venda-editar-data-embarque" type="date" bind:value={venda.data_embarque} class="vtur-input w-full" class:border-red-500={errors.data_embarque} />
             {#if errors.data_embarque}<p class="mt-1 text-xs text-red-600">{errors.data_embarque}</p>{/if}
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Data final *</label>
-            <input type="date" bind:value={venda.data_final} class="vtur-input w-full" class:border-red-500={errors.data_final} />
+            <label for="venda-editar-data-final" class="mb-1 block text-sm font-medium text-slate-700">Data final *</label>
+            <input id="venda-editar-data-final" type="date" bind:value={venda.data_final} class="vtur-input w-full" class:border-red-500={errors.data_final} />
             {#if errors.data_final}<p class="mt-1 text-xs text-red-600">{errors.data_final}</p>{/if}
           </div>
 
           <div class="xl:col-span-2">
-            <label class="mb-1 block text-sm font-medium text-slate-700">Destino principal *</label>
-            <select bind:value={venda.destino_id} class="vtur-input w-full" class:border-red-500={errors.destino_id}>
+            <label for="venda-editar-destino-principal" class="mb-1 block text-sm font-medium text-slate-700">Destino principal *</label>
+            <select id="venda-editar-destino-principal" bind:value={venda.destino_id} class="vtur-input w-full" class:border-red-500={errors.destino_id}>
               <option value="">Selecione...</option>
               {#each produtosDestinoFiltrados as produto}
                 <option value={produto.id}>{produto.nome}</option>
@@ -1082,8 +1084,8 @@
 
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Tipo de produto *</label>
-                  <select bind:value={recibo.tipo_produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_tipo_${index}`]}>
+                  <label for={`venda-editar-recibo-tipo-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Tipo de produto *</label>
+                  <select id={`venda-editar-recibo-tipo-${index}`} bind:value={recibo.tipo_produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_tipo_${index}`]}>
                     <option value="">Selecione...</option>
                     {#each tipos as tipo}
                       <option value={tipo.id}>{tipo.nome || tipo.tipo}</option>
@@ -1091,8 +1093,8 @@
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Produto *</label>
-                  <select bind:value={recibo.produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_produto_${index}`]} on:change={() => updateReciboProduto(index)}>
+                  <label for={`venda-editar-recibo-produto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Produto *</label>
+                  <select id={`venda-editar-recibo-produto-${index}`} bind:value={recibo.produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_produto_${index}`]} on:change={() => updateReciboProduto(index)}>
                     <option value="">Selecione...</option>
                     {#each getProdutosByTipo(recibo.tipo_produto_id) as produto}
                       <option value={produto.id}>{produto.nome}</option>
@@ -1100,16 +1102,16 @@
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Número recibo *</label>
-                  <input bind:value={recibo.numero_recibo} class="vtur-input w-full" class:border-red-500={errors[`recibo_numero_${index}`]} />
+                  <label for={`venda-editar-recibo-numero-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Número recibo *</label>
+                  <input id={`venda-editar-recibo-numero-${index}`} bind:value={recibo.numero_recibo} class="vtur-input w-full" class:border-red-500={errors[`recibo_numero_${index}`]} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Reserva</label>
-                  <input bind:value={recibo.numero_reserva} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-reserva-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Reserva</label>
+                  <input id={`venda-editar-recibo-reserva-${index}`} bind:value={recibo.numero_reserva} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Tipo de pacote *</label>
-                  <select bind:value={recibo.tipo_pacote} class="vtur-input w-full" class:border-red-500={errors[`recibo_pacote_${index}`]}>
+                  <label for={`venda-editar-recibo-pacote-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Tipo de pacote *</label>
+                  <select id={`venda-editar-recibo-pacote-${index}`} bind:value={recibo.tipo_pacote} class="vtur-input w-full" class:border-red-500={errors[`recibo_pacote_${index}`]}>
                     <option value="">Selecione...</option>
                     {#each tiposPacote as pacote}
                       <option value={pacote.nome || pacote.label}>{pacote.nome || pacote.label}</option>
@@ -1117,36 +1119,36 @@
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Data início *</label>
-                  <input type="date" bind:value={recibo.data_inicio} class="vtur-input w-full" class:border-red-500={errors[`recibo_inicio_${index}`]} />
+                  <label for={`venda-editar-recibo-inicio-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Data início *</label>
+                  <input id={`venda-editar-recibo-inicio-${index}`} type="date" bind:value={recibo.data_inicio} class="vtur-input w-full" class:border-red-500={errors[`recibo_inicio_${index}`]} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Data fim *</label>
-                  <input type="date" bind:value={recibo.data_fim} class="vtur-input w-full" class:border-red-500={errors[`recibo_fim_${index}`]} />
+                  <label for={`venda-editar-recibo-fim-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Data fim *</label>
+                  <input id={`venda-editar-recibo-fim-${index}`} type="date" bind:value={recibo.data_fim} class="vtur-input w-full" class:border-red-500={errors[`recibo_fim_${index}`]} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Valor total *</label>
-                  <input bind:value={recibo.valor_total} class="vtur-input w-full" class:border-red-500={errors[`recibo_total_${index}`]} />
+                  <label for={`venda-editar-recibo-total-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor total *</label>
+                  <input id={`venda-editar-recibo-total-${index}`} bind:value={recibo.valor_total} class="vtur-input w-full" class:border-red-500={errors[`recibo_total_${index}`]} />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Taxas</label>
-                  <input bind:value={recibo.valor_taxas} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-taxas-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Taxas</label>
+                  <input id={`venda-editar-recibo-taxas-${index}`} bind:value={recibo.valor_taxas} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">DU</label>
-                  <input bind:value={recibo.valor_du} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-du-${index}`} class="mb-1 block text-sm font-medium text-slate-700">DU</label>
+                  <input id={`venda-editar-recibo-du-${index}`} bind:value={recibo.valor_du} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">RAV</label>
-                  <input bind:value={recibo.valor_rav} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-rav-${index}`} class="mb-1 block text-sm font-medium text-slate-700">RAV</label>
+                  <input id={`venda-editar-recibo-rav-${index}`} bind:value={recibo.valor_rav} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Contrato (URL)</label>
-                  <input bind:value={recibo.contrato_url} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-contrato-url-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Contrato (URL)</label>
+                  <input id={`venda-editar-recibo-contrato-url-${index}`} bind:value={recibo.contrato_url} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Contrato (Path)</label>
-                  <input bind:value={recibo.contrato_path} class="vtur-input w-full" />
+                  <label for={`venda-editar-recibo-contrato-path-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Contrato (Path)</label>
+                  <input id={`venda-editar-recibo-contrato-path-${index}`} bind:value={recibo.contrato_path} class="vtur-input w-full" />
                 </div>
               </div>
             </div>
@@ -1179,51 +1181,51 @@
 
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Forma *</label>
-                  <select bind:value={pagamento.forma_pagamento_id} class="vtur-input w-full" class:border-red-500={errors[`pagamento_forma_${index}`]} on:change={() => syncFormaNome(index)}>
+                  <label for={`venda-editar-pagamento-forma-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Forma *</label>
+                  <select id={`venda-editar-pagamento-forma-${index}`} bind:value={pagamento.forma_pagamento_id} class="vtur-input w-full" class:border-red-500={errors[`pagamento_forma_${index}`]} on:change={() => syncFormaNome(index)}>
                     <option value="">Selecione...</option>
                     {#each formasPagamento as forma}
                       <option value={forma.id}>{forma.nome}</option>
                     {/each}
                   </select>
                   {#if !pagamento.forma_pagamento_id}
-                    <input bind:value={pagamento.forma_nome} class="vtur-input mt-2 w-full" placeholder="Informe a forma manualmente" />
+                    <input id={`venda-editar-pagamento-forma-manual-${index}`} bind:value={pagamento.forma_nome} class="vtur-input mt-2 w-full" placeholder="Informe a forma manualmente" />
                   {/if}
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Operação</label>
-                  <input bind:value={pagamento.operacao} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-operacao-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Operação</label>
+                  <input id={`venda-editar-pagamento-operacao-${index}`} bind:value={pagamento.operacao} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Plano</label>
-                  <input bind:value={pagamento.plano} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-plano-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Plano</label>
+                  <input id={`venda-editar-pagamento-plano-${index}`} bind:value={pagamento.plano} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Valor bruto</label>
-                  <input bind:value={pagamento.valor_bruto} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-bruto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor bruto</label>
+                  <input id={`venda-editar-pagamento-bruto-${index}`} bind:value={pagamento.valor_bruto} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Desconto</label>
-                  <input bind:value={pagamento.desconto_valor} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-desconto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Desconto</label>
+                  <input id={`venda-editar-pagamento-desconto-${index}`} bind:value={pagamento.desconto_valor} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Total</label>
-                  <input bind:value={pagamento.valor_total} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-total-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Total</label>
+                  <input id={`venda-editar-pagamento-total-${index}`} bind:value={pagamento.valor_total} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Qtd. parcelas</label>
+                  <label for={`venda-editar-pagamento-parcelas-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Qtd. parcelas</label>
                   <div class="flex gap-2">
-                    <input type="number" min="1" bind:value={pagamento.parcelas_qtd} class="vtur-input w-full" />
+                    <input id={`venda-editar-pagamento-parcelas-${index}`} type="number" min="1" bind:value={pagamento.parcelas_qtd} class="vtur-input w-full" />
                     <Button type="button" variant="ghost" on:click={() => rebuildParcelas(index)}>Gerar</Button>
                   </div>
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">Valor da parcela</label>
-                  <input bind:value={pagamento.parcelas_valor} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-valor-parcela-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor da parcela</label>
+                  <input id={`venda-editar-pagamento-valor-parcela-${index}`} bind:value={pagamento.parcelas_valor} class="vtur-input w-full" />
                 </div>
                 <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700">1º vencimento</label>
-                  <input type="date" bind:value={pagamento.vencimento_primeira} class="vtur-input w-full" />
+                  <label for={`venda-editar-pagamento-vencimento-${index}`} class="mb-1 block text-sm font-medium text-slate-700">1º vencimento</label>
+                  <input id={`venda-editar-pagamento-vencimento-${index}`} type="date" bind:value={pagamento.vencimento_primeira} class="vtur-input w-full" />
                 </div>
                 <div class="flex items-end">
                   <label class="flex items-center gap-2 text-sm text-slate-700">
@@ -1293,20 +1295,20 @@
 
         <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Valor total da venda</label>
-            <input bind:value={venda.valor_total} class="vtur-input w-full" />
+            <label for="venda-editar-total" class="mb-1 block text-sm font-medium text-slate-700">Valor total da venda</label>
+            <input id="venda-editar-total" bind:value={venda.valor_total} class="vtur-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Valor total bruto</label>
-            <input bind:value={venda.valor_total_bruto} class="vtur-input w-full" />
+            <label for="venda-editar-total-bruto" class="mb-1 block text-sm font-medium text-slate-700">Valor total bruto</label>
+            <input id="venda-editar-total-bruto" bind:value={venda.valor_total_bruto} class="vtur-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Valor total pago</label>
-            <input bind:value={venda.valor_total_pago} class="vtur-input w-full" />
+            <label for="venda-editar-total-pago" class="mb-1 block text-sm font-medium text-slate-700">Valor total pago</label>
+            <input id="venda-editar-total-pago" bind:value={venda.valor_total_pago} class="vtur-input w-full" />
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700">Valor não comissionado</label>
-            <input bind:value={venda.valor_nao_comissionado} class="vtur-input w-full" />
+            <label for="venda-editar-nao-comissionado" class="mb-1 block text-sm font-medium text-slate-700">Valor não comissionado</label>
+            <input id="venda-editar-nao-comissionado" bind:value={venda.valor_nao_comissionado} class="vtur-input w-full" />
           </div>
         </div>
 
@@ -1316,8 +1318,8 @@
         </div>
 
         <div class="mt-4">
-          <label class="mb-1 block text-sm font-medium text-slate-700">Observações</label>
-          <textarea bind:value={venda.notas} rows="4" class="vtur-input w-full" placeholder="Observações internas da venda"></textarea>
+          <label for="venda-editar-observacoes" class="mb-1 block text-sm font-medium text-slate-700">Observações</label>
+          <textarea id="venda-editar-observacoes" bind:value={venda.notas} rows="4" class="vtur-input w-full" placeholder="Observações internas da venda"></textarea>
         </div>
       </FormPanel>
     {/if}
