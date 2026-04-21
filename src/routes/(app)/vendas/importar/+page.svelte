@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { PageHeader, Card, Button, Dialog } from '$lib/components/ui';
+  import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import { Dropzone } from 'flowbite-svelte';
   import {
     ArrowLeft,
@@ -26,19 +27,28 @@
   import { extractCruzeiroFromText, extractCruzeiroFromPdf } from '$lib/vendas/cruzeiroExtractor';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
-  type ContratoDraftUI = ContratoDraft & { aplica_du?: boolean | null };
+  type ContratoDraftUI = ContratoDraft & {
+    aplica_du?: boolean | null;
+    produto_resolvido_id?: string | null;
+    destino_cidade_id?: string | null;
+    usar_cidade_padrao?: boolean;
+  };
 
   type CidadeSugestao = {
     id: string;
     nome: string;
     subdivisao_nome?: string | null;
     pais_nome?: string | null;
+    estado?: string | null;
+    label?: string | null;
+    grau_importancia?: number | null;
   };
 
   type Produto = {
     id: string;
     nome: string;
     cidade_id: string | null;
+    tipo_produto?: string | null;
     todas_as_cidades?: boolean | null;
   };
 
@@ -61,6 +71,7 @@
     vendedoresEquipe?: VendedorOption[];
     produtos?: Produto[];
     tiposPacote?: TipoPacote[];
+    cidades?: CidadeSugestao[];
     warning?: string | null;
   };
 
@@ -81,6 +92,7 @@
 
   let produtos: Produto[] = [];
   let tiposPacote: TipoPacote[] = [];
+  let cidadesDisponiveis: CidadeSugestao[] = [];
   let currentUserId = '';
   let canAssignVendedor = false;
   let vendedoresEquipe: VendedorOption[] = [];
@@ -94,10 +106,6 @@
   let resultadosCidade: CidadeSugestao[] = [];
   let buscandoCidade = false;
   let cidadeManual = false;
-
-  let buscaDestino = '';
-  let destinoId = '';
-  let destinoManual = false;
 
   let dataVenda = '';
   let contatoModalOpen = false;
@@ -142,6 +150,71 @@
     await loadCadastroBase();
   });
 
+  function getCidadeImportanceRank(cidade: CidadeSugestao) {
+    const parsed = Number(cidade?.grau_importancia);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
+  }
+
+  function getCidadeSearchScore(cidade: CidadeSugestao, input: string) {
+    const term = normalizeText(input || '');
+    if (!term) return 100;
+
+    const nome = normalizeText(cidade.nome || '');
+    const label = normalizeText(getCidadeLabel(cidade));
+    const estado = normalizeText(cidade.subdivisao_nome || cidade.estado || '');
+    const full = `${nome} ${estado}`.trim();
+
+    if (nome === term) return 0;
+    if (label === term) return 1;
+    if (nome.startsWith(term)) return 2;
+    if (label.startsWith(term)) return 3;
+    if (estado && estado.startsWith(term)) return 4;
+    if (full.includes(term)) return 5;
+    return 10;
+  }
+
+  function sortCidades(items: CidadeSugestao[], input = '') {
+    return [...items].sort((a, b) => {
+      const scoreDiff = getCidadeSearchScore(a, input) - getCidadeSearchScore(b, input);
+      if (scoreDiff !== 0) return scoreDiff;
+
+      const importanceDiff = getCidadeImportanceRank(a) - getCidadeImportanceRank(b);
+      if (importanceDiff !== 0) return importanceDiff;
+
+      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      if (nomeDiff !== 0) return nomeDiff;
+
+      return String(a.subdivisao_nome || a.estado || '').localeCompare(String(b.subdivisao_nome || b.estado || ''), 'pt-BR', {
+        sensitivity: 'base'
+      });
+    });
+  }
+
+  function parseCidadeItems(payload: any): CidadeSugestao[] {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+  }
+
+  function getCidadeLabel(cidade: CidadeSugestao) {
+    const preferred = String(cidade?.label || '').trim();
+    if (preferred) return preferred;
+    const estado = String(cidade?.subdivisao_nome || cidade?.estado || '').trim();
+    return estado ? `${cidade.nome} (${estado})` : cidade.nome;
+  }
+
+  function mergeCidadesDisponiveis(items: CidadeSugestao[]) {
+    if (!items.length) return;
+    const byId = new Map<string, CidadeSugestao>();
+    cidadesDisponiveis.forEach((cidade) => byId.set(String(cidade.id), cidade));
+    items.forEach((cidade) => {
+      const cidadeIdAtual = String(cidade?.id || '').trim();
+      if (!cidadeIdAtual) return;
+      byId.set(cidadeIdAtual, { ...(byId.get(cidadeIdAtual) || {}), ...cidade });
+    });
+    cidadesDisponiveis = sortCidades(Array.from(byId.values()));
+  }
+
   async function loadCadastroBase() {
     try {
       const response = await fetch('/api/v1/vendas/cadastro-base');
@@ -152,6 +225,7 @@
       vendedoresEquipe = Array.isArray(payload?.vendedoresEquipe) ? payload.vendedoresEquipe : [];
       produtos = Array.isArray(payload?.produtos) ? payload.produtos : [];
       tiposPacote = Array.isArray(payload?.tiposPacote) ? payload.tiposPacote.filter((item) => item.ativo !== false) : [];
+      cidadesDisponiveis = sortCidades(Array.isArray(payload?.cidades) ? payload.cidades : []);
       warningMessage = String(payload?.warning || '').trim();
       vendedorId = currentUserId;
     } catch (err) {
@@ -164,13 +238,14 @@
       const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent('Indefinida')}&limite=10`);
       if (!response.ok) return;
       const payload = await response.json();
-      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const items = sortCidades(parseCidadeItems(payload), 'Indefinida');
+      mergeCidadesDisponiveis(items);
       const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
       if (match?.id) {
         cidadeAutoIndefinida = true;
         cidadeId = match.id;
         cidadeNome = match.nome;
-        cidadeSelecionadaLabel = match.subdivisao_nome ? `${match.nome} (${match.subdivisao_nome})` : match.nome;
+        cidadeSelecionadaLabel = getCidadeLabel(match);
         buscaCidade = cidadeSelecionadaLabel;
       }
     } catch {
@@ -185,12 +260,13 @@
       const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(termo)}&limite=10`);
       if (response.ok) {
         const payload = await response.json();
-        const items = Array.isArray(payload?.items) ? payload.items : [];
+        const items = sortCidades(parseCidadeItems(payload), termo);
+        mergeCidadesDisponiveis(items);
         if (items.length > 0) {
           const first = items[0] as CidadeSugestao;
           cidadeId = first.id;
           cidadeNome = first.nome;
-          cidadeSelecionadaLabel = first.subdivisao_nome ? `${first.nome} (${first.subdivisao_nome})` : first.nome;
+          cidadeSelecionadaLabel = getCidadeLabel(first);
           buscaCidade = cidadeSelecionadaLabel;
         }
       }
@@ -211,7 +287,8 @@
       const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(query)}&limite=20`);
       if (response.ok) {
         const payload = await response.json();
-        resultadosCidade = Array.isArray(payload?.items) ? payload.items : [];
+        resultadosCidade = sortCidades(parseCidadeItems(payload), query);
+        mergeCidadesDisponiveis(resultadosCidade);
       } else {
         resultadosCidade = [];
       }
@@ -236,33 +313,90 @@
   function selecionarCidade(cidade: CidadeSugestao) {
     cidadeId = cidade.id;
     cidadeNome = cidade.nome;
-    cidadeSelecionadaLabel = cidade.subdivisao_nome ? `${cidade.nome} (${cidade.subdivisao_nome})` : cidade.nome;
+    cidadeSelecionadaLabel = getCidadeLabel(cidade);
     buscaCidade = cidadeSelecionadaLabel;
     mostrarSugestoesCidade = false;
     resultadosCidade = [];
-    if (destinoId) {
-      const destino = produtos.find((p) => p.id === destinoId);
-      if (destino && destino.cidade_id !== cidade.id && !destino.todas_as_cidades) {
-        destinoId = '';
-        buscaDestino = '';
-      }
-    }
+    contratos = contratos.map((contrato) => {
+      if (contrato.usar_cidade_padrao === false) return contrato;
+      return {
+        ...contrato,
+        produto_resolvido_id: guessProdutoId(contrato, cidade.id) || contrato.produto_resolvido_id || null
+      };
+    });
   }
 
-  function onDestinoInput() {
-    destinoManual = true;
-    const match = produtosFiltrados.find((p) => normalizeText(p.nome) === normalizeText(buscaDestino));
-    if (match) {
-      destinoId = match.id;
-    }
+  function getCidadeContratoId(contrato: ContratoDraftUI) {
+    return contrato.usar_cidade_padrao === false ? String(contrato.destino_cidade_id || '') : cidadeId;
   }
 
-  function onDestinoBlur() {
-    const match = produtosFiltrados.find((p) => normalizeText(p.nome) === normalizeText(buscaDestino));
-    if (match) {
-      destinoId = match.id;
-      buscaDestino = match.nome;
+  function getCidadeNomeById(cidadeIdAtual: string) {
+    if (!cidadeIdAtual) return 'Não informada';
+    const cidade = cidadesDisponiveis.find((item) => item.id === cidadeIdAtual) || resultadosCidade.find((item) => item.id === cidadeIdAtual);
+    if (!cidade) return cidadeIdAtual;
+    return getCidadeLabel(cidade);
+  }
+
+  function getProdutosPorCidade(cidadeIdAtual: string) {
+    return cidadeIdAtual
+      ? produtos.filter((p) => p.cidade_id === cidadeIdAtual || p.todas_as_cidades)
+      : produtos;
+  }
+
+  function guessProdutoId(contrato: ContratoDraftUI, cidadeIdAtual: string) {
+    const candidates = [
+      contrato.produto_principal,
+      contrato.produto_tipo,
+      contrato.produto_detalhes
+    ]
+      .map((value) => normalizeText(String(value || ''), { trim: true, collapseWhitespace: true }))
+      .filter(Boolean);
+
+    if (candidates.length === 0) return '';
+
+    const produtosDisponiveis = getProdutosPorCidade(cidadeIdAtual);
+    for (const term of candidates) {
+      const exact = produtosDisponiveis.find((produto) => normalizeText(produto.nome, { trim: true, collapseWhitespace: true }) === term);
+      if (exact?.id) return exact.id;
+      const partial = produtosDisponiveis.find((produto) => normalizeText(produto.nome, { trim: true, collapseWhitespace: true }).includes(term) || term.includes(normalizeText(produto.nome, { trim: true, collapseWhitespace: true })));
+      if (partial?.id) return partial.id;
     }
+
+    return '';
+  }
+
+  function syncContratoCidade(index: number, cidadeIdAtual: string) {
+    contratos = contratos.map((contrato, itemIndex) => {
+      if (itemIndex !== index) return contrato;
+      const produtoAtual = String(contrato.produto_resolvido_id || '');
+      const produtosDisponiveis = getProdutosPorCidade(cidadeIdAtual);
+      const produtoCompativel = produtoAtual
+        ? produtosDisponiveis.some((produto) => produto.id === produtoAtual)
+        : false;
+      return {
+        ...contrato,
+        destino_cidade_id: cidadeIdAtual,
+        produto_resolvido_id: produtoCompativel ? produtoAtual : guessProdutoId(contrato, cidadeIdAtual)
+      };
+    });
+  }
+
+  function toggleContratoCidadePadrao(index: number, checked: boolean) {
+    contratos = contratos.map((contrato, itemIndex) => {
+      if (itemIndex !== index) return contrato;
+      const nextCidade = checked ? cidadeId : String(contrato.destino_cidade_id || cidadeId || '');
+      const produtosDisponiveis = getProdutosPorCidade(nextCidade);
+      const produtoAtual = String(contrato.produto_resolvido_id || '');
+      return {
+        ...contrato,
+        usar_cidade_padrao: checked,
+        destino_cidade_id: checked ? null : nextCidade,
+        produto_resolvido_id:
+          produtoAtual && produtosDisponiveis.some((produto) => produto.id === produtoAtual)
+            ? produtoAtual
+            : guessProdutoId(contrato, nextCidade)
+      };
+    });
   }
 
   function clearSelectedFile() {
@@ -301,10 +435,14 @@
       const novos = result.contratos.map((c) => {
         const normalizedTipoPacote = normalizeText(c.tipo_pacote || '');
         const tipoPacoteMatch = tiposPacote.find((item) => normalizeText(item.nome) === normalizedTipoPacote);
+        const cidadeContratoId = isContratoLocacao(c) ? cidadeId : '';
         return {
           ...c,
           tipo_pacote: tipoPacoteMatch?.nome || c.tipo_pacote || (tipoImportacao === 'roteiro' ? 'Cruzeiro' : null),
-          aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null
+          aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null,
+          usar_cidade_padrao: true,
+          destino_cidade_id: cidadeContratoId || null,
+          produto_resolvido_id: guessProdutoId(c, cidadeContratoId || cidadeId)
         };
       });
       contratos = [...contratos, ...novos];
@@ -342,7 +480,6 @@
   function handleDefinirPrincipal(index: number) {
     principalIndex = index;
     cidadeManual = false;
-    destinoManual = false;
   }
 
   function handleRemoverContrato(index: number) {
@@ -417,7 +554,6 @@
 
   function validateBeforeSave(): string | null {
     if (!cidadeId) return 'Selecione a cidade de destino.';
-    if (!buscaDestino.trim()) return 'Informe o destino/principal da venda.';
     if (!isISODate(dataVenda)) return 'Data da venda inválida.';
     if (canAssignVendedor && !vendedorId) return 'Selecione o vendedor.';
     const principalContract = contratos[principalIndex] || contratos[0];
@@ -425,6 +561,10 @@
     if (cpf.length !== 11 && cpf.length !== 14) return 'Informe um CPF/CNPJ válido para o contratante principal.';
     const missingTipo = contratos.find((c) => !c.tipo_pacote && tipoImportacao !== 'roteiro');
     if (missingTipo) return 'Todos os contratos devem ter um tipo de pacote.';
+    const missingProduto = contratos.find((c) => !c.produto_resolvido_id);
+    if (missingProduto) return 'Selecione o produto de cada recibo antes de salvar.';
+    const missingCidade = contratos.find((c) => !getCidadeContratoId(c));
+    if (missingCidade) return 'Selecione a cidade de todos os recibos antes de salvar.';
     return null;
   }
 
@@ -447,12 +587,13 @@
       const payload = {
         contratos: contratos.map((c) => ({
           ...c,
-          taxa_du: c.aplica_du ? c.taxa_du : 0
+          taxa_du: c.aplica_du ? c.taxa_du : 0,
+          destino_cidade_id: getCidadeContratoId(c),
+          produto_resolvido_id: c.produto_resolvido_id || null
         })),
         principalIndex,
         vendedorId: canAssignVendedor ? vendedorId : currentUserId,
         destinoCidadeId: cidadeId,
-        destinoProdutoId: destinoId,
         dataVenda,
         clienteTelefone: skipContato ? null : contatoTelefone || null,
         clienteWhatsapp: skipContato ? null : contatoWhatsapp || null,
@@ -619,7 +760,7 @@
                 <p class="font-semibold text-slate-900">
                   {contrato.contratante?.nome || 'Contratante não identificado'}
                   {#if principalIndex === index}
-                    <span class="ml-2 inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Principal</span>
+                    <span class="ml-2 inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">Base do cliente</span>
                   {/if}
                 </p>
                 <p class="text-sm text-slate-500">
@@ -629,7 +770,7 @@
               <div class="flex gap-2">
                 {#if principalIndex !== index}
                   <Button type="button" variant="secondary" on:click={() => handleDefinirPrincipal(index)}>
-                    Definir principal
+                    Usar como base
                   </Button>
                 {/if}
                 <Button type="button" variant="danger" on:click={() => handleRemoverContrato(index)}>
@@ -672,8 +813,18 @@
                 </div>
               {/if}
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-produto-${index}`}>Produto principal</label>
-                <input id={`contrato-produto-${index}`} type="text" value={contrato.produto_principal || '-'} class="vtur-input w-full bg-slate-100" disabled />
+                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-produto-${index}`}>Produto do recibo *</label>
+                <select
+                  id={`contrato-produto-${index}`}
+                  class="vtur-input w-full"
+                  bind:value={contrato.produto_resolvido_id}
+                >
+                  <option value="">Selecione...</option>
+                  {#each getProdutosPorCidade(getCidadeContratoId(contrato)) as produto}
+                    <option value={produto.id}>{produto.nome}</option>
+                  {/each}
+                </select>
+                <p class="mt-1 text-xs text-slate-500">Produto é individual do recibo. Destino continua sendo a cidade da viagem.</p>
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-destino-${index}`}>Destino</label>
@@ -687,6 +838,36 @@
                 <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-taxas-${index}`}>Taxas</label>
                 <input id={`contrato-taxas-${index}`} type="text" value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))} class="vtur-input w-full bg-slate-100" disabled />
               </div>
+            </div>
+
+            <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={contrato.usar_cidade_padrao !== false}
+                    on:change={(event) => toggleContratoCidadePadrao(index, (event.currentTarget as HTMLInputElement).checked)}
+                  />
+                  Usar cidade padrão da venda neste recibo
+                </label>
+                <p class="text-xs text-slate-500">
+                  Cidade deste recibo:
+                  <strong class="text-slate-700">{getCidadeNomeById(getCidadeContratoId(contrato))}</strong>
+                </p>
+              </div>
+              {#if contrato.usar_cidade_padrao === false}
+                <div class="mt-3">
+                  <CidadeAutocomplete
+                    id={`contrato-cidade-${index}`}
+                    bind:value={contrato.destino_cidade_id}
+                    label="Cidade deste recibo"
+                    required={true}
+                    cities={cidadesDisponiveis}
+                    on:loaded={(event) => mergeCidadesDisponiveis(event.detail)}
+                    on:select={(event) => syncContratoCidade(index, String(event.detail?.id || ''))}
+                  />
+                </div>
+              {/if}
             </div>
 
             {#if tipoImportacao === 'cvc' && (!isContratoLocacao(contrato) && (normalizeText(contrato.produto_tipo || '').includes('aereo') || contrato.taxa_du != null))}
@@ -751,9 +932,8 @@
       </div>
     </Card>
 
-    <!-- Destino principal -->
-    <Card title="Destino principal da venda" color="vendas">
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <Card title="Cidade padrão da venda" color="vendas">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div class="relative">
           <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-cidade"><MapPin size={14} class="mr-1 inline" />Cidade</label>
           <input
@@ -785,24 +965,6 @@
           {/if}
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-destino">Produto / Destino</label>
-          <input
-            id="importar-destino"
-            type="text"
-            bind:value={buscaDestino}
-            class="vtur-input w-full"
-            placeholder="Selecione o produto..."
-            list="destinos-datalist"
-            on:input={onDestinoInput}
-            on:blur={onDestinoBlur}
-          />
-          <datalist id="destinos-datalist">
-            {#each produtosFiltrados as p}
-              <option value={p.nome}>{p.nome}</option>
-            {/each}
-          </datalist>
-        </div>
-        <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-data-venda"><Calendar size={14} class="mr-1 inline" />Data da venda</label>
           <input id="importar-data-venda" type="date" bind:value={dataVenda} class="vtur-input w-full" max={new Date().toISOString().slice(0, 10)} />
         </div>
@@ -817,6 +979,7 @@
           </div>
         {/if}
       </div>
+      <p class="mt-3 text-xs text-slate-500">A cidade definida aqui é aplicada automaticamente em todos os recibos. Se um recibo precisar de outra cidade, ajuste diretamente no card do recibo.</p>
     </Card>
 
     <!-- Ações finais -->

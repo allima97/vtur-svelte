@@ -2,7 +2,8 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { PageHeader, Card, Button, FieldInput, FieldSelect, FormPanel } from '$lib/components/ui';
+  import { PageHeader, Card, Button, FieldSelect, FormPanel } from '$lib/components/ui';
+  import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Calculator, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
@@ -20,6 +21,7 @@
     subdivisao_nome?: string | null;
     subdivisao?: { nome?: string | null; sigla?: string | null } | null;
     label?: string | null;
+    grau_importancia?: number | null;
     tipo?: string | null;
     tipo_produto?: string | null;
     cidade_id?: string | null;
@@ -94,6 +96,8 @@
   function createRecibo(principal = false) {
     return {
       principal,
+      usar_cidade_padrao: true,
+      destino_cidade_id: '',
       tipo_produto_id: '',
       produto_id: '',
       produto_resolvido_id: '',
@@ -232,18 +236,52 @@
     });
   }
 
-  function isProdutoCompativelCidade(produto: Option) {
-    if (!venda.destino_cidade_id) return produto.todas_as_cidades === true;
+  function getCidadeById(cidadeId: string) {
+    return cidades.find((item) => String(item.id) === String(cidadeId)) || null;
+  }
+
+  function getReciboCidadeId(recibo: (typeof recibos)[number]) {
+    return recibo.usar_cidade_padrao ? venda.destino_cidade_id : String(recibo.destino_cidade_id || '');
+  }
+
+  function isProdutoCompativelCidade(produto: Option, cidadeId = venda.destino_cidade_id) {
+    if (!cidadeId) return produto.todas_as_cidades === true;
     if (produto.todas_as_cidades === true) return true;
-    return String(produto.cidade_id) === String(venda.destino_cidade_id);
+    return String(produto.cidade_id) === String(cidadeId);
+  }
+
+  function getProdutosByTipoCidade(tipoId: string, cidadeId: string) {
+    return produtos.filter((item) => {
+      const matchesTipo = !tipoId || item.tipo === tipoId || item.tipo_produto === tipoId;
+      return matchesTipo && isProdutoCompativelCidade(item, cidadeId);
+    });
+  }
+
+  function syncReciboCidade(index: number, cidadeId: string) {
+    const recibo = recibos[index];
+    recibo.destino_cidade_id = cidadeId;
+    if (recibo.produto_id) {
+      const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
+      if (produto && !isProdutoCompativelCidade(produto, getReciboCidadeId(recibo))) {
+        recibo.produto_id = '';
+        recibo.produto_resolvido_id = '';
+      }
+    }
+    recibos = recibos;
+  }
+
+  function toggleReciboCidadePadrao(index: number, checked: boolean) {
+    const recibo = recibos[index];
+    recibo.usar_cidade_padrao = checked;
+    if (!checked && !recibo.destino_cidade_id) {
+      recibo.destino_cidade_id = venda.destino_cidade_id || '';
+    }
+    syncReciboCidade(index, String(recibo.destino_cidade_id || ''));
   }
 
   function updateReciboProduto(index: number) {
     const recibo = recibos[index];
     recibo.produto_resolvido_id = recibo.produto_id;
-    if (recibo.principal && recibo.produto_id) {
-      venda.destino_id = recibo.produto_id;
-    }
     recibos = recibos;
   }
 
@@ -348,6 +386,46 @@
       .trim();
   }
 
+  function getCidadeImportanceRank(cidade: Option) {
+    const parsed = Number(cidade?.grau_importancia);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
+  }
+
+  function getCidadeSearchScore(cidade: Option, input: string) {
+    const term = normalizeLookup(input);
+    if (!term) return 100;
+
+    const nome = normalizeLookup(cidade.nome);
+    const label = normalizeLookup(getCidadeLabel(cidade));
+    const estado = normalizeLookup(cidade.estado || cidade.uf || cidade.sigla || cidade.subdivisao_nome || cidade.subdivisao?.nome);
+    const full = `${nome} ${estado}`.trim();
+
+    if (nome === term) return 0;
+    if (label === term) return 1;
+    if (nome.startsWith(term)) return 2;
+    if (label.startsWith(term)) return 3;
+    if (estado && estado.startsWith(term)) return 4;
+    if (full.includes(term)) return 5;
+    return 10;
+  }
+
+  function sortCidades(items: Option[], input = '') {
+    return [...items].sort((a, b) => {
+      const scoreDiff = getCidadeSearchScore(a, input) - getCidadeSearchScore(b, input);
+      if (scoreDiff !== 0) return scoreDiff;
+
+      const importanceDiff = getCidadeImportanceRank(a) - getCidadeImportanceRank(b);
+      if (importanceDiff !== 0) return importanceDiff;
+
+      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      if (nomeDiff !== 0) return nomeDiff;
+
+      return String(a.estado || a.subdivisao_nome || '').localeCompare(String(b.estado || b.subdivisao_nome || ''), 'pt-BR', {
+        sensitivity: 'base'
+      });
+    });
+  }
+
   function mergeCidades(items: Option[]) {
     if (!items.length) return;
     const byId = new Map<string, Option>();
@@ -357,7 +435,7 @@
       if (!id) return;
       byId.set(id, { ...(byId.get(id) || {}), ...item, label: getCidadeLabel({ ...(byId.get(id) || {}), ...item }) });
     });
-    cidades = Array.from(byId.values());
+    cidades = sortCidades(Array.from(byId.values()));
   }
 
   async function ensureCidadeLoaded(cidadeId: string) {
@@ -391,18 +469,19 @@
   }
 
   function getCidadesFiltradas(input: string) {
-    if (cidadeSearchResults.length > 0) return cidadeSearchResults;
+    if (cidadeSearchResults.length > 0) return sortCidades(cidadeSearchResults, input);
     const term = normalizeLookup(input);
-    if (!term) return cidades.slice(0, 30);
-    return cidades
-      .filter((item) =>
+    if (!term) return sortCidades(cidades).slice(0, 30);
+    return sortCidades(
+      cidades.filter((item) =>
         normalizeLookup(
           [item.nome, item.estado, item.uf, item.sigla, item.subdivisao_nome, item.subdivisao?.nome, item.subdivisao?.sigla]
             .filter(Boolean)
             .join(' ')
         ).includes(term)
-      )
-      .slice(0, 30);
+      ),
+      input
+    ).slice(0, 30);
   }
 
   function applyClienteInput() {
@@ -499,22 +578,14 @@
     if (step >= 0) {
       if (!venda.vendedor_id) errors.vendedor_id = 'Informe o vendedor.';
       if (!venda.cliente_id) errors.cliente_id = 'Informe o cliente.';
-      const possuiProdutoLocal =
-        (venda.destino_id &&
-          produtos.some(
-            (item) =>
-              String(item.id) === String(venda.destino_id) &&
-              item.todas_as_cidades !== true &&
-              Boolean(item.cidade_id)
-          )) ||
-        recibos.some((recibo) => {
-          const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
-          return Boolean(produto?.cidade_id) && produto?.todas_as_cidades !== true;
-        });
-      if (possuiProdutoLocal && !venda.destino_cidade_id) {
-        errors.destino_cidade_id = 'Selecione a cidade de destino.';
+      const possuiProdutoLocalPadrao = recibos.some((recibo) => {
+        if (!recibo.usar_cidade_padrao) return false;
+        const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
+        return Boolean(produto?.cidade_id) && produto?.todas_as_cidades !== true;
+      });
+      if (possuiProdutoLocalPadrao && !venda.destino_cidade_id) {
+        errors.destino_cidade_id = 'Selecione a cidade padrão da venda.';
       }
-      if (!venda.destino_id) errors.destino_id = 'Informe o destino principal.';
       if (!venda.data_venda) errors.data_venda = 'Informe a data da venda.';
       if (!venda.data_embarque) errors.data_embarque = 'Informe a data de embarque.';
       if (!venda.data_final) errors.data_final = 'Informe a data final.';
@@ -525,10 +596,11 @@
 
     if (step >= 1) {
       if (recibos.length === 0) errors.recibos = 'Inclua ao menos um recibo.';
-      if (!recibos.some((item) => item.principal)) errors.recibos_principal = 'Defina um recibo principal.';
       recibos.forEach((recibo, index) => {
+        const cidadeReciboId = getReciboCidadeId(recibo);
         if (!recibo.tipo_produto_id) errors[`recibo_tipo_${index}`] = 'Obrigatório';
         if (!recibo.produto_id) errors[`recibo_produto_${index}`] = 'Obrigatório';
+        if (!cidadeReciboId) errors[`recibo_cidade_${index}`] = 'Selecione a cidade.';
         if (!recibo.numero_recibo) errors[`recibo_numero_${index}`] = 'Obrigatório';
         if (!recibo.tipo_pacote) errors[`recibo_pacote_${index}`] = 'Obrigatório';
         if (!recibo.data_inicio) errors[`recibo_inicio_${index}`] = 'Obrigatório';
@@ -578,8 +650,8 @@
     saving = true;
 
     try {
-      const principalRecibo = recibos.find((item) => item.principal) || recibos[0];
-      const destinoId = principalRecibo?.produto_id || venda.destino_id;
+      const primeiroReciboComProduto = recibos.find((item) => item.produto_id) || recibos[0];
+      const destinoId = primeiroReciboComProduto?.produto_id || venda.destino_id;
 
       const totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
       const totalTaxasRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);
@@ -603,6 +675,9 @@
         venda: vendaPayload,
         recibos: recibos.map((item) => ({
           ...item,
+          produto_id: item.tipo_produto_id || item.produto_id,
+          destino_cidade_id: getReciboCidadeId(item) || null,
+          cidade_nome: getCidadeById(getReciboCidadeId(item))?.nome || null,
           produto_resolvido_id: item.produto_resolvido_id || item.produto_id
         })),
         pagamentos: pagamentos.map((item) => {
@@ -661,6 +736,7 @@
   $: if (venda.destino_cidade_id !== lastDestinoCidadeId) {
     lastDestinoCidadeId = venda.destino_cidade_id;
     recibos = recibos.map((recibo) => {
+      if (!recibo.usar_cidade_padrao) return recibo;
       if (!recibo.produto_id) return recibo;
       const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
       if (!produto || isProdutoCompativelCidade(produto)) return recibo;
@@ -672,12 +748,6 @@
       };
     });
     ensurePrincipalRecibo();
-  }
-  $: if (
-    venda.destino_id &&
-    !produtosDestinoFiltrados.some((item) => String(item.id) === String(venda.destino_id))
-  ) {
-    venda.destino_id = '';
   }
 </script>
 
@@ -783,7 +853,7 @@
           </div>
 
           <div>
-            <label for="venda-nova-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade de destino</label>
+            <label for="venda-nova-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade padrão da venda</label>
             <div class="relative">
               <input
                 id="venda-nova-cidade"
@@ -820,36 +890,28 @@
                 </div>
               {/if}
             </div>
+            <p class="mt-1 text-xs text-slate-500">Use esta cidade em todos os recibos por padrão. Você pode trocar em recibos específicos na etapa seguinte.</p>
             {#if errors.destino_cidade_id}<p class="mt-1 text-xs text-red-600">{errors.destino_cidade_id}</p>{/if}
           </div>
 
           <div>
-            <FieldInput label="Lançada em" type="date" bind:value={venda.data_lancamento} class_name="w-full" />
+            <label for="venda-nova-data-lancamento" class="mb-1 block text-sm font-medium text-slate-700">Lançada em</label>
+            <input id="venda-nova-data-lancamento" type="date" bind:value={venda.data_lancamento} class="vtur-input w-full" />
           </div>
           <div>
-            <FieldInput label="Data da venda *" type="date" bind:value={venda.data_venda} class_name="w-full" error={errors.data_venda} />
+            <label for="venda-nova-data-venda" class="mb-1 block text-sm font-medium text-slate-700">Data da venda *</label>
+            <input id="venda-nova-data-venda" type="date" bind:value={venda.data_venda} class="vtur-input w-full" class:border-red-500={errors.data_venda} />
+            {#if errors.data_venda}<p class="mt-1 text-xs text-red-600">{errors.data_venda}</p>{/if}
           </div>
           <div>
-            <FieldInput label="Data de embarque *" type="date" bind:value={venda.data_embarque} class_name="w-full" error={errors.data_embarque} />
+            <label for="venda-nova-data-embarque" class="mb-1 block text-sm font-medium text-slate-700">Data de embarque *</label>
+            <input id="venda-nova-data-embarque" type="date" bind:value={venda.data_embarque} class="vtur-input w-full" class:border-red-500={errors.data_embarque} />
+            {#if errors.data_embarque}<p class="mt-1 text-xs text-red-600">{errors.data_embarque}</p>{/if}
           </div>
           <div>
-            <FieldInput label="Data final *" type="date" bind:value={venda.data_final} class_name="w-full" error={errors.data_final} />
-          </div>
-
-          <div class="xl:col-span-2">
-            <FieldSelect
-              label="Destino principal *"
-              bind:value={venda.destino_id}
-              options={[
-                { value: '', label: 'Selecione...' },
-                ...produtosDestinoFiltrados.map((produto) => ({ value: produto.id, label: produto.nome }))
-              ]}
-              class_name="w-full"
-              error={errors.destino_id}
-            />
-            {#if venda.destino_cidade_id && produtosDestinoFiltrados.length === 0}
-              <p class="mt-1 text-xs text-amber-700">Nenhum destino disponível para a cidade selecionada.</p>
-            {/if}
+            <label for="venda-nova-data-final" class="mb-1 block text-sm font-medium text-slate-700">Data final *</label>
+            <input id="venda-nova-data-final" type="date" bind:value={venda.data_final} class="vtur-input w-full" class:border-red-500={errors.data_final} />
+            {#if errors.data_final}<p class="mt-1 text-xs text-red-600">{errors.data_final}</p>{/if}
           </div>
 
           <div class="flex items-center gap-3 xl:col-span-2 xl:pt-7">
@@ -867,9 +929,8 @@
       <FormPanel title="Recibos da venda" description="Cadastre os recibos relacionados à venda" class_name="border-green-200">
         <div class="mb-4 flex items-center justify-between">
           <div>
-            <p class="text-sm text-slate-600">Mantenha os recibos completos com produto, reserva, pacote, DU, RAV, contrato e período.</p>
+            <p class="text-sm text-slate-600">Cada recibo tem seu próprio produto, cidade, comissionamento e conciliação. A venda apenas agrupa a viagem do cliente.</p>
             {#if errors.recibos}<p class="mt-1 text-xs text-red-600">{errors.recibos}</p>{/if}
-            {#if errors.recibos_principal}<p class="mt-1 text-xs text-red-600">{errors.recibos_principal}</p>{/if}
           </div>
           <Button type="button" variant="secondary" on:click={addRecibo}><Plus size={16} class="mr-2" />Adicionar recibo</Button>
         </div>
@@ -883,12 +944,41 @@
                   <p class="font-semibold text-slate-900">Recibo {index + 1}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <label class="text-xs text-slate-600"><input type="radio" name="recibo-principal" checked={recibo.principal} on:change={() => markReciboPrincipal(index)} /> Principal</label>
                   <Button type="button" variant="ghost" on:click={() => removeRecibo(index)}><Trash2 size={16} /></Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2 xl:col-span-4">
+                  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={recibo.usar_cidade_padrao}
+                        on:change={(event) => toggleReciboCidadePadrao(index, (event.currentTarget as HTMLInputElement).checked)}
+                      />
+                      Usar cidade padrão da venda
+                    </label>
+                    <p class="text-xs text-slate-500">
+                      Cidade deste recibo:
+                      <strong class="text-slate-700">{getCidadeLabel(getCidadeById(getReciboCidadeId(recibo)) || { id: '', nome: 'Não informada' })}</strong>
+                    </p>
+                  </div>
+                  {#if !recibo.usar_cidade_padrao}
+                    <div class="mt-3">
+                      <CidadeAutocomplete
+                        id={`venda-nova-recibo-cidade-${index}`}
+                        label="Cidade deste recibo"
+                        required={true}
+                        bind:value={recibo.destino_cidade_id}
+                        cities={cidades}
+                        error={errors[`recibo_cidade_${index}`]}
+                        on:loaded={(event) => mergeCidades(event.detail)}
+                        on:select={(event) => syncReciboCidade(index, String(event.detail?.id || ''))}
+                      />
+                    </div>
+                  {/if}
+                </div>
                 <div>
                   <label for={`venda-nova-recibo-tipo-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Tipo de produto *</label>
                   <select id={`venda-nova-recibo-tipo-${index}`} bind:value={recibo.tipo_produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_tipo_${index}`]}>
@@ -902,7 +992,7 @@
                   <label for={`venda-nova-recibo-produto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Produto *</label>
                   <select id={`venda-nova-recibo-produto-${index}`} bind:value={recibo.produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_produto_${index}`]} on:change={() => updateReciboProduto(index)}>
                     <option value="">Selecione...</option>
-                    {#each getProdutosByTipo(recibo.tipo_produto_id) as produto}
+                    {#each getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)) as produto}
                       <option value={produto.id}>{produto.nome}</option>
                     {/each}
                   </select>

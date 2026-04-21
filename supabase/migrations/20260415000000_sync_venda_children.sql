@@ -61,6 +61,7 @@ begin
 
     insert into vendas_recibos (
       venda_id, produto_id, produto_resolvido_id,
+      destino_cidade_id,
       numero_recibo, numero_recibo_normalizado, numero_reserva,
       tipo_pacote, valor_total, valor_taxas, valor_du, valor_rav,
       data_inicio, data_fim, contrato_path, contrato_url
@@ -68,6 +69,7 @@ begin
       p_venda_id,
       (r->>'produto_id')::uuid,
       coalesce((r->>'produto_resolvido_id'), (r->>'produto_id'))::uuid,
+      nullif(trim(coalesce(r->>'destino_cidade_id', '')), '')::uuid,
       v_numero_recibo,
       upper(regexp_replace(coalesce(v_numero_recibo, ''), '[^A-Z0-9]', '', 'gi')),
       nullif(trim(coalesce(r->>'numero_reserva', '')), ''),
@@ -99,12 +101,8 @@ begin
     end;
     if v_data_inicio is null then v_status := 'planejada'; end if;
 
-    v_destino_label := nullif(trim(lower(coalesce(r->>'produto_nome', r->>'tipo_nome', r->>'cidade_nome', ''))), '');
-    v_origem_label  := case
-      when nullif(trim(lower(coalesce(r->>'cidade_nome',''))), '') is distinct from v_destino_label
-        then nullif(trim(lower(coalesce(r->>'cidade_nome',''))), '')
-      else v_destino_label
-    end;
+    v_destino_label := nullif(trim(lower(coalesce(r->>'cidade_nome', r->>'produto_nome', r->>'tipo_nome', ''))), '');
+    v_origem_label  := null;
 
     insert into viagens (
       company_id, venda_id, recibo_id, cliente_id,

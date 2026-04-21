@@ -29,7 +29,7 @@ export async function GET(event) {
 
     let query = client
       .from('vendas')
-      .select(`*, cliente:clientes!vendas_cliente_id_fkey(id,nome), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome), recibos:vendas_recibos(*), pagamentos:vendas_pagamentos(*)`)
+      .select(`*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos(*)`)
       .eq('id', id);
     if (companyIds.length > 0) query = query.in('company_id', companyIds);
     if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);

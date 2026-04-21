@@ -30,6 +30,11 @@ function safeRows<T = any>(result: any, options?: { optional?: boolean }) {
   return (result?.data || []) as T[];
 }
 
+function getImportanceRank(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -84,7 +89,8 @@ export async function GET(event: RequestEvent) {
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
     const cidadesQuery = client
       .from('cidades')
-      .select('id, nome, subdivisao:subdivisoes(nome, codigo_admin1)')
+      .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
+      .order('grau_importancia', { ascending: true, nullsFirst: false })
       .order('nome', { ascending: true })
       .limit(5000);
     const produtosQuery = client
@@ -118,18 +124,27 @@ export async function GET(event: RequestEvent) {
 
     clientes = safeRows(clientesRes);
     const cidadesRaw = safeRows(cidadesRes);
-    cidades = cidadesRaw.map((row: any) => {
+    cidades = cidadesRaw
+      .map((row: any) => {
       // subdivisoes.codigo_admin1 = state code (e.g. "SP"), subdivisoes.nome = state name
-      const sub = row?.subdivisao;
-      const estado = sub?.codigo_admin1 || sub?.nome || null;
-      return {
-        id: row.id,
-        nome: row.nome,
-        subdivisao: sub,
-        estado,
-        label: estado ? `${row?.nome || ''} (${estado})` : row?.nome || ''
-      };
-    });
+        const sub = row?.subdivisao;
+        const estado = sub?.codigo_admin1 || sub?.nome || null;
+        return {
+          id: row.id,
+          nome: row.nome,
+          subdivisao: sub,
+          estado,
+          grau_importancia: row?.grau_importancia == null ? null : Number(row.grau_importancia),
+          label: estado ? `${row?.nome || ''} (${estado})` : row?.nome || ''
+        };
+      })
+      .sort((a: any, b: any) => {
+        const importanceDiff = getImportanceRank(a?.grau_importancia) - getImportanceRank(b?.grau_importancia);
+        if (importanceDiff !== 0) return importanceDiff;
+        const nomeDiff = String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR', { sensitivity: 'base' });
+        if (nomeDiff !== 0) return nomeDiff;
+        return String(a?.estado || '').localeCompare(String(b?.estado || ''), 'pt-BR', { sensitivity: 'base' });
+      });
     produtos = safeRows(produtosRes);
     tipos = safeRows(tiposRes);
     tiposPacote = safeRows(pacotesRes);

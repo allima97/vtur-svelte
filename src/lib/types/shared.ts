@@ -5,6 +5,7 @@ export interface Recibo {
   venda_id?: string;
   produto_id?: string;
   produto_resolvido_id?: string;
+  destino_cidade_id?: string | null;
   numero_recibo?: string | null;
   numero_recibo_normalizado?: string | null;
   numero_reserva?: string | null;
@@ -24,6 +25,7 @@ export interface Recibo {
   // Campos computados (joins)
   produto_nome?: string;
   tipo_produto_nome?: string;
+  destino_cidade_nome?: string;
 }
 
 export interface Pagamento {

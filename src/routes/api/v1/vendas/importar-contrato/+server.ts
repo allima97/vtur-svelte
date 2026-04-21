@@ -411,19 +411,63 @@ export async function POST(event) {
     const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
     const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
 
-    const { data: produtoDestino } = await client
+    const produtoIds = Array.from(
+      new Set(
+        contratos
+          .map((contrato: any) => String(contrato?.produto_resolvido_id || '').trim() || destinoProdutoId || '')
+          .filter(Boolean)
+      )
+    );
+
+    if (produtoIds.length === 0) {
+      return new Response('Selecione o produto de cada recibo para continuar.', { status: 400 });
+    }
+
+    const { data: produtosSelecionados, error: produtosSelecionadosError } = await client
       .from('produtos')
       .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
-      .eq('id', destinoProdutoId)
-      .maybeSingle();
-    const tipoProdutoId = String((produtoDestino as any)?.tipo_produto || '').trim() || null;
+      .in('id', produtoIds);
+    if (produtosSelecionadosError) throw produtosSelecionadosError;
+
+    const produtosMap = new Map(
+      (produtosSelecionados || []).map((produto: any) => [String(produto.id), produto])
+    );
+
+    const cidadeIds = Array.from(
+      new Set(
+        contratos
+          .map((contrato: any) => String(contrato?.destino_cidade_id || '').trim() || cidadeId || '')
+          .filter(Boolean)
+      )
+    );
+    const cidadeNomeMap = new Map<string, string>();
+    if (cidadeIds.length > 0) {
+      const { data: cidadesData, error: cidadesError } = await client
+        .from('cidades')
+        .select('id, nome')
+        .in('id', cidadeIds);
+      if (cidadesError) throw cidadesError;
+      (cidadesData || []).forEach((cidade: any) => {
+        cidadeNomeMap.set(String(cidade.id), String(cidade.nome || '').trim());
+      });
+    }
+
+    const produtoVendaId =
+      String((contratos[0] as any)?.produto_resolvido_id || '').trim() ||
+      destinoProdutoId ||
+      produtoIds[0] ||
+      null;
+
+    if (!produtoVendaId || !produtosMap.has(produtoVendaId)) {
+      return new Response('Produto de referência da venda inválido.', { status: 400 });
+    }
 
     const { data: venda, error: vendaError } = await client
       .from('vendas')
       .insert({
         vendedor_id: vendedorId,
         cliente_id: clientePrincipal.id,
-        destino_id: destinoProdutoId,
+        destino_id: produtoVendaId,
         destino_cidade_id: cidadeId,
         company_id: companyId,
         data_lancamento: dataLancamento,
@@ -446,12 +490,22 @@ export async function POST(event) {
     const allPagamentos: PagamentoDraft[] = [];
 
     for (const contrato of contratos) {
+      const produtoReciboId = String((contrato as any)?.produto_resolvido_id || '').trim() || destinoProdutoId || '';
+      const produtoRecibo = produtosMap.get(produtoReciboId);
+      if (!produtoRecibo?.id) {
+        return new Response('Produto do recibo inválido.', { status: 400 });
+      }
+
+      const reciboCidadeId = String((contrato as any)?.destino_cidade_id || '').trim() || cidadeId || null;
+      const tipoProdutoId = String((produtoRecibo as any)?.tipo_produto || '').trim() || null;
+
       const { data: recibo, error: reciboError } = await client
         .from('vendas_recibos')
         .insert({
           venda_id: venda.id,
           produto_id: tipoProdutoId,
-          produto_resolvido_id: destinoProdutoId,
+          produto_resolvido_id: produtoRecibo.id,
+          destino_cidade_id: reciboCidadeId,
           numero_recibo: contrato.contrato_numero || null,
           numero_reserva: contrato.reserva_numero || null,
           tipo_pacote: contrato.tipo_pacote || null,
@@ -483,7 +537,7 @@ export async function POST(event) {
           responsavel_user_id: vendedorId,
           company_id: companyId,
           origem: null,
-          destino: principal.destino || null,
+          destino: cidadeNomeMap.get(String(reciboCidadeId || '')) || sanitizeDestinoTerm(contrato.destino || principal.destino || '') || null,
           data_inicio: contrato.data_saida || null,
           data_fim: contrato.data_retorno || null,
           status: statusViagem,

@@ -12,7 +12,6 @@ import {
 import {
   fetchSalesReportRows,
   getCurrentYearRange,
-  getVendaCommission,
   getVendaVendedorNome
 } from '$lib/server/relatorios';
 
@@ -42,6 +41,23 @@ function normalizeTendencia(currentValue: number, previousValue: number) {
   if (variation >= 5) return 'up';
   if (variation <= -5) return 'down';
   return 'stable';
+}
+
+function getReceiptMetricRows(row: any) {
+  const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
+  if (recibos.length === 0) {
+    return [
+      {
+        valor_total: Number(row?.valor_total || 0),
+        valor_taxas: Number(row?.valor_taxas || 0)
+      }
+    ];
+  }
+
+  return recibos.map((recibo: any) => ({
+    valor_total: Number(recibo?.valor_total || 0),
+    valor_taxas: Number(recibo?.valor_taxas || 0)
+  }));
 }
 
 export async function GET(event) {
@@ -159,16 +175,21 @@ export async function GET(event) {
         meta: 0
       };
 
-      current.total_vendas += 1;
-      current.total_receita += Number(row.valor_total || 0);
-      current.total_comissao += getVendaCommission(row);
+      const metricRows = getReceiptMetricRows(row);
+      current.total_vendas += metricRows.length;
+      current.total_receita += metricRows.reduce((sum, item) => sum + item.valor_total, 0);
+      current.total_comissao += metricRows.reduce((sum, item) => sum + item.valor_taxas, 0);
       rankingMap.set(vendedorId, current);
     });
 
     previousRows.forEach((row) => {
       const vendedorId = String(row.vendedor_id || '').trim();
       if (!vendedorId) return;
-      previousRevenueMap.set(vendedorId, (previousRevenueMap.get(vendedorId) || 0) + Number(row.valor_total || 0));
+      const metricRows = getReceiptMetricRows(row);
+      previousRevenueMap.set(
+        vendedorId,
+        (previousRevenueMap.get(vendedorId) || 0) + metricRows.reduce((sum, item) => sum + item.valor_total, 0)
+      );
     });
 
     (quotesRes.data || []).forEach((quote: any) => {

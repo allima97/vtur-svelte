@@ -5,6 +5,10 @@ export type ReportReceiptRow = {
   numero_recibo?: string | null;
   data_venda?: string | null;
   produto_id?: string | null;
+  destino_cidade?: {
+    id?: string | null;
+    nome?: string | null;
+  } | null;
   valor_total?: number | null;
   valor_taxas?: number | null;
   valor_du?: number | null;
@@ -58,6 +62,7 @@ export type ReportVendaRow = {
   clientes?: {
     nome?: string | null;
     email?: string | null;
+    cpf?: string | null;
   } | null;
   vendedor?: {
     nome_completo?: string | null;
@@ -105,6 +110,7 @@ function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boole
         numero_recibo,
         data_venda,
         produto_id,
+        destino_cidade:cidades!destino_cidade_id (id, nome),
         valor_total,
         valor_taxas,
         valor_du,
@@ -126,6 +132,7 @@ function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boole
         numero_recibo,
         data_venda,
         produto_id,
+        destino_cidade:cidades!destino_cidade_id (id, nome),
         valor_total,
         valor_taxas,
         valor_du,
@@ -157,7 +164,7 @@ function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boole
         valor_nao_comissionado,
         valor_taxas,
         cancelada,
-        clientes (nome, email),
+        clientes (nome, email, cpf),
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
         destinos:produtos!destino_id (id, nome, tipo_produto),
@@ -176,7 +183,7 @@ function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boole
         valor_nao_comissionado,
         valor_taxas,
         cancelada,
-        clientes (nome, email),
+        clientes (nome, email, cpf),
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
         destinos:produtos!destino_id (id, nome, tipo_produto),
@@ -314,8 +321,28 @@ export function getVendaVendedorNome(row: Pick<ReportVendaRow, 'vendedor'>) {
   return String(row.vendedor?.nome_completo || row.vendedor?.email || 'Equipe VTUR');
 }
 
-export function getVendaDestino(row: Pick<ReportVendaRow, 'destinos' | 'destino_cidade'>) {
-  return String(row.destinos?.nome || row.destino_cidade?.nome || 'Destino nao informado');
+export function getVendaDestino(row: Pick<ReportVendaRow, 'destinos' | 'destino_cidade' | 'recibos'>) {
+  const recibos = Array.isArray(row.recibos) ? row.recibos : [];
+  const cidades = Array.from(
+    new Set(
+      recibos
+        .map((recibo) => String(recibo?.destino_cidade?.nome || '').trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (cidades.length > 0) {
+    return cidades.join(', ');
+  }
+
+  return String(row.destino_cidade?.nome || row.destinos?.nome || 'Destino nao informado');
+}
+
+export function getReceiptCidadeNome(
+  receipt: ReportReceiptRow,
+  fallback?: Pick<ReportVendaRow, 'destino_cidade'>
+) {
+  return String(receipt?.destino_cidade?.nome || fallback?.destino_cidade?.nome || '').trim() || null;
 }
 
 export function getVendaCommission(row: Pick<ReportVendaRow, 'valor_taxas' | 'recibos'>) {

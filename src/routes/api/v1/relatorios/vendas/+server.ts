@@ -12,6 +12,7 @@ import {
   fetchLatestPaymentForms,
   fetchSalesReportRows,
   getCurrentYearRange,
+  getReceiptCidadeNome,
   getReceiptProductDescriptor,
   getVendaClienteNome,
   getVendaCodigo,
@@ -99,18 +100,18 @@ export async function GET(event) {
             numero_recibo_normalizado: recibo?.numero_recibo_normalizado ?? null,
             recibo_short: String(recibo?.numero_recibo ?? '').slice(0, 8),
             data_venda: recibo?.data_venda || row.data_venda,
-          tipo_produto: descriptor.tipo,
-          produto_nome: descriptor.produto,
-          cidade_nome: row.destino_cidade?.nome || null,
-          valor_total: Number(recibo?.valor_total || 0),
-          valor_taxas: Number(recibo?.valor_taxas || 0),
-          valor_du: Number(recibo?.valor_du || 0),
-          valor_rav: Number(recibo?.valor_rav || 0),
-          percentual_comissao_loja: Number(recibo?.percentual_comissao_loja || 0),
-          faixa_comissao: recibo?.faixa_comissao || null,
-          valor_comissao_loja: Number(recibo?.valor_comissao_loja || 0)
-        };
-      });
+            tipo_produto: descriptor.tipo,
+            produto_nome: descriptor.produto,
+            cidade_nome: getReceiptCidadeNome(recibo, row),
+            valor_total: Number(recibo?.valor_total || 0),
+            valor_taxas: Number(recibo?.valor_taxas || 0),
+            valor_du: Number(recibo?.valor_du || 0),
+            valor_rav: Number(recibo?.valor_rav || 0),
+            percentual_comissao_loja: Number(recibo?.percentual_comissao_loja || 0),
+            faixa_comissao: recibo?.faixa_comissao || null,
+            valor_comissao_loja: Number(recibo?.valor_comissao_loja || 0)
+          };
+        });
 
       return {
         id: row.id,

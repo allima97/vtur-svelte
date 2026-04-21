@@ -23,6 +23,28 @@ function normalizeText(value?: string | null) {
     .trim();
 }
 
+function getImportanceRank(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
+}
+
+function getCidadeSearchScore(item: ReturnType<typeof mapCidade>, normalizedQuery: string) {
+  const nome = normalizeText(item.nome);
+  const label = normalizeText(item.label);
+  const subdivisao = normalizeText(item.subdivisao_nome);
+  const pais = normalizeText(item.pais_nome);
+  const full = `${nome} ${subdivisao} ${pais}`.trim();
+
+  if (!normalizedQuery) return 100;
+  if (nome === normalizedQuery) return 0;
+  if (label === normalizedQuery) return 1;
+  if (nome.startsWith(normalizedQuery)) return 2;
+  if (label.startsWith(normalizedQuery)) return 3;
+  if (subdivisao && subdivisao.startsWith(normalizedQuery)) return 4;
+  if (full.includes(normalizedQuery)) return 5;
+  return 10;
+}
+
 function mapCidade(row: any) {
   const nome = String(row?.nome || '').trim();
   const subdivisaoNome = String(row?.subdivisao_nome || '').trim();
@@ -37,6 +59,7 @@ function mapCidade(row: any) {
     subdivisao_nome: subdivisaoNome || null,
     pais_nome: paisNome || null,
     estado: subdivisaoLabel || null,
+    grau_importancia: row?.grau_importancia == null ? null : Number(row.grau_importancia),
     label: subdivisaoLabel ? `${nome} (${subdivisaoLabel})` : nome
   };
 }
@@ -64,12 +87,16 @@ export async function GET(event) {
       let data: any = null;
       const detailed = await client
         .from('cidades')
-        .select('id, nome, subdivisao:subdivisoes(nome, codigo_admin1)')
+        .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
         .eq('id', cidadeId)
         .maybeSingle();
 
       if (detailed.error) {
-        const fallback = await client.from('cidades').select('id, nome').eq('id', cidadeId).maybeSingle();
+        const fallback = await client
+          .from('cidades')
+          .select('id, nome, grau_importancia')
+          .eq('id', cidadeId)
+          .maybeSingle();
         if (fallback.error) throw fallback.error;
         data = fallback.data;
       } else {
@@ -94,16 +121,18 @@ export async function GET(event) {
     } catch {
       const fallbackWithSubdivisao = await client
         .from('cidades')
-        .select('id, nome, subdivisao:subdivisoes(nome, codigo_admin1)')
+        .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
         .ilike('nome', `%${query}%`)
+        .order('grau_importancia', { ascending: true, nullsFirst: false })
         .order('nome', { ascending: true })
         .limit(limite);
 
       if (fallbackWithSubdivisao.error) {
         const fallbackBase = await client
           .from('cidades')
-          .select('id, nome')
+          .select('id, nome, grau_importancia')
           .ilike('nome', `%${query}%`)
+          .order('grau_importancia', { ascending: true, nullsFirst: false })
           .order('nome', { ascending: true })
           .limit(limite);
         if (fallbackBase.error) throw fallbackBase.error;
@@ -128,6 +157,20 @@ export async function GET(event) {
 
     const filtered = Array.from(dedup.values())
       .filter((item) => normalizeText(`${item.nome} ${item.subdivisao_nome || ''} ${item.pais_nome || ''}`).includes(normalizedQuery))
+      .sort((a, b) => {
+        const scoreDiff = getCidadeSearchScore(a, normalizedQuery) - getCidadeSearchScore(b, normalizedQuery);
+        if (scoreDiff !== 0) return scoreDiff;
+
+        const importanceDiff = getImportanceRank(a.grau_importancia) - getImportanceRank(b.grau_importancia);
+        if (importanceDiff !== 0) return importanceDiff;
+
+        const nomeDiff = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        if (nomeDiff !== 0) return nomeDiff;
+
+        return String(a.subdivisao_nome || '').localeCompare(String(b.subdivisao_nome || ''), 'pt-BR', {
+          sensitivity: 'base'
+        });
+      })
       .slice(0, limite);
 
     return json(filtered);

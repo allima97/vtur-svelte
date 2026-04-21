@@ -166,6 +166,10 @@
     return new Date(dateString).toLocaleDateString('pt-BR');
   }
 
+  function getReciboCidade(recibo: any): string {
+    return String(recibo?.destino_cidade?.nome || venda?.destino_cidade?.nome || '').trim() || 'Não informada';
+  }
+
   function getStatusColor(status: string): string {
     switch (status) {
       case 'confirmada': return 'bg-green-100 text-green-700 border-green-200';
@@ -196,6 +200,16 @@
   $: totalPagamentosValor = Array.isArray(venda?.pagamentos)
     ? venda.pagamentos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
     : Number(venda?.valor_total_pago || 0);
+  $: destinosVenda = Array.isArray(venda?.recibos)
+    ? Array.from(
+        new Set(
+          venda.recibos
+            .map((recibo: any) => String(recibo?.destino_cidade?.nome || '').trim())
+            .filter(Boolean)
+        )
+      )
+    : [];
+  $: destinoResumo = destinosVenda.join(', ') || venda?.destino_cidade?.nome || venda?.destino?.nome || venda?.destino || 'Não informado';
   $: diferencaFinanceira = Number((totalPagamentosValor - totalRecibosValor).toFixed(2));
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: conciliacaoPendente = venda?.conciliado === false;
@@ -399,7 +413,7 @@
             </div>
             <div>
               <p class="text-sm text-slate-500">Destino</p>
-              <p class="font-medium text-slate-900">{venda.destino?.nome || venda.destino || venda.destino_cidade || 'Não informado'}</p>
+              <p class="font-medium text-slate-900">{destinoResumo}</p>
             </div>
           </div>
           <div class="flex items-center gap-3">
@@ -431,6 +445,7 @@
                 <tr class="border-b border-slate-200">
                   <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Recibo</th>
                   <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Produto</th>
+                  <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Cidade</th>
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Reserva</th>
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Período</th>
                   <th class="text-right py-3 px-3 text-sm font-semibold text-slate-600">Valor</th>
@@ -441,13 +456,11 @@
                   <tr class="hover:bg-slate-50">
                     <td class="py-3 px-3 text-slate-900">
                       <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
-                      {#if recibo.principal}
-                        <span class="text-xs text-vendas-600 font-medium">Principal</span>
-                      {/if}
                     </td>
                     <td class="py-3 px-3 text-slate-700">
-                      {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || venda.destino?.nome || 'N/A'}
+                      {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || recibo.produto_resolvido?.nome || 'N/A'}
                     </td>
+                    <td class="py-3 px-3 text-slate-700">{getReciboCidade(recibo)}</td>
                     <td class="py-3 px-3 text-center text-slate-700">{recibo.numero_reserva || '-'}</td>
                     <td class="py-3 px-3 text-center text-slate-700">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
                     <td class="py-3 px-3 text-right font-medium text-slate-900">{formatCurrency(recibo.valor_total)}</td>
@@ -456,7 +469,7 @@
               </tbody>
               <tfoot>
                 <tr class="border-t-2 border-slate-200">
-                  <td colspan="4" class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
+                  <td colspan="5" class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
                   <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">{formatCurrency(totalRecibosValor)}</td>
                 </tr>
               </tfoot>

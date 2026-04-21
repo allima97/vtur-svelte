@@ -36,6 +36,7 @@ type VendaRow = {
     id?: string | null;
     numero_recibo?: string | null;
     numero_reserva?: string | null;
+    destino_cidade?: { id?: string | null; nome?: string | null } | null;
     tipo_pacote?: string | null;
     valor_total?: number | null;
     valor_taxas?: number | null;
@@ -147,6 +148,14 @@ function formatVendaItem(row: VendaRow): VendaItem {
     .filter(Boolean);
   const destinoNome = String(row.destinos?.nome || '').trim();
   const cidadeDestino = String(row.destino_cidade?.nome || '').trim();
+  const cidadesRecibos = Array.from(
+    new Set(
+      recibos
+        .map((recibo) => String(recibo?.destino_cidade?.nome || '').trim())
+        .filter(Boolean)
+    )
+  );
+  const destinoDisplay = cidadesRecibos.join(', ') || cidadeDestino || destinoNome || 'Destino nao informado';
 
   return {
     id: row.id,
@@ -154,7 +163,7 @@ function formatVendaItem(row: VendaRow): VendaItem {
     cliente: String(row.clientes?.nome || 'Cliente sem nome'),
     cliente_id: String(row.cliente_id || ''),
     vendedor_id: String(row.vendedor_id || ''),
-    destino: destinoNome || cidadeDestino || 'Destino nao informado',
+    destino: destinoDisplay,
     destino_cidade: cidadeDestino || '-',
     data_venda: row.data_venda,
     data_embarque: row.data_embarque,
@@ -279,6 +288,7 @@ export async function GET(event) {
           id,
           numero_recibo,
           numero_reserva,
+          destino_cidade:cidades!destino_cidade_id (id, nome),
           tipo_pacote,
           valor_total,
           valor_taxas,

@@ -56,6 +56,7 @@ export async function GET(event: RequestEvent) {
             produto_id: recibo?.tipo_produtos?.id || null,
             produto_resolvido_id: recibo?.produto_resolvido?.id || null,
             data_venda: row.data_venda,
+            destino_cidade_id: recibo?.destino_cidade?.id || row.destino_cidade?.id || null,
             valor_total: Number(recibo?.valor_total || 0),
             valor_taxas: Number(recibo?.valor_taxas || 0),
             valor_du: Number(recibo?.valor_du || 0),
