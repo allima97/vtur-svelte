@@ -259,9 +259,9 @@
           {/if}
         </div>
         <FieldInput id="forn-estado" label="Estado" bind:value={form.estado} placeholder="UF / região" readonly class_name="w-full" />
-        <FieldInput id="forn-telefone" label="Telefone" value={form.telefone} class_name="w-full" on:input={(e) => (form.telefone = formatPhone(e.currentTarget.value))} />
-        <FieldInput id="forn-whatsapp" label="WhatsApp" value={form.whatsapp} class_name="w-full" on:input={(e) => (form.whatsapp = formatPhone(e.currentTarget.value))} />
-        <FieldInput id="forn-emergencia" label="Telefone emergência" value={form.telefone_emergencia} class_name="w-full" on:input={(e) => (form.telefone_emergencia = formatPhone(e.currentTarget.value))} />
+        <FieldInput id="forn-telefone" label="Telefone" value={form.telefone} class_name="w-full" on:input={(e) => { const t = e.target as HTMLInputElement; form.telefone = formatPhone(t.value); }} />
+        <FieldInput id="forn-whatsapp" label="WhatsApp" value={form.whatsapp} class_name="w-full" on:input={(e) => { const t = e.target as HTMLInputElement; form.whatsapp = formatPhone(t.value); }} />
+        <FieldInput id="forn-emergencia" label="Telefone emergência" value={form.telefone_emergencia} class_name="w-full" on:input={(e) => { const t = e.target as HTMLInputElement; form.telefone_emergencia = formatPhone(t.value); }} />
         <FieldInput id="forn-responsavel" label="Responsável" bind:value={form.responsavel} placeholder="Pessoa de contato" class_name="w-full" />
         <FieldSelect
           id="forn-faturamento"

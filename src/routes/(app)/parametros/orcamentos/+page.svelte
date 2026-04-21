@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Save, RefreshCw, FileText } from 'lucide-svelte';
 
@@ -92,22 +93,10 @@
   <form on:submit|preventDefault={save} class="space-y-6">
     <Card title="Dados do Consultor" color="financeiro">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-consultor">Nome do Consultor</label>
-          <input id="orc-consultor" bind:value={settings.consultor_nome} class="vtur-input w-full" placeholder="Seu nome completo" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-filial">Filial / Agência</label>
-          <input id="orc-filial" bind:value={settings.filial_nome} class="vtur-input w-full" placeholder="Nome da filial ou agência" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-email">E-mail</label>
-          <input id="orc-email" type="email" bind:value={settings.email} class="vtur-input w-full" placeholder="consultor@agencia.com.br" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-telefone">Telefone</label>
-          <input id="orc-telefone" bind:value={settings.telefone} class="vtur-input w-full" placeholder="(00) 0000-0000" />
-        </div>
+        <FieldInput id="orc-consultor" label="Nome do Consultor" bind:value={settings.consultor_nome} placeholder="Seu nome completo" class_name="w-full" />
+        <FieldInput id="orc-filial" label="Filial / Agência" bind:value={settings.filial_nome} placeholder="Nome da filial ou agência" class_name="w-full" />
+        <FieldInput id="orc-email" label="E-mail" type="email" bind:value={settings.email} placeholder="consultor@agencia.com.br" class_name="w-full" />
+        <FieldInput id="orc-telefone" label="Telefone" bind:value={settings.telefone} placeholder="(00) 0000-0000" class_name="w-full" />
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-whatsapp">WhatsApp</label>
           <div class="flex gap-2">
@@ -121,18 +110,9 @@
 
     <Card title="Endereço" color="financeiro">
       <div class="space-y-3">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-end1">Linha 1</label>
-          <input id="orc-end1" bind:value={settings.endereco_linha1} class="vtur-input w-full" placeholder="Rua, número, complemento" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-end2">Linha 2</label>
-          <input id="orc-end2" bind:value={settings.endereco_linha2} class="vtur-input w-full" placeholder="Bairro, cidade - UF" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-end3">Linha 3</label>
-          <input id="orc-end3" bind:value={settings.endereco_linha3} class="vtur-input w-full" placeholder="CEP, informações adicionais" />
-        </div>
+        <FieldInput id="orc-end1" label="Linha 1" bind:value={settings.endereco_linha1} placeholder="Rua, número, complemento" class_name="w-full" />
+        <FieldInput id="orc-end2" label="Linha 2" bind:value={settings.endereco_linha2} placeholder="Bairro, cidade - UF" class_name="w-full" />
+        <FieldInput id="orc-end3" label="Linha 3" bind:value={settings.endereco_linha3} placeholder="CEP, informações adicionais" class_name="w-full" />
       </div>
     </Card>
 
@@ -141,12 +121,12 @@
         <FileText size={16} class="mt-0.5 text-slate-400" />
         <p class="text-sm text-slate-500">Texto exibido no rodapé dos PDFs de orçamento. Inclui condições gerais, política de cancelamento, etc.</p>
       </div>
-      <textarea
+      <FieldTextarea
         bind:value={settings.rodape_texto}
-        rows="8"
-        class="vtur-input w-full font-mono text-xs"
+        rows={8}
         placeholder="Texto do rodapé..."
-      ></textarea>
+        class_name="w-full font-mono text-xs"
+      />
     </Card>
 
     <div class="flex justify-end gap-3">

@@ -87,6 +87,13 @@ Wrappers consolidados em `src/lib/components/ui`:
 - **`VoucherEditorModal`**: Inputs/textareas nos accordions de dia, hotel, traslados, informações, apps e emergência migrados para wrappers. Botões de remover passageiro/app migrados para `Button`.
 - **`operacao/vouchers/novo`**: Mesma padronização do `VoucherEditorModal` aplicada (accordion dia, hotel, traslados, informações, apps, emergência).
 
+### Formulários e Telas Diversas (Onda 5) ✅
+- **`FornecedorForm.svelte`**: Inputs (nome, cnpj, cep, telefones, responsável), select de faturamento e textarea de serviços migrados para `FieldInput`, `FieldSelect`, `FieldTextarea`. Autocomplete de cidade e select booleano de status mantidos como nativos.
+- **`parametros/empresa/+page.svelte`**: Todos os inputs cadastrais, de contato e endereço migrados para `FieldInput`. Select de estado migrado para `FieldSelect`.
+- **`master/empresas/[id]/+page.svelte`**: Inputs, selects (billing status/plano) e checkbox de ativo migrados para `FieldInput`, `FieldSelect`, `FieldCheckbox`. Grids de master links mantidas nativas (densidade inline).
+- **`admin/crm/+page.svelte`**: Inputs de busca, nome, saudação, selects de categoria/escopo, textarea de mensagem e checkboxes dos modais migrados para wrappers.
+- **`parametros/crm/+page.svelte`**: Input de busca de cliente, input de nome, saudação e textarea de mensagem migrados para `FieldInput`/`FieldTextarea`.
+
 ### Regra vigente
 Não introduzir imports diretos de `flowbite-svelte` em páginas de negócio; sempre usar wrappers de `src/lib/components/ui`. Manter HTML nativo apenas em grids densas inline e elementos estruturais customizados (wizard steps, accordion headers, KPI cards).
 

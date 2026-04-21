@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw } from 'lucide-svelte';
 
@@ -155,35 +156,24 @@
 
   <Card color="financeiro" title={form.id ? `Editar template: ${form.nome}` : 'Novo template'}>
     <div class="grid gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="template-nome">Nome</label>
-        <input id="template-nome" bind:value={form.nome} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="template-remetente">Remetente</label>
-        <select id="template-remetente" bind:value={form.sender_key} class="vtur-input w-full">
-          <option value="avisos">Avisos</option>
-          <option value="admin">Admin</option>
-          <option value="financeiro">Financeiro</option>
-          <option value="suporte">Suporte</option>
-        </select>
-      </div>
-      <div class="md:col-span-2">
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="template-assunto">Assunto</label>
-        <input id="template-assunto" bind:value={form.assunto} class="vtur-input w-full" />
-      </div>
-      <div class="md:col-span-2">
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="template-mensagem">Mensagem</label>
-        <textarea id="template-mensagem" bind:value={form.mensagem} rows="10" class="vtur-input w-full"></textarea>
-        <p class="mt-2 text-xs text-slate-500">Variaveis disponiveis: <code>{'{{nome}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{empresa}}'}</code>.</p>
-      </div>
-      <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
-        <input type="checkbox" bind:checked={form.ativo} />
-        <div>
-          <p class="font-medium text-slate-900">Template ativo</p>
-          <p class="text-sm text-slate-500">Disponivel para disparo no detalhe de usuario.</p>
-        </div>
-      </label>
+      <FieldInput id="template-nome" label="Nome" bind:value={form.nome} class_name="w-full" />
+      <FieldSelect
+        id="template-remetente"
+        label="Remetente"
+        bind:value={form.sender_key}
+        options={[
+          { value: 'avisos', label: 'Avisos' },
+          { value: 'admin', label: 'Admin' },
+          { value: 'financeiro', label: 'Financeiro' },
+          { value: 'suporte', label: 'Suporte' }
+        ]}
+        placeholder=""
+        class_name="w-full"
+      />
+      <FieldInput id="template-assunto" label="Assunto" bind:value={form.assunto} class_name="md:col-span-2 w-full" />
+      <FieldTextarea id="template-mensagem" label="Mensagem" bind:value={form.mensagem} rows={10} class_name="md:col-span-2 w-full" />
+      <p class="md:col-span-2 -mt-2 text-xs text-slate-500">Variaveis disponiveis: <code>{'{{nome}}'}</code>, <code>{'{{email}}'}</code>, <code>{'{{empresa}}'}</code>.</p>
+      <FieldCheckbox label="Template ativo" bind:checked={form.ativo} helper="Disponivel para disparo no detalhe de usuario." class_name="rounded-xl border border-slate-200 p-4" />
     </div>
 
     <div class="mt-6 flex flex-wrap gap-3">

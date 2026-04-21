@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Gift, RefreshCw, Users } from 'lucide-svelte';
 
@@ -21,7 +22,7 @@
 
   let colaboradores: Colaborador[] = [];
   let loading = true;
-  let mesSelecionado = new Date().getMonth() + 1;
+  let mesSelecionado = String(new Date().getMonth() + 1);
 
   async function load() {
     loading = true;
@@ -60,12 +61,15 @@
 
 <Card class="mb-6">
   <div class="flex items-center gap-4">
-    <label class="text-sm font-medium text-slate-700" for="mes-colab">Mês</label>
-    <select id="mes-colab" bind:value={mesSelecionado} on:change={load} class="vtur-input">
-      {#each MESES as mes, i}
-        <option value={i + 1}>{mes}</option>
-      {/each}
-    </select>
+    <FieldSelect
+      id="mes-colab"
+      label="Mês"
+      bind:value={mesSelecionado}
+      options={MESES.map((mes, i) => ({ value: String(i + 1), label: mes }))}
+      placeholder=""
+      class_name="w-48"
+      on:change={load}
+    />
     {#if hoje > 0}
       <span class="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-700">
         <Gift size={12} />
@@ -81,7 +85,7 @@
   <Card>
     <div class="flex flex-col items-center justify-center py-12 text-slate-500">
       <Users size={48} class="mb-4 opacity-30" />
-      <p>Nenhum colaborador com aniversário em {MESES[mesSelecionado - 1]}.</p>
+      <p>Nenhum colaborador com aniversário em {MESES[Number(mesSelecionado) - 1]}.</p>
     </div>
   </Card>
 {:else}

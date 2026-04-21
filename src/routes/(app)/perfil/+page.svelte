@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Save, User, Phone, MapPin, Mail, Building2, Loader2 } from 'lucide-svelte';
 
@@ -169,39 +170,12 @@
 
     <Card title="Dados pessoais" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div class="lg:col-span-2">
-          <label for="perfil-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome completo *</label>
-          <div class="relative">
-            <User size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="perfil-nome" bind:value={form.nome_completo} class="vtur-input w-full pl-9" placeholder="Seu nome completo" />
-          </div>
-        </div>
-
-        <div>
-          <label for="perfil-cargo" class="mb-1 block text-sm font-medium text-slate-700">Cargo</label>
-          <input id="perfil-cargo" bind:value={form.cargo} class="vtur-input w-full" placeholder="Ex: Consultor de Viagens" />
-        </div>
-
-        <div>
-          <label for="perfil-assinatura" class="mb-1 block text-sm font-medium text-slate-700">Assinatura de exibição</label>
-          <input id="perfil-assinatura" bind:value={form.assinatura_exibicao} class="vtur-input w-full" placeholder="Nome para exibição em documentos" />
-        </div>
-
-        <div>
-          <label for="perfil-cpf" class="mb-1 block text-sm font-medium text-slate-700">CPF</label>
-          <input id="perfil-cpf" bind:value={form.cpf} class="vtur-input w-full" placeholder="000.000.000-00" maxlength="14" />
-        </div>
-
-        <div>
-          <label for="perfil-rg" class="mb-1 block text-sm font-medium text-slate-700">RG</label>
-          <input id="perfil-rg" bind:value={form.rg} class="vtur-input w-full" placeholder="Documento de identidade" />
-        </div>
-
-        <div>
-          <label for="perfil-nascimento" class="mb-1 block text-sm font-medium text-slate-700">Data de nascimento</label>
-          <input id="perfil-nascimento" type="date" bind:value={form.data_nascimento} class="vtur-input w-full" />
-        </div>
-
+        <FieldInput id="perfil-nome" label="Nome completo" required bind:value={form.nome_completo} placeholder="Seu nome completo" icon={User} class_name="lg:col-span-2 w-full" />
+        <FieldInput id="perfil-cargo" label="Cargo" bind:value={form.cargo} placeholder="Ex: Consultor de Viagens" class_name="w-full" />
+        <FieldInput id="perfil-assinatura" label="Assinatura de exibição" bind:value={form.assinatura_exibicao} placeholder="Nome para exibição em documentos" class_name="w-full" />
+        <FieldInput id="perfil-cpf" label="CPF" bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} class_name="w-full" />
+        <FieldInput id="perfil-rg" label="RG" bind:value={form.rg} placeholder="Documento de identidade" class_name="w-full" />
+        <FieldInput id="perfil-nascimento" label="Data de nascimento" type="date" bind:value={form.data_nascimento} class_name="w-full" />
         <div>
           <label for="perfil-email" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
           <div class="relative">
@@ -215,72 +189,29 @@
 
     <Card title="Contato" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label for="perfil-telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone</label>
-          <div class="relative">
-            <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="perfil-telefone" bind:value={form.telefone} class="vtur-input w-full pl-9" placeholder="(00) 0000-0000" />
-          </div>
-        </div>
-        <div>
-          <label for="perfil-whatsapp" class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
-          <div class="relative">
-            <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-green-500" />
-            <input id="perfil-whatsapp" bind:value={form.whatsapp} class="vtur-input w-full pl-9" placeholder="(00) 00000-0000" />
-          </div>
-        </div>
+        <FieldInput id="perfil-telefone" label="Telefone" bind:value={form.telefone} placeholder="(00) 0000-0000" icon={Phone} class_name="w-full" />
+        <FieldInput id="perfil-whatsapp" label="WhatsApp" bind:value={form.whatsapp} placeholder="(00) 00000-0000" icon={Phone} class_name="w-full" />
       </div>
     </Card>
 
     <Card title="Endereço" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label for="perfil-cep" class="mb-1 block text-sm font-medium text-slate-700">CEP</label>
-          <div class="relative">
-            <MapPin size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              id="perfil-cep"
-              bind:value={form.cep}
-              on:blur={buscarCep}
-              class="vtur-input w-full pl-9"
-              placeholder="00000-000"
-              maxlength="9"
-            />
-          </div>
-          {#if cepStatus}
-            <p class="mt-1 text-xs text-slate-500">{cepStatus}</p>
-          {/if}
-        </div>
-
-        <div class="lg:col-span-2">
-          <label for="perfil-endereco" class="mb-1 block text-sm font-medium text-slate-700">Endereço</label>
-          <input id="perfil-endereco" bind:value={form.endereco} class="vtur-input w-full" placeholder="Rua, avenida..." />
-        </div>
-
-        <div>
-          <label for="perfil-numero" class="mb-1 block text-sm font-medium text-slate-700">Número</label>
-          <input id="perfil-numero" bind:value={form.numero} class="vtur-input w-full" placeholder="123" />
-        </div>
-
-        <div>
-          <label for="perfil-complemento" class="mb-1 block text-sm font-medium text-slate-700">Complemento</label>
-          <input id="perfil-complemento" bind:value={form.complemento} class="vtur-input w-full" placeholder="Apto, sala..." />
-        </div>
-
-        <div>
-          <label for="perfil-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade</label>
-          <input id="perfil-cidade" bind:value={form.cidade} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label for="perfil-estado" class="mb-1 block text-sm font-medium text-slate-700">Estado</label>
-          <select id="perfil-estado" bind:value={form.estado} class="vtur-input w-full">
-            <option value="">Selecione</option>
-            {#each ESTADOS as uf}
-              <option value={uf}>{uf}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldInput id="perfil-cep" label="CEP" bind:value={form.cep} placeholder="00000-000" maxlength={9} icon={MapPin} on:blur={buscarCep} class_name="w-full" />
+        {#if cepStatus}
+          <p class="text-xs text-slate-500">{cepStatus}</p>
+        {/if}
+        <FieldInput id="perfil-endereco" label="Endereço" bind:value={form.endereco} placeholder="Rua, avenida..." class_name="lg:col-span-2 w-full" />
+        <FieldInput id="perfil-numero" label="Número" bind:value={form.numero} placeholder="123" class_name="w-full" />
+        <FieldInput id="perfil-complemento" label="Complemento" bind:value={form.complemento} placeholder="Apto, sala..." class_name="w-full" />
+        <FieldInput id="perfil-cidade" label="Cidade" bind:value={form.cidade} class_name="w-full" />
+        <FieldSelect
+          id="perfil-estado"
+          label="Estado"
+          bind:value={form.estado}
+          options={ESTADOS.map(uf => ({ value: uf, label: uf }))}
+          placeholder="Selecione"
+          class_name="w-full"
+        />
       </div>
     </Card>
 

@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Building2, Save, Loader2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -144,95 +145,40 @@
     <!-- Dados Cadastrais -->
     <Card title="Dados Cadastrais" color="financeiro">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div class="md:col-span-2">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-razao">Razão Social</label>
-          <input id="emp-razao" type="text" bind:value={form.nome_empresa} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-fantasia">Nome Fantasia</label>
-          <input id="emp-fantasia" type="text" bind:value={form.nome_fantasia} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-cnpj">CNPJ</label>
-          <input id="emp-cnpj" type="text" bind:value={form.cnpj} placeholder="00.000.000/0000-00" class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-ie">Inscrição Estadual</label>
-          <input id="emp-ie" type="text" bind:value={form.ie} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-im">Inscrição Municipal</label>
-          <input id="emp-im" type="text" bind:value={form.im} class="vtur-input w-full" />
-        </div>
+        <FieldInput id="emp-razao" label="Razão Social" type="text" bind:value={form.nome_empresa} class_name="md:col-span-2 w-full" />
+        <FieldInput id="emp-fantasia" label="Nome Fantasia" type="text" bind:value={form.nome_fantasia} class_name="w-full" />
+        <FieldInput id="emp-cnpj" label="CNPJ" type="text" bind:value={form.cnpj} placeholder="00.000.000/0000-00" class_name="w-full" />
+        <FieldInput id="emp-ie" label="Inscrição Estadual" type="text" bind:value={form.ie} class_name="w-full" />
+        <FieldInput id="emp-im" label="Inscrição Municipal" type="text" bind:value={form.im} class_name="w-full" />
       </div>
     </Card>
 
     <!-- Contato -->
     <Card title="Contato" color="financeiro">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-email">E-mail</label>
-          <input id="emp-email" type="email" bind:value={form.email} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-telefone">Telefone</label>
-          <input id="emp-telefone" type="text" bind:value={form.telefone} placeholder="(00) 0000-0000" class="vtur-input w-full" />
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-website">Website</label>
-          <input id="emp-website" type="url" bind:value={form.website} placeholder="https://" class="vtur-input w-full" />
-        </div>
+        <FieldInput id="emp-email" label="E-mail" type="email" bind:value={form.email} class_name="w-full" />
+        <FieldInput id="emp-telefone" label="Telefone" type="text" bind:value={form.telefone} placeholder="(00) 0000-0000" class_name="w-full" />
+        <FieldInput id="emp-website" label="Website" type="url" bind:value={form.website} placeholder="https://" class_name="md:col-span-2 w-full" />
       </div>
     </Card>
 
     <!-- Endereço -->
     <Card title="Endereço" color="financeiro">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div class="lg:col-span-2">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-endereco">Endereço</label>
-          <input id="emp-endereco" type="text" bind:value={form.endereco} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-numero">Número</label>
-          <input id="emp-numero" type="text" bind:value={form.numero} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-complemento">Complemento</label>
-          <input id="emp-complemento" type="text" bind:value={form.complemento} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-bairro">Bairro</label>
-          <input id="emp-bairro" type="text" bind:value={form.bairro} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-cidade">Cidade</label>
-          <input id="emp-cidade" type="text" bind:value={form.cidade} class="vtur-input w-full" />
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-estado">Estado</label>
-          <select id="emp-estado" bind:value={form.estado} class="vtur-input w-full">
-            <option value="">Selecione</option>
-            {#each estados as uf}
-              <option value={uf}>{uf}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="emp-cep">CEP</label>
-          <input id="emp-cep" type="text" bind:value={form.cep} placeholder="00000-000" class="vtur-input w-full" />
-        </div>
+        <FieldInput id="emp-endereco" label="Endereço" type="text" bind:value={form.endereco} class_name="lg:col-span-2 w-full" />
+        <FieldInput id="emp-numero" label="Número" type="text" bind:value={form.numero} class_name="w-full" />
+        <FieldInput id="emp-complemento" label="Complemento" type="text" bind:value={form.complemento} class_name="w-full" />
+        <FieldInput id="emp-bairro" label="Bairro" type="text" bind:value={form.bairro} class_name="w-full" />
+        <FieldInput id="emp-cidade" label="Cidade" type="text" bind:value={form.cidade} class_name="w-full" />
+        <FieldSelect
+          id="emp-estado"
+          label="Estado"
+          bind:value={form.estado}
+          options={estados.map(uf => ({ value: uf, label: uf }))}
+          placeholder="Selecione"
+          class_name="w-full"
+        />
+        <FieldInput id="emp-cep" label="CEP" type="text" bind:value={form.cep} placeholder="00000-000" class_name="w-full" />
       </div>
     </Card>
 

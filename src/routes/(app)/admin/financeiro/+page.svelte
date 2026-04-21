@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
 
@@ -205,27 +206,18 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-status">Status</label>
-      <select id="bill-status" bind:value={form.status} class="vtur-input w-full">
-        {#each Object.entries(STATUS_LABELS) as [key, label]}
-          <option value={key}>{label}</option>
-        {/each}
-      </select>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-valor">Mensalidade (R$)</label>
-      <input id="bill-valor" type="number" step="0.01" bind:value={form.valor_mensal} class="vtur-input w-full" placeholder="0,00" />
-    </div>
+    <FieldSelect
+      id="bill-status"
+      label="Status"
+      bind:value={form.status}
+      options={Object.entries(STATUS_LABELS).map(([key, label]) => ({ value: key, label }))}
+      placeholder=""
+      class_name="w-full"
+    />
+    <FieldInput id="bill-valor" label="Mensalidade (R$)" type="number" step="0.01" bind:value={form.valor_mensal} placeholder="0,00" class_name="w-full" />
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-ultimo">Último pagamento</label>
-        <input id="bill-ultimo" type="date" bind:value={form.ultimo_pagamento} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="bill-proximo">Próx. vencimento</label>
-        <input id="bill-proximo" type="date" bind:value={form.proximo_vencimento} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="bill-ultimo" label="Último pagamento" type="date" bind:value={form.ultimo_pagamento} class_name="w-full" />
+      <FieldInput id="bill-proximo" label="Próx. vencimento" type="date" bind:value={form.proximo_vencimento} class_name="w-full" />
     </div>
   </div>
 </Dialog>

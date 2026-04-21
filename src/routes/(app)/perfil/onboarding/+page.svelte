@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
@@ -133,32 +134,11 @@
   <form on:submit|preventDefault={save} class="space-y-6">
     <Card title="Dados pessoais">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div class="lg:col-span-2">
-          <label for="ob-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome completo *</label>
-          <div class="relative">
-            <User size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="ob-nome" bind:value={form.nome_completo} class="vtur-input w-full pl-9" placeholder="Seu nome completo" />
-          </div>
-        </div>
-        <div>
-          <label for="ob-cpf" class="mb-1 block text-sm font-medium text-slate-700">CPF *</label>
-          <input id="ob-cpf" bind:value={form.cpf} class="vtur-input w-full" placeholder="000.000.000-00" maxlength="14" />
-        </div>
-        <div>
-          <label for="ob-nascimento" class="mb-1 block text-sm font-medium text-slate-700">Data de nascimento *</label>
-          <input id="ob-nascimento" type="date" bind:value={form.data_nascimento} class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="ob-telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone *</label>
-          <div class="relative">
-            <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="ob-telefone" bind:value={form.telefone} class="vtur-input w-full pl-9" placeholder="(00) 00000-0000" />
-          </div>
-        </div>
-        <div>
-          <label for="ob-whatsapp" class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
-          <input id="ob-whatsapp" bind:value={form.whatsapp} class="vtur-input w-full" placeholder="(00) 00000-0000" />
-        </div>
+        <FieldInput id="ob-nome" label="Nome completo" required bind:value={form.nome_completo} placeholder="Seu nome completo" icon={User} class_name="lg:col-span-2 w-full" />
+        <FieldInput id="ob-cpf" label="CPF" required bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} class_name="w-full" />
+        <FieldInput id="ob-nascimento" label="Data de nascimento" required type="date" bind:value={form.data_nascimento} class_name="w-full" />
+        <FieldInput id="ob-telefone" label="Telefone" required bind:value={form.telefone} placeholder="(00) 00000-0000" icon={Phone} class_name="w-full" />
+        <FieldInput id="ob-whatsapp" label="WhatsApp" bind:value={form.whatsapp} placeholder="(00) 00000-0000" class_name="w-full" />
       </div>
     </Card>
 
@@ -183,35 +163,20 @@
 
     <Card title="Endereço">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label for="ob-cep" class="mb-1 block text-sm font-medium text-slate-700">CEP *</label>
-          <div class="relative">
-            <MapPin size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="ob-cep" bind:value={form.cep} on:blur={buscarCep} class="vtur-input w-full pl-9" placeholder="00000-000" maxlength="9" />
-          </div>
-          {#if cepStatus}<p class="mt-1 text-xs text-slate-500">{cepStatus}</p>{/if}
-        </div>
-        <div class="lg:col-span-2">
-          <label for="ob-endereco" class="mb-1 block text-sm font-medium text-slate-700">Endereço</label>
-          <input id="ob-endereco" bind:value={form.endereco} class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="ob-numero" class="mb-1 block text-sm font-medium text-slate-700">Número *</label>
-          <input id="ob-numero" bind:value={form.numero} class="vtur-input w-full" placeholder="123" />
-        </div>
-        <div>
-          <label for="ob-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade *</label>
-          <input id="ob-cidade" bind:value={form.cidade} class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="ob-estado" class="mb-1 block text-sm font-medium text-slate-700">Estado *</label>
-          <select id="ob-estado" bind:value={form.estado} class="vtur-input w-full">
-            <option value="">Selecione</option>
-            {#each ESTADOS as uf}
-              <option value={uf}>{uf}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldInput id="ob-cep" label="CEP" required bind:value={form.cep} placeholder="00000-000" maxlength={9} icon={MapPin} on:blur={buscarCep} class_name="w-full" />
+        {#if cepStatus}<p class="text-xs text-slate-500">{cepStatus}</p>{/if}
+        <FieldInput id="ob-endereco" label="Endereço" bind:value={form.endereco} class_name="lg:col-span-2 w-full" />
+        <FieldInput id="ob-numero" label="Número" required bind:value={form.numero} placeholder="123" class_name="w-full" />
+        <FieldInput id="ob-cidade" label="Cidade" required bind:value={form.cidade} class_name="w-full" />
+        <FieldSelect
+          id="ob-estado"
+          label="Estado"
+          required
+          bind:value={form.estado}
+          options={ESTADOS.map(uf => ({ value: uf, label: uf }))}
+          placeholder="Selecione"
+          class_name="w-full"
+        />
       </div>
     </Card>
 

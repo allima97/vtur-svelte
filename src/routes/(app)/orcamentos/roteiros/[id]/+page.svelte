@@ -8,7 +8,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import { FieldInput, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
 
@@ -582,12 +582,10 @@
   <Card title="Dados do roteiro" color="clientes" class="mb-4">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
       <div class="lg:col-span-2">
-        <label class="vtur-label" for="rot-nome">Nome *</label>
-        <input id="rot-nome" bind:value={nome} class="vtur-input w-full" placeholder="Nome do roteiro" />
+        <FieldInput label="Nome" required bind:value={nome} placeholder="Nome do roteiro" id="rot-nome" />
       </div>
       <div>
-        <label class="vtur-label" for="rot-dur">Duração (dias)</label>
-        <input id="rot-dur" type="number" min="1" bind:value={duracao} class="vtur-input w-full" placeholder="Ex: 7" />
+        <FieldInput label="Duração (dias)" type="number" min="1" bind:value={duracao} placeholder="Ex: 7" id="rot-dur" />
       </div>
       <div>
         <label class="vtur-label" for="rot-orig">Cidade / Início</label>
@@ -1286,8 +1284,7 @@
         </div>
         {#if !gerarClienteSel}
           <div>
-            <label class="vtur-label" for="gerar-nome">Ou informe o nome do cliente</label>
-            <input id="gerar-nome" class="vtur-input w-full" bind:value={gerarClienteNome} placeholder="Nome do cliente" />
+            <FieldInput label="Ou informe o nome do cliente" bind:value={gerarClienteNome} placeholder="Nome do cliente" id="gerar-nome" />
           </div>
         {:else}
           <div class="rounded-lg bg-clientes-50 px-3 py-2 text-sm text-clientes-700">
@@ -1321,8 +1318,7 @@
       <div class="px-6 py-4 space-y-3">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="vtur-label" for="db-q">Texto</label>
-            <input id="db-q" class="vtur-input w-full" bind:value={diasBuscaQ} placeholder="Palavra-chave…" />
+            <FieldInput label="Texto" bind:value={diasBuscaQ} placeholder="Palavra-chave…" id="db-q" />
           </div>
           <div>
             <label class="vtur-label" for="db-cidade">Cidade</label>

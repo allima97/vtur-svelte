@@ -1001,14 +1001,18 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {#if canAssignVendedor}
           <div>
-            <label for="venda-editar-vendedor" class="mb-1 block text-sm font-medium text-slate-700">Vendedor *</label>
-            <select id="venda-editar-vendedor" bind:value={venda.vendedor_id} class="vtur-input w-full" class:border-red-500={errors.vendedor_id}>
-              <option value="">Selecione...</option>
-              {#each vendedoresEquipe as vendedorEquipe}
-                <option value={vendedorEquipe.id}>{vendedorEquipe.nome_completo}</option>
-              {/each}
-            </select>
-            {#if errors.vendedor_id}<p class="mt-1 text-xs text-red-600">{errors.vendedor_id}</p>{/if}
+            <FieldSelect
+              id="venda-editar-vendedor"
+              label="Vendedor"
+              bind:value={venda.vendedor_id}
+              options={[
+                { value: '', label: 'Selecione...' },
+                ...vendedoresEquipe.map((vendedorEquipe) => ({ value: vendedorEquipe.id, label: vendedorEquipe.nome_completo || 'Vendedor' }))
+              ]}
+              class_name="w-full"
+              error={errors.vendedor_id}
+              required
+            />
           </div>
           {/if}
 
@@ -1099,23 +1103,16 @@
           </div>
 
           <div>
-            <label for="venda-editar-data-lancamento" class="mb-1 block text-sm font-medium text-slate-700">Lançada em</label>
-            <input id="venda-editar-data-lancamento" type="date" bind:value={venda.data_lancamento} class="vtur-input w-full" />
+            <FieldInput id="venda-editar-data-lancamento" label="Lançada em" type="date" bind:value={venda.data_lancamento} class_name="w-full" />
           </div>
           <div>
-            <label for="venda-editar-data-venda" class="mb-1 block text-sm font-medium text-slate-700">Data da venda *</label>
-            <input id="venda-editar-data-venda" type="date" bind:value={venda.data_venda} class="vtur-input w-full" class:border-red-500={errors.data_venda} />
-            {#if errors.data_venda}<p class="mt-1 text-xs text-red-600">{errors.data_venda}</p>{/if}
+            <FieldInput id="venda-editar-data-venda" label="Data da venda" type="date" bind:value={venda.data_venda} class_name="w-full" error={errors.data_venda} required />
           </div>
           <div>
-            <label for="venda-editar-data-embarque" class="mb-1 block text-sm font-medium text-slate-700">Data de embarque *</label>
-            <input id="venda-editar-data-embarque" type="date" bind:value={venda.data_embarque} class="vtur-input w-full" class:border-red-500={errors.data_embarque} />
-            {#if errors.data_embarque}<p class="mt-1 text-xs text-red-600">{errors.data_embarque}</p>{/if}
+            <FieldInput id="venda-editar-data-embarque" label="Data de embarque" type="date" bind:value={venda.data_embarque} class_name="w-full" error={errors.data_embarque} required />
           </div>
           <div>
-            <label for="venda-editar-data-final" class="mb-1 block text-sm font-medium text-slate-700">Data final *</label>
-            <input id="venda-editar-data-final" type="date" bind:value={venda.data_final} class="vtur-input w-full" class:border-red-500={errors.data_final} />
-            {#if errors.data_final}<p class="mt-1 text-xs text-red-600">{errors.data_final}</p>{/if}
+            <FieldInput id="venda-editar-data-final" label="Data final" type="date" bind:value={venda.data_final} class_name="w-full" error={errors.data_final} required />
           </div>
 
           <div class="flex items-start gap-3 xl:col-span-2 xl:pt-7">
@@ -1157,14 +1154,11 @@
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2 xl:col-span-4">
                   <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <label class="flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={recibo.usar_cidade_padrao}
-                        on:change={(event) => toggleReciboCidadePadrao(index, (event.currentTarget as HTMLInputElement).checked)}
-                      />
-                      Usar cidade padrão da venda
-                    </label>
+                    <FieldCheckbox
+                      label="Usar cidade padrão da venda"
+                      checked={recibo.usar_cidade_padrao}
+                      on:change={(event) => toggleReciboCidadePadrao(index, (event.target as HTMLInputElement)?.checked)}}
+                    />
                     <p class="text-xs text-slate-500">
                       Cidade deste recibo:
                       <strong class="text-slate-700">{getCidadeLabel(getCidadeById(getReciboCidadeId(recibo)) || { id: '', nome: 'Não informada' })}</strong>
@@ -1186,71 +1180,77 @@
                   {/if}
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-tipo-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Tipo de produto *</label>
-                  <select id={`venda-editar-recibo-tipo-${index}`} bind:value={recibo.tipo_produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_tipo_${index}`]}>
-                    <option value="">Selecione...</option>
-                    {#each tipos as tipo}
-                      <option value={tipo.id}>{tipo.nome || tipo.tipo}</option>
-                    {/each}
-                  </select>
+                  <FieldSelect
+                    id={`venda-editar-recibo-tipo-${index}`}
+                    label="Tipo de produto"
+                    bind:value={recibo.tipo_produto_id}
+                    options={[
+                      { value: '', label: 'Selecione...' },
+                      ...tipos.map((tipo) => ({ value: tipo.id, label: tipo.nome || tipo.tipo || '' }))
+                    ]}
+                    class_name="w-full"
+                    error={errors[`recibo_tipo_${index}`]}
+                    required
+                  />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-produto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Produto *</label>
-                  <select id={`venda-editar-recibo-produto-${index}`} bind:value={recibo.produto_id} class="vtur-input w-full" class:border-red-500={errors[`recibo_produto_${index}`]} on:change={() => updateReciboProduto(index)}>
-                    <option value="">Selecione...</option>
-                    {#each getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)) as produto}
-                      <option value={produto.id}>{produto.nome}</option>
-                    {/each}
-                  </select>
+                  <FieldSelect
+                    id={`venda-editar-recibo-produto-${index}`}
+                    label="Produto"
+                    bind:value={recibo.produto_id}
+                    options={[
+                      { value: '', label: 'Selecione...' },
+                      ...getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
+                    ]}
+                    class_name="w-full"
+                    error={errors[`recibo_produto_${index}`]}
+                    required
+                    on:change={() => updateReciboProduto(index)}
+                  />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-numero-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Número recibo *</label>
-                  <input id={`venda-editar-recibo-numero-${index}`} bind:value={recibo.numero_recibo} class="vtur-input w-full" class:border-red-500={errors[`recibo_numero_${index}`]} />
+                  <FieldInput id={`venda-editar-recibo-numero-${index}`} label="Número recibo" bind:value={recibo.numero_recibo} class_name="w-full" error={errors[`recibo_numero_${index}`]} required />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-reserva-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Reserva</label>
-                  <input id={`venda-editar-recibo-reserva-${index}`} bind:value={recibo.numero_reserva} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-reserva-${index}`} label="Reserva" bind:value={recibo.numero_reserva} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-pacote-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Tipo de pacote *</label>
-                  <select id={`venda-editar-recibo-pacote-${index}`} bind:value={recibo.tipo_pacote} class="vtur-input w-full" class:border-red-500={errors[`recibo_pacote_${index}`]}>
-                    <option value="">Selecione...</option>
-                    {#each tiposPacote as pacote}
-                      <option value={pacote.nome || pacote.label}>{pacote.nome || pacote.label}</option>
-                    {/each}
-                  </select>
+                  <FieldSelect
+                    id={`venda-editar-recibo-pacote-${index}`}
+                    label="Tipo de pacote"
+                    bind:value={recibo.tipo_pacote}
+                    options={[
+                      { value: '', label: 'Selecione...' },
+                      ...tiposPacote.map((pacote) => ({ value: pacote.nome || pacote.label || '', label: pacote.nome || pacote.label || '' }))
+                    ]}
+                    class_name="w-full"
+                    error={errors[`recibo_pacote_${index}`]}
+                    required
+                  />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-inicio-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Data início *</label>
-                  <input id={`venda-editar-recibo-inicio-${index}`} type="date" bind:value={recibo.data_inicio} class="vtur-input w-full" class:border-red-500={errors[`recibo_inicio_${index}`]} />
+                  <FieldInput id={`venda-editar-recibo-inicio-${index}`} label="Data início" type="date" bind:value={recibo.data_inicio} class_name="w-full" error={errors[`recibo_inicio_${index}`]} required />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-fim-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Data fim *</label>
-                  <input id={`venda-editar-recibo-fim-${index}`} type="date" bind:value={recibo.data_fim} class="vtur-input w-full" class:border-red-500={errors[`recibo_fim_${index}`]} />
+                  <FieldInput id={`venda-editar-recibo-fim-${index}`} label="Data fim" type="date" bind:value={recibo.data_fim} class_name="w-full" error={errors[`recibo_fim_${index}`]} required />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-total-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor total *</label>
-                  <input id={`venda-editar-recibo-total-${index}`} bind:value={recibo.valor_total} class="vtur-input w-full" class:border-red-500={errors[`recibo_total_${index}`]} />
+                  <FieldInput id={`venda-editar-recibo-total-${index}`} label="Valor total" bind:value={recibo.valor_total} class_name="w-full" error={errors[`recibo_total_${index}`]} required />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-taxas-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Taxas</label>
-                  <input id={`venda-editar-recibo-taxas-${index}`} bind:value={recibo.valor_taxas} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-taxas-${index}`} label="Taxas" bind:value={recibo.valor_taxas} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-du-${index}`} class="mb-1 block text-sm font-medium text-slate-700">DU</label>
-                  <input id={`venda-editar-recibo-du-${index}`} bind:value={recibo.valor_du} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-du-${index}`} label="DU" bind:value={recibo.valor_du} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-rav-${index}`} class="mb-1 block text-sm font-medium text-slate-700">RAV</label>
-                  <input id={`venda-editar-recibo-rav-${index}`} bind:value={recibo.valor_rav} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-rav-${index}`} label="RAV" bind:value={recibo.valor_rav} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-contrato-url-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Contrato (URL)</label>
-                  <input id={`venda-editar-recibo-contrato-url-${index}`} bind:value={recibo.contrato_url} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-contrato-url-${index}`} label="Contrato (URL)" bind:value={recibo.contrato_url} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-recibo-contrato-path-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Contrato (Path)</label>
-                  <input id={`venda-editar-recibo-contrato-path-${index}`} bind:value={recibo.contrato_path} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-recibo-contrato-path-${index}`} label="Contrato (Path)" bind:value={recibo.contrato_path} class_name="w-full" />
                 </div>
               </div>
             </div>
@@ -1283,36 +1283,37 @@
 
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
-                  <label for={`venda-editar-pagamento-forma-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Forma *</label>
-                  <select id={`venda-editar-pagamento-forma-${index}`} bind:value={pagamento.forma_pagamento_id} class="vtur-input w-full" class:border-red-500={errors[`pagamento_forma_${index}`]} on:change={() => syncFormaNome(index)}>
-                    <option value="">Selecione...</option>
-                    {#each formasPagamento as forma}
-                      <option value={forma.id}>{forma.nome}</option>
-                    {/each}
-                  </select>
+                  <FieldSelect
+                    id={`venda-editar-pagamento-forma-${index}`}
+                    label="Forma"
+                    bind:value={pagamento.forma_pagamento_id}
+                    options={[
+                      { value: '', label: 'Selecione...' },
+                      ...formasPagamento.map((forma) => ({ value: forma.id, label: forma.nome || '' }))
+                    ]}
+                    class_name="w-full"
+                    error={errors[`pagamento_forma_${index}`]}
+                    required
+                    on:change={() => syncFormaNome(index)}
+                  />
                   {#if !pagamento.forma_pagamento_id}
-                    <input id={`venda-editar-pagamento-forma-manual-${index}`} bind:value={pagamento.forma_nome} class="vtur-input mt-2 w-full" placeholder="Informe a forma manualmente" />
+                    <FieldInput id={`venda-editar-pagamento-forma-manual-${index}`} bind:value={pagamento.forma_nome} class_name="mt-2 w-full" placeholder="Informe a forma manualmente" />
                   {/if}
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-operacao-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Operação</label>
-                  <input id={`venda-editar-pagamento-operacao-${index}`} bind:value={pagamento.operacao} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-operacao-${index}`} label="Operação" bind:value={pagamento.operacao} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-plano-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Plano</label>
-                  <input id={`venda-editar-pagamento-plano-${index}`} bind:value={pagamento.plano} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-plano-${index}`} label="Plano" bind:value={pagamento.plano} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-bruto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor bruto</label>
-                  <input id={`venda-editar-pagamento-bruto-${index}`} bind:value={pagamento.valor_bruto} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-bruto-${index}`} label="Valor bruto" bind:value={pagamento.valor_bruto} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-desconto-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Desconto</label>
-                  <input id={`venda-editar-pagamento-desconto-${index}`} bind:value={pagamento.desconto_valor} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-desconto-${index}`} label="Desconto" bind:value={pagamento.desconto_valor} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-total-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Total</label>
-                  <input id={`venda-editar-pagamento-total-${index}`} bind:value={pagamento.valor_total} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-total-${index}`} label="Total" bind:value={pagamento.valor_total} class_name="w-full" />
                 </div>
                 <div>
                   <label for={`venda-editar-pagamento-parcelas-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Qtd. parcelas</label>
@@ -1322,12 +1323,10 @@
                   </div>
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-valor-parcela-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Valor da parcela</label>
-                  <input id={`venda-editar-pagamento-valor-parcela-${index}`} bind:value={pagamento.parcelas_valor} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-valor-parcela-${index}`} label="Valor da parcela" bind:value={pagamento.parcelas_valor} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-editar-pagamento-vencimento-${index}`} class="mb-1 block text-sm font-medium text-slate-700">1º vencimento</label>
-                  <input id={`venda-editar-pagamento-vencimento-${index}`} type="date" bind:value={pagamento.vencimento_primeira} class="vtur-input w-full" />
+                  <FieldInput id={`venda-editar-pagamento-vencimento-${index}`} label="1º vencimento" type="date" bind:value={pagamento.vencimento_primeira} class_name="w-full" />
                 </div>
                 <div class="flex items-end">
                   <FieldCheckbox label="Paga comissão" bind:checked={pagamento.paga_comissao} color="vendas" />

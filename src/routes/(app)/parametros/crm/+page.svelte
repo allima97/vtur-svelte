@@ -683,7 +683,7 @@
             bind:value={mensagem}
             rows={5}
             resize="none"
-            placeholder="Escreva sua mensagem... Use {{primeiro_nome}}, {{nome_cliente}}, {{consultor}}"
+            placeholder={'Escreva sua mensagem... Use {{primeiro_nome}}, {{nome_cliente}}, {{consultor}}'}
           />
           {#if palavrasExcedido}
             <p class="mt-1 text-xs text-red-500">⚠️ Mensagem excede o limite de {maxPalavras} palavras.</p>

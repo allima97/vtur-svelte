@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
@@ -210,23 +211,8 @@
       <p class="mt-1 text-xs text-slate-500">Selecione ou digite o código da moeda (ex: USD, EUR).</p>
     </div>
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-data">Data *</label>
-      <input id="cambio-data" type="date" bind:value={form.data} class="vtur-input w-full" />
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-valor">Valor em R$ *</label>
-      <input
-        id="cambio-valor"
-        type="number"
-        step="0.000001"
-        min="0"
-        bind:value={form.valor}
-        class="vtur-input w-full"
-        placeholder="Ex: 5.123456"
-      />
-      <p class="mt-1 text-xs text-slate-500">Valor de 1 unidade da moeda em reais.</p>
-    </div>
+    <FieldInput id="cambio-data" label="Data" required type="date" bind:value={form.data} class_name="w-full" />
+    <FieldInput id="cambio-valor" label="Valor em R$" required type="number" step="0.000001" min="0" bind:value={form.valor} placeholder="Ex: 5.123456" class_name="w-full" />
+    <p class="text-xs text-slate-500">Valor de 1 unidade da moeda em reais.</p>
   </div>
 </Dialog>

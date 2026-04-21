@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -353,43 +354,37 @@
   <!-- ── Dados do Orçamento ───────────────────────────────────────────────── -->
   <Card header="Dados do Orçamento" color="orcamentos">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label for="valid_until" class="block text-sm font-medium text-slate-700 mb-1">
-          Válido até <span class="text-red-500">*</span>
-        </label>
-        <div class="flex gap-2">
-          <input
-            id="valid_until"
-            type="date"
-            bind:value={formData.valid_until}
-            class="vtur-input flex-1"
-            class:border-red-500={errors.valid_until}
-          />
-          <div class="flex gap-1">
-            {#each [7, 15, 30] as dias}
-              <button
-                type="button"
-                on:click={() => setValidadeDias(dias)}
-                class="px-3 py-2 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                {dias}d
-              </button>
-            {/each}
-          </div>
+      <div class="flex gap-2 items-start">
+        <FieldInput
+          label="Válido até"
+          required
+          type="date"
+          bind:value={formData.valid_until}
+          error={errors.valid_until}
+          class_name="flex-1"
+        />
+        <div class="flex gap-1 mt-[1.65rem] shrink-0">
+          {#each [7, 15, 30] as dias}
+            <button
+              type="button"
+              on:click={() => setValidadeDias(dias)}
+              class="px-3 py-2 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              {dias}d
+            </button>
+          {/each}
         </div>
-        {#if errors.valid_until}
-          <p class="mt-1 text-sm text-red-600">{errors.valid_until}</p>
-        {/if}
       </div>
 
-      <div>
-        <label for="currency" class="block text-sm font-medium text-slate-700 mb-1">Moeda</label>
-        <select id="currency" bind:value={formData.currency} class="vtur-input w-full">
-          <option value="BRL">Real (R$)</option>
-          <option value="USD">Dólar (US$)</option>
-          <option value="EUR">Euro (€)</option>
-        </select>
-      </div>
+      <FieldSelect
+        label="Moeda"
+        bind:value={formData.currency}
+        options={[
+          { value: 'BRL', label: 'Real (R$)' },
+          { value: 'USD', label: 'Dólar (US$)' },
+          { value: 'EUR', label: 'Euro (€)' }
+        ]}
+      />
     </div>
   </Card>
 
@@ -501,15 +496,11 @@
 
   <!-- ── Observações ──────────────────────────────────────────────────────── -->
   <Card header="Observações e Condições" color="orcamentos">
-    <div class="relative">
-      <FileText size={18} class="absolute left-3 top-3 text-slate-400 pointer-events-none" />
-      <textarea
-        bind:value={formData.notes}
-        rows="4"
-        class="vtur-input pl-10 w-full"
-        placeholder="Informações adicionais, condições de pagamento, validade da proposta..."
-      ></textarea>
-    </div>
+    <FieldTextarea
+      bind:value={formData.notes}
+      rows={4}
+      placeholder="Informações adicionais, condições de pagamento, validade da proposta..."
+    />
   </Card>
 
   <!-- ── Ações ────────────────────────────────────────────────────────────── -->

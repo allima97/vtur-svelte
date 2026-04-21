@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Send, RefreshCw } from 'lucide-svelte';
 
@@ -110,67 +111,28 @@
 <div class="space-y-6">
   <Card color="financeiro" title="Envio principal">
     <div class="grid gap-4 md:grid-cols-2">
-      <div class="md:col-span-2">
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="resend-key">Resend API key</label>
-        <input id="resend-key" bind:value={form.resend_api_key} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="smtp-host">SMTP host</label>
-        <input id="smtp-host" bind:value={form.smtp_host} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="smtp-port">SMTP port</label>
-        <input id="smtp-port" bind:value={form.smtp_port} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="smtp-user">SMTP user</label>
-        <input id="smtp-user" bind:value={form.smtp_user} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="smtp-pass">SMTP password</label>
-        <input id="smtp-pass" type="password" bind:value={form.smtp_pass} class="vtur-input w-full" />
-      </div>
-      <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
-        <input type="checkbox" bind:checked={form.smtp_secure} />
-        <div>
-          <p class="font-medium text-slate-900">SMTP seguro</p>
-          <p class="text-sm text-slate-500">Ativa TLS/SSL quando houver fallback SMTP.</p>
-        </div>
-      </label>
+      <FieldInput id="resend-key" label="Resend API key" bind:value={form.resend_api_key} class_name="md:col-span-2 w-full" />
+      <FieldInput id="smtp-host" label="SMTP host" bind:value={form.smtp_host} class_name="w-full" />
+      <FieldInput id="smtp-port" label="SMTP port" bind:value={form.smtp_port} class_name="w-full" />
+      <FieldInput id="smtp-user" label="SMTP user" bind:value={form.smtp_user} class_name="w-full" />
+      <FieldInput id="smtp-pass" label="SMTP password" type="password" bind:value={form.smtp_pass} class_name="w-full" />
+      <FieldCheckbox label="SMTP seguro" bind:checked={form.smtp_secure} helper="Ativa TLS/SSL quando houver fallback SMTP." class_name="rounded-xl border border-slate-200 p-4" />
     </div>
   </Card>
 
   <Card color="financeiro" title="Remetentes por area">
     <div class="grid gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="from-alerta">Alerta</label>
-        <input id="from-alerta" bind:value={form.alerta_from_email} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="from-admin">Admin</label>
-        <input id="from-admin" bind:value={form.admin_from_email} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="from-avisos">Avisos</label>
-        <input id="from-avisos" bind:value={form.avisos_from_email} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="from-financeiro">Financeiro</label>
-        <input id="from-financeiro" bind:value={form.financeiro_from_email} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="from-suporte">Suporte</label>
-        <input id="from-suporte" bind:value={form.suporte_from_email} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="from-alerta" label="Alerta" bind:value={form.alerta_from_email} class_name="w-full" />
+      <FieldInput id="from-admin" label="Admin" bind:value={form.admin_from_email} class_name="w-full" />
+      <FieldInput id="from-avisos" label="Avisos" bind:value={form.avisos_from_email} class_name="w-full" />
+      <FieldInput id="from-financeiro" label="Financeiro" bind:value={form.financeiro_from_email} class_name="w-full" />
+      <FieldInput id="from-suporte" label="Suporte" bind:value={form.suporte_from_email} class_name="w-full" />
     </div>
   </Card>
 
   <Card color="financeiro" title="Validacao">
     <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="test-email">Destino do teste</label>
-        <input id="test-email" bind:value={testEmail} class="vtur-input w-full" placeholder="email@empresa.com" />
-      </div>
+      <FieldInput id="test-email" label="Destino do teste" bind:value={testEmail} placeholder="email@empresa.com" class_name="w-full" />
       <div class="md:self-end">
         <Button variant="outline" on:click={sendTestEmail} loading={sendingTest}>
           <Send size={16} class="mr-2" />

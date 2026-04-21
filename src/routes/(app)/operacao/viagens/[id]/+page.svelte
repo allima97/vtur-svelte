@@ -8,6 +8,9 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
+  import FieldTextarea from '$lib/components/ui/form/FieldTextarea.svelte';
+  import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { 
     Plane, Calendar, MapPin, Users, FileText, CreditCard, ArrowLeft, Edit2, Trash2, 
@@ -782,29 +785,37 @@
         <!-- Form -->
         <div class="p-6 overflow-y-auto max-h-[60vh]">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label for="viagem-edit-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data de Saída</label>
-              <input id="viagem-edit-data-inicio" type="date" bind:value={editForm.data_inicio} class="vtur-input w-full" />
-            </div>
-
-            <div>
-              <label for="viagem-edit-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data de Retorno</label>
-              <input id="viagem-edit-data-fim" type="date" bind:value={editForm.data_fim} class="vtur-input w-full" />
-            </div>
-
-            <div class="md:col-span-2">
-              <label for="viagem-edit-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-              <textarea id="viagem-edit-observacoes" bind:value={editForm.observacoes} rows="3" class="vtur-input w-full"></textarea>
-            </div>
-
-            <div class="md:col-span-2">
-              <label for="viagem-edit-follow-up" class="block text-sm font-medium text-slate-700 mb-1">Follow Up</label>
-              <textarea id="viagem-edit-follow-up" bind:value={editForm.follow_up_text} rows="2" class="vtur-input w-full"></textarea>
-              <label class="flex items-center gap-2 mt-2">
-                <input type="checkbox" bind:checked={editForm.follow_up_fechado} class="rounded" />
-                <span class="text-sm text-slate-600">Marcar como fechado</span>
-              </label>
-            </div>
+            <FieldInput
+              label="Data de Saída"
+              type="date"
+              bind:value={editForm.data_inicio}
+              id="viagem-edit-data-inicio"
+            />
+            <FieldInput
+              label="Data de Retorno"
+              type="date"
+              bind:value={editForm.data_fim}
+              id="viagem-edit-data-fim"
+            />
+            <FieldTextarea
+              label="Observações"
+              bind:value={editForm.observacoes}
+              rows={3}
+              id="viagem-edit-observacoes"
+              class_name="md:col-span-2"
+            />
+            <FieldTextarea
+              label="Follow Up"
+              bind:value={editForm.follow_up_text}
+              rows={2}
+              id="viagem-edit-follow-up"
+              class_name="md:col-span-2"
+            />
+            <FieldCheckbox
+              label="Marcar como fechado"
+              bind:checked={editForm.follow_up_fechado}
+              class_name="md:col-span-2"
+            />
           </div>
         </div>
 

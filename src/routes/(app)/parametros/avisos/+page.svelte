@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
@@ -200,42 +201,27 @@
 >
   <div class="space-y-4">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tpl-nome">Nome *</label>
-        <input id="tpl-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome do template" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tpl-ocasiao">Ocasião</label>
-        <select id="tpl-ocasiao" bind:value={form.categoria} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each OCASIOES as oc}
-            <option value={oc}>{oc}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tpl-scope">Escopo</label>
-        <select id="tpl-scope" bind:value={form.scope} class="vtur-input w-full">
-          {#each SCOPE_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-      </div>
-      <div class="flex items-end">
-        <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-          Template ativo
-        </label>
-      </div>
+      <FieldInput id="tpl-nome" label="Nome" required bind:value={form.nome} placeholder="Nome do template" class_name="w-full" />
+      <FieldSelect
+        id="tpl-ocasiao"
+        label="Ocasião"
+        bind:value={form.categoria}
+        options={OCASIOES.map(oc => ({ value: oc, label: oc }))}
+        placeholder="Selecione..."
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="tpl-scope"
+        label="Escopo"
+        bind:value={form.scope}
+        options={SCOPE_OPTIONS}
+        placeholder=""
+        class_name="w-full"
+      />
+      <FieldCheckbox label="Template ativo" bind:checked={form.ativo} class_name="flex items-end" />
     </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="tpl-titulo">Título *</label>
-      <input id="tpl-titulo" bind:value={form.titulo} class="vtur-input w-full" placeholder="Título da mensagem" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="tpl-corpo">Corpo *</label>
-      <textarea id="tpl-corpo" bind:value={form.corpo} rows="6" class="vtur-input w-full" placeholder="Texto da mensagem. Use {{nome_cliente}} para variáveis."></textarea>
-      <p class="mt-1 text-xs text-slate-500">Variáveis disponíveis: {'{{nome_cliente}}'}, {'{{primeiro_nome}}'}, {'{{consultor}}'}</p>
-    </div>
+    <FieldInput id="tpl-titulo" label="Título" required bind:value={form.titulo} placeholder="Título da mensagem" class_name="w-full" />
+    <FieldTextarea id="tpl-corpo" label="Corpo" required bind:value={form.corpo} rows={6} placeholder={'Texto da mensagem. Use {{nome_cliente}} para variáveis.'} class_name="w-full" />
+    <p class="text-xs text-slate-500">Variáveis disponíveis: {'{{nome_cliente}}'}, {'{{primeiro_nome}}'}, {'{{consultor}}'}</p>
   </div>
 </Dialog>
