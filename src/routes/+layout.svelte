@@ -75,12 +75,6 @@
           sessionSynced.set(true);
         }
       }
-      
-      // Inicializa Dexie Cloud se configurado
-      import('$lib/db/dexie').then(({ initDexieCloud }) => {
-        initDexieCloud().catch(console.error);
-      });
-      
       return () => {
         subscription.unsubscribe();
       };

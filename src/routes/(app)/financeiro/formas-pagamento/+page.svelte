@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { 
@@ -308,7 +309,6 @@
         variant="ghost"
         size="sm"
         on:click={() => abrirForm(row)}
-        title="Editar"
       >
         <Edit2 size={16} />
       </Button>
@@ -316,7 +316,6 @@
         variant="ghost"
         size="sm"
         on:click={() => confirmarExclusao(row)}
-        title="Excluir"
         class_name="text-red-600 hover:text-red-700"
       >
         <Trash2 size={16} />
@@ -338,69 +337,39 @@
   onConfirm={salvar}
 >
   <div class="space-y-4">
-    <div>
-      <label for="forma-pagamento-nome" class="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
-      <input
-        id="forma-pagamento-nome"
-        type="text"
-        bind:value={form.nome}
-        placeholder="ex: PIX"
-        class="vtur-input w-full"
-      />
-    </div>
+    <FieldInput
+      id="forma-pagamento-nome"
+      label="Nome"
+      bind:value={form.nome}
+      placeholder="ex: PIX"
+      required={true}
+      class_name="w-full"
+    />
 
-    <div>
-      <label for="forma-pagamento-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-      <input
-        id="forma-pagamento-descricao"
-        type="text"
-        bind:value={form.descricao}
-        placeholder="Descrição opcional"
-        class="vtur-input w-full"
-      />
-    </div>
+    <FieldInput
+      id="forma-pagamento-descricao"
+      label="Descrição"
+      bind:value={form.descricao}
+      placeholder="Descrição opcional"
+      class_name="w-full"
+    />
 
-    <div>
-      <label for="forma-pagamento-desconto" class="block text-sm font-medium text-slate-700 mb-1">Desconto padrão (%)</label>
-      <input
-        id="forma-pagamento-desconto"
-        type="number"
-        bind:value={form.desconto_padrao_pct}
-        min="0"
-        max="100"
-        step="0.01"
-        placeholder="0"
-        class="vtur-input w-full"
-      />
-    </div>
+    <FieldInput
+      id="forma-pagamento-desconto"
+      label="Desconto padrão (%)"
+      type="number"
+      bind:value={form.desconto_padrao_pct as any}
+      min="0"
+      max="100"
+      step="0.01"
+      placeholder="0"
+      class_name="w-full"
+    />
 
     <div class="space-y-2">
-      <label class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          bind:checked={form.paga_comissao}
-          class="rounded border-slate-300 text-financeiro-600 focus:ring-financeiro-500"
-        />
-        <span class="text-sm text-slate-700">Paga comissão</span>
-      </label>
-
-      <label class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          bind:checked={form.permite_desconto}
-          class="rounded border-slate-300 text-financeiro-600 focus:ring-financeiro-500"
-        />
-        <span class="text-sm text-slate-700">Permite desconto</span>
-      </label>
-
-      <label class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          bind:checked={form.ativo}
-          class="rounded border-slate-300 text-financeiro-600 focus:ring-financeiro-500"
-        />
-        <span class="text-sm text-slate-700">Ativo</span>
-      </label>
+      <FieldCheckbox label="Paga comissão" bind:checked={form.paga_comissao} color="financeiro" />
+      <FieldCheckbox label="Permite desconto" bind:checked={form.permite_desconto} color="financeiro" />
+      <FieldCheckbox label="Ativo" bind:checked={form.ativo} color="financeiro" />
     </div>
   </div>
 </Dialog>

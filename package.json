@@ -45,8 +45,6 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.0.0",
     "chart.js": "^4.5.1",
-    "dexie": "^4.3.0",
-    "dexie-cloud-addon": "^4.3.9",
     "flowbite-svelte": "^0.48.0",
     "flowbite-svelte-icons": "^2.0.0",
     "hono": "^4.11.9",

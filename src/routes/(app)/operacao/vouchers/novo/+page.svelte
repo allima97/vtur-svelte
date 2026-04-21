@@ -2,9 +2,14 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import {
+    Button,
+    Card,
+    FieldInput,
+    FieldSelect,
+    FieldTextarea,
+    PageHeader
+  } from '$lib/components/ui';
   import { 
     Plus, ArrowLeft, Loader2, Save, CheckCircle, ChevronRight, 
     ChevronLeft, MapPin, Calendar, Hotel, Info, FileText,
@@ -94,6 +99,13 @@
     { value: 'Pendente', label: 'Pendente' },
     { value: 'Sob Consulta', label: 'Sob Consulta' },
     { value: 'Não Disponível', label: 'Não Disponível' }
+  ];
+
+  const acomodacaoSelectOptions = acomodacaoOptions.map((opt) => ({ value: opt, label: opt }));
+  const passengerTypeOptions = [
+    { value: 'ADT', label: 'Adulto' },
+    { value: 'CHD', label: 'Criança' },
+    { value: 'INF', label: 'Bebê' }
   ];
 
   // Formulário inicial
@@ -537,119 +549,82 @@
 
             <!-- Informações Principais -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="md:col-span-2">
-                <label for="voucher-nome" class="block text-sm font-medium text-slate-700 mb-1">
-                  Nome do Voucher <span class="text-red-500">*</span>
-                </label>
-                <input
-                  id="voucher-nome"
-                  type="text"
-                  bind:value={form.nome}
-                  class="vtur-input w-full text-lg {validationErrors.nome ? 'border-red-500 focus:border-red-500' : ''}"
-                  placeholder="Ex: Circuito Europa 2024 - Lisboa, Madrid e Paris"
-                />
-                {#if validationErrors.nome}
-                  <p class="text-red-500 text-xs mt-1">{validationErrors.nome}</p>
-                {/if}
-              </div>
-              
-              <div>
-                <label for="voucher-codigo-systur" class="block text-sm font-medium text-slate-700 mb-1">Código SYSTUR</label>
-                <input
-                  id="voucher-codigo-systur"
-                  type="text"
-                  bind:value={form.codigo_systur}
-                  class="vtur-input w-full"
-                  placeholder="Código interno"
-                />
-              </div>
-              
-              <div>
-                <label for="voucher-codigo-fornecedor" class="block text-sm font-medium text-slate-700 mb-1">Código Fornecedor</label>
-                <input
-                  id="voucher-codigo-fornecedor"
-                  type="text"
-                  bind:value={form.codigo_fornecedor}
-                  class="vtur-input w-full"
-                  placeholder="Código do fornecedor"
-                />
-              </div>
-              
-              <div>
-                <label for="voucher-reserva-online" class="block text-sm font-medium text-slate-700 mb-1">Reserva Online</label>
-                <input
-                  id="voucher-reserva-online"
-                  type="text"
-                  bind:value={form.reserva_online}
-                  class="vtur-input w-full"
-                  placeholder="Número da reserva"
-                />
-              </div>
-              
-              <div>
-                <label for="voucher-localizador-agencia" class="block text-sm font-medium text-slate-700 mb-1">Localizador Agência</label>
-                <input
-                  id="voucher-localizador-agencia"
-                  type="text"
-                  bind:value={form.extra_data.localizador_agencia}
-                  on:input={(e) => form.extra_data = { ...form.extra_data, localizador_agencia: e.currentTarget.value }}
-                  class="vtur-input w-full"
-                  placeholder="Localizador"
-                />
-              </div>
+              <FieldInput
+                id="voucher-nome"
+                label="Nome do Voucher"
+                bind:value={form.nome}
+                required={true}
+                error={validationErrors.nome}
+                placeholder="Ex: Circuito Europa 2024 - Lisboa, Madrid e Paris"
+                class_name="md:col-span-2"
+              />
+
+              <FieldInput
+                id="voucher-codigo-systur"
+                label="Código SYSTUR"
+                bind:value={form.codigo_systur}
+                placeholder="Código interno"
+              />
+
+              <FieldInput
+                id="voucher-codigo-fornecedor"
+                label="Código Fornecedor"
+                bind:value={form.codigo_fornecedor}
+                placeholder="Código do fornecedor"
+              />
+
+              <FieldInput
+                id="voucher-reserva-online"
+                label="Reserva Online"
+                bind:value={form.reserva_online}
+                placeholder="Número da reserva"
+              />
+
+              <FieldInput
+                id="voucher-localizador-agencia"
+                label="Localizador Agência"
+                value={form.extra_data.localizador_agencia || ''}
+                placeholder="Localizador"
+                on:input={(e) => form.extra_data = { ...form.extra_data, localizador_agencia: (e.currentTarget as HTMLInputElement).value }}
+              />
             </div>
 
             <!-- Datas -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-blue-50 rounded-xl border border-blue-100">
-              <div>
-                <label for="voucher-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">
-                  Data Início <span class="text-red-500">*</span>
-                </label>
-                <input
-                  id="voucher-data-inicio"
-                  type="date"
-                  bind:value={form.data_inicio}
-                  on:change={syncDaysWithStartDate}
-                  class="vtur-input w-full {validationErrors.data_inicio ? 'border-red-500' : ''}"
-                />
-                {#if validationErrors.data_inicio}
-                  <p class="text-red-500 text-xs mt-1">{validationErrors.data_inicio}</p>
-                {/if}
-              </div>
-              
-              <div>
-                <label for="voucher-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-                <input
-                  id="voucher-data-fim"
-                  type="date"
-                  bind:value={form.data_fim}
-                  class="vtur-input w-full"
-                />
-              </div>
+              <FieldInput
+                id="voucher-data-inicio"
+                label="Data Início"
+                type="date"
+                bind:value={form.data_inicio}
+                required={true}
+                error={validationErrors.data_inicio}
+                on:change={syncDaysWithStartDate}
+              />
+
+              <FieldInput
+                id="voucher-data-fim"
+                label="Data Fim"
+                type="date"
+                bind:value={form.data_fim}
+              />
             </div>
 
             <!-- Acomodação e Operador -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="voucher-tipo-acomodacao" class="block text-sm font-medium text-slate-700 mb-1">Tipo de Acomodação</label>
-                <select id="voucher-tipo-acomodacao" bind:value={form.tipo_acomodacao} class="vtur-input w-full">
-                  <option value="">Selecione...</option>
-                  {#each acomodacaoOptions as opt}
-                    <option value={opt}>{opt}</option>
-                  {/each}
-                </select>
-              </div>
-              
-              <div>
-                <label for="voucher-operador" class="block text-sm font-medium text-slate-700 mb-1">Operador Responsável</label>
-                <input
-                  id="voucher-operador"
-                  type="text"
-                  bind:value={form.operador}
-                  class="vtur-input w-full"
-                  placeholder="Nome do operador"
-                />
-              </div>
+              <FieldSelect
+                id="voucher-tipo-acomodacao"
+                label="Tipo de Acomodação"
+                bind:value={form.tipo_acomodacao}
+                options={acomodacaoSelectOptions}
+                placeholder="Selecione..."
+              />
+
+              <FieldInput
+                id="voucher-operador"
+                label="Operador Responsável"
+                bind:value={form.operador}
+                placeholder="Nome do operador"
+              />
             </div>
 
             <!-- Passageiros -->
@@ -681,63 +656,43 @@
                         </button>
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div class="md:col-span-2">
-                          <label for={`voucher-passageiro-nome-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nome Completo</label>
-                          <input
-                            id={`voucher-passageiro-nome-${i}`}
-                            type="text"
-                            value={passenger.nome}
-                            on:input={(e) => updatePassenger(i, 'nome', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                            placeholder="Nome do passageiro"
-                          />
-                        </div>
-                        <div>
-                          <label for={`voucher-passageiro-passaporte-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Passaporte</label>
-                          <input
-                            id={`voucher-passageiro-passaporte-${i}`}
-                            type="text"
-                            value={passenger.passaporte || ''}
-                            on:input={(e) => updatePassenger(i, 'passaporte', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                            placeholder="Número"
-                          />
-                        </div>
-                        <div>
-                          <label for={`voucher-passageiro-data-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Data Nasc.</label>
-                          <input
-                            id={`voucher-passageiro-data-${i}`}
-                            type="date"
-                            value={passenger.data_nascimento || ''}
-                            on:input={(e) => updatePassenger(i, 'data_nascimento', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                          />
-                        </div>
-                        <div>
-                          <label for={`voucher-passageiro-nacionalidade-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nacionalidade</label>
-                          <input
-                            id={`voucher-passageiro-nacionalidade-${i}`}
-                            type="text"
-                            value={passenger.nacionalidade || ''}
-                            on:input={(e) => updatePassenger(i, 'nacionalidade', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                            placeholder="Ex: Brasileira"
-                          />
-                        </div>
-                        <div>
-                          <label for={`voucher-passageiro-tipo-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Tipo</label>
-                          <select
-                            id={`voucher-passageiro-tipo-${i}`}
-                            value={passenger.tipo || ''}
-                            on:change={(e) => updatePassenger(i, 'tipo', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                          >
-                            <option value="">Selecione</option>
-                            <option value="ADT">Adulto</option>
-                            <option value="CHD">Criança</option>
-                            <option value="INF">Bebê</option>
-                          </select>
-                        </div>
+                        <FieldInput
+                          id={`voucher-passageiro-nome-${i}`}
+                          label="Nome Completo"
+                          value={passenger.nome}
+                          placeholder="Nome do passageiro"
+                          class_name="md:col-span-2"
+                          on:input={(e) => updatePassenger(i, 'nome', (e.currentTarget as HTMLInputElement).value)}
+                        />
+                        <FieldInput
+                          id={`voucher-passageiro-passaporte-${i}`}
+                          label="Passaporte"
+                          value={passenger.passaporte || ''}
+                          placeholder="Número"
+                          on:input={(e) => updatePassenger(i, 'passaporte', (e.currentTarget as HTMLInputElement).value)}
+                        />
+                        <FieldInput
+                          id={`voucher-passageiro-data-${i}`}
+                          label="Data Nasc."
+                          type="date"
+                          value={passenger.data_nascimento || ''}
+                          on:input={(e) => updatePassenger(i, 'data_nascimento', (e.currentTarget as HTMLInputElement).value)}
+                        />
+                        <FieldInput
+                          id={`voucher-passageiro-nacionalidade-${i}`}
+                          label="Nacionalidade"
+                          value={passenger.nacionalidade || ''}
+                          placeholder="Ex: Brasileira"
+                          on:input={(e) => updatePassenger(i, 'nacionalidade', (e.currentTarget as HTMLInputElement).value)}
+                        />
+                        <FieldSelect
+                          id={`voucher-passageiro-tipo-${i}`}
+                          label="Tipo"
+                          value={passenger.tipo || ''}
+                          options={passengerTypeOptions}
+                          placeholder="Selecione"
+                          on:change={(e) => updatePassenger(i, 'tipo', (e.currentTarget as HTMLSelectElement).value)}
+                        />
                       </div>
                     </div>
                   {/each}
@@ -755,16 +710,13 @@
             </div>
 
             <!-- Resumo -->
-            <div>
-              <label for="voucher-resumo" class="block text-sm font-medium text-slate-700 mb-1">Resumo da Viagem</label>
-              <textarea
-                id="voucher-resumo"
-                bind:value={form.resumo}
-                rows="4"
-                class="vtur-input w-full"
-                placeholder="Descreva o resumo da viagem..."
-              ></textarea>
-            </div>
+            <FieldTextarea
+              id="voucher-resumo"
+              label="Resumo da Viagem"
+              bind:value={form.resumo}
+              rows={4}
+              placeholder="Descreva o resumo da viagem..."
+            />
           </div>
         </div>
 
@@ -788,12 +740,11 @@
                 <FileText size={18} />
                 Importar Itinerário
               </h3>
-              <textarea
+              <FieldTextarea
                 bind:value={circuitPasteText}
-                rows="4"
-                class="vtur-input w-full border-blue-200"
+                rows={4}
                 placeholder="Cole aqui o itinerário do Special Tours..."
-              ></textarea>
+              />
               <div class="flex gap-2 mt-3">
                 <Button variant="secondary" size="sm" on:click={importCircuitFromPaste}>
                   <FileText size={14} class="mr-1" />
@@ -943,12 +894,11 @@
                 <FileText size={18} />
                 Importar Hotéis
               </h3>
-              <textarea
+              <FieldTextarea
                 bind:value={hotelPasteText}
-                rows="4"
-                class="vtur-input w-full border-blue-200"
+                rows={4}
                 placeholder="Cole aqui a lista de hotéis..."
-              ></textarea>
+              />
               <div class="flex gap-2 mt-3">
                 <Button variant="secondary" size="sm" on:click={importHotelsFromPaste}>
                   <FileText size={14} class="mr-1" />

@@ -8,6 +8,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import { FieldInput, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
 
@@ -602,12 +603,12 @@
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
-      <Button type="button" variant="secondary" size="sm" onclick={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
-      <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} onclick={save}>
+      <Button type="button" variant="secondary" size="sm" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+      <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} on:click={save}>
         <Save size={14} class="mr-1" />
         Salvar roteiro
       </Button>
-      <Button type="button" variant="secondary" size="sm" onclick={() => { showGerarModal = true; }}>
+      <Button type="button" variant="secondary" size="sm" on:click={() => { showGerarModal = true; }}>
         <DollarSign size={14} class="mr-1" />
         Gerar Orçamento
       </Button>
@@ -629,10 +630,10 @@
   {#if abaAtiva === 'itinerario'}
     <Card title="Itinerário dia a dia" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { showDiasBusca = true; }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { showDiasBusca = true; }}>
           Buscar dias no banco
         </Button>
-        <Button type="button" variant="secondary" size="sm" onclick={() => { dias = addItem(dias, newDia); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { dias = addItem(dias, newDia); }}>
           <Plus size={13} class="mr-1" />
           Adicionar dia
         </Button>
@@ -693,7 +694,7 @@
   {:else if abaAtiva === 'hoteis'}
     <Card title="Hotéis" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { hoteis = addItem(hoteis, newHotel); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { hoteis = addItem(hoteis, newHotel); }}>
           <Plus size={13} class="mr-1" />
           Adicionar hotel
         </Button>
@@ -808,10 +809,10 @@
       <!-- Import por texto -->
       <div class="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
         <p class="mb-2 text-sm font-medium text-slate-600">Importar hotéis por texto</p>
-        <textarea bind:value={hotelImportText} rows="4" class="vtur-input w-full font-mono text-xs"
-          placeholder="Cole o texto com dados dos hotéis (um por linha ou texto livre)…"></textarea>
+        <FieldTextarea bind:value={hotelImportText} rows={4} class_name="w-full" monospace={true}
+          placeholder="Cole o texto com dados dos hotéis (um por linha ou texto livre)…" />
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" onclick={handleImportHotelText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" on:click={handleImportHotelText}>Importar</Button>
           {#if hotelImportMsg}<span class="text-xs text-green-600">{hotelImportMsg}</span>{/if}
           {#if hotelImportError}<span class="text-xs text-red-600">{hotelImportError}</span>{/if}
         </div>
@@ -822,7 +823,7 @@
   {:else if abaAtiva === 'passeios'}
     <Card title="Passeios e Serviços" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { passeios = addItem(passeios, newPasseio); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { passeios = addItem(passeios, newPasseio); }}>
           <Plus size={13} class="mr-1" />
           Adicionar passeio
         </Button>
@@ -913,10 +914,10 @@
 
       <div class="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
         <p class="mb-2 text-sm font-medium text-slate-600">Importar passeios por texto</p>
-        <textarea bind:value={passeioImportText} rows="4" class="vtur-input w-full font-mono text-xs"
-          placeholder="Cole o texto com dados dos passeios (um por linha ou texto livre)…"></textarea>
+        <FieldTextarea bind:value={passeioImportText} rows={4} class_name="w-full" monospace={true}
+          placeholder="Cole o texto com dados dos passeios (um por linha ou texto livre)…" />
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" onclick={handleImportPasseioText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" on:click={handleImportPasseioText}>Importar</Button>
           {#if passeioImportMsg}<span class="text-xs text-green-600">{passeioImportMsg}</span>{/if}
           {#if passeioImportError}<span class="text-xs text-red-600">{passeioImportError}</span>{/if}
         </div>
@@ -927,7 +928,7 @@
   {:else if abaAtiva === 'transporte'}
     <Card title="Passagem Aérea" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { transportes = addItem(transportes, newTransporte); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { transportes = addItem(transportes, newTransporte); }}>
           <Plus size={13} class="mr-1" />
           Adicionar trecho
         </Button>
@@ -1046,10 +1047,10 @@
 
       <div class="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
         <p class="mb-2 text-sm font-medium text-slate-600">Importar passagens por texto</p>
-        <textarea bind:value={aereoImportText} rows="4" class="vtur-input w-full font-mono text-xs"
-          placeholder="Cole o texto com dados das passagens (um trecho por linha ou texto livre)…"></textarea>
+        <FieldTextarea bind:value={aereoImportText} rows={4} class_name="w-full" monospace={true}
+          placeholder="Cole o texto com dados das passagens (um trecho por linha ou texto livre)…" />
         <div class="mt-2 flex items-center gap-3">
-          <Button type="button" variant="secondary" size="sm" onclick={handleImportAereoText}>Importar</Button>
+          <Button type="button" variant="secondary" size="sm" on:click={handleImportAereoText}>Importar</Button>
           {#if aereoImportMsg}<span class="text-xs text-green-600">{aereoImportMsg}</span>{/if}
           {#if aereoImportError}<span class="text-xs text-red-600">{aereoImportError}</span>{/if}
         </div>
@@ -1060,7 +1061,7 @@
   {:else if abaAtiva === 'investimento'}
     <Card title="Investimento" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { investimentos = addItem(investimentos, newInvestimento); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { investimentos = addItem(investimentos, newInvestimento); }}>
           <Plus size={13} class="mr-1" />
           Adicionar linha
         </Button>
@@ -1127,7 +1128,7 @@
   {:else if abaAtiva === 'pagamento'}
     <Card title="Pagamento" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" size="sm" onclick={() => { pagamentos = addItem(pagamentos, newPagamento); }}>
+        <Button type="button" variant="secondary" size="sm" on:click={() => { pagamentos = addItem(pagamentos, newPagamento); }}>
           <Plus size={13} class="mr-1" />
           Adicionar linha
         </Button>
@@ -1203,24 +1204,26 @@
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <label class="vtur-label" for="inclui">O roteiro inclui</label>
-          <textarea
+          <FieldTextarea
             id="inclui"
             bind:value={incluiTexto}
-            rows="12"
-            class="vtur-input w-full font-mono text-sm"
+            rows={12}
+            class_name="w-full"
+            monospace={true}
             placeholder="Uma inclusão por linha&#10;Ex: Passagem aérea&#10;Hotel com café da manhã&#10;Transfer aeroporto/hotel"
-          ></textarea>
+          />
           <p class="mt-1 text-xs text-slate-400">{incluiTexto.split('\n').filter(l => l.trim()).length} linha(s)</p>
         </div>
         <div>
           <label class="vtur-label" for="nao-inclui">O roteiro NÃO inclui</label>
-          <textarea
+          <FieldTextarea
             id="nao-inclui"
             bind:value={naoIncluiTexto}
-            rows="12"
-            class="vtur-input w-full font-mono text-sm"
+            rows={12}
+            class_name="w-full"
+            monospace={true}
             placeholder="Uma exclusão por linha&#10;Ex: Despesas pessoais&#10;Passeios opcionais&#10;Vistos"
-          ></textarea>
+          />
           <p class="mt-1 text-xs text-slate-400">{naoIncluiTexto.split('\n').filter(l => l.trim()).length} linha(s)</p>
         </div>
       </div>
@@ -1230,21 +1233,22 @@
   {:else if abaAtiva === 'informacoes'}
     <Card title="Informações importantes" color="clientes">
       <label class="vtur-label" for="info-imp">Informações importantes</label>
-      <textarea
+      <FieldTextarea
         id="info-imp"
         bind:value={informacoesImportantes}
-        rows="20"
-        class="vtur-input w-full font-mono text-sm"
+        rows={20}
+        class_name="w-full"
+        monospace={true}
         placeholder="Documentos necessários, dicas, políticas de cancelamento, informações de bagagem, etc."
-      ></textarea>
+      />
       <p class="mt-1 text-xs text-slate-400">{informacoesImportantes.split('\n').filter(l => l.trim()).length} linha(s)</p>
     </Card>
   {/if}
 
   <!-- ─── Botão salvar flutuante ─────────────────────────────────────────── -->
   <div class="mt-6 flex justify-end gap-3">
-    <Button type="button" variant="secondary" onclick={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
-    <Button type="button" variant="primary" color="clientes" loading={saving} onclick={save}>
+    <Button type="button" variant="secondary" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+    <Button type="button" variant="primary" color="clientes" loading={saving} on:click={save}>
       <Save size={16} class="mr-2" />
       Salvar roteiro
     </Button>
@@ -1262,7 +1266,7 @@
       <div class="px-6 py-4 space-y-4">
         <div>
           <label class="vtur-label" for="gerar-q">Buscar cliente</label>
-          <input id="gerar-q" class="vtur-input w-full" bind:value={gerarClienteQ} placeholder="Digite o nome…" />
+          <FieldInput id="gerar-q" class_name="w-full" bind:value={gerarClienteQ} placeholder="Digite o nome…" />
           {#if gerarClienteLoading}
             <p class="mt-1 text-xs text-slate-400">Buscando…</p>
           {:else if gerarClienteResults.length > 0}
@@ -1294,10 +1298,10 @@
         {/if}
       </div>
       <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-        <Button type="button" variant="secondary" onclick={() => { showGerarModal = false; gerarLoading = false; }}>
+        <Button type="button" variant="secondary" on:click={() => { showGerarModal = false; gerarLoading = false; }}>
           Cancelar
         </Button>
-        <Button type="button" variant="primary" color="clientes" loading={gerarLoading} onclick={handleGerarOrcamento}>
+        <Button type="button" variant="primary" color="clientes" loading={gerarLoading} on:click={handleGerarOrcamento}>
           <DollarSign size={14} class="mr-1" />
           Gerar Orçamento
         </Button>
@@ -1325,7 +1329,7 @@
             <input id="db-cidade" class="vtur-input w-full" bind:value={diasBuscaCidade} placeholder="Filtrar por cidade" list="sugestoes-cidade" />
           </div>
         </div>
-        <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} onclick={buscarDias}>
+        <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} on:click={buscarDias}>
           Buscar
         </Button>
 
@@ -1351,13 +1355,13 @@
         {/if}
       </div>
       <div class="flex justify-end border-t border-slate-100 px-6 py-4">
-        <Button type="button" variant="secondary" onclick={() => { showDiasBusca = false; }}>Fechar</Button>
+        <Button type="button" variant="secondary" on:click={() => { showDiasBusca = false; }}>Fechar</Button>
       </div>
     </div>
   </div>
 {/if}
 
-<style>
+<style lang="postcss">
   :global(.vtur-label) {
     @apply mb-1 block text-sm font-medium text-slate-700;
   }

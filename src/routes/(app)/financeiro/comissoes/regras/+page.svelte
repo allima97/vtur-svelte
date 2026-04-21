@@ -1,11 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import Dialog from '$lib/components/ui/Dialog.svelte';
-  import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect, FieldTextarea, SimpleTable } from '$lib/components/ui';
   import { 
     Plus, Edit2, Trash2, Percent, TrendingUp, 
     CheckCircle, XCircle, Layers, Users 
@@ -63,6 +59,18 @@
   // Vendedores disponíveis
   let vendedoresDisponiveis: any[] = [];
   let selectedVendedor = '';
+  const regraTipoOptions = [
+    { value: 'GERAL', label: 'Geral (Fixo)' },
+    { value: 'ESCALONAVEL', label: 'Escalonável (Faixas)' }
+  ];
+  const regraStatusOptions = [
+    { value: 'true', label: 'Ativo' },
+    { value: 'false', label: 'Inativo' }
+  ];
+  const tierFaixaOptions = [
+    { value: 'PRE', label: 'Pré-meta' },
+    { value: 'POS', label: 'Pós-meta' }
+  ];
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
@@ -124,6 +132,14 @@
       loading = false;
     }
   }
+
+  $: vendedorSelectOptions = [
+    { value: '', label: 'Selecione um vendedor...' },
+    ...vendedoresDisponiveis.map((v) => ({
+      value: v.id,
+      label: v.nome_completo || v.email || v.id
+    }))
+  ];
 
   async function loadVendedoresCount() {
     try {
@@ -402,26 +418,27 @@
         variant="ghost"
         size="sm"
         on:click={() => openVendedoresDialog(row)}
-        title="Gerenciar vendedores"
       >
         <Users size={16} />
+        <span class="sr-only">Gerenciar vendedores</span>
       </Button>
       <Button
         variant="ghost"
         size="sm"
         on:click={() => openEditDialog(row)}
-        title="Editar"
       >
         <Edit2 size={16} />
+        <span class="sr-only">Editar regra</span>
       </Button>
       <Button
         variant="ghost"
         size="sm"
-        color="danger"
+        color="red"
+        class_name="text-red-600 hover:bg-red-50 hover:text-red-700"
         on:click={() => openDeleteDialog(row)}
-        title="Excluir"
       >
         <Trash2 size={16} />
+        <span class="sr-only">Excluir regra</span>
       </Button>
     </div>
   </svelte:fragment>
@@ -439,45 +456,34 @@
   onConfirm={handleSave}
 >
   <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-    <div>
-      <label for="regra-nome" class="block text-sm font-medium text-slate-700 mb-1">
-        Nome <span class="text-red-500">*</span>
-      </label>
-      <input
-        id="regra-nome"
-        type="text"
-        bind:value={formData.nome}
-        class="vtur-input w-full"
-        placeholder="Ex: Comissão Padrão 10%"
-      />
-    </div>
+    <FieldInput
+      id="regra-nome"
+      label="Nome"
+      bind:value={formData.nome}
+      required={true}
+      class_name="w-full"
+      placeholder="Ex: Comissão Padrão 10%"
+    />
 
-    <div>
-      <label for="regra-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
-      <textarea
-        id="regra-descricao"
-        bind:value={formData.descricao}
-        rows="2"
-        class="vtur-input w-full"
-        placeholder="Descrição opcional da regra..."
-      ></textarea>
-    </div>
+    <FieldTextarea
+      id="regra-descricao"
+      label="Descrição"
+      bind:value={formData.descricao}
+      rows={2}
+      class_name="w-full"
+      placeholder="Descrição opcional da regra..."
+    />
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label for="regra-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select id="regra-tipo" bind:value={formData.tipo} class="vtur-input w-full">
-          <option value="GERAL">Geral (Fixo)</option>
-          <option value="ESCALONAVEL">Escalonável (Faixas)</option>
-        </select>
-      </div>
-      <div>
-        <label for="regra-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-        <select id="regra-status" bind:value={formData.ativo} class="vtur-input w-full">
-          <option value={true}>Ativo</option>
-          <option value={false}>Inativo</option>
-        </select>
-      </div>
+      <FieldSelect id="regra-tipo" label="Tipo" bind:value={formData.tipo} options={regraTipoOptions} class_name="w-full" />
+      <FieldSelect
+        id="regra-status"
+        label="Status"
+        value={formData.ativo ? 'true' : 'false'}
+        options={regraStatusOptions}
+        class_name="w-full"
+        on:change={(event) => (formData.ativo = (event.currentTarget as HTMLSelectElement).value === 'true')}
+      />
     </div>
 
     <div class="border-t pt-4">
@@ -486,42 +492,9 @@
         Percentuais
       </h4>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label for="regra-meta-nao-atingida" class="block text-xs font-medium text-slate-600 mb-1">Meta Não Atingida (%)</label>
-          <input
-            id="regra-meta-nao-atingida"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            bind:value={formData.meta_nao_atingida}
-            class="vtur-input w-full"
-          />
-        </div>
-        <div>
-          <label for="regra-meta-atingida" class="block text-xs font-medium text-slate-600 mb-1">Meta Atingida (%)</label>
-          <input
-            id="regra-meta-atingida"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            bind:value={formData.meta_atingida}
-            class="vtur-input w-full"
-          />
-        </div>
-        <div>
-          <label for="regra-super-meta" class="block text-xs font-medium text-slate-600 mb-1">Super Meta (%)</label>
-          <input
-            id="regra-super-meta"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            bind:value={formData.super_meta}
-            class="vtur-input w-full"
-          />
-        </div>
+        <FieldInput id="regra-meta-nao-atingida" label="Meta Não Atingida (%)" type="number" min="0" max="100" step="0.01" bind:value={formData.meta_nao_atingida as any} class_name="w-full" />
+        <FieldInput id="regra-meta-atingida" label="Meta Atingida (%)" type="number" min="0" max="100" step="0.01" bind:value={formData.meta_atingida as any} class_name="w-full" />
+        <FieldInput id="regra-super-meta" label="Super Meta (%)" type="number" min="0" max="100" step="0.01" bind:value={formData.super_meta as any} class_name="w-full" />
       </div>
     </div>
 
@@ -556,37 +529,10 @@
                   </button>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
-                  <select bind:value={tier.faixa} class="vtur-input">
-                    <option value="PRE">Pré-meta</option>
-                    <option value="POS">Pós-meta</option>
-                  </select>
-                  <input
-                    type="number"
-                    bind:value={tier.de_pct}
-                    placeholder="De %"
-                    class="vtur-input"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                  />
-                  <input
-                    type="number"
-                    bind:value={tier.ate_pct}
-                    placeholder="Até %"
-                    class="vtur-input"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                  />
-                  <input
-                    type="number"
-                    bind:value={tier.inc_pct_comissao}
-                    placeholder="Inc. Comissão %"
-                    class="vtur-input"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                  />
+                  <FieldSelect bind:value={tier.faixa} options={tierFaixaOptions} class_name="w-full" />
+                  <FieldInput type="number" bind:value={tier.de_pct as any} placeholder="De %" class_name="w-full" min="0" max="100" step="0.01" />
+                  <FieldInput type="number" bind:value={tier.ate_pct as any} placeholder="Até %" class_name="w-full" min="0" max="100" step="0.01" />
+                  <FieldInput type="number" bind:value={tier.inc_pct_comissao as any} placeholder="Inc. Comissão %" class_name="w-full" min="0" max="100" step="0.01" />
                 </div>
               </div>
             {/each}
@@ -601,11 +547,12 @@
 <Dialog
   bind:open={showDeleteDialog}
   title="Confirmar Exclusão"
-  color="danger"
+  color="financeiro"
   showCancel={true}
   cancelText="Cancelar"
   showConfirm={true}
   confirmText="Excluir"
+  confirmVariant="danger"
   onConfirm={handleDelete}
 >
   {#if deletingRegra}
@@ -631,12 +578,7 @@
     <div class="space-y-4">
       <!-- Adicionar Vendedor -->
       <div class="flex gap-2">
-        <select bind:value={selectedVendedor} class="vtur-input flex-1">
-          <option value="">Selecione um vendedor...</option>
-          {#each vendedoresDisponiveis as v}
-            <option value={v.id}>{v.nome_completo || v.email}</option>
-          {/each}
-        </select>
+        <FieldSelect bind:value={selectedVendedor} options={vendedorSelectOptions} class_name="flex-1" />
         <Button
           variant="primary"
           size="sm"
@@ -654,7 +596,7 @@
             Nenhum vendedor associado a esta regra.
           </p>
         {:else}
-          <table class="w-full text-sm">
+          <SimpleTable tableClass="w-full" color="financeiro">
             <thead class="bg-slate-50">
               <tr>
                 <th class="px-3 py-2 text-left">Vendedor</th>
@@ -687,7 +629,7 @@
                 </tr>
               {/each}
             </tbody>
-          </table>
+          </SimpleTable>
         {/if}
       </div>
     </div>

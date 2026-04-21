@@ -2,7 +2,8 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { Bell, Save, Mail, MessageSquare, Calendar, AlertTriangle } from 'lucide-svelte';
+  import { FieldCheckbox, FieldToggle } from '$lib/components/ui';
+  import { Bell, Save, Mail, MessageSquare, AlertTriangle } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;
@@ -69,38 +70,17 @@
           <p class="text-sm text-slate-500">Receber notificações por email</p>
         </div>
       </div>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" bind:checked={notificacoes.email.ativo} class="sr-only peer">
-        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-financeiro-500"></div>
-      </label>
+      <FieldToggle label={null} bind:checked={notificacoes.email.ativo} color="financeiro" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.email.ativo}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.novo_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Novo cliente cadastrado</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.nova_venda} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Nova venda realizada</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.pagamento_confirmado} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Pagamento confirmado</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.pagamento_atrasado} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Pagamento em atraso</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.aniversario_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Aniversário de cliente</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.email.relatorio_diario} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Relatório diário de vendas</span>
-        </label>
+        <FieldCheckbox label="Novo cliente cadastrado" bind:checked={notificacoes.email.novo_cliente} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Nova venda realizada" bind:checked={notificacoes.email.nova_venda} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Pagamento confirmado" bind:checked={notificacoes.email.pagamento_confirmado} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Pagamento em atraso" bind:checked={notificacoes.email.pagamento_atrasado} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Aniversário de cliente" bind:checked={notificacoes.email.aniversario_cliente} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Relatório diário de vendas" bind:checked={notificacoes.email.relatorio_diario} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
       </div>
     {/if}
   </Card>
@@ -117,34 +97,16 @@
           <p class="text-sm text-slate-500">Notificações dentro da plataforma</p>
         </div>
       </div>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" bind:checked={notificacoes.sistema.ativo} class="sr-only peer">
-        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-financeiro-500"></div>
-      </label>
+      <FieldToggle label={null} bind:checked={notificacoes.sistema.ativo} color="financeiro" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.sistema.ativo}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.sistema.novo_orcamento} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Novo orçamento</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.sistema.orcamento_aprovado} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Orçamento aprovado</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.sistema.vencimento_voucher} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Voucher próximo do vencimento</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.sistema.tarefa_atrasada} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Tarefa atrasada</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.sistema.meta_atingida} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Meta de vendas atingida</span>
-        </label>
+        <FieldCheckbox label="Novo orçamento" bind:checked={notificacoes.sistema.novo_orcamento} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Orçamento aprovado" bind:checked={notificacoes.sistema.orcamento_aprovado} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Voucher próximo do vencimento" bind:checked={notificacoes.sistema.vencimento_voucher} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Tarefa atrasada" bind:checked={notificacoes.sistema.tarefa_atrasada} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Meta de vendas atingida" bind:checked={notificacoes.sistema.meta_atingida} color="financeiro" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
       </div>
     {/if}
   </Card>
@@ -161,10 +123,7 @@
           <p class="text-sm text-slate-500">Integração com WhatsApp Business API</p>
         </div>
       </div>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" bind:checked={notificacoes.whatsapp.ativo} class="sr-only peer">
-        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-      </label>
+      <FieldToggle label={null} bind:checked={notificacoes.whatsapp.ativo} color="green" class_name="shrink-0" />
     </div>
 
     {#if notificacoes.whatsapp.ativo}
@@ -179,22 +138,10 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.whatsapp.novo_cliente} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Boas-vindas novo cliente</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.whatsapp.nova_venda} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Confirmação de venda</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.whatsapp.lembrete_viagem} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Lembrete de viagem (D-1)</span>
-        </label>
-        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-          <input type="checkbox" bind:checked={notificacoes.whatsapp.feedback_pos_viagem} class="w-4 h-4 text-financeiro-600 rounded" />
-          <span class="text-sm text-slate-700">Pesquisa pós-viagem</span>
-        </label>
+        <FieldCheckbox label="Boas-vindas novo cliente" bind:checked={notificacoes.whatsapp.novo_cliente} color="green" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Confirmação de venda" bind:checked={notificacoes.whatsapp.nova_venda} color="green" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Lembrete de viagem (D-1)" bind:checked={notificacoes.whatsapp.lembrete_viagem} color="green" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
+        <FieldCheckbox label="Pesquisa pós-viagem" bind:checked={notificacoes.whatsapp.feedback_pos_viagem} color="green" class_name="rounded-lg border border-slate-200 p-3 hover:bg-slate-50" />
       </div>
     {/if}
   </Card>

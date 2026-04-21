@@ -2,9 +2,19 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { PageHeader, Card, Button, Dialog } from '$lib/components/ui';
+  import {
+    PageHeader,
+    Card,
+    Button,
+    Dialog,
+    FieldCheckbox,
+    FieldInput,
+    FieldRadioGroup,
+    FieldSelect,
+    FieldTextarea,
+    FileDropzone
+  } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
-  import { Dropzone } from 'flowbite-svelte';
   import {
     ArrowLeft,
     Upload,
@@ -115,6 +125,11 @@
 
   let cidadeAutoIndefinida = false;
 
+  const aplicaDuOptions = [
+    { value: 'true', label: 'Sim' },
+    { value: 'false', label: 'Nao' }
+  ];
+
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'edit') || permissoes.can('vendas_consulta', 'edit');
 
   $: produtosFiltrados = cidadeId
@@ -124,6 +139,11 @@
     : produtos;
 
   $: principal = contratos[principalIndex] || contratos[0];
+  $: tiposPacoteOptions = tiposPacote.map((tp) => ({ value: tp.nome, label: tp.nome }));
+  $: vendedorOptions = vendedoresEquipe.map((v) => ({
+    value: v.id,
+    label: v.nome_completo || 'Sem nome'
+  }));
 
   $: {
     const nextFile = selectedFiles?.[0] || null;
@@ -203,14 +223,26 @@
     return estado ? `${cidade.nome} (${estado})` : cidade.nome;
   }
 
-  function mergeCidadesDisponiveis(items: CidadeSugestao[]) {
+  function mergeCidadesDisponiveis(items: Array<{
+    id: string;
+    nome?: string | null;
+    subdivisao_nome?: string | null;
+    pais_nome?: string | null;
+    estado?: string | null;
+    label?: string | null;
+    grau_importancia?: number | null;
+  }>) {
     if (!items.length) return;
     const byId = new Map<string, CidadeSugestao>();
     cidadesDisponiveis.forEach((cidade) => byId.set(String(cidade.id), cidade));
     items.forEach((cidade) => {
       const cidadeIdAtual = String(cidade?.id || '').trim();
       if (!cidadeIdAtual) return;
-      byId.set(cidadeIdAtual, { ...(byId.get(cidadeIdAtual) || {}), ...cidade });
+      byId.set(cidadeIdAtual, {
+        ...(byId.get(cidadeIdAtual) || {}),
+        nome: String(cidade.nome || byId.get(cidadeIdAtual)?.nome || ''),
+        ...cidade
+      } as CidadeSugestao);
     });
     cidadesDisponiveis = sortCidades(Array.from(byId.values()));
   }
@@ -698,27 +730,15 @@
   <Card title="Fonte do contrato" color="vendas">
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
       <div>
-        <div class="mb-1 block text-sm font-medium text-slate-700">Upload de PDF</div>
-        <Dropzone
+        <FileDropzone
+          label="Upload de PDF"
           bind:files={selectedFiles}
           accept=".pdf"
-          class="vtur-upload-dropzone"
-        >
-          <div class="flex flex-col items-center gap-3 px-5 py-6 text-center">
-            <div class="vtur-upload-dropzone__icon">
-              <FileText size={22} />
-            </div>
-            <div class="space-y-1">
-              <p class="vtur-upload-dropzone__title">Clique para escolher o PDF</p>
-              <p class="vtur-upload-dropzone__meta">Upload do contrato no padrão CVC ou reserva de cruzeiro</p>
-            </div>
-            {#if file}
-              <p class="vtur-upload-dropzone__file">{file.name}</p>
-            {:else}
-              <p class="vtur-upload-dropzone__hint">Aceita apenas `.pdf`</p>
-            {/if}
-          </div>
-        </Dropzone>
+          icon={FileText}
+          title="Clique para escolher o PDF"
+          description="Upload do contrato no padrão CVC ou reserva de cruzeiro"
+          hint="Aceita apenas `.pdf`"
+        />
         <div class="mt-3 flex flex-wrap gap-2">
           <Button type="button" variant="secondary" on:click={handlePreview} loading={previewing} disabled={!file}>
             <Eye size={16} class="mr-2" />Pré-visualizar PDF
@@ -729,16 +749,17 @@
         </div>
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-contrato-texto">Ou cole o texto</label>
-        <textarea
+        <FieldTextarea
           id="importar-contrato-texto"
+          label="Ou cole o texto"
           bind:value={textInput}
-          class="vtur-input h-32 w-full"
+          rows={6}
+          class_name="h-full"
           placeholder="Cole aqui o texto do contrato..."
           on:input={() => {
             if (textInput.trim()) clearSelectedFile();
           }}
-        ></textarea>
+        />
       </div>
     </div>
     <div class="mt-4 flex justify-end">
@@ -780,76 +801,61 @@
             </div>
 
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-cpf-${index}`}>CPF/CNPJ do contratante</label>
-                <input
-                  id={`contrato-cpf-${index}`}
-                  type="text"
-                  value={contrato.contratante?.cpf || ''}
-                  class="vtur-input w-full"
-                  on:input={(e) => handleCpfChange(index, e.currentTarget.value)}
-                  maxlength="18"
-                />
-              </div>
+              <FieldInput
+                id={`contrato-cpf-${index}`}
+                label="CPF/CNPJ do contratante"
+                value={contrato.contratante?.cpf || ''}
+                maxlength={18}
+                on:input={(e) => handleCpfChange(index, (e.currentTarget as HTMLInputElement).value)}
+              />
               {#if tipoImportacao !== 'roteiro'}
-                <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-pacote-${index}`}>Tipo de pacote</label>
-                  <select
-                    id={`contrato-pacote-${index}`}
-                    class="vtur-input w-full"
-                    value={contrato.tipo_pacote || ''}
-                    on:change={(e) => handleTipoPacoteChange(index, e.currentTarget.value)}
-                  >
-                    <option value="">Selecionar...</option>
-                    {#each tiposPacote as tp}
-                      <option value={tp.nome}>{tp.nome}</option>
-                    {/each}
-                  </select>
-                </div>
+                <FieldSelect
+                  id={`contrato-pacote-${index}`}
+                  label="Tipo de pacote"
+                  value={contrato.tipo_pacote || ''}
+                  options={tiposPacoteOptions}
+                  placeholder="Selecionar..."
+                  on:change={(e) => handleTipoPacoteChange(index, (e.currentTarget as HTMLSelectElement).value)}
+                />
               {:else}
-                <div>
-                  <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-pacote-readonly-${index}`}>Tipo de pacote</label>
-                  <input id={`contrato-pacote-readonly-${index}`} type="text" value="Cruzeiro" class="vtur-input w-full bg-slate-100" disabled />
-                </div>
+                <FieldInput
+                  id={`contrato-pacote-readonly-${index}`}
+                  label="Tipo de pacote"
+                  value="Cruzeiro"
+                  disabled={true}
+                />
               {/if}
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-produto-${index}`}>Produto do recibo *</label>
-                <select
-                  id={`contrato-produto-${index}`}
-                  class="vtur-input w-full"
-                  bind:value={contrato.produto_resolvido_id}
-                >
-                  <option value="">Selecione...</option>
-                  {#each getProdutosPorCidade(getCidadeContratoId(contrato)) as produto}
-                    <option value={produto.id}>{produto.nome}</option>
-                  {/each}
-                </select>
-                <p class="mt-1 text-xs text-slate-500">Produto é individual do recibo. Destino continua sendo a cidade da viagem.</p>
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-destino-${index}`}>Destino</label>
-                <input id={`contrato-destino-${index}`} type="text" value={contrato.destino || '-'} class="vtur-input w-full bg-slate-100" disabled />
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-total-${index}`}>Total bruto</label>
-                <input id={`contrato-total-${index}`} type="text" value={formatCurrency(contrato.total_bruto)} class="vtur-input w-full bg-slate-100" disabled />
-              </div>
-              <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`contrato-taxas-${index}`}>Taxas</label>
-                <input id={`contrato-taxas-${index}`} type="text" value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))} class="vtur-input w-full bg-slate-100" disabled />
-              </div>
+              <FieldSelect
+                id={`contrato-produto-${index}`}
+                label="Produto do recibo"
+                value={contrato.produto_resolvido_id || ''}
+                options={getProdutosPorCidade(getCidadeContratoId(contrato)).map((produto) => ({ value: produto.id, label: produto.nome }))}
+                placeholder="Selecione..."
+                helper="Produto é individual do recibo. Destino continua sendo a cidade da viagem."
+                on:change={(e) => {
+                  const value = (e.currentTarget as HTMLSelectElement).value;
+                  contratos = contratos.map((c, i) => (i === index ? { ...c, produto_resolvido_id: value || null } : c));
+                }}
+              />
+              <FieldInput id={`contrato-destino-${index}`} label="Destino" value={contrato.destino || '-'} disabled={true} />
+              <FieldInput id={`contrato-total-${index}`} label="Total bruto" value={formatCurrency(contrato.total_bruto)} disabled={true} />
+              <FieldInput
+                id={`contrato-taxas-${index}`}
+                label="Taxas"
+                value={formatCurrency((contrato.taxas_embarque || 0) + (contrato.taxa_du || 0))}
+                disabled={true}
+              />
             </div>
 
             <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <label class="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={contrato.usar_cidade_padrao !== false}
-                    on:change={(event) => toggleContratoCidadePadrao(index, (event.currentTarget as HTMLInputElement).checked)}
-                  />
-                  Usar cidade padrão da venda neste recibo
-                </label>
+                <FieldCheckbox
+                  id={`contrato-cidade-padrao-${index}`}
+                  label="Usar cidade padrão da venda neste recibo"
+                  checked={contrato.usar_cidade_padrao !== false}
+                  color="vendas"
+                  on:change={(event) => toggleContratoCidadePadrao(index, (event.currentTarget as HTMLInputElement).checked)}
+                />
                 <p class="text-xs text-slate-500">
                   Cidade deste recibo:
                   <strong class="text-slate-700">{getCidadeNomeById(getCidadeContratoId(contrato))}</strong>
@@ -859,7 +865,7 @@
                 <div class="mt-3">
                   <CidadeAutocomplete
                     id={`contrato-cidade-${index}`}
-                    bind:value={contrato.destino_cidade_id}
+                    value={String(contrato.destino_cidade_id || '')}
                     label="Cidade deste recibo"
                     required={true}
                     cities={cidadesDisponiveis}
@@ -873,29 +879,19 @@
             {#if tipoImportacao === 'cvc' && (!isContratoLocacao(contrato) && (normalizeText(contrato.produto_tipo || '').includes('aereo') || contrato.taxa_du != null))}
               <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p class="mb-2 text-sm font-medium text-slate-700">Taxa de DU comissionada</p>
-                <div class="flex items-center gap-4">
-                  <label class="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      checked={contrato.aplica_du === true}
-                      on:change={() => handleAplicaDuChange(index, true)}
-                    />
-                    Sim
-                  </label>
-                  <label class="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      checked={contrato.aplica_du === false}
-                      on:change={() => handleAplicaDuChange(index, false)}
-                    />
-                    Não
-                  </label>
-                  <input
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_140px] md:items-end">
+                  <FieldRadioGroup
+                    label="Comissionar DU"
+                    value={contrato.aplica_du === true ? 'true' : 'false'}
+                    options={aplicaDuOptions}
+                    on:change={(event) => handleAplicaDuChange(index, (event.currentTarget as HTMLInputElement).value === 'true')}
+                  />
+                  <FieldInput
+                    label="Valor DU"
                     type="number"
-                    class="vtur-input w-32"
-                    value={contrato.taxa_du || 0}
+                    value={String(contrato.taxa_du || 0)}
                     on:input={(e) => {
-                      const val = Number(e.currentTarget.value);
+                      const val = Number((e.currentTarget as HTMLInputElement).value);
                       contratos = contratos.map((c, i) => (i === index ? { ...c, taxa_du: val } : c));
                     }}
                   />
@@ -935,12 +931,10 @@
     <Card title="Cidade padrão da venda" color="vendas">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div class="relative">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-cidade"><MapPin size={14} class="mr-1 inline" />Cidade</label>
-          <input
+          <FieldInput
             id="importar-cidade"
-            type="text"
+            label="Cidade"
             bind:value={buscaCidade}
-            class="vtur-input w-full"
             placeholder="Buscar cidade..."
             on:input={onCidadeInput}
             on:focus={() => (mostrarSugestoesCidade = true)}
@@ -964,19 +958,21 @@
             </div>
           {/if}
         </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-data-venda"><Calendar size={14} class="mr-1 inline" />Data da venda</label>
-          <input id="importar-data-venda" type="date" bind:value={dataVenda} class="vtur-input w-full" max={new Date().toISOString().slice(0, 10)} />
-        </div>
+        <FieldInput
+          id="importar-data-venda"
+          label="Data da venda"
+          type="date"
+          bind:value={dataVenda}
+          max={new Date().toISOString().slice(0, 10)}
+        />
         {#if canAssignVendedor}
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="importar-vendedor"><User size={14} class="mr-1 inline" />Vendedor</label>
-            <select id="importar-vendedor" bind:value={vendedorId} class="vtur-input w-full">
-              {#each vendedoresEquipe as v}
-                <option value={v.id}>{v.nome_completo}</option>
-              {/each}
-            </select>
-          </div>
+          <FieldSelect
+            id="importar-vendedor"
+            label="Vendedor"
+            bind:value={vendedorId}
+            options={vendedorOptions}
+            placeholder={null}
+          />
         {/if}
       </div>
       <p class="mt-3 text-xs text-slate-500">A cidade definida aqui é aplicada automaticamente em todos os recibos. Se um recibo precisar de outra cidade, ajuste diretamente no card do recibo.</p>
@@ -1001,7 +997,7 @@
   cancelText="Fechar"
   onCancel={() => (previewOpen = false)}
 >
-  <textarea class="vtur-input h-96 w-full font-mono text-xs" readonly value={previewText}></textarea>
+  <FieldTextarea class_name="h-full" rows={24} monospace={true} readonly={true} value={previewText} />
 </Dialog>
 
 <!-- Modal de contato -->
@@ -1014,18 +1010,9 @@
   onCancel={() => (contatoModalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-telefone">Telefone</label>
-      <input id="contato-telefone" type="text" bind:value={contatoTelefone} class="vtur-input w-full" placeholder="(00) 0000-0000" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-whatsapp">WhatsApp</label>
-      <input id="contato-whatsapp" type="text" bind:value={contatoWhatsapp} class="vtur-input w-full" placeholder="(00) 00000-0000" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="contato-email">E-mail</label>
-      <input id="contato-email" type="email" bind:value={contatoEmail} class="vtur-input w-full" placeholder="cliente@email.com" />
-    </div>
+    <FieldInput id="contato-telefone" label="Telefone" bind:value={contatoTelefone} placeholder="(00) 0000-0000" />
+    <FieldInput id="contato-whatsapp" label="WhatsApp" bind:value={contatoWhatsapp} placeholder="(00) 00000-0000" />
+    <FieldInput id="contato-email" label="E-mail" type="email" bind:value={contatoEmail} placeholder="cliente@email.com" />
     <div class="flex justify-end gap-3 pt-2">
       <Button type="button" variant="secondary" on:click={() => handleSave(true)} loading={saving}>
         Informar depois

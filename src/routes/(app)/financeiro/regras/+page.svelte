@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, SimpleTable } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import {
     CheckCircle2,
@@ -81,6 +82,14 @@
   let confirmOpen = false;
   let confirmMode: 'inativar' | 'excluir' = 'inativar';
   let selectedRule: Rule | null = null;
+  const ruleTypeOptions = [
+    { value: 'GERAL', label: 'Geral (percentuais fixos)' },
+    { value: 'ESCALONAVEL', label: 'Escalonável (faixas PRE/POS)' }
+  ];
+  const faixaOptions = [
+    { value: 'PRE', label: 'PRE' },
+    { value: 'POS', label: 'POS' }
+  ];
 
   function normalizeNumber(value: unknown) {
     const parsed = Number(value);
@@ -481,94 +490,70 @@
       on:submit|preventDefault={saveRule}
     >
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        <div class="xl:col-span-2">
-          <label for="regra-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome *</label>
-          <input
-            id="regra-nome"
-            type="text"
-            bind:value={form.nome}
-            class="vtur-input w-full"
-            placeholder="Ex: Comissão padrão comercial"
-          />
-        </div>
+        <FieldInput
+          id="regra-nome"
+          label="Nome"
+          bind:value={form.nome}
+          required={true}
+          class_name="xl:col-span-2"
+          placeholder="Ex: Comissão padrão comercial"
+        />
 
-        <div>
-          <label for="regra-tipo" class="mb-1 block text-sm font-medium text-slate-700">Tipo</label>
-          <select
-            id="regra-tipo"
-            bind:value={form.tipo}
-            class="vtur-input w-full"
-          >
-            <option value="GERAL">Geral (percentuais fixos)</option>
-            <option value="ESCALONAVEL">Escalonável (faixas PRE/POS)</option>
-          </select>
-        </div>
+        <FieldSelect
+          id="regra-tipo"
+          label="Tipo"
+          bind:value={form.tipo}
+          options={ruleTypeOptions}
+          class_name="w-full"
+        />
 
         <div class="flex items-end">
-          <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              bind:checked={form.ativo}
-              class="rounded border-slate-300 text-financeiro-600 focus:ring-financeiro-500"
-            />
-            Regra ativa
-          </label>
-        </div>
-
-        <div>
-          <label for="meta-nao-atingida" class="mb-1 block text-sm font-medium text-slate-700">
-            Meta não atingida (%)
-          </label>
-          <input
-            id="meta-nao-atingida"
-            type="number"
-            step="0.01"
-            value={form.meta_nao_atingida}
-            on:input={(event) => handleMetaInput('meta_nao_atingida', event)}
-            class="vtur-input w-full"
+          <FieldCheckbox
+            label="Regra ativa"
+            bind:checked={form.ativo}
+            color="financeiro"
+            class_name="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
           />
         </div>
 
-        <div>
-          <label for="meta-atingida" class="mb-1 block text-sm font-medium text-slate-700">
-            Meta atingida (%)
-          </label>
-          <input
-            id="meta-atingida"
-            type="number"
-            step="0.01"
-            value={form.meta_atingida}
-            on:input={(event) => handleMetaInput('meta_atingida', event)}
-            class="vtur-input w-full"
-          />
-        </div>
+        <FieldInput
+          id="meta-nao-atingida"
+          label="Meta não atingida (%)"
+          type="number"
+          value={String(form.meta_nao_atingida)}
+          step="0.01"
+          class_name="w-full"
+          on:input={(event) => handleMetaInput('meta_nao_atingida', event)}
+        />
 
-        <div>
-          <label for="super-meta" class="mb-1 block text-sm font-medium text-slate-700">
-            Super meta (%)
-          </label>
-          <input
-            id="super-meta"
-            type="number"
-            step="0.01"
-            value={form.super_meta}
-            on:input={(event) => handleMetaInput('super_meta', event)}
-            class="vtur-input w-full"
-          />
-        </div>
+        <FieldInput
+          id="meta-atingida"
+          label="Meta atingida (%)"
+          type="number"
+          value={String(form.meta_atingida)}
+          step="0.01"
+          class_name="w-full"
+          on:input={(event) => handleMetaInput('meta_atingida', event)}
+        />
 
-        <div class="xl:col-span-4">
-          <label for="regra-descricao" class="mb-1 block text-sm font-medium text-slate-700">
-            Descrição
-          </label>
-          <textarea
-            id="regra-descricao"
-            rows="3"
-            bind:value={form.descricao}
-            class="vtur-input w-full"
-            placeholder="Contexto de uso, equipe atendida e observações da regra."
-          ></textarea>
-        </div>
+        <FieldInput
+          id="super-meta"
+          label="Super meta (%)"
+          type="number"
+          value={String(form.super_meta)}
+          step="0.01"
+          class_name="w-full"
+          on:input={(event) => handleMetaInput('super_meta', event)}
+        />
+
+        <FieldTextarea
+          id="regra-descricao"
+          label="Descrição"
+          rows={3}
+          bind:value={form.descricao}
+          class_name="xl:col-span-4"
+          placeholder="Contexto de uso, equipe atendida e observações da regra."
+        />
       </div>
 
       {#if validationError}
@@ -602,8 +587,7 @@
               Nenhuma faixa adicionada ainda.
             </div>
           {:else}
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <SimpleTable tableClass="min-w-full divide-y divide-slate-200" color="financeiro">
                 <thead class="bg-white/70">
                   <tr class="text-left text-slate-600">
                     <th class="px-3 py-2 font-medium">Faixa</th>
@@ -618,49 +602,47 @@
                   {#each form.tiers as tier, index}
                     <tr>
                       <td class="px-3 py-2">
-                        <select
-                          class="vtur-input min-w-[110px]"
+                        <FieldSelect
+                          class_name="min-w-[110px]"
                           value={tier.faixa}
+                          options={faixaOptions}
                           on:change={(event) => handleTierFaixaChange(index, event)}
-                        >
-                          <option value="PRE">PRE</option>
-                          <option value="POS">POS</option>
-                        </select>
+                        />
                       </td>
                       <td class="px-3 py-2">
-                        <input
+                        <FieldInput
                           type="number"
                           step="0.01"
-                          value={tier.de_pct}
+                          value={String(tier.de_pct)}
                           on:input={(event) => handleTierInput(index, 'de_pct', event)}
-                          class="vtur-input min-w-[120px]"
+                          class_name="min-w-[120px]"
                         />
                       </td>
                       <td class="px-3 py-2">
-                        <input
+                        <FieldInput
                           type="number"
                           step="0.01"
-                          value={tier.ate_pct}
+                          value={String(tier.ate_pct)}
                           on:input={(event) => handleTierInput(index, 'ate_pct', event)}
-                          class="vtur-input min-w-[120px]"
+                          class_name="min-w-[120px]"
                         />
                       </td>
                       <td class="px-3 py-2">
-                        <input
+                        <FieldInput
                           type="number"
                           step="0.01"
-                          value={tier.inc_pct_meta}
+                          value={String(tier.inc_pct_meta)}
                           on:input={(event) => handleTierInput(index, 'inc_pct_meta', event)}
-                          class="vtur-input min-w-[140px]"
+                          class_name="min-w-[140px]"
                         />
                       </td>
                       <td class="px-3 py-2">
-                        <input
+                        <FieldInput
                           type="number"
                           step="0.01"
-                          value={tier.inc_pct_comissao}
+                          value={String(tier.inc_pct_comissao)}
                           on:input={(event) => handleTierInput(index, 'inc_pct_comissao', event)}
-                          class="vtur-input min-w-[160px]"
+                          class_name="min-w-[160px]"
                         />
                       </td>
                       <td class="px-3 py-2 text-right">
@@ -676,8 +658,7 @@
                     </tr>
                   {/each}
                 </tbody>
-              </table>
-            </div>
+            </SimpleTable>
           {/if}
         </div>
       {/if}

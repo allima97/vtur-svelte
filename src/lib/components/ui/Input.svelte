@@ -20,19 +20,30 @@
     </Label>
   {/if}
   
-  <Input
-    {type}
-    bind:value
-    {placeholder}
-    {disabled}
-    {required}
-    color={error ? 'red' : 'base'}
-    class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
-  >
-    {#if icon}
+  {#if icon}
+    <Input
+      {type}
+      bind:value
+      {placeholder}
+      {disabled}
+      {required}
+      wrapperClass="relative w-full"
+      color={error ? 'red' : 'base'}
+      class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
+    >
       <svelte:component this={icon} slot="left" class="w-5 h-5 text-gray-500" />
-    {/if}
-  </Input>
+    </Input>
+  {:else}
+    <Input
+      {type}
+      bind:value
+      {placeholder}
+      {disabled}
+      {required}
+      color={error ? 'red' : 'base'}
+      class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
+    />
+  {/if}
   
   {#if error}
     <p class="mt-1 text-sm text-red-600">{error}</p>

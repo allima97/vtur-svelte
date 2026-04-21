@@ -1,8 +1,15 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import {
+    Button,
+    Card,
+    FieldCheckbox,
+    FieldInput,
+    FieldRadioGroup,
+    FieldSelect,
+    FieldTextarea,
+    PageHeader
+  } from '$lib/components/ui';
   import {
     ArrowLeft,
     Calendar,
@@ -32,6 +39,26 @@
   let loading = false;
   let errors: Record<string, string> = {};
   let cepStatus: string | null = null;
+
+  const tipoPessoaOptions = [
+    { value: 'PF', label: 'Pessoa Fisica' },
+    { value: 'PJ', label: 'Pessoa Juridica' }
+  ];
+
+  const generoSelectOptions = generoOptions.filter(Boolean).map((option) => ({
+    value: option,
+    label: option
+  }));
+
+  const classificacaoSelectOptions = classificacaoOptions.filter(Boolean).map((option) => ({
+    value: option,
+    label: option
+  }));
+
+  const estadosSelectOptions = estadosBrasil.map((estado) => ({
+    value: estado.value,
+    label: estado.label
+  }));
 
   function updateField<Key extends keyof ClienteFormData>(field: Key, value: ClienteFormData[Key]) {
     formData = {
@@ -157,265 +184,178 @@
 <form on:submit|preventDefault={handleSubmit} class="space-y-6">
   <Card title="Dados cadastrais" color="clientes">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div>
-        <p class="mb-2 block text-sm font-medium text-slate-700">Tipo de pessoa</p>
-        <div class="flex gap-4 rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-3">
-          <label class="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="radio"
-              checked={formData.tipo_pessoa === 'PF'}
-              on:change={() => setTipoPessoa('PF')}
-              class="h-4 w-4 text-clientes-600"
-            />
-            Pessoa Fisica
-          </label>
-          <label class="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="radio"
-              checked={formData.tipo_pessoa === 'PJ'}
-              on:change={() => setTipoPessoa('PJ')}
-              class="h-4 w-4 text-clientes-600"
-            />
-            Pessoa Juridica
-          </label>
-        </div>
-      </div>
+      <FieldRadioGroup
+        label="Tipo de pessoa"
+        value={formData.tipo_pessoa}
+        options={tipoPessoaOptions}
+        class_name="lg:col-span-1"
+        on:change={(event) => setTipoPessoa((event.currentTarget as HTMLInputElement).value as 'PF' | 'PJ')}
+      />
 
-      <div class="lg:col-span-2">
-        <label for="nome" class="mb-1 block text-sm font-medium text-slate-700">
-          {formData.tipo_pessoa === 'PJ' ? 'Razao social' : 'Nome completo'} *
-        </label>
-        <div class="relative">
-          <User size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="nome"
-            bind:value={formData.nome}
-            class="vtur-input w-full pl-10"
-            class:border-red-500={errors.nome}
-            placeholder={formData.tipo_pessoa === 'PJ' ? 'Razao social do cliente' : 'Nome completo do cliente'}
-          />
-        </div>
-        {#if errors.nome}
-          <p class="mt-1 text-sm text-red-600">{errors.nome}</p>
-        {/if}
-      </div>
+      <FieldInput
+        id="nome"
+        label={formData.tipo_pessoa === 'PJ' ? 'Razao social' : 'Nome completo'}
+        bind:value={formData.nome}
+        icon={User}
+        required={true}
+        error={errors.nome}
+        placeholder={formData.tipo_pessoa === 'PJ' ? 'Razao social do cliente' : 'Nome completo do cliente'}
+        class_name="lg:col-span-2"
+      />
 
-      <div>
-        <label for="cpf" class="mb-1 block text-sm font-medium text-slate-700">
-          {formData.tipo_pessoa === 'PJ' ? 'CNPJ' : 'CPF'} *
-        </label>
-        <input
-          id="cpf"
-          value={formData.cpf}
-          on:input={handleDocumentoInput}
-          class="vtur-input w-full"
-          class:border-red-500={errors.cpf}
-          placeholder={formData.tipo_pessoa === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
-        />
-        {#if errors.cpf}
-          <p class="mt-1 text-sm text-red-600">{errors.cpf}</p>
-        {/if}
-      </div>
+      <FieldInput
+        id="cpf"
+        label={formData.tipo_pessoa === 'PJ' ? 'CNPJ' : 'CPF'}
+        value={formData.cpf}
+        required={true}
+        error={errors.cpf}
+        placeholder={formData.tipo_pessoa === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
+        class_name="w-full"
+        on:input={handleDocumentoInput}
+      />
 
-      <div>
-        <label for="rg" class="mb-1 block text-sm font-medium text-slate-700">
-          {formData.tipo_pessoa === 'PJ' ? 'Inscricao / IE' : 'RG'}
-        </label>
-        <input
-          id="rg"
-          bind:value={formData.rg}
-          class="vtur-input w-full"
-          placeholder={formData.tipo_pessoa === 'PJ' ? 'Documento complementar' : 'Documento de identidade'}
-        />
-      </div>
+      <FieldInput
+        id="rg"
+        label={formData.tipo_pessoa === 'PJ' ? 'Inscricao / IE' : 'RG'}
+        bind:value={formData.rg}
+        placeholder={formData.tipo_pessoa === 'PJ' ? 'Documento complementar' : 'Documento de identidade'}
+      />
 
       {#if formData.tipo_pessoa === 'PF'}
-        <div>
-          <label for="nascimento" class="mb-1 block text-sm font-medium text-slate-700">Data de nascimento</label>
-          <div class="relative">
-            <Calendar size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="nascimento" type="date" bind:value={formData.nascimento} class="vtur-input w-full pl-10" />
-          </div>
-        </div>
+        <FieldInput id="nascimento" label="Data de nascimento" type="date" bind:value={formData.nascimento} icon={Calendar} />
 
-        <div>
-          <label for="genero" class="mb-1 block text-sm font-medium text-slate-700">Genero</label>
-          <select id="genero" bind:value={formData.genero} class="vtur-input w-full">
-            {#each generoOptions as option}
-              <option value={option}>{option || 'Selecione'}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="genero"
+          label="Genero"
+          bind:value={formData.genero}
+          options={generoSelectOptions}
+          placeholder="Selecione"
+        />
 
-        <div>
-          <label for="nacionalidade" class="mb-1 block text-sm font-medium text-slate-700">Nacionalidade</label>
-          <input id="nacionalidade" bind:value={formData.nacionalidade} class="vtur-input w-full" />
-        </div>
+        <FieldInput id="nacionalidade" label="Nacionalidade" bind:value={formData.nacionalidade} />
       {/if}
 
-      <div>
-        <label for="tipo_cliente" class="mb-1 block text-sm font-medium text-slate-700">Tipo de cliente</label>
-        <input
-          id="tipo_cliente"
-          bind:value={formData.tipo_cliente}
-          class="vtur-input w-full"
-          placeholder="passageiro"
-        />
-      </div>
+      <FieldInput
+        id="tipo_cliente"
+        label="Tipo de cliente"
+        bind:value={formData.tipo_cliente}
+        placeholder="passageiro"
+      />
 
-      <div>
-        <label for="classificacao" class="mb-1 block text-sm font-medium text-slate-700">Classificacao</label>
-        <select id="classificacao" bind:value={formData.classificacao} class="vtur-input w-full">
-          {#each classificacaoOptions as option}
-            <option value={option}>{option || 'Selecione'}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="classificacao"
+        label="Classificacao"
+        bind:value={formData.classificacao}
+        options={classificacaoSelectOptions}
+        placeholder="Selecione"
+      />
 
-      <div class="flex items-center gap-2 pt-7">
-        <input
-          id="ativo"
-          type="checkbox"
-          checked={formData.ativo}
-          on:change={(event) => {
-            const checked = (event.currentTarget as HTMLInputElement).checked;
-            formData = { ...formData, ativo: checked, active: checked };
-          }}
-          class="h-4 w-4 rounded border-slate-300 text-clientes-600"
-        />
-        <label for="ativo" class="text-sm text-slate-700">Cliente ativo</label>
-      </div>
+      <FieldCheckbox
+        id="ativo"
+        label="Cliente ativo"
+        checked={formData.ativo}
+        color="clientes"
+        class_name="pt-7"
+        on:change={(event) => {
+          const checked = (event.currentTarget as HTMLInputElement).checked;
+          formData = { ...formData, ativo: checked, active: checked };
+        }}
+      />
     </div>
   </Card>
 
   <Card title="Contato e relacionamento" color="clientes">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div>
-        <label for="telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone *</label>
-        <div class="relative">
-          <Phone size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="telefone"
-            value={formData.telefone}
-            on:input={(event) => handleTelefoneInput('telefone', event)}
-            class="vtur-input w-full pl-10"
-            class:border-red-500={errors.telefone}
-            placeholder="(00) 00000-0000"
-          />
-        </div>
-        {#if errors.telefone}
-          <p class="mt-1 text-sm text-red-600">{errors.telefone}</p>
-        {/if}
-      </div>
+      <FieldInput
+        id="telefone"
+        label="Telefone"
+        value={formData.telefone}
+        type="tel"
+        icon={Phone}
+        required={true}
+        error={errors.telefone}
+        placeholder="(00) 00000-0000"
+        on:input={(event) => handleTelefoneInput('telefone', event)}
+      />
 
-      <div>
-        <label for="whatsapp" class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
-        <div class="relative">
-          <Phone size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-green-500" />
-          <input
-            id="whatsapp"
-            value={formData.whatsapp}
-            on:input={(event) => handleTelefoneInput('whatsapp', event)}
-            class="vtur-input w-full pl-10"
-            placeholder="(00) 00000-0000"
-          />
-        </div>
-      </div>
+      <FieldInput
+        id="whatsapp"
+        label="WhatsApp"
+        value={formData.whatsapp}
+        type="tel"
+        icon={Phone}
+        placeholder="(00) 00000-0000"
+        on:input={(event) => handleTelefoneInput('whatsapp', event)}
+      />
 
-      <div class="lg:col-span-2">
-        <label for="email" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
-        <div class="relative">
-          <Mail size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="email"
-            bind:value={formData.email}
-            class="vtur-input w-full pl-10"
-            class:border-red-500={errors.email}
-            placeholder="cliente@exemplo.com"
-          />
-        </div>
-        {#if errors.email}
-          <p class="mt-1 text-sm text-red-600">{errors.email}</p>
-        {/if}
-      </div>
+      <FieldInput
+        id="email"
+        label="E-mail"
+        bind:value={formData.email}
+        type="email"
+        icon={Mail}
+        error={errors.email}
+        placeholder="cliente@exemplo.com"
+        class_name="lg:col-span-2"
+      />
 
-      <div class="lg:col-span-4">
-        <label for="tags" class="mb-1 block text-sm font-medium text-slate-700">Tags</label>
-        <div class="relative">
-          <Tag size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="tags"
-            bind:value={formData.tags}
-            class="vtur-input w-full pl-10"
-            placeholder="vip, aniversario, indicacao"
-          />
-        </div>
-        <p class="mt-1 text-xs text-slate-500">Separe as tags por virgula, como no fluxo do app legado.</p>
-      </div>
+      <FieldInput
+        id="tags"
+        label="Tags"
+        bind:value={formData.tags}
+        icon={Tag}
+        helper="Separe as tags por virgula, como no fluxo do app legado."
+        placeholder="vip, aniversario, indicacao"
+        class_name="lg:col-span-4"
+      />
     </div>
   </Card>
 
   <Card title="Endereco" color="clientes">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <div>
-        <label for="cep" class="mb-1 block text-sm font-medium text-slate-700">CEP</label>
-        <div class="relative">
-          <MapPin size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            id="cep"
-            value={formData.cep}
-            on:input={handleCepInput}
-            on:blur={buscarCepIfNeeded}
-            class="vtur-input w-full pl-10"
-            placeholder="00000-000"
-          />
-        </div>
-        <p class="mt-1 text-xs text-slate-500">{cepStatus || 'Preencha para auto-preencher o endereco.'}</p>
-      </div>
+      <FieldInput
+        id="cep"
+        label="CEP"
+        value={formData.cep}
+        icon={MapPin}
+        helper={cepStatus || 'Preencha para auto-preencher o endereco.'}
+        placeholder="00000-000"
+        on:input={handleCepInput}
+        on:blur={buscarCepIfNeeded}
+      />
 
-      <div class="lg:col-span-2">
-        <label for="endereco" class="mb-1 block text-sm font-medium text-slate-700">Endereco</label>
-        <input id="endereco" bind:value={formData.endereco} class="vtur-input w-full" placeholder="Rua, avenida, etc." />
-      </div>
+      <FieldInput
+        id="endereco"
+        label="Endereco"
+        bind:value={formData.endereco}
+        placeholder="Rua, avenida, etc."
+        class_name="lg:col-span-2"
+      />
 
-      <div>
-        <label for="numero" class="mb-1 block text-sm font-medium text-slate-700">Numero</label>
-        <input id="numero" bind:value={formData.numero} class="vtur-input w-full" placeholder="123" />
-      </div>
+      <FieldInput id="numero" label="Numero" bind:value={formData.numero} placeholder="123" />
 
-      <div>
-        <label for="complemento" class="mb-1 block text-sm font-medium text-slate-700">Complemento</label>
-        <input id="complemento" bind:value={formData.complemento} class="vtur-input w-full" placeholder="Apto, sala, bloco" />
-      </div>
+      <FieldInput id="complemento" label="Complemento" bind:value={formData.complemento} placeholder="Apto, sala, bloco" />
 
-      <div>
-        <label for="cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade</label>
-        <input id="cidade" bind:value={formData.cidade} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="cidade" label="Cidade" bind:value={formData.cidade} />
 
-      <div>
-        <label for="estado" class="mb-1 block text-sm font-medium text-slate-700">Estado</label>
-        <select id="estado" bind:value={formData.estado} class="vtur-input w-full">
-          <option value="">Selecione</option>
-          {#each estadosBrasil as estado}
-            <option value={estado.value}>{estado.label}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="estado"
+        label="Estado"
+        bind:value={formData.estado}
+        options={estadosSelectOptions}
+        placeholder="Selecione"
+      />
     </div>
   </Card>
 
   <Card title="Notas operacionais" color="clientes">
-    <div class="relative">
-      <FileText size={18} class="absolute left-3 top-3 text-slate-400" />
-      <textarea
-        id="notas"
-        bind:value={formData.notas}
-        rows="5"
-        class="vtur-input w-full pl-10"
-        placeholder="Informacoes de relacionamento, preferencias, observacoes comerciais e contexto do cliente."
-      ></textarea>
-    </div>
+    <FieldTextarea
+      id="notas"
+      label="Notas"
+      bind:value={formData.notas}
+      rows={5}
+      placeholder="Informacoes de relacionamento, preferencias, observacoes comerciais e contexto do cliente."
+    />
   </Card>
 
   <div class="flex items-center justify-end gap-3">

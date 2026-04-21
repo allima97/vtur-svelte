@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import { supabase } from '$lib/db/supabase';
-  import { PageHeader, Card, Button, FormPanel } from '$lib/components/ui';
+  import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import { toast } from '$lib/stores/ui';
@@ -96,6 +96,12 @@
 
   let recibos = [createRecibo(true)];
   let pagamentos = [createPagamento()];
+  const vendaStatusOptions = [
+    { value: 'pendente', label: 'Pendente' },
+    { value: 'confirmada', label: 'Confirmada' },
+    { value: 'concluida', label: 'Concluída' },
+    { value: 'cancelada', label: 'Cancelada' }
+  ];
 
   function createRecibo(principal = false) {
     return {
@@ -1112,9 +1118,11 @@
             {#if errors.data_final}<p class="mt-1 text-xs text-red-600">{errors.data_final}</p>{/if}
           </div>
 
-          <div class="flex items-center gap-3 xl:col-span-2 xl:pt-7">
-            <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" bind:checked={venda.desconto_comercial_aplicado} /> Aplicar desconto comercial?</label>
-            <input bind:value={venda.desconto_comercial_valor} class="vtur-input w-40" placeholder="Valor do desconto" />
+          <div class="flex items-start gap-3 xl:col-span-2 xl:pt-7">
+            <div class="min-w-[240px]">
+              <FieldCheckbox label="Aplicar desconto comercial?" bind:checked={venda.desconto_comercial_aplicado} color="vendas" />
+            </div>
+            <FieldInput bind:value={venda.desconto_comercial_valor} class_name="w-40" placeholder="Valor do desconto" />
             <Button type="button" variant="secondary" class_name="shrink-0" on:click={() => (showCalculator = true)}>
               <Calculator size={16} class="mr-2" /> Calculadora
             </Button>
@@ -1322,10 +1330,7 @@
                   <input id={`venda-editar-pagamento-vencimento-${index}`} type="date" bind:value={pagamento.vencimento_primeira} class="vtur-input w-full" />
                 </div>
                 <div class="flex items-end">
-                  <label class="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" bind:checked={pagamento.paga_comissao} />
-                    Paga comissão
-                  </label>
+                  <FieldCheckbox label="Paga comissão" bind:checked={pagamento.paga_comissao} color="vendas" />
                 </div>
               </div>
 
@@ -1377,44 +1382,22 @@
             <p class="mt-2 text-lg font-semibold text-slate-900">{formatMoney(totalPagamentos)}</p>
           </div>
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
-            <select bind:value={venda.status} class="vtur-input mt-2 w-full">
-              <option value="pendente">Pendente</option>
-              <option value="confirmada">Confirmada</option>
-              <option value="concluida">Concluída</option>
-              <option value="cancelada">Cancelada</option>
-            </select>
+            <FieldSelect label="Status" bind:value={venda.status} options={vendaStatusOptions} class_name="mt-0" />
           </div>
         </div>
 
         <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <label for="venda-editar-total" class="mb-1 block text-sm font-medium text-slate-700">Valor total da venda</label>
-            <input id="venda-editar-total" bind:value={venda.valor_total} class="vtur-input w-full" />
-          </div>
-          <div>
-            <label for="venda-editar-total-bruto" class="mb-1 block text-sm font-medium text-slate-700">Valor total bruto</label>
-            <input id="venda-editar-total-bruto" bind:value={venda.valor_total_bruto} class="vtur-input w-full" />
-          </div>
-          <div>
-            <label for="venda-editar-total-pago" class="mb-1 block text-sm font-medium text-slate-700">Valor total pago</label>
-            <input id="venda-editar-total-pago" bind:value={venda.valor_total_pago} class="vtur-input w-full" />
-          </div>
-          <div>
-            <label for="venda-editar-nao-comissionado" class="mb-1 block text-sm font-medium text-slate-700">Valor não comissionado</label>
-            <input id="venda-editar-nao-comissionado" bind:value={venda.valor_nao_comissionado} class="vtur-input w-full" />
-          </div>
-        </div>
-
-        <div class="mt-4 flex items-center gap-2">
-          <input id="cancelada" type="checkbox" bind:checked={venda.cancelada} />
-          <label for="cancelada" class="text-sm font-medium text-slate-700">Venda cancelada</label>
+          <FieldInput id="venda-editar-total" label="Valor total da venda" bind:value={venda.valor_total} class_name="w-full" />
+          <FieldInput id="venda-editar-total-bruto" label="Valor total bruto" bind:value={venda.valor_total_bruto} class_name="w-full" />
+          <FieldInput id="venda-editar-total-pago" label="Valor total pago" bind:value={venda.valor_total_pago} class_name="w-full" />
+          <FieldInput id="venda-editar-nao-comissionado" label="Valor não comissionado" bind:value={venda.valor_nao_comissionado} class_name="w-full" />
         </div>
 
         <div class="mt-4">
-          <label for="venda-editar-observacoes" class="mb-1 block text-sm font-medium text-slate-700">Observações</label>
-          <textarea id="venda-editar-observacoes" bind:value={venda.notas} rows="4" class="vtur-input w-full" placeholder="Observações internas da venda"></textarea>
+          <FieldCheckbox id="cancelada" label="Venda cancelada" bind:checked={venda.cancelada} color="vendas" />
         </div>
+
+        <FieldTextarea id="venda-editar-observacoes" label="Observações" bind:value={venda.notas} rows={4} class_name="mt-4 w-full" placeholder="Observações internas da venda" />
       </FormPanel>
     {/if}
 

@@ -3,8 +3,10 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import FileInput from '$lib/components/ui/FileInput.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -161,6 +163,7 @@
   let importText = '';
   let importFallbackDate = new Date().toISOString().slice(0, 10);
   let importFileName = '';
+  let importFiles: FileList | undefined = undefined;
   let importIgnored = 0;
   let importPreview: ImportPreviewRow[] = [];
 
@@ -170,6 +173,23 @@
     { key: 'alteracoes', label: 'Alterações', icon: GitBranch, badge: changes.filter((item) => !item.reverted_at).length || null },
     { key: 'execucoes', label: 'Execuções', icon: Bot, badge: executions.length || null }
   ];
+
+  $: rankingStatusOptions = [
+    { value: 'all', label: 'Todos' },
+    { value: 'pending', label: 'Pendentes' },
+    { value: 'assigned', label: 'Atribuídos' },
+    { value: 'system', label: 'Vinculados ao sistema' }
+  ];
+
+  $: vendedorOptions = vendedores.map((vendedor) => ({
+    value: vendedor.id,
+    label: vendedor.nome_completo
+  }));
+
+  $: produtoOptions = produtosMeta.map((produto) => ({
+    value: produto.id,
+    label: produto.nome
+  }));
 
   const recordColumns = [
     { key: 'documento', label: 'Documento', sortable: true, width: '140px' },
@@ -436,9 +456,8 @@
     }
   }
 
-  async function handleFileChange(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
+  async function handleFileChange() {
+    const file = importFiles?.[0];
     if (!file) return;
     importFileName = file.name;
     importText = await file.text();
@@ -601,23 +620,15 @@
     <label for="conciliacao-busca" class="mb-1 block text-sm font-medium text-slate-700">Busca</label>
     <input id="conciliacao-busca" type="text" bind:value={searchQuery} placeholder="Documento, descrição, vendedor..." class="vtur-input w-full" />
   </div>
-  <div>
-    <label for="conciliacao-ranking-status" class="mb-1 block text-sm font-medium text-slate-700">Ranking</label>
-    <select id="conciliacao-ranking-status" bind:value={rankingStatus} class="vtur-input w-full">
-      <option value="all">Todos</option>
-      <option value="pending">Pendentes</option>
-      <option value="assigned">Atribuídos</option>
-      <option value="system">Vinculados ao sistema</option>
-    </select>
-  </div>
-  <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-    <input type="checkbox" bind:checked={showPendingOnly} class="rounded border-slate-300" />
-    Somente pendentes
-  </label>
-  <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-    <input type="checkbox" bind:checked={showBaixaRac} class="rounded border-slate-300" />
-    Somente Baixa RAC
-  </label>
+  <FieldSelect
+    id="conciliacao-ranking-status"
+    label="Ranking"
+    bind:value={rankingStatus}
+    options={rankingStatusOptions}
+    class_name="w-full"
+  />
+  <FieldCheckbox label="Somente pendentes" bind:checked={showPendingOnly} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
+  <FieldCheckbox label="Somente Baixa RAC" bind:checked={showBaixaRac} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
 
   <svelte:fragment slot="actions">
     <div class="flex flex-wrap gap-2">
@@ -693,34 +704,36 @@
   <div class="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
     <Card header="Importar extrato" color="financeiro">
       <div class="space-y-4">
-        <div>
-          <label for="conciliacao-arquivo" class="mb-1 block text-sm font-medium text-slate-700">Arquivo do extrato</label>
-          <input id="conciliacao-arquivo" type="file" accept=".csv,.txt,.tsv" class="vtur-input w-full" on:change={handleFileChange} />
-          <p class="mt-1 text-xs text-slate-500">Aceita CSV, TXT e TSV. O parser usa o cabeçalho para localizar as colunas.</p>
-        </div>
+        <FileInput
+          id="conciliacao-arquivo"
+          label="Arquivo do extrato"
+          bind:files={importFiles}
+          accept=".csv,.txt,.tsv"
+          helper="Aceita CSV, TXT e TSV. O parser usa o cabeçalho para localizar as colunas."
+          class_name="w-full"
+          on:change={handleFileChange}
+        />
 
-        <div>
-          <label for="conciliacao-fallback-date" class="mb-1 block text-sm font-medium text-slate-700">Data padrão para linhas sem data</label>
-          <input id="conciliacao-fallback-date" type="date" bind:value={importFallbackDate} class="vtur-input w-full" />
-        </div>
+        <FieldInput
+          id="conciliacao-fallback-date"
+          label="Data padrão para linhas sem data"
+          type="date"
+          bind:value={importFallbackDate}
+          class_name="w-full"
+        />
 
-        <div>
-          <label for="conciliacao-paste" class="mb-1 block text-sm font-medium text-slate-700">Ou cole o conteúdo do extrato</label>
-          <textarea
-            id="conciliacao-paste"
-            bind:value={importText}
-            rows="12"
-            class="vtur-input w-full"
-            placeholder="Cole aqui as linhas do extrato com cabeçalho: documento;movimento_data;status;descricao;valor_lancamentos..."
-          ></textarea>
-        </div>
+        <FieldTextarea
+          id="conciliacao-paste"
+          label="Ou cole o conteúdo do extrato"
+          bind:value={importText}
+          rows={12}
+          class_name="w-full"
+          placeholder="Cole aqui as linhas do extrato com cabeçalho: documento;movimento_data;status;descricao;valor_lancamentos..."
+        />
 
         <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
           <p><strong>{importPreview.length}</strong> linhas prontas para importar.</p>
           <p><strong>{importIgnored}</strong> linhas ignoradas por falta de documento.</p>
-          {#if importFileName}
-            <p class="mt-1 text-xs text-slate-500">Arquivo carregado: {importFileName}</p>
-          {/if}
         </div>
 
         <div class="flex flex-wrap gap-2">
@@ -728,7 +741,7 @@
             <Upload size={16} class="mr-2" />
             Importar para conciliação
           </Button>
-          <Button variant="secondary" on:click={() => { importText = ''; importFileName = ''; importIgnored = 0; }}>
+          <Button variant="secondary" on:click={() => { importFiles = undefined; importText = ''; importFileName = ''; importIgnored = 0; }}>
             Limpar
           </Button>
         </div>
@@ -874,35 +887,25 @@
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
-        <div>
-          <label for="conciliacao-vendedor" class="mb-1 block text-sm font-medium text-slate-700">Vendedor de ranking</label>
-          <select id="conciliacao-vendedor" bind:value={rankingVendedorId} class="vtur-input w-full">
-            <option value="">Selecione...</option>
-            {#each vendedores as vendedor}
-              <option value={vendedor.id}>{vendedor.nome_completo}</option>
-            {/each}
-          </select>
-        </div>
-        <div>
-          <label for="conciliacao-produto" class="mb-1 block text-sm font-medium text-slate-700">Produto para meta</label>
-          <select id="conciliacao-produto" bind:value={rankingProdutoId} class="vtur-input w-full">
-            <option value="">Selecione...</option>
-            {#each produtosMeta as produto}
-              <option value={produto.id}>{produto.nome}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="conciliacao-vendedor"
+          label="Vendedor de ranking"
+          bind:value={rankingVendedorId}
+          options={vendedorOptions}
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="conciliacao-produto"
+          label="Produto para meta"
+          bind:value={rankingProdutoId}
+          options={produtoOptions}
+          class_name="w-full"
+        />
       </div>
 
       <div class="grid gap-3 md:grid-cols-2">
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-          <input type="checkbox" bind:checked={marcadoConciliado} class="rounded border-slate-300" />
-          Marcar como conciliado
-        </label>
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-          <input type="checkbox" bind:checked={isBaixaRac} class="rounded border-slate-300" />
-          Marcar como Baixa RAC
-        </label>
+        <FieldCheckbox label="Marcar como conciliado" bind:checked={marcadoConciliado} color="financeiro" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" />
+        <FieldCheckbox label="Marcar como Baixa RAC" bind:checked={isBaixaRac} color="financeiro" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" />
       </div>
 
       <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4">

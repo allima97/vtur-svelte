@@ -15,13 +15,10 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import { browser } from '$app/environment';
-import { db } from '$lib/db/dexie';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   MAPA_MODULOS,
   listarModulosComHeranca,
-  normalizeModuloLabel,
 } from '$lib/config/modulos';
 
 // ---------------------------------------------------------------------------
@@ -246,24 +243,6 @@ function createPermissoesStore() {
       } catch {
         // Tabela pode não existir em instâncias antigas — ignorar silenciosamente
       }
-
-      // 4. Cache local (IndexedDB via Dexie)
-      if (browser) {
-        try {
-          await db.permissoes.bulkPut(
-            Object.entries(acessos).map(([modulo, permissao]) => ({
-              id: `${user.id}-${modulo}`,
-              userId: user.id,
-              modulo,
-              permissao,
-              updatedAt: new Date(),
-            })),
-          );
-        } catch {
-          // Cache é melhor-esforço — falha não deve bloquear
-        }
-      }
-
       set({
         userId: user.id,
         userEmail: profile?.email || user.email || '',

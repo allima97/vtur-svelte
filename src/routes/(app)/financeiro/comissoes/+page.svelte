@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -54,6 +55,20 @@
   let processando = false;
   let dataPagamento = new Date().toISOString().split('T')[0];
   let observacoesPagamento = '';
+
+  $: statusOptions = [
+    { value: 'todas', label: 'Todas' },
+    { value: 'pendente', label: 'Pendentes' },
+    { value: 'pago', label: 'Pagas' }
+  ];
+
+  $: vendedorOptions = [
+    { value: '', label: 'Todos' },
+    ...vendedores.map((vendedor) => ({
+      value: vendedor.id,
+      label: vendedor.nome_completo || vendedor.email || vendedor.id
+    }))
+  ];
 
   onMount(() => {
     loadComissoes();
@@ -250,8 +265,8 @@
 
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
-      <div><label for="comissoes-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label><select id="comissoes-status" bind:value={filtroStatus} on:change={loadComissoes} class="vtur-input"><option value="todas">Todas</option><option value="pendente">Pendentes</option><option value="pago">Pagas</option></select></div>
-      <div><label for="comissoes-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label><select id="comissoes-vendedor" bind:value={filtroVendedor} on:change={loadComissoes} class="vtur-input"><option value="">Todos</option>{#each vendedores as v}<option value={v.id}>{v.nome_completo || v.email}</option>{/each}</select></div>
+      <FieldSelect id="comissoes-status" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="min-w-[180px]" on:change={loadComissoes} />
+      <FieldSelect id="comissoes-vendedor" label="Vendedor" bind:value={filtroVendedor} options={vendedorOptions} class_name="min-w-[240px]" on:change={loadComissoes} />
       <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>
@@ -309,12 +324,12 @@
 
 <Dialog bind:open={showPagamentoDialog} title="Confirmar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Confirmar Pagamento" onConfirm={handleConfirmarPagamento}>
   {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><div><label for="comissao-data-pagamento" class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input id="comissao-data-pagamento" type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label for="comissao-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea id="comissao-observacoes" bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações opcionais..."></textarea></div></div>
+    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><FieldInput id="comissao-data-pagamento" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações opcionais..." /></div>
   {/if}
 </Dialog>
 
 <Dialog bind:open={showPagamentoMultiploDialog} title="Pagamento em Lote" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={`Pagar ${comissoesSelecionadas.length} Comissões`} onConfirm={handlePagamentoMultiplo}>
-  <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><div><label for="comissao-data-pagamento-lote" class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label><input id="comissao-data-pagamento-lote" type="date" bind:value={dataPagamento} class="vtur-input w-full" /></div><div><label for="comissao-observacoes-lote" class="block text-sm font-medium text-slate-700 mb-1">Observações</label><textarea id="comissao-observacoes-lote" bind:value={observacoesPagamento} rows="2" class="vtur-input w-full" placeholder="Observações para todos os pagamentos..."></textarea></div></div>
+  <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><FieldInput id="comissao-data-pagamento-lote" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes-lote" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações para todos os pagamentos..." /></div>
 </Dialog>
 
 <Dialog bind:open={showDetalhesDialog} title="Detalhes da Comissão" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>

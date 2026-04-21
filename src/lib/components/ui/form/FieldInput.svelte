@@ -29,30 +29,53 @@
     </Label>
   {/if}
 
-  <Input
-    id={fieldId}
-    {name}
-    {type}
-    bind:value
-    {placeholder}
-    {disabled}
-    {required}
-    {readonly}
-    {min}
-    {max}
-    {step}
-    {maxlength}
-    color={error ? 'red' : 'base'}
-    class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
-    on:input
-    on:change
-    on:blur
-    on:focus
-  >
-    {#if icon}
+  {#if icon}
+    <Input
+      id={fieldId}
+      {name}
+      {type}
+      bind:value
+      {placeholder}
+      {disabled}
+      {required}
+      {readonly}
+      {min}
+      {max}
+      {step}
+      {maxlength}
+      wrapperClass="relative w-full"
+      color={error ? 'red' : 'base'}
+      class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+      on:input
+      on:change
+      on:blur
+      on:focus
+    >
       <svelte:component this={icon} slot="left" class="h-4 w-4 text-slate-400" />
-    {/if}
-  </Input>
+    </Input>
+  {:else}
+    <Input
+      id={fieldId}
+      {name}
+      {type}
+      bind:value
+      {placeholder}
+      {disabled}
+      {required}
+      {readonly}
+      {min}
+      {max}
+      {step}
+      {maxlength}
+      wrapperClass="relative w-full"
+      color={error ? 'red' : 'base'}
+      class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+      on:input
+      on:change
+      on:blur
+      on:focus
+    />
+  {/if}
 
   {#if error}
     <Helper class="mt-1 text-red-600">{error}</Helper>

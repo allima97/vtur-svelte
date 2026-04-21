@@ -8,7 +8,7 @@ Nova versão do sistema VTUR migrada para SvelteKit + Flowbite-Svelte.
 - **UI Library**: Flowbite-Svelte
 - **Estilização**: Tailwind CSS 3.x
 - **Backend/Auth**: Supabase
-- **Cache Local**: Dexie.js (IndexedDB)
+- **Cache Local**: IndexedDB nativo (quando necessário)
 - **API**: Hono (compatibilidade com APIs existentes)
 - **Deploy**: Cloudflare Workers
 
@@ -19,7 +19,7 @@ src/
 ├── lib/
 │   ├── components/     # Componentes Svelte
 │   ├── stores/         # Svelte Stores
-│   ├── db/             # Dexie + Supabase
+│   ├── db/             # Integração Supabase
 │   ├── api/            # Cliente API
 │   ├── theme/          # Cores e tema
 │   └── utils/          # Utilitários
