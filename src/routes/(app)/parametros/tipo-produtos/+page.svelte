@@ -4,6 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
@@ -223,14 +224,16 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canDelete}
-      <button
-        on:click|stopPropagation={() => deleteTipo(row.id)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        title="Excluir"
+      <Button
+        variant="ghost"
+        size="sm"
+        color="red"
+        class_name="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        on:click={() => deleteTipo(row.id)}
         disabled={deletingId === row.id}
       >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -250,71 +253,23 @@
 >
   <div class="space-y-4">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-nome">Nome *</label>
-        <input id="tprod-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Pacote Aéreo + Hotel" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-tipo">Tipo</label>
-        <select id="tprod-tipo" bind:value={form.tipo} class="vtur-input w-full">
-          {#each TIPOS as t}
-            <option value={t.value}>{t.label}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldInput id="tprod-nome" label="Nome" required={true} bind:value={form.nome} placeholder="Ex: Pacote Aéreo + Hotel" class_name="w-full" />
+      <FieldSelect id="tprod-tipo" label="Tipo" bind:value={form.tipo} options={TIPOS} placeholder="" class_name="w-full" />
     </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-descricao">Descrição</label>
-      <input id="tprod-descricao" bind:value={form.descricao} class="vtur-input w-full" placeholder="Descrição opcional" />
-    </div>
-
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-regra">Regra de comissionamento</label>
-      <select id="tprod-regra" bind:value={form.regra_comissionamento} class="vtur-input w-full">
-        {#each REGRAS as r}
-          <option value={r.value}>{r.label}</option>
-        {/each}
-      </select>
-    </div>
-
+    <FieldInput id="tprod-descricao" label="Descrição" bind:value={form.descricao} placeholder="Descrição opcional" class_name="w-full" />
+    <FieldSelect id="tprod-regra" label="Regra de comissionamento" bind:value={form.regra_comissionamento} options={REGRAS} placeholder="" class_name="w-full" />
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.soma_na_meta} class="rounded border-slate-300" />
-        Soma na meta
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.exibe_kpi_comissao} class="rounded border-slate-300" />
-        Exibe KPI de comissão
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.usa_meta_produto} class="rounded border-slate-300" />
-        Usa meta de produto
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.descontar_meta_geral} class="rounded border-slate-300" />
-        Descontar da meta geral
-      </label>
+      <FieldCheckbox label="Soma na meta" bind:checked={form.soma_na_meta} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
+      <FieldCheckbox label="Exibe KPI de comissão" bind:checked={form.exibe_kpi_comissao} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
+      <FieldCheckbox label="Usa meta de produto" bind:checked={form.usa_meta_produto} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
+      <FieldCheckbox label="Descontar da meta geral" bind:checked={form.descontar_meta_geral} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
     </div>
-
     {#if form.usa_meta_produto}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-meta-valor">Meta do produto (R$)</label>
-          <input id="tprod-meta-valor" type="number" step="0.01" bind:value={form.meta_produto_valor} class="vtur-input w-full" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="tprod-comissao-pct">% Comissão produto</label>
-          <input id="tprod-comissao-pct" type="number" step="0.01" bind:value={form.comissao_produto_meta_pct} class="vtur-input w-full" />
-        </div>
+        <FieldInput id="tprod-meta-valor" label="Meta do produto (R$)" type="number" step="0.01" bind:value={form.meta_produto_valor} class_name="w-full" />
+        <FieldInput id="tprod-comissao-pct" label="% Comissão produto" type="number" step="0.01" bind:value={form.comissao_produto_meta_pct} class_name="w-full" />
       </div>
     {/if}
-
-    <div>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-        Tipo ativo
-      </label>
-    </div>
+    <FieldCheckbox label="Tipo ativo" bind:checked={form.ativo} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
   </div>
 </Dialog>

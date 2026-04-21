@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldCheckbox, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
 
@@ -179,9 +180,9 @@
   onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deletePlano(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+    <Button variant="ghost" size="sm" color="red" class_name="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" on:click={() => deletePlano(row.id)} disabled={deletingId === row.id}>
       <Trash2 size={15} />
-    </button>
+    </Button>
   </svelte:fragment>
 </DataTable>
 
@@ -199,31 +200,23 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-nome">Nome *</label>
-      <input id="plano-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Starter, Pro, Enterprise" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-desc">Descrição</label>
-      <textarea id="plano-desc" bind:value={form.descricao} rows="2" class="vtur-input w-full" placeholder="Descrição do plano..."></textarea>
-    </div>
+    <FieldInput id="plano-nome" label="Nome" required={true} bind:value={form.nome} placeholder="Ex: Starter, Pro, Enterprise" class_name="w-full" />
+    <FieldTextarea id="plano-desc" label="Descrição" bind:value={form.descricao} rows={2} placeholder="Descrição do plano..." class_name="w-full" />
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-valor">Mensalidade</label>
-        <input id="plano-valor" type="number" step="0.01" min="0" bind:value={form.valor_mensal} class="vtur-input w-full" placeholder="0,00" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="plano-moeda">Moeda</label>
-        <select id="plano-moeda" bind:value={form.moeda} class="vtur-input w-full">
-          <option value="BRL">BRL (R$)</option>
-          <option value="USD">USD ($)</option>
-          <option value="EUR">EUR (€)</option>
-        </select>
-      </div>
+      <FieldInput id="plano-valor" label="Mensalidade" type="number" step="0.01" min="0" bind:value={form.valor_mensal} placeholder="0,00" class_name="w-full" />
+      <FieldSelect
+        id="plano-moeda"
+        label="Moeda"
+        bind:value={form.moeda}
+        options={[
+          { value: 'BRL', label: 'BRL (R$)' },
+          { value: 'USD', label: 'USD ($)' },
+          { value: 'EUR', label: 'EUR (€)' }
+        ]}
+        placeholder=""
+        class_name="w-full"
+      />
     </div>
-    <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-      <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-      Plano ativo
-    </label>
+    <FieldCheckbox label="Plano ativo" bind:checked={form.ativo} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
   </div>
 </Dialog>

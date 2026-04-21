@@ -6,6 +6,10 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
+  import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
+  import FieldTextarea from '$lib/components/ui/form/FieldTextarea.svelte';
+  import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
 
@@ -228,91 +232,46 @@
 >
   {#if editingEntity === 'categoria'}
     <div class="space-y-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-cat-nome">Nome *</label>
-        <input id="crm-cat-nome" bind:value={formCategoria.nome} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-cat-icone">Ícone</label>
-        <input id="crm-cat-icone" bind:value={formCategoria.icone} class="vtur-input w-full" placeholder="pi pi-tag" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-cat-ordem">Ordem</label>
-        <input id="crm-cat-ordem" type="number" bind:value={formCategoria.sort_order} class="vtur-input w-full" />
-      </div>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={formCategoria.ativo} class="rounded border-slate-300" />
-        Ativo
-      </label>
+      <FieldInput id="crm-cat-nome" label="Nome" bind:value={formCategoria.nome} required />
+      <FieldInput id="crm-cat-icone" label="Ícone" bind:value={formCategoria.icone} placeholder="pi pi-tag" />
+      <FieldInput id="crm-cat-ordem" label="Ordem" type="number" value={String(formCategoria.sort_order)} on:input={(e) => { formCategoria.sort_order = Number((e.target as HTMLInputElement).value); }} />
+      <FieldCheckbox id="crm-cat-ativo" label="Ativo" bind:checked={formCategoria.ativo} />
     </div>
   {:else if editingEntity === 'tema'}
     <div class="space-y-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-nome">Nome *</label>
-        <input id="crm-tema-nome" bind:value={formTema.nome} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-url">URL da Arte</label>
-        <input id="crm-tema-url" bind:value={formTema.asset_url} class="vtur-input w-full" placeholder="https://..." />
-      </div>
+      <FieldInput id="crm-tema-nome" label="Nome" bind:value={formTema.nome} required />
+      <FieldInput id="crm-tema-url" label="URL da Arte" bind:value={formTema.asset_url} placeholder="https://..." />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-cat">Categoria</label>
-          <select id="crm-tema-cat" bind:value={formTema.categoria_id} class="vtur-input w-full">
-            <option value="">Sem categoria</option>
-            {#each categorias as cat}
-              <option value={cat.id}>{cat.nome}</option>
-            {/each}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tema-scope">Escopo</label>
-          <select id="crm-tema-scope" bind:value={formTema.scope} class="vtur-input w-full">
-            {#each SCOPE_OPTIONS as opt}
-              <option value={opt.value}>{opt.label}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="crm-tema-cat"
+          label="Categoria"
+          bind:value={formTema.categoria_id}
+          placeholder={null}
+          options={[{ value: '', label: 'Sem categoria' }, ...categorias.map((c) => ({ value: c.id, label: c.nome }))]}
+        />
+        <FieldSelect id="crm-tema-scope" label="Escopo" bind:value={formTema.scope} placeholder={null} options={SCOPE_OPTIONS} />
       </div>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={formTema.ativo} class="rounded border-slate-300" />
-        Ativo
-      </label>
+      <FieldCheckbox id="crm-tema-ativo" label="Ativo" bind:checked={formTema.ativo} />
     </div>
   {:else}
     <div class="space-y-4">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-nome">Nome *</label>
-          <input id="crm-tpl-nome" bind:value={formTemplate.nome} class="vtur-input w-full" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-cat">Ocasião</label>
-          <input id="crm-tpl-cat" bind:value={formTemplate.categoria} class="vtur-input w-full" placeholder="Ex: Aniversário" />
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-scope">Escopo</label>
-          <select id="crm-tpl-scope" bind:value={formTemplate.scope} class="vtur-input w-full">
-            {#each SCOPE_OPTIONS as opt}
-              <option value={opt.value}>{opt.label}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldInput id="crm-tpl-nome" label="Nome" bind:value={formTemplate.nome} required />
+        <FieldInput id="crm-tpl-cat" label="Ocasião" bind:value={formTemplate.categoria} placeholder="Ex: Aniversário" />
+        <FieldSelect id="crm-tpl-scope" label="Escopo" bind:value={formTemplate.scope} placeholder={null} options={SCOPE_OPTIONS} />
         <div class="flex items-end">
-          <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input type="checkbox" bind:checked={formTemplate.ativo} class="rounded border-slate-300" />
-            Ativo
-          </label>
+          <FieldCheckbox id="crm-tpl-ativo" label="Ativo" bind:checked={formTemplate.ativo} />
         </div>
       </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-titulo">Título *</label>
-        <input id="crm-tpl-titulo" bind:value={formTemplate.titulo} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-tpl-corpo">Corpo *</label>
-        <textarea id="crm-tpl-corpo" bind:value={formTemplate.corpo} rows="6" class="vtur-input w-full" placeholder={'Use {{nome_cliente}}, {{primeiro_nome}}, {{consultor}}'}></textarea>
-      </div>
+      <FieldInput id="crm-tpl-titulo" label="Título" bind:value={formTemplate.titulo} required />
+      <FieldTextarea
+        id="crm-tpl-corpo"
+        label="Corpo"
+        bind:value={formTemplate.corpo}
+        rows={6}
+        placeholder={'Use {{nome_cliente}}, {{primeiro_nome}}, {{consultor}}'}
+        required
+      />
     </div>
   {/if}
 </Dialog>

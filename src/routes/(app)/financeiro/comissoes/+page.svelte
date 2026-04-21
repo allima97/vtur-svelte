@@ -272,9 +272,10 @@
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        class={`rounded-full border px-4 py-2 text-sm font-medium ${somentePendentes ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+      <Button
+        variant="secondary"
+        size="sm"
+        class_name={somentePendentes ? 'rounded-full border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400' : 'rounded-full border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300'}
         on:click={() => (somentePendentes = !somentePendentes)}
       >
         {#if somentePendentes}
@@ -282,15 +283,11 @@
         {:else}
           Ver backlog de comissões ({pendentes.length})
         {/if}
-      </button>
+      </Button>
       {#if somentePendentes}
-        <button
-          type="button"
-          class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
-          on:click={() => (somentePendentes = false)}
-        >
+        <Button variant="secondary" size="sm" class_name="rounded-full border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300" on:click={() => (somentePendentes = false)}>
           Limpar filtro rápido
-        </button>
+        </Button>
       {/if}
     </div>
   </Card>

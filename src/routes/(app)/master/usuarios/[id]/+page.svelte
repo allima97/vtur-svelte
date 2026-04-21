@@ -8,6 +8,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from 'lucide-svelte';
 
@@ -373,73 +374,56 @@
 
   <Card color="financeiro" title="Cadastro administrativo">
     <div class="grid gap-4 lg:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuario-nome">Nome completo</label>
-        <input id="usuario-nome" bind:value={userForm.nome_completo} class="vtur-input w-full" />
-      </div>
-
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuario-email">E-mail</label>
-        <input id="usuario-email" type="email" bind:value={userForm.email} class="vtur-input w-full" />
-      </div>
-
+      <FieldInput id="usuario-nome" label="Nome completo" bind:value={userForm.nome_completo} class_name="w-full" />
+      <FieldInput id="usuario-email" label="E-mail" type="email" bind:value={userForm.email} class_name="w-full" />
       {#if isCreateMode}
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="usuario-senha">Senha inicial</label>
-          <input id="usuario-senha" type="password" bind:value={userForm.password} class="vtur-input w-full" />
-        </div>
+        <FieldInput id="usuario-senha" label="Senha inicial" type="password" bind:value={userForm.password} class_name="w-full" />
       {/if}
-
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuario-tipo">Tipo de usuario</label>
-        <select id="usuario-tipo" bind:value={userForm.user_type_id} class="vtur-input w-full">
-          <option value="">Selecione</option>
-          {#each userTypes as tipo}
-            <option value={tipo.id}>{tipo.nome || tipo.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuario-empresa">Empresa</label>
-        <select id="usuario-empresa" bind:value={userForm.company_id} class="vtur-input w-full" disabled={!isCreateMode && userForm.uso_individual}>
-          <option value="">Selecione</option>
-          {#each companies as company}
-            <option value={company.id}>{company.nome_fantasia || company.nome || company.name}</option>
-          {/each}
-        </select>
-      </div>
-
+      <FieldSelect
+        id="usuario-tipo"
+        label="Tipo de usuario"
+        bind:value={userForm.user_type_id}
+        options={userTypes.map((t) => ({ value: t.id, label: t.nome || t.name || '' }))}
+        placeholder="Selecione"
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="usuario-empresa"
+        label="Empresa"
+        bind:value={userForm.company_id}
+        options={companies.map((c) => ({ value: c.id, label: c.nome_fantasia || c.nome || c.name || '' }))}
+        placeholder="Selecione"
+        disabled={!isCreateMode && userForm.uso_individual}
+        class_name="w-full"
+      />
       {#if isCreateMode}
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p class="font-medium text-slate-900">Empresa obrigatoria no cadastro master</p>
           <p class="text-sm text-slate-500">Usuarios novos no escopo master devem ser vinculados a uma empresa.</p>
         </div>
       {:else}
-        <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
-          <input type="checkbox" bind:checked={userForm.uso_individual} />
-          <div>
-            <p class="font-medium text-slate-900">Uso individual</p>
-            <p class="text-sm text-slate-500">Remove o vinculo corporativo com empresa.</p>
-          </div>
-        </label>
+        <FieldCheckbox
+          label="Uso individual"
+          helper="Remove o vinculo corporativo com empresa."
+          bind:checked={userForm.uso_individual}
+          color="financeiro"
+          class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+        />
       {/if}
-
-      <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
-        <input type="checkbox" bind:checked={userForm.active} />
-        <div>
-          <p class="font-medium text-slate-900">Usuario ativo</p>
-          <p class="text-sm text-slate-500">Controla acesso imediato ao sistema.</p>
-        </div>
-      </label>
-
-      <label class="flex items-center gap-3 rounded-xl border border-slate-200 p-4">
-        <input type="checkbox" bind:checked={userForm.participa_ranking} />
-        <div>
-          <p class="font-medium text-slate-900">Participa do ranking</p>
-          <p class="text-sm text-slate-500">Inclui o usuario nos indicadores competitivos.</p>
-        </div>
-      </label>
+      <FieldCheckbox
+        label="Usuario ativo"
+        helper="Controla acesso imediato ao sistema."
+        bind:checked={userForm.active}
+        color="financeiro"
+        class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+      />
+      <FieldCheckbox
+        label="Participa do ranking"
+        helper="Inclui o usuario nos indicadores competitivos."
+        bind:checked={userForm.participa_ranking}
+        color="financeiro"
+        class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+      />
     </div>
 
     {#if !isCreateMode}
@@ -550,15 +534,14 @@
   onConfirm={sendAviso}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="aviso-template">Template</label>
-      <select id="aviso-template" bind:value={avisoTemplateId} class="vtur-input w-full">
-        <option value="">Selecione</option>
-        {#each avisoTemplates as template}
-          <option value={template.id}>{template.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="aviso-template"
+      label="Template"
+      bind:value={avisoTemplateId}
+      options={avisoTemplates.map((t) => ({ value: t.id, label: t.nome || '' }))}
+      placeholder="Selecione"
+      class_name="w-full"
+    />
     <p class="text-sm text-slate-500">
       O envio usa as configuracoes globais de e-mail do sistema e aplica as variaveis do usuario atual.
     </p>
@@ -574,14 +557,8 @@
   onConfirm={redefineSenha}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="nova-senha">Nova senha</label>
-      <input id="nova-senha" type="password" bind:value={novaSenha} class="vtur-input w-full" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="confirmar-senha">Confirmacao</label>
-      <input id="confirmar-senha" type="password" bind:value={confirmarSenha} class="vtur-input w-full" />
-    </div>
+    <FieldInput id="nova-senha" label="Nova senha" type="password" bind:value={novaSenha} class_name="w-full" />
+    <FieldInput id="confirmar-senha" label="Confirmacao" type="password" bind:value={confirmarSenha} class_name="w-full" />
   </div>
 </Dialog>
 

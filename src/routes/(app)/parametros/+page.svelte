@@ -3,6 +3,7 @@
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
+  import { FieldCheckbox, FieldInput, FieldSelect } from "$lib/components/ui";
   import { toast } from "$lib/stores/ui";
   import { permissoes } from "$lib/stores/permissoes";
   import {
@@ -450,207 +451,89 @@
     <div class="grid gap-6 xl:grid-cols-3">
       <Card color="financeiro" title="Metas e faturamento">
         <div class="space-y-4">
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.usar_taxas_na_meta}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "usar_taxas_na_meta",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">Meta considera taxas</p>
-              <p class="text-sm text-slate-500">
-                Inclui taxas no calculo da meta geral e no resumo operacional da
-                equipe.
-              </p>
-            </div>
-          </label>
+          <FieldCheckbox
+            label="Meta considera taxas"
+            helper="Inclui taxas no calculo da meta geral e no resumo operacional da equipe."
+            bind:checked={form.usar_taxas_na_meta}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
 
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="foco-valores"
-            >
-              Foco das metas
-            </label>
-            <select
-              id="foco-valores"
-              class="vtur-input w-full"
-              value={form.foco_valor}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "foco_valor",
-                  (event.currentTarget as HTMLSelectElement).value === "liquido"
-                    ? "liquido"
-                    : "bruto",
-                )}
-            >
-              <option value="bruto">Valor bruto</option>
-              <option value="liquido">Valor liquido</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="foco-faturamento"
-            >
-              Foco de faturamento
-            </label>
-            <select
-              id="foco-faturamento"
-              class="vtur-input w-full"
-              value={form.foco_faturamento}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "foco_faturamento",
-                  (event.currentTarget as HTMLSelectElement).value === "liquido"
-                    ? "liquido"
-                    : "bruto",
-                )}
-            >
-              <option value="bruto">Valor bruto</option>
-              <option value="liquido">Valor liquido</option>
-            </select>
-          </div>
+          <FieldSelect
+            id="foco-valores"
+            label="Foco das metas"
+            value={form.foco_valor}
+            options={[{ value: 'bruto', label: 'Valor bruto' }, { value: 'liquido', label: 'Valor liquido' }]}
+            disabled={bloqueado}
+            class_name="w-full"
+            on:change={(event) => updateTopLevel('foco_valor', (event.currentTarget as HTMLSelectElement).value === 'liquido' ? 'liquido' : 'bruto')}
+          />
+          <FieldSelect
+            id="foco-faturamento"
+            label="Foco de faturamento"
+            value={form.foco_faturamento}
+            options={[{ value: 'bruto', label: 'Valor bruto' }, { value: 'liquido', label: 'Valor liquido' }]}
+            disabled={bloqueado}
+            class_name="w-full"
+            on:change={(event) => updateTopLevel('foco_faturamento', (event.currentTarget as HTMLSelectElement).value === 'liquido' ? 'liquido' : 'bruto')}
+          />
         </div>
       </Card>
 
       <Card color="financeiro" title="Operacao da empresa">
         <div class="space-y-4">
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.modo_corporativo}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "modo_corporativo",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">Modo corporativo</p>
-              <p class="text-sm text-slate-500">
-                Ativa controles multiempresa e comportamentos extras para
-                estruturas corporativas.
-              </p>
-            </div>
-          </label>
+          <FieldCheckbox
+            label="Modo corporativo"
+            helper="Ativa controles multiempresa e comportamentos extras para estruturas corporativas."
+            bind:checked={form.modo_corporativo}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
 
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="politica-cancelamento"
-            >
-              Politica de cancelamento
-            </label>
-            <select
-              id="politica-cancelamento"
-              class="vtur-input w-full"
-              value={form.politica_cancelamento}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "politica_cancelamento",
-                  (event.currentTarget as HTMLSelectElement).value ===
-                    "estornar_recibos"
-                    ? "estornar_recibos"
-                    : "cancelar_venda",
-                )}
-            >
-              <option value="cancelar_venda"
-                >Cancelar venda (exclui venda)</option
-              >
-              <option value="estornar_recibos"
-                >Estornar recibos (manter venda)</option
-              >
-            </select>
-            <p class="mt-1 text-xs text-slate-500">
-              Define o comportamento padrao do sistema ao cancelar uma venda.
-            </p>
-          </div>
+          <FieldSelect
+            id="politica-cancelamento"
+            label="Politica de cancelamento"
+            value={form.politica_cancelamento}
+            options={[
+              { value: 'cancelar_venda', label: 'Cancelar venda (exclui venda)' },
+              { value: 'estornar_recibos', label: 'Estornar recibos (manter venda)' }
+            ]}
+            disabled={bloqueado}
+            class_name="w-full"
+            helper="Define o comportamento padrao do sistema ao cancelar uma venda."
+            on:change={(event) => updateTopLevel('politica_cancelamento', (event.currentTarget as HTMLSelectElement).value === 'estornar_recibos' ? 'estornar_recibos' : 'cancelar_venda')}
+          />
         </div>
       </Card>
 
       <Card color="financeiro" title="Seguranca e exportacoes">
         <div class="space-y-4">
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.mfa_obrigatorio}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "mfa_obrigatorio",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">
-                Exigir verificacao em duas etapas (2FA)
-              </p>
-              <p class="text-sm text-slate-500">
-                Usuarios sem autenticador configurado precisam regularizar o
-                acesso antes de entrar nos modulos.
-              </p>
-            </div>
-          </label>
-
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.exportacao_pdf}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "exportacao_pdf",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">Exportacao em PDF</p>
-              <p class="text-sm text-slate-500">
-                Libera relatorios e documentos administrativos em PDF.
-              </p>
-            </div>
-          </label>
-
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.exportacao_excel}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "exportacao_excel",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">Exportacao em Excel</p>
-              <p class="text-sm text-slate-500">
-                Mantem exportacao tabular ativa para relatorios, conciliacao e
-                operacao administrativa.
-              </p>
-            </div>
-          </label>
+          <FieldCheckbox
+            label="Exigir verificacao em duas etapas (2FA)"
+            helper="Usuarios sem autenticador configurado precisam regularizar o acesso antes de entrar nos modulos."
+            bind:checked={form.mfa_obrigatorio}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
+          <FieldCheckbox
+            label="Exportacao em PDF"
+            helper="Libera relatorios e documentos administrativos em PDF."
+            bind:checked={form.exportacao_pdf}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
+          <FieldCheckbox
+            label="Exportacao em Excel"
+            helper="Mantem exportacao tabular ativa para relatorios, conciliacao e operacao administrativa."
+            bind:checked={form.exportacao_excel}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
         </div>
       </Card>
     </div>
@@ -658,153 +541,67 @@
     <Card color="financeiro" title="Conciliacao e comissionamento">
       <div class="space-y-6">
         <div class="grid gap-4 xl:grid-cols-2">
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.conciliacao_sobrepoe_vendas}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "conciliacao_sobrepoe_vendas",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">
-                Conciliacao como fonte principal
-              </p>
-              <p class="text-sm text-slate-500">
-                Faz a movimentacao conciliada prevalecer sobre a venda lancada
-                manualmente.
-              </p>
-            </div>
-          </label>
-
-          <label
-            class="flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-          >
-            <input
-              type="checkbox"
-              checked={form.conciliacao_regra_ativa}
-              disabled={bloqueado}
-              on:change={(event) =>
-                updateTopLevel(
-                  "conciliacao_regra_ativa",
-                  (event.currentTarget as HTMLInputElement).checked,
-                )}
-            />
-            <div>
-              <p class="font-medium text-slate-900">
-                Regra propria de comissao
-              </p>
-              <p class="text-sm text-slate-500">
-                Coloca a regra de conciliacao antes do template geral e das
-                regras por produto.
-              </p>
-            </div>
-          </label>
+          <FieldCheckbox
+            label="Conciliacao como fonte principal"
+            helper="Faz a movimentacao conciliada prevalecer sobre a venda lancada manualmente."
+            bind:checked={form.conciliacao_sobrepoe_vendas}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
+          <FieldCheckbox
+            label="Regra propria de comissao"
+            helper="Coloca a regra de conciliacao antes do template geral e das regras por produto."
+            bind:checked={form.conciliacao_regra_ativa}
+            disabled={bloqueado}
+            color="financeiro"
+            class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+          />
         </div>
 
         <div class="grid gap-4 xl:grid-cols-4">
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="conciliacao-tipo"
-            >
-              Tipo da regra
-            </label>
-            <select
-              id="conciliacao-tipo"
-              class="vtur-input w-full"
-              value={form.conciliacao_tipo}
-              disabled={bloqueadoConciliacao}
-              on:change={(event) =>
-                updateTopLevel(
-                  "conciliacao_tipo",
-                  (event.currentTarget as HTMLSelectElement).value ===
-                    "ESCALONAVEL"
-                    ? "ESCALONAVEL"
-                    : "GERAL",
-                )}
-            >
-              <option value="GERAL">Geral (percentuais fixos)</option>
-              <option value="ESCALONAVEL">Escalonavel (faixas)</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="conciliacao-nao-batida"
-            >
-              % Concil. meta nao batida
-            </label>
-            <input
-              id="conciliacao-nao-batida"
-              type="number"
-              step="0.01"
-              value={form.conciliacao_meta_nao_atingida ?? ""}
-              class="vtur-input w-full"
-              disabled={bloqueadoConciliacao}
-              on:input={(event) =>
-                updateTopLevel(
-                  "conciliacao_meta_nao_atingida",
-                  parseNumberOrNull(
-                    (event.currentTarget as HTMLInputElement).value,
-                  ),
-                )}
-            />
-          </div>
-
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="conciliacao-batida"
-            >
-              % Concil. meta batida
-            </label>
-            <input
-              id="conciliacao-batida"
-              type="number"
-              step="0.01"
-              value={form.conciliacao_meta_atingida ?? ""}
-              class="vtur-input w-full"
-              disabled={bloqueadoConciliacao}
-              on:input={(event) =>
-                updateTopLevel(
-                  "conciliacao_meta_atingida",
-                  parseNumberOrNull(
-                    (event.currentTarget as HTMLInputElement).value,
-                  ),
-                )}
-            />
-          </div>
-
-          <div>
-            <label
-              class="mb-1 block text-sm font-medium text-slate-700"
-              for="conciliacao-super-meta"
-            >
-              % Concil. super meta
-            </label>
-            <input
-              id="conciliacao-super-meta"
-              type="number"
-              step="0.01"
-              value={form.conciliacao_super_meta ?? ""}
-              class="vtur-input w-full"
-              disabled={bloqueadoConciliacao}
-              on:input={(event) =>
-                updateTopLevel(
-                  "conciliacao_super_meta",
-                  parseNumberOrNull(
-                    (event.currentTarget as HTMLInputElement).value,
-                  ),
-                )}
-            />
-          </div>
+          <FieldSelect
+            id="conciliacao-tipo"
+            label="Tipo da regra"
+            value={form.conciliacao_tipo}
+            options={[
+              { value: 'GERAL', label: 'Geral (percentuais fixos)' },
+              { value: 'ESCALONAVEL', label: 'Escalonavel (faixas)' }
+            ]}
+            disabled={bloqueadoConciliacao}
+            class_name="w-full"
+            on:change={(event) => updateTopLevel('conciliacao_tipo', (event.currentTarget as HTMLSelectElement).value === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL')}
+          />
+          <FieldInput
+            id="conciliacao-nao-batida"
+            label="% Concil. meta nao batida"
+            type="number"
+            step="0.01"
+            value={form.conciliacao_meta_nao_atingida ?? ''}
+            disabled={bloqueadoConciliacao}
+            class_name="w-full"
+            on:input={(event) => updateTopLevel('conciliacao_meta_nao_atingida', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
+          />
+          <FieldInput
+            id="conciliacao-batida"
+            label="% Concil. meta batida"
+            type="number"
+            step="0.01"
+            value={form.conciliacao_meta_atingida ?? ''}
+            disabled={bloqueadoConciliacao}
+            class_name="w-full"
+            on:input={(event) => updateTopLevel('conciliacao_meta_atingida', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
+          />
+          <FieldInput
+            id="conciliacao-super-meta"
+            label="% Concil. super meta"
+            type="number"
+            step="0.01"
+            value={form.conciliacao_super_meta ?? ''}
+            disabled={bloqueadoConciliacao}
+            class_name="w-full"
+            on:input={(event) => updateTopLevel('conciliacao_super_meta', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
+          />
         </div>
 
         <p class="text-sm text-slate-500">

@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -322,15 +323,15 @@
   <form on:submit|preventDefault={handleSubmit}>
     <Card color="financeiro" class="mb-6">
       <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div>
-          <label for="produto-tipo" class="mb-1 block text-sm font-medium text-slate-700">Tipo de produto *</label>
-          <select id="produto-tipo" bind:value={form.tipo_produto} class="vtur-input w-full">
-            <option value="">Selecione...</option>
-            {#each tipos as tipo}
-              <option value={tipo.id}>{tipo.nome || tipo.tipo}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="produto-tipo"
+          label="Tipo de produto"
+          required={true}
+          bind:value={form.tipo_produto}
+          options={tipos.map((t) => ({ value: t.id, label: t.nome || t.tipo || '' }))}
+          placeholder="Selecione..."
+          class_name="w-full"
+        />
         <div>
           <label for="produto-destino" class="mb-1 block text-sm font-medium text-slate-700">Destino *</label>
           <input id="produto-destino" bind:value={form.destino} class="vtur-input w-full" list="destinos-list" placeholder="Ex: Disney, Gramado, Global" disabled={form.todas_as_cidades} />
@@ -360,19 +361,23 @@
           </select>
         </div>
 
-        <div class="md:col-span-2">
-          <label for="produto-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome *</label>
-          <input id="produto-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Passeio em Paris, Pacote Disney, Hotel em Gramado" />
-        </div>
-        <div>
-          <label for="produto-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade {!form.todas_as_cidades ? '*' : ''}</label>
-          <select id="produto-cidade" bind:value={form.cidade_id} class="vtur-input w-full" disabled={form.todas_as_cidades}>
-            <option value="">Selecione...</option>
-            {#each cidades as cidade}
-              <option value={cidade.id}>{cidadeLabel(cidade.id)}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldInput
+          id="produto-nome"
+          label="Nome"
+          required={true}
+          bind:value={form.nome}
+          placeholder="Ex: Passeio em Paris, Pacote Disney, Hotel em Gramado"
+          class_name="md:col-span-2 w-full"
+        />
+        <FieldSelect
+          id="produto-cidade"
+          label="Cidade"
+          bind:value={form.cidade_id}
+          options={[{ value: '', label: 'Selecione...' }, ...cidades.map((c) => ({ value: c.id, label: cidadeLabel(c.id) }))]}
+          placeholder=""
+          disabled={form.todas_as_cidades}
+          class_name="w-full"
+        />
 
         <div>
           <label for="produto-fornecedor" class="mb-1 block text-sm font-medium text-slate-700">Fornecedor</label>
@@ -402,60 +407,99 @@
           </datalist>
         </div>
 
-        <div>
-          <label for="produto-duracao" class="mb-1 block text-sm font-medium text-slate-700">Duração sugerida</label>
-          <input id="produto-duracao" bind:value={form.duracao_sugerida} class="vtur-input w-full" placeholder="Ex: 5 dias / 4 noites" />
-        </div>
-        <div>
-          <label for="produto-nivel" class="mb-1 block text-sm font-medium text-slate-700">Nível de preço</label>
-          <select id="produto-nivel" bind:value={form.nivel_preco} class="vtur-input w-full">
-            <option value="">Selecione...</option>
-            <option value="Economico">Econômico</option>
-            <option value="Intermediario">Intermediário</option>
-            <option value="Variavel">Variável</option>
-            <option value="Premium">Premium</option>
-            <option value="Super Premium">Super Premium</option>
-          </select>
-        </div>
-        <div>
-          <label for="produto-imagem" class="mb-1 block text-sm font-medium text-slate-700">Imagem</label>
-          <input id="produto-imagem" bind:value={form.imagem_url} class="vtur-input w-full" placeholder="URL da imagem" />
-        </div>
+        <FieldInput
+          id="produto-duracao"
+          label="Duração sugerida"
+          bind:value={form.duracao_sugerida}
+          placeholder="Ex: 5 dias / 4 noites"
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="produto-nivel"
+          label="Nível de preço"
+          bind:value={form.nivel_preco}
+          options={[
+            { value: '', label: 'Selecione...' },
+            { value: 'Economico', label: 'Econômico' },
+            { value: 'Intermediario', label: 'Intermediário' },
+            { value: 'Variavel', label: 'Variável' },
+            { value: 'Premium', label: 'Premium' },
+            { value: 'Super Premium', label: 'Super Premium' }
+          ]}
+          placeholder=""
+          class_name="w-full"
+        />
+        <FieldInput
+          id="produto-imagem"
+          label="Imagem"
+          bind:value={form.imagem_url}
+          placeholder="URL da imagem"
+          class_name="w-full"
+        />
 
-        <div>
-          <label for="produto-valor-neto" class="mb-1 block text-sm font-medium text-slate-700">Valor líquido</label>
-          <input id="produto-valor-neto" bind:value={form.valor_neto} type="number" step="0.01" class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="produto-margem" class="mb-1 block text-sm font-medium text-slate-700">Margem</label>
-          <input id="produto-margem" bind:value={form.margem} type="number" step="0.01" class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="produto-valor-venda" class="mb-1 block text-sm font-medium text-slate-700">Valor de venda</label>
-          <input id="produto-valor-venda" bind:value={form.valor_venda} type="number" step="0.01" class="vtur-input w-full" />
-        </div>
+        <FieldInput
+          id="produto-valor-neto"
+          label="Valor líquido"
+          type="number"
+          step="0.01"
+          bind:value={form.valor_neto as any}
+          class_name="w-full"
+        />
+        <FieldInput
+          id="produto-margem"
+          label="Margem"
+          type="number"
+          step="0.01"
+          bind:value={form.margem as any}
+          class_name="w-full"
+        />
+        <FieldInput
+          id="produto-valor-venda"
+          label="Valor de venda"
+          type="number"
+          step="0.01"
+          bind:value={form.valor_venda as any}
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="produto-moeda"
+          label="Moeda"
+          bind:value={form.moeda}
+          options={[
+            { value: 'BRL', label: 'BRL' },
+            { value: 'USD', label: 'USD' },
+            { value: 'EUR', label: 'EUR' }
+          ]}
+          placeholder=""
+          class_name="w-full"
+        />
+        <FieldInput
+          id="produto-cambio"
+          label="Câmbio"
+          type="number"
+          step="0.0001"
+          bind:value={form.cambio as any}
+          disabled={form.moeda === 'BRL'}
+          class_name="w-full"
+        />
+        <FieldInput
+          id="produto-valor-reais"
+          label="Valor em reais"
+          type="number"
+          step="0.01"
+          bind:value={form.valor_em_reais as any}
+          disabled
+          class_name="w-full"
+        />
 
-        <div>
-          <label for="produto-moeda" class="mb-1 block text-sm font-medium text-slate-700">Moeda</label>
-          <select id="produto-moeda" bind:value={form.moeda} class="vtur-input w-full">
-            <option value="BRL">BRL</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </div>
-        <div>
-          <label for="produto-cambio" class="mb-1 block text-sm font-medium text-slate-700">Câmbio</label>
-          <input id="produto-cambio" bind:value={form.cambio} type="number" step="0.0001" class="vtur-input w-full" disabled={form.moeda === 'BRL'} />
-        </div>
-        <div>
-          <label for="produto-valor-reais" class="mb-1 block text-sm font-medium text-slate-700">Valor em reais</label>
-          <input id="produto-valor-reais" bind:value={form.valor_em_reais} type="number" step="0.01" class="vtur-input w-full" disabled />
-        </div>
-
-        <div class="md:col-span-3">
-          <label for="produto-info" class="mb-1 block text-sm font-medium text-slate-700">Informações importantes</label>
-          <textarea id="produto-info" bind:value={form.informacoes_importantes} class="vtur-input min-h-[140px] w-full" placeholder="Orientações operacionais, observações de venda, detalhes úteis para voucher e execução"></textarea>
-        </div>
+        <FieldTextarea
+          id="produto-info"
+          label="Informações importantes"
+          bind:value={form.informacoes_importantes}
+          rows={5}
+          placeholder="Orientações operacionais, observações de venda, detalhes úteis para voucher e execução"
+          class_name="md:col-span-3 w-full"
+        />
 
         <div>
           <label for="produto-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
@@ -493,9 +537,9 @@
             <div class="rounded-xl border border-slate-200 p-4">
               <div class="mb-4 flex items-center justify-between">
                 <p class="font-medium text-slate-900">Tarifa {index + 1}</p>
-                <button type="button" class="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600" on:click={() => removeTarifa(index)}>
+                <Button variant="ghost" size="sm" color="red" class_name="text-slate-400 hover:bg-red-50 hover:text-red-600" on:click={() => removeTarifa(index)}>
                   <Trash2 size={16} />
-                </button>
+                </Button>
               </div>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <input class="vtur-input w-full" placeholder="Acomodação" value={tarifa.acomodacao} on:input={(e) => updateTarifa(index, 'acomodacao', e.currentTarget.value)} />

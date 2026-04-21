@@ -1,9 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { PageHeader, Card, Button, Dialog, FieldInput, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Image, MessageSquare, Tag, Send, Eye, ChevronLeft, ChevronRight, Search } from 'lucide-svelte';
@@ -610,22 +607,16 @@
 
         <!-- Busca de cliente -->
         <div class="mb-3 relative">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-cliente">
-            Cliente
-          </label>
-          <div class="relative">
-            <Search size={14} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              id="crm-cliente"
-              bind:value={clienteBusca}
-              on:input={onClienteBuscaInput}
-              on:focus={() => { if (clienteResults.length) showClienteDropdown = true; }}
-              on:blur={() => setTimeout(() => { showClienteDropdown = false; }, 200)}
-              class="vtur-input w-full pl-8"
-              placeholder="Buscar cliente..."
-              autocomplete="off"
-            />
-          </div>
+          <FieldInput
+            label="Cliente"
+            id="crm-cliente"
+            bind:value={clienteBusca}
+            on:input={onClienteBuscaInput}
+            on:focus={() => { if (clienteResults.length) showClienteDropdown = true; }}
+            on:blur={() => setTimeout(() => { showClienteDropdown = false; }, 200)}
+            placeholder="Buscar cliente..."
+            icon={Search}
+          />
           {#if showClienteDropdown && clienteResults.length}
             <div class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
               {#each clienteResults as c}
@@ -642,32 +633,24 @@
 
         <!-- Nome no cartão (editável) -->
         {#if clienteNome}
-          <div class="mb-3">
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-primeiro-nome">
-              Nome no cartão
-            </label>
-            <input
-              id="crm-primeiro-nome"
-              bind:value={clienteNomeCustom}
-              class="vtur-input w-full"
-              placeholder={getPrimeiroNome(clienteNome)}
-            />
-            <p class="mt-1 text-xs text-slate-400">Exibido no cartão. Padrão: primeiro nome.</p>
-          </div>
+          <FieldInput
+            label="Nome no cartão"
+            id="crm-primeiro-nome"
+            bind:value={clienteNomeCustom}
+            placeholder={getPrimeiroNome(clienteNome)}
+            helper="Exibido no cartão. Padrão: primeiro nome."
+            class_name="mb-3"
+          />
         {/if}
 
         <!-- Saudação -->
-        <div class="mb-3">
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="crm-saudacao">
-            Saudação
-          </label>
-          <input
-            id="crm-saudacao"
-            bind:value={greeting}
-            class="vtur-input w-full"
-            placeholder="Ex: Feliz Aniversário!"
-          />
-        </div>
+        <FieldInput
+          label="Saudação"
+          id="crm-saudacao"
+          bind:value={greeting}
+          placeholder="Ex: Feliz Aniversário!"
+          class_name="mb-3"
+        />
 
         <!-- Templates de texto rápidos -->
         {#if activeMessages.length > 0}
@@ -695,13 +678,13 @@
               {countWords(mensagem)}/{maxPalavras} palavras · {countLines(mensagem)}/{maxLinhas} linhas
             </span>
           </label>
-          <textarea
+          <FieldTextarea
             id="crm-mensagem"
             bind:value={mensagem}
-            rows="5"
-            class="vtur-input w-full resize-none {palavrasExcedido || linhasExcedido ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : ''}"
+            rows={5}
+            resize="none"
             placeholder="Escreva sua mensagem... Use {{primeiro_nome}}, {{nome_cliente}}, {{consultor}}"
-          ></textarea>
+          />
           {#if palavrasExcedido}
             <p class="mt-1 text-xs text-red-500">⚠️ Mensagem excede o limite de {maxPalavras} palavras.</p>
           {/if}

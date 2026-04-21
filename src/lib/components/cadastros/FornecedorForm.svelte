@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -227,26 +228,12 @@
       </div>
 
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <label for="forn-nome-completo" class="mb-1 block text-sm font-medium text-slate-700">Nome completo</label>
-          <input id="forn-nome-completo" bind:value={form.nome_completo} class="vtur-input w-full" placeholder="Razão social" />
-        </div>
-        <div>
-          <label for="forn-fantasia" class="mb-1 block text-sm font-medium text-slate-700">Nome fantasia</label>
-          <input id="forn-fantasia" bind:value={form.nome_fantasia} class="vtur-input w-full" placeholder="Nome comercial" />
-        </div>
-
+        <FieldInput id="forn-nome-completo" label="Nome completo" bind:value={form.nome_completo} placeholder="Razão social" class_name="w-full" />
+        <FieldInput id="forn-fantasia" label="Nome fantasia" bind:value={form.nome_fantasia} placeholder="Nome comercial" class_name="w-full" />
         {#if form.localizacao === 'brasil'}
-          <div>
-            <label for="forn-cnpj" class="mb-1 block text-sm font-medium text-slate-700">CNPJ</label>
-            <input id="forn-cnpj" bind:value={form.cnpj} class="vtur-input w-full" placeholder="00.000.000/0000-00" />
-          </div>
-          <div>
-            <label for="forn-cep" class="mb-1 block text-sm font-medium text-slate-700">CEP</label>
-            <input id="forn-cep" bind:value={form.cep} class="vtur-input w-full" placeholder="00000-000" />
-          </div>
+          <FieldInput id="forn-cnpj" label="CNPJ" bind:value={form.cnpj} placeholder="00.000.000/0000-00" class_name="w-full" />
+          <FieldInput id="forn-cep" label="CEP" bind:value={form.cep} placeholder="00000-000" class_name="w-full" />
         {/if}
-
         <div class="relative">
           <label for="forn-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade</label>
           <input id="forn-cidade" value={cidadeBusca} class="vtur-input w-full" placeholder="Buscar cidade..." on:input={(e) => handleCidadeInput(e.currentTarget.value)} on:focus={() => (showCidadeOptions = true)} on:blur={() => setTimeout(() => (showCidadeOptions = false), 150)} />
@@ -271,37 +258,24 @@
             </div>
           {/if}
         </div>
-        <div>
-          <label for="forn-estado" class="mb-1 block text-sm font-medium text-slate-700">Estado</label>
-          <input id="forn-estado" bind:value={form.estado} class="vtur-input w-full" placeholder="UF / região" readonly />
-        </div>
-
-        <div>
-          <label for="forn-telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone</label>
-          <input id="forn-telefone" value={form.telefone} class="vtur-input w-full" on:input={(e) => (form.telefone = formatPhone(e.currentTarget.value))} />
-        </div>
-        <div>
-          <label for="forn-whatsapp" class="mb-1 block text-sm font-medium text-slate-700">WhatsApp</label>
-          <input id="forn-whatsapp" value={form.whatsapp} class="vtur-input w-full" on:input={(e) => (form.whatsapp = formatPhone(e.currentTarget.value))} />
-        </div>
-        <div>
-          <label for="forn-emergencia" class="mb-1 block text-sm font-medium text-slate-700">Telefone emergência</label>
-          <input id="forn-emergencia" value={form.telefone_emergencia} class="vtur-input w-full" on:input={(e) => (form.telefone_emergencia = formatPhone(e.currentTarget.value))} />
-        </div>
-        <div>
-          <label for="forn-responsavel" class="mb-1 block text-sm font-medium text-slate-700">Responsável</label>
-          <input id="forn-responsavel" bind:value={form.responsavel} class="vtur-input w-full" placeholder="Pessoa de contato" />
-        </div>
-
-        <div>
-          <label for="forn-faturamento" class="mb-1 block text-sm font-medium text-slate-700">Tipo de faturamento</label>
-          <select id="forn-faturamento" bind:value={form.tipo_faturamento} class="vtur-input w-full">
-            <option value="pre_pago">Pré-pago</option>
-            <option value="semanal">Semanal</option>
-            <option value="quinzenal">Quinzenal</option>
-            <option value="mensal">Mensal</option>
-          </select>
-        </div>
+        <FieldInput id="forn-estado" label="Estado" bind:value={form.estado} placeholder="UF / região" readonly class_name="w-full" />
+        <FieldInput id="forn-telefone" label="Telefone" value={form.telefone} class_name="w-full" on:input={(e) => (form.telefone = formatPhone(e.currentTarget.value))} />
+        <FieldInput id="forn-whatsapp" label="WhatsApp" value={form.whatsapp} class_name="w-full" on:input={(e) => (form.whatsapp = formatPhone(e.currentTarget.value))} />
+        <FieldInput id="forn-emergencia" label="Telefone emergência" value={form.telefone_emergencia} class_name="w-full" on:input={(e) => (form.telefone_emergencia = formatPhone(e.currentTarget.value))} />
+        <FieldInput id="forn-responsavel" label="Responsável" bind:value={form.responsavel} placeholder="Pessoa de contato" class_name="w-full" />
+        <FieldSelect
+          id="forn-faturamento"
+          label="Tipo de faturamento"
+          bind:value={form.tipo_faturamento}
+          options={[
+            { value: 'pre_pago', label: 'Pré-pago' },
+            { value: 'semanal', label: 'Semanal' },
+            { value: 'quinzenal', label: 'Quinzenal' },
+            { value: 'mensal', label: 'Mensal' }
+          ]}
+          placeholder=""
+          class_name="w-full"
+        />
         <div>
           <label for="forn-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
           <select id="forn-status" bind:value={form.ativo} class="vtur-input w-full">
@@ -309,11 +283,14 @@
             <option value={false}>Inativo</option>
           </select>
         </div>
-
-        <div class="md:col-span-2">
-          <label for="forn-servicos" class="mb-1 block text-sm font-medium text-slate-700">Principais serviços</label>
-          <textarea id="forn-servicos" bind:value={form.principais_servicos} rows="4" class="vtur-input w-full" placeholder="Descreva serviços, especialidades, janelas de atendimento e observações relevantes"></textarea>
-        </div>
+        <FieldTextarea
+          id="forn-servicos"
+          label="Principais serviços"
+          bind:value={form.principais_servicos}
+          rows={4}
+          placeholder="Descreva serviços, especialidades, janelas de atendimento e observações relevantes"
+          class_name="md:col-span-2 w-full"
+        />
       </div>
     </Card>
 

@@ -521,12 +521,15 @@
               <div class="p-3 bg-slate-50 rounded-lg border">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-sm font-medium">Faixa {index + 1}</span>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    color="red"
+                    class_name="text-red-500 hover:text-red-700"
                     on:click={() => removeTier(index)}
-                    class="text-red-500 hover:text-red-700"
                   >
                     <XCircle size={16} />
-                  </button>
+                  </Button>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                   <FieldSelect bind:value={tier.faixa} options={tierFaixaOptions} class_name="w-full" />

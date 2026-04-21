@@ -646,14 +646,14 @@
                     <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">Passageiro {i + 1}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remover passageiro ${i + 1}`}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          color="red"
                           on:click={() => removePassenger(i)}
-                          class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <FieldInput
@@ -833,37 +833,29 @@
                       {#if activeDayIndexes.includes(i)}
                         <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label for={`voucher-dia-titulo-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Título do Dia</label>
-                              <input
-                                id={`voucher-dia-titulo-${i}`}
-                                type="text"
-                                bind:value={dia.titulo}
-                                class="vtur-input w-full"
-                                placeholder="Ex: Lisboa - Chegada"
-                              />
-                            </div>
-                            <div>
-                              <label for={`voucher-dia-cidade-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Cidade</label>
-                              <input
-                                id={`voucher-dia-cidade-${i}`}
-                                type="text"
-                                bind:value={dia.cidade}
-                                class="vtur-input w-full"
-                                placeholder="Nome da cidade"
-                              />
-                            </div>
+                            <FieldInput
+                              id={`voucher-dia-titulo-${i}`}
+                              label="Título do Dia"
+                              type="text"
+                              bind:value={dia.titulo}
+                              placeholder="Ex: Lisboa - Chegada"
+                            />
+                            <FieldInput
+                              id={`voucher-dia-cidade-${i}`}
+                              label="Cidade"
+                              type="text"
+                              value={dia.cidade || ''}
+                              on:input={(e) => dia.cidade = (e.currentTarget as HTMLInputElement).value}
+                              placeholder="Nome da cidade"
+                            />
                           </div>
-                          <div>
-                            <label for={`voucher-dia-descricao-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Descrição das Atividades</label>
-                            <textarea
-                              id={`voucher-dia-descricao-${i}`}
-                              bind:value={dia.descricao}
-                              rows="5"
-                              class="vtur-input w-full"
-                              placeholder="Descreva as atividades do dia..."
-                            ></textarea>
-                          </div>
+                          <FieldTextarea
+                            id={`voucher-dia-descricao-${i}`}
+                            label="Descrição das Atividades"
+                            bind:value={dia.descricao}
+                            rows={5}
+                            placeholder="Descreva as atividades do dia..."
+                          />
                         </div>
                       {/if}
                     </div>
@@ -985,117 +977,92 @@
                       {#if activeHotelIndexes.includes(i)}
                         <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label for={`voucher-hotel-cidade-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Cidade *</label>
-                              <input
-                                id={`voucher-hotel-cidade-${i}`}
-                                type="text"
-                                bind:value={hotel.cidade}
-                                class="vtur-input w-full"
-                                placeholder="Nome da cidade"
-                              />
-                            </div>
-                            <div>
-                              <label for={`voucher-hotel-nome-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Hotel *</label>
-                              <input
-                                id={`voucher-hotel-nome-${i}`}
-                                type="text"
-                                bind:value={hotel.hotel}
-                                class="vtur-input w-full"
-                                placeholder="Nome do hotel"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <label for={`voucher-hotel-endereco-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Endereço</label>
-                            <input
-                              id={`voucher-hotel-endereco-${i}`}
-                              type="text"
-                              bind:value={hotel.endereco}
-                              class="vtur-input w-full"
-                              placeholder="Endereço completo"
+                            <FieldInput
+                              id={`voucher-hotel-cidade-${i}`}
+                              label="Cidade"
+                              required={true}
+                              bind:value={hotel.cidade}
+                              placeholder="Nome da cidade"
+                            />
+                            <FieldInput
+                              id={`voucher-hotel-nome-${i}`}
+                              label="Hotel"
+                              required={true}
+                              bind:value={hotel.hotel}
+                              placeholder="Nome do hotel"
                             />
                           </div>
                           
+                          <FieldInput
+                            id={`voucher-hotel-endereco-${i}`}
+                            label="Endereço"
+                            type="text"
+                            value={hotel.endereco || ''}
+                            on:input={(e) => hotel.endereco = (e.currentTarget as HTMLInputElement).value}
+                            placeholder="Endereço completo"
+                          />
+                          
                           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                              <label for={`voucher-hotel-checkin-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Check-in</label>
-                              <input
-                                id={`voucher-hotel-checkin-${i}`}
-                                type="date"
-                                value={hotel.data_inicio}
-                                on:input={(e) => updateHotelDates(i, 'data_inicio', e.currentTarget.value)}
-                                class="vtur-input w-full"
-                              />
-                            </div>
-                            <div>
-                              <label for={`voucher-hotel-checkout-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Check-out</label>
-                              <input
-                                id={`voucher-hotel-checkout-${i}`}
-                                type="date"
-                                value={hotel.data_fim}
-                                on:input={(e) => updateHotelDates(i, 'data_fim', e.currentTarget.value)}
-                                class="vtur-input w-full"
-                              />
-                            </div>
-                            <div>
-                              <label for={`voucher-hotel-noites-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
-                              <input
-                                id={`voucher-hotel-noites-${i}`}
-                                type="number"
-                                bind:value={hotel.noites}
-                                class="vtur-input w-full bg-slate-100"
-                                readonly
-                              />
-                            </div>
+                            <FieldInput
+                              id={`voucher-hotel-checkin-${i}`}
+                              label="Check-in"
+                              type="date"
+                              value={hotel.data_inicio || ''}
+                              on:input={(e) => updateHotelDates(i, 'data_inicio', (e.currentTarget as HTMLInputElement).value)}
+                            />
+                            <FieldInput
+                              id={`voucher-hotel-checkout-${i}`}
+                              label="Check-out"
+                              type="date"
+                              value={hotel.data_fim || ''}
+                              on:input={(e) => updateHotelDates(i, 'data_fim', (e.currentTarget as HTMLInputElement).value)}
+                            />
+                            <FieldInput
+                              id={`voucher-hotel-noites-${i}`}
+                              label="Noites"
+                              type="number"
+                              value={hotel.noites != null ? String(hotel.noites) : ''}
+                              readonly={true}
+                            />
                           </div>
                           
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label for={`voucher-hotel-telefone-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
-                              <input
-                                id={`voucher-hotel-telefone-${i}`}
-                                type="text"
-                                bind:value={hotel.telefone}
-                                class="vtur-input w-full"
-                                placeholder="Telefone do hotel"
-                              />
-                            </div>
-                            <div>
-                              <label for={`voucher-hotel-contato-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Contato</label>
-                              <input
-                                id={`voucher-hotel-contato-${i}`}
-                                type="text"
-                                bind:value={hotel.contato}
-                                class="vtur-input w-full"
-                                placeholder="Nome do contato"
-                              />
-                            </div>
+                            <FieldInput
+                              id={`voucher-hotel-telefone-${i}`}
+                              label="Telefone"
+                              type="text"
+                              value={hotel.telefone || ''}
+                              on:input={(e) => hotel.telefone = (e.currentTarget as HTMLInputElement).value}
+                              placeholder="Telefone do hotel"
+                            />
+                            <FieldInput
+                              id={`voucher-hotel-contato-${i}`}
+                              label="Contato"
+                              type="text"
+                              value={hotel.contato || ''}
+                              on:input={(e) => hotel.contato = (e.currentTarget as HTMLInputElement).value}
+                              placeholder="Nome do contato"
+                            />
                           </div>
                           
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label for={`voucher-hotel-status-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                              <select id={`voucher-hotel-status-${i}`} bind:value={hotel.status} class="vtur-input w-full">
-                                <option value="">Selecione...</option>
-                                {#each hotelStatusOptions as opt}
-                                  <option value={opt.value}>{opt.label}</option>
-                                {/each}
-                              </select>
-                            </div>
+                            <FieldSelect
+                              id={`voucher-hotel-status-${i}`}
+                              label="Status"
+                              value={hotel.status || ''}
+                              on:change={(e) => hotel.status = (e.currentTarget as HTMLSelectElement).value}
+                              options={[{ value: '', label: 'Selecione...' }, ...hotelStatusOptions]}
+                            />
                           </div>
                           
-                          <div>
-                            <label for={`voucher-hotel-observacao-${i}`} class="block text-sm font-medium text-slate-700 mb-1">Observação</label>
-                            <textarea
-                              id={`voucher-hotel-observacao-${i}`}
-                              bind:value={hotel.observacao}
-                              rows="2"
-                              class="vtur-input w-full"
-                              placeholder="Observações sobre o hotel..."
-                            ></textarea>
-                          </div>
+                          <FieldTextarea
+                            id={`voucher-hotel-observacao-${i}`}
+                            label="Observação"
+                            value={hotel.observacao || ''}
+                            on:input={(e) => hotel.observacao = (e.currentTarget as HTMLTextAreaElement).value}
+                            rows={2}
+                            placeholder="Observações sobre o hotel..."
+                          />
                         </div>
                       {/if}
                     </div>
@@ -1135,57 +1102,48 @@
                     Traslado Chegada
                   </h4>
                   <div class="space-y-3">
-                    <div>
-                      <label for="voucher-traslado-chegada-detalhes" class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
-                      <textarea
-                        id="voucher-traslado-chegada-detalhes"
-                        value={form.extra_data.traslado_chegada?.detalhes || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_chegada: { 
-                            ...(form.extra_data.traslado_chegada || {}), 
-                            detalhes: e.currentTarget.value 
-                          } 
-                        }}
-                        rows="3"
-                        class="vtur-input w-full border-green-200"
-                        placeholder="Detalhes do traslado de chegada..."
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label for="voucher-traslado-chegada-notas" class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
-                      <textarea
-                        id="voucher-traslado-chegada-notas"
-                        value={form.extra_data.traslado_chegada?.notas || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_chegada: { 
-                            ...(form.extra_data.traslado_chegada || {}), 
-                            notas: e.currentTarget.value 
-                          } 
-                        }}
-                        rows="2"
-                        class="vtur-input w-full border-green-200"
-                        placeholder="Notas importantes..."
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label for="voucher-traslado-chegada-telefone" class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
-                      <input
-                        id="voucher-traslado-chegada-telefone"
-                        type="text"
-                        value={form.extra_data.traslado_chegada?.telefone_transferista || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_chegada: { 
-                            ...(form.extra_data.traslado_chegada || {}), 
-                            telefone_transferista: e.currentTarget.value 
-                          } 
-                        }}
-                        class="vtur-input w-full border-green-200"
-                        placeholder="+34 999 999 999"
-                      />
-                    </div>
+                    <FieldTextarea
+                      id="voucher-traslado-chegada-detalhes"
+                      label="Detalhes"
+                      value={form.extra_data.traslado_chegada?.detalhes || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_chegada: { 
+                          ...(form.extra_data.traslado_chegada || {}), 
+                          detalhes: (e.currentTarget as HTMLTextAreaElement).value 
+                        } 
+                      }}
+                      rows={3}
+                      placeholder="Detalhes do traslado de chegada..."
+                    />
+                    <FieldTextarea
+                      id="voucher-traslado-chegada-notas"
+                      label="Notas"
+                      value={form.extra_data.traslado_chegada?.notas || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_chegada: { 
+                          ...(form.extra_data.traslado_chegada || {}), 
+                          notas: (e.currentTarget as HTMLTextAreaElement).value 
+                        } 
+                      }}
+                      rows={2}
+                      placeholder="Notas importantes..."
+                    />
+                    <FieldInput
+                      id="voucher-traslado-chegada-telefone"
+                      label="Telefone Transferista"
+                      type="text"
+                      value={form.extra_data.traslado_chegada?.telefone_transferista || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_chegada: { 
+                          ...(form.extra_data.traslado_chegada || {}), 
+                          telefone_transferista: (e.currentTarget as HTMLInputElement).value 
+                        } 
+                      }}
+                      placeholder="+34 999 999 999"
+                    />
                   </div>
                 </div>
 
@@ -1196,57 +1154,48 @@
                     Traslado Saída
                   </h4>
                   <div class="space-y-3">
-                    <div>
-                      <label for="voucher-traslado-saida-detalhes" class="block text-xs font-medium text-slate-600 mb-1">Detalhes</label>
-                      <textarea
-                        id="voucher-traslado-saida-detalhes"
-                        value={form.extra_data.traslado_saida?.detalhes || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_saida: { 
-                            ...(form.extra_data.traslado_saida || {}), 
-                            detalhes: e.currentTarget.value 
-                          } 
-                        }}
-                        rows="3"
-                        class="vtur-input w-full border-orange-200"
-                        placeholder="Detalhes do traslado de saída..."
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label for="voucher-traslado-saida-notas" class="block text-xs font-medium text-slate-600 mb-1">Notas</label>
-                      <textarea
-                        id="voucher-traslado-saida-notas"
-                        value={form.extra_data.traslado_saida?.notas || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_saida: { 
-                            ...(form.extra_data.traslado_saida || {}), 
-                            notas: e.currentTarget.value 
-                          } 
-                        }}
-                        rows="2"
-                        class="vtur-input w-full border-orange-200"
-                        placeholder="Notas importantes..."
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label for="voucher-traslado-saida-telefone" class="block text-xs font-medium text-slate-600 mb-1">Telefone Transferista</label>
-                      <input
-                        id="voucher-traslado-saida-telefone"
-                        type="text"
-                        value={form.extra_data.traslado_saida?.telefone_transferista || ''}
-                        on:input={(e) => form.extra_data = { 
-                          ...form.extra_data, 
-                          traslado_saida: { 
-                            ...(form.extra_data.traslado_saida || {}), 
-                            telefone_transferista: e.currentTarget.value 
-                          } 
-                        }}
-                        class="vtur-input w-full border-orange-200"
-                        placeholder="+34 999 999 999"
-                      />
-                    </div>
+                    <FieldTextarea
+                      id="voucher-traslado-saida-detalhes"
+                      label="Detalhes"
+                      value={form.extra_data.traslado_saida?.detalhes || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_saida: { 
+                          ...(form.extra_data.traslado_saida || {}), 
+                          detalhes: (e.currentTarget as HTMLTextAreaElement).value 
+                        } 
+                      }}
+                      rows={3}
+                      placeholder="Detalhes do traslado de saída..."
+                    />
+                    <FieldTextarea
+                      id="voucher-traslado-saida-notas"
+                      label="Notas"
+                      value={form.extra_data.traslado_saida?.notas || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_saida: { 
+                          ...(form.extra_data.traslado_saida || {}), 
+                          notas: (e.currentTarget as HTMLTextAreaElement).value 
+                        } 
+                      }}
+                      rows={2}
+                      placeholder="Notas importantes..."
+                    />
+                    <FieldInput
+                      id="voucher-traslado-saida-telefone"
+                      label="Telefone Transferista"
+                      type="text"
+                      value={form.extra_data.traslado_saida?.telefone_transferista || ''}
+                      on:input={(e) => form.extra_data = { 
+                        ...form.extra_data, 
+                        traslado_saida: { 
+                          ...(form.extra_data.traslado_saida || {}), 
+                          telefone_transferista: (e.currentTarget as HTMLInputElement).value 
+                        } 
+                      }}
+                      placeholder="+34 999 999 999"
+                    />
                   </div>
                 </div>
               </div>
@@ -1258,13 +1207,12 @@
                 <AlertCircle size={20} />
                 Informações Importantes
               </h3>
-              <textarea
+              <FieldTextarea
                 value={form.extra_data.informacoes_importantes || ''}
-                on:input={(e) => form.extra_data = { ...form.extra_data, informacoes_importantes: e.currentTarget.value }}
-                rows="5"
-                class="vtur-input w-full border-amber-200"
+                on:input={(e) => form.extra_data = { ...form.extra_data, informacoes_importantes: (e.currentTarget as HTMLTextAreaElement).value }}
+                rows={5}
                 placeholder="Liste aqui as informações importantes para o passageiro..."
-              ></textarea>
+              />
             </div>
 
             <!-- Apps -->
@@ -1286,38 +1234,32 @@
                     <div class="p-4 bg-white rounded-lg border border-blue-200 shadow-sm">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">App {i + 1}</span>
-                        <button
-                          type="button"
-                          aria-label={`Remover app ${i + 1}`}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          color="red"
                           on:click={() => removeApp(i)}
-                          class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label for={`voucher-app-nome-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Nome</label>
-                          <input
-                            id={`voucher-app-nome-${i}`}
-                            type="text"
-                            value={app.nome}
-                            on:input={(e) => updateApp(i, 'nome', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                            placeholder="Ex: Google Tradutor"
-                          />
-                        </div>
-                        <div>
-                          <label for={`voucher-app-descricao-${i}`} class="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
-                          <input
-                            id={`voucher-app-descricao-${i}`}
-                            type="text"
-                            value={app.descricao || ''}
-                            on:input={(e) => updateApp(i, 'descricao', e.currentTarget.value)}
-                            class="vtur-input w-full"
-                            placeholder="Para que serve"
-                          />
-                        </div>
+                        <FieldInput
+                          id={`voucher-app-nome-${i}`}
+                          label="Nome"
+                          type="text"
+                          value={app.nome}
+                          on:input={(e) => updateApp(i, 'nome', (e.currentTarget as HTMLInputElement).value)}
+                          placeholder="Ex: Google Tradutor"
+                        />
+                        <FieldInput
+                          id={`voucher-app-descricao-${i}`}
+                          label="Descrição"
+                          type="text"
+                          value={app.descricao || ''}
+                          on:input={(e) => updateApp(i, 'descricao', (e.currentTarget as HTMLInputElement).value)}
+                          placeholder="Para que serve"
+                        />
                       </div>
                     </div>
                   {/each}
@@ -1338,57 +1280,48 @@
               </h3>
               
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label for="voucher-emergencia-escritorio" class="block text-sm font-medium text-slate-700 mb-1">Escritório</label>
-                  <input
-                    id="voucher-emergencia-escritorio"
-                    type="text"
-                    value={form.extra_data.emergencia?.escritorio || ''}
-                    on:input={(e) => form.extra_data = { 
-                      ...form.extra_data, 
-                      emergencia: { 
-                        ...(form.extra_data.emergencia || {}), 
-                        escritorio: e.currentTarget.value 
-                      } 
-                    }}
-                    class="vtur-input w-full"
-                    placeholder="+55 11 9999-9999"
-                  />
-                </div>
-                <div>
-                  <label for="voucher-emergencia-24h" class="block text-sm font-medium text-slate-700 mb-1">Emergência 24h</label>
-                  <input
-                    id="voucher-emergencia-24h"
-                    type="text"
-                    value={form.extra_data.emergencia?.emergencia_24h || ''}
-                    on:input={(e) => form.extra_data = { 
-                      ...form.extra_data, 
-                      emergencia: { 
-                        ...(form.extra_data.emergencia || {}), 
-                        emergencia_24h: e.currentTarget.value 
-                      } 
-                    }}
-                    class="vtur-input w-full"
-                    placeholder="+34 652 99 00 47"
-                  />
-                </div>
-                <div>
-                  <label for="voucher-emergencia-whatsapp" class="block text-sm font-medium text-slate-700 mb-1">WhatsApp</label>
-                  <input
-                    id="voucher-emergencia-whatsapp"
-                    type="text"
-                    value={form.extra_data.emergencia?.whatsapp || ''}
-                    on:input={(e) => form.extra_data = { 
-                      ...form.extra_data, 
-                      emergencia: { 
-                        ...(form.extra_data.emergencia || {}), 
-                        whatsapp: e.currentTarget.value 
-                      } 
-                    }}
-                    class="vtur-input w-full"
-                    placeholder="+55 11 99999-9999"
-                  />
-                </div>
+                <FieldInput
+                  id="voucher-emergencia-escritorio"
+                  label="Escritório"
+                  type="text"
+                  value={form.extra_data.emergencia?.escritorio || ''}
+                  on:input={(e) => form.extra_data = { 
+                    ...form.extra_data, 
+                    emergencia: { 
+                      ...(form.extra_data.emergencia || {}), 
+                      escritorio: (e.currentTarget as HTMLInputElement).value 
+                    } 
+                  }}
+                  placeholder="+55 11 9999-9999"
+                />
+                <FieldInput
+                  id="voucher-emergencia-24h"
+                  label="Emergência 24h"
+                  type="text"
+                  value={form.extra_data.emergencia?.emergencia_24h || ''}
+                  on:input={(e) => form.extra_data = { 
+                    ...form.extra_data, 
+                    emergencia: { 
+                      ...(form.extra_data.emergencia || {}), 
+                      emergencia_24h: (e.currentTarget as HTMLInputElement).value 
+                    } 
+                  }}
+                  placeholder="+34 652 99 00 47"
+                />
+                <FieldInput
+                  id="voucher-emergencia-whatsapp"
+                  label="WhatsApp"
+                  type="text"
+                  value={form.extra_data.emergencia?.whatsapp || ''}
+                  on:input={(e) => form.extra_data = { 
+                    ...form.extra_data, 
+                    emergencia: { 
+                      ...(form.extra_data.emergencia || {}), 
+                      whatsapp: (e.currentTarget as HTMLInputElement).value 
+                    } 
+                  }}
+                  placeholder="+55 11 99999-9999"
+                />
               </div>
             </div>
 

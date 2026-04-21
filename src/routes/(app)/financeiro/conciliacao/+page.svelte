@@ -608,18 +608,9 @@
 </div>
 
 <FilterPanel title="Filtros da Conciliação" color="financeiro" fieldsClass="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-  <div>
-    <label for="conciliacao-mes" class="mb-1 block text-sm font-medium text-slate-700">Mês</label>
-    <input id="conciliacao-mes" type="month" bind:value={monthFilter} class="vtur-input w-full" />
-  </div>
-  <div>
-    <label for="conciliacao-dia" class="mb-1 block text-sm font-medium text-slate-700">Dia específico</label>
-    <input id="conciliacao-dia" type="date" bind:value={dayFilter} class="vtur-input w-full" />
-  </div>
-  <div>
-    <label for="conciliacao-busca" class="mb-1 block text-sm font-medium text-slate-700">Busca</label>
-    <input id="conciliacao-busca" type="text" bind:value={searchQuery} placeholder="Documento, descrição, vendedor..." class="vtur-input w-full" />
-  </div>
+  <FieldInput id="conciliacao-mes" label="Mês" type="month" bind:value={monthFilter} class_name="w-full" />
+  <FieldInput id="conciliacao-dia" label="Dia específico" type="date" bind:value={dayFilter} class_name="w-full" />
+  <FieldInput id="conciliacao-busca" label="Busca" type="text" bind:value={searchQuery} placeholder="Documento, descrição, vendedor..." class_name="w-full" />
   <FieldSelect
     id="conciliacao-ranking-status"
     label="Ranking"
