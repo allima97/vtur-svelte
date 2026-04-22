@@ -11,16 +11,26 @@
     Settings, TrendingDown, Loader2
   } from 'lucide-svelte';
 
-  interface Pagamento {
+  interface ConciliacaoSummary {
+    total: number;
+    efetivados: number;
+    pendentes: number;
+    semRanking: number;
+    baixaRac: number;
+    totalValor: number;
+    timeline: Array<{ date: string; value: number }>;
+  }
+
+  interface ConciliacaoItem {
     id: string;
-    codigo?: string;
+    documento?: string;
     descricao?: string;
-    valor?: number;
-    status?: 'pendente' | 'conciliado' | 'divergente' | string;
-    data_pagamento?: string;
-    created_at?: string;
-    cliente?: { nome?: string };
-    venda?: { codigo?: string };
+    movimento_data?: string;
+    status?: string;
+    status_display?: string;
+    valor_lancamentos?: number;
+    valor_calculada_loja?: number;
+    conciliado?: boolean;
   }
 
   interface ComissaoItem {
@@ -44,7 +54,16 @@
   }
 
   let loading = true;
-  let pagamentos: Pagamento[] = [];
+  let summary: ConciliacaoSummary = {
+    total: 0,
+    efetivados: 0,
+    pendentes: 0,
+    semRanking: 0,
+    baixaRac: 0,
+    totalValor: 0,
+    timeline: []
+  };
+  let conciliacoesRecentes: ConciliacaoItem[] = [];
   let comissoes: ComissaoItem[] = [];
 
   let resumo = {
@@ -52,7 +71,8 @@
     totalPagar: 0,
     comissoesPendentes: 0,
     conciliacoesPendentes: 0,
-    divergencias: 0,
+    semRanking: 0,
+    baixaRac: 0,
     backlogFinanceiro: 0
   };
 
@@ -67,7 +87,7 @@
     },
     {
       titulo: 'Conciliação',
-      descricao: 'Concilie pagamentos recebidos com vendas',
+      descricao: 'Concilie baixas recebidas com vendas',
       icone: CheckCircle,
       cor: 'financeiro',
       rota: '/financeiro/conciliacao',
@@ -99,7 +119,7 @@
     }
   ];
 
-  $: movimentosRecentes = construirMovimentosRecentes(pagamentos, comissoes);
+  $: movimentosRecentes = construirMovimentosRecentes(conciliacoesRecentes, comissoes);
 
   onMount(async () => {
     await carregarDashboard();
@@ -108,38 +128,50 @@
   async function carregarDashboard() {
     loading = true;
     try {
-      const [pagRes, comRes] = await Promise.all([
-        fetch('/api/v1/pagamentos'),
+      const [sumRes, concRes, comRes] = await Promise.all([
+        fetch('/api/v1/conciliacao/summary'),
+        fetch('/api/v1/conciliacao?limit=6'),
         fetch('/api/v1/financeiro/comissoes')
       ]);
 
-      if (!pagRes.ok) throw new Error('Erro ao carregar pagamentos');
+      if (!sumRes.ok) throw new Error('Erro ao carregar resumo da conciliação');
+      if (!concRes.ok) throw new Error('Erro ao carregar conciliações recentes');
       if (!comRes.ok) throw new Error('Erro ao carregar comissões');
 
-      const pagData = await pagRes.json();
+      const sumData = await sumRes.json();
+      const concData = await concRes.json();
       const comData = await comRes.json();
 
-      pagamentos = pagData.items || [];
+      summary = {
+        total: Number(sumData.total || 0),
+        efetivados: Number(sumData.efetivados || 0),
+        pendentes: Number(sumData.pendentes || 0),
+        semRanking: Number(sumData.semRanking || 0),
+        baixaRac: Number(sumData.baixaRac || 0),
+        totalValor: Number(sumData.totalValor || 0),
+        timeline: Array.isArray(sumData.timeline) ? sumData.timeline : []
+      };
+
+      conciliacoesRecentes = concData.items || [];
       comissoes = comData.items || [];
 
-      const pagamentosPendentes = pagamentos.filter((p) => p.status === 'pendente');
-      const pagamentosDivergentes = pagamentos.filter((p) => p.status === 'divergente');
       const comissoesPendentesItems = comissoes.filter((c) => c.status === 'pendente');
 
       resumo = {
-        totalReceber: pagamentosPendentes.reduce((acc, item) => acc + Number(item.valor || 0), 0),
+        totalReceber: summary.totalValor,
         totalPagar: comissoesPendentesItems.reduce((acc, item) => acc + Number(item.valor_comissao || 0), 0),
         comissoesPendentes: comissoesPendentesItems.length,
-        conciliacoesPendentes: pagamentosPendentes.length,
-        divergencias: pagamentosDivergentes.length,
-        backlogFinanceiro: pagamentosPendentes.length + pagamentosDivergentes.length + comissoesPendentesItems.length
+        conciliacoesPendentes: summary.pendentes,
+        semRanking: summary.semRanking,
+        baixaRac: summary.baixaRac,
+        backlogFinanceiro: summary.pendentes + summary.semRanking + summary.baixaRac + comissoesPendentesItems.length
       };
 
       modulos = modulos.map((modulo) => {
         if (modulo.titulo === 'Conciliação') {
           return {
             ...modulo,
-            stats: `${resumo.conciliacoesPendentes} pendentes · ${resumo.divergencias} divergências`
+            stats: `${resumo.conciliacoesPendentes} pendentes · ${resumo.semRanking} sem ranking`
           };
         }
 
@@ -153,7 +185,7 @@
         if (modulo.titulo === 'Caixa') {
           return {
             ...modulo,
-            stats: `${formatCurrency(resumo.totalReceber)} a receber`
+            stats: `${formatCurrency(resumo.totalReceber)} efetivados`
           };
         }
 
@@ -167,15 +199,18 @@
     }
   }
 
-  function construirMovimentosRecentes(pagamentosLista: Pagamento[], comissoesLista: ComissaoItem[]): Movimento[] {
-    const movimentosPagamentos: Movimento[] = pagamentosLista.slice(0, 5).map((pagamento) => ({
-      id: `pag-${pagamento.id}`,
-      data: pagamento.data_pagamento || pagamento.created_at || '',
-      descricao: pagamento.descricao || `Pagamento ${pagamento.codigo || ''}`,
-      detalhe: `${pagamento.cliente?.nome || 'Cliente não informado'}${pagamento.venda?.codigo ? ` - ${pagamento.venda.codigo}` : ''}`,
+  function construirMovimentosRecentes(
+    conciliacoesLista: ConciliacaoItem[],
+    comissoesLista: ComissaoItem[]
+  ): Movimento[] {
+    const movimentosConciliacao: Movimento[] = conciliacoesLista.slice(0, 5).map((item) => ({
+      id: `conc-${item.id}`,
+      data: item.movimento_data || '',
+      descricao: item.descricao || `Recibo ${item.documento || ''}`,
+      detalhe: `Status: ${item.status_display || item.status || '-'}`,
       tipo: 'Receita',
-      valor: Number(pagamento.valor || 0),
-      status: pagamento.status === 'conciliado' ? 'Conciliado' : pagamento.status === 'divergente' ? 'Divergente' : 'Pendente'
+      valor: Number(item.valor_calculada_loja || item.valor_lancamentos || 0),
+      status: item.conciliado ? 'Conciliado' : 'Pendente'
     }));
 
     const movimentosComissoes: Movimento[] = comissoesLista.slice(0, 5).map((comissao) => ({
@@ -188,7 +223,7 @@
       status: comissao.status === 'pago' ? 'Pago' : 'Pendente'
     }));
 
-    return [...movimentosPagamentos, ...movimentosComissoes]
+    return [...movimentosConciliacao, ...movimentosComissoes]
       .filter((item) => item.data)
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
       .slice(0, 6);
@@ -332,7 +367,7 @@
   </KPIGrid>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
-    O financeiro agora consolida prioridades de fechamento: <strong>{resumo.conciliacoesPendentes}</strong> conciliações pendentes, <strong>{resumo.divergencias}</strong> divergências e <strong>{resumo.comissoesPendentes}</strong> comissões pendentes.
+    O financeiro consolida prioridades de fechamento: <strong>{resumo.conciliacoesPendentes}</strong> conciliações pendentes, <strong>{resumo.semRanking}</strong> sem ranking atribuído, <strong>{resumo.baixaRac}</strong> Baixa RAC e <strong>{resumo.comissoesPendentes}</strong> comissões pendentes.
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

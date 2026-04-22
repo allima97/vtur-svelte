@@ -23,13 +23,20 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - **Raiz**: Tokens não estão sendo sincronizados corretamente para chamadas de API
 - **Solução**: Verificar se `/api/auth/set-session` está sendo chamado corretamente após login
 
-#### 2. Conciliação (`financeiro/conciliacao`) ⚠️
-- **Problema**: UI usa API simplificada (`/api/v1/pagamentos`)
-- **Causa**: A API de conciliação completa existe em `/api/v1/conciliacao/*` mas UI não a utiliza
-- **Diferenças**:
-  - vtur-app: Usa `conciliacao_recibos` com matching, ranking, importação de extratos
-  - vtur-svelte: Usa `pagamentos` com workflow simplificado
-- **Solução**: Reimplemenar UI para usar `/api/v1/conciliacao/*`
+#### 2. Conciliação (`financeiro/conciliacao`) ✅
+- **Status**: Implementação completa com paridade funcional ao vtur-app
+- **UI**: `financeiro/conciliacao/+page.svelte` já utiliza APIs `/api/v1/conciliacao/*`
+- **Funcionalidades implementadas**:
+  - Importação de extratos (CSV/TXT/TSV) com parser inteligente e deduplicação
+  - Matching automático por número de recibo (`/run`)
+  - Atribuição manual de ranking (vendedor + produto) via `/assign`
+  - Auditoria de match (total/taxas) com diff
+  - Histórico de alterações com reversão (`/changes`, `/revert`)
+  - Log de execuções (`/executions`)
+  - Cálculo de faixas de comissão (SEGURO_32_35, MAIOR_OU_IGUAL_10, MENOR_10)
+  - Flag de Baixa RAC e não-comissionável
+  - Edição de valores financeiros (Gestor/Master)
+- **Correção aplicada**: Dashboard financeiro (`financeiro/+page.svelte`) agora consome `/api/v1/conciliacao/summary` em vez de `/api/v1/pagamentos`, refletindo dados reais de conciliação nos KPIs
 
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
 - **Problema**: Cálculo básico sem templates/regras complexas
