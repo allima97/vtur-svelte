@@ -951,7 +951,7 @@
 
   .vtur-dialog__footer {
     border-top: 1px solid rgba(226, 232, 240, 0.82);
-    background: rgba(248, 250, 252, 0.8);
+    background: transparent;
   }
 
   .vtur-dialog__footer-actions {
@@ -1031,13 +1031,15 @@
     }
 
     .vtur-dialog__footer-actions {
-      flex-direction: column-reverse;
-      align-items: stretch;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
       gap: 0.75rem;
     }
 
     .vtur-dialog__footer-actions .vtur-button {
-      width: 100% !important;
+      width: auto !important;
       justify-content: center !important;
     }
   }
