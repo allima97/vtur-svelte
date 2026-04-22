@@ -44,6 +44,7 @@
   import Button from '$lib/components/ui/Button.svelte';
 
   type MenuItem = {
+    key?: string;
     name: string;
     href?: string;
     icon: typeof LayoutDashboard;
@@ -66,31 +67,6 @@
 
   const MENU_PREFS_KEY = 'vtur:menu-prefs';
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
-  const MENU_KEY_BY_HREF: Record<string, string> = {
-    '/': 'dashboard',
-    '/operacao/tarefas': 'tarefas',
-    '/operacao/agenda': 'agenda',
-    '/operacao/acompanhamento': 'acompanhamento',
-    '/operacao/recados': 'recados',
-    '/vendas': 'vendas',
-    '/clientes': 'clientes',
-    '/operacao/viagens': 'viagens',
-    '/orcamentos': 'orcamentos',
-    '/operacao/vouchers': 'vouchers',
-    '/operacao/controle-sac': 'controle_sac',
-    '/operacao/campanhas': 'campanhas',
-    '/operacao/documentos-viagens': 'documentos',
-    '/financeiro/caixa': 'caixa',
-    '/financeiro/conciliacao': 'conciliacao',
-    '/financeiro/comissoes': 'comissoes',
-    '/financeiro/formas-pagamento': 'formas_pagamento',
-    '/financeiro/regras': 'regras',
-    '/relatorios/vendas': 'rel_vendas',
-    '/relatorios/produtos': 'rel_produtos',
-    '/relatorios/clientes': 'rel_clientes',
-    '/relatorios/destinos': 'rel_destinos',
-    '/relatorios/ranking': 'rel_ranking',
-  };
 
   $: hiddenMenuSet = new Set(menuPrefsHidden);
 
@@ -108,80 +84,80 @@
       title: 'INFORMATIVOS',
       collapsible: false,
       items: [
-        { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-        { name: 'Tarefas', href: '/operacao/tarefas', icon: SquareCheckBig },
-        { name: 'Agenda', href: '/operacao/agenda', icon: Calendar },
-        { name: 'Acompanhamento', href: '/operacao/acompanhamento', icon: FileText },
-        { name: 'Recados', href: '/operacao/recados', icon: MessageSquare },
-        { name: 'Aniversariantes', href: '/aniversariantes', icon: Gift }
+        { key: 'dashboard', name: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { key: 'tarefas', name: 'Tarefas', href: '/operacao/tarefas', icon: SquareCheckBig },
+        { key: 'agenda', name: 'Agenda', href: '/operacao/agenda', icon: Calendar },
+        { key: 'acompanhamento', name: 'Acompanhamento', href: '/operacao/acompanhamento', icon: FileText },
+        { key: 'recados', name: 'Recados', href: '/operacao/recados', icon: MessageSquare },
+        { key: 'aniversariantes', name: 'Aniversariantes', href: '/aniversariantes', icon: Gift }
       ]
     },
     {
       title: 'OPERAÇÃO',
       collapsible: true,
       items: [
-        { name: 'Vendas', href: '/vendas', icon: ShoppingCart },
-        { name: 'Clientes', href: '/clientes', icon: Users },
-        { name: 'Viagens', href: '/operacao/viagens', icon: Plane },
-        { name: 'Orçamentos', href: '/orcamentos', icon: FileText },
-        { name: 'Roteiros', href: '/orcamentos/roteiros', icon: MapIcon },
-        { name: 'Vouchers', href: '/operacao/vouchers', icon: Ticket },
-        { name: 'Controle SAC', href: '/operacao/controle-sac', icon: AlertCircle },
-        { name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
-        { name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
-        { name: 'Consultoria Online', href: '/consultoria-online', icon: Video }
+        { key: 'vendas', name: 'Vendas', href: '/vendas', icon: ShoppingCart },
+        { key: 'clientes', name: 'Clientes', href: '/clientes', icon: Users },
+        { key: 'viagens', name: 'Viagens', href: '/operacao/viagens', icon: Plane },
+        { key: 'orcamentos', name: 'Orçamentos', href: '/orcamentos', icon: FileText },
+        { key: 'roteiros', name: 'Roteiros', href: '/orcamentos/roteiros', icon: MapIcon },
+        { key: 'vouchers', name: 'Vouchers', href: '/operacao/vouchers', icon: Ticket },
+        { key: 'controle_sac', name: 'Controle SAC', href: '/operacao/controle-sac', icon: AlertCircle },
+        { key: 'campanhas', name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
+        { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
+        { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video }
       ]
     },
     {
       title: 'FINANCEIRO',
       collapsible: true,
       items: [
-        { name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
-        { name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
-        { name: 'Comissionamento', href: '/financeiro/comissoes', icon: Wallet },
-        { name: 'Fechamento', href: '/comissoes/fechamento', icon: Wallet },
-        { name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings },
-        { name: 'Formas de Pagto', href: '/financeiro/formas-pagamento', icon: CreditCard },
-        { name: 'Regras', href: '/financeiro/regras', icon: Settings }
+        { key: 'caixa', name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
+        { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
+        { key: 'comissoes', name: 'Comissionamento', href: '/financeiro/comissoes', icon: Wallet },
+        { key: 'fechamento', name: 'Fechamento', href: '/comissoes/fechamento', icon: Wallet },
+        { key: 'ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings },
+        { key: 'formas_pagamento', name: 'Formas de Pagto', href: '/financeiro/formas-pagamento', icon: CreditCard },
+        { key: 'regras', name: 'Regras', href: '/financeiro/regras', icon: Settings }
       ]
     },
     {
       title: 'RELATÓRIOS',
       collapsible: true,
       items: [
-        { name: 'Vendas', href: '/relatorios/vendas', icon: FileSpreadsheet },
-        { name: 'Por produto', href: '/relatorios/produtos', icon: Package },
-        { name: 'Por cliente', href: '/relatorios/clientes', icon: Users },
-        { name: 'Por destino', href: '/relatorios/destinos', icon: MapPinned },
-        { name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
+        { key: 'rel_vendas', name: 'Vendas', href: '/relatorios/vendas', icon: FileSpreadsheet },
+        { key: 'rel_produtos', name: 'Por produto', href: '/relatorios/produtos', icon: Package },
+        { key: 'rel_clientes', name: 'Por cliente', href: '/relatorios/clientes', icon: Users },
+        { key: 'rel_destinos', name: 'Por destino', href: '/relatorios/destinos', icon: MapPinned },
+        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
       ]
     },
     {
       title: 'PARÂMETROS',
       collapsible: true,
       items: [
-        { name: 'Parâmetros', href: '/parametros', icon: Settings },
-        { name: 'Metas', href: '/parametros/metas', icon: TrendingUp },
-        { name: 'Equipe', href: '/parametros/equipe', icon: Users },
-        { name: 'Escalas', href: '/parametros/escalas', icon: Calendar },
-        { name: 'Câmbios', href: '/parametros/cambios', icon: Banknote },
-        { name: 'Tipo Pacotes', href: '/parametros/tipo-pacotes', icon: Package },
-        { name: 'Tipo Produtos', href: '/parametros/tipo-produtos', icon: Package },
-        { name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
-        { name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
-        { name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
-        { name: 'Empresa', href: '/parametros/empresa', icon: Building2 }
+        { key: 'parametros', name: 'Parâmetros', href: '/parametros', icon: Settings },
+        { key: 'metas', name: 'Metas', href: '/parametros/metas', icon: TrendingUp },
+        { key: 'equipe', name: 'Equipe', href: '/parametros/equipe', icon: Users },
+        { key: 'escalas', name: 'Escalas', href: '/parametros/escalas', icon: Calendar },
+        { key: 'cambios', name: 'Câmbios', href: '/parametros/cambios', icon: Banknote },
+        { key: 'tipo_pacotes', name: 'Tipo Pacotes', href: '/parametros/tipo-pacotes', icon: Package },
+        { key: 'tipo_produtos', name: 'Tipo Produtos', href: '/parametros/tipo-produtos', icon: Package },
+        { key: 'orcamentos_pdf', name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
+        { key: 'crm', name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
+        { key: 'avisos', name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
+        { key: 'empresa', name: 'Empresa', href: '/parametros/empresa', icon: Building2 }
       ]
     },
     {
       title: 'PERFIL',
       collapsible: true,
       items: [
-        { name: 'Meu Perfil', href: '/perfil', icon: UserCircle },
-        { name: 'Minha Escala', href: '/perfil/escala', icon: Calendar },
-        { name: 'Autenticação 2FA', href: '/perfil/mfa', icon: Shield },
-        { name: 'Personalizar Menu', href: '/perfil/personalizar', icon: Settings },
-        { name: 'Preferências', href: '/operacao/minhas-preferencias', icon: Star }
+        { key: 'meu_perfil', name: 'Meu Perfil', href: '/perfil', icon: UserCircle },
+        { key: 'minha_escala', name: 'Minha Escala', href: '/perfil/escala', icon: Calendar },
+        { key: 'autenticacao_2fa', name: 'Autenticação 2FA', href: '/perfil/mfa', icon: Shield },
+        { key: 'personalizar_menu', name: 'Personalizar Menu', href: '/perfil/personalizar', icon: Settings },
+        { key: 'preferencias', name: 'Preferências', href: '/operacao/minhas-preferencias', icon: Star }
       ]
     }
   ];
@@ -239,10 +215,8 @@
   }
 
   function isHiddenByUserPreference(item: MenuItem) {
-    if (!item.href) return false;
-    const prefKey = MENU_KEY_BY_HREF[item.href];
-    if (!prefKey) return false;
-    return hiddenMenuSet.has(prefKey);
+    if (!item.key) return false;
+    return hiddenMenuSet.has(item.key);
   }
 
   function canSeeItem(item: MenuItem) {

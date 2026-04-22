@@ -8,6 +8,7 @@
   import { Save, RefreshCw } from 'lucide-svelte';
 
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
+  const MENU_PREFS_KEY = 'vtur:menu-prefs';
 
   // Seções do menu com seus itens
   const SECOES = [
@@ -30,10 +31,12 @@
         { key: 'clientes', label: 'Clientes' },
         { key: 'viagens', label: 'Viagens' },
         { key: 'orcamentos', label: 'Orçamentos' },
+        { key: 'roteiros', label: 'Roteiros' },
         { key: 'vouchers', label: 'Vouchers' },
         { key: 'controle_sac', label: 'Controle SAC' },
         { key: 'campanhas', label: 'Campanhas' },
-        { key: 'documentos', label: 'Documentos' }
+        { key: 'documentos', label: 'Documentos' },
+        { key: 'consultoria_online', label: 'Consultoria Online' }
       ]
     },
     {
@@ -43,6 +46,8 @@
         { key: 'caixa', label: 'Caixa' },
         { key: 'conciliacao', label: 'Conciliação' },
         { key: 'comissoes', label: 'Comissões' },
+        { key: 'fechamento', label: 'Fechamento' },
+        { key: 'ajustes_vendas', label: 'Ajustes Vendas' },
         { key: 'formas_pagamento', label: 'Formas de Pagamento' },
         { key: 'regras', label: 'Regras' }
       ]
@@ -57,6 +62,34 @@
         { key: 'rel_destinos', label: 'Por Destino' },
         { key: 'rel_ranking', label: 'Ranking' }
       ]
+    },
+    {
+      key: 'parametros',
+      label: 'Parâmetros',
+      items: [
+        { key: 'parametros', label: 'Parâmetros' },
+        { key: 'metas', label: 'Metas' },
+        { key: 'equipe', label: 'Equipe' },
+        { key: 'escalas', label: 'Escalas' },
+        { key: 'cambios', label: 'Câmbios' },
+        { key: 'tipo_pacotes', label: 'Tipo Pacotes' },
+        { key: 'tipo_produtos', label: 'Tipo Produtos' },
+        { key: 'orcamentos_pdf', label: 'Orçamentos PDF' },
+        { key: 'crm', label: 'CRM' },
+        { key: 'avisos', label: 'Avisos' },
+        { key: 'empresa', label: 'Empresa' }
+      ]
+    },
+    {
+      key: 'perfil',
+      label: 'Perfil',
+      items: [
+        { key: 'meu_perfil', label: 'Meu Perfil' },
+        { key: 'minha_escala', label: 'Minha Escala' },
+        { key: 'autenticacao_2fa', label: 'Autenticação 2FA' },
+        { key: 'personalizar_menu', label: 'Personalizar Menu' },
+        { key: 'preferencias', label: 'Preferências' }
+      ]
     }
   ];
 
@@ -67,30 +100,41 @@
   let prefs: MenuPrefs = { hidden: [] };
   let loading = true;
   let saving = false;
+  let feedbackMessage = '';
+  let feedbackType: 'success' | 'error' | 'info' = 'info';
+
+  function setFeedback(message: string, type: 'success' | 'error' | 'info' = 'info') {
+    feedbackMessage = message;
+    feedbackType = type;
+  }
 
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/user/profile');
+      const response = await fetch('/api/v1/menu/prefs');
       if (response.ok) {
-        // Tenta carregar preferências salvas (se existir endpoint)
-        const stored = localStorage.getItem('vtur:menu-prefs');
-        if (stored) {
-          prefs = JSON.parse(stored);
-        }
+        const payload = await response.json();
+        const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
+        prefs = { hidden };
+        localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
+        setFeedback('Preferências do menu carregadas.', 'info');
+      } else {
+        setFeedback('Preferências remotas indisponíveis. Preferências locais carregadas.', 'info');
+      }
+      const stored = localStorage.getItem(MENU_PREFS_KEY);
+      if (stored && prefs.hidden.length === 0) {
+        const parsed = JSON.parse(stored) as MenuPrefs;
+        prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] };
       }
     } catch {
-      // Usa padrão
+      const stored = localStorage.getItem(MENU_PREFS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as MenuPrefs;
+        prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] };
+      }
+      setFeedback('Não foi possível validar o perfil. Preferências locais mantidas.', 'info');
     } finally {
       loading = false;
-    }
-  }
-
-  function toggleItem(key: string) {
-    if (prefs.hidden.includes(key)) {
-      prefs = { ...prefs, hidden: prefs.hidden.filter((k) => k !== key) };
-    } else {
-      prefs = { ...prefs, hidden: [...prefs.hidden, key] };
     }
   }
 
@@ -98,36 +142,104 @@
     return prefs.hidden.includes(key);
   }
 
-  function setItemVisible(key: string, visible: boolean) {
-    const currentlyHidden = isHidden(key);
-    if (visible && currentlyHidden) {
-      toggleItem(key);
-      return;
+  function setItemHidden(key: string, hidden: boolean) {
+    const nextHidden = hidden
+      ? Array.from(new Set([...prefs.hidden, key]))
+      : prefs.hidden.filter((k) => k !== key);
+
+    prefs = { ...prefs, hidden: nextHidden };
+
+    const ok = persistPrefsLocal(false);
+    if (ok) {
+      const hiddenNow = isHidden(key);
+      const itemLabel =
+        SECOES.flatMap((secao) => secao.items).find((item) => item.key === key)?.label || key;
+      const message = hiddenNow
+        ? `${itemLabel} foi ocultado do menu.`
+        : `${itemLabel} voltou a aparecer no menu.`;
+      toast.success(message);
+      setFeedback(message, 'success');
+    } else {
+      toast.error('Falha ao aplicar alteração do menu.');
+      setFeedback('Falha ao aplicar alteração do menu.', 'error');
     }
-    if (!visible && !currentlyHidden) {
-      toggleItem(key);
+  }
+
+  function persistPrefsLocal(showToast = true) {
+    try {
+      localStorage.setItem(MENU_PREFS_KEY, JSON.stringify(prefs));
+      window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
+      if (showToast) {
+        toast.success('Preferências de menu salvas.');
+        setFeedback('Preferências de menu salvas com sucesso.', 'success');
+      }
+      return true;
+    } catch {
+      if (showToast) {
+        toast.error('Erro ao salvar preferências.');
+        setFeedback('Erro ao salvar preferências.', 'error');
+      }
+      return false;
     }
   }
 
   async function save() {
     saving = true;
     try {
-      // Salva localmente (o vtur-app também usa localStorage como fallback)
-      localStorage.setItem('vtur:menu-prefs', JSON.stringify(prefs));
-      window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
-      toast.success('Preferências de menu salvas.');
-    } catch {
-      toast.error('Erro ao salvar preferências.');
+      const localOk = persistPrefsLocal(false);
+      if (!localOk) throw new Error('Falha ao salvar preferências localmente.');
+
+      const response = await fetch('/api/v1/menu/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prefs: {
+            v: 1,
+            hidden: prefs.hidden,
+            order: {},
+            section: {}
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      toast.success('Preferências de menu salvas com sucesso.');
+      setFeedback('Preferências de menu salvas com sucesso.', 'success');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.');
+      setFeedback(err instanceof Error ? err.message : 'Erro ao salvar preferências de menu.', 'error');
     } finally {
       saving = false;
     }
   }
 
-  function resetPrefs() {
+  async function resetPrefs() {
     prefs = { hidden: [] };
-    localStorage.removeItem('vtur:menu-prefs');
+    localStorage.removeItem(MENU_PREFS_KEY);
     window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
-    toast.success('Preferências resetadas para o padrão.');
+    try {
+      const response = await fetch('/api/v1/menu/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prefs: {
+            v: 1,
+            hidden: [],
+            order: {},
+            section: {}
+          }
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Preferências resetadas para o padrão.');
+      setFeedback('Preferências resetadas para o padrão.', 'success');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.');
+      setFeedback(err instanceof Error ? err.message : 'Erro ao resetar preferências de menu.', 'error');
+    }
   }
 
   onMount(load);
@@ -162,8 +274,10 @@
               checked={!isHidden(item.key)}
               color="operacao"
               helper={isHidden(item.key) ? 'Oculto no menu lateral' : 'Visível no menu lateral'}
-              on:change={() => {
-                setItemVisible(item.key, isHidden(item.key));
+              on:change={(event) => {
+                const checked = (event.currentTarget as HTMLInputElement)?.checked;
+                const isVisible = typeof checked === 'boolean' ? checked : !isHidden(item.key);
+                setItemHidden(item.key, !isVisible);
               }}
             />
           {/each}
@@ -171,11 +285,32 @@
       </Card>
     {/each}
 
-    <form class="flex justify-end" on:submit|preventDefault={save}>
-      <Button type="submit" variant="primary" loading={saving}>
+    {#if feedbackMessage}
+      <div
+        class={`rounded-xl border px-4 py-3 text-sm ${
+          feedbackType === 'success'
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : feedbackType === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-blue-200 bg-blue-50 text-blue-700'
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {feedbackMessage}
+      </div>
+    {/if}
+
+    <div class="flex justify-end">
+      <Button
+        type="button"
+        variant="primary"
+        loading={saving}
+        on:click={save}
+      >
         <Save size={16} class="mr-2" />
-        Salvar preferências
+        {saving ? 'Salvando...' : 'Salvar preferências'}
       </Button>
-    </form>
+    </div>
   </div>
 {/if}
