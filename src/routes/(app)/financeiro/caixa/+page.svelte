@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
@@ -72,6 +73,30 @@
   };
 
   let formasPagamento: { id: string; nome: string }[] = [];
+
+  const periodoOptions = [
+    { value: 'mes_atual', label: 'Mes Atual' },
+    { value: 'semana', label: 'Ultimos 7 dias' },
+    { value: 'personalizado', label: 'Personalizado' }
+  ];
+
+  const tipoMovimentacaoOptions = [
+    { value: 'entrada', label: 'Entrada (Receita)' },
+    { value: 'saida', label: 'Saida (Despesa)' }
+  ];
+
+  const categoriaMovimentacaoOptions = [
+    { value: 'venda', label: 'Venda' },
+    { value: 'comissao', label: 'Comissao' },
+    { value: 'fornecedor', label: 'Fornecedor' },
+    { value: 'despesa_operacional', label: 'Despesa Operacional' },
+    { value: 'outro', label: 'Outro' }
+  ];
+
+  $: formaPagamentoOptions = formasPagamento.map((fp) => ({
+    value: fp.id,
+    label: fp.nome
+  }));
 
   onMount(() => {
     const hoje = new Date();
@@ -327,22 +352,31 @@
   <Card color="financeiro" class="mb-6">
     <div class="flex flex-col sm:flex-row gap-4 items-end">
       <div class="flex-1 flex flex-wrap gap-4">
-        <div>
-          <label for="caixa-periodo" class="block text-sm font-medium text-slate-700 mb-1">Período</label>
-          <select id="caixa-periodo" bind:value={periodo} on:change={carregarDados} class="vtur-input">
-            <option value="mes_atual">Mês Atual</option>
-            <option value="semana">Últimos 7 dias</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-        </div>
-        <div>
-          <label for="caixa-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Início</label>
-          <input id="caixa-data-inicio" type="date" bind:value={dataInicio} on:change={carregarDados} class="vtur-input" />
-        </div>
-        <div>
-          <label for="caixa-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-          <input id="caixa-data-fim" type="date" bind:value={dataFim} on:change={carregarDados} class="vtur-input" />
-        </div>
+        <FieldSelect
+          id="caixa-periodo"
+          label="Periodo"
+          bind:value={periodo}
+          options={periodoOptions}
+          placeholder={null}
+          class_name="min-w-[220px]"
+          on:change={carregarDados}
+        />
+        <FieldInput
+          id="caixa-data-inicio"
+          label="Data Inicio"
+          type="date"
+          bind:value={dataInicio}
+          class_name="min-w-[180px]"
+          on:change={carregarDados}
+        />
+        <FieldInput
+          id="caixa-data-fim"
+          label="Data Fim"
+          type="date"
+          bind:value={dataFim}
+          class_name="min-w-[180px]"
+          on:change={carregarDados}
+        />
       </div>
       <Button variant="secondary" on:click={handleExportar}>
         <Download size={18} class="mr-2" />
@@ -420,8 +454,8 @@
           <p>Nenhuma movimentação no período</p>
         </div>
       {:else}
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
+        <div class="overflow-x-visible md:overflow-x-auto">
+          <table class="w-full text-sm table-mobile-cards">
             <thead class="bg-slate-50">
               <tr>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Data</th>
@@ -481,54 +515,72 @@
 >
   <div class="space-y-4">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label for="caixa-mov-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo *</label>
-        <select id="caixa-mov-tipo" bind:value={novaMovimentacao.tipo} class="vtur-input w-full">
-          <option value="entrada">Entrada (Receita)</option>
-          <option value="saida">Saída (Despesa)</option>
-        </select>
-      </div>
-      <div>
-        <label for="caixa-mov-categoria" class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-        <select id="caixa-mov-categoria" bind:value={novaMovimentacao.categoria} class="vtur-input w-full">
-          <option value="venda">Venda</option>
-          <option value="comissao">Comissão</option>
-          <option value="fornecedor">Fornecedor</option>
-          <option value="despesa_operacional">Despesa Operacional</option>
-          <option value="outro">Outro</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="caixa-mov-tipo"
+        label="Tipo"
+        bind:value={novaMovimentacao.tipo}
+        options={tipoMovimentacaoOptions}
+        placeholder={null}
+        required={true}
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="caixa-mov-categoria"
+        label="Categoria"
+        bind:value={novaMovimentacao.categoria}
+        options={categoriaMovimentacaoOptions}
+        placeholder={null}
+        class_name="w-full"
+      />
     </div>
 
-    <div>
-      <label for="caixa-mov-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
-      <input id="caixa-mov-descricao" type="text" bind:value={novaMovimentacao.descricao} placeholder="Descrição da movimentação" class="vtur-input w-full" />
-    </div>
+    <FieldInput
+      id="caixa-mov-descricao"
+      label="Descricao"
+      bind:value={novaMovimentacao.descricao}
+      placeholder="Descricao da movimentacao"
+      required={true}
+      class_name="w-full"
+    />
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label for="caixa-mov-valor" class="block text-sm font-medium text-slate-700 mb-1">Valor *</label>
-        <input id="caixa-mov-valor" type="number" step="0.01" min="0" bind:value={novaMovimentacao.valor} placeholder="0,00" class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="caixa-mov-data" class="block text-sm font-medium text-slate-700 mb-1">Data *</label>
-        <input id="caixa-mov-data" type="date" bind:value={novaMovimentacao.data_movimentacao} class="vtur-input w-full" />
-      </div>
+      <FieldInput
+        id="caixa-mov-valor"
+        label="Valor"
+        type="number"
+        step="0.01"
+        min="0"
+        bind:value={novaMovimentacao.valor}
+        placeholder="0,00"
+        required={true}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="caixa-mov-data"
+        label="Data"
+        type="date"
+        bind:value={novaMovimentacao.data_movimentacao}
+        required={true}
+        class_name="w-full"
+      />
     </div>
 
-    <div>
-      <label for="caixa-mov-forma-pagamento" class="block text-sm font-medium text-slate-700 mb-1">Forma de Pagamento</label>
-      <select id="caixa-mov-forma-pagamento" bind:value={novaMovimentacao.forma_pagamento_id} class="vtur-input w-full">
-        <option value="">Selecione...</option>
-        {#each formasPagamento as fp}
-          <option value={fp.id}>{fp.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="caixa-mov-forma-pagamento"
+      label="Forma de Pagamento"
+      bind:value={novaMovimentacao.forma_pagamento_id}
+      options={formaPagamentoOptions}
+      placeholder="Selecione uma opção"
+      class_name="w-full"
+    />
 
-    <div>
-      <label for="caixa-mov-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-      <textarea id="caixa-mov-observacoes" bind:value={novaMovimentacao.observacoes} rows="2" placeholder="Observações opcionais" class="vtur-input w-full"></textarea>
-    </div>
+    <FieldTextarea
+      id="caixa-mov-observacoes"
+      label="Observacoes"
+      bind:value={novaMovimentacao.observacoes}
+      rows={2}
+      placeholder="Observacoes opcionais"
+      class_name="w-full"
+    />
   </div>
 </Dialog>

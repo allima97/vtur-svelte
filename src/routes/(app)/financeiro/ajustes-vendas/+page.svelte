@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Search } from 'lucide-svelte';
@@ -179,27 +180,34 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="aj-inicio">Data início</label>
-      <input id="aj-inicio" type="date" bind:value={inicio} class="vtur-input" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="aj-fim">Data fim</label>
-      <input id="aj-fim" type="date" bind:value={fim} class="vtur-input" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="aj-vendedor">Vendedor</label>
-      <select id="aj-vendedor" bind:value={filtroVendedor} class="vtur-input">
-        <option value="">Todos</option>
-        {#each vendedores as v}
-          <option value={v.id}>{v.nome_completo || 'Vendedor'}</option>
-        {/each}
-      </select>
-    </div>
-    <div class="relative">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input bind:value={busca} class="vtur-input pl-9" placeholder="Buscar..." />
-    </div>
+    <FieldInput
+      id="aj-inicio"
+      label="Data início"
+      type="date"
+      bind:value={inicio}
+      class_name="min-w-[160px]"
+    />
+    <FieldInput
+      id="aj-fim"
+      label="Data fim"
+      type="date"
+      bind:value={fim}
+      class_name="min-w-[160px]"
+    />
+    <FieldSelect
+      id="aj-vendedor"
+      label="Vendedor"
+      bind:value={filtroVendedor}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome_completo || 'Vendedor' }))]}
+      placeholder={null}
+      class_name="min-w-[200px]"
+    />
+    <FieldInput
+      bind:value={busca}
+      icon={Search}
+      placeholder="Buscar..."
+      class_name="min-w-[200px]"
+    />
     <Button variant="primary" color="financeiro" on:click={load}>Filtrar</Button>
   </div>
 </Card>
@@ -236,28 +244,37 @@
         <p class="text-slate-500">Vendedor origem: {selectedItem.vendedor_origem_nome}</p>
       </div>
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rateio-destino">Vendedor destino *</label>
-        <select id="rateio-destino" bind:value={form.vendedor_destino_id} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each vendedores.filter((v) => v.id !== selectedItem?.vendedor_origem_id) as v}
-            <option value={v.id}>{v.nome_completo || 'Vendedor'}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="rateio-destino"
+        label="Vendedor destino"
+        bind:value={form.vendedor_destino_id}
+        options={vendedores
+          .filter((v) => v.id !== selectedItem?.vendedor_origem_id)
+          .map((v) => ({ value: v.id, label: v.nome_completo || 'Vendedor' }))}
+        placeholder="Selecione uma opção"
+        required={true}
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rateio-pct">% para o vendedor destino</label>
-        <input id="rateio-pct" type="number" min="1" max="99" step="1" bind:value={form.percentual_destino} class="vtur-input w-full" />
-        <p class="mt-1 text-xs text-slate-500">
-          Origem ficará com {100 - Number(form.percentual_destino || 0)}% e destino com {form.percentual_destino}%.
-        </p>
-      </div>
+      <FieldInput
+        id="rateio-pct"
+        label="% para o vendedor destino"
+        type="number"
+        min="1"
+        max="99"
+        step="1"
+        bind:value={form.percentual_destino}
+        class_name="w-full"
+        helper="Origem ficará com {100 - Number(form.percentual_destino || 0)}% e destino com {form.percentual_destino}%."
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rateio-obs">Observação</label>
-        <input id="rateio-obs" bind:value={form.observacao} class="vtur-input w-full" placeholder="Motivo do rateio (opcional)" />
-      </div>
+      <FieldInput
+        id="rateio-obs"
+        label="Observação"
+        bind:value={form.observacao}
+        placeholder="Motivo do rateio (opcional)"
+        class_name="w-full"
+      />
     </div>
   {/if}
 </Dialog>

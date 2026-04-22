@@ -439,8 +439,8 @@
 
       <Card header="Recibos" color="vendas">
         {#if venda.recibos && venda.recibos.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full">
+          <div class="overflow-x-visible md:overflow-x-auto">
+            <table class="w-full table-mobile-cards">
               <thead>
                 <tr class="border-b border-slate-200">
                   <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Recibo</th>
@@ -454,16 +454,16 @@
               <tbody class="divide-y divide-slate-100">
                 {#each venda.recibos as recibo}
                   <tr class="hover:bg-slate-50">
-                    <td class="py-3 px-3 text-slate-900">
+                    <td class="py-3 px-3 text-slate-900" data-label="Recibo">
                       <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
                     </td>
-                    <td class="py-3 px-3 text-slate-700">
+                    <td class="py-3 px-3 text-slate-700" data-label="Produto">
                       {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || recibo.produto_resolvido?.nome || 'N/A'}
                     </td>
-                    <td class="py-3 px-3 text-slate-700">{getReciboCidade(recibo)}</td>
-                    <td class="py-3 px-3 text-center text-slate-700">{recibo.numero_reserva || '-'}</td>
-                    <td class="py-3 px-3 text-center text-slate-700">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
-                    <td class="py-3 px-3 text-right font-medium text-slate-900">{formatCurrency(recibo.valor_total)}</td>
+                    <td class="py-3 px-3 text-slate-700" data-label="Cidade">{getReciboCidade(recibo)}</td>
+                    <td class="py-3 px-3 text-center text-slate-700" data-label="Reserva">{recibo.numero_reserva || '-'}</td>
+                    <td class="py-3 px-3 text-center text-slate-700" data-label="Período">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
+                    <td class="py-3 px-3 text-right font-medium text-slate-900" data-label="Valor">{formatCurrency(recibo.valor_total)}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -485,8 +485,8 @@
 
       <Card header="Pagamentos" color="vendas">
         {#if venda.pagamentos && venda.pagamentos.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full">
+          <div class="overflow-x-visible md:overflow-x-auto">
+            <table class="w-full table-mobile-cards">
               <thead>
                 <tr class="border-b border-slate-200">
                   <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Forma</th>
@@ -498,19 +498,19 @@
               <tbody class="divide-y divide-slate-100">
                 {#each venda.pagamentos as pagamento}
                   <tr class="hover:bg-slate-50">
-                    <td class="py-3 px-3 text-slate-900">
+                    <td class="py-3 px-3 text-slate-900" data-label="Forma">
                       <p class="font-medium">{pagamento.forma_nome || pagamento.forma_pagamento?.nome || 'N/A'}</p>
                       {#if pagamento.operacao}
                         <p class="text-sm text-slate-500">{pagamento.operacao}</p>
                       {/if}
                     </td>
-                    <td class="py-3 px-3 text-center text-slate-700">{pagamento.parcelas_qtd || pagamento.parcelas?.length || 1}x</td>
-                    <td class="py-3 px-3 text-center">
+                    <td class="py-3 px-3 text-center text-slate-700" data-label="Parcelas">{pagamento.parcelas_qtd || pagamento.parcelas?.length || 1}x</td>
+                    <td class="py-3 px-3 text-center" data-label="Comissão">
                       <span class="px-2 py-1 text-xs rounded-full {pagamento.paga_comissao !== false ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}">
                         {pagamento.paga_comissao !== false ? 'Sim' : 'Não'}
                       </span>
                     </td>
-                    <td class="py-3 px-3 text-right font-medium text-slate-900">{formatCurrency(pagamento.valor_total)}</td>
+                    <td class="py-3 px-3 text-right font-medium text-slate-900" data-label="Valor">{formatCurrency(pagamento.valor_total)}</td>
                   </tr>
                 {/each}
               </tbody>

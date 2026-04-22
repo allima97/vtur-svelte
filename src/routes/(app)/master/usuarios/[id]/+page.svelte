@@ -384,7 +384,7 @@
         label="Tipo de usuario"
         bind:value={userForm.user_type_id}
         options={userTypes.map((t) => ({ value: t.id, label: t.nome || t.name || '' }))}
-        placeholder="Selecione"
+        placeholder="Selecione uma opção"
         class_name="w-full"
       />
       <FieldSelect
@@ -392,7 +392,7 @@
         label="Empresa"
         bind:value={userForm.company_id}
         options={companies.map((c) => ({ value: c.id, label: c.nome_fantasia || c.nome || c.name || '' }))}
-        placeholder="Selecione"
+        placeholder="Selecione uma opção"
         disabled={!isCreateMode && userForm.uso_individual}
         class_name="w-full"
       />
@@ -485,7 +485,12 @@
 
       <Card color="financeiro" title="Acoes administrativas">
         <div class="space-y-3">
-          <button type="button" class="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:border-orange-300 hover:bg-orange-50/40" on:click={() => (showAvisoDialog = true)}>
+          <Button
+            variant="outline"
+            color="financeiro"
+            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            on:click={() => (showAvisoDialog = true)}
+          >
             <div class="flex items-center gap-3">
               <Mail size={18} class="text-orange-600" />
               <div>
@@ -493,9 +498,14 @@
                 <p class="text-sm text-slate-500">Usa templates ativos do modulo de avisos.</p>
               </div>
             </div>
-          </button>
+          </Button>
 
-          <button type="button" class="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:border-orange-300 hover:bg-orange-50/40" on:click={() => (showSenhaDialog = true)}>
+          <Button
+            variant="outline"
+            color="financeiro"
+            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            on:click={() => (showSenhaDialog = true)}
+          >
             <div class="flex items-center gap-3">
               <KeyRound size={18} class="text-orange-600" />
               <div>
@@ -503,9 +513,14 @@
                 <p class="text-sm text-slate-500">Atualiza a senha diretamente no Auth.</p>
               </div>
             </div>
-          </button>
+          </Button>
 
-          <button type="button" class="flex w-full items-center justify-between rounded-xl border border-slate-200 p-4 text-left transition hover:border-orange-300 hover:bg-orange-50/40" on:click={() => (showMfaDialog = true)}>
+          <Button
+            variant="outline"
+            color="financeiro"
+            class_name="w-full !justify-between !rounded-xl !border-slate-200 !p-4 !text-left hover:!border-orange-300 hover:!bg-orange-50/40"
+            on:click={() => (showMfaDialog = true)}
+          >
             <div class="flex items-center gap-3">
               <ShieldAlert size={18} class="text-orange-600" />
               <div>
@@ -518,7 +533,7 @@
             {:else}
               <Badge color="gray">Nao configurado</Badge>
             {/if}
-          </button>
+          </Button>
         </div>
       </Card>
     </div>
@@ -539,7 +554,7 @@
       label="Template"
       bind:value={avisoTemplateId}
       options={avisoTemplates.map((t) => ({ value: t.id, label: t.nome || '' }))}
-      placeholder="Selecione"
+      placeholder="Selecione uma opção"
       class_name="w-full"
     />
     <p class="text-sm text-slate-500">

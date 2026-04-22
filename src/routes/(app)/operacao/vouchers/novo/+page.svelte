@@ -480,14 +480,17 @@
       <div class="flex flex-wrap">
         {#each steps as step, i}
           {@const status = getStepStatus(i)}
-          <button
+          <Button
             type="button"
-            class="flex-1 min-w-[140px] py-4 px-3 flex flex-col items-center justify-center gap-2 text-sm font-medium transition-all relative
-              {status === 'current' 
-                ? 'bg-clientes-50 text-clientes-700' 
+            variant="ghost"
+            size="sm"
+            class_name={`flex-1 min-w-[140px] !rounded-none !border-0 !px-3 !py-4 flex flex-col items-center justify-center gap-2 text-sm font-medium transition-all relative ${
+              status === 'current'
+                ? '!bg-clientes-50 !text-clientes-700'
                 : status === 'completed'
-                  ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                  : 'bg-white text-slate-400 hover:bg-slate-50'}"
+                  ? '!bg-green-50 !text-green-700 hover:!bg-green-100'
+                  : '!bg-white !text-slate-400 hover:!bg-slate-50'
+            }`}
             on:click={() => goToStep(i)}
           >
             <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg
@@ -505,7 +508,7 @@
             {#if status === 'current'}
               <div class="absolute bottom-0 left-0 right-0 h-1 bg-clientes-500"></div>
             {/if}
-          </button>
+          </Button>
         {/each}
       </div>
     </div>
@@ -532,17 +535,16 @@
               <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor *</legend>
               <div class="flex flex-wrap gap-3">
                 {#each providers as p}
-                  <button
+                  <Button
                     type="button"
+                    variant={form.provider === p.value ? 'primary' : 'outline'}
+                    size="md"
+                    class_name="!rounded-xl !border-2 !px-5 !py-3"
                     on:click={() => form.provider = p.value}
-                    class="flex items-center gap-3 px-5 py-3 rounded-xl border-2 transition-all
-                      {form.provider === p.value 
-                        ? 'border-clientes-500 bg-clientes-50 text-clientes-700 shadow-md' 
-                        : 'border-slate-200 hover:border-slate-300 text-slate-600 bg-white'}"
                   >
                     <div class="w-4 h-4 rounded-full {p.color}"></div>
                     <span class="font-medium">{p.label}</span>
-                  </button>
+                  </Button>
                 {/each}
               </div>
             </fieldset>
@@ -616,7 +618,7 @@
                 label="Tipo de Acomodação"
                 bind:value={form.tipo_acomodacao}
                 options={acomodacaoSelectOptions}
-                placeholder="Selecione..."
+                placeholder="Selecione uma opção"
               />
 
               <FieldInput
@@ -690,7 +692,7 @@
                           label="Tipo"
                           value={passenger.tipo || ''}
                           options={passengerTypeOptions}
-                          placeholder="Selecione"
+                          placeholder="Selecione uma opção"
                           on:change={(e) => updatePassenger(i, 'tipo', (e.currentTarget as HTMLSelectElement).value)}
                         />
                       </div>
@@ -779,11 +781,12 @@
                   {#each form.dias as dia, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                       <div class="flex items-stretch justify-between bg-slate-50 transition-colors">
-                        <button
+                        <Button
                           type="button"
-                          class="flex flex-1 items-center gap-4 px-4 py-4 text-left hover:bg-slate-100 transition-colors"
+                          variant="ghost"
+                          size="sm"
+                          class_name="flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!bg-slate-100"
                           on:click={() => toggleDayAccordion(i)}
-                          aria-expanded={activeDayIndexes.includes(i)}
                         >
                           <div class="w-10 h-10 rounded-full bg-clientes-500 text-white flex items-center justify-center font-bold">
                             {dia.dia_numero}
@@ -799,34 +802,40 @@
                             size={20} 
                             class="text-slate-400 ml-auto"
                           />
-                        </button>
+                        </Button>
                         <div class="flex items-center gap-2 px-4">
-                          <button
+                          <Button
                             type="button"
-                            aria-label={`Mover dia ${i + 1} para cima`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Mover dia ${i + 1} para cima`}
                             on:click={() => moveDay(i, -1)}
                             disabled={i === 0}
-                            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
                           >
                             <MoveUp size={18} />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            aria-label={`Mover dia ${i + 1} para baixo`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Mover dia ${i + 1} para baixo`}
                             on:click={() => moveDay(i, 1)}
                             disabled={i === form.dias.length - 1}
-                            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
                           >
                             <MoveDown size={18} />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            aria-label={`Remover dia ${i + 1}`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Remover dia ${i + 1}`}
                             on:click={() => removeDay(i)}
-                            class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
                           >
                             <Trash2 size={18} />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                       
@@ -925,11 +934,12 @@
                   {#each form.hoteis as hotel, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
                       <div class="flex items-stretch justify-between bg-slate-50 transition-colors">
-                        <button
+                        <Button
                           type="button"
-                          class="flex flex-1 items-center gap-4 px-4 py-4 text-left hover:bg-slate-100 transition-colors"
+                          variant="ghost"
+                          size="sm"
+                          class_name="flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!bg-slate-100"
                           on:click={() => toggleHotelAccordion(i)}
-                          aria-expanded={activeHotelIndexes.includes(i)}
                         >
                           <div class="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center">
                             <Hotel size={20} />
@@ -943,34 +953,40 @@
                             size={20} 
                             class="text-slate-400 ml-auto"
                           />
-                        </button>
+                        </Button>
                         <div class="flex items-center gap-2 px-4">
-                          <button
+                          <Button
                             type="button"
-                            aria-label={`Mover hotel ${i + 1} para cima`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Mover hotel ${i + 1} para cima`}
                             on:click={() => moveHotel(i, -1)}
                             disabled={i === 0}
-                            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
                           >
                             <MoveUp size={18} />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            aria-label={`Mover hotel ${i + 1} para baixo`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Mover hotel ${i + 1} para baixo`}
                             on:click={() => moveHotel(i, 1)}
                             disabled={i === form.hoteis.length - 1}
-                            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg disabled:opacity-30"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-slate-400 hover:!bg-slate-200 hover:!text-slate-600"
                           >
                             <MoveDown size={18} />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            aria-label={`Remover hotel ${i + 1}`}
+                            variant="ghost"
+                            size="xs"
+                            ariaLabel={`Remover hotel ${i + 1}`}
                             on:click={() => removeHotel(i)}
-                            class="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            class_name="min-w-0 !rounded-lg !p-1.5 !text-red-400 hover:!bg-red-50 hover:!text-red-600"
                           >
                             <Trash2 size={18} />
-                          </button>
+                          </Button>
                         </div>
                       </div>
                       
@@ -1051,7 +1067,7 @@
                               label="Status"
                               value={hotel.status || ''}
                               on:change={(e) => hotel.status = (e.currentTarget as HTMLSelectElement).value}
-                              options={[{ value: '', label: 'Selecione...' }, ...hotelStatusOptions]}
+                              options={[{ value: '', label: 'Selecione uma opção' }, ...hotelStatusOptions]}
                             />
                           </div>
                           

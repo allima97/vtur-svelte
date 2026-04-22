@@ -164,8 +164,8 @@
       <p class="text-sm mt-1">Ajuste os filtros ou verifique se há vendas cadastradas.</p>
     </div>
   {:else}
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+    <div class="overflow-x-visible md:overflow-x-auto">
+      <table class="w-full text-sm table-mobile-cards">
         <thead>
           <tr class="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th class="py-3 pr-4">Vendedor</th>

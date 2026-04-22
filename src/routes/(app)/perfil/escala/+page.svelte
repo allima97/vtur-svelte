@@ -158,8 +158,8 @@
   <div class="flex items-center justify-center py-20 text-slate-500">Carregando escala...</div>
 {:else}
   <Card padding="none">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
+    <div class="overflow-x-visible md:overflow-x-auto">
+      <table class="min-w-full text-sm table-mobile-cards">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-slate-600">Data</th>

@@ -94,7 +94,7 @@
   </Card>
 
   <Card header="Teste de APIs" color="financeiro">
-    <table class="w-full text-sm">
+    <table class="w-full text-sm table-mobile-cards">
       <thead>
         <tr class="text-left border-b">
           <th class="pb-2">API</th>

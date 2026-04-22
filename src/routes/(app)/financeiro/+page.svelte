@@ -366,8 +366,8 @@
         <p>Nenhuma movimentação encontrada.</p>
       </div>
     {:else}
-      <div class="overflow-x-auto">
-        <table class="vtur-table w-full">
+      <div class="overflow-x-visible md:overflow-x-auto">
+        <table class="vtur-table w-full table-mobile-cards">
           <thead>
             <tr class="bg-slate-50">
               <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Data</th>

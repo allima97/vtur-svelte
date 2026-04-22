@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle } from '$lib/components/ui';
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -329,37 +329,31 @@
           required={true}
           bind:value={form.tipo_produto}
           options={tipos.map((t) => ({ value: t.id, label: t.nome || t.tipo || '' }))}
-          placeholder="Selecione..."
+          placeholder="Selecione uma opção"
           class_name="w-full"
         />
-        <div>
-          <label for="produto-destino" class="mb-1 block text-sm font-medium text-slate-700">Destino *</label>
-          <input id="produto-destino" bind:value={form.destino} class="vtur-input w-full" list="destinos-list" placeholder="Ex: Disney, Gramado, Global" disabled={form.todas_as_cidades} />
-          <datalist id="destinos-list">
-            {#each destinosSugestoes as destino}
-              <option value={destino}></option>
-            {/each}
-          </datalist>
-        </div>
-        <div>
-          <label for="produto-abrangencia" class="mb-1 block text-sm font-medium text-slate-700">Abrangência</label>
-          <select
-            id="produto-abrangencia"
-            bind:value={form.todas_as_cidades}
-            class="vtur-input w-full"
-            on:change={(event) => {
-              const isGlobal = event.currentTarget.value === 'true';
-              form.todas_as_cidades = isGlobal;
-              if (isGlobal) {
-                form.cidade_id = '';
-                form.destino = 'Global';
-              }
-            }}
-          >
-            <option value={false}>Por cidade</option>
-            <option value={true}>Global</option>
-          </select>
-        </div>
+        <FieldDatalistInput
+          id="produto-destino"
+          label="Destino *"
+          bind:value={form.destino}
+          options={destinosSugestoes}
+          placeholder="Ex: Disney, Gramado, Global"
+          disabled={form.todas_as_cidades}
+          class_name="w-full"
+        />
+        <FieldToggle
+          label="Produto global"
+          bind:checked={form.todas_as_cidades}
+          helper={form.todas_as_cidades ? 'O cadastro fica disponível para qualquer cidade e usa destino global.' : 'Mantenha desligado para vincular o cadastro a uma cidade específica.'}
+          color="financeiro"
+          class_name="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+          on:change={() => {
+            if (form.todas_as_cidades) {
+              form.cidade_id = '';
+              form.destino = 'Global';
+            }
+          }}
+        />
 
         <FieldInput
           id="produto-nome"
@@ -373,39 +367,37 @@
           id="produto-cidade"
           label="Cidade"
           bind:value={form.cidade_id}
-          options={[{ value: '', label: 'Selecione...' }, ...cidades.map((c) => ({ value: c.id, label: cidadeLabel(c.id) }))]}
+          options={[{ value: '', label: 'Selecione uma opção' }, ...cidades.map((c) => ({ value: c.id, label: cidadeLabel(c.id) }))]}
           placeholder=""
           disabled={form.todas_as_cidades}
           class_name="w-full"
         />
 
-        <div>
-          <label for="produto-fornecedor" class="mb-1 block text-sm font-medium text-slate-700">Fornecedor</label>
-          <input id="produto-fornecedor" bind:value={form.fornecedor_label} class="vtur-input w-full" list="fornecedores-list" placeholder="Opcional" on:input={(event) => handleFornecedorInput(event.currentTarget.value)} />
-          <datalist id="fornecedores-list">
-            {#each fornecedores as fornecedor}
-              <option value={fornecedor.nome_fantasia || fornecedor.nome_completo || ''}></option>
-            {/each}
-          </datalist>
-        </div>
-        <div>
-          <label for="produto-atracao" class="mb-1 block text-sm font-medium text-slate-700">Atração principal</label>
-          <input id="produto-atracao" bind:value={form.atracao_principal} class="vtur-input w-full" list="atracoes-list" placeholder="Opcional" />
-          <datalist id="atracoes-list">
-            {#each atracoesSugestoes as item}
-              <option value={item}></option>
-            {/each}
-          </datalist>
-        </div>
-        <div>
-          <label for="produto-epoca" class="mb-1 block text-sm font-medium text-slate-700">Melhor época</label>
-          <input id="produto-epoca" bind:value={form.melhor_epoca} class="vtur-input w-full" list="epocas-list" placeholder="Opcional" />
-          <datalist id="epocas-list">
-            {#each melhoresEpocasSugestoes as item}
-              <option value={item}></option>
-            {/each}
-          </datalist>
-        </div>
+        <FieldDatalistInput
+          id="produto-fornecedor"
+          label="Fornecedor"
+          bind:value={form.fornecedor_label}
+          options={fornecedores.map((fornecedor) => fornecedor.nome_fantasia || fornecedor.nome_completo || '').filter(Boolean)}
+          placeholder="Opcional"
+          class_name="w-full"
+          on:input={(event) => handleFornecedorInput((event.target as HTMLInputElement).value)}
+        />
+        <FieldDatalistInput
+          id="produto-atracao"
+          label="Atração principal"
+          bind:value={form.atracao_principal}
+          options={atracoesSugestoes}
+          placeholder="Opcional"
+          class_name="w-full"
+        />
+        <FieldDatalistInput
+          id="produto-epoca"
+          label="Melhor época"
+          bind:value={form.melhor_epoca}
+          options={melhoresEpocasSugestoes}
+          placeholder="Opcional"
+          class_name="w-full"
+        />
 
         <FieldInput
           id="produto-duracao"
@@ -419,7 +411,7 @@
           label="Nível de preço"
           bind:value={form.nivel_preco}
           options={[
-            { value: '', label: 'Selecione...' },
+            { value: '', label: 'Selecione uma opção' },
             { value: 'Economico', label: 'Econômico' },
             { value: 'Intermediario', label: 'Intermediário' },
             { value: 'Variavel', label: 'Variável' },
@@ -501,13 +493,13 @@
           class_name="md:col-span-3 w-full"
         />
 
-        <div>
-          <label for="produto-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-          <select id="produto-status" bind:value={form.ativo} class="vtur-input w-full">
-            <option value={true}>Ativo</option>
-            <option value={false}>Inativo</option>
-          </select>
-        </div>
+        <FieldCheckbox
+          label="Cadastro ativo"
+          bind:checked={form.ativo}
+          helper="Desative para esconder o cadastro dos fluxos sem perder o histórico."
+          color="financeiro"
+          class_name="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+        />
         <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           <p class="font-medium text-slate-900">Impacto operacional</p>
           <p class="mt-1">Este cadastro alimenta Vendas e listas base. Produtos globais aparecem para qualquer cidade; produtos por cidade dependem do vínculo em `cidade_id`.</p>
@@ -542,25 +534,103 @@
                 </Button>
               </div>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <input class="vtur-input w-full" placeholder="Acomodação" value={tarifa.acomodacao} on:input={(e) => updateTarifa(index, 'acomodacao', e.currentTarget.value)} />
-                <input class="vtur-input w-full" placeholder="Tipo" value={tarifa.tipo} on:input={(e) => updateTarifa(index, 'tipo', e.currentTarget.value)} />
-                <input class="vtur-input w-full" type="number" min="0" placeholder="Qtd pax" value={tarifa.qte_pax} on:input={(e) => updateTarifa(index, 'qte_pax', Number(e.currentTarget.value || 0))} />
-                <select class="vtur-input w-full" value={tarifa.padrao} on:change={(e) => updateTarifa(index, 'padrao', e.currentTarget.value)}>
-                  <option value="Padrao">Padrão</option>
-                  <option value="Manual">Manual</option>
-                </select>
-                <input class="vtur-input w-full" type="date" value={tarifa.validade_de} on:input={(e) => updateTarifa(index, 'validade_de', e.currentTarget.value)} />
-                <input class="vtur-input w-full" type="date" value={tarifa.validade_ate} on:input={(e) => updateTarifa(index, 'validade_ate', e.currentTarget.value)} />
-                <input class="vtur-input w-full" type="number" step="0.01" placeholder="Valor líquido" value={tarifa.valor_neto} on:input={(e) => updateTarifa(index, 'valor_neto', Number(e.currentTarget.value || 0))} />
-                <input class="vtur-input w-full" type="number" step="0.01" placeholder="Margem" value={tarifa.margem ?? ''} on:input={(e) => updateTarifa(index, 'margem', e.currentTarget.value === '' ? null : Number(e.currentTarget.value))} />
-                <input class="vtur-input w-full" type="number" step="0.01" placeholder="Valor de venda" value={tarifa.valor_venda} on:input={(e) => updateTarifa(index, 'valor_venda', Number(e.currentTarget.value || 0))} />
-                <select class="vtur-input w-full" value={tarifa.moeda} on:change={(e) => updateTarifa(index, 'moeda', e.currentTarget.value)}>
-                  <option value="BRL">BRL</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                </select>
-                <input class="vtur-input w-full" type="number" step="0.0001" placeholder="Câmbio" value={tarifa.cambio} on:input={(e) => updateTarifa(index, 'cambio', Number(e.currentTarget.value || 1))} disabled={tarifa.moeda === 'BRL'} />
-                <input class="vtur-input w-full" type="number" step="0.01" placeholder="Valor em reais" value={tarifa.valor_em_reais} disabled />
+                <FieldInput
+                  value={tarifa.acomodacao}
+                  placeholder="Acomodação"
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'acomodacao', (e.target as HTMLInputElement).value)}
+                />
+                <FieldInput
+                  value={tarifa.tipo}
+                  placeholder="Tipo"
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'tipo', (e.target as HTMLInputElement).value)}
+                />
+                <FieldInput
+                  type="number"
+                  min="0"
+                  value={tarifa.qte_pax as any}
+                  placeholder="Qtd pax"
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'qte_pax', Number((e.target as HTMLInputElement).value || 0))}
+                />
+                <FieldSelect
+                  value={tarifa.padrao}
+                  options={[
+                    { value: 'Padrao', label: 'Padrão' },
+                    { value: 'Manual', label: 'Manual' }
+                  ]}
+                  placeholder={null}
+                  class_name="w-full"
+                  on:change={(e) => updateTarifa(index, 'padrao', (e.target as HTMLSelectElement).value)}
+                />
+                <FieldInput
+                  type="date"
+                  value={tarifa.validade_de}
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'validade_de', (e.target as HTMLInputElement).value)}
+                />
+                <FieldInput
+                  type="date"
+                  value={tarifa.validade_ate}
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'validade_ate', (e.target as HTMLInputElement).value)}
+                />
+                <FieldInput
+                  type="number"
+                  step="0.01"
+                  value={tarifa.valor_neto as any}
+                  placeholder="Valor líquido"
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'valor_neto', Number((e.target as HTMLInputElement).value || 0))}
+                />
+                <FieldInput
+                  type="number"
+                  step="0.01"
+                  value={tarifa.margem as any}
+                  placeholder="Margem"
+                  class_name="w-full"
+                  on:input={(e) => {
+                    const nextValue = (e.target as HTMLInputElement).value;
+                    updateTarifa(index, 'margem', nextValue === '' ? null : Number(nextValue));
+                  }}
+                />
+                <FieldInput
+                  type="number"
+                  step="0.01"
+                  value={tarifa.valor_venda as any}
+                  placeholder="Valor de venda"
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'valor_venda', Number((e.target as HTMLInputElement).value || 0))}
+                />
+                <FieldSelect
+                  value={tarifa.moeda}
+                  options={[
+                    { value: 'BRL', label: 'BRL' },
+                    { value: 'USD', label: 'USD' },
+                    { value: 'EUR', label: 'EUR' }
+                  ]}
+                  placeholder={null}
+                  class_name="w-full"
+                  on:change={(e) => updateTarifa(index, 'moeda', (e.target as HTMLSelectElement).value)}
+                />
+                <FieldInput
+                  type="number"
+                  step="0.0001"
+                  value={tarifa.cambio as any}
+                  placeholder="Câmbio"
+                  disabled={tarifa.moeda === 'BRL'}
+                  class_name="w-full"
+                  on:input={(e) => updateTarifa(index, 'cambio', Number((e.target as HTMLInputElement).value || 1))}
+                />
+                <FieldInput
+                  type="number"
+                  step="0.01"
+                  value={tarifa.valor_em_reais as any}
+                  placeholder="Valor em reais"
+                  disabled={true}
+                  class_name="w-full"
+                />
               </div>
             </div>
           {/each}

@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -275,54 +276,61 @@
 />
 
 <FilterPanel color="financeiro">
-  <div>
-    <label for="rel-produtos-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Inicio</label>
-    <input id="rel-produtos-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-  </div>
-  <div>
-    <label for="rel-produtos-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-    <input id="rel-produtos-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-  </div>
+  <FieldInput
+    id="rel-produtos-data-inicio"
+    label="Data Inicio"
+    type="date"
+    bind:value={dataInicio}
+    class_name="w-full"
+  />
+  <FieldInput
+    id="rel-produtos-data-fim"
+    label="Data Fim"
+    type="date"
+    bind:value={dataFim}
+    class_name="w-full"
+  />
   {#if showEmpresaFiltro}
-  <div>
-    <label for="rel-produtos-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-    <select id="rel-produtos-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-      <option value="">Todas</option>
-      {#each empresas as empresa}
-        <option value={empresa.id}>{empresa.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-produtos-empresa"
+      label="Empresa"
+      bind:value={empresaSelecionada}
+      options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
   {#if showVendedorFiltro}
-  <div>
-    <label for="rel-produtos-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-    <select id="rel-produtos-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-      <option value="">Todos</option>
-      {#each vendedores as vendedor}
-        <option value={vendedor.id}>{vendedor.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-produtos-vendedor"
+      label="Vendedor"
+      bind:value={vendedorSelecionado}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
-  <div>
-    <label for="rel-produtos-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-    <select id="rel-produtos-tipo" bind:value={tipoSelecionado} class="vtur-input w-full">
-      <option value="">Todos</option>
-      {#each tiposDisponiveis as tipo}
-        <option value={tipo}>{tipo}</option>
-      {/each}
-    </select>
-  </div>
-  <div>
-    <label for="rel-produtos-ordenacao" class="block text-sm font-medium text-slate-700 mb-1">Ordenar Por</label>
-    <select id="rel-produtos-ordenacao" bind:value={ordenacao} class="vtur-input w-full">
-      <option value="receita">Receita</option>
-      <option value="lucro">Lucro</option>
-      <option value="margem">Margem</option>
-      <option value="quantidade">Quantidade</option>
-    </select>
-  </div>
+  <FieldSelect
+    id="rel-produtos-tipo"
+    label="Tipo"
+    bind:value={tipoSelecionado}
+    options={[{ value: '', label: 'Todos' }, ...tiposDisponiveis.map((t) => ({ value: t, label: t }))]}
+    placeholder={null}
+    class_name="w-full"
+  />
+  <FieldSelect
+    id="rel-produtos-ordenacao"
+    label="Ordenar Por"
+    bind:value={ordenacao}
+    options={[
+      { value: 'receita', label: 'Receita' },
+      { value: 'lucro', label: 'Lucro' },
+      { value: 'margem', label: 'Margem' },
+      { value: 'quantidade', label: 'Quantidade' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
   <svelte:fragment slot="actions">
     <Button variant="primary" color="financeiro" on:click={gerarRelatorio}>
       <Filter size={16} class="mr-2" />

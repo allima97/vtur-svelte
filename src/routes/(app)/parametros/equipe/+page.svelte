@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput } from '$lib/components/ui';
+  import { FieldInput, SimpleTable } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
@@ -150,10 +150,12 @@
 
 <Card title="Usuários da empresa" color="financeiro" class="mb-6">
   <div class="mb-4">
-    <div class="relative max-w-sm">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input bind:value={busca} class="vtur-input w-full pl-9" placeholder="Buscar por nome ou e-mail..." />
-    </div>
+    <FieldInput
+      bind:value={busca}
+      placeholder="Buscar por nome ou e-mail..."
+      icon={Search}
+      class_name="max-w-sm"
+    />
   </div>
 
   {#if loading}
@@ -164,7 +166,7 @@
     </div>
   {:else}
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <SimpleTable tableClass="w-full text-sm" color="financeiro">
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-slate-600">Nome</th>
@@ -205,7 +207,7 @@
             </tr>
           {/each}
         </tbody>
-      </table>
+      </SimpleTable>
     </div>
   {/if}
 </Card>
@@ -213,7 +215,7 @@
 {#if convites.length > 0}
   <Card title="Convites pendentes" color="financeiro">
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <SimpleTable tableClass="w-full text-sm" color="financeiro">
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-slate-600">E-mail convidado</th>
@@ -242,7 +244,7 @@
             </tr>
           {/each}
         </tbody>
-      </table>
+      </SimpleTable>
     </div>
   </Card>
 {/if}

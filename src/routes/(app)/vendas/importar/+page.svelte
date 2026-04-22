@@ -830,7 +830,7 @@
                 label="Produto do recibo"
                 value={contrato.produto_resolvido_id || ''}
                 options={getProdutosPorCidade(getCidadeContratoId(contrato)).map((produto) => ({ value: produto.id, label: produto.nome }))}
-                placeholder="Selecione..."
+                placeholder="Selecione uma opção"
                 helper="Produto é individual do recibo. Destino continua sendo a cidade da viagem."
                 on:change={(e) => {
                   const value = (e.currentTarget as HTMLSelectElement).value;

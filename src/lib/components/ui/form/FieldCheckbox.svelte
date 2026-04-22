@@ -18,6 +18,7 @@
     | 'purple'
     | 'teal'
     | 'orange'
+    | 'crm'
     | 'clientes'
     | 'vendas'
     | 'financeiro'
@@ -34,6 +35,7 @@
     purple: 'purple',
     teal: 'teal',
     orange: 'orange',
+    crm: 'purple',
     clientes: 'blue',
     orcamentos: 'blue',
     vendas: 'green',

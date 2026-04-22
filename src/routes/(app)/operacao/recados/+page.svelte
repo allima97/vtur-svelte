@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import {
     ArrowLeft,
@@ -392,12 +393,15 @@
       </div>
       {#if empresas.length > 1}
         <div class="mural-topbar__company">
-          <label class="sr-only" for="mural-empresa">Empresa</label>
-          <select id="mural-empresa" bind:value={empresaSelecionada} class="vtur-input w-full min-w-[240px]">
-            {#each empresas as empresa}
-              <option value={empresa.id}>{empresa.nome_fantasia}</option>
-            {/each}
-          </select>
+          <FieldSelect
+            id="mural-empresa"
+            label="Empresa"
+            srLabel={true}
+            bind:value={empresaSelecionada}
+            options={empresas.map((e) => ({ value: e.id, label: e.nome_fantasia }))}
+            placeholder="Selecione"
+            class_name="w-full min-w-[240px]"
+          />
         </div>
       {/if}
     </div>

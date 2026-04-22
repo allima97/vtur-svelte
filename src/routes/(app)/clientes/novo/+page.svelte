@@ -229,7 +229,7 @@
           label="Genero"
           bind:value={formData.genero}
           options={generoSelectOptions}
-          placeholder="Selecione"
+          placeholder="Selecione uma opção"
         />
 
         <FieldInput id="nacionalidade" label="Nacionalidade" bind:value={formData.nacionalidade} />
@@ -247,7 +247,7 @@
         label="Classificacao"
         bind:value={formData.classificacao}
         options={classificacaoSelectOptions}
-        placeholder="Selecione"
+        placeholder="Selecione uma opção"
       />
 
       <FieldCheckbox
@@ -343,7 +343,7 @@
         label="Estado"
         bind:value={formData.estado}
         options={estadosSelectOptions}
-        placeholder="Selecione"
+        placeholder="Selecione uma opção"
       />
     </div>
   </Card>

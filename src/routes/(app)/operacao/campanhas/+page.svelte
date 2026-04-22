@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -44,7 +45,7 @@
       data_campanha: new Date().toISOString().slice(0, 10),
       validade_ate: '',
       regras: '',
-      status: 'ativa' as const
+      status: 'ativa' as 'ativa' | 'inativa' | 'cancelada'
     };
   }
 
@@ -233,15 +234,19 @@
 
 <Card color="operacao" class="mb-6">
   <div class="flex gap-4 items-end">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-status">Status</label>
-      <select id="camp-status" bind:value={filtroStatus} class="vtur-input">
-        <option value="">Todos</option>
-        <option value="ativa">Ativas</option>
-        <option value="inativa">Inativas</option>
-        <option value="cancelada">Canceladas</option>
-      </select>
-    </div>
+    <FieldSelect
+      id="camp-status"
+      label="Status"
+      bind:value={filtroStatus}
+      options={[
+        { value: '', label: 'Todos' },
+        { value: 'ativa', label: 'Ativas' },
+        { value: 'inativa', label: 'Inativas' },
+        { value: 'cancelada', label: 'Canceladas' }
+      ]}
+      placeholder={null}
+      class_name="min-w-[160px]"
+    />
     <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
@@ -258,9 +263,16 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canEdit}
-      <button on:click|stopPropagation={() => deleteCampanha(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+      <Button
+        variant="ghost"
+        size="xs"
+        on:click={() => deleteCampanha(row.id)}
+        title="Excluir"
+        disabled={deletingId === row.id}
+        class_name="text-slate-400 hover:text-red-600 hover:bg-red-50"
+      >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -279,49 +291,80 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-titulo">Título *</label>
-      <input id="camp-titulo" bind:value={form.titulo} class="vtur-input w-full" placeholder="Título da campanha" />
-    </div>
+    <FieldInput
+      id="camp-titulo"
+      label="Título"
+      bind:value={form.titulo}
+      placeholder="Título da campanha"
+      required={true}
+      class_name="w-full"
+    />
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-data">Data da Campanha *</label>
-        <input id="camp-data" type="date" bind:value={form.data_campanha} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-validade">Válida até</label>
-        <input id="camp-validade" type="date" bind:value={form.validade_ate} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-status-form">Status</label>
-        <select id="camp-status-form" bind:value={form.status} class="vtur-input w-full">
-          <option value="ativa">Ativa</option>
-          <option value="inativa">Inativa</option>
-          <option value="cancelada">Cancelada</option>
-        </select>
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-imagem">URL da Imagem</label>
-        <input id="camp-imagem" bind:value={form.imagem_url} class="vtur-input w-full" placeholder="https://..." />
-      </div>
+      <FieldInput
+        id="camp-data"
+        label="Data da Campanha"
+        type="date"
+        bind:value={form.data_campanha}
+        required={true}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="camp-validade"
+        label="Válida até"
+        type="date"
+        bind:value={form.validade_ate}
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="camp-status-form"
+        label="Status"
+        bind:value={form.status}
+        options={[
+          { value: 'ativa', label: 'Ativa' },
+          { value: 'inativa', label: 'Inativa' },
+          { value: 'cancelada', label: 'Cancelada' }
+        ]}
+        placeholder={null}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="camp-imagem"
+        label="URL da Imagem"
+        bind:value={form.imagem_url}
+        placeholder="https://..."
+        class_name="w-full"
+      />
     </div>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-link">Link principal</label>
-        <input id="camp-link" bind:value={form.link_url} class="vtur-input w-full" placeholder="https://..." />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-instagram">Instagram</label>
-        <input id="camp-instagram" bind:value={form.link_instagram} class="vtur-input w-full" placeholder="https://instagram.com/..." />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-facebook">Facebook</label>
-        <input id="camp-facebook" bind:value={form.link_facebook} class="vtur-input w-full" placeholder="https://facebook.com/..." />
-      </div>
+      <FieldInput
+        id="camp-link"
+        label="Link principal"
+        bind:value={form.link_url}
+        placeholder="https://..."
+        class_name="w-full"
+      />
+      <FieldInput
+        id="camp-instagram"
+        label="Instagram"
+        bind:value={form.link_instagram}
+        placeholder="https://instagram.com/..."
+        class_name="w-full"
+      />
+      <FieldInput
+        id="camp-facebook"
+        label="Facebook"
+        bind:value={form.link_facebook}
+        placeholder="https://facebook.com/..."
+        class_name="w-full"
+      />
     </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="camp-regras">Regras / Condições</label>
-      <textarea id="camp-regras" bind:value={form.regras} rows="4" class="vtur-input w-full" placeholder="Condições e regras da campanha..."></textarea>
-    </div>
+    <FieldTextarea
+      id="camp-regras"
+      label="Regras / Condições"
+      bind:value={form.regras}
+      rows={4}
+      placeholder="Condições e regras da campanha..."
+      class_name="w-full"
+    />
   </div>
 </Dialog>

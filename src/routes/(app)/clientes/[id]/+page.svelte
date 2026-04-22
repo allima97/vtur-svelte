@@ -450,8 +450,8 @@
     <div class="space-y-6 lg:col-span-2">
       <Card title="Historico de vendas" color="clientes">
         {#if historicoVendas.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div class="overflow-x-visible md:overflow-x-auto">
+            <table class="w-full text-sm table-mobile-cards">
               <thead class="bg-slate-50">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold text-slate-600">Lancamento</th>
@@ -492,8 +492,8 @@
 
       <Card title="Historico de orcamentos" color="clientes">
         {#if historicoOrcamentos.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <div class="overflow-x-visible md:overflow-x-auto">
+            <table class="w-full text-sm table-mobile-cards">
               <thead class="bg-slate-50">
                 <tr>
                   <th class="px-4 py-3 text-left font-semibold text-slate-600">Data</th>

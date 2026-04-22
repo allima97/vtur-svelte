@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import VoucherEditorModal from '$lib/components/modais/VoucherEditorModal.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
   import { Plus, Ticket, FileText, ExternalLink, Trash2, Loader2, Search } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -16,10 +16,8 @@
   let assets: VoucherAssetRecord[] = [];
   let loading = true;
   let searchQuery = '';
-  let showEditor = false;
   let showPreview = false;
   let previewVoucher: VoucherRecord | null = null;
-  let editingVoucher: VoucherRecord | null = null;
   let companyId: string | null = null;
   let deleteConfirmVoucher: VoucherRecord | null = null;
   let showDeleteDialog = false;
@@ -116,36 +114,13 @@
   }
 
   function handleNew() {
-    editingVoucher = null;
-    showEditor = true;
+    goto('/operacao/vouchers/novo');
   }
 
   function handleEditFromPreview(event: CustomEvent) {
-    editingVoucher = event.detail;
     showPreview = false;
-    showEditor = true;
-  }
-
-  async function handleSave(event: CustomEvent) {
-    const formData = event.detail;
-    
-    try {
-      const url = formData.id ? `/api/v1/vouchers/${formData.id}` : '/api/v1/vouchers';
-      const method = formData.id ? 'PATCH' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) throw new Error('Erro ao salvar');
-
-      toast.success(formData.id ? 'Voucher atualizado!' : 'Voucher criado!');
-      showEditor = false;
-      await loadData();
-    } catch (err) {
-      toast.error('Erro ao salvar voucher');
+    if (event.detail?.id) {
+      goto(`/operacao/vouchers/${event.detail.id}`);
     }
   }
 
@@ -249,15 +224,12 @@
 <!-- Filtros -->
 <Card color="clientes" class="mb-6">
   <div class="flex gap-4">
-    <div class="relative flex-1 max-w-md">
-      <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        type="text"
-        placeholder="Buscar vouchers..."
-        bind:value={searchQuery}
-        class="vtur-input pl-10 w-full"
-      />
-    </div>
+    <FieldInput
+      bind:value={searchQuery}
+      placeholder="Buscar vouchers..."
+      icon={Search}
+      class_name="max-w-md flex-1"
+    />
   </div>
 </Card>
 
@@ -274,13 +246,18 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     <div class="flex items-center gap-1">
-      <button
-        on:click|stopPropagation={() => deleteConfirmVoucher = row}
-        class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-        title="Excluir"
+      <Button
+        variant="ghost"
+        size="sm"
+        color="red"
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteConfirmVoucher = row;
+        }}
+        class_name="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
       >
         <Trash2 size={16} />
-      </button>
+      </Button>
     </div>
   </svelte:fragment>
 </DataTable>
@@ -293,23 +270,14 @@
   on:edit={handleEditFromPreview}
 />
 
-<!-- Editor Modal -->
-<VoucherEditorModal
-  bind:open={showEditor}
-  voucher={editingVoucher}
-  {companyId}
-  {assets}
-  on:save={handleSave}
-  on:close={() => showEditor = false}
-/>
-
 <!-- Delete Confirmation -->
 <Dialog
   bind:open={showDeleteDialog}
   title="Confirmar Exclusão"
-  color="danger"
+  color="financeiro"
   confirmText="Excluir"
   cancelText="Cancelar"
+  confirmVariant="danger"
   onConfirm={handleDelete}
   onCancel={() => deleteConfirmVoucher = null}
 >

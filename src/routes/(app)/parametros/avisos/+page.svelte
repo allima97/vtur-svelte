@@ -179,9 +179,19 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canEdit}
-      <button on:click|stopPropagation={() => deleteTemplate(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+      <Button
+        variant="ghost"
+        size="xs"
+        color="financeiro"
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteTemplate(row.id);
+        }}
+        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        loading={deletingId === row.id}
+      >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -207,7 +217,7 @@
         label="Ocasião"
         bind:value={form.categoria}
         options={OCASIOES.map(oc => ({ value: oc, label: oc }))}
-        placeholder="Selecione..."
+        placeholder="Selecione uma opção"
         class_name="w-full"
       />
       <FieldSelect

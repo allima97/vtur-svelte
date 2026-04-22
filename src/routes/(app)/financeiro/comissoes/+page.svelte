@@ -63,7 +63,6 @@
   ];
 
   $: vendedorOptions = [
-    { value: '', label: 'Todos' },
     ...vendedores.map((vendedor) => ({
       value: vendedor.id,
       label: vendedor.nome_completo || vendedor.email || vendedor.id
@@ -266,7 +265,15 @@
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
       <FieldSelect id="comissoes-status" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="min-w-[180px]" on:change={loadComissoes} />
-      <FieldSelect id="comissoes-vendedor" label="Vendedor" bind:value={filtroVendedor} options={vendedorOptions} class_name="min-w-[240px]" on:change={loadComissoes} />
+      <FieldSelect
+        id="comissoes-vendedor"
+        label="Vendedor"
+        bind:value={filtroVendedor}
+        options={vendedorOptions}
+        placeholder="Selecione uma opção"
+        class_name="min-w-[240px]"
+        on:change={loadComissoes}
+      />
       <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>

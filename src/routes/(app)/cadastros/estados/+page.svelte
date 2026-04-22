@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Subdivisao = {
@@ -134,15 +135,13 @@
 
 <Card class="mb-6">
   <div class="flex gap-4 items-end">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="est-pais">País</label>
-      <select id="est-pais" bind:value={filtroPais} class="vtur-input">
-        <option value="">Todos</option>
-        {#each paises as p}
-          <option value={p.id}>{p.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="est-pais"
+      label="País"
+      bind:value={filtroPais}
+      options={[{ value: '', label: 'Todos' }, ...paises.map((p) => ({ value: p.id, label: p.nome }))]}
+      placeholder={null}
+    />
     <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
@@ -156,28 +155,36 @@
 
 <Dialog bind:open={modalOpen} title={editingId ? 'Editar Estado' : 'Novo Estado'} size="sm" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={editingId ? 'Salvar' : 'Criar'} loading={saving} onConfirm={save} onCancel={() => (modalOpen = false)}>
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="est-nome">Nome *</label>
-      <input id="est-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome do estado/província" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="est-pais-form">País *</label>
-      <select id="est-pais-form" bind:value={form.pais_id} class="vtur-input w-full">
-        <option value="">Selecione...</option>
-        {#each paises as p}
-          <option value={p.id}>{p.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldInput
+      id="est-nome"
+      label="Nome *"
+      bind:value={form.nome}
+      placeholder="Nome do estado/província"
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="est-pais-form"
+      label="País *"
+      bind:value={form.pais_id}
+      options={[{ value: '', label: 'Selecione uma opção' }, ...paises.map((p) => ({ value: p.id, label: p.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="est-codigo">Código</label>
-        <input id="est-codigo" bind:value={form.codigo_admin1} class="vtur-input w-full" placeholder="Ex: SP, RJ" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="est-tipo">Tipo</label>
-        <input id="est-tipo" bind:value={form.tipo} class="vtur-input w-full" placeholder="Ex: Estado, Província" />
-      </div>
+      <FieldInput
+        id="est-codigo"
+        label="Código"
+        bind:value={form.codigo_admin1}
+        placeholder="Ex: SP, RJ"
+        class_name="w-full"
+      />
+      <FieldInput
+        id="est-tipo"
+        label="Tipo"
+        bind:value={form.tipo}
+        placeholder="Ex: Estado, Província"
+        class_name="w-full"
+      />
     </div>
   </div>
 </Dialog>

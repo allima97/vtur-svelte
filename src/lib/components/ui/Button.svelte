@@ -11,6 +11,7 @@
     | 'purple'
     | 'teal'
     | 'orange'
+    | 'crm'
     | 'clientes'
     | 'vendas'
     | 'financeiro'
@@ -21,6 +22,8 @@
   export let disabled = false;
   export let type: 'button' | 'submit' | 'reset' = 'button';
   export let href: string | undefined = undefined;
+  export let title: string | null = null;
+  export let ariaLabel: string | null = null;
   export let class_name = '';
 
   const colorAlias: Record<string, string> = {
@@ -31,6 +34,7 @@
     purple: 'purple',
     teal: 'teal',
     orange: 'orange',
+    crm: 'purple',
     clientes: 'blue',
     orcamentos: 'blue',
     vendas: 'teal',
@@ -68,6 +72,8 @@
     {href}
     {size}
     color={resolvedColor as any}
+    title={title ?? undefined}
+    aria-label={ariaLabel ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click
@@ -85,6 +91,8 @@
     {type}
     {size}
     color={resolvedColor as any}
+    title={title ?? undefined}
+    aria-label={ariaLabel ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click

@@ -274,7 +274,7 @@
   {/if}
 
   <div class="vtur-table-shell">
-    <div class="overflow-x-auto">
+    <div class="overflow-x-visible md:overflow-x-auto">
       <table class="w-full text-sm table-mobile-cards">
         <thead class="vtur-table__head">
           <tr>

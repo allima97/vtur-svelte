@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Calendar, ChevronLeft, ChevronRight } from 'lucide-svelte';
 
@@ -228,8 +229,8 @@
   </Card>
 {:else}
   <Card color="financeiro" padding="none">
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-xs">
+    <div class="overflow-x-visible md:overflow-x-auto">
+      <table class="min-w-full text-xs table-mobile-cards">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
             <th class="sticky left-0 z-10 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 min-w-[160px]">Colaborador</th>
@@ -304,28 +305,41 @@
 >
   <div class="space-y-4">
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="esc-tipo">Tipo</label>
-      <select id="esc-tipo" bind:value={cellForm.tipo} class="vtur-input w-full">
-        {#each TIPO_OPCOES as opt}
-          <option value={opt.value}>{opt.label}</option>
-        {/each}
-      </select>
+      <FieldSelect
+        id="esc-tipo"
+        label="Tipo"
+        bind:value={cellForm.tipo}
+        options={TIPO_OPCOES}
+        placeholder={null}
+      />
     </div>
     {#if cellForm.tipo === 'TRABALHO' || cellForm.tipo === 'PLANTAO'}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="esc-inicio">Início</label>
-          <input id="esc-inicio" type="time" bind:value={cellForm.hora_inicio} class="vtur-input w-full" />
+          <FieldInput
+            id="esc-inicio"
+            label="Início"
+            type="time"
+            bind:value={cellForm.hora_inicio}
+          />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="esc-fim">Fim</label>
-          <input id="esc-fim" type="time" bind:value={cellForm.hora_fim} class="vtur-input w-full" />
+          <FieldInput
+            id="esc-fim"
+            label="Fim"
+            type="time"
+            bind:value={cellForm.hora_fim}
+          />
         </div>
       </div>
     {/if}
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="esc-obs">Observação</label>
-      <input id="esc-obs" bind:value={cellForm.observacao} class="vtur-input w-full" placeholder="Opcional" />
+      <FieldInput
+        id="esc-obs"
+        label="Observação"
+        bind:value={cellForm.observacao}
+        placeholder="Opcional"
+      />
     </div>
   </div>
 </Dialog>

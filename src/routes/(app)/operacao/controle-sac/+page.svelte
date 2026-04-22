@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -271,19 +272,15 @@
 
 <Card color="operacao" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
-    <div class="relative flex-1 min-w-[200px]">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input bind:value={busca} class="vtur-input w-full pl-9" placeholder="Buscar por recibo, tour, motivo..." />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-status">Status</label>
-      <select id="sac-status" bind:value={statusFiltro} class="vtur-input">
-        <option value="all">Todos</option>
-        {#each STATUS_OPCOES as opt}
-          <option value={opt.value}>{opt.label}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldInput bind:value={busca} icon={Search} placeholder="Buscar por recibo, tour, motivo..." class_name="flex-1 min-w-[200px]" />
+    <FieldSelect
+      id="sac-status"
+      label="Status"
+      bind:value={statusFiltro}
+      options={[{ value: 'all', label: 'Todos' }, ...STATUS_OPCOES]}
+      placeholder="Todos"
+      class_name="w-40"
+    />
     <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
@@ -300,14 +297,17 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canDelete}
-      <button
-        on:click|stopPropagation={() => deleteRegistro(row.id)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        on:click={() => deleteRegistro(row.id)}
         title="Excluir"
         disabled={deletingId === row.id}
       >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -326,45 +326,21 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-recibo">Recibo</label>
-      <input id="sac-recibo" bind:value={form.recibo} class="vtur-input w-full" placeholder="Número do recibo" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-tour">Tour</label>
-      <input id="sac-tour" bind:value={form.tour} class="vtur-input w-full" placeholder="Nome do tour" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-contratante">Contratante/Pax</label>
-      <input id="sac-contratante" bind:value={form.contratante_pax} class="vtur-input w-full" placeholder="Nome do contratante ou passageiro" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-data">Data da Solicitação</label>
-      <input id="sac-data" type="date" bind:value={form.data_solicitacao} class="vtur-input w-full" />
-    </div>
-    <div class="md:col-span-2">
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-motivo">Motivo</label>
-      <textarea id="sac-motivo" bind:value={form.motivo} rows="3" class="vtur-input w-full" placeholder="Descreva o motivo da solicitação"></textarea>
-    </div>
-    <div class="md:col-span-2">
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-ok-quando">OK quando</label>
-      <input id="sac-ok-quando" bind:value={form.ok_quando} class="vtur-input w-full" placeholder="Condição para encerramento" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-responsavel">Responsável</label>
-      <input id="sac-responsavel" bind:value={form.responsavel} class="vtur-input w-full" placeholder="Nome do responsável" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-prazo">Prazo</label>
-      <input id="sac-prazo" type="date" bind:value={form.prazo} class="vtur-input w-full" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="sac-status-form">Status</label>
-      <select id="sac-status-form" bind:value={form.status} class="vtur-input w-full">
-        {#each STATUS_OPCOES as opt}
-          <option value={opt.value}>{opt.label}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldInput id="sac-recibo" label="Recibo" bind:value={form.recibo} placeholder="Número do recibo" class_name="w-full" />
+    <FieldInput id="sac-tour" label="Tour" bind:value={form.tour} placeholder="Nome do tour" class_name="w-full" />
+    <FieldInput id="sac-contratante" label="Contratante/Pax" bind:value={form.contratante_pax} placeholder="Nome do contratante ou passageiro" class_name="w-full" />
+    <FieldInput id="sac-data" label="Data da Solicitação" type="date" bind:value={form.data_solicitacao} class_name="w-full" />
+    <FieldTextarea id="sac-motivo" label="Motivo" bind:value={form.motivo} rows={3} placeholder="Descreva o motivo da solicitação" class_name="md:col-span-2 w-full" />
+    <FieldInput id="sac-ok-quando" label="OK quando" bind:value={form.ok_quando} placeholder="Condição para encerramento" class_name="md:col-span-2 w-full" />
+    <FieldInput id="sac-responsavel" label="Responsável" bind:value={form.responsavel} placeholder="Nome do responsável" class_name="w-full" />
+    <FieldInput id="sac-prazo" label="Prazo" type="date" bind:value={form.prazo} class_name="w-full" />
+    <FieldSelect
+      id="sac-status-form"
+      label="Status"
+      bind:value={form.status}
+      options={STATUS_OPCOES}
+      placeholder="Selecione uma opção"
+      class_name="w-full"
+    />
   </div>
 </Dialog>

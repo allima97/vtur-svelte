@@ -244,39 +244,33 @@
 
   <Card color="financeiro" title="Billing">
     <div class="grid gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="billing-status">Status</label>
-        <select id="billing-status" bind:value={form.billing_status} class="vtur-input w-full">
-          <option value="active">Active</option>
-          <option value="trial">Trial</option>
-          <option value="past_due">Past due</option>
-          <option value="suspended">Suspended</option>
-          <option value="canceled">Canceled</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="billing-status"
+        label="Status"
+        bind:value={form.billing_status}
+        options={[
+          { value: 'active', label: 'Active' },
+          { value: 'trial', label: 'Trial' },
+          { value: 'past_due', label: 'Past due' },
+          { value: 'suspended', label: 'Suspended' },
+          { value: 'canceled', label: 'Canceled' }
+        ]}
+        placeholder=""
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="billing-plan">Plano</label>
-        <select id="billing-plan" bind:value={form.billing_plan_id} class="vtur-input w-full">
-          <option value="">Sem plano</option>
-          {#each plans as plan}
-            <option value={plan.id}>{plan.nome}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="billing-plan"
+        label="Plano"
+        bind:value={form.billing_plan_id}
+        options={[{ value: '', label: 'Sem plano' }, ...plans.map((plan) => ({ value: plan.id, label: plan.nome || '' }))]}
+        placeholder=""
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="billing-valor">Valor mensal</label>
-        <input id="billing-valor" bind:value={form.billing_valor_mensal} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="billing-ultimo">Ultimo pagamento</label>
-        <input id="billing-ultimo" type="date" bind:value={form.billing_ultimo_pagamento} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="billing-proximo">Proximo vencimento</label>
-        <input id="billing-proximo" type="date" bind:value={form.billing_proximo_vencimento} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="billing-valor" label="Valor mensal" bind:value={form.billing_valor_mensal} class_name="w-full" />
+      <FieldInput id="billing-ultimo" label="Ultimo pagamento" type="date" bind:value={form.billing_ultimo_pagamento} class_name="w-full" />
+      <FieldInput id="billing-proximo" label="Proximo vencimento" type="date" bind:value={form.billing_proximo_vencimento} class_name="w-full" />
     </div>
   </Card>
 
@@ -289,7 +283,7 @@
             label="Master"
             bind:value={newLink.master_id}
             options={mastersDisponiveis.map(m => ({ value: m.id, label: m.nome_completo }))}
-            placeholder="Selecione"
+            placeholder="Selecione uma opção"
             class_name="w-full"
           />
           <FieldSelect
@@ -319,17 +313,19 @@
                 <p class="text-xs text-slate-500">{link.master?.email || '-'}</p>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`status-${link.id}`}>Status</label>
-                <select
+                <FieldSelect
                   id={`status-${link.id}`}
-                  class="vtur-input w-full"
+                  label="Status"
                   value={link.status}
-                  on:change={(event) => updateMasterLink(link.id, event.currentTarget.value)}
-                >
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                  options={[
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'rejected', label: 'Rejected' }
+                  ]}
+                  placeholder=""
+                  class_name="w-full"
+                  on:change={(event) => updateMasterLink(link.id, (event.target as HTMLSelectElement).value)}
+                />
               </div>
               <div class="lg:self-end">
                 <Button variant="danger" on:click={() => deleteMasterLink(link.id)}>Excluir</Button>

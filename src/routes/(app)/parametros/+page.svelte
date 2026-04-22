@@ -3,7 +3,7 @@
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
-  import { FieldCheckbox, FieldInput, FieldSelect } from "$lib/components/ui";
+  import { FieldCheckbox, FieldInput, FieldSelect, SimpleTable } from "$lib/components/ui";
   import { toast } from "$lib/stores/ui";
   import { permissoes } from "$lib/stores/permissoes";
   import {
@@ -446,6 +446,17 @@
           escopo e as edicoes administrativas.
         </div>
       {/if}
+
+      {#if origemDados === "default"}
+        <div
+          class="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+        >
+          Esta tela nao esta lendo dados mockados. Ela exibiu os valores padrao
+          porque ainda nao existe um registro salvo em
+          <code>parametros_comissao</code> para a empresa vinculada ao usuario
+          atual, ou o usuario nao tem uma empresa resolvida no escopo.
+        </div>
+      {/if}
     </Card>
 
     <div class="grid gap-6 xl:grid-cols-3">
@@ -577,7 +588,7 @@
             label="% Concil. meta nao batida"
             type="number"
             step="0.01"
-            value={form.conciliacao_meta_nao_atingida ?? ''}
+            value={form.conciliacao_meta_nao_atingida == null ? "" : String(form.conciliacao_meta_nao_atingida)}
             disabled={bloqueadoConciliacao}
             class_name="w-full"
             on:input={(event) => updateTopLevel('conciliacao_meta_nao_atingida', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
@@ -587,7 +598,7 @@
             label="% Concil. meta batida"
             type="number"
             step="0.01"
-            value={form.conciliacao_meta_atingida ?? ''}
+            value={form.conciliacao_meta_atingida == null ? "" : String(form.conciliacao_meta_atingida)}
             disabled={bloqueadoConciliacao}
             class_name="w-full"
             on:input={(event) => updateTopLevel('conciliacao_meta_atingida', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
@@ -597,7 +608,7 @@
             label="% Concil. super meta"
             type="number"
             step="0.01"
-            value={form.conciliacao_super_meta ?? ''}
+            value={form.conciliacao_super_meta == null ? "" : String(form.conciliacao_super_meta)}
             disabled={bloqueadoConciliacao}
             class_name="w-full"
             on:input={(event) => updateTopLevel('conciliacao_super_meta', parseNumberOrNull((event.currentTarget as HTMLInputElement).value))}
@@ -660,7 +671,7 @@
               </div>
             {:else}
               <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <SimpleTable tableClass="min-w-full divide-y divide-slate-200 text-sm" color="financeiro">
                   <thead class="bg-white/80">
                     <tr class="text-left text-slate-600">
                       <th class="px-3 py-2 font-medium">Faixa</th>
@@ -675,79 +686,84 @@
                     {#each form.conciliacao_tiers as tier, index}
                       <tr>
                         <td class="px-3 py-2">
-                          <select
-                            class="vtur-input min-w-[110px]"
+                          <FieldSelect
+                            class_name="min-w-[110px]"
                             value={tier.faixa}
+                            options={[
+                              { value: "PRE", label: "PRE" },
+                              { value: "POS", label: "POS" },
+                            ]}
+                            placeholder={null}
                             disabled={bloqueado}
                             on:change={(event) =>
                               updateTier(
                                 index,
                                 "faixa",
-                                (event.currentTarget as HTMLSelectElement)
-                                  .value,
+                                (event.target as HTMLSelectElement).value,
                               )}
-                          >
-                            <option value="PRE">PRE</option>
-                            <option value="POS">POS</option>
-                          </select>
+                          />
                         </td>
                         <td class="px-3 py-2">
-                          <input
+                          <FieldInput
                             type="number"
                             step="0.01"
-                            value={tier.de_pct}
-                            class="vtur-input min-w-[120px]"
+                            value={tier.de_pct == null ? "" : String(tier.de_pct)}
+                            class_name="min-w-[120px]"
                             disabled={bloqueado}
                             on:input={(event) =>
                               updateTier(
                                 index,
                                 "de_pct",
-                                (event.currentTarget as HTMLInputElement).value,
+                                (event.target as HTMLInputElement).value,
                               )}
                           />
                         </td>
                         <td class="px-3 py-2">
-                          <input
+                          <FieldInput
                             type="number"
                             step="0.01"
-                            value={tier.ate_pct}
-                            class="vtur-input min-w-[120px]"
+                            value={tier.ate_pct == null ? "" : String(tier.ate_pct)}
+                            class_name="min-w-[120px]"
                             disabled={bloqueado}
                             on:input={(event) =>
                               updateTier(
                                 index,
                                 "ate_pct",
-                                (event.currentTarget as HTMLInputElement).value,
+                                (event.target as HTMLInputElement).value,
                               )}
                           />
                         </td>
                         <td class="px-3 py-2">
-                          <input
+                          <FieldInput
                             type="number"
                             step="0.01"
-                            value={tier.inc_pct_meta}
-                            class="vtur-input min-w-[140px]"
+                            value={tier.inc_pct_meta == null
+                              ? ""
+                              : String(tier.inc_pct_meta)}
+                            class_name="min-w-[140px]"
                             disabled={bloqueado}
                             on:input={(event) =>
                               updateTier(
                                 index,
                                 "inc_pct_meta",
-                                (event.currentTarget as HTMLInputElement).value,
+                                (event.target as HTMLInputElement).value,
                               )}
                           />
                         </td>
                         <td class="px-3 py-2">
-                          <input
+                          <FieldInput
                             type="number"
                             step="0.01"
-                            value={tier.inc_pct_comissao}
-                            class="vtur-input min-w-[160px]"
+                            value={tier.inc_pct_comissao == null
+                              ? ""
+                              : String(tier.inc_pct_comissao)}
+                            class_name="min-w-[160px]"
                             disabled={bloqueado}
                             on:input={(event) =>
                               updateTier(
                                 index,
                                 "inc_pct_comissao",
-                                (event.currentTarget as HTMLInputElement).value,
+                                (event.target as HTMLInputElement).value,
                               )}
                           />
                         </td>
@@ -765,7 +781,7 @@
                       </tr>
                     {/each}
                   </tbody>
-                </table>
+                </SimpleTable>
               </div>
             {/if}
           </div>
@@ -840,214 +856,188 @@
 
                 <div class="grid gap-4 xl:grid-cols-4">
                   <div>
-                    <label
-                      class="mb-1 block text-sm font-medium text-slate-700"
-                      for={`band-name-${bandIndex}`}
-                    >
-                      Nome da faixa
-                    </label>
-                    <input
+                    <FieldInput
                       id={`band-name-${bandIndex}`}
-                      class="vtur-input w-full"
+                      label="Nome da faixa"
                       value={band.nome}
+                      class_name="w-full"
                       disabled={bloqueado}
                       on:input={(event) =>
                         updateBand(bandIndex, {
-                          nome: (event.currentTarget as HTMLInputElement).value,
+                          nome: (event.target as HTMLInputElement).value,
                         })}
                     />
                   </div>
 
                   <div>
-                    <label
-                      class="mb-1 block text-sm font-medium text-slate-700"
-                      for={`band-min-${bandIndex}`}
-                    >
-                      % minimo
-                    </label>
-                    <input
+                    <FieldInput
                       id={`band-min-${bandIndex}`}
+                      label="% minimo"
                       type="number"
                       step="0.01"
-                      value={band.percentual_min ?? ""}
-                      class="vtur-input w-full"
+                      value={band.percentual_min == null
+                        ? ""
+                        : String(band.percentual_min)}
+                      class_name="w-full"
                       disabled={bloqueado}
                       on:input={(event) =>
                         updateBand(bandIndex, {
                           percentual_min: parseNumberOrNull(
-                            (event.currentTarget as HTMLInputElement).value,
+                            (event.target as HTMLInputElement).value,
                           ),
                         })}
                     />
                   </div>
 
                   <div>
-                    <label
-                      class="mb-1 block text-sm font-medium text-slate-700"
-                      for={`band-max-${bandIndex}`}
-                    >
-                      % maximo
-                    </label>
-                    <input
+                    <FieldInput
                       id={`band-max-${bandIndex}`}
+                      label="% maximo"
                       type="number"
                       step="0.01"
-                      value={band.percentual_max ?? ""}
-                      class="vtur-input w-full"
+                      value={band.percentual_max == null
+                        ? ""
+                        : String(band.percentual_max)}
+                      class_name="w-full"
                       disabled={bloqueado}
                       on:input={(event) =>
                         updateBand(bandIndex, {
                           percentual_max: parseNumberOrNull(
-                            (event.currentTarget as HTMLInputElement).value,
+                            (event.target as HTMLInputElement).value,
                           ),
                         })}
                     />
                   </div>
 
                   <div>
-                    <label
-                      class="mb-1 block text-sm font-medium text-slate-700"
-                      for={`band-base-${bandIndex}`}
-                    >
-                      Base do pagamento
-                    </label>
-                    <select
+                    <FieldSelect
                       id={`band-base-${bandIndex}`}
-                      class="vtur-input w-full"
+                      label="Base do pagamento"
                       value={band.tipo_calculo}
+                      options={[
+                        {
+                          value: "CONCILIACAO",
+                          label: "Regra da conciliacao",
+                        },
+                        {
+                          value: "PRODUTO_DIFERENCIADO",
+                          label: "Produto diferenciado",
+                        },
+                      ]}
+                      placeholder={null}
+                      class_name="w-full"
                       disabled={bloqueadoConciliacao}
                       on:change={(event) =>
                         updateBand(bandIndex, {
-                          tipo_calculo:
-                            (event.currentTarget as HTMLSelectElement).value ===
+                          tipo_calculo: (event.target as HTMLSelectElement)
+                            .value ===
                             "PRODUTO_DIFERENCIADO"
                               ? "PRODUTO_DIFERENCIADO"
                               : "CONCILIACAO",
                         })}
-                    >
-                      <option value="CONCILIACAO">Regra da conciliacao</option>
-                      <option value="PRODUTO_DIFERENCIADO"
-                        >Produto diferenciado</option
-                      >
-                    </select>
+                    />
                   </div>
                 </div>
 
-                <label
-                  class="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 p-4"
-                >
-                  <input
-                    type="checkbox"
+                <div class="mt-4 rounded-xl border border-slate-200 p-4">
+                  <FieldCheckbox
                     checked={band.ativo}
+                    label="Faixa ativa"
+                    helper="Quando ativa, essa faixa entra no calculo dos recibos conciliados."
+                    color="financeiro"
                     disabled={bloqueadoConciliacao}
                     on:change={(event) =>
                       updateBand(bandIndex, {
-                        ativo: (event.currentTarget as HTMLInputElement)
-                          .checked,
+                        ativo: (event.target as HTMLInputElement).checked,
                       })}
                   />
-                  <div>
-                    <p class="font-medium text-slate-900">Faixa ativa</p>
-                    <p class="text-sm text-slate-500">
-                      Quando ativa, essa faixa entra no calculo dos recibos
-                      conciliados.
-                    </p>
-                  </div>
-                </label>
+                </div>
 
                 {#if band.tipo_calculo === "CONCILIACAO"}
                   <div class="mt-4 grid gap-4 xl:grid-cols-4">
                     <div>
-                      <label
-                        class="mb-1 block text-sm font-medium text-slate-700"
-                        for={`band-type-${bandIndex}`}
-                      >
-                        Tipo da regra
-                      </label>
-                      <select
+                      <FieldSelect
                         id={`band-type-${bandIndex}`}
-                        class="vtur-input w-full"
+                        label="Tipo da regra"
                         value={band.tipo}
+                        options={[
+                          {
+                            value: "GERAL",
+                            label: "Geral (percentuais fixos)",
+                          },
+                          {
+                            value: "ESCALONAVEL",
+                            label: "Escalonavel (faixas)",
+                          },
+                        ]}
+                        placeholder={null}
+                        class_name="w-full"
                         disabled={bloqueadoConciliacao || !band.ativo}
                         on:change={(event) =>
                           updateBand(bandIndex, {
-                            tipo:
-                              (event.currentTarget as HTMLSelectElement)
-                                .value === "ESCALONAVEL"
+                            tipo: (event.target as HTMLSelectElement).value ===
+                              "ESCALONAVEL"
                                 ? "ESCALONAVEL"
                                 : "GERAL",
                           })}
-                      >
-                        <option value="GERAL">Geral (percentuais fixos)</option>
-                        <option value="ESCALONAVEL">Escalonavel (faixas)</option
-                        >
-                      </select>
+                      />
                     </div>
 
                     <div>
-                      <label
-                        class="mb-1 block text-sm font-medium text-slate-700"
-                        for={`band-nao-${bandIndex}`}
-                      >
-                        % Meta nao batida
-                      </label>
-                      <input
+                      <FieldInput
                         id={`band-nao-${bandIndex}`}
+                        label="% Meta nao batida"
                         type="number"
                         step="0.01"
-                        value={band.meta_nao_atingida ?? ""}
-                        class="vtur-input w-full"
+                        value={band.meta_nao_atingida == null
+                          ? ""
+                          : String(band.meta_nao_atingida)}
+                        class_name="w-full"
                         disabled={bloqueadoConciliacao || !band.ativo}
                         on:input={(event) =>
                           updateBand(bandIndex, {
                             meta_nao_atingida: parseNumberOrNull(
-                              (event.currentTarget as HTMLInputElement).value,
+                              (event.target as HTMLInputElement).value,
                             ),
                           })}
                       />
                     </div>
 
                     <div>
-                      <label
-                        class="mb-1 block text-sm font-medium text-slate-700"
-                        for={`band-sim-${bandIndex}`}
-                      >
-                        % Meta batida
-                      </label>
-                      <input
+                      <FieldInput
                         id={`band-sim-${bandIndex}`}
+                        label="% Meta batida"
                         type="number"
                         step="0.01"
-                        value={band.meta_atingida ?? ""}
-                        class="vtur-input w-full"
+                        value={band.meta_atingida == null
+                          ? ""
+                          : String(band.meta_atingida)}
+                        class_name="w-full"
                         disabled={bloqueadoConciliacao || !band.ativo}
                         on:input={(event) =>
                           updateBand(bandIndex, {
                             meta_atingida: parseNumberOrNull(
-                              (event.currentTarget as HTMLInputElement).value,
+                              (event.target as HTMLInputElement).value,
                             ),
                           })}
                       />
                     </div>
 
                     <div>
-                      <label
-                        class="mb-1 block text-sm font-medium text-slate-700"
-                        for={`band-super-${bandIndex}`}
-                      >
-                        % Super meta
-                      </label>
-                      <input
+                      <FieldInput
                         id={`band-super-${bandIndex}`}
+                        label="% Super meta"
                         type="number"
                         step="0.01"
-                        value={band.super_meta ?? ""}
-                        class="vtur-input w-full"
+                        value={band.super_meta == null
+                          ? ""
+                          : String(band.super_meta)}
+                        class_name="w-full"
                         disabled={bloqueadoConciliacao || !band.ativo}
                         on:input={(event) =>
                           updateBand(bandIndex, {
                             super_meta: parseNumberOrNull(
-                              (event.currentTarget as HTMLInputElement).value,
+                              (event.target as HTMLInputElement).value,
                             ),
                           })}
                       />
@@ -1108,8 +1098,9 @@
                         </div>
                       {:else}
                         <div class="overflow-x-auto">
-                          <table
-                            class="min-w-full divide-y divide-slate-200 text-sm"
+                          <SimpleTable
+                            tableClass="min-w-full divide-y divide-slate-200 text-sm"
+                            color="financeiro"
                           >
                             <thead class="bg-white/80">
                               <tr class="text-left text-slate-600">
@@ -1131,9 +1122,14 @@
                               {#each band.tiers as tier, tierIndex}
                                 <tr>
                                   <td class="px-3 py-2">
-                                    <select
-                                      class="vtur-input min-w-[110px]"
+                                    <FieldSelect
+                                      class_name="min-w-[110px]"
                                       value={tier.faixa}
+                                      options={[
+                                        { value: "PRE", label: "PRE" },
+                                        { value: "POS", label: "POS" },
+                                      ]}
+                                      placeholder={null}
                                       disabled={bloqueadoConciliacao ||
                                         !band.ativo}
                                       on:change={(event) =>
@@ -1141,21 +1137,19 @@
                                           bandIndex,
                                           tierIndex,
                                           "faixa",
-                                          (
-                                            event.currentTarget as HTMLSelectElement
-                                          ).value,
+                                          (event.target as HTMLSelectElement)
+                                            .value,
                                         )}
-                                    >
-                                      <option value="PRE">PRE</option>
-                                      <option value="POS">POS</option>
-                                    </select>
+                                    />
                                   </td>
                                   <td class="px-3 py-2">
-                                    <input
+                                    <FieldInput
                                       type="number"
                                       step="0.01"
-                                      value={tier.de_pct}
-                                      class="vtur-input min-w-[120px]"
+                                      value={tier.de_pct == null
+                                        ? ""
+                                        : String(tier.de_pct)}
+                                      class_name="min-w-[120px]"
                                       disabled={bloqueadoConciliacao ||
                                         !band.ativo}
                                       on:input={(event) =>
@@ -1163,18 +1157,19 @@
                                           bandIndex,
                                           tierIndex,
                                           "de_pct",
-                                          (
-                                            event.currentTarget as HTMLInputElement
-                                          ).value,
+                                          (event.target as HTMLInputElement)
+                                            .value,
                                         )}
                                     />
                                   </td>
                                   <td class="px-3 py-2">
-                                    <input
+                                    <FieldInput
                                       type="number"
                                       step="0.01"
-                                      value={tier.ate_pct}
-                                      class="vtur-input min-w-[120px]"
+                                      value={tier.ate_pct == null
+                                        ? ""
+                                        : String(tier.ate_pct)}
+                                      class_name="min-w-[120px]"
                                       disabled={bloqueadoConciliacao ||
                                         !band.ativo}
                                       on:input={(event) =>
@@ -1182,18 +1177,19 @@
                                           bandIndex,
                                           tierIndex,
                                           "ate_pct",
-                                          (
-                                            event.currentTarget as HTMLInputElement
-                                          ).value,
+                                          (event.target as HTMLInputElement)
+                                            .value,
                                         )}
                                     />
                                   </td>
                                   <td class="px-3 py-2">
-                                    <input
+                                    <FieldInput
                                       type="number"
                                       step="0.01"
-                                      value={tier.inc_pct_meta}
-                                      class="vtur-input min-w-[140px]"
+                                      value={tier.inc_pct_meta == null
+                                        ? ""
+                                        : String(tier.inc_pct_meta)}
+                                      class_name="min-w-[140px]"
                                       disabled={bloqueadoConciliacao ||
                                         !band.ativo}
                                       on:input={(event) =>
@@ -1201,18 +1197,19 @@
                                           bandIndex,
                                           tierIndex,
                                           "inc_pct_meta",
-                                          (
-                                            event.currentTarget as HTMLInputElement
-                                          ).value,
+                                          (event.target as HTMLInputElement)
+                                            .value,
                                         )}
                                     />
                                   </td>
                                   <td class="px-3 py-2">
-                                    <input
+                                    <FieldInput
                                       type="number"
                                       step="0.01"
-                                      value={tier.inc_pct_comissao}
-                                      class="vtur-input min-w-[160px]"
+                                      value={tier.inc_pct_comissao == null
+                                        ? ""
+                                        : String(tier.inc_pct_comissao)}
+                                      class_name="min-w-[160px]"
                                       disabled={bloqueadoConciliacao ||
                                         !band.ativo}
                                       on:input={(event) =>
@@ -1220,9 +1217,8 @@
                                           bandIndex,
                                           tierIndex,
                                           "inc_pct_comissao",
-                                          (
-                                            event.currentTarget as HTMLInputElement
-                                          ).value,
+                                          (event.target as HTMLInputElement)
+                                            .value,
                                         )}
                                     />
                                   </td>
@@ -1242,7 +1238,7 @@
                                 </tr>
                               {/each}
                             </tbody>
-                          </table>
+                          </SimpleTable>
                         </div>
                       {/if}
                     </div>

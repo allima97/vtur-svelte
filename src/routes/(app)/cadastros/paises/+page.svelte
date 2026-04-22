@@ -5,6 +5,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Pais = {
@@ -122,24 +123,30 @@
 
 <Dialog bind:open={modalOpen} title={editingId ? 'Editar País' : 'Novo País'} size="sm" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={editingId ? 'Salvar' : 'Criar'} loading={saving} onConfirm={save} onCancel={() => (modalOpen = false)}>
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="pais-nome">Nome *</label>
-      <input id="pais-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome do país" />
-    </div>
+    <FieldInput
+      id="pais-nome"
+      label="Nome *"
+      bind:value={form.nome}
+      placeholder="Nome do país"
+      class_name="w-full"
+    />
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="pais-iso">Código ISO</label>
-        <input id="pais-iso" bind:value={form.codigo_iso} class="vtur-input w-full" placeholder="Ex: BR, US" maxlength="3" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="pais-continente">Continente</label>
-        <select id="pais-continente" bind:value={form.continente} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each CONTINENTES as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldInput
+        id="pais-iso"
+        label="Código ISO"
+        bind:value={form.codigo_iso}
+        placeholder="Ex: BR, US"
+        maxlength={3}
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="pais-continente"
+        label="Continente"
+        bind:value={form.continente}
+        options={[{ value: '', label: 'Selecione uma opção' }, ...CONTINENTES.map((c) => ({ value: c, label: c }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
     </div>
   </div>
 </Dialog>

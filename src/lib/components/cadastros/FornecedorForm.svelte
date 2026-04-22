@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -217,14 +217,26 @@
   <form on:submit|preventDefault={handleSubmit}>
     <Card color="financeiro" class="mb-6">
       <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <button type="button" class="rounded-xl border px-4 py-3 text-left transition" class:border-financeiro-500={form.localizacao === 'brasil'} on:click={() => (form.localizacao = 'brasil')}>
+        <Button
+          type="button"
+          variant={form.localizacao === 'brasil' ? 'primary' : 'outline'}
+          color="financeiro"
+          class_name="w-full !justify-start !rounded-xl !px-4 !py-3 !text-left"
+          on:click={() => (form.localizacao = 'brasil')}
+        >
           <div class="font-medium text-slate-900">Brasil</div>
           <div class="text-sm text-slate-500">Usa CNPJ, CEP e cidade nacional.</div>
-        </button>
-        <button type="button" class="rounded-xl border px-4 py-3 text-left transition" class:border-financeiro-500={form.localizacao === 'exterior'} on:click={() => (form.localizacao = 'exterior')}>
+        </Button>
+        <Button
+          type="button"
+          variant={form.localizacao === 'exterior' ? 'primary' : 'outline'}
+          color="financeiro"
+          class_name="w-full !justify-start !rounded-xl !px-4 !py-3 !text-left"
+          on:click={() => (form.localizacao = 'exterior')}
+        >
           <div class="font-medium text-slate-900">Exterior</div>
           <div class="text-sm text-slate-500">Permite cadastro internacional sem exigir documento fiscal brasileiro.</div>
-        </button>
+        </Button>
       </div>
 
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -235,8 +247,16 @@
           <FieldInput id="forn-cep" label="CEP" bind:value={form.cep} placeholder="00000-000" class_name="w-full" />
         {/if}
         <div class="relative">
-          <label for="forn-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade</label>
-          <input id="forn-cidade" value={cidadeBusca} class="vtur-input w-full" placeholder="Buscar cidade..." on:input={(e) => handleCidadeInput(e.currentTarget.value)} on:focus={() => (showCidadeOptions = true)} on:blur={() => setTimeout(() => (showCidadeOptions = false), 150)} />
+          <FieldInput
+            id="forn-cidade"
+            label="Cidade"
+            value={cidadeBusca}
+            placeholder="Buscar cidade..."
+            class_name="w-full"
+            on:input={(e) => handleCidadeInput((e.target as HTMLInputElement).value)}
+            on:focus={() => (showCidadeOptions = true)}
+            on:blur={() => setTimeout(() => (showCidadeOptions = false), 150)}
+          />
           {#if showCidadeOptions}
             <div class="absolute z-10 mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
               {#if buscandoCidade}
@@ -276,13 +296,13 @@
           placeholder=""
           class_name="w-full"
         />
-        <div>
-          <label for="forn-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-          <select id="forn-status" bind:value={form.ativo} class="vtur-input w-full">
-            <option value={true}>Ativo</option>
-            <option value={false}>Inativo</option>
-          </select>
-        </div>
+        <FieldCheckbox
+          label="Fornecedor ativo"
+          bind:checked={form.ativo}
+          helper="Desative para retirar o fornecedor dos fluxos operacionais sem apagar o cadastro."
+          color="financeiro"
+          class_name="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+        />
         <FieldTextarea
           id="forn-servicos"
           label="Principais serviços"

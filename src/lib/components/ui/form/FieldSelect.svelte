@@ -2,6 +2,7 @@
   import { Label, Select, Helper } from 'flowbite-svelte';
 
   export let label: string | null = null;
+  export let srLabel = false;
   export let value: string = '';
   export let options: Array<{ value: string; label: string; disabled?: boolean }> = [];
   export let placeholder: string | null = 'Selecione uma opção';
@@ -18,7 +19,7 @@
 
 <div class={class_name}>
   {#if label}
-    <Label for={fieldId} class="mb-1.5 block text-sm font-medium text-slate-700">
+    <Label for={fieldId} class="{srLabel ? 'sr-only' : 'mb-1.5 block text-sm font-medium text-slate-700'}">
       {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
     </Label>
   {/if}

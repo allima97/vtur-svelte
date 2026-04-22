@@ -27,6 +27,7 @@
     financeiro: 'from-orange-600 to-amber-500',
     operacao: 'from-teal-600 to-cyan-500',
     orcamentos: 'from-blue-600 to-indigo-500',
+    crm: 'from-purple-600 to-fuchsia-500',
     blue: 'from-blue-600 to-cyan-500',
     green: 'from-green-600 to-emerald-500',
     orange: 'from-orange-600 to-amber-500',

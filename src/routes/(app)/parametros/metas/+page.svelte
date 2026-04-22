@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Target, Trash2, RefreshCw } from 'lucide-svelte';
@@ -193,6 +193,10 @@
   }
 
   const monthOptions = buildMonthOptions();
+  $: vendedorOptions = vendedores.map((v) => ({
+    value: v.id,
+    label: v.nome_completo || 'Vendedor'
+  }));
 </script>
 
 <svelte:head>
@@ -255,14 +259,19 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canDelete}
-      <button
-        on:click|stopPropagation={() => deleteMeta(row.id)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        title="Excluir"
-        disabled={deletingId === row.id}
+      <Button
+        variant="ghost"
+        size="xs"
+        color="financeiro"
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteMeta(row.id);
+        }}
+        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        loading={deletingId === row.id}
       >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -282,42 +291,50 @@
 >
   <div class="space-y-4">
     {#if vendedores.length > 0}
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="meta-vendedor">Vendedor *</label>
-        <select id="meta-vendedor" bind:value={form.vendedor_id} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each vendedores as v}
-            <option value={v.id}>{v.nome_completo || 'Vendedor'}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="meta-vendedor"
+        label="Vendedor"
+        bind:value={form.vendedor_id}
+        options={vendedorOptions}
+        required={true}
+      />
     {/if}
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="meta-periodo">Período *</label>
-      <select id="meta-periodo" bind:value={form.periodo} class="vtur-input w-full">
-        {#each monthOptions as opt}
-          <option value={opt.value}>{opt.label}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="meta-periodo"
+      label="Período"
+      bind:value={form.periodo}
+      options={monthOptions}
+      placeholder={null}
+      required={true}
+    />
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="meta-geral">Meta Geral (R$) *</label>
-      <input id="meta-geral" type="number" step="0.01" min="0" bind:value={form.meta_geral} class="vtur-input w-full" placeholder="0,00" />
-    </div>
+    <FieldInput
+      id="meta-geral"
+      label="Meta Geral (R$)"
+      type="number"
+      step="0.01"
+      min="0"
+      bind:value={form.meta_geral}
+      placeholder="0,00"
+      required={true}
+    />
 
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="meta-diferenciada">Meta Diferenciada (R$)</label>
-      <input id="meta-diferenciada" type="number" step="0.01" min="0" bind:value={form.meta_diferenciada} class="vtur-input w-full" placeholder="0,00" />
-      <p class="mt-1 text-xs text-slate-500">Opcional. Meta específica por produto diferenciado.</p>
-    </div>
+    <FieldInput
+      id="meta-diferenciada"
+      label="Meta Diferenciada (R$)"
+      type="number"
+      step="0.01"
+      min="0"
+      bind:value={form.meta_diferenciada}
+      placeholder="0,00"
+      helper="Opcional. Meta específica por produto diferenciado."
+    />
 
-    <div>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-        Meta ativa
-      </label>
-    </div>
+    <FieldCheckbox
+      label="Meta ativa"
+      bind:checked={form.ativo}
+      color="financeiro"
+    />
   </div>
 </Dialog>

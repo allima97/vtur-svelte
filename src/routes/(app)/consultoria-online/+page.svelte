@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
@@ -290,22 +291,17 @@
               {/if}
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                class="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 transition-colors hover:border-blue-400 hover:text-blue-600"
-                on:click={() => openEdit(c)}
-              >
+              <Button size="sm" variant="outline" on:click={() => openEdit(c)}>
                 Editar
-              </button>
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-xs transition-colors {c.fechada
-                  ? 'border-green-300 text-green-700 hover:bg-green-50'
-                  : 'border-orange-300 text-orange-700 hover:bg-orange-50'}"
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                color={c.fechada ? 'green' : 'orange'}
                 on:click={() => toggleFechada(c)}
               >
                 {c.fechada ? 'Reabrir' : 'Fechar'}
-              </button>
+              </Button>
             </div>
           </div>
         </Card>
@@ -326,63 +322,63 @@
     on:submit|preventDefault={saveConsultoria}
     class="space-y-4"
   >
-    <div>
-      <label for="cliente_nome" class="mb-1 block text-sm font-medium text-slate-700">
-        Nome do Cliente <span class="text-red-500">*</span>
-      </label>
-      <input
-        id="cliente_nome"
-        type="text"
-        bind:value={form.cliente_nome}
-        class="vtur-input w-full"
-        placeholder="Nome do cliente"
-        required
-      />
-    </div>
+    <FieldInput
+      id="cliente_nome"
+      label="Nome do Cliente"
+      bind:value={form.cliente_nome}
+      placeholder="Nome do cliente"
+      required
+    />
 
-    <div>
-      <label for="data_hora" class="mb-1 block text-sm font-medium text-slate-700">
-        Data e Hora <span class="text-red-500">*</span>
-      </label>
-      <input
-        id="data_hora"
-        type="datetime-local"
-        bind:value={form.data_hora}
-        class="vtur-input w-full"
-        required
+    <FieldInput
+      id="data_hora"
+      label="Data e Hora"
+      type="datetime-local"
+      bind:value={form.data_hora}
+      required
+    />
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FieldSelect
+        id="lembrete"
+        label="Lembrete"
+        bind:value={form.lembrete}
+        options={lembreteOptions}
+        placeholder={null}
+      />
+      <FieldInput
+        id="qtd_pessoas"
+        label="Qtd. Pessoas"
+        type="number"
+        bind:value={form.quantidade_pessoas}
+        min="1"
       />
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label for="lembrete" class="mb-1 block text-sm font-medium text-slate-700">Lembrete</label>
-        <select id="lembrete" bind:value={form.lembrete} class="vtur-input w-full">
-          {#each lembreteOptions as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="qtd_pessoas" class="mb-1 block text-sm font-medium text-slate-700">Qtd. Pessoas</label>
-        <input id="qtd_pessoas" type="number" bind:value={form.quantidade_pessoas} min="1" class="vtur-input w-full" />
-      </div>
+      <FieldInput
+        id="destino"
+        label="Destino"
+        bind:value={form.destino}
+        placeholder="Ex: Paris, Miami..."
+      />
+      <FieldInput
+        id="taxa"
+        label="Taxa de Consultoria (R$)"
+        type="number"
+        bind:value={form.taxa_consultoria}
+        min="0"
+        step="0.01"
+      />
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label for="destino" class="mb-1 block text-sm font-medium text-slate-700">Destino</label>
-        <input id="destino" type="text" bind:value={form.destino} class="vtur-input w-full" placeholder="Ex: Paris, Miami..." />
-      </div>
-      <div>
-        <label for="taxa" class="mb-1 block text-sm font-medium text-slate-700">Taxa de Consultoria (R$)</label>
-        <input id="taxa" type="number" bind:value={form.taxa_consultoria} min="0" step="0.01" class="vtur-input w-full" />
-      </div>
-    </div>
-
-    <div>
-      <label for="notas" class="mb-1 block text-sm font-medium text-slate-700">Notas</label>
-      <textarea id="notas" bind:value={form.notas} rows={3} class="vtur-input w-full" placeholder="Observações sobre a consultoria..."></textarea>
-    </div>
+    <FieldTextarea
+      id="notas"
+      label="Notas"
+      bind:value={form.notas}
+      rows={3}
+      placeholder="Observações sobre a consultoria..."
+    />
 
     <div class="flex justify-end gap-2 border-t pt-3">
       <Button type="button" variant="secondary" on:click={closeModal} disabled={saving}>

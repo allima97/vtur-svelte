@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
+  import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   type Termo = {
@@ -157,18 +158,24 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="nc-termo">Termo *</label>
-      <input id="nc-termo" bind:value={form.termo} class="vtur-input w-full" placeholder="Ex: SEGURO, DU, RAV" />
-      <p class="mt-1 text-xs text-slate-500">Texto que será buscado nos recibos (case-insensitive).</p>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="nc-desc">Descrição</label>
-      <input id="nc-desc" bind:value={form.descricao} class="vtur-input w-full" placeholder="Explicação do termo" />
-    </div>
-    <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-      <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-      Termo ativo
-    </label>
+    <FieldInput
+      id="nc-termo"
+      label="Termo *"
+      bind:value={form.termo}
+      placeholder="Ex: SEGURO, DU, RAV"
+      class_name="w-full"
+    />
+    <p class="text-xs text-slate-500">Texto que será buscado nos recibos (case-insensitive).</p>
+    <FieldInput
+      id="nc-desc"
+      label="Descrição"
+      bind:value={form.descricao}
+      placeholder="Explicação do termo"
+      class_name="w-full"
+    />
+    <FieldCheckbox
+      label="Termo ativo"
+      bind:checked={form.ativo}
+    />
   </div>
 </Dialog>

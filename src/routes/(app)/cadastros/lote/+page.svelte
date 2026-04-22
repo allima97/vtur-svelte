@@ -104,7 +104,7 @@
         <div>
           <label class="mb-1 block text-sm font-medium text-slate-700" for="lote-tipo">Tipo de produto *</label>
           <select id="lote-tipo" bind:value={tipoId} class="vtur-input w-full">
-            <option value="">Selecione...</option>
+            <option value="">Selecione uma opção</option>
             {#each tipos as t}
               <option value={t.id}>{t.nome}</option>
             {/each}

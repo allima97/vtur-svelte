@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { Route, Save, ArrowLeft, Plus, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -91,94 +92,84 @@
 <form on:submit|preventDefault={handleSubmit}>
   <Card header="Informações Básicas" color="financeiro" class="mb-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Código -->
-      <div>
-        <label for="novo-circuito-codigo" class="block text-sm font-medium text-slate-700 mb-1">
-          Código <span class="text-red-500">*</span>
-        </label>
-        <div class="relative">
-          <Route size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input 
-            id="novo-circuito-codigo"
-            type="text" 
-            bind:value={circuito.codigo}
-            placeholder="Ex: CIR-001"
-            class="vtur-input w-full pl-10"
-            required
-          />
-        </div>
-      </div>
+      <FieldInput
+        id="novo-circuito-codigo"
+        label="Código"
+        bind:value={circuito.codigo}
+        placeholder="Ex: CIR-001"
+        icon={Route}
+        required={true}
+        class_name="w-full"
+      />
 
-      <!-- Nome -->
-      <div>
-        <label for="novo-circuito-nome" class="block text-sm font-medium text-slate-700 mb-1">
-          Nome do Circuito <span class="text-red-500">*</span>
-        </label>
-        <input 
-          id="novo-circuito-nome"
-          type="text" 
-          bind:value={circuito.nome}
-          placeholder="Ex: Rota das Emoções"
-          class="vtur-input w-full"
-          required
-        />
-      </div>
+      <FieldInput
+        id="novo-circuito-nome"
+        label="Nome do Circuito"
+        bind:value={circuito.nome}
+        placeholder="Ex: Rota das Emoções"
+        required={true}
+        class_name="w-full"
+      />
 
-      <!-- Tipo -->
-      <div>
-        <label for="novo-circuito-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-        <select id="novo-circuito-tipo" bind:value={circuito.tipo} class="vtur-input w-full">
-          <option value="nacional">Nacional</option>
-          <option value="internacional">Internacional</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="novo-circuito-tipo"
+        label="Tipo"
+        bind:value={circuito.tipo}
+        options={[
+          { value: 'nacional', label: 'Nacional' },
+          { value: 'internacional', label: 'Internacional' }
+        ]}
+        placeholder={null}
+        class_name="w-full"
+      />
 
-      <!-- Duração -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="novo-circuito-dias" class="block text-sm font-medium text-slate-700 mb-1">Dias</label>
-          <input id="novo-circuito-dias" type="number" bind:value={circuito.dias} min="1" class="vtur-input w-full" />
-        </div>
-        <div>
-          <label for="novo-circuito-noites" class="block text-sm font-medium text-slate-700 mb-1">Noites</label>
-          <input id="novo-circuito-noites" type="number" bind:value={circuito.noites} min="1" class="vtur-input w-full" />
-        </div>
-      </div>
-
-      <!-- Preço Base -->
-      <div>
-        <label for="novo-circuito-preco-base" class="block text-sm font-medium text-slate-700 mb-1">Preço Base</label>
-        <div class="relative">
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">R$</span>
-          <input 
-            id="novo-circuito-preco-base"
-            type="number" 
-            bind:value={circuito.preco_base}
-            placeholder="0,00"
-            min="0"
-            step="0.01"
-            class="vtur-input w-full pl-10"
-          />
-        </div>
-      </div>
-
-      <!-- Vagas -->
-      <div>
-        <label for="novo-circuito-vagas" class="block text-sm font-medium text-slate-700 mb-1">Vagas por Saída</label>
-        <input id="novo-circuito-vagas" type="number" bind:value={circuito.vagas} min="1" class="vtur-input w-full" />
-      </div>
-
-      <!-- Saídas -->
-      <div>
-        <label for="novo-circuito-saidas" class="block text-sm font-medium text-slate-700 mb-1">Dias de Saída</label>
-        <input 
-          id="novo-circuito-saidas"
-          type="text" 
-          bind:value={circuito.saidas}
-          placeholder="Ex: Ter, Sab / Semanal / Quinzenal"
-          class="vtur-input w-full"
+        <FieldInput
+          id="novo-circuito-dias"
+          label="Dias"
+          type="number"
+          bind:value={circuito.dias}
+          min="1"
+          class_name="w-full"
+        />
+        <FieldInput
+          id="novo-circuito-noites"
+          label="Noites"
+          type="number"
+          bind:value={circuito.noites}
+          min="1"
+          class_name="w-full"
         />
       </div>
+
+      <FieldInput
+        id="novo-circuito-preco-base"
+        label="Preço Base"
+        type="number"
+        bind:value={circuito.preco_base}
+        placeholder="0,00"
+        min="0"
+        step="0.01"
+        prefix="R$"
+        class_name="w-full"
+      />
+
+      <FieldInput
+        id="novo-circuito-vagas"
+        label="Vagas por Saída"
+        type="number"
+        bind:value={circuito.vagas}
+        min="1"
+        class_name="w-full"
+      />
+
+      <FieldInput
+        id="novo-circuito-saidas"
+        label="Dias de Saída"
+        bind:value={circuito.saidas}
+        placeholder="Ex: Ter, Sab / Semanal / Quinzenal"
+        class_name="w-full"
+      />
 
       <!-- Guia -->
       <div>
@@ -210,16 +201,15 @@
         </div>
       </div>
 
-      <!-- Descrição -->
       <div class="md:col-span-2">
-        <label for="novo-circuito-descricao" class="block text-sm font-medium text-slate-700 mb-1">Descrição Geral</label>
-        <textarea 
+        <FieldTextarea
           id="novo-circuito-descricao"
+          label="Descrição Geral"
           bind:value={circuito.descricao}
-          rows="3"
+          rows={3}
           placeholder="Descrição do circuito, principais atrativos..."
-          class="vtur-input w-full"
-        ></textarea>
+          class_name="w-full"
+        />
       </div>
     </div>
   </Card>
@@ -231,20 +221,23 @@
           <span class="w-8 h-8 flex items-center justify-center bg-financeiro-100 text-financeiro-700 rounded-full font-medium text-sm">
             {index + 1}
           </span>
-          <select bind:value={destinosSelecionados[index]} class="vtur-input flex-1">
-            <option value="">Selecione um destino...</option>
-            {#each destinosDisponiveis as d}
-              <option value={d}>{d}</option>
-            {/each}
-          </select>
+          <FieldSelect
+            id="destino-circuito-{index}"
+            bind:value={destinosSelecionados[index]}
+            options={destinosDisponiveis.map((d) => ({ value: d, label: d }))}
+            placeholder="Selecione um destino..."
+            class_name="flex-1"
+          />
           {#if destinosSelecionados.length > 1}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               on:click={() => removeDestino(index)}
-              class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              class_name="text-slate-400 hover:text-red-600"
             >
               <Trash2 size={18} />
-            </button>
+            </Button>
           {/if}
         </div>
       {/each}
@@ -268,31 +261,32 @@
               <span class="w-10 h-10 flex items-center justify-center bg-financeiro-500 text-white rounded-full font-bold">
                 D{dia.dia}
               </span>
-              <input 
-                type="text" 
+              <FieldInput
                 bind:value={dia.titulo}
                 placeholder="Título do dia"
-                class="vtur-input bg-white"
+                class_name="bg-white"
               />
             </div>
             {#if roteiro.length > 1}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 on:click={() => removeDiaRoteiro(index)}
-                class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                class_name="text-slate-400 hover:text-red-600"
               >
                 <Trash2 size={18} />
-              </button>
+              </Button>
             {/if}
           </div>
           
           <div class="ml-13">
-            <textarea 
+            <FieldTextarea
               bind:value={dia.descricao}
-              rows="2"
+              rows={2}
               placeholder="Descrição das atividades do dia..."
-              class="vtur-input w-full bg-white mb-3"
-            ></textarea>
+              class_name="w-full bg-white mb-3"
+            />
             
             <div class="flex items-center gap-4">
               <span class="text-sm font-medium text-slate-700">Refeições incluídas:</span>

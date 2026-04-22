@@ -176,14 +176,16 @@
         <FieldInput id="perfil-cpf" label="CPF" bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} class_name="w-full" />
         <FieldInput id="perfil-rg" label="RG" bind:value={form.rg} placeholder="Documento de identidade" class_name="w-full" />
         <FieldInput id="perfil-nascimento" label="Data de nascimento" type="date" bind:value={form.data_nascimento} class_name="w-full" />
-        <div>
-          <label for="perfil-email" class="mb-1 block text-sm font-medium text-slate-700">E-mail</label>
-          <div class="relative">
-            <Mail size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input id="perfil-email" type="email" value={perfil?.email || ''} class="vtur-input w-full pl-9 bg-slate-50" disabled />
-          </div>
-          <p class="mt-1 text-xs text-slate-500">O e-mail não pode ser alterado aqui.</p>
-        </div>
+        <FieldInput
+          id="perfil-email"
+          label="E-mail"
+          type="email"
+          value={perfil?.email || ''}
+          disabled={true}
+          icon={Mail}
+          helper="O e-mail não pode ser alterado aqui."
+          class_name="w-full"
+        />
       </div>
     </Card>
 
@@ -209,7 +211,7 @@
           label="Estado"
           bind:value={form.estado}
           options={ESTADOS.map(uf => ({ value: uf, label: uf }))}
-          placeholder="Selecione"
+          placeholder="Selecione uma opção"
           class_name="w-full"
         />
       </div>

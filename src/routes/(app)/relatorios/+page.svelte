@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import type { ChartData } from 'chart.js';
   import {
@@ -290,32 +291,24 @@
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-col lg:flex-row gap-4 items-end">
     <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-      <div>
-        <label for="relatorios-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data início</label>
-        <input id="relatorios-data-inicio" type="date" bind:value={periodoInicio} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="relatorios-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data fim</label>
-        <input id="relatorios-data-fim" type="date" bind:value={periodoFim} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="relatorios-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-        <select id="relatorios-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-          <option value="">Todas</option>
-          {#each empresas as empresa}
-            <option value={empresa.id}>{empresa.nome}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label for="relatorios-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-        <select id="relatorios-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each vendedores as vendedor}
-            <option value={vendedor.id}>{vendedor.nome}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldInput id="relatorios-data-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
+      <FieldInput id="relatorios-data-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
+      <FieldSelect
+        id="relatorios-empresa"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+        placeholder="Todas"
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="relatorios-vendedor"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
+        placeholder="Todos"
+        class_name="w-full"
+      />
       <div class="flex items-end">
         <Button variant="primary" color="financeiro" class_name="w-full" on:click={applyFilters}>
           <Filter size={16} class="mr-2" />
@@ -382,8 +375,8 @@
 </div>
 
 <Card header="Orçamentos recentes" color="financeiro">
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm">
+  <div class="overflow-x-visible md:overflow-x-auto">
+    <table class="w-full text-sm table-mobile-cards">
       <thead class="vtur-table__head">
         <tr>
           <th class="px-4 py-3 text-left">Data</th>

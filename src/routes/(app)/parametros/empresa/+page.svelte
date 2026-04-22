@@ -175,7 +175,7 @@
           label="Estado"
           bind:value={form.estado}
           options={estados.map(uf => ({ value: uf, label: uf }))}
-          placeholder="Selecione"
+          placeholder="Selecione uma opção"
           class_name="w-full"
         />
         <FieldInput id="emp-cep" label="CEP" type="text" bind:value={form.cep} placeholder="00000-000" class_name="w-full" />

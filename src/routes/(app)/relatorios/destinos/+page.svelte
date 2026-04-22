@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, MapPin } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -249,52 +250,64 @@
 />
 
 <FilterPanel color="financeiro">
-  <div>
-    <label for="rel-destinos-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Inicio</label>
-    <input id="rel-destinos-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-  </div>
-  <div>
-    <label for="rel-destinos-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-    <input id="rel-destinos-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-  </div>
+  <FieldInput
+    id="rel-destinos-data-inicio"
+    label="Data Inicio"
+    type="date"
+    bind:value={dataInicio}
+    class_name="w-full"
+  />
+  <FieldInput
+    id="rel-destinos-data-fim"
+    label="Data Fim"
+    type="date"
+    bind:value={dataFim}
+    class_name="w-full"
+  />
   {#if showEmpresaFiltro}
-  <div>
-    <label for="rel-destinos-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-    <select id="rel-destinos-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-      <option value="">Todas</option>
-      {#each empresas as empresa}
-        <option value={empresa.id}>{empresa.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-destinos-empresa"
+      label="Empresa"
+      bind:value={empresaSelecionada}
+      options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
   {#if showVendedorFiltro}
-  <div>
-    <label for="rel-destinos-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-    <select id="rel-destinos-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-      <option value="">Todos</option>
-      {#each vendedores as vendedor}
-        <option value={vendedor.id}>{vendedor.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-destinos-vendedor"
+      label="Vendedor"
+      bind:value={vendedorSelecionado}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
-  <div>
-    <label for="rel-destinos-ordenacao" class="block text-sm font-medium text-slate-700 mb-1">Ordenar Por</label>
-    <select id="rel-destinos-ordenacao" bind:value={ordenacao} class="vtur-input w-full">
-      <option value="receita">Receita</option>
-      <option value="quantidade">Quantidade</option>
-      <option value="ticket_medio">Ticket Medio</option>
-    </select>
-  </div>
-  <div>
-    <label for="rel-destinos-recorte" class="block text-sm font-medium text-slate-700 mb-1">Recorte</label>
-    <select id="rel-destinos-recorte" bind:value={recorte} class="vtur-input w-full">
-      <option value="todos">Todos</option>
-      <option value="top5">Top 5</option>
-      <option value="top10">Top 10</option>
-    </select>
-  </div>
+  <FieldSelect
+    id="rel-destinos-ordenacao"
+    label="Ordenar Por"
+    bind:value={ordenacao}
+    options={[
+      { value: 'receita', label: 'Receita' },
+      { value: 'quantidade', label: 'Quantidade' },
+      { value: 'ticket_medio', label: 'Ticket Medio' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
+  <FieldSelect
+    id="rel-destinos-recorte"
+    label="Recorte"
+    bind:value={recorte}
+    options={[
+      { value: 'todos', label: 'Todos' },
+      { value: 'top5', label: 'Top 5' },
+      { value: 'top10', label: 'Top 10' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
   <svelte:fragment slot="actions">
     <Button variant="primary" color="financeiro" on:click={gerarRelatorio}>
       <Filter size={16} class="mr-2" />

@@ -9,6 +9,8 @@
     | 'green'
     | 'orange'
     | 'teal'
+    | 'purple'
+    | 'crm'
     | 'clientes'
     | 'vendas'
     | 'financeiro'
@@ -29,6 +31,8 @@
     green: 'border-green-200 before:bg-green-500',
     orange: 'border-orange-200 before:bg-orange-500',
     teal: 'border-teal-200 before:bg-teal-500',
+    purple: 'border-purple-200 before:bg-purple-500',
+    crm: 'border-purple-200 before:bg-purple-500',
     clientes: 'border-blue-200 before:bg-blue-500',
     orcamentos: 'border-blue-200 before:bg-blue-500',
     vendas: 'border-green-200 before:bg-green-500',
@@ -47,7 +51,7 @@
   {/if}
 
   <div class={`relative overflow-hidden rounded-[20px] border bg-white before:absolute before:left-0 before:right-0 before:top-0 before:h-1.5 before:rounded-t-[20px] ${colorClasses[color] ?? colorClasses.default} ${shadow ? 'shadow-sm' : ''}`.trim()}>
-    <Table striped={striped} hoverable={hoverable} class={`w-full text-sm ${tableClass}`.trim()}>
+    <Table striped={striped} hoverable={hoverable} class={`w-full text-sm table-mobile-cards ${tableClass}`.trim()}>
       <slot />
     </Table>
 

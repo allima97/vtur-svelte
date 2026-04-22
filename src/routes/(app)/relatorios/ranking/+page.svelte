@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
@@ -273,35 +274,23 @@
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-    <div>
-      <label for="rank-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data início</label>
-      <input id="rank-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-    </div>
-    <div>
-      <label for="rank-fim" class="block text-sm font-medium text-slate-700 mb-1">Data fim</label>
-      <input id="rank-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-    </div>
+    <FieldInput id="rank-inicio" type="date" label="Data início" bind:value={dataInicio} />
+    <FieldInput id="rank-fim" type="date" label="Data fim" bind:value={dataFim} />
     {#if showEmpresaFiltro}
-    <div>
-      <label for="rank-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-      <select id="rank-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-        <option value="">Todas</option>
-        {#each empresas as empresa}
-          <option value={empresa.id}>{empresa.nome}</option>
-        {/each}
-      </select>
-    </div>
+      <FieldSelect
+        id="rank-empresa"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+      />
     {/if}
     {#if showVendedorFiltro}
-    <div>
-      <label for="rank-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-      <select id="rank-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-        <option value="">Todos</option>
-        {#each vendedoresFiltro as vendedor}
-          <option value={vendedor.id}>{vendedor.nome}</option>
-        {/each}
-      </select>
-    </div>
+      <FieldSelect
+        id="rank-vendedor"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((v) => ({ value: v.id, label: v.nome }))]}
+      />
     {/if}
     <div class="flex items-end">
       <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRanking}>

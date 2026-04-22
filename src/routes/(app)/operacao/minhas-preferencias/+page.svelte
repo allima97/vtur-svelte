@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
@@ -241,29 +242,31 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-nome">Nome *</label>
-      <input id="pref-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Hotel Copacabana Palace" />
-    </div>
+    <FieldInput
+      id="pref-nome"
+      label="Nome"
+      bind:value={form.nome}
+      placeholder="Ex: Hotel Copacabana Palace"
+      required={true}
+      class_name="w-full"
+    />
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-tipo">Tipo de Produto</label>
-        <select id="pref-tipo" bind:value={form.tipo_produto_id} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each tipos as t}
-            <option value={t.id}>{t.nome}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-classificacao">Classificação</label>
-        <select id="pref-classificacao" bind:value={form.classificacao} class="vtur-input w-full">
-          <option value="">Selecione...</option>
-          {#each CLASSIFICACOES as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="pref-tipo"
+        label="Tipo de Produto"
+        bind:value={form.tipo_produto_id}
+        options={tipos.map((t) => ({ value: t.id, label: t.nome }))}
+        placeholder="Selecione uma opção"
+        class_name="w-full"
+      />
+      <FieldSelect
+        id="pref-classificacao"
+        label="Classificação"
+        bind:value={form.classificacao}
+        options={CLASSIFICACOES.map((c) => ({ value: c, label: c }))}
+        placeholder="Selecione uma opção"
+        class_name="w-full"
+      />
     </div>
     <div class="relative">
       <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-cidade">Cidade</label>
@@ -291,13 +294,20 @@
         </div>
       {/if}
     </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-localizacao">Localização</label>
-      <input id="pref-localizacao" bind:value={form.localizacao} class="vtur-input w-full" placeholder="Endereço, bairro, referência..." />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-obs">Observação</label>
-      <textarea id="pref-obs" bind:value={form.observacao} rows="3" class="vtur-input w-full" placeholder="Notas sobre este destino/produto..."></textarea>
-    </div>
+    <FieldInput
+      id="pref-localizacao"
+      label="Localização"
+      bind:value={form.localizacao}
+      placeholder="Endereço, bairro, referência..."
+      class_name="w-full"
+    />
+    <FieldTextarea
+      id="pref-obs"
+      label="Observação"
+      bind:value={form.observacao}
+      rows={3}
+      placeholder="Notas sobre este destino/produto..."
+      class_name="w-full"
+    />
   </div>
 </Dialog>

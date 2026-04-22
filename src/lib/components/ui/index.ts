@@ -10,6 +10,7 @@ export { default as FileDropzone } from './FileDropzone.svelte';
 export { default as FileInput } from './FileInput.svelte';
 export { default as FilterPanel } from './FilterPanel.svelte';
 export { default as FieldCheckbox } from './form/FieldCheckbox.svelte';
+export { default as FieldDatalistInput } from './form/FieldDatalistInput.svelte';
 export { default as FieldInput } from './form/FieldInput.svelte';
 export { default as FieldRadioGroup } from './form/FieldRadioGroup.svelte';
 export { default as FieldSelect } from './form/FieldSelect.svelte';

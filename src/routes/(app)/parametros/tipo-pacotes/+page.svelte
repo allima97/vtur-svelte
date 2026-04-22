@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
@@ -160,6 +161,7 @@
   }
 
   onMount(load);
+  $: regraOptions = regras.map((r) => ({ value: r.id, label: r.nome }));
 </script>
 
 <svelte:head>
@@ -192,14 +194,19 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canDelete}
-      <button
-        on:click|stopPropagation={() => deleteTipo(row.id)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
-        title="Excluir"
-        disabled={deletingId === row.id}
+      <Button
+        variant="ghost"
+        size="xs"
+        color="financeiro"
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteTipo(row.id);
+        }}
+        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        loading={deletingId === row.id}
       >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -218,44 +225,61 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="tp-nome">Nome *</label>
-      <input id="tp-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Pacote Completo" />
-    </div>
+    <FieldInput
+      id="tp-nome"
+      label="Nome"
+      bind:value={form.nome}
+      class_name="w-full"
+      placeholder="Ex: Pacote Completo"
+      required={true}
+    />
 
     {#if regras.length > 0}
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tp-regra">Regra de comissão</label>
-        <select id="tp-regra" bind:value={form.rule_id} class="vtur-input w-full">
-          <option value="">Sem regra específica</option>
-          {#each regras as r}
-            <option value={r.id}>{r.nome}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="tp-regra"
+        label="Regra de comissão"
+        bind:value={form.rule_id}
+        options={regraOptions}
+        class_name="w-full"
+        placeholder="Sem regra específica"
+      />
     {/if}
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tp-nao-batida">% Meta não batida</label>
-        <input id="tp-nao-batida" type="number" step="0.01" bind:value={form.fix_meta_nao_atingida} class="vtur-input w-full" placeholder="-" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tp-batida">% Meta batida</label>
-        <input id="tp-batida" type="number" step="0.01" bind:value={form.fix_meta_atingida} class="vtur-input w-full" placeholder="-" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tp-super">% Super meta</label>
-        <input id="tp-super" type="number" step="0.01" bind:value={form.fix_super_meta} class="vtur-input w-full" placeholder="-" />
-      </div>
+      <FieldInput
+        id="tp-nao-batida"
+        label="% Meta não batida"
+        type="number"
+        step="0.01"
+        bind:value={form.fix_meta_nao_atingida}
+        class_name="w-full"
+        placeholder="-"
+      />
+      <FieldInput
+        id="tp-batida"
+        label="% Meta batida"
+        type="number"
+        step="0.01"
+        bind:value={form.fix_meta_atingida}
+        class_name="w-full"
+        placeholder="-"
+      />
+      <FieldInput
+        id="tp-super"
+        label="% Super meta"
+        type="number"
+        step="0.01"
+        bind:value={form.fix_super_meta}
+        class_name="w-full"
+        placeholder="-"
+      />
     </div>
     <p class="text-xs text-slate-500">Percentuais fixos de comissão para este tipo de pacote. Deixe em branco para usar a regra geral.</p>
 
-    <div>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input type="checkbox" bind:checked={form.ativo} class="rounded border-slate-300" />
-        Tipo ativo
-      </label>
-    </div>
+    <FieldCheckbox
+      label="Tipo ativo"
+      bind:checked={form.ativo}
+      color="financeiro"
+    />
   </div>
 </Dialog>

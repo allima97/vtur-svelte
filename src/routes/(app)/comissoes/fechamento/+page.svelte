@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { Calculator, DollarSign, RefreshCw, TrendingUp, Users } from 'lucide-svelte';
@@ -159,10 +160,25 @@
 
   function buildMonthOptions() {
     return Array.from({ length: 12 }, (_, i) => ({
-      value: i + 1,
+      value: String(i + 1),
       label: new Date(2024, i, 1).toLocaleDateString('pt-BR', { month: 'long' })
     }));
   }
+
+  const statusOptions = [
+    { value: 'todas', label: 'Todas' },
+    { value: 'pendente', label: 'Pendentes' },
+    { value: 'pago', label: 'Pagas' },
+    { value: 'cancelada', label: 'Canceladas' }
+  ];
+
+  $: vendedorOptions = [
+    { value: '', label: 'Todos' },
+    ...vendedores.map((v) => ({
+      value: v.id,
+      label: v.nome_completo || v.email || v.id
+    }))
+  ];
 </script>
 
 <svelte:head>
@@ -193,36 +209,36 @@
 <!-- Filtros -->
 <Card color="comissoes" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="fech-mes">Mês</label>
-      <select id="fech-mes" bind:value={filtroMes} class="vtur-input">
-        {#each buildMonthOptions() as opt}
-          <option value={opt.value}>{opt.label}</option>
-        {/each}
-      </select>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="fech-ano">Ano</label>
-      <input id="fech-ano" type="number" bind:value={filtroAno} min="2020" max="2100" class="vtur-input w-24" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="fech-status">Status</label>
-      <select id="fech-status" bind:value={filtroStatus} class="vtur-input">
-        <option value="todas">Todas</option>
-        <option value="pendente">Pendentes</option>
-        <option value="pago">Pagas</option>
-        <option value="cancelada">Canceladas</option>
-      </select>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="fech-vendedor">Vendedor</label>
-      <select id="fech-vendedor" bind:value={filtroVendedor} class="vtur-input">
-        <option value="">Todos</option>
-        {#each vendedores as v}
-          <option value={v.id}>{v.nome_completo || v.email}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="fech-mes"
+      label="Mês"
+      bind:value={filtroMes as any}
+      options={buildMonthOptions()}
+      placeholder={null}
+    />
+    <FieldInput
+      id="fech-ano"
+      label="Ano"
+      type="number"
+      bind:value={filtroAno}
+      min="2020"
+      max="2100"
+      class_name="w-24"
+    />
+    <FieldSelect
+      id="fech-status"
+      label="Status"
+      bind:value={filtroStatus}
+      options={statusOptions}
+      placeholder={null}
+    />
+    <FieldSelect
+      id="fech-vendedor"
+      label="Vendedor"
+      bind:value={filtroVendedor}
+      options={vendedorOptions}
+      placeholder={null}
+    />
     <Button variant="primary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" on:click={handleExport}>Exportar CSV</Button>
   </div>

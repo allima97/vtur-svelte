@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import {
@@ -567,48 +568,46 @@
 <Card color="operacao" class="mb-6">
   <div class="grid grid-cols-1 lg:grid-cols-[1.6fr_repeat(4,minmax(0,1fr))] gap-4">
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-search">Busca</label>
-      <div class="relative">
-        <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          id="todo-search"
-          bind:value={searchQuery}
-          class="vtur-input w-full pl-9"
-          placeholder="Titulo, descricao, categoria ou prioridade"
-        />
-      </div>
+      <FieldInput
+        id="todo-search"
+        label="Busca"
+        bind:value={searchQuery}
+        icon={Search}
+        placeholder="Titulo, descricao, categoria ou prioridade"
+        class_name="w-full"
+      />
     </div>
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-status">Coluna</label>
-      <select id="todo-status" bind:value={filtroStatus} class="vtur-input w-full">
-        <option value="todas">Todas</option>
-        {#each STATUS_COLUMNS as column}
-          <option value={column.value}>{column.label}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="todo-status"
+      label="Coluna"
+      bind:value={filtroStatus}
+      options={[{ value: 'todas', label: 'Todas' }, ...STATUS_COLUMNS.map((c) => ({ value: c.value, label: c.label }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-priority">Prioridade</label>
-      <select id="todo-priority" bind:value={filtroPrioridade} class="vtur-input w-full">
-        <option value="todas">Todas</option>
-        {#each PRIORITY_OPTIONS as option}
-          <option value={option.value}>{option.label}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="todo-priority"
+      label="Prioridade"
+      bind:value={filtroPrioridade}
+      options={[{ value: 'todas', label: 'Todas' }, ...PRIORITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-category">Categoria</label>
-      <select id="todo-category" bind:value={filtroCategoria} class="vtur-input w-full">
-        <option value="todas">Todas</option>
-        <option value="sem_categoria">Sem categoria</option>
-        {#each categorias as categoria}
-          <option value={categoria.id}>{categoria.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldSelect
+      id="todo-category"
+      label="Categoria"
+      bind:value={filtroCategoria}
+      options={[
+        { value: 'todas', label: 'Todas' },
+        { value: 'sem_categoria', label: 'Sem categoria' },
+        ...categorias.map((c) => ({ value: c.id, label: c.nome }))
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
 
     <div>
       <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-view">Visualizacao</label>
@@ -831,49 +830,57 @@
     <div class="space-y-5">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="task-title">Titulo</label>
-          <input id="task-title" bind:value={taskForm.titulo} class="vtur-input w-full" placeholder="Descreva a tarefa" />
+          <FieldInput
+            id="task-title"
+            label="Titulo"
+            bind:value={taskForm.titulo}
+            placeholder="Descreva a tarefa"
+            class_name="w-full"
+          />
         </div>
 
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="task-description">Descricao</label>
-          <textarea
+          <FieldTextarea
             id="task-description"
+            label="Descricao"
             bind:value={taskForm.descricao}
-            class="vtur-input w-full"
-            rows="4"
+            rows={4}
             placeholder="Observacoes da tarefa"
-          ></textarea>
+            class_name="w-full"
+          />
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="task-category">Categoria</label>
-          <select id="task-category" bind:value={taskForm.categoria_id} class="vtur-input w-full">
-            <option value="">Sem categoria</option>
-            {#each categorias as categoria}
-              <option value={categoria.id}>{categoria.nome}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="task-category"
+          label="Categoria"
+          bind:value={taskForm.categoria_id}
+          options={[{ value: '', label: 'Sem categoria' }, ...categorias.map((c) => ({ value: c.id, label: c.nome }))]}
+          placeholder={null}
+          class_name="w-full"
+        />
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="task-priority">Prioridade</label>
-          <select id="task-priority" bind:value={taskForm.prioridade} class="vtur-input w-full">
-            {#each PRIORITY_OPTIONS as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="task-priority"
+          label="Prioridade"
+          bind:value={taskForm.prioridade}
+          options={PRIORITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          placeholder={null}
+          class_name="w-full"
+        />
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="task-status">Status</label>
-          <select id="task-status" bind:value={taskForm.status} class="vtur-input w-full">
-            <option value="novo">A Fazer</option>
-            <option value="agendado">Fazendo</option>
-            <option value="em_andamento">Feito</option>
-            <option value="concluido">Concluido</option>
-          </select>
-        </div>
+        <FieldSelect
+          id="task-status"
+          label="Status"
+          bind:value={taskForm.status}
+          options={[
+            { value: 'novo', label: 'A Fazer' },
+            { value: 'agendado', label: 'Fazendo' },
+            { value: 'em_andamento', label: 'Feito' },
+            { value: 'concluido', label: 'Concluido' }
+          ]}
+          placeholder={null}
+          class_name="w-full"
+        />
 
         <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p class="text-sm font-medium text-slate-700">Fluxo atual</p>
@@ -933,10 +940,13 @@
   }}
 >
   <div class="space-y-5">
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="category-name">Nome</label>
-      <input id="category-name" bind:value={categoryForm.nome} class="vtur-input w-full" placeholder="Nome da categoria" />
-    </div>
+    <FieldInput
+      id="category-name"
+      label="Nome"
+      bind:value={categoryForm.nome}
+      placeholder="Nome da categoria"
+      class_name="w-full"
+    />
 
     <div>
       <p class="block text-sm font-medium text-slate-700 mb-2">Cor</p>

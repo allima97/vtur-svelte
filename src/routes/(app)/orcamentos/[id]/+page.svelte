@@ -500,8 +500,8 @@
       
       <Card header="Itens do Orçamento" color="clientes">
         {#if orcamento.itens && orcamento.itens.length > 0}
-          <div class="overflow-x-auto">
-            <table class="w-full">
+          <div class="overflow-x-visible md:overflow-x-auto">
+            <table class="w-full table-mobile-cards">
               <thead>
                 <tr class="border-b border-slate-200">
                   <th class="text-left py-3 px-3 text-sm font-semibold text-slate-600">Descrição</th>

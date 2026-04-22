@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw, Search } from 'lucide-svelte';
 
   type Cidade = {
@@ -144,19 +145,19 @@
 
 <Card class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
-    <div class="relative flex-1 min-w-[200px]">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input bind:value={busca} class="vtur-input w-full pl-9" placeholder="Buscar cidade..." />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-sub">Estado/Província</label>
-      <select id="cid-sub" bind:value={filtroSubdivisao} class="vtur-input">
-        <option value="">Todos</option>
-        {#each subdivisoes as s}
-          <option value={s.id}>{s.nome}</option>
-        {/each}
-      </select>
-    </div>
+    <FieldInput
+      bind:value={busca}
+      icon={Search}
+      placeholder="Buscar cidade..."
+      class_name="flex-1 min-w-[200px]"
+    />
+    <FieldSelect
+      id="cid-sub"
+      label="Estado/Província"
+      bind:value={filtroSubdivisao}
+      options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      placeholder={null}
+    />
     <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
@@ -170,22 +171,27 @@
 
 <Dialog bind:open={modalOpen} title={editingId ? 'Editar Cidade' : 'Nova Cidade'} size="sm" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={editingId ? 'Salvar' : 'Criar'} loading={saving} onConfirm={save} onCancel={() => (modalOpen = false)}>
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-nome">Nome *</label>
-      <input id="cid-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome da cidade" />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-sub-form">Estado/Província</label>
-      <select id="cid-sub-form" bind:value={form.subdivisao_id} class="vtur-input w-full">
-        <option value="">Selecione...</option>
-        {#each subdivisoes as s}
-          <option value={s.id}>{s.nome}</option>
-        {/each}
-      </select>
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-desc">Descrição</label>
-      <input id="cid-desc" bind:value={form.descricao} class="vtur-input w-full" placeholder="Opcional" />
-    </div>
+    <FieldInput
+      id="cid-nome"
+      label="Nome *"
+      bind:value={form.nome}
+      placeholder="Nome da cidade"
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="cid-sub-form"
+      label="Estado/Província"
+      bind:value={form.subdivisao_id}
+      options={[{ value: '', label: 'Selecione uma opção' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="cid-desc"
+      label="Descrição"
+      bind:value={form.descricao}
+      placeholder="Opcional"
+      class_name="w-full"
+    />
   </div>
 </Dialog>

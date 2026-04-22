@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PageHeader, Card, Button, Dialog, FieldInput, FieldTextarea } from '$lib/components/ui';
+  import { PageHeader, Card, Button, Dialog, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Image, MessageSquare, Tag, Send, Eye, ChevronLeft, ChevronRight, Search } from 'lucide-svelte';
@@ -601,7 +601,9 @@
             <div class="flex-1">
               <p class="text-sm font-medium text-slate-700">{selectedTheme.nome}</p>
             </div>
-            <button class="text-xs text-blue-600 hover:underline" on:click={prevStep}>Trocar</button>
+            <Button variant="ghost" size="xs" color="crm" on:click={prevStep}>
+              Trocar
+            </Button>
           </div>
         {/if}
 
@@ -697,13 +699,15 @@
         <div class="mb-4">
           <div class="mb-1.5 flex items-center justify-between">
             <p class="text-sm font-medium text-slate-700">Assinatura</p>
-            <button
-              class="text-xs text-blue-600 hover:underline"
+            <Button
+              variant="ghost"
+              size="xs"
+              color="crm"
               disabled={savingSig}
               on:click={saveSignature}
             >
               {savingSig ? 'Salvando...' : 'Salvar padrão'}
-            </button>
+            </Button>
           </div>
           <div class="space-y-2">
             {#each [
@@ -713,20 +717,19 @@
             ] as line, i}
               <div class="flex items-center gap-2">
                 <span class="w-4 flex-shrink-0 text-center text-xs text-slate-400">{i + 1}</span>
-                <input
-                  bind:value={assinatura[line.key]}
-                  class="vtur-input flex-1 text-sm"
+                <FieldInput
+                  value={assinatura[line.key]}
                   placeholder={line.placeholder}
-                  style="font-style: {assinatura[line.italicKey] ? 'italic' : 'normal'}"
+                  class_name={`flex-1 ${assinatura[line.italicKey] ? 'italic' : ''}`.trim()}
+                  on:input={(event) => (assinatura[line.key] = (event.target as HTMLInputElement).value)}
                 />
-                <select
-                  bind:value={assinatura[line.sizeKey]}
-                  class="vtur-input w-20 text-xs"
-                >
-                  {#each [12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,60,64] as s}
-                    <option value={s}>{s}px</option>
-                  {/each}
-                </select>
+                <FieldSelect
+                  value={String(assinatura[line.sizeKey])}
+                  options={[12,14,16,18,20,22,24,28,32,36,40,44,48,52,56,60,64].map((s) => ({ value: String(s), label: `${s}px` }))}
+                  placeholder={null}
+                  class_name="w-24"
+                  on:change={(event) => (assinatura[line.sizeKey] = Number((event.target as HTMLSelectElement).value))}
+                />
                 <button
                   class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border text-sm font-medium transition-colors
                     {assinatura[line.italicKey] ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}"

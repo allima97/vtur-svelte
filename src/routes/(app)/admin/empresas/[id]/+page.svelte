@@ -283,23 +283,26 @@
     <Card color="financeiro" title="Portfolio master">
       <div class="space-y-4">
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_auto]">
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="link-master">Master</label>
-            <select id="link-master" bind:value={newLink.master_id} class="vtur-input w-full">
-              <option value="">Selecione</option>
-              {#each mastersDisponiveis as master}
-                <option value={master.id}>{master.nome_completo}</option>
-              {/each}
-            </select>
-          </div>
-          <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700" for="link-status">Status</label>
-            <select id="link-status" bind:value={newLink.status} class="vtur-input w-full">
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
+          <FieldSelect
+            id="link-master"
+            label="Master"
+            bind:value={newLink.master_id}
+            options={mastersDisponiveis.map((master) => ({ value: master.id, label: master.nome_completo }))}
+            placeholder="Selecione uma opção"
+            class_name="w-full"
+          />
+          <FieldSelect
+            id="link-status"
+            label="Status"
+            bind:value={newLink.status}
+            options={[
+              { value: 'approved', label: 'Approved' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'rejected', label: 'Rejected' }
+            ]}
+            placeholder=""
+            class_name="w-full"
+          />
           <div class="lg:self-end">
             <Button variant="primary" color="financeiro" on:click={saveMasterLink} loading={linkSaving}>
               Adicionar vinculo
@@ -315,17 +318,19 @@
                 <p class="text-xs text-slate-500">{link.master?.email || '-'}</p>
               </div>
               <div>
-                <label class="mb-1 block text-sm font-medium text-slate-700" for={`status-${link.id}`}>Status</label>
-                <select
+                <FieldSelect
                   id={`status-${link.id}`}
-                  class="vtur-input w-full"
+                  label="Status"
                   value={link.status}
-                  on:change={(event) => updateMasterLink(link.id, event.currentTarget.value)}
-                >
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="rejected">Rejected</option>
-                </select>
+                  options={[
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'rejected', label: 'Rejected' }
+                  ]}
+                  placeholder=""
+                  class_name="w-full"
+                  on:change={(event) => updateMasterLink(link.id, (event.target as HTMLSelectElement).value)}
+                />
               </div>
               <div class="lg:self-end">
                 <Button variant="danger" on:click={() => deleteMasterLink(link.id)}>Excluir</Button>

@@ -174,7 +174,7 @@
           required
           bind:value={form.estado}
           options={ESTADOS.map(uf => ({ value: uf, label: uf }))}
-          placeholder="Selecione"
+          placeholder="Selecione uma opção"
           class_name="w-full"
         />
       </div>

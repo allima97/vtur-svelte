@@ -192,7 +192,7 @@
     <span class="ml-3 text-slate-600">Carregando voucher...</span>
   </div>
 {:else if voucher}
-  <div class="max-w-7xl mx-auto space-y-6 pb-10" in:fade>
+  <div class="w-full space-y-6 pb-10" in:fade>
     
     <!-- Header Card -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

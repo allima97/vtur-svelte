@@ -94,6 +94,50 @@ Wrappers consolidados em `src/lib/components/ui`:
 - **`admin/crm/+page.svelte`**: Inputs de busca, nome, saudação, selects de categoria/escopo, textarea de mensagem e checkboxes dos modais migrados para wrappers.
 - **`parametros/crm/+page.svelte`**: Input de busca de cliente, input de nome, saudação e textarea de mensagem migrados para `FieldInput`/`FieldTextarea`.
 
+### Padronização Mobile e Responsividade (Onda 6) ✅
+- **Tabelas → Cards no mobile**: Todas as tabelas nativas e `SimpleTable` receberam a classe `table-mobile-cards`. O `DataTable` já tinha suporte. CSS ajustado para cards maiores (padding 14px 18px, fonte 0.95rem, border-radius 16px, sombra mais visível).
+- **Labels dos cards mobile**: Removido `uppercase`; fonte reduzida para 0.68rem, weight 600; labels agora aparecem como no HTML original (ex: "Recibo", "Produto").
+- **Botões dos modais no mobile**: Footer do Dialog ajustado para empilhar botões com largura total (`align-items: stretch` + `width: 100%` nos botões).
+- **Menu mobile (bottom nav)**: Fundo alterado de branco para escuro (`linear-gradient(180deg, #0f172a, #1e293b)`), ícones e fontes aumentados (ícones 28px, label 1.15rem).
+- **Sidebar desktop**: Ícones aumentados de 17px para 22px, fonte dos itens de 0.9rem para 1.05rem.
+
+### Ajustes de UX nas Vendas (Onda 6) ✅
+- **Removido campos de desconto**: Checkbox "Aplicar desconto comercial?" e input "Valor do desconto" removidos das telas `vendas/nova` e `vendas/[id]/editar`.
+- **Calculadora movida**: Botão "Calculadora" movido do corpo do formulário para o header do `FormPanel` "Dados da venda", via novo slot `header-actions`.
+- **Border-radius dos inputs padronizado**: `.vtur-input` alterado de 14px para 8px (`0.5rem`), alinhado com o padrão Flowbite dos componentes wrappers.
+
+### Migrações de Wrappers Restantes (Onda 6) ✅
+- **`relatorios/+page.svelte`**: Inputs de data e selects de empresa/vendedor migrados para `FieldInput`/`FieldSelect`.
+- **`operacao/controle-sac/+page.svelte`**: Input de busca, select de status, 7 inputs do dialog, textarea e select do dialog migrados para `FieldInput`, `FieldSelect`, `FieldTextarea`. Botão de exclusão no DataTable migrado para `Button`.
+- **`perfil/+page.svelte`**: Input de e-mail desabilitado migrado para `FieldInput` com `disabled` e `icon`.
+- **`operacao/minhas-preferencias/+page.svelte`**: Modal com input de nome, selects de tipo/classificação, input de localização e textarea de observação migrados para wrappers. Autocomplete de cidade mantido como nativo (caso legítimo).
+- **`operacao/agenda/+page.svelte`**: Input de busca com ícone, inputs de título/data/hora e textarea do modal de evento migrados para `FieldInput`/`FieldTextarea`. Checkbox "Dia inteiro" migrado para `FieldCheckbox`.
+- **`operacao/tarefas/+page.svelte`**: Filtros de busca, coluna, prioridade e categoria migrados para `FieldInput`/`FieldSelect`. Modal de tarefa com título, descrição, categoria, prioridade e status migrados para wrappers. Modal de categoria com input de nome migrado para `FieldInput`. Botões toggle Kanban/Lista, cards de categoria e grid de swatches de cor mantidos como nativos (casos legítimos).
+- **`cadastros/circuitos/novo/+page.svelte`**: Formulário completo migrado — código, nome, tipo, dias, noites, preço base (com prefixo R$), vagas, saídas, descrição, selects de destino, inputs e textareas do roteiro diário. Botões de remoção migrados para `Button`. Radios booleanos (guia/status) mantidos nativos.
+- **`cadastros/circuitos/[id]/editar/+page.svelte`**: Mesma padronização do formulário de novo circuito aplicada.
+- **`orcamentos/[id]/editar/+page.svelte`**: Grid de itens do orçamento migrada — descrição, tipo, destino, quantidade, valor unitário para `FieldInput`/`FieldSelect`. Botão de remoção migrado para `Button`.
+- **`financeiro/ajustes-vendas/+page.svelte`**: Filtros de data/vendedor/busca e modal de rateio (vendedor destino, percentual, observação) migrados para wrappers.
+- **`operacao/campanhas/+page.svelte`**: Filtro de status, botão de exclusão na tabela e modal completo (título, datas, status, URLs, regras) migrados para wrappers.
+
+### Relatórios e Cadastros (Onda 7) ✅
+- **`relatorios/destinos/+page.svelte`**: Filtros de data, empresa, vendedor, ordenação e recorte migrados para `FieldInput`/`FieldSelect`.
+- **`relatorios/produtos/+page.svelte`**: Filtros de data, empresa, vendedor, tipo e ordenação migrados para wrappers.
+- **`relatorios/ranking/+page.svelte`**: Filtros de data, empresa e vendedor migrados para wrappers.
+- **`comissoes/fechamento/+page.svelte`**: Filtros de mês, ano, status e vendedor migrados para `FieldInput`/`FieldSelect`.
+- **`consultoria-online/+page.svelte`**: Botões de ação (editar, reabrir/fechar) migrados para `Button`. Modal completo (cliente, data/hora, lembrete, quantidade, destino, taxa, notas) migrado para wrappers.
+- **`cadastros/cidades/+page.svelte`**: Input de busca, select de estado no filtro, e modal (nome, estado, descrição) migrados para wrappers.
+- **`cadastros/estados/+page.svelte`**: Select de país no filtro, e modal (nome, país, código, tipo) migrados para wrappers.
+- **`cadastros/paises/+page.svelte`**: Modal (nome, código ISO, continente) migrado para wrappers.
+- **`admin/parametros-importacao/+page.svelte`**: Modal (termo, descrição, checkbox ativo) migrado para `FieldInput`/`FieldCheckbox`.
+- **`operacao/documentos-viagens/+page.svelte`**: Input de busca migrado para `FieldInput` com ícone.
+
+### Melhorias nos Wrappers (Onda 6)
+- **`FieldInput`**: Adicionadas props `prefix` e `suffix` para texto posicionado dentro do input (ex: "R$" no preço base). Prop `value` ampliada para aceitar `string | number`.
+- **`FieldSelect`**: Adicionada prop `srLabel` para labels acessíveis mas visualmente ocultos.
+
+### Correções de UX (Onda 6)
+- **Menu sidebar — duplo destaque corrigido**: Função `isActive()` alterada para computar `activeHref` entre todos os itens do menu, preferindo o href mais específico (mais longo). Isso evita que `/orcamentos` e `/orcamentos/roteiros` fiquem ambos destacados quando o usuário navega para roteiros.
+
 ### Regra vigente
 Não introduzir imports diretos de `flowbite-svelte` em páginas de negócio; sempre usar wrappers de `src/lib/components/ui`. Manter HTML nativo apenas em grids densas inline e elementos estruturais customizados (wizard steps, accordion headers, KPI cards).
 

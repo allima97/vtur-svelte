@@ -6,6 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { FieldInput } from '$lib/components/ui';
   import { RefreshCw, Trash2, Search, FileText, ExternalLink } from 'lucide-svelte';
 
   type Documento = {
@@ -137,10 +138,12 @@
 
 <Card color="operacao" class="mb-6">
   <div class="flex gap-4 items-end">
-    <div class="relative flex-1 max-w-sm">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input bind:value={busca} class="vtur-input w-full pl-9" placeholder="Buscar documentos..." />
-    </div>
+    <FieldInput
+      bind:value={busca}
+      icon={Search}
+      placeholder="Buscar documentos..."
+      class_name="max-w-sm flex-1"
+    />
     <Button variant="primary" size="sm" on:click={load}>Buscar</Button>
   </div>
 </Card>

@@ -211,7 +211,7 @@
     {/if}
 
     <div class="overflow-x-auto rounded-[18px] border border-slate-200">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm table-mobile-cards">
         <thead class="bg-slate-50">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-slate-600">Nome</th>

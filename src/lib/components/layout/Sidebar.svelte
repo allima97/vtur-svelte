@@ -212,10 +212,31 @@
     if ($isMobile) sidebar.close();
   }
 
+  // Computa o href ativo considerando TODOS os itens do menu;
+  // prefere o match mais específico (href mais longo) para evitar
+  // duplo destaque quando uma rota pai e uma sub-rota são ambas itens do menu.
+  $: allMenuItems = [
+    ...menuSections.flatMap((s) => s.items),
+    ...masterItems,
+    ...adminItems,
+  ].filter((item): item is MenuItem & { href: string } => Boolean(item.href));
+
+  $: activeHref = (() => {
+    const sorted = [...allMenuItems].sort(
+      (a, b) => (b.href?.length || 0) - (a.href?.length || 0)
+    );
+    if (currentPath === '/') {
+      return sorted.find((item) => item.href === '/')?.href ?? null;
+    }
+    const match = sorted.find(
+      (item) => item.href !== '/' && currentPath.startsWith(item.href)
+    );
+    return match?.href ?? null;
+  })();
+
   function isActive(href?: string): boolean {
     if (!href) return false;
-    if (href === '/') return currentPath === '/';
-    return currentPath.startsWith(href);
+    return href === activeHref;
   }
 
   function toggleSection(idx: number) {
@@ -353,7 +374,7 @@
                 {#if item.disabled}
                   <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true">
                     <div class="vtur-sidebar__item-main">
-                      <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon" />
+                      <svelte:component this={item.icon} size={22} class="vtur-sidebar__item-icon" />
                       <span class="vtur-sidebar__item-label">{item.name}</span>
                     </div>
                     {#if item.badge}
@@ -371,7 +392,7 @@
                     <div class="vtur-sidebar__item-main">
                       <svelte:component
                         this={item.icon}
-                        size={17}
+                        size={22}
                         class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}"
                       />
                       <span class="vtur-sidebar__item-label">{item.name}</span>
@@ -400,7 +421,7 @@
                 on:click={handleItemClick}
               >
                 <div class="vtur-sidebar__item-main">
-                  <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
+                  <svelte:component this={item.icon} size={22} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
                   <span class="vtur-sidebar__item-label">{item.name}</span>
                 </div>
               </a>
@@ -422,7 +443,7 @@
                 on:click={handleItemClick}
               >
                 <div class="vtur-sidebar__item-main">
-                  <svelte:component this={item.icon} size={17} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
+                  <svelte:component this={item.icon} size={22} class="vtur-sidebar__item-icon {isActive(item.href) ? 'text-blue-600' : ''}" />
                   <span class="vtur-sidebar__item-label">{item.name}</span>
                 </div>
               </a>
@@ -484,8 +505,8 @@
       on:click={() => sidebar.toggle()}
       aria-label="Abrir menu"
     >
-      <Menu size={24} />
-      <span class="text-[10px] font-medium leading-none">Menu</span>
+      <Menu size={28} />
+      <span class="text-xs font-medium leading-none">Menu</span>
     </button>
 
     <!-- Coluna 2: Módulo/Página atual — ícone + nome em destaque -->
@@ -495,7 +516,7 @@
       on:click={() => sidebar.close()}
       aria-label={currentNavEntry.name}
     >
-      <svelte:component this={currentNavEntry.icon} size={24} />
+      <svelte:component this={currentNavEntry.icon} size={28} />
       <span class="vtur-mobile-nav__label">{currentNavEntry.name}</span>
     </a>
 

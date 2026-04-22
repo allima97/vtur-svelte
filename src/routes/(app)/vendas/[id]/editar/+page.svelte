@@ -998,6 +998,11 @@
   <form class="space-y-6" on:submit|preventDefault={handleSubmit}>
     {#if currentStep === 0}
       <FormPanel title="Dados da venda" description="Atualize os dados principais da venda" class_name="border-green-200">
+        <div slot="header-actions" class="flex items-center">
+          <Button type="button" variant="secondary" on:click={() => (showCalculator = true)}>
+            <Calculator size={16} class="mr-2" /> Calculadora
+          </Button>
+        </div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {#if canAssignVendedor}
           <div>
@@ -1006,7 +1011,7 @@
               label="Vendedor"
               bind:value={venda.vendedor_id}
               options={[
-                { value: '', label: 'Selecione...' },
+                { value: '', label: 'Selecione uma opção' },
                 ...vendedoresEquipe.map((vendedorEquipe) => ({ value: vendedorEquipe.id, label: vendedorEquipe.nome_completo || 'Vendedor' }))
               ]}
               class_name="w-full"
@@ -1115,15 +1120,7 @@
             <FieldInput id="venda-editar-data-final" label="Data final" type="date" bind:value={venda.data_final} class_name="w-full" error={errors.data_final} required />
           </div>
 
-          <div class="flex items-start gap-3 xl:col-span-2 xl:pt-7">
-            <div class="min-w-[240px]">
-              <FieldCheckbox label="Aplicar desconto comercial?" bind:checked={venda.desconto_comercial_aplicado} color="vendas" />
-            </div>
-            <FieldInput bind:value={venda.desconto_comercial_valor} class_name="w-40" placeholder="Valor do desconto" />
-            <Button type="button" variant="secondary" class_name="shrink-0" on:click={() => (showCalculator = true)}>
-              <Calculator size={16} class="mr-2" /> Calculadora
-            </Button>
-          </div>
+
         </div>
       </FormPanel>
     {/if}
@@ -1157,7 +1154,7 @@
                     <FieldCheckbox
                       label="Usar cidade padrão da venda"
                       checked={recibo.usar_cidade_padrao}
-                      on:change={(event) => toggleReciboCidadePadrao(index, (event.target as HTMLInputElement)?.checked)}}
+                      on:change={(event) => toggleReciboCidadePadrao(index, (event.target as HTMLInputElement)?.checked)}
                     />
                     <p class="text-xs text-slate-500">
                       Cidade deste recibo:
@@ -1185,7 +1182,7 @@
                     label="Tipo de produto"
                     bind:value={recibo.tipo_produto_id}
                     options={[
-                      { value: '', label: 'Selecione...' },
+                      { value: '', label: 'Selecione uma opção' },
                       ...tipos.map((tipo) => ({ value: tipo.id, label: tipo.nome || tipo.tipo || '' }))
                     ]}
                     class_name="w-full"
@@ -1199,7 +1196,7 @@
                     label="Produto"
                     bind:value={recibo.produto_id}
                     options={[
-                      { value: '', label: 'Selecione...' },
+                      { value: '', label: 'Selecione uma opção' },
                       ...getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
                     ]}
                     class_name="w-full"
@@ -1220,7 +1217,7 @@
                     label="Tipo de pacote"
                     bind:value={recibo.tipo_pacote}
                     options={[
-                      { value: '', label: 'Selecione...' },
+                      { value: '', label: 'Selecione uma opção' },
                       ...tiposPacote.map((pacote) => ({ value: pacote.nome || pacote.label || '', label: pacote.nome || pacote.label || '' }))
                     ]}
                     class_name="w-full"
@@ -1288,7 +1285,7 @@
                     label="Forma"
                     bind:value={pagamento.forma_pagamento_id}
                     options={[
-                      { value: '', label: 'Selecione...' },
+                      { value: '', label: 'Selecione uma opção' },
                       ...formasPagamento.map((forma) => ({ value: forma.id, label: forma.nome || '' }))
                     ]}
                     class_name="w-full"

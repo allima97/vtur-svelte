@@ -1,4 +1,5 @@
 export { default as FieldCheckbox } from './FieldCheckbox.svelte';
+export { default as FieldDatalistInput } from './FieldDatalistInput.svelte';
 export { default as FieldInput } from './FieldInput.svelte';
 export { default as FieldRadioGroup } from './FieldRadioGroup.svelte';
 export { default as FieldSelect } from './FieldSelect.svelte';

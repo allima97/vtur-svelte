@@ -8,6 +8,7 @@ Mapear onde o projeto já usa `flowbite-svelte` de forma consistente, onde ainda
 
 - O projeto **já tem uma base boa de padronização** via wrappers internos em `src/lib/components/ui`.
 - O problema atual **não é falta de Flowbite no projeto**; é **uso inconsistente da camada de UI**.
+- A frente já avançou bastante: os wrappers-base foram criados, as telas críticas de `financeiro`, `vendas`, `clientes`, `roteiros` e boa parte de `vouchers` já migraram.
 - Hoje o sistema mistura:
   - wrappers próprios baseados em `flowbite-svelte`
   - imports diretos de `flowbite-svelte` em poucos arquivos
@@ -31,10 +32,12 @@ Wrappers internos existentes:
 - `FieldInput`
 - `FieldTextarea`
 - `FieldCheckbox`
+- `FieldDatalistInput`
 - `FieldToggle`
 - `FieldRadioGroup`
 - `FieldSelect`
 - `FileInput`
+- `FileDropzone`
 - `SimpleTable`
 - `PageHeader`
 - `AlertMessage`
@@ -49,6 +52,36 @@ Arquivos-base:
 - `src/lib/components/ui/Input.svelte`
 - `src/lib/components/ui/Dialog.svelte`
 - `src/lib/components/ui/DataTable.svelte`
+
+## Progresso já consolidado
+
+Ondas já executadas nesta frente:
+
+- `financeiro/conciliacao`
+- `financeiro/comissoes`
+- `financeiro/formas-pagamento`
+- `financeiro/regras`
+- `financeiro/comissoes/regras`
+- `vendas/importar`
+- `vendas/nova`
+- `vendas/[id]/editar`
+- `clientes/novo`
+- `clientes/[id]/editar`
+- `orcamentos/roteiros/[id]`
+- `parametros/notificacoes`
+- `VoucherEditorModal` em seus blocos principais
+- `operacao/vouchers/novo` em seus blocos principais
+- `FornecedorForm` na maior parte do formulário
+- `ProdutoOperacionalForm` na maior parte do formulário, inclusive grade de tarifas
+- `parametros/+page.svelte` nos blocos principais e nas grades densas de conciliação
+- `parametros/crm/+page.svelte` no formulário de assinatura e ações auxiliares
+- `master/empresas/[id]` em blocos de billing e vínculos
+- `admin/empresas/[id]` em blocos de billing e portfólio master
+
+Ajustes estruturais já feitos durante a migração:
+
+- `FieldInput` e `Input` corrigidos na raiz para não “sumirem” e para manterem ícones posicionados corretamente
+- `operacao/vouchers/+page.svelte` alinhado ao fluxo novo em página, sem reabrir o editor de criação como modal sobreposto
 
 ## Inventário rápido
 
@@ -111,29 +144,32 @@ Wrappers já cobertos nesta frente:
 3. `Toggle`
 4. `Radio`
 5. `FileInput`
-6. `Table` simples
+6. `Dropzone`
+7. `Table` simples
+8. `Datalist` simples
 
 Gaps ainda relevantes:
 
-1. `Dropzone` padronizado para uploads guiados
-2. `Search/filter inputs` especializados
+1. `Search/filter inputs` especializados
+2. wrapper para `autocomplete/datalist` e campos com busca inline
 3. estados vazios/helper states para formulários maiores
-4. wrappers de formulários densos para cadastros operacionais
+4. wrappers para grids densos de parametrização/admin
+5. wrapper para grupos de escolha em formato “card/segmented”
 
 ## Hotspots prioritários
 
-Arquivos com maior concentração de elementos nativos:
+Arquivos que ainda concentram mais HTML cru relevante:
 
-1. `src/routes/(app)/orcamentos/roteiros/[id]/+page.svelte`
-2. `src/lib/components/modais/VoucherEditorModal.svelte`
-3. `src/routes/(app)/operacao/vouchers/novo/+page.svelte`
-4. `src/routes/(app)/vendas/[id]/editar/+page.svelte`
-5. `src/routes/(app)/vendas/nova/+page.svelte`
-6. `src/routes/(app)/parametros/+page.svelte`
-7. `src/lib/components/cadastros/ProdutoOperacionalForm.svelte`
-8. `src/routes/(app)/clientes/[id]/editar/+page.svelte`
-9. `src/routes/(app)/clientes/novo/+page.svelte`
-10. `src/routes/(app)/vendas/importar/+page.svelte`
+1. `src/lib/components/modais/VoucherEditorModal.svelte`
+2. `src/routes/(app)/operacao/vouchers/novo/+page.svelte`
+3. `src/lib/components/cadastros/FornecedorForm.svelte`
+4. `src/routes/(app)/parametros/empresa/+page.svelte`
+5. `src/routes/(app)/financeiro/caixa/+page.svelte`
+6. `src/routes/(app)/parametros/tipo-produtos/+page.svelte`
+7. `src/routes/(app)/operacao/controle-sac/+page.svelte`
+8. `src/routes/(app)/clientes/[id]/+page.svelte`
+9. `src/routes/(app)/parametros/avisos/+page.svelte`
+10. `src/lib/components/cadastros/ProdutoOperacionalForm.svelte`
 
 ## Onde a padronização mais falta
 
@@ -186,26 +222,29 @@ Status:
 
 ### 3. Selects e formulários ainda fora do wrapper
 
-Mesmo com `FieldSelect`, há muito `select` nativo em:
+Mesmo com `FieldSelect`, ainda há `select` nativo em:
 
-- `src/routes/(app)/financeiro/conciliacao/+page.svelte`
-- `src/routes/(app)/financeiro/comissoes/+page.svelte`
-- `src/routes/(app)/financeiro/caixa/+page.svelte`
-- `src/routes/(app)/admin/usuarios/[id]/+page.svelte`
+- `src/lib/components/modais/VoucherEditorModal.svelte`
+- `src/routes/(app)/operacao/vouchers/novo/+page.svelte`
 - `src/lib/components/cadastros/FornecedorForm.svelte`
-- `src/lib/components/cadastros/ProdutoOperacionalForm.svelte`
+- `src/lib/components/cadastros/ProdutoOperacionalForm.svelte` em pontos remanescentes mais ricos que o `datalist` simples
 
 Recomendação:
 
 - Fortalecer `FieldSelect`
 - Criar variantes para `inline`, `dense`, `filter`, `modal`
 
+Status:
+
+- `financeiro/conciliacao`, `financeiro/comissoes`, `financeiro/regras`, `financeiro/comissoes/regras`, `vendas/nova`, `vendas/[id]/editar`, `clientes/*`, `FornecedorForm` e `ProdutoOperacionalForm` já reduziram bastante os `selects` simples
+- `parametros/+page.svelte`, `parametros/crm/+page.svelte`, `master/empresas/[id]` e `admin/empresas/[id]` já saíram da faixa crítica
+- `parametros/equipe`, `parametros/escalas` e `parametros/metas` já migraram seus blocos de maior valor
+- `admin/usuarios/[id]`, `master/usuarios/[id]` e `parametros/tipo-pacotes` já saíram da faixa crítica
+- `parametros/avisos` já saiu da faixa crítica
+- `FieldDatalistInput.svelte` já cobre os casos simples e foi aplicado em `ProdutoOperacionalForm`
+- o que sobra com mais valor agora está concentrado em `VoucherEditorModal`, `operacao/vouchers/novo`, `FornecedorForm` e nos fluxos com `autocomplete` mais ricos
+
 ### 4. Upload de arquivos
-
-Situação atual:
-
-- `vendas/importar` já usa dropzone padronizado
-- `financeiro/conciliacao` ainda usa `<input type="file">`
 
 Arquivos:
 
@@ -265,17 +304,16 @@ Status:
 
 ### 6. Botões nativos ainda espalhados
 
-Existem 226 ocorrências de `<button>`, muitas ainda legítimas, mas várias são candidatas à troca por `Button`.
+Ainda existem muitos `<button>`, mas uma parte relevante é legítima e estrutural.
 
-Exemplos relevantes:
+Exemplos que ainda merecem revisão:
 
-- `src/routes/auth/login/+page.svelte`
-- `src/routes/(app)/financeiro/formas-pagamento/+page.svelte`
-- `src/routes/(app)/financeiro/conciliacao/+page.svelte`
-- `src/routes/(app)/financeiro/+page.svelte`
-- `src/routes/(app)/financeiro/comissoes/+page.svelte`
 - `src/routes/(app)/admin/usuarios/[id]/+page.svelte`
-- `src/lib/components/cadastros/FornecedorForm.svelte`
+- `src/routes/(app)/master/usuarios/[id]/+page.svelte`
+- `src/lib/components/modais/VoucherEditorModal.svelte`
+- `src/routes/(app)/operacao/vouchers/novo/+page.svelte`
+- `src/routes/(app)/parametros/equipe/+page.svelte`
+- `src/routes/(app)/parametros/metas/+page.svelte`
 
 Recomendação:
 
@@ -302,7 +340,9 @@ Isso preserva:
 
 #### Onda 1: expandir a camada base
 
-Criar:
+Status: concluída
+
+Entregas:
 
 - `FieldTextarea.svelte`
 - `FieldCheckbox.svelte`
@@ -314,7 +354,9 @@ Criar:
 
 #### Onda 2: migrar telas com maior retorno
 
-Prioridade:
+Status: majoritariamente concluída
+
+Entregas principais:
 
 1. `financeiro/conciliacao`
 2. `financeiro/comissoes`
@@ -327,11 +369,28 @@ Prioridade:
 
 #### Onda 3: telas administrativas e parametrização
 
-Prioridade:
+Status: parcialmente concluída
 
-- `parametros/*`
-- `admin/*`
-- `master/*`
+Já migrado:
+
+- `parametros/notificacoes`
+- `parametros/+page.svelte` nos blocos principais e nas grades de conciliação
+- `parametros/crm/+page.svelte` no formulário de assinatura e ações auxiliares
+- partes de `parametros/empresa`, `parametros/avisos`
+- `master/empresas/[id]`
+- `admin/empresas/[id]`
+- `admin/usuarios/[id]`
+- `master/usuarios/[id]`
+- `parametros/tipo-pacotes/+page.svelte`
+- `parametros/avisos/+page.svelte`
+
+Prioridade restante:
+
+- `parametros/empresa`
+- `VoucherEditorModal`
+- `operacao/vouchers/novo`
+- `FornecedorForm`
+- `ProdutoOperacionalForm`
 
 #### Onda 4: formulários operacionais grandes
 
@@ -346,6 +405,10 @@ Status atual desta onda:
 
 - `VoucherEditorModal` já teve os blocos principais do passo 1 migrados para `FieldInput`, `FieldSelect` e `FieldTextarea`
 - `operacao/vouchers/novo` já teve os blocos principais do passo 1 migrados para `FieldInput`, `FieldSelect` e `FieldTextarea`
+- `operacao/vouchers/+page.svelte` já foi alinhado para abrir criação em página, não em modal sobreposto
+- `FornecedorForm` já está majoritariamente em wrappers, com exceções intencionais em busca/autocomplete de cidade e cartões de localização
+- `ProdutoOperacionalForm` já está majoritariamente em wrappers, e os `datalists` simples já migraram para `FieldDatalistInput`
+- `financeiro/caixa` já teve filtros e formulário de movimentação migrados para wrappers internos
 
 ## Critérios de migração
 
@@ -367,16 +430,10 @@ A decisão correta para o projeto é:
 
 ## Próximo passo sugerido
 
-Implementar a Onda 1:
+Próxima rodada com melhor custo/benefício:
 
-1. `FieldTextarea.svelte`
-2. `FieldCheckbox.svelte`
-3. `FieldToggle.svelte`
-4. `FileInput.svelte`
-5. `SimpleTable.svelte`
-
-Depois disso, migrar primeiro:
-
-1. `src/routes/(app)/financeiro/conciliacao/+page.svelte`
-2. `src/routes/(app)/financeiro/comissoes/+page.svelte`
-3. `src/routes/(app)/financeiro/comissoes/regras/+page.svelte`
+1. `src/routes/(app)/parametros/empresa/+page.svelte`
+2. aplicar `FieldDatalistInput` onde couber em `FornecedorForm`
+3. aplicar `FieldDatalistInput` e wrappers estruturais em `VoucherEditorModal`
+4. aplicar `FieldDatalistInput` e wrappers estruturais em `operacao/vouchers/novo`
+5. decidir se vale um wrapper específico para `autocomplete` rico de cidade/lista remota

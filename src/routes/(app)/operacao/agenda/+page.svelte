@@ -11,6 +11,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import { FieldInput, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import {
@@ -474,12 +475,12 @@
       <h3 class="text-lg font-semibold text-slate-900">Compromissos do periodo</h3>
       <p class="text-sm text-slate-500">Lista operacional do intervalo visivel no calendario.</p>
     </div>
-    <div class="relative max-w-md w-full">
-      <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
+    <div class="max-w-md w-full">
+      <FieldInput
         bind:value={searchQuery}
-        class="vtur-input w-full pl-9"
+        icon={Search}
         placeholder="Buscar por assunto, data ou descricao"
+        class_name="w-full"
       />
     </div>
   </div>
@@ -539,48 +540,67 @@
     <div class="space-y-5">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-title">Assunto</label>
-          <input id="agenda-title" bind:value={eventForm.titulo} class="vtur-input w-full" placeholder="Titulo do compromisso" />
+          <FieldInput
+            id="agenda-title"
+            label="Assunto"
+            bind:value={eventForm.titulo}
+            placeholder="Titulo do compromisso"
+            class_name="w-full"
+          />
         </div>
 
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-description">Descricao</label>
-          <textarea
+          <FieldTextarea
             id="agenda-description"
+            label="Descricao"
             bind:value={eventForm.descricao}
-            class="vtur-input w-full"
-            rows="4"
+            rows={4}
             placeholder="Detalhes do compromisso"
-          ></textarea>
+            class_name="w-full"
+          />
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-start-date">Data inicial</label>
-          <input id="agenda-start-date" type="date" bind:value={eventForm.startDate} class="vtur-input w-full" />
-        </div>
+        <FieldInput
+          id="agenda-start-date"
+          label="Data inicial"
+          type="date"
+          bind:value={eventForm.startDate}
+          class_name="w-full"
+        />
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-end-date">Data final</label>
-          <input id="agenda-end-date" type="date" bind:value={eventForm.endDate} class="vtur-input w-full" />
-        </div>
+        <FieldInput
+          id="agenda-end-date"
+          label="Data final"
+          type="date"
+          bind:value={eventForm.endDate}
+          class_name="w-full"
+        />
 
         <div class="md:col-span-2">
-          <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input type="checkbox" bind:checked={eventForm.allDay} class="rounded border-slate-300" />
-            Dia inteiro
-          </label>
+          <FieldCheckbox
+            id="agenda-allday"
+            label="Dia inteiro"
+            bind:checked={eventForm.allDay}
+            color="operacao"
+          />
         </div>
 
         {#if !eventForm.allDay}
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-start-time">Inicio</label>
-            <input id="agenda-start-time" type="time" bind:value={eventForm.startTime} class="vtur-input w-full" />
-          </div>
+          <FieldInput
+            id="agenda-start-time"
+            label="Inicio"
+            type="time"
+            bind:value={eventForm.startTime}
+            class_name="w-full"
+          />
 
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1" for="agenda-end-time">Fim</label>
-            <input id="agenda-end-time" type="time" bind:value={eventForm.endTime} class="vtur-input w-full" />
-          </div>
+          <FieldInput
+            id="agenda-end-time"
+            label="Fim"
+            type="time"
+            bind:value={eventForm.endTime}
+            class_name="w-full"
+          />
         {/if}
       </div>
     </div>

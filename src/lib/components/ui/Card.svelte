@@ -1,7 +1,7 @@
 <script lang="ts">
   export let title: string | null = null;
   export let header: string | null = null;
-  export let color: 'default' | 'blue' | 'green' | 'orange' | 'teal' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'default';
+  export let color: 'default' | 'blue' | 'green' | 'orange' | 'teal' | 'purple' | 'crm' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'default';
   export let padding: 'none' | 'sm' | 'md' | 'lg' = 'md';
 
   const colorClasses: Record<string, string> = {
@@ -10,6 +10,8 @@
     green: 'border-green-200',
     orange: 'border-orange-200',
     teal: 'border-teal-200',
+    purple: 'border-purple-200',
+    crm: 'border-purple-200',
     clientes: 'border-blue-200',
     vendas: 'border-green-200',
     financeiro: 'border-orange-200',
@@ -24,6 +26,8 @@
     green: 'before:bg-green-500',
     orange: 'before:bg-orange-500',
     teal: 'before:bg-teal-500',
+    purple: 'before:bg-purple-500',
+    crm: 'before:bg-purple-500',
     clientes: 'before:bg-blue-500',
     vendas: 'before:bg-green-500',
     financeiro: 'before:bg-orange-500',
