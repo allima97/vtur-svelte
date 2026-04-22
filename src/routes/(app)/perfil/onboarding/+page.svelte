@@ -94,16 +94,12 @@
 
   onMount(load);
 
-  $: {
-    const mapped = form.uso_individual === null ? '' : String(form.uso_individual);
-    if (usoIndividualValue !== mapped) usoIndividualValue = mapped;
-  }
+  // Sync form → string (one-way, no write-back to form)
+  $: usoIndividualValue = form.uso_individual === null ? '' : String(form.uso_individual);
 
-  $: {
-    const mappedBack = usoIndividualValue === '' ? null : usoIndividualValue === 'true';
-    if (form.uso_individual !== mappedBack) {
-      form = { ...form, uso_individual: mappedBack };
-    }
+  function onUsoIndividualChange(e: Event) {
+    const val = (e.currentTarget as HTMLSelectElement | HTMLInputElement).value;
+    form = { ...form, uso_individual: val === '' ? null : val === 'true' };
   }
 
   $: camposFaltando = [
@@ -159,7 +155,8 @@
       <FieldRadioGroup
         id="ob-uso"
         label={null}
-        bind:value={usoIndividualValue}
+        value={usoIndividualValue}
+        on:change={onUsoIndividualChange}
         orientation="column"
         options={[
           { value: 'false', label: 'Uso corporativo' },
