@@ -229,37 +229,57 @@
   </div>
 
   <KPIGrid className="mb-6" columns={4}>
-    <button on:click={() => (somentePendentes = true)} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => (somentePendentes = true)}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Comissões pendentes</p>
         <p class="text-2xl font-bold text-slate-900">{pendentes.length}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => (somentePendentes = false)} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-green-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => (somentePendentes = false)}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Total pago</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => (somentePendentes = true)} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => (somentePendentes = true)}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Wallet size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Valor pendente</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPendente)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/regras')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-blue-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/regras')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Vendedores na base</p>
         <p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
       </div>
-    </button>
+    </Button>
   </KPIGrid>
 
   <Card header="Filtros" color="financeiro" class="mb-6">

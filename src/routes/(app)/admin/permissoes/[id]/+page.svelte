@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import { Checkbox, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
 
   type PermissionEntry = {
@@ -113,28 +114,26 @@
             </div>
 
             <div>
-              <label class="mb-1 block text-sm font-medium text-slate-700" for={`perm-${entry.modulo}`}>Nivel</label>
-              <select
+              <FieldSelect
                 id={`perm-${entry.modulo}`}
                 bind:value={entry.permissao}
-                class="vtur-input w-full"
+                label="Nivel"
+                placeholder={null}
+                options={levels}
+                class_name="w-full"
                 disabled={!entry.ativo}
-              >
-                {#each levels as level}
-                  <option value={level.value}>{level.label}</option>
-                {/each}
-              </select>
+              />
             </div>
 
             <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 lg:self-end">
-              <input
-                type="checkbox"
+              <Checkbox
                 bind:checked={entry.ativo}
                 on:change={() => {
                   if (!entry.ativo) entry.permissao = 'none';
                   if (entry.ativo && entry.permissao === 'none') entry.permissao = 'view';
                   permissions = [...permissions];
                 }}
+                ariaLabel={`Ativar ${entry.label}`}
               />
               <span class="text-sm text-slate-700">Ativo</span>
             </label>

@@ -168,7 +168,19 @@
   <DataTable columns={colsTemplate} data={templates} color="financeiro" {loading} title="Templates de mensagem" searchable={true} emptyMessage="Nenhum template"
     onRowClick={(row) => openEdit('template', row)}>
     <svelte:fragment slot="row-actions" let:row>
-      <button on:click|stopPropagation={() => deleteEntity('template', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        ariaLabel="Excluir template"
+        disabled={deletingId === row.id}
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteEntity('template', row.id);
+        }}
+      >
+        <Trash2 size={15} />
+      </Button>
     </svelte:fragment>
   </DataTable>
 
@@ -182,7 +194,19 @@
   <DataTable columns={colsTema} data={temas} color="financeiro" {loading} title="Temas de arte" searchable={true} emptyMessage="Nenhum tema"
     onRowClick={(row) => openEdit('tema', row)}>
     <svelte:fragment slot="row-actions" let:row>
-      <button on:click|stopPropagation={() => deleteEntity('tema', row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        ariaLabel="Excluir tema"
+        disabled={deletingId === row.id}
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteEntity('tema', row.id);
+        }}
+      >
+        <Trash2 size={15} />
+      </Button>
     </svelte:fragment>
   </DataTable>
 
@@ -205,8 +229,19 @@
             </div>
           </div>
           <div class="flex gap-1">
-            <button on:click={() => openEdit('categoria', cat)} class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><Pencil size={15} /></button>
-            <button on:click={() => deleteEntity('categoria', cat.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === cat.id}><Trash2 size={15} /></button>
+            <Button variant="ghost" size="sm" class_name="p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" ariaLabel="Editar categoria" on:click={() => openEdit('categoria', cat)}>
+              <Pencil size={15} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+              ariaLabel="Excluir categoria"
+              disabled={deletingId === cat.id}
+              on:click={() => deleteEntity('categoria', cat.id)}
+            >
+              <Trash2 size={15} />
+            </Button>
           </div>
         </div>
       </Card>

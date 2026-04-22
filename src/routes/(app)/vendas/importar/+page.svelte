@@ -948,13 +948,15 @@
                 <div class="px-3 py-2 text-sm text-slate-500">Buscando...</div>
               {:else}
                 {#each resultadosCidade as cidade}
-                  <button
+                  <Button
                     type="button"
-                    class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    variant="unstyled"
+                    size="sm"
+                    class_name="block w-full rounded-none px-3 py-2 text-left text-sm hover:bg-slate-50"
                     on:click={() => selecionarCidade(cidade)}
                   >
                     {cidade.nome}{#if cidade.subdivisao_nome}, {cidade.subdivisao_nome}{/if}
-                  </button>
+                  </Button>
                 {/each}
               {/if}
             </div>

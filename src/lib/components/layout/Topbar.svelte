@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import Button from '$lib/components/ui/Button.svelte';
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
   import { Dropdown, DropdownItem, DropdownDivider } from 'flowbite-svelte';
@@ -53,29 +54,38 @@
     <div class="vtur-topbar__actions">
       {#if !$isMobile}
         <!-- Atalho agenda (só desktop) -->
-        <a href="/operacao/agenda" class="vtur-icon-button" aria-label="Ir para Agenda">
+        <Button
+          href="/operacao/agenda"
+          variant="unstyled"
+          size="sm"
+          class_name="vtur-icon-button !h-10 !w-10 !rounded-xl !p-0"
+          ariaLabel="Ir para Agenda"
+        >
           <Calendar size={18} />
-        </a>
+        </Button>
         <!-- Bell (só desktop) -->
-        <button
-          class="vtur-icon-button relative"
+        <Button
           type="button"
+          variant="unstyled"
+          size="sm"
+          class_name="vtur-icon-button relative !h-10 !w-10 !rounded-xl !p-0"
           on:click={openRecadosInfo}
-          aria-label="Recados"
+          ariaLabel="Recados"
         >
           <Bell size={18} />
-        </button>
+        </Button>
       {/if}
 
       <!-- Avatar com dropdown (sempre visível) -->
       <div class="relative">
-        <button
+        <Button
           id="user-menu-btn"
           type="button"
-          class="vtur-user-chip cursor-pointer transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200"
-          aria-label="Menu do usuário"
-          aria-haspopup="true"
-          aria-expanded={userDropdownOpen}
+          variant="unstyled"
+          class_name="vtur-user-chip cursor-pointer transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+          ariaLabel="Menu do usuário"
+          ariaHaspopup="true"
+          ariaExpanded={userDropdownOpen}
           on:click={() => (userDropdownOpen = !userDropdownOpen)}
         >
           <div class="vtur-user-chip__avatar">{userInitials || 'VT'}</div>
@@ -85,7 +95,7 @@
               <span class="vtur-user-chip__email">{userEmail}</span>
             </div>
           {/if}
-        </button>
+        </Button>
 
         <Dropdown
           triggeredBy="#user-menu-btn"

@@ -276,27 +276,27 @@
       />
     </div>
     <div class="relative">
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="pref-cidade">Cidade</label>
-      <div class="relative">
-        <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          id="pref-cidade"
-          bind:value={cidadeBusca}
-          on:input={onCidadeInput}
-          class="vtur-input w-full pl-9"
-          placeholder="Buscar cidade..."
-        />
-      </div>
+      <FieldInput
+        id="pref-cidade"
+        label="Cidade"
+        bind:value={cidadeBusca}
+        on:input={onCidadeInput}
+        icon={Search}
+        class_name="w-full"
+        placeholder="Buscar cidade..."
+      />
       {#if cidadeResultados.length > 0}
         <div class="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
           {#each cidadeResultados as cidade}
-            <button
+            <Button
               type="button"
-              class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+              variant="unstyled"
+              size="sm"
+              class_name="block w-full rounded-none px-3 py-2 text-left text-sm hover:bg-slate-50"
               on:click={() => selecionarCidade(cidade)}
             >
               {cidade.nome}{#if cidade.subdivisao_nome}, {cidade.subdivisao_nome}{/if}
-            </button>
+            </Button>
           {/each}
         </div>
       {/if}

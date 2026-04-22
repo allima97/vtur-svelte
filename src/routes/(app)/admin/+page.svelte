@@ -148,9 +148,10 @@
   <Card color="financeiro" title="Modulos administrativos">
     <div class="grid gap-4 lg:grid-cols-2">
       {#each modules as item}
-        <button
+        <Button
           type="button"
-          class="rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-orange-300 hover:bg-orange-50/40"
+          variant="unstyled"
+          class_name="block rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:border-orange-300 hover:bg-orange-50/40"
           on:click={() => goto(item.href)}
         >
           <div class="flex items-start justify-between gap-4">
@@ -170,7 +171,7 @@
               </Badge>
             {/if}
           </div>
-        </button>
+        </Button>
       {/each}
     </div>
   </Card>

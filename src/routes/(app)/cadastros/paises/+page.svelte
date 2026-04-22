@@ -117,7 +117,20 @@
 <DataTable {columns} data={paises} {loading} title="Países cadastrados" searchable={true} emptyMessage="Nenhum país encontrado"
   onRowClick={(row) => openEdit(row)}>
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deletePais(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+      disabled={deletingId === row.id}
+      title="Excluir país"
+      ariaLabel="Excluir país"
+      on:click={(event) => {
+        event.stopPropagation();
+        deletePais(row.id);
+      }}
+    >
+      <Trash2 size={15} />
+    </Button>
   </svelte:fragment>
 </DataTable>
 

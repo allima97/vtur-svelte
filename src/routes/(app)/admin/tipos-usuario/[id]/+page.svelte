@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { Checkbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
 
   type PermissionEntry = {
@@ -168,14 +169,8 @@
 <div class="space-y-6">
   <Card color="financeiro" title="Dados do perfil">
     <div class="grid gap-4 md:grid-cols-2">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tipo-nome">Nome</label>
-        <input id="tipo-nome" bind:value={form.name} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="tipo-descricao">Descricao</label>
-        <input id="tipo-descricao" bind:value={form.description} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="tipo-nome" label="Nome" bind:value={form.name} class_name="w-full" />
+      <FieldInput id="tipo-descricao" label="Descricao" bind:value={form.description} class_name="w-full" />
     </div>
   </Card>
 
@@ -189,24 +184,24 @@
               <p class="text-xs text-slate-500">{entry.modulo}</p>
             </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate-700" for={`tipo-perm-${entry.modulo}`}>Nivel</label>
-              <select
-                id={`tipo-perm-${entry.modulo}`}
-                bind:value={entry.permissao}
-                class="vtur-input w-full"
-                disabled={!entry.ativo}
-              >
-                {#each levels as level}
-                  <option value={level.value}>{level.label}</option>
-                {/each}
-              </select>
-            </div>
+            <FieldSelect
+              id={`tipo-perm-${entry.modulo}`}
+              label="Nivel"
+              bind:value={entry.permissao}
+              options={levels}
+              placeholder={null}
+              disabled={!entry.ativo}
+              class_name="w-full"
+              on:change={() => {
+                permissions = [...permissions];
+              }}
+            />
 
             <label class="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 lg:self-end">
-              <input
-                type="checkbox"
+              <Checkbox
                 bind:checked={entry.ativo}
+                color="financeiro"
+                ariaLabel={`Ativar permissao ${entry.label}`}
                 on:change={() => {
                   if (!entry.ativo) entry.permissao = 'none';
                   if (entry.ativo && entry.permissao === 'none') entry.permissao = 'view';

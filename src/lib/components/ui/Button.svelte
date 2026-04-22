@@ -22,8 +22,13 @@
   export let disabled = false;
   export let type: 'button' | 'submit' | 'reset' = 'button';
   export let href: string | undefined = undefined;
+  export let id: string | null = null;
   export let title: string | null = null;
   export let ariaLabel: string | null = null;
+  export let ariaHaspopup: boolean | 'true' | 'false' | string | null = null;
+  export let ariaExpanded: boolean | null = null;
+  export let role: string | null = null;
+  export let ariaSelected: boolean | null = null;
   export let class_name = '';
 
   const colorAlias: Record<string, string> = {
@@ -72,10 +77,15 @@
 {#if href}
   <FlowbiteButton
     {href}
+    id={id ?? undefined}
     {size}
     color={resolvedColor as any}
     title={title ?? undefined}
     aria-label={ariaLabel ?? undefined}
+    aria-haspopup={ariaHaspopup ?? undefined}
+    aria-expanded={ariaExpanded ?? undefined}
+    role={role ?? undefined}
+    aria-selected={ariaSelected ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click
@@ -91,10 +101,15 @@
 {:else}
   <FlowbiteButton
     {type}
+    id={id ?? undefined}
     {size}
     color={resolvedColor as any}
     title={title ?? undefined}
     aria-label={ariaLabel ?? undefined}
+    aria-haspopup={ariaHaspopup ?? undefined}
+    aria-expanded={ariaExpanded ?? undefined}
+    role={role ?? undefined}
+    aria-selected={ariaSelected ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click

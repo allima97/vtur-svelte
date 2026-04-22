@@ -363,13 +363,15 @@
       <h3 class="text-lg font-semibold text-slate-900 mb-1">{relatorio.titulo}</h3>
       <p class="text-sm text-slate-500 mb-3">{relatorio.descricao}</p>
 
-      <button
+      <Button
         on:click={() => openRelatorio(relatorio.rota)}
-        class="inline-flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
+        variant="unstyled"
+        size="sm"
+        class_name="inline-flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
       >
         Abrir relatório
         <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
-      </button>
+      </Button>
     </Card>
   {/each}
 </div>

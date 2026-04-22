@@ -536,8 +536,10 @@
       {:else}
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {#each filteredThemes as theme}
-            <button
-              class="group relative overflow-hidden rounded-xl border-2 transition-all
+            <Button
+              type="button"
+              variant="unstyled"
+              class_name="group relative block overflow-hidden rounded-xl border-2 p-0 transition-all
                 {selectedTheme?.id === theme.id ? 'border-blue-500 shadow-md' : 'border-transparent hover:border-slate-300'}"
               on:click={() => selectTheme(theme)}
             >
@@ -566,7 +568,7 @@
                   </svg>
                 </div>
               {/if}
-            </button>
+            </Button>
           {/each}
         </div>
       {/if}
@@ -625,12 +627,15 @@
           {#if showClienteDropdown && clienteResults.length}
             <div class="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
               {#each clienteResults as c}
-                <button
-                  class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  size="sm"
+                  class_name="block w-full rounded-none px-3 py-2 text-left text-sm hover:bg-slate-50"
                   on:click={() => selectCliente(c)}
                 >
                   {c.nome}
-                </button>
+                </Button>
               {/each}
             </div>
           {/if}

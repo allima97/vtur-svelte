@@ -299,17 +299,17 @@
         {:else}
           <!-- Campo de busca com dropdown corretamente posicionado -->
           <div class="relative">
-            <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
+            <FieldInput
               id="orcamento-novo-cliente"
-              type="text"
               bind:value={searchClienteQuery}
+              label={null}
+              icon={Search}
               on:input={handleSearchInput}
               on:focus={handleSearchFocus}
               on:blur={handleSearchBlur}
               placeholder="Buscar cliente por nome, email ou CPF..."
-              class="vtur-input pl-10 w-full"
-              class:border-red-500={errors.cliente}
+              error={errors.cliente || null}
+              class_name="w-full"
               autocomplete="off"
             />
 
@@ -320,16 +320,18 @@
                   <div class="px-4 py-3 text-sm text-slate-500">Buscando...</div>
                 {:else if clientesFiltrados.length > 0}
                   {#each clientesFiltrados as cliente}
-                    <button
+                    <Button
                       type="button"
-                      on:mousedown|preventDefault={() => selecionarCliente(cliente)}
-                      class="w-full px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                      variant="unstyled"
+                      size="sm"
+                      on:click={() => selecionarCliente(cliente)}
+                      class_name="block w-full rounded-none border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
                     >
                       <p class="font-medium text-slate-900">{cliente.nome}</p>
                       <p class="text-sm text-slate-500">
                         {cliente.email || 'Sem email'}{cliente.telefone ? ` • ${cliente.telefone}` : ''}
                       </p>
-                    </button>
+                    </Button>
                   {/each}
                 {:else}
                   <div class="px-4 py-3 text-sm text-slate-500">
@@ -365,13 +367,15 @@
         />
         <div class="flex gap-1 mt-[1.65rem] shrink-0">
           {#each [7, 15, 30] as dias}
-            <button
+            <Button
               type="button"
               on:click={() => setValidadeDias(dias)}
-              class="px-3 py-2 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              variant="secondary"
+              size="sm"
+              class_name="!rounded-lg !px-3 !py-2 text-xs"
             >
               {dias}d
-            </button>
+            </Button>
           {/each}
         </div>
       </div>

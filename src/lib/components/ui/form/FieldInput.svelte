@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Input, Label, Helper } from 'flowbite-svelte';
+  import Button from '../Button.svelte';
+  import { buildVturInputClasses } from '../inputContract';
 
   export let label: string | null = null;
   export let value: string | number = '';
@@ -28,15 +30,12 @@
   export let class_name = '';
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
-  $: inputClasses = [
-    'vtur-input',
+  $: inputClasses = buildVturInputClasses(
     'text-sm',
     icon || prefix ? 'pl-10' : '',
     suffix || actionIcon ? 'pr-10' : '',
     error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
-  ]
-    .filter(Boolean)
-    .join(' ');
+  );
 </script>
 
 <div class={class_name}>
@@ -107,15 +106,17 @@
       <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{suffix}</span>
     {/if}
     {#if actionIcon}
-      <button
+      <Button
         type="button"
-        class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label={actionLabel ?? undefined}
+        variant="unstyled"
+        size="xs"
+        class_name="absolute right-3 top-1/2 z-10 !-translate-y-1/2 !p-0 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        ariaLabel={actionLabel ?? undefined}
         disabled={actionDisabled}
         on:click={() => onAction?.()}
       >
         <svelte:component this={actionIcon} class="h-4 w-4" />
-      </button>
+      </Button>
     {/if}
   </div>
 

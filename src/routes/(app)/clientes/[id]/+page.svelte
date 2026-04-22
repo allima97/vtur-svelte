@@ -250,37 +250,53 @@
   </div>
 
   <div class="vtur-kpi-grid mb-6">
-    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/clientes')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Users size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Status comercial</p>
         <p class="text-2xl font-bold text-slate-900">{getStatusLabel(cliente.status)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/clientes')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Negociação</p>
         <p class="text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/clientes')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><AlertCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Última compra</p>
         <p class="text-2xl font-bold text-slate-900">{formatDate(cliente.ultima_compra)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/clientes')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/clientes')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><CheckCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Valor acumulado</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
       </div>
-    </button>
+    </Button>
   </div>
 
   <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">

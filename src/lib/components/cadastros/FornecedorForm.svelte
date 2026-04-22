@@ -267,12 +267,18 @@
                 <div class="px-3 py-2 text-sm text-slate-500">Nenhuma cidade encontrada.</div>
               {:else}
                 {#each resultadosCidade as cidade}
-                  <button type="button" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50" on:mousedown|preventDefault={() => selectCidade(cidade)}>
+                  <Button
+                    type="button"
+                    variant="unstyled"
+                    size="sm"
+                    class_name="block w-full !justify-start rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    on:click={() => selectCidade(cidade)}
+                  >
                     <div class="font-medium text-slate-900">{cidade.label || cidade.nome}</div>
                     {#if cidade.pais_nome}
                       <div class="text-xs text-slate-500">{cidade.pais_nome}</div>
                     {/if}
-                  </button>
+                  </Button>
                 {/each}
               {/if}
             </div>

@@ -21,11 +21,13 @@
 
 <div class={`vtur-tabs ${className}`.trim()} role="tablist">
   {#each items as item}
-    <button
+    <Button
       type="button"
+      variant="unstyled"
+      size="sm"
       role="tab"
-      aria-selected={activeKey === item.key}
-      class={`vtur-tab ${activeKey === item.key ? 'vtur-tab--active' : ''}`.trim()}
+      ariaSelected={activeKey === item.key}
+      class_name={`vtur-tab ${activeKey === item.key ? 'vtur-tab--active' : ''}`.trim()}
       disabled={item.disabled}
       on:click={() => selectTab(item.key, item.disabled)}
     >
@@ -44,6 +46,6 @@
           {item.badge}
         </span>
       {/if}
-    </button>
+    </Button>
   {/each}
 </div>

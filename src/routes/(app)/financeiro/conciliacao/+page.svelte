@@ -594,15 +594,30 @@
 />
 
 <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
-  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; showPendingOnly = true; showBaixaRac = false; loadRegistros(); }}>
+  <Button
+    type="button"
+    variant="unstyled"
+    class_name="contents text-left"
+    on:click={() => { activeTab = 'registros'; showPendingOnly = true; showBaixaRac = false; loadRegistros(); }}
+  >
     <KPICard title="Pendentes" value={summary.pendentes} subtitle="Aguardando vínculo" color="financeiro" icon={Clock3} />
-  </button>
-  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; rankingStatus = 'pending'; showPendingOnly = false; loadRegistros(); }}>
+  </Button>
+  <Button
+    type="button"
+    variant="unstyled"
+    class_name="contents text-left"
+    on:click={() => { activeTab = 'registros'; rankingStatus = 'pending'; showPendingOnly = false; loadRegistros(); }}
+  >
     <KPICard title="Sem ranking" value={summary.semRanking} subtitle="Baixas sem responsável" color="clientes" icon={Users} />
-  </button>
-  <button type="button" class="contents text-left" on:click={() => { activeTab = 'registros'; showBaixaRac = true; showPendingOnly = false; loadRegistros(); }}>
+  </Button>
+  <Button
+    type="button"
+    variant="unstyled"
+    class_name="contents text-left"
+    on:click={() => { activeTab = 'registros'; showBaixaRac = true; showPendingOnly = false; loadRegistros(); }}
+  >
     <KPICard title="Baixa RAC" value={summary.baixaRac} subtitle="Tratamento manual" color="operacao" icon={ShieldAlert} />
-  </button>
+  </Button>
   <KPICard title="Efetivados" value={summary.efetivados} subtitle={formatCurrency(summary.totalValor)} color="vendas" icon={CheckCircle} />
   <KPICard title="Importados" value={summary.total} subtitle="No período selecionado" color="clientes" icon={Database} />
 </div>

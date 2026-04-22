@@ -312,37 +312,53 @@
   </div>
 
   <div class="vtur-kpi-grid mb-6">
-    <button on:click={() => goto('/orcamentos')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/orcamentos')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${statusAtual === 'aprovado' ? 'bg-green-50 text-green-500' : statusAtual === 'rejeitado' ? 'bg-red-50 text-red-500' : statusAtual === 'enviado' ? 'bg-blue-50 text-blue-500' : 'bg-amber-50 text-amber-500'}`}><FileText size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Status comercial</p>
         <p class="text-2xl font-bold text-slate-900">{getStatusLabel(orcamento.status)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => (showInteracaoModal = true)} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => (showInteracaoModal = true)}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${!ultimaInteracao ? 'bg-red-50 text-red-500' : (diasSemInteracao || 0) >= 7 ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-500'}`}><Clock size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Última interação</p>
         <p class="text-2xl font-bold text-slate-900">{!ultimaInteracao ? 'Sem registro' : `${diasSemInteracao || 0}d`}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/orcamentos')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/orcamentos')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${isExpirado ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Vencimento</p>
         <p class="text-2xl font-bold text-slate-900">{formatDate(orcamento.valid_until || orcamento.data_validade)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => (podeCriarVenda ? goto(`/vendas/nova?orcamento=${orcamentoId}`) : goto('/orcamentos'))} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      variant="unstyled"
+      class_name="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => (podeCriarVenda ? goto(`/vendas/nova?orcamento=${orcamentoId}`) : goto('/orcamentos'))}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${orcamentoConvertido ? 'bg-green-50 text-green-500' : podeCriarVenda ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><ShoppingCart size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Próximo passo</p>
         <p class="text-2xl font-bold text-slate-900">{orcamentoConvertido ? 'Convertido' : podeCriarVenda ? 'Criar venda' : 'Acompanhar'}</p>
       </div>
-    </button>
+    </Button>
   </div>
 
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(orcamento.status)}">
@@ -671,12 +687,13 @@
           <div class="text-center py-6 text-slate-500">
             <History size={32} class="mx-auto mb-2 opacity-30" />
             <p class="text-sm">Nenhuma interação registrada</p>
-            <button 
+            <Button
+              variant="unstyled"
               on:click={() => showInteracaoModal = true}
-              class="mt-2 text-sm text-clientes-600 hover:underline"
+              class_name="mt-2 text-sm text-clientes-600 hover:underline"
             >
               Registrar primeira interação
-            </button>
+            </Button>
           </div>
         {:else}
           <div class="space-y-3 max-h-96 overflow-y-auto">

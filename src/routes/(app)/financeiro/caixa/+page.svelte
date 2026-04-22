@@ -316,37 +316,57 @@
   </div>
 
   <KPIGrid className="mb-6" columns={4}>
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/conciliacao')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Backlog financeiro</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(backlogFinanceiroValor)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-green-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/caixa')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${resumo.saldo >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}><DollarSign size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Situação de caixa</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.saldo)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/caixa')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><ArrowUpRight size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Total recebido</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalEntradas)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-slate-300 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-slate-300 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/caixa')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><ArrowDownRight size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Total de saídas</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalSaidas)}</p>
       </div>
-    </button>
+    </Button>
   </KPIGrid>
 
   <Card color="financeiro" class="mb-6">
@@ -403,21 +423,31 @@
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-card !block !w-full !p-5 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro/conciliacao')}
+    >
       <p class="text-sm text-slate-500 mb-1">Fechamento</p>
       <p class="text-lg font-semibold text-slate-900">Ir para Conciliação</p>
       <p class="mt-2 text-sm text-slate-600">Atalhe para tratar pendências e divergências financeiras.</p>
-    </button>
+    </Button>
     <div class="vtur-card p-5 text-left">
       <p class="text-sm text-slate-500 mb-1">Movimento no período</p>
       <p class="text-lg font-semibold text-slate-900">{entradasRecentes} entradas · {saidasRecentes} saídas</p>
       <p class="mt-2 text-sm text-slate-600">Leitura rápida do volume operacional no período filtrado.</p>
     </div>
-    <button on:click={() => goto('/financeiro')} class="vtur-card p-5 text-left hover:shadow-lg transition-all duration-200">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-card !block !w-full !p-5 !text-left hover:shadow-lg transition-all duration-200"
+      on:click={() => goto('/financeiro')}
+    >
       <p class="text-sm text-slate-500 mb-1">Resumo executivo</p>
       <p class="text-lg font-semibold text-slate-900">Voltar ao Financeiro</p>
       <p class="mt-2 text-sm text-slate-600">Retorne ao painel executivo para navegar entre backlog, caixa e comissões.</p>
-    </button>
+    </Button>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Helper, Label, Textarea } from 'flowbite-svelte';
+  import { buildVturInputClasses } from '../inputContract';
 
   export let label: string | null = null;
   export let value = '';
@@ -23,15 +24,12 @@
   };
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
-  $: textareaClasses = [
-    'vtur-input',
+  $: textareaClasses = buildVturInputClasses(
     'text-sm',
     resizeClasses[resize],
     monospace ? 'font-mono text-xs leading-5' : '',
     error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
-  ]
-    .filter(Boolean)
-    .join(' ');
+  );
 </script>
 
 <div class={class_name}>

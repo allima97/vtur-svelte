@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Label, Select, Helper } from 'flowbite-svelte';
+  import { buildVturInputClasses } from '../inputContract';
 
   export let label: string | null = null;
   export let srLabel = false;
@@ -15,6 +16,10 @@
   export let class_name = '';
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: selectClasses = buildVturInputClasses(
+    'text-sm',
+    error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
+  );
 </script>
 
 <div class={class_name}>
@@ -30,7 +35,7 @@
     bind:value
     {disabled}
     {required}
-    class="vtur-input text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+    class={selectClasses}
     on:change
     on:blur
   >

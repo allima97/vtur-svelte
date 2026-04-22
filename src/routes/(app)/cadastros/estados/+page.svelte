@@ -149,7 +149,20 @@
 <DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={true} emptyMessage="Nenhum estado encontrado"
   onRowClick={(row) => openEdit(row)}>
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deleteEstado(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" disabled={deletingId === row.id}><Trash2 size={15} /></button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+      disabled={deletingId === row.id}
+      title="Excluir estado"
+      ariaLabel="Excluir estado"
+      on:click={(event) => {
+        event.stopPropagation();
+        deleteEstado(row.id);
+      }}
+    >
+      <Trash2 size={15} />
+    </Button>
   </svelte:fragment>
 </DataTable>
 

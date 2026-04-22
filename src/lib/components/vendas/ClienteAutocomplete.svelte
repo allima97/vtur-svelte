@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import { Button, FieldInput } from '$lib/components/ui';
 
   type ClienteOption = {
     id: string;
@@ -166,18 +167,16 @@
 </script>
 
 <div class="relative">
-  <label for={id} class="mb-1 block text-sm font-medium text-slate-700">
-    {label}{#if required} <span class="text-red-500">*</span>{/if}
-  </label>
-  <input
+  <FieldInput
     {id}
-    type="text"
-    value={searchText}
-    class="vtur-input w-full"
-    class:border-red-500={Boolean(error)}
+    {label}
+    bind:value={searchText}
     {placeholder}
     {disabled}
+    {required}
     autocomplete="off"
+    error={error || null}
+    class_name="w-full"
     on:input={handleInput}
     on:focus={() => (showOptions = true)}
     on:blur={handleBlur}
@@ -191,19 +190,17 @@
         <div class="px-3 py-2 text-sm text-slate-500">Nenhum cliente encontrado</div>
       {:else}
         {#each getFilteredClients(searchText) as cliente}
-          <button
+          <Button
             type="button"
-            class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
-            on:mousedown|preventDefault={() => selectClient(cliente)}
+            variant="unstyled"
+            size="sm"
+            class_name="block w-full rounded-none border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
+            on:click={() => selectClient(cliente)}
           >
             {getClienteLabel(cliente)}
-          </button>
+          </Button>
         {/each}
       {/if}
     </div>
   {/if}
 </div>
-
-{#if error}
-  <p class="mt-1 text-xs text-red-600">{error}</p>
-{/if}

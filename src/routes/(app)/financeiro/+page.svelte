@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
   import {
@@ -273,7 +274,12 @@
   </div>
 
   <KPIGrid className="mb-6" columns={4}>
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] border-t-orange-400 text-left">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 !text-left"
+      on:click={() => goto('/financeiro/conciliacao')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
         <AlertCircle size={20} />
       </div>
@@ -281,9 +287,14 @@
         <p class="text-sm font-medium text-slate-500">Backlog de conciliação</p>
         <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.divergencias}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/comissoes')} class="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 !text-left"
+      on:click={() => goto('/financeiro/comissoes')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
         <Clock size={20} />
       </div>
@@ -291,9 +302,14 @@
         <p class="text-sm font-medium text-slate-500">Comissões pendentes</p>
         <p class="text-2xl font-bold text-slate-900">{resumo.comissoesPendentes}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] border-t-teal-400 text-left">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-teal-400 !p-0 !text-left"
+      on:click={() => goto('/financeiro/caixa')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
         <TrendingUp size={20} />
       </div>
@@ -301,9 +317,14 @@
         <p class="text-sm font-medium text-slate-500">Valor a receber</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(resumo.totalReceber)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/regras')} class="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left">
+    <Button
+      type="button"
+      variant="unstyled"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-blue-400 !p-0 !text-left"
+      on:click={() => goto('/financeiro/regras')}
+    >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
         <Settings size={20} />
       </div>
@@ -311,7 +332,7 @@
         <p class="text-sm font-medium text-slate-500">Regras e cadastros</p>
         <p class="text-2xl font-bold text-slate-900">2</p>
       </div>
-    </button>
+    </Button>
   </KPIGrid>
 
   <KPIGrid className="mb-8" columns={5}>
@@ -372,9 +393,11 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {#each modulos as modulo}
-      <button
+      <Button
+        type="button"
+        variant="unstyled"
         on:click={() => goto(modulo.rota)}
-        class="vtur-card p-6 text-left hover:shadow-lg transition-all duration-200 group"
+        class_name="vtur-card group !block !w-full !p-6 !text-left hover:shadow-lg transition-all duration-200"
       >
         <div class="flex items-start justify-between mb-4">
           <div class="p-3 rounded-lg" style="background-color: var(--color-{modulo.cor}-50);">
@@ -391,7 +414,7 @@
             {modulo.stats}
           </span>
         </div>
-      </button>
+      </Button>
     {/each}
   </div>
 

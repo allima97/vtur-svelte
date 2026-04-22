@@ -4,7 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldRadioGroup, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
@@ -25,6 +25,7 @@
     estado: '',
     uso_individual: null as boolean | null
   };
+  let usoIndividualValue = '';
 
   const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
@@ -93,6 +94,18 @@
 
   onMount(load);
 
+  $: {
+    const mapped = form.uso_individual === null ? '' : String(form.uso_individual);
+    if (usoIndividualValue !== mapped) usoIndividualValue = mapped;
+  }
+
+  $: {
+    const mappedBack = usoIndividualValue === '' ? null : usoIndividualValue === 'true';
+    if (form.uso_individual !== mappedBack) {
+      form = { ...form, uso_individual: mappedBack };
+    }
+  }
+
   $: camposFaltando = [
     !form.nome_completo.trim() && 'Nome completo',
     !form.cpf.trim() && 'CPF',
@@ -143,22 +156,22 @@
     </Card>
 
     <Card title="Tipo de uso *">
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label class="flex items-start gap-3 rounded-xl border p-4 cursor-pointer {form.uso_individual === false ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}">
-          <input type="radio" bind:group={form.uso_individual} value={false} class="mt-0.5" />
-          <div>
-            <p class="font-medium text-slate-900">Uso corporativo</p>
-            <p class="text-sm text-slate-500">Faço parte de uma equipe ou agência.</p>
-          </div>
-        </label>
-        <label class="flex items-start gap-3 rounded-xl border p-4 cursor-pointer {form.uso_individual === true ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}">
-          <input type="radio" bind:group={form.uso_individual} value={true} class="mt-0.5" />
-          <div>
-            <p class="font-medium text-slate-900">Uso individual</p>
-            <p class="text-sm text-slate-500">Trabalho de forma independente.</p>
-          </div>
-        </label>
-      </div>
+      <FieldRadioGroup
+        id="ob-uso"
+        label={null}
+        bind:value={usoIndividualValue}
+        orientation="column"
+        options={[
+          { value: 'false', label: 'Uso corporativo' },
+          { value: 'true', label: 'Uso individual' }
+        ]}
+        helper={usoIndividualValue === 'false'
+          ? 'Faço parte de uma equipe ou agência.'
+          : usoIndividualValue === 'true'
+            ? 'Trabalho de forma independente.'
+            : 'Escolha como você usa o sistema.'}
+        class_name="w-full"
+      />
     </Card>
 
     <Card title="Endereço">

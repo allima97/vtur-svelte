@@ -17,6 +17,7 @@
   import { permissoes } from '$lib/stores/permissoes';
 
   const vendaId = $page.params.id;
+  const vendaIdSafe = vendaId ?? '';
 
   let venda: any = null;
   let loading = true;
@@ -225,7 +226,7 @@
 </script>
 
 <svelte:head>
-  <title>{venda ? `Venda ${venda.codigo || vendaId.slice(0, 8).toUpperCase()}` : 'Venda'} | VTUR</title>
+  <title>{venda ? `Venda ${venda.codigo || vendaIdSafe.slice(0, 8).toUpperCase()}` : 'Venda'} | VTUR</title>
 </svelte:head>
 
 {#if loading}
@@ -243,7 +244,7 @@
   </div>
 {:else if venda}
   <PageHeader
-    title="Venda {venda.codigo || vendaId.slice(0, 8).toUpperCase()}"
+    title="Venda {venda.codigo || vendaIdSafe.slice(0, 8).toUpperCase()}"
     subtitle="Criada em {formatDate(venda.created_at || venda.data_lancamento)} • Vendedor: {venda.vendedor?.nome || venda.vendedor || 'Não informado'}"
     color="vendas"
     breadcrumbs={[
@@ -254,13 +255,13 @@
       ...(canEdit ? [{
         label: 'Editar',
         href: `/vendas/${vendaId}/editar`,
-        variant: 'secondary',
+        variant: 'secondary' as const,
         icon: Edit
       }] : []),
       {
         label: 'Voltar',
         href: '/vendas',
-        variant: 'ghost'
+        variant: 'ghost' as const
       }
     ]}
   />
@@ -273,37 +274,53 @@
   </div>
 
   <div class="vtur-kpi-grid mb-6">
-    <button on:click={() => goto('/vendas')} class="vtur-kpi-card border-t-[3px] {vendaPendente ? 'border-t-amber-400' : venda?.status === 'cancelada' ? 'border-t-red-400' : venda?.status === 'concluida' ? 'border-t-blue-400' : 'border-t-green-400'} text-left w-full">
+    <Button
+      variant="unstyled"
+      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${vendaPendente ? 'border-t-amber-400' : venda?.status === 'cancelada' ? 'border-t-red-400' : venda?.status === 'concluida' ? 'border-t-blue-400' : 'border-t-green-400'}`}
+      on:click={() => goto('/vendas')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${vendaPendente ? 'bg-amber-50 text-amber-500' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-500' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-500' : 'bg-green-50 text-green-500'}`}><FileText size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Status operacional</p>
         <p class="text-2xl font-bold text-slate-900">{getStatusLabel(venda.status)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/conciliacao')} class="vtur-kpi-card border-t-[3px] {conciliacaoPendente ? 'border-t-red-400' : 'border-t-green-400'} text-left w-full">
+    <Button
+      variant="unstyled"
+      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${conciliacaoPendente ? 'border-t-red-400' : 'border-t-green-400'}`}
+      on:click={() => goto('/financeiro/conciliacao')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${conciliacaoPendente ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}><Shield size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Conciliacao</p>
         <p class="text-2xl font-bold text-slate-900">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/financeiro/caixa')} class="vtur-kpi-card border-t-[3px] {fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-amber-400'} text-left w-full">
+    <Button
+      variant="unstyled"
+      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-amber-400'}`}
+      on:click={() => goto('/financeiro/caixa')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Diferenca financeira</p>
         <p class="text-2xl font-bold text-slate-900">{formatCurrency(diferencaFinanceira)}</p>
       </div>
-    </button>
+    </Button>
 
-    <button on:click={() => goto('/vendas')} class="vtur-kpi-card border-t-[3px] {!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-slate-400'} text-left w-full">
+    <Button
+      variant="unstyled"
+      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-slate-400'}`}
+      on:click={() => goto('/vendas')}
+    >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><CheckCircle size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Situacao geral</p>
         <p class="text-2xl font-bold text-slate-900">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estavel' : 'Atencao'}</p>
       </div>
-    </button>
+    </Button>
   </div>
 
   <div class="mb-6 p-4 rounded-lg border {getStatusColor(venda.status)} {venda.cancelada ? 'opacity-75' : ''}">

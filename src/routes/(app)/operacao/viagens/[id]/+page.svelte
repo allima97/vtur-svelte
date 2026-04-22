@@ -772,16 +772,18 @@
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-slate-100">
           <h3 class="text-lg font-semibold text-slate-900">Editar Viagem</h3>
-          <button
-            on:click={() => showEditModal = false}
+          <Button
             type="button"
-            aria-label="Fechar edição da viagem"
-            class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            variant="ghost"
+            size="sm"
+            ariaLabel="Fechar edição da viagem"
+            class_name="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            on:click={() => showEditModal = false}
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         <!-- Form -->

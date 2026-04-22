@@ -138,9 +138,20 @@
   onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deleteTermo(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+    <Button
+      variant="ghost"
+      size="sm"
+      class_name="p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+      title="Excluir"
+      ariaLabel="Excluir termo"
+      disabled={deletingId === row.id}
+      on:click={(event) => {
+        event.stopPropagation();
+        deleteTermo(row.id);
+      }}
+    >
       <Trash2 size={15} />
-    </button>
+    </Button>
   </svelte:fragment>
 </DataTable>
 

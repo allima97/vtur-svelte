@@ -6,6 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import Checkbox from '$lib/components/ui/Checkbox.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
 
@@ -142,11 +143,12 @@
             <p class="font-medium text-slate-900">{item.label}</p>
             <p class="text-xs text-slate-500">{item.key}</p>
           </div>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={getGlobalEnabled(item.key)}
+            color="financeiro"
+            ariaLabel={`Alternar módulo ${item.label}`}
             on:change={(event) => {
-              const checked = event.currentTarget.checked;
+              const checked = (event.currentTarget as HTMLInputElement).checked;
               const current = globalModules.find((row) => row.module_key === item.key);
               if (current) {
                 current.enabled = checked;

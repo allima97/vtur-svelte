@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode } from 'lucide-svelte';
 
@@ -233,17 +234,18 @@
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="mfa-verify-code">
-            Código de verificação
-          </label>
-          <input
+          <FieldInput
             id="mfa-verify-code"
-            type="text"
-            inputmode="numeric"
             bind:value={verificationCode}
-            class="vtur-input w-full text-center text-2xl tracking-widest font-mono"
+            label="Código de verificação"
+            type="text"
             placeholder="000000"
-            maxlength="6"
+            maxlength={6}
+            autocomplete="one-time-code"
+            class_name="[&_input]:w-full [&_input]:text-center [&_input]:text-2xl [&_input]:font-mono [&_input]:tracking-widest"
+            on:input={(event) => {
+              verificationCode = (event.currentTarget as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6);
+            }}
           />
           <p class="mt-1 text-xs text-slate-500">Informe o código de 6 dígitos gerado pelo aplicativo.</p>
         </div>

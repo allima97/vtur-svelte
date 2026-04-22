@@ -128,9 +128,10 @@
             <p class="text-xs text-slate-500 font-mono">{modulo.key}</p>
           </div>
         </div>
-        <button
+        <Button
           type="button"
-          class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors {modulo.enabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+          variant="unstyled"
+          class_name="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors {modulo.enabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
           on:click={() => toggleModulo(modulo)}
           disabled={savingKey === modulo.key}
         >
@@ -141,7 +142,7 @@
             <XCircle size={14} />
             Inativo
           {/if}
-        </button>
+        </Button>
       </div>
     {/each}
   </div>

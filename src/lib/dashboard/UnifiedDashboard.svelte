@@ -664,8 +664,11 @@
       {:else}
         <div class="divide-y divide-slate-100">
           {#each orcamentos.slice(0, 8) as orc}
-            <button
-              class="w-full rounded px-1 py-2.5 text-left transition-colors hover:bg-slate-50"
+            <Button
+              type="button"
+              variant="unstyled"
+              size="sm"
+              class_name="block w-full rounded px-1 py-2.5 text-left transition-colors hover:bg-slate-50"
               on:click={() => handleOrcamentoClick(orc)}
             >
               <div class="flex items-center justify-between gap-3">
@@ -675,7 +678,7 @@
                 </div>
                 <span class="ml-3 whitespace-nowrap text-sm font-semibold text-financeiro-700">{formatCurrency(orc.total || 0)}</span>
               </div>
-            </button>
+            </Button>
           {/each}
         </div>
       {/if}
