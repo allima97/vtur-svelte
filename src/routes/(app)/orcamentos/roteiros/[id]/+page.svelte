@@ -8,7 +8,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
 
@@ -588,15 +588,29 @@
         <FieldInput label="Duração (dias)" type="number" min="1" bind:value={duracao} placeholder="Ex: 7" id="rot-dur" />
       </div>
       <div>
-        <label class="vtur-label" for="rot-orig">Cidade / Início</label>
-        <input id="rot-orig" bind:value={inicioCidade} class="vtur-input w-full" placeholder="Ex: São Paulo" list="sugestoes-cidade" />
+        <FieldDatalistInput
+          id="rot-orig"
+          label="Cidade / Início"
+          bind:value={inicioCidade}
+          placeholder="Ex: São Paulo"
+          options={sugestoes['cidade'] || []}
+          class_name="w-full"
+          listId="sugestoes-cidade"
+        />
         <datalist id="sugestoes-cidade">
           {#each (sugestoes['cidade'] || []) as s}<option value={s}></option>{/each}
         </datalist>
       </div>
       <div>
-        <label class="vtur-label" for="rot-dest">Cidade / Fim</label>
-        <input id="rot-dest" bind:value={fimCidade} class="vtur-input w-full" placeholder="Ex: Lisboa" list="sugestoes-cidade" />
+        <FieldDatalistInput
+          id="rot-dest"
+          label="Cidade / Fim"
+          bind:value={fimCidade}
+          placeholder="Ex: Lisboa"
+          options={sugestoes['cidade'] || []}
+          class_name="w-full"
+          listId="sugestoes-cidade"
+        />
       </div>
     </div>
 
@@ -648,39 +662,70 @@
                   {index + 1}
                 </span>
                 <div class="flex items-center gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
                     disabled={index === 0}
-                    onclick={() => { dias = moveUp(dias, index); }}>
+                    ariaLabel="Mover dia para cima"
+                    title="Mover dia para cima"
+                    on:click={() => { dias = moveUp(dias, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
                     disabled={index === dias.length - 1}
-                    onclick={() => { dias = moveDown(dias, index); }}>
+                    ariaLabel="Mover dia para baixo"
+                    title="Mover dia para baixo"
+                    on:click={() => { dias = moveDown(dias, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { dias = removeItem(dias, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover dia"
+                    title="Remover dia"
+                    on:click={() => { dias = removeItem(dias, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <p class="vtur-label-xs">Cidade</p>
-                  <input class="vtur-input w-full" bind:value={dia.cidade} placeholder="Cidade" list="sugestoes-cidade" />
-                </div>
-                <div>
-                  <p class="vtur-label-xs">Percurso</p>
-                  <input class="vtur-input w-full" bind:value={dia.percurso} placeholder="Ex: São Paulo → Lisboa" />
-                </div>
-                <div>
-                  <p class="vtur-label-xs">Data</p>
-                  <input type="date" class="vtur-input w-full" bind:value={dia.data} />
-                </div>
-                <div>
-                  <p class="vtur-label-xs">Descrição</p>
-                  <input class="vtur-input w-full" bind:value={dia.descricao} placeholder="Atividades do dia" />
-                </div>
+                <FieldDatalistInput
+                  label="Cidade"
+                  bind:value={dia.cidade}
+                  placeholder="Cidade"
+                  options={sugestoes['cidade'] || []}
+                  class_name="w-full"
+                  listId="sugestoes-cidade"
+                />
+                <FieldInput
+                  label="Percurso"
+                  bind:value={dia.percurso}
+                  placeholder="Ex: São Paulo → Lisboa"
+                  class_name="w-full"
+                />
+                <FieldInput
+                  label="Data"
+                  type="date"
+                  bind:value={dia.data}
+                  class_name="w-full"
+                />
+                <FieldInput
+                  label="Descrição"
+                  bind:value={dia.descricao}
+                  placeholder="Atividades do dia"
+                  class_name="w-full"
+                />
               </div>
             </div>
           {/each}
@@ -707,96 +752,175 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-500">Hotel {index + 1}</span>
                 <div class="flex gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} onclick={() => { hoteis = moveUp(hoteis, index); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === 0}
+                    ariaLabel="Mover hotel para cima"
+                    title="Mover hotel para cima"
+                    on:click={() => { hoteis = moveUp(hoteis, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === hoteis.length - 1} onclick={() => { hoteis = moveDown(hoteis, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === hoteis.length - 1}
+                    ariaLabel="Mover hotel para baixo"
+                    title="Mover hotel para baixo"
+                    on:click={() => { hoteis = moveDown(hoteis, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { hoteis = removeItem(hoteis, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover hotel"
+                    title="Remover hotel"
+                    on:click={() => { hoteis = removeItem(hoteis, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Cidade</p>
-                  <input class="vtur-input w-full" bind:value={hotel.cidade} placeholder="Cidade" list="sugestoes-cidade" />
+                  <FieldDatalistInput
+                    label="Cidade"
+                    bind:value={hotel.cidade}
+                    placeholder="Cidade"
+                    options={sugestoes['cidade'] || []}
+                    class_name="w-full"
+                    listId="sugestoes-cidade"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Hotel</p>
-                  <input class="vtur-input w-full" bind:value={hotel.hotel} placeholder="Nome do hotel" />
+                  <FieldInput
+                    label="Hotel"
+                    bind:value={hotel.hotel}
+                    placeholder="Nome do hotel"
+                    class_name="w-full"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Endereço</p>
-                  <input class="vtur-input w-full" bind:value={hotel.endereco} placeholder="Endereço" />
+                  <FieldInput
+                    label="Endereço"
+                    bind:value={hotel.endereco}
+                    placeholder="Endereço"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Data entrada</p>
-                  <input type="date" class="vtur-input w-full" value={hotel.data_inicio}
-                    onchange={(e) => onHotelDateChange(index, 'data_inicio', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Data entrada"
+                    type="date"
+                    value={hotel.data_inicio}
+                    class_name="w-full"
+                    on:change={(e) => onHotelDateChange(index, 'data_inicio', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Data saída</p>
-                  <input type="date" class="vtur-input w-full" value={hotel.data_fim}
-                    onchange={(e) => onHotelDateChange(index, 'data_fim', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Data saída"
+                    type="date"
+                    value={hotel.data_fim}
+                    class_name="w-full"
+                    on:change={(e) => onHotelDateChange(index, 'data_fim', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Noites</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.noites ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { noites: Number((e.target as HTMLInputElement).value) || null }); }}
-                    placeholder="Auto" />
+                  <FieldInput
+                    label="Noites"
+                    type="number"
+                    value={hotel.noites ?? ''}
+                    class_name="w-full"
+                    placeholder="Auto"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { noites: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Qtd. aptos</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.qtd_apto ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_apto: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Qtd. aptos"
+                    type="number"
+                    value={hotel.qtd_apto ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_apto: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Apto (tipo)</p>
-                  <input class="vtur-input w-full" bind:value={hotel.apto} placeholder="Ex: Duplo" />
+                  <FieldInput
+                    label="Apto (tipo)"
+                    bind:value={hotel.apto}
+                    placeholder="Ex: Duplo"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Categoria</p>
-                  <select class="vtur-input w-full" bind:value={hotel.categoria}>
-                    <option value="">—</option>
-                    {#each HOTEL_CATEGORIA_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Categoria"
+                    bind:value={hotel.categoria}
+                    options={HOTEL_CATEGORIA_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Regime</p>
-                  <select class="vtur-input w-full" bind:value={hotel.regime}>
-                    <option value="">—</option>
-                    {#each HOTEL_REGIME_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Regime"
+                    bind:value={hotel.regime}
+                    options={HOTEL_REGIME_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Tipo tarifa</p>
-                  <input class="vtur-input w-full" bind:value={hotel.tipo_tarifa} placeholder="Ex: Cortesia" />
+                  <FieldInput
+                    label="Tipo tarifa"
+                    bind:value={hotel.tipo_tarifa}
+                    placeholder="Ex: Cortesia"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Adultos</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.qtd_adultos ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Adultos"
+                    type="number"
+                    value={hotel.qtd_adultos ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Crianças</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.qtd_criancas ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Crianças"
+                    type="number"
+                    value={hotel.qtd_criancas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor original (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.valor_original ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Valor original (R$)"
+                    type="number"
+                    value={hotel.valor_original ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor final (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={hotel.valor_final ?? ''}
-                    oninput={(e) => { hoteis = updateItem(hoteis, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Valor final (R$)"
+                    type="number"
+                    value={hotel.valor_final ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { hoteis = updateItem(hoteis, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
               </div>
             </div>
@@ -836,73 +960,141 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-500">Passeio {index + 1}</span>
                 <div class="flex gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} onclick={() => { passeios = moveUp(passeios, index); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === 0}
+                    ariaLabel="Mover passeio para cima"
+                    title="Mover passeio para cima"
+                    on:click={() => { passeios = moveUp(passeios, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === passeios.length - 1} onclick={() => { passeios = moveDown(passeios, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === passeios.length - 1}
+                    ariaLabel="Mover passeio para baixo"
+                    title="Mover passeio para baixo"
+                    on:click={() => { passeios = moveDown(passeios, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { passeios = removeItem(passeios, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover passeio"
+                    title="Remover passeio"
+                    on:click={() => { passeios = removeItem(passeios, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Cidade</p>
-                  <input class="vtur-input w-full" bind:value={passeio.cidade} placeholder="Cidade" list="sugestoes-cidade" />
+                  <FieldDatalistInput
+                    label="Cidade"
+                    bind:value={passeio.cidade}
+                    placeholder="Cidade"
+                    options={sugestoes['cidade'] || []}
+                    class_name="w-full"
+                    listId="sugestoes-cidade"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Passeio / Serviço</p>
-                  <input class="vtur-input w-full" bind:value={passeio.passeio} placeholder="Nome do passeio" />
+                  <FieldInput
+                    label="Passeio / Serviço"
+                    bind:value={passeio.passeio}
+                    placeholder="Nome do passeio"
+                    class_name="w-full"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Fornecedor</p>
-                  <input class="vtur-input w-full" bind:value={passeio.fornecedor} placeholder="Fornecedor" />
+                  <FieldInput
+                    label="Fornecedor"
+                    bind:value={passeio.fornecedor}
+                    placeholder="Fornecedor"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Data início</p>
-                  <input type="date" class="vtur-input w-full" bind:value={passeio.data_inicio} />
+                  <FieldInput
+                    label="Data início"
+                    type="date"
+                    bind:value={passeio.data_inicio}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Data fim</p>
-                  <input type="date" class="vtur-input w-full" bind:value={passeio.data_fim} />
+                  <FieldInput
+                    label="Data fim"
+                    type="date"
+                    bind:value={passeio.data_fim}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Tipo</p>
-                  <select class="vtur-input w-full" bind:value={passeio.tipo}>
-                    {#each PASSEIO_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Tipo"
+                    bind:value={passeio.tipo}
+                    options={PASSEIO_TIPO_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    placeholder={null}
+                    class_name="w-full"
+                  />
                 </div>
                 {#if passeio.tipo === 'Ingresso' || passeio.tipo === 'Passeio'}
                   <div>
-                    <p class="vtur-label-xs">Ingressos</p>
-                    <input class="vtur-input w-full" bind:value={passeio.ingressos} placeholder="Ex: Sim / Incluso" />
+                    <FieldInput
+                      label="Ingressos"
+                      bind:value={passeio.ingressos}
+                      placeholder="Ex: Sim / Incluso"
+                      class_name="w-full"
+                    />
                   </div>
                 {/if}
                 <div>
-                  <p class="vtur-label-xs">Adultos</p>
-                  <input type="number" class="vtur-input w-full" value={passeio.qtd_adultos ?? ''}
-                    oninput={(e) => { passeios = updateItem(passeios, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Adultos"
+                    type="number"
+                    value={passeio.qtd_adultos ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { passeios = updateItem(passeios, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Crianças</p>
-                  <input type="number" class="vtur-input w-full" value={passeio.qtd_criancas ?? ''}
-                    oninput={(e) => { passeios = updateItem(passeios, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Crianças"
+                    type="number"
+                    value={passeio.qtd_criancas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { passeios = updateItem(passeios, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor original (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={passeio.valor_original ?? ''}
-                    oninput={(e) => { passeios = updateItem(passeios, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Valor original (R$)"
+                    type="number"
+                    value={passeio.valor_original ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { passeios = updateItem(passeios, index, { valor_original: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor final (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={passeio.valor_final ?? ''}
-                    oninput={(e) => { passeios = updateItem(passeios, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Valor final (R$)"
+                    type="number"
+                    value={passeio.valor_final ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { passeios = updateItem(passeios, index, { valor_final: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
               </div>
             </div>
@@ -941,101 +1133,194 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-500">Trecho {index + 1}</span>
                 <div class="flex gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} onclick={() => { transportes = moveUp(transportes, index); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === 0}
+                    ariaLabel="Mover trecho para cima"
+                    title="Mover trecho para cima"
+                    on:click={() => { transportes = moveUp(transportes, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === transportes.length - 1} onclick={() => { transportes = moveDown(transportes, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === transportes.length - 1}
+                    ariaLabel="Mover trecho para baixo"
+                    title="Mover trecho para baixo"
+                    on:click={() => { transportes = moveDown(transportes, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { transportes = removeItem(transportes, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover trecho"
+                    title="Remover trecho"
+                    on:click={() => { transportes = removeItem(transportes, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 <div>
-                  <p class="vtur-label-xs">Tipo</p>
-                  <select class="vtur-input w-full" bind:value={transporte.tipo}>
-                    {#each TRANSPORTE_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Tipo"
+                    bind:value={transporte.tipo}
+                    options={TRANSPORTE_TIPO_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    placeholder={null}
+                    class_name="w-full"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Trecho</p>
-                  <input class="vtur-input w-full" bind:value={transporte.trecho} placeholder="Ex: GRU → LIS" />
+                  <FieldInput
+                    label="Trecho"
+                    bind:value={transporte.trecho}
+                    placeholder="Ex: GRU → LIS"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Cia. Aérea</p>
-                  <input class="vtur-input w-full" bind:value={transporte.cia_aerea} placeholder="Ex: LATAM" />
+                  <FieldInput
+                    label="Cia. Aérea"
+                    bind:value={transporte.cia_aerea}
+                    placeholder="Ex: LATAM"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Data do voo</p>
-                  <input type="date" class="vtur-input w-full" bind:value={transporte.data_voo} />
+                  <FieldInput
+                    label="Data do voo"
+                    type="date"
+                    bind:value={transporte.data_voo}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Tipo voo</p>
-                  <select class="vtur-input w-full" bind:value={transporte.tipo_voo}>
-                    {#each TRANSPORTE_TIPO_VOO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Tipo voo"
+                    bind:value={transporte.tipo_voo}
+                    options={TRANSPORTE_TIPO_VOO_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    placeholder={null}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Classe reserva</p>
-                  <input class="vtur-input w-full" bind:value={transporte.classe_reserva} placeholder="Ex: Econômica" />
+                  <FieldInput
+                    label="Classe reserva"
+                    bind:value={transporte.classe_reserva}
+                    placeholder="Ex: Econômica"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Hora saída</p>
-                  <input class="vtur-input w-full" bind:value={transporte.hora_saida} placeholder="HH:MM" />
+                  <FieldInput
+                    label="Hora saída"
+                    bind:value={transporte.hora_saida}
+                    placeholder="HH:MM"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Aeroporto saída</p>
-                  <input class="vtur-input w-full" bind:value={transporte.aeroporto_saida} placeholder="Ex: GRU" />
+                  <FieldInput
+                    label="Aeroporto saída"
+                    bind:value={transporte.aeroporto_saida}
+                    placeholder="Ex: GRU"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Duração voo</p>
-                  <input class="vtur-input w-full" bind:value={transporte.duracao_voo} placeholder="Ex: 11h30" />
+                  <FieldInput
+                    label="Duração voo"
+                    bind:value={transporte.duracao_voo}
+                    placeholder="Ex: 11h30"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Hora chegada</p>
-                  <input class="vtur-input w-full" bind:value={transporte.hora_chegada} placeholder="HH:MM" />
+                  <FieldInput
+                    label="Hora chegada"
+                    bind:value={transporte.hora_chegada}
+                    placeholder="HH:MM"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Aeroporto chegada</p>
-                  <input class="vtur-input w-full" bind:value={transporte.aeroporto_chegada} placeholder="Ex: LIS" />
+                  <FieldInput
+                    label="Aeroporto chegada"
+                    bind:value={transporte.aeroporto_chegada}
+                    placeholder="Ex: LIS"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Tarifa</p>
-                  <input class="vtur-input w-full" bind:value={transporte.tarifa_nome} placeholder="Ex: Light" />
+                  <FieldInput
+                    label="Tarifa"
+                    bind:value={transporte.tarifa_nome}
+                    placeholder="Ex: Light"
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Adultos</p>
-                  <input type="number" class="vtur-input w-full" value={transporte.qtd_adultos ?? ''}
-                    oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Adultos"
+                    type="number"
+                    value={transporte.qtd_adultos ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { transportes = updateItem(transportes, index, { qtd_adultos: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Crianças</p>
-                  <input type="number" class="vtur-input w-full" value={transporte.qtd_criancas ?? ''}
-                    oninput={(e) => { transportes = updateItem(transportes, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Crianças"
+                    type="number"
+                    value={transporte.qtd_criancas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { transportes = updateItem(transportes, index, { qtd_criancas: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor total (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={transporte.valor_total ?? ''}
-                    oninput={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Valor total (R$)"
+                    type="number"
+                    value={transporte.valor_total ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => onAereoValorChange(index, 'valor_total', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Taxas (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={transporte.taxas ?? ''}
-                    oninput={(e) => onAereoValorChange(index, 'taxas', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Taxas (R$)"
+                    type="number"
+                    value={transporte.taxas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => onAereoValorChange(index, 'taxas', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Categoria</p>
-                  <input class="vtur-input w-full" bind:value={transporte.categoria} placeholder="Ex: Executiva" />
+                  <FieldInput
+                    label="Categoria"
+                    bind:value={transporte.categoria}
+                    placeholder="Ex: Executiva"
+                    class_name="w-full"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Observação</p>
-                  <input class="vtur-input w-full" bind:value={transporte.observacao} placeholder="Observações" />
+                  <FieldInput
+                    label="Observação"
+                    bind:value={transporte.observacao}
+                    placeholder="Observações"
+                    class_name="w-full"
+                  />
                 </div>
               </div>
             </div>
@@ -1074,42 +1359,80 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-500">Linha {index + 1}</span>
                 <div class="flex gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} onclick={() => { investimentos = moveUp(investimentos, index); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === 0}
+                    ariaLabel="Mover linha de investimento para cima"
+                    title="Mover linha de investimento para cima"
+                    on:click={() => { investimentos = moveUp(investimentos, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === investimentos.length - 1} onclick={() => { investimentos = moveDown(investimentos, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === investimentos.length - 1}
+                    ariaLabel="Mover linha de investimento para baixo"
+                    title="Mover linha de investimento para baixo"
+                    on:click={() => { investimentos = moveDown(investimentos, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { investimentos = removeItem(investimentos, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover linha de investimento"
+                    title="Remover linha de investimento"
+                    on:click={() => { investimentos = removeItem(investimentos, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
-                  <p class="vtur-label-xs">Tipo</p>
-                  <select class="vtur-input w-full" bind:value={inv.tipo}>
-                    <option value="">—</option>
-                    {#each INVESTIMENTO_TIPO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                  </select>
+                  <FieldSelect
+                    label="Tipo"
+                    bind:value={inv.tipo}
+                    options={INVESTIMENTO_TIPO_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                    class_name="w-full"
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor por pessoa (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={inv.valor_por_pessoa ?? ''}
-                    oninput={(e) => onInvestimentoChange(index, 'valor_por_pessoa', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Valor por pessoa (R$)"
+                    type="number"
+                    value={inv.valor_por_pessoa ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => onInvestimentoChange(index, 'valor_por_pessoa', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Qtd. aptos</p>
-                  <input type="number" class="vtur-input w-full" value={inv.qtd_apto ?? ''}
-                    oninput={(e) => onInvestimentoChange(index, 'qtd_apto', (e.target as HTMLInputElement).value)} />
+                  <FieldInput
+                    label="Qtd. aptos"
+                    type="number"
+                    value={inv.qtd_apto ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => onInvestimentoChange(index, 'qtd_apto', (e.target as HTMLInputElement).value)}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor por apto (R$) <span class="text-slate-400">(calc.)</span></p>
-                  <input type="number" class="vtur-input w-full bg-slate-100" readonly value={inv.valor_por_apto ?? ''} />
+                  <FieldInput
+                    label="Valor por apto (R$)"
+                    type="number"
+                    value={inv.valor_por_apto ?? ''}
+                    class_name="w-full"
+                    helper="(calc.)"
+                    readonly
+                  />
                 </div>
               </div>
             </div>
@@ -1141,49 +1464,89 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="text-xs font-semibold text-slate-500">Linha {index + 1}</span>
                 <div class="flex gap-1">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0} onclick={() => { pagamentos = moveUp(pagamentos, index); }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === 0}
+                    ariaLabel="Mover linha de pagamento para cima"
+                    title="Mover linha de pagamento para cima"
+                    on:click={() => { pagamentos = moveUp(pagamentos, index); }}
+                  >
                     <ChevronUp size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === pagamentos.length - 1} onclick={() => { pagamentos = moveDown(pagamentos, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-slate-600"
+                    disabled={index === pagamentos.length - 1}
+                    ariaLabel="Mover linha de pagamento para baixo"
+                    title="Mover linha de pagamento para baixo"
+                    on:click={() => { pagamentos = moveDown(pagamentos, index); }}
+                  >
                     <ChevronDown size={13} />
-                  </button>
-                  <button type="button" class="rounded p-1 text-slate-400 hover:text-red-600"
-                    onclick={() => { pagamentos = removeItem(pagamentos, index); }}>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="text-slate-400 hover:text-red-600"
+                    ariaLabel="Remover linha de pagamento"
+                    title="Remover linha de pagamento"
+                    on:click={() => { pagamentos = removeItem(pagamentos, index); }}
+                  >
                     <Trash2 size={13} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Serviço</p>
-                  <select class="vtur-input w-full" bind:value={pag.servico}>
-                    <option value="">—</option>
-                    {#each PAGAMENTO_SERVICO_OPTIONS as opt}<option value={opt}>{opt}</option>{/each}
-                    {#each pagamentos.map(p => p.servico).filter(s => s && !PAGAMENTO_SERVICO_OPTIONS.includes(s)) as custom}
-                      <option value={custom}>{custom}</option>
-                    {/each}
-                  </select>
+                  <FieldSelect
+                    label="Serviço"
+                    bind:value={pag.servico}
+                    options={[
+                      ...PAGAMENTO_SERVICO_OPTIONS.map((opt) => ({ value: opt, label: opt })),
+                      ...pagamentos
+                        .map((p) => p.servico)
+                        .filter((s) => s && !PAGAMENTO_SERVICO_OPTIONS.includes(s))
+                        .map((custom) => ({ value: custom, label: custom }))
+                    ]}
+                    class_name="w-full"
+                  />
                 </div>
                 <div class="col-span-2">
-                  <p class="vtur-label-xs">Forma de pagamento</p>
-                  <input class="vtur-input w-full" bind:value={pag.forma_pagamento}
-                    placeholder="Ex: Crédito, PIX, Boleto" list="sugestoes-forma-pagamento" />
+                  <FieldDatalistInput
+                    label="Forma de pagamento"
+                    bind:value={pag.forma_pagamento}
+                    placeholder="Ex: Crédito, PIX, Boleto"
+                    options={sugestoes['forma_pagamento'] || []}
+                    class_name="w-full"
+                    listId="sugestoes-forma-pagamento"
+                  />
                   <datalist id="sugestoes-forma-pagamento">
                     {#each (sugestoes['forma_pagamento'] || []) as s}<option value={s}></option>{/each}
                   </datalist>
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Valor total com taxas (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={pag.valor_total_com_taxas ?? ''}
-                    oninput={(e) => { pagamentos = updateItem(pagamentos, index, { valor_total_com_taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Valor total com taxas (R$)"
+                    type="number"
+                    value={pag.valor_total_com_taxas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { pagamentos = updateItem(pagamentos, index, { valor_total_com_taxas: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
                 <div>
-                  <p class="vtur-label-xs">Taxas (R$)</p>
-                  <input type="number" class="vtur-input w-full" value={pag.taxas ?? ''}
-                    oninput={(e) => { pagamentos = updateItem(pagamentos, index, { taxas: Number((e.target as HTMLInputElement).value) || null }); }} />
+                  <FieldInput
+                    label="Taxas (R$)"
+                    type="number"
+                    value={pag.taxas ?? ''}
+                    class_name="w-full"
+                    on:input={(e) => { pagamentos = updateItem(pagamentos, index, { taxas: Number((e.target as HTMLInputElement).value) || null }); }}
+                  />
                 </div>
               </div>
             </div>
@@ -1271,12 +1634,15 @@
             <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow">
               {#each gerarClienteResults as cliente}
                 <li>
-                  <button type="button"
-                    class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 {gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700' : ''}"
-                    onclick={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:!bg-slate-50 ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:!bg-clientes-50' : ''}`}
+                    on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}
+                  >
                     {cliente.nome}
                     {#if cliente.email}<span class="ml-2 text-xs text-slate-400">{cliente.email}</span>{/if}
-                  </button>
+                  </Button>
                 </li>
               {/each}
             </ul>
@@ -1289,8 +1655,15 @@
         {:else}
           <div class="rounded-lg bg-clientes-50 px-3 py-2 text-sm text-clientes-700">
             Cliente selecionado: <strong>{gerarClienteSel.nome}</strong>
-            <button type="button" class="ml-2 text-xs text-slate-400 underline"
-              onclick={() => { gerarClienteSel = null; gerarClienteQ = ''; }}>Remover</button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              class_name="ml-2 !px-0 !py-0 text-xs text-slate-400 underline hover:!bg-transparent hover:!text-slate-500"
+              on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}
+            >
+              Remover
+            </Button>
           </div>
         {/if}
       </div>
@@ -1322,7 +1695,14 @@
           </div>
           <div>
             <label class="vtur-label" for="db-cidade">Cidade</label>
-            <input id="db-cidade" class="vtur-input w-full" bind:value={diasBuscaCidade} placeholder="Filtrar por cidade" list="sugestoes-cidade" />
+            <FieldDatalistInput
+              id="db-cidade"
+              label="Cidade"
+              bind:value={diasBuscaCidade}
+              placeholder="Filtrar por cidade"
+              options={sugestoes['cidade'] || []}
+              listId="sugestoes-cidade"
+            />
           </div>
         </div>
         <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} on:click={buscarDias}>
@@ -1339,10 +1719,15 @@
                   {#if dia.percurso}<p class="text-xs text-slate-500 mt-0.5">{dia.percurso}</p>{/if}
                   {#if dia.descricao}<p class="mt-0.5 text-xs text-slate-600 line-clamp-2">{dia.descricao}</p>{/if}
                 </div>
-                <button type="button" class="shrink-0 rounded-lg bg-clientes-100 px-2.5 py-1 text-xs font-medium text-clientes-700 hover:bg-clientes-200"
-                  onclick={() => addDiaBanco(dia)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  class_name="shrink-0 border border-clientes-200 bg-clientes-100 !px-2.5 !py-1 text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
+                  on:click={() => addDiaBanco(dia)}
+                >
                   Usar
-                </button>
+                </Button>
               </div>
             {/each}
           </div>

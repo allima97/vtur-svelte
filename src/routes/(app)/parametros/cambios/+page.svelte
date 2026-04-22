@@ -5,7 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldInput } from '$lib/components/ui';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
@@ -166,14 +166,20 @@
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canDelete}
-      <button
-        on:click|stopPropagation={() => deleteCambio(row.id)}
-        class="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+      <Button
+        on:click={(event) => {
+          event.stopPropagation();
+          deleteCambio(row.id);
+        }}
+        variant="ghost"
+        size="sm"
+        class_name="p-1.5"
         title="Excluir"
+        ariaLabel="Excluir câmbio"
         disabled={deletingId === row.id}
       >
         <Trash2 size={15} />
-      </button>
+      </Button>
     {/if}
   </svelte:fragment>
 </DataTable>
@@ -192,23 +198,25 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cambio-moeda">Moeda *</label>
-      <div class="flex gap-2">
-        <select id="cambio-moeda" bind:value={form.moeda} class="vtur-input flex-1">
-          {#each MOEDAS as m}
-            <option value={m}>{m}</option>
-          {/each}
-        </select>
-        <input
-          type="text"
-          bind:value={form.moeda}
-          class="vtur-input w-24"
-          placeholder="Outra"
-          maxlength="5"
-        />
-      </div>
-      <p class="mt-1 text-xs text-slate-500">Selecione ou digite o código da moeda (ex: USD, EUR).</p>
+    <div class="grid grid-cols-[1fr,112px] gap-2">
+      <FieldSelect
+        id="cambio-moeda"
+        label="Moeda"
+        required={true}
+        bind:value={form.moeda}
+        placeholder={null}
+        options={MOEDAS.map((m) => ({ value: m, label: m }))}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="cambio-moeda-outra"
+        label="Outra"
+        bind:value={form.moeda}
+        placeholder="Outra"
+        maxlength={5}
+        helper="Selecione ou digite o código da moeda."
+        class_name="w-full"
+      />
     </div>
 
     <FieldInput id="cambio-data" label="Data" required type="date" bind:value={form.data} class_name="w-full" />

@@ -3,8 +3,11 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import FieldToggle from '$lib/components/ui/form/FieldToggle.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Save, RefreshCw, GripVertical, Eye, EyeOff } from 'lucide-svelte';
+  import { Save, RefreshCw } from 'lucide-svelte';
+
+  const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
 
   // Seções do menu com seus itens
   const SECOES = [
@@ -95,11 +98,23 @@
     return prefs.hidden.includes(key);
   }
 
+  function setItemVisible(key: string, visible: boolean) {
+    const currentlyHidden = isHidden(key);
+    if (visible && currentlyHidden) {
+      toggleItem(key);
+      return;
+    }
+    if (!visible && !currentlyHidden) {
+      toggleItem(key);
+    }
+  }
+
   async function save() {
     saving = true;
     try {
       // Salva localmente (o vtur-app também usa localStorage como fallback)
       localStorage.setItem('vtur:menu-prefs', JSON.stringify(prefs));
+      window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
       toast.success('Preferências de menu salvas.');
     } catch {
       toast.error('Erro ao salvar preferências.');
@@ -111,6 +126,7 @@
   function resetPrefs() {
     prefs = { hidden: [] };
     localStorage.removeItem('vtur:menu-prefs');
+    window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
     toast.success('Preferências resetadas para o padrão.');
   }
 
@@ -141,35 +157,25 @@
       <Card title={secao.label}>
         <div class="space-y-2">
           {#each secao.items as item}
-            <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div class="flex items-center gap-3">
-                <GripVertical size={16} class="text-slate-300" />
-                <span class="text-sm font-medium text-slate-900 {isHidden(item.key) ? 'line-through text-slate-400' : ''}">{item.label}</span>
-              </div>
-              <button
-                type="button"
-                class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors {isHidden(item.key) ? 'bg-slate-200 text-slate-500 hover:bg-slate-300' : 'bg-green-100 text-green-700 hover:bg-green-200'}"
-                on:click={() => toggleItem(item.key)}
-              >
-                {#if isHidden(item.key)}
-                  <EyeOff size={12} />
-                  Oculto
-                {:else}
-                  <Eye size={12} />
-                  Visível
-                {/if}
-              </button>
-            </div>
+            <FieldToggle
+              label={item.label}
+              checked={!isHidden(item.key)}
+              color="operacao"
+              helper={isHidden(item.key) ? 'Oculto no menu lateral' : 'Visível no menu lateral'}
+              on:change={() => {
+                setItemVisible(item.key, isHidden(item.key));
+              }}
+            />
           {/each}
         </div>
       </Card>
     {/each}
 
-    <div class="flex justify-end">
-      <Button variant="primary" loading={saving} on:click={save}>
+    <form class="flex justify-end" on:submit|preventDefault={save}>
+      <Button type="submit" variant="primary" loading={saving}>
         <Save size={16} class="mr-2" />
         Salvar preferências
       </Button>
-    </div>
+    </form>
   </div>
 {/if}

@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
 
@@ -187,43 +188,47 @@
 
   <Card color="financeiro" title="Filtros">
     <div class="grid gap-4 md:grid-cols-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuarios-tipo">Perfil</label>
-        <select id="usuarios-tipo" bind:value={filtroTipo} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each Array.from(new Set(usuarios.map((row) => row.tipo))).sort((a, b) => a.localeCompare(b)) as tipo}
-            <option value={tipo}>{tipo}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="usuarios-tipo"
+        label="Perfil"
+        bind:value={filtroTipo}
+        options={Array.from(new Set(usuarios.map((row) => row.tipo))).sort((a, b) => a.localeCompare(b)).map((tipo) => ({ value: tipo, label: tipo }))}
+        placeholder="Todos"
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuarios-status">Status</label>
-        <select id="usuarios-status" bind:value={filtroStatus} class="vtur-input w-full">
-          <option value="">Todos</option>
-          <option value="true">Ativo</option>
-          <option value="false">Inativo</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="usuarios-status"
+        label="Status"
+        bind:value={filtroStatus}
+        options={[
+          { value: 'true', label: 'Ativo' },
+          { value: 'false', label: 'Inativo' }
+        ]}
+        placeholder="Todos"
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuarios-empresa">Empresa</label>
-        <select id="usuarios-empresa" bind:value={filtroEmpresa} class="vtur-input w-full">
-          <option value="">Todas</option>
-          {#each empresas as empresa}
-            <option value={empresa}>{empresa}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="usuarios-empresa"
+        label="Empresa"
+        bind:value={filtroEmpresa}
+        options={empresas.map((empresa) => ({ value: empresa, label: empresa }))}
+        placeholder="Todas"
+        class_name="w-full"
+      />
 
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="usuarios-escopo">Escopo</label>
-        <select id="usuarios-escopo" bind:value={filtroEscopo} class="vtur-input w-full">
-          <option value="">Todos</option>
-          <option value="corporativo">Corporativo</option>
-          <option value="individual">Individual</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="usuarios-escopo"
+        label="Escopo"
+        bind:value={filtroEscopo}
+        options={[
+          { value: 'corporativo', label: 'Corporativo' },
+          { value: 'individual', label: 'Individual' }
+        ]}
+        placeholder="Todos"
+        class_name="w-full"
+      />
     </div>
   </Card>
 

@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { Filter, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -272,54 +273,54 @@
 />
 
 <FilterPanel color="financeiro">
-  <div>
-    <label for="rel-clientes-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data Inicio</label>
-    <input id="rel-clientes-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-  </div>
-  <div>
-    <label for="rel-clientes-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data Fim</label>
-    <input id="rel-clientes-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-  </div>
+  <FieldInput id="rel-clientes-data-inicio" label="Data Inicio" type="date" bind:value={dataInicio} class_name="w-full" />
+  <FieldInput id="rel-clientes-data-fim" label="Data Fim" type="date" bind:value={dataFim} class_name="w-full" />
   {#if showEmpresaFiltro}
-  <div>
-    <label for="rel-clientes-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-    <select id="rel-clientes-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-      <option value="">Todas</option>
-      {#each empresas as empresa}
-        <option value={empresa.id}>{empresa.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-clientes-empresa"
+      label="Empresa"
+      bind:value={empresaSelecionada}
+      options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
   {#if showVendedorFiltro}
-  <div>
-    <label for="rel-clientes-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-    <select id="rel-clientes-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-      <option value="">Todos</option>
-      {#each vendedores as vendedor}
-        <option value={vendedor.id}>{vendedor.nome}</option>
-      {/each}
-    </select>
-  </div>
+    <FieldSelect
+      id="rel-clientes-vendedor"
+      label="Vendedor"
+      bind:value={vendedorSelecionado}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
   {/if}
-  <div>
-    <label for="rel-clientes-categoria" class="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-    <select id="rel-clientes-categoria" bind:value={categoriaSelecionada} class="vtur-input w-full">
-      <option value="">Todas</option>
-      <option value="VIP">VIP</option>
-      <option value="Regular">Regular</option>
-      <option value="Ocasional">Ocasional</option>
-    </select>
-  </div>
-  <div>
-    <label for="rel-clientes-ordenacao" class="block text-sm font-medium text-slate-700 mb-1">Ordenar Por</label>
-    <select id="rel-clientes-ordenacao" bind:value={ordenacao} class="vtur-input w-full">
-      <option value="total_gasto">Total Gasto</option>
-      <option value="total_compras">Quantidade</option>
-      <option value="ticket_medio">Ticket Medio</option>
-      <option value="ultima_compra">Ultima Compra</option>
-    </select>
-  </div>
+  <FieldSelect
+    id="rel-clientes-categoria"
+    label="Categoria"
+    bind:value={categoriaSelecionada}
+    options={[
+      { value: '', label: 'Todas' },
+      { value: 'VIP', label: 'VIP' },
+      { value: 'Regular', label: 'Regular' },
+      { value: 'Ocasional', label: 'Ocasional' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
+  <FieldSelect
+    id="rel-clientes-ordenacao"
+    label="Ordenar Por"
+    bind:value={ordenacao}
+    options={[
+      { value: 'total_gasto', label: 'Total Gasto' },
+      { value: 'total_compras', label: 'Quantidade' },
+      { value: 'ticket_medio', label: 'Ticket Medio' },
+      { value: 'ultima_compra', label: 'Ultima Compra' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
   <svelte:fragment slot="actions">
     <Button variant="primary" color="financeiro" on:click={gerarRelatorio}>
       <Filter size={16} class="mr-2" />

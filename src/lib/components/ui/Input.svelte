@@ -29,7 +29,7 @@
       {required}
       wrapperClass="relative w-full"
       color={error ? 'red' : 'base'}
-      class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
+      class="vtur-input {error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
     >
       <svelte:component this={icon} slot="left" class="w-5 h-5 text-gray-500" />
     </Input>
@@ -41,7 +41,7 @@
       {disabled}
       {required}
       color={error ? 'red' : 'base'}
-      class="{error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
+      class="vtur-input {error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}"
     />
   {/if}
   

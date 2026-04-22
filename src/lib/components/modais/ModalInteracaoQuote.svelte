@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X, MessageCircle, Phone, Mail, Calendar, User, Send, Clock } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { onMount } from 'svelte';
   
@@ -152,14 +153,16 @@
             <p class="text-sm text-slate-500">Cliente: {clienteNome}</p>
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
+          ariaLabel="Fechar histórico de interações"
+          class_name="h-10 w-10 !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
           on:click={onClose}
-          aria-label="Fechar histórico de interações"
-          class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X size={20} />
-        </button>
+        </Button>
       </div>
       
       <!-- Content -->
@@ -169,59 +172,54 @@
           <h4 class="font-medium text-slate-900 mb-4">Registrar Nova Interação</h4>
           
           <div class="space-y-4">
-            <!-- Tipo e Status -->
-            <div class="grid grid-cols-2 gap-4">
-              <fieldset>
-                <legend class="block text-sm font-medium text-slate-700 mb-1">Tipo</legend>
-                <div class="flex gap-2">
-                  {#each tiposInteracao.slice(0, 4) as tipo}
-                    <button
-                      type="button"
-                      on:click={() => novaInteracao.tipo = tipo.value}
-                      class="flex-1 py-2 px-2 text-xs rounded-lg border transition-colors flex flex-col items-center gap-1 {novaInteracao.tipo === tipo.value ? 'bg-clientes-100 border-clientes-300 text-clientes-700' : 'bg-white border-slate-200 text-slate-600'}"
-                    >
-                      <svelte:component this={tipo.icon} size={16} class={tipo.color} />
-                      {tipo.label}
-                    </button>
-                  {/each}
-                </div>
-              </fieldset>
-              
-              <div>
-                <label for="interacao-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                <select id="interacao-status" bind:value={novaInteracao.status} class="vtur-input w-full">
-                  {#each statusNegociacao as status}
-                    <option value={status.value}>{status.label}</option>
-                  {/each}
-                </select>
+            <!-- Tipo -->
+            <fieldset>
+              <legend class="block text-sm font-medium text-slate-700 mb-2">Tipo</legend>
+              <div class="flex gap-2">
+                {#each tiposInteracao.slice(0, 4) as tipo}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    class_name={`flex-1 flex-col gap-1 py-2 text-xs ${novaInteracao.tipo === tipo.value ? 'border-clientes-300 bg-clientes-100 text-clientes-700 hover:!bg-clientes-100' : 'text-slate-600'}`}
+                    on:click={() => {
+                      novaInteracao.tipo = tipo.value as typeof novaInteracao.tipo;
+                    }}
+                  >
+                    <svelte:component this={tipo.icon} size={16} class={tipo.color} />
+                    {tipo.label}
+                  </Button>
+                {/each}
               </div>
-            </div>
+            </fieldset>
             
-            <!-- Data de Agendamento -->
-            <div>
-              <label for="interacao-data-agendamento" class="block text-sm font-medium text-slate-700 mb-1">
-                <Clock size={14} class="inline mr-1" />
-                Próximo Contato (opcional)
-              </label>
-              <input
-                id="interacao-data-agendamento"
-                type="datetime-local"
-                bind:value={novaInteracao.data_agendamento}
-                class="vtur-input w-full"
-              />
-            </div>
+            <!-- Status -->
+            <FieldSelect
+              id="interacao-status"
+              label="Status"
+              bind:value={novaInteracao.status}
+              options={statusNegociacao.map((status) => ({ value: status.value, label: status.label }))}
+              placeholder={null}
+              class_name="w-full"
+            />
             
-            <!-- Observações -->
-            <div>
-              <label for="interacao-observacoes" class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-              <textarea
-                id="interacao-observacoes"
-                bind:value={novaInteracao.observacoes}
-                rows="3"
-                class="vtur-input w-full"
-                placeholder="Descreva o contato com o cliente..."
-              ></textarea>
-            </div>
+            <FieldInput
+              id="interacao-data-agendamento"
+              label="Próximo Contato (opcional)"
+              type="datetime-local"
+              bind:value={novaInteracao.data_agendamento}
+              icon={Clock}
+              class_name="w-full"
+            />
+            
+            <FieldTextarea
+              id="interacao-observacoes"
+              label="Observações"
+              bind:value={novaInteracao.observacoes}
+              rows={3}
+              class_name="w-full"
+              placeholder="Descreva o contato com o cliente..."
+            />
             
             <!-- Botão Salvar -->
             <Button

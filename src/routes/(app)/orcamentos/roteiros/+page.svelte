@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from 'lucide-svelte';
 
@@ -162,9 +163,21 @@
   onRowClick={(row) => goto(`/orcamentos/roteiros/${row.id}`)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deleteRoteiro(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="xs"
+      ariaLabel="Excluir roteiro"
+      title="Excluir"
+      disabled={deletingId === row.id}
+      class_name="h-8 w-8 !p-0 text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+      on:click={(event) => {
+        event.stopPropagation();
+        deleteRoteiro(row.id);
+      }}
+    >
       <Trash2 size={15} />
-    </button>
+    </Button>
   </svelte:fragment>
 </DataTable>
 
@@ -182,23 +195,38 @@
   onCancel={() => (modalOpen = false)}
 >
   <div class="space-y-4">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-nome">Nome *</label>
-      <input id="rot-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Ex: Europa Clássica 10 dias" />
-    </div>
+    <FieldInput
+      id="rot-nome"
+      label="Nome"
+      bind:value={form.nome}
+      class_name="w-full"
+      placeholder="Ex: Europa Clássica 10 dias"
+      required={true}
+    />
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-duracao">Duração (dias)</label>
-        <input id="rot-duracao" type="number" min="1" bind:value={form.duracao} class="vtur-input w-full" placeholder="10" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-origem">Cidade de origem</label>
-        <input id="rot-origem" bind:value={form.inicio_cidade} class="vtur-input w-full" placeholder="Lisboa" />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700" for="rot-destino">Cidade de destino</label>
-        <input id="rot-destino" bind:value={form.fim_cidade} class="vtur-input w-full" placeholder="Paris" />
-      </div>
+      <FieldInput
+        id="rot-duracao"
+        label="Duração (dias)"
+        type="number"
+        min="1"
+        bind:value={form.duracao}
+        class_name="w-full"
+        placeholder="10"
+      />
+      <FieldInput
+        id="rot-origem"
+        label="Cidade de origem"
+        bind:value={form.inicio_cidade}
+        class_name="w-full"
+        placeholder="Lisboa"
+      />
+      <FieldInput
+        id="rot-destino"
+        label="Cidade de destino"
+        bind:value={form.fim_cidade}
+        class_name="w-full"
+        placeholder="Paris"
+      />
     </div>
   </div>
 </Dialog>

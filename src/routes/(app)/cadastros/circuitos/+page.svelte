@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Route, MapPin, Calendar, DollarSign, Loader2, Search, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -208,40 +209,49 @@
   <Card color="financeiro" class="mb-6">
     <div class="flex flex-col lg:flex-row gap-4 items-end">
       <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="relative">
-          <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Nome ou código..." 
-            bind:value={searchQuery}
-            class="vtur-input pl-10 w-full" 
-          />
-        </div>
-        <div>
-          <label for="filtro-tipo" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-          <select id="filtro-tipo" bind:value={filtroTipo} on:change={carregarCircuitos} class="vtur-input w-full">
-            <option value="">Todos</option>
-            <option value="nacional">Nacional</option>
-            <option value="internacional">Internacional</option>
-          </select>
-        </div>
-        <div>
-          <label for="filtro-dias" class="block text-sm font-medium text-slate-700 mb-1">Duração</label>
-          <select id="filtro-dias" bind:value={filtroDias} class="vtur-input w-full">
-            <option value="">Todas</option>
-            <option value="curto">Curto (até 5 dias)</option>
-            <option value="medio">Médio (6-10 dias)</option>
-            <option value="longo">Longo (11+ dias)</option>
-          </select>
-        </div>
-        <div>
-          <label for="filtro-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-          <select id="filtro-status" bind:value={filtroStatus} on:change={carregarCircuitos} class="vtur-input w-full">
-            <option value="">Todos</option>
-            <option value="ativo">Ativo</option>
-            <option value="inativo">Inativo</option>
-          </select>
-        </div>
+        <FieldInput
+          id="filtro-circuito-busca"
+          placeholder="Nome ou código..."
+          bind:value={searchQuery}
+          icon={Search}
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="filtro-tipo"
+          label="Tipo"
+          bind:value={filtroTipo}
+          options={[
+            { value: 'nacional', label: 'Nacional' },
+            { value: 'internacional', label: 'Internacional' }
+          ]}
+          placeholder="Todos"
+          class_name="w-full"
+          on:change={carregarCircuitos}
+        />
+        <FieldSelect
+          id="filtro-dias"
+          label="Duração"
+          bind:value={filtroDias}
+          options={[
+            { value: 'curto', label: 'Curto (até 5 dias)' },
+            { value: 'medio', label: 'Médio (6-10 dias)' },
+            { value: 'longo', label: 'Longo (11+ dias)' }
+          ]}
+          placeholder="Todas"
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="filtro-status"
+          label="Status"
+          bind:value={filtroStatus}
+          options={[
+            { value: 'ativo', label: 'Ativo' },
+            { value: 'inativo', label: 'Inativo' }
+          ]}
+          placeholder="Todos"
+          class_name="w-full"
+          on:change={carregarCircuitos}
+        />
       </div>
     </div>
   </Card>
@@ -258,7 +268,20 @@
     emptyMessage="Nenhum circuito encontrado"
   >
     <svelte:fragment slot="row-actions" let:row>
-      <button on:click|stopPropagation={() => { circuitoToDelete = row; showDeleteDialog = true; }} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /></button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        ariaLabel="Excluir circuito"
+        class_name="h-8 w-8 !p-0 text-slate-400 hover:!bg-red-50 hover:!text-red-600"
+        on:click={(event) => {
+          event.stopPropagation();
+          circuitoToDelete = row;
+          showDeleteDialog = true;
+        }}
+      >
+        <Trash2 size={15} />
+      </Button>
     </svelte:fragment>
   </DataTable>
 {/if}

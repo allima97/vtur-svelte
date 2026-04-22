@@ -396,57 +396,58 @@
           <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3">
 
             <div class="md:col-span-4">
-              <label for={`orcamento-novo-item-titulo-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Descrição *</label>
-              <input
+              <FieldInput
                 id={`orcamento-novo-item-titulo-${index}`}
-                type="text"
+                label="Descrição"
                 bind:value={item.title}
-                class="vtur-input w-full"
+                class_name="w-full"
                 placeholder="Ex: Passagem Aérea Ida e Volta"
+                required
               />
             </div>
 
             <div class="md:col-span-2">
-              <label for={`orcamento-novo-item-tipo-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
-              <select id={`orcamento-novo-item-tipo-${index}`} bind:value={item.item_type} class="vtur-input w-full">
-                {#each tiposItem as tipo}
-                  <option value={tipo.value}>{tipo.label}</option>
-                {/each}
-              </select>
+              <FieldSelect
+                id={`orcamento-novo-item-tipo-${index}`}
+                label="Tipo"
+                bind:value={item.item_type}
+                options={tiposItem}
+                placeholder={null}
+                class_name="w-full"
+              />
             </div>
 
             <div class="md:col-span-2">
-              <label for={`orcamento-novo-item-destino-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Destino</label>
-              <input
+              <FieldInput
                 id={`orcamento-novo-item-destino-${index}`}
-                type="text"
+                label="Destino"
                 bind:value={item.city_name}
-                class="vtur-input w-full"
+                class_name="w-full"
                 placeholder="Cidade"
               />
             </div>
 
             <div class="md:col-span-1">
-              <label for={`orcamento-novo-item-quantidade-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Qtd</label>
-              <input
+              <FieldInput
                 id={`orcamento-novo-item-quantidade-${index}`}
+                label="Qtd"
                 type="number"
                 bind:value={item.quantity}
                 min="1"
-                class="vtur-input w-full"
+                class_name="w-full"
                 on:input={() => recalcularItem(index)}
               />
             </div>
 
             <div class="md:col-span-2">
-              <label for={`orcamento-novo-item-valor-${index}`} class="block text-xs font-medium text-slate-500 mb-1">Valor Unit.</label>
-              <input
+              <FieldInput
                 id={`orcamento-novo-item-valor-${index}`}
+                label="Valor Unit."
                 type="number"
                 bind:value={item.unit_price}
                 min="0"
                 step="0.01"
-                class="vtur-input w-full"
+                class_name="w-full"
                 on:input={() => recalcularItem(index)}
               />
             </div>
@@ -461,14 +462,17 @@
           </div>
 
           {#if formData.itens.length > 1}
-            <button
+            <Button
               type="button"
               on:click={() => removeItem(index)}
-              class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors mt-5 flex-shrink-0"
-              aria-label="Remover item"
+              variant="ghost"
+              size="sm"
+              class_name="mt-5 flex-shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+              ariaLabel="Remover item"
+              title="Remover item"
             >
               <X size={18} />
-            </button>
+            </Button>
           {/if}
         </div>
       {/each}

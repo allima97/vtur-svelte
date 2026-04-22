@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from './Button.svelte';
+
   type TabItem = {
     key: string;
     label: string;

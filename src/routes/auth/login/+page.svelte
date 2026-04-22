@@ -5,6 +5,7 @@
   import { auth } from '$lib/stores/auth';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube } from 'lucide-svelte';
   
   let email = '';
@@ -111,66 +112,39 @@
       
       <form on:submit|preventDefault={handleLogin} class="space-y-4">
         <!-- Email -->
-        <div>
-          <label for="email" class="block text-sm font-medium text-slate-700 mb-1">
-            Email
-          </label>
-          <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail size={18} class="text-slate-400" />
-            </div>
-            <input
-              id="email"
-              type="email"
-              bind:value={email}
-              on:keydown={handleKeydown}
-              class="vtur-input pl-10"
-              placeholder="seu@email.com"
-              autocomplete="email"
-              disabled={loading}
-            />
-          </div>
-        </div>
+        <FieldInput
+          id="email"
+          label="Email"
+          type="email"
+          bind:value={email}
+          on:keydown={handleKeydown}
+          placeholder="seu@email.com"
+          icon={Mail}
+          autocomplete="email"
+          disabled={loading}
+          class_name="w-full"
+        />
         
         <!-- Senha -->
-        <div>
-          <label for="password" class="block text-sm font-medium text-slate-700 mb-1">
-            Senha
-          </label>
-          <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock size={18} class="text-slate-400" />
-            </div>
-            <input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              bind:value={password}
-              on:keydown={handleKeydown}
-              class="vtur-input pl-10 pr-10"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              disabled={loading}
-            />
-            <button
-              type="button"
-              class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-              on:click={() => showPassword = !showPassword}
-            >
-              {#if showPassword}
-                <EyeOff size={18} />
-              {:else}
-                <Eye size={18} />
-              {/if}
-            </button>
-          </div>
-        </div>
+        <FieldInput
+          id="password"
+          label="Senha"
+          type={showPassword ? 'text' : 'password'}
+          bind:value={password}
+          on:keydown={handleKeydown}
+          placeholder="••••••••"
+          icon={Lock}
+          actionIcon={showPassword ? EyeOff : Eye}
+          actionLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          onAction={() => (showPassword = !showPassword)}
+          autocomplete="current-password"
+          disabled={loading}
+          class_name="w-full"
+        />
         
         <!-- Lembrar-me / Esqueci senha -->
         <div class="flex items-center justify-between text-sm">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-            <span class="text-slate-600">Lembrar-me</span>
-          </label>
+          <FieldCheckbox label="Lembrar-me" class_name="text-slate-600" />
           <a href="/auth/recuperar-senha" class="text-blue-600 hover:text-blue-700 font-medium">
             Esqueceu a senha?
           </a>

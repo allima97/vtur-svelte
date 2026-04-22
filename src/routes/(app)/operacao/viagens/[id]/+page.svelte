@@ -420,12 +420,14 @@
           </div>
           <div>
             <h3 class="text-lg font-semibold text-slate-900">{viagem.cliente?.nome || 'Cliente não informado'}</h3>
-            <button 
+            <Button
+              variant="ghost"
+              size="xs"
+              color="clientes"
               on:click={() => goto(`/clientes/${viagem.cliente?.id}`)}
-              class="text-sm text-clientes-600 hover:underline"
             >
               Ver ficha completa →
-            </button>
+            </Button>
           </div>
         </div>
         
@@ -834,27 +836,33 @@
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div class="flex items-center justify-between p-4 border-b border-slate-100">
           <h3 class="text-lg font-semibold text-slate-900">Mudar Status da Viagem</h3>
-          <button type="button" aria-label="Fechar mudança de status" on:click={() => showStatusModal = false} class="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+          <Button
+            variant="ghost"
+            size="xs"
+            title="Fechar"
+            on:click={() => showStatusModal = false}
+          >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         <div class="p-6">
           <div class="grid grid-cols-1 gap-3">
             {#each statusOptions as option}
-              <button
-                type="button"
+              <Button
+                variant={editForm.status === option.value ? 'primary' : 'outline'}
+                color="clientes"
+                class_name="flex items-center gap-3 justify-start text-left w-full"
                 on:click={() => editForm.status = option.value}
-                class="flex items-center gap-3 p-3 rounded-lg border transition-colors text-left {editForm.status === option.value ? 'bg-clientes-50 border-clientes-300' : 'bg-white border-slate-200 hover:bg-slate-50'}"
               >
-                <svelte:component this={option.icon} size={20} class={editForm.status === option.value ? 'text-clientes-600' : 'text-slate-400'} />
-                <span class={editForm.status === option.value ? 'font-medium text-clientes-900' : 'text-slate-700'}>{option.label}</span>
+                <svelte:component this={option.icon} size={20} />
+                <span>{option.label}</span>
                 {#if editForm.status === option.value}
-                  <CheckCircle size={18} class="ml-auto text-clientes-600" />
+                  <CheckCircle size={18} class="ml-auto" />
                 {/if}
-              </button>
+              </Button>
             {/each}
           </div>
         </div>

@@ -214,35 +214,34 @@
     <div class="flex flex-wrap items-center gap-3">
       <span class="text-sm font-medium text-slate-600">Filtrar por status:</span>
       {#each statusOptions as opt}
-        <button
-          type="button"
-          class="rounded-full border px-3 py-1 text-sm transition-colors {statusFilter === opt.value
-            ? 'border-blue-600 bg-blue-600 text-white'
-            : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'}"
+        <Button
+          variant={statusFilter === opt.value ? 'primary' : 'outline'}
+          size="sm"
+          class_name="rounded-full"
           on:click={() => { statusFilter = opt.value; }}
         >
           {opt.label}
-        </button>
+        </Button>
       {/each}
       <div class="ml-auto flex items-center gap-2">
         <span class="text-sm text-slate-500">{consultorias.length} registro(s)</span>
-        <button
-          type="button"
-          class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-          on:click={loadConsultorias}
-          aria-label="Atualizar"
+        <Button
+          variant="ghost"
+          size="xs"
           disabled={loading}
+          title="Atualizar"
+          on:click={loadConsultorias}
         >
           <RefreshCw size={15} class={loading ? 'animate-spin' : ''} />
-        </button>
-        <button
-          type="button"
-          class="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          title="Exportar iCal"
           on:click={exportIcal}
-          aria-label="Exportar iCal"
         >
           <Download size={15} />
-        </button>
+        </Button>
       </div>
     </div>
   </Card>

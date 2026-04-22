@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { 
     MapPin, Package, Building2, Route, 
     ArrowRight, Plus, Search
@@ -59,7 +60,7 @@
 />
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-  {#each cadastros as item}
+    {#each cadastros as item}
     <Card color="financeiro" class="group hover:shadow-lg transition-all duration-200">
       <div class="flex items-start gap-4">
         <div 
@@ -82,21 +83,25 @@
           <p class="text-sm text-slate-500 mt-1 mb-4">{item.descricao}</p>
           
           <div class="flex items-center gap-3">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              color="financeiro"
               on:click={() => goto(item.rota)}
-              class="flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
             >
               <Search size={16} />
               Consultar
-            </button>
+            </Button>
             <span class="text-slate-300">|</span>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              color="financeiro"
               on:click={() => goto(`${item.rota}/novo`)}
-              class="flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
             >
               <Plus size={16} />
               {item.acao}
-            </button>
+            </Button>
             <span class="ml-auto">
               <ArrowRight size={16} class="text-slate-400 group-hover:text-financeiro-500 group-hover:translate-x-1 transition-all" />
             </span>

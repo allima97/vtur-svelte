@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
@@ -11,11 +12,14 @@
     Building2,
     Calendar,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     CreditCard,
     FileSpreadsheet,
     FileText,
     Gift,
     LayoutDashboard,
+    LogOut,
     Map as MapIcon,
     MapPinned,
     Megaphone,
@@ -37,6 +41,7 @@
     Wallet
   } from 'lucide-svelte';
   import { slide } from 'svelte/transition';
+  import Button from '$lib/components/ui/Button.svelte';
 
   type MenuItem = {
     name: string;
@@ -51,6 +56,43 @@
     items: MenuItem[];
     collapsible?: boolean;
   };
+
+  type MenuPrefs = {
+    hidden: string[];
+  };
+
+  let isMenuExpanded = false;
+  let menuPrefsHidden: string[] = [];
+
+  const MENU_PREFS_KEY = 'vtur:menu-prefs';
+  const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
+  const MENU_KEY_BY_HREF: Record<string, string> = {
+    '/': 'dashboard',
+    '/operacao/tarefas': 'tarefas',
+    '/operacao/agenda': 'agenda',
+    '/operacao/acompanhamento': 'acompanhamento',
+    '/operacao/recados': 'recados',
+    '/vendas': 'vendas',
+    '/clientes': 'clientes',
+    '/operacao/viagens': 'viagens',
+    '/orcamentos': 'orcamentos',
+    '/operacao/vouchers': 'vouchers',
+    '/operacao/controle-sac': 'controle_sac',
+    '/operacao/campanhas': 'campanhas',
+    '/operacao/documentos-viagens': 'documentos',
+    '/financeiro/caixa': 'caixa',
+    '/financeiro/conciliacao': 'conciliacao',
+    '/financeiro/comissoes': 'comissoes',
+    '/financeiro/formas-pagamento': 'formas_pagamento',
+    '/financeiro/regras': 'regras',
+    '/relatorios/vendas': 'rel_vendas',
+    '/relatorios/produtos': 'rel_produtos',
+    '/relatorios/clientes': 'rel_clientes',
+    '/relatorios/destinos': 'rel_destinos',
+    '/relatorios/ranking': 'rel_ranking',
+  };
+
+  $: hiddenMenuSet = new Set(menuPrefsHidden);
 
   $: currentPath = $page.url.pathname;
   $: currentUser = $auth.user;
@@ -179,8 +221,33 @@
     );
   }
 
+  function loadMenuPrefs() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(MENU_PREFS_KEY);
+      if (!raw) {
+        menuPrefsHidden = [];
+        return;
+      }
+      const parsed = JSON.parse(raw) as MenuPrefs;
+      menuPrefsHidden = Array.isArray(parsed?.hidden)
+        ? parsed.hidden.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+    } catch {
+      menuPrefsHidden = [];
+    }
+  }
+
+  function isHiddenByUserPreference(item: MenuItem) {
+    if (!item.href) return false;
+    const prefKey = MENU_KEY_BY_HREF[item.href];
+    if (!prefKey) return false;
+    return hiddenMenuSet.has(prefKey);
+  }
+
   function canSeeItem(item: MenuItem) {
     if (!item.href) return true;
+    if (isHiddenByUserPreference(item)) return false;
     if (!$permissoes.ready) return true;
 
     // Perfil e autenticacao devem permanecer acessiveis mesmo sem modulo mapeado.
@@ -197,6 +264,23 @@
 
     return permissoes.can(modulo, 'view');
   }
+
+  onMount(() => {
+    loadMenuPrefs();
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === MENU_PREFS_KEY) loadMenuPrefs();
+    };
+    const onPrefsUpdated = () => loadMenuPrefs();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(MENU_PREFS_UPDATED_EVENT, onPrefsUpdated);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(MENU_PREFS_UPDATED_EVENT, onPrefsUpdated);
+    };
+  });
 
   $: visibleMenuSections = menuSections
     .map((section) => ({
@@ -305,6 +389,18 @@
       refreshingPerms = false;
     }
   }
+
+  async function handleLogout() {
+    try {
+      const response = await fetch('/auth/logout', { method: 'GET' });
+      if (response.ok) {
+        window.location.href = '/auth/login';
+      }
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error('Erro ao fazer logout.');
+    }
+  }
 </script>
 
 <!-- ============================================================
@@ -333,18 +429,26 @@
     class="vtur-sidebar"
     class:vtur-sidebar--mobile={$isMobile}
     class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
+    class:vtur-sidebar--collapsed={!isMenuExpanded}
     aria-label="Menu principal do sistema"
     style={$isMobile ? 'position:fixed;z-index:999;' : ''}
   >
-    <!-- Brand Header -->
-    <div class="vtur-sidebar__header">
-      <a href="/" class="vtur-sidebar__brand" on:click={handleItemClick}>
-        <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-sidebar__brand-image" />
-        <div class="vtur-sidebar__brand-copy">
-          <span class="vtur-sidebar__brand-wordmark">VTUR</span>
-          <span class="vtur-sidebar__brand-tagline">CRM para Franquias CVC</span>
-        </div>
-      </a>
+    <!-- Toggle Button -->
+    <div class="vtur-sidebar__toggle">
+      <Button
+        type="button"
+        variant="unstyled"
+        class_name="vtur-sidebar__toggle-button"
+        on:click={() => (isMenuExpanded = !isMenuExpanded)}
+        ariaLabel={isMenuExpanded ? 'Recolher menu' : 'Expandir menu'}
+        title={isMenuExpanded ? 'Recolher menu' : 'Expandir menu'}
+      >
+        {#if isMenuExpanded}
+          <ChevronLeft size={20} />
+        {:else}
+          <ChevronRight size={20} />
+        {/if}
+      </Button>
     </div>
 
     <!-- Body com nav -->
@@ -352,18 +456,18 @@
       {#each visibleMenuSections as section, idx}
         <section class="vtur-sidebar__section">
           {#if section.collapsible}
-            <button
+            <Button
               type="button"
-              class="vtur-sidebar__section-toggle"
+              variant="unstyled"
+              class_name="vtur-sidebar__section-toggle"
               on:click={() => toggleSection(idx)}
-              aria-expanded={!collapsed[idx]}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
               <ChevronDown
                 size={12}
                 class="transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
               />
-            </button>
+            </Button>
           {:else}
             <h2 class="vtur-sidebar__section-title px-1">{section.title}</h2>
           {/if}
@@ -372,7 +476,7 @@
             <nav class="vtur-sidebar__nav" aria-label={section.title} transition:slide={{ duration: 180 }}>
               {#each section.items as item}
                 {#if item.disabled}
-                  <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true">
+                  <div class="vtur-sidebar__item vtur-sidebar__item--disabled" aria-disabled="true" title={item.name}>
                     <div class="vtur-sidebar__item-main">
                       <svelte:component this={item.icon} size={22} class="vtur-sidebar__item-icon" />
                       <span class="vtur-sidebar__item-label">{item.name}</span>
@@ -384,6 +488,7 @@
                 {:else if item.href}
                   <a
                     href={item.href}
+                    title={item.name}
                     class="vtur-sidebar__item"
                     class:vtur-sidebar__item--active={isActive(item.href)}
                     aria-current={isActive(item.href) ? 'page' : undefined}
@@ -415,6 +520,7 @@
             {#each visibleMasterItems as item}
               <a
                 href={item.href}
+                title={item.name}
                 class="vtur-sidebar__item"
                 class:vtur-sidebar__item--active={isActive(item.href)}
                 aria-current={isActive(item.href) ? 'page' : undefined}
@@ -437,6 +543,7 @@
             {#each visibleAdminItems as item}
               <a
                 href={item.href}
+                title={item.name}
                 class="vtur-sidebar__item"
                 class:vtur-sidebar__item--active={isActive(item.href)}
                 aria-current={isActive(item.href) ? 'page' : undefined}
@@ -456,20 +563,33 @@
     <!-- Footer -->
     <div class="vtur-sidebar__footer">
       <div class="vtur-sidebar__quick-actions">
-        <a href="/operacao/agenda" class="vtur-sidebar__quick-link" on:click={handleItemClick}>
-          <Calendar size={15} />
-          <span>Agenda</span>
-        </a>
-        <button
+        <Button
           type="button"
-          class="vtur-sidebar__quick-link"
+          variant="unstyled"
+          class_name="vtur-sidebar__item"
           on:click={handleRefreshPermissions}
           disabled={refreshingPerms}
-          aria-label="Atualizar permissões"
+          ariaLabel="Atualizar permissões"
+          title="Atualizar permissões"
         >
-          <RefreshCw size={15} class={refreshingPerms ? 'animate-spin' : ''} />
-          <span>{refreshingPerms ? 'Atualizando...' : 'Atualizar permissões'}</span>
-        </button>
+          <div class="vtur-sidebar__item-main">
+            <RefreshCw size={22} class={`vtur-sidebar__item-icon ${refreshingPerms ? 'animate-spin' : ''}`} />
+            <span class="vtur-sidebar__item-label">{refreshingPerms ? 'Atualizando...' : 'Atualizar permissões'}</span>
+          </div>
+        </Button>
+        <Button
+          type="button"
+          variant="unstyled"
+          class_name="vtur-sidebar__item"
+          on:click={handleLogout}
+          ariaLabel="Fazer logout"
+          title="Sair"
+        >
+          <div class="vtur-sidebar__item-main">
+            <LogOut size={22} class="vtur-sidebar__item-icon" />
+            <span class="vtur-sidebar__item-label">Sair</span>
+          </div>
+        </Button>
       </div>
 
       <div class="vtur-sidebar__profile">
@@ -498,16 +618,16 @@
     aria-label="Navegação principal"
   >
     <!-- Coluna 1: Hamburguer / Menu -->
-    <button
+    <Button
       type="button"
-      class="vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border-0 bg-transparent px-2 py-2 transition-colors"
-      class:vtur-mobile-nav__menu--open={$sidebar.isOpen}
+      variant="unstyled"
+      class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent px-2 py-2 text-slate-200 transition-all duration-200 hover:bg-white/10 hover:text-white ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open bg-white/12 text-white shadow-[0_10px_24px_rgba(15,23,42,0.28)]' : ''}`}
       on:click={() => sidebar.toggle()}
-      aria-label="Abrir menu"
+      ariaLabel="Abrir menu"
     >
       <Menu size={28} />
       <span class="text-xs font-medium leading-none">Menu</span>
-    </button>
+    </Button>
 
     <!-- Coluna 2: Módulo/Página atual — ícone + nome em destaque -->
     <a

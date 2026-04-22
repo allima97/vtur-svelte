@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
@@ -387,46 +388,42 @@
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-col gap-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      <div>
-        <label for="rel-vendas-data-inicio" class="block text-sm font-medium text-slate-700 mb-1">Data início</label>
-        <input id="rel-vendas-data-inicio" type="date" bind:value={dataInicio} class="vtur-input w-full" />
-      </div>
-      <div>
-        <label for="rel-vendas-data-fim" class="block text-sm font-medium text-slate-700 mb-1">Data fim</label>
-        <input id="rel-vendas-data-fim" type="date" bind:value={dataFim} class="vtur-input w-full" />
-      </div>
+      <FieldInput id="rel-vendas-data-inicio" label="Data início" type="date" bind:value={dataInicio} class_name="w-full" />
+      <FieldInput id="rel-vendas-data-fim" label="Data fim" type="date" bind:value={dataFim} class_name="w-full" />
       {#if showEmpresaFiltro}
-        <div>
-          <label for="rel-vendas-empresa" class="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
-          <select id="rel-vendas-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-            <option value="">Todas</option>
-            {#each empresas as empresa}
-              <option value={empresa.id}>{empresa.nome}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="rel-vendas-empresa"
+          label="Empresa"
+          bind:value={empresaSelecionada}
+          options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+          placeholder={null}
+          class_name="w-full"
+        />
       {/if}
       {#if showVendedorFiltro}
-        <div>
-          <label for="rel-vendas-vendedor" class="block text-sm font-medium text-slate-700 mb-1">Vendedor</label>
-          <select id="rel-vendas-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-            <option value="">Todos</option>
-            {#each vendedores as vendedor}
-              <option value={vendedor.id}>{vendedor.nome}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="rel-vendas-vendedor"
+          label="Vendedor"
+          bind:value={vendedorSelecionado}
+          options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+          placeholder={null}
+          class_name="w-full"
+        />
       {/if}
-      <div>
-        <label for="rel-vendas-status" class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-        <select id="rel-vendas-status" bind:value={statusSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          <option value="confirmada">Confirmada</option>
-          <option value="pendente">Pendente</option>
-          <option value="concluida">Concluída</option>
-          <option value="cancelada">Cancelada</option>
-        </select>
-      </div>
+      <FieldSelect
+        id="rel-vendas-status"
+        label="Status"
+        bind:value={statusSelecionado}
+        options={[
+          { value: '', label: 'Todos' },
+          { value: 'confirmada', label: 'Confirmada' },
+          { value: 'pendente', label: 'Pendente' },
+          { value: 'concluida', label: 'Concluída' },
+          { value: 'cancelada', label: 'Cancelada' }
+        ]}
+        placeholder={null}
+        class_name="w-full"
+      />
       <div class="flex items-end">
         <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRelatorio}>
           <Filter size={16} class="mr-2" />
@@ -450,10 +447,10 @@
         {#if tipoProdutoFiltro}
           <span class="rounded-full bg-white px-3 py-1">Tipo: {tipoProdutoFiltro}</span>
         {/if}
-        <button class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 font-medium text-slate-700 hover:bg-slate-50" on:click={clearContextFilters}>
+        <Button variant="secondary" size="sm" class_name="rounded-full" on:click={clearContextFilters}>
           <X size={14} />
           Limpar contexto
-        </button>
+        </Button>
       </div>
     {/if}
   </div>

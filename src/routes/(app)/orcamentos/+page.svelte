@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { Plus, FileText, Send, ShoppingCart, AlertCircle } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -399,9 +400,10 @@
 </div>
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
-  <button
-    type="button"
-    class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteCriticos ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`}
+  <Button
+    variant={somenteCriticos ? 'primary' : 'secondary'}
+    size="sm"
+    class_name="rounded-full"
     on:click={() => {
       somenteCriticos = !somenteCriticos;
       if (somenteCriticos) somenteProntosVenda = false;
@@ -412,11 +414,13 @@
     {:else}
       Ver apenas críticos ({criticosCount})
     {/if}
-  </button>
+  </Button>
 
-  <button
-    type="button"
-    class={`rounded-full border px-4 py-2 text-sm font-medium ${somenteProntosVenda ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}`}
+  <Button
+    variant={somenteProntosVenda ? 'primary' : 'secondary'}
+    size="sm"
+    color="green"
+    class_name="rounded-full"
     on:click={() => {
       somenteProntosVenda = !somenteProntosVenda;
       if (somenteProntosVenda) somenteCriticos = false;
@@ -427,19 +431,20 @@
     {:else}
       Ver prontos para venda ({prontosVendaCount})
     {/if}
-  </button>
+  </Button>
 
   {#if somenteCriticos || somenteProntosVenda}
-    <button
-      type="button"
-      class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+    <Button
+      variant="secondary"
+      size="sm"
+      class_name="rounded-full"
       on:click={() => {
         somenteCriticos = false;
         somenteProntosVenda = false;
       }}
     >
       Limpar filtro rápido
-    </button>
+    </Button>
   {/if}
 </div>
 

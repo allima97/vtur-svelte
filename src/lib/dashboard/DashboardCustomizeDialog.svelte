@@ -2,6 +2,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { Checkbox } from '$lib/components/ui';
   import { ArrowDown, ArrowUp } from 'lucide-svelte';
   import type { DashboardKpiId, DashboardWidgetId } from './dashboardPrefs';
 
@@ -48,10 +49,10 @@
         {#each widgetOrder as id, index}
           <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
             <label class="flex min-w-0 flex-1 items-center gap-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={widgetVisible[id] !== false}
                 on:change={() => onToggleWidget?.(id)}
+                ariaLabel={`Exibir widget ${getWidgetTitle(id)}`}
               />
               <span class="truncate font-medium text-slate-900">{getWidgetTitle(id)}</span>
             </label>
@@ -73,10 +74,10 @@
         {#each kpiOrder as id, index}
           <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
             <label class="flex min-w-0 flex-1 items-center gap-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={kpiVisible[id] !== false}
                 on:change={() => onToggleKpi?.(id)}
+                ariaLabel={`Exibir KPI ${getKpiTitle(id)}`}
               />
               <span class="truncate font-medium text-slate-900">{getKpiTitle(id)}</span>
             </label>

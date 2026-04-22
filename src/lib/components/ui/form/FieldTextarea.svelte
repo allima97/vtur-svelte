@@ -24,6 +24,7 @@
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
   $: textareaClasses = [
+    'vtur-input',
     'text-sm',
     resizeClasses[resize],
     monospace ? 'font-mono text-xs leading-5' : '',

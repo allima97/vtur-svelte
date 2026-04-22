@@ -1,8 +1,9 @@
 <script lang="ts">
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Calendar, FileText, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
+  import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
 
   type Acompanhante = {
     id: string;
@@ -287,63 +288,64 @@
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div class="lg:col-span-2">
-            <label for="acomp-nome" class="mb-1 block text-sm font-medium text-slate-700">Nome completo *</label>
-            <input id="acomp-nome" bind:value={form.nome_completo} class="vtur-input w-full" placeholder="Nome do acompanhante" />
-          </div>
+          <FieldInput
+            id="acomp-nome"
+            label="Nome completo"
+            bind:value={form.nome_completo}
+            class_name="lg:col-span-2"
+            placeholder="Nome do acompanhante"
+            required
+          />
 
-          <div>
-            <label for="acomp-parentesco" class="mb-1 block text-sm font-medium text-slate-700">Parentesco</label>
-            <select id="acomp-parentesco" bind:value={form.grau_parentesco} class="vtur-input w-full">
-              {#each parentescoOptions as option}
-                <option value={option}>{option || 'Selecione'}</option>
-              {/each}
-            </select>
-          </div>
+          <FieldSelect
+            id="acomp-parentesco"
+            label="Parentesco"
+            bind:value={form.grau_parentesco}
+            options={parentescoOptions.filter((option) => option).map((option) => ({ value: option, label: option }))}
+            placeholder="Selecione uma opção"
+          />
 
-          <div>
-            <label for="acomp-cpf" class="mb-1 block text-sm font-medium text-slate-700">CPF</label>
-            <input id="acomp-cpf" bind:value={form.cpf} class="vtur-input w-full" placeholder="CPF do acompanhante" />
-          </div>
+          <FieldInput
+            id="acomp-cpf"
+            label="CPF"
+            bind:value={form.cpf}
+            placeholder="CPF do acompanhante"
+          />
 
-          <div>
-            <label for="acomp-telefone" class="mb-1 block text-sm font-medium text-slate-700">Telefone</label>
-            <div class="relative">
-              <Phone size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input id="acomp-telefone" bind:value={form.telefone} class="vtur-input w-full pl-10" placeholder="(00) 00000-0000" />
-            </div>
-          </div>
+          <FieldInput
+            id="acomp-telefone"
+            label="Telefone"
+            bind:value={form.telefone}
+            placeholder="(00) 00000-0000"
+            icon={Phone}
+          />
 
-          <div>
-            <label for="acomp-nascimento" class="mb-1 block text-sm font-medium text-slate-700">Data de nascimento</label>
-            <div class="relative">
-              <Calendar size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input id="acomp-nascimento" bind:value={form.data_nascimento} type="date" class="vtur-input w-full pl-10" />
-            </div>
-          </div>
+          <FieldInput
+            id="acomp-nascimento"
+            label="Data de nascimento"
+            bind:value={form.data_nascimento}
+            type="date"
+            icon={Calendar}
+          />
 
-          <div>
-            <label for="acomp-rg" class="mb-1 block text-sm font-medium text-slate-700">RG</label>
-            <input id="acomp-rg" bind:value={form.rg} class="vtur-input w-full" placeholder="Documento adicional" />
-          </div>
+          <FieldInput
+            id="acomp-rg"
+            label="RG"
+            bind:value={form.rg}
+            placeholder="Documento adicional"
+          />
 
-          <div class="lg:col-span-2">
-            <label for="acomp-observacoes" class="mb-1 block text-sm font-medium text-slate-700">Observacoes</label>
-            <div class="relative">
-              <FileText size={16} class="absolute left-3 top-3 text-slate-400" />
-              <textarea
-                id="acomp-observacoes"
-                bind:value={form.observacoes}
-                rows="3"
-                class="vtur-input w-full pl-10"
-                placeholder="Informacoes adicionais sobre o acompanhante..."
-              ></textarea>
-            </div>
-          </div>
+          <FieldTextarea
+            id="acomp-observacoes"
+            label="Observações"
+            bind:value={form.observacoes}
+            rows={3}
+            class_name="lg:col-span-2"
+            placeholder="Informações adicionais sobre o acompanhante..."
+          />
 
-          <div class="flex items-center gap-2 pt-7">
-            <input id="acomp-ativo" type="checkbox" bind:checked={form.ativo} class="h-4 w-4 rounded border-slate-300 text-clientes-600" />
-            <label for="acomp-ativo" class="text-sm text-slate-700">Acompanhante ativo</label>
+          <div class="flex items-end">
+            <FieldCheckbox id="acomp-ativo" label="Acompanhante ativo" bind:checked={form.ativo} color="clientes" />
           </div>
         </div>
 

@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import {
     ArrowLeft,
@@ -431,42 +431,40 @@
           </div>
 
           <div class="mural-wa-mobile-tabs" role="tablist" aria-label="Seções do mural">
-            <button
+            <Button
               type="button"
-              class:active={mobileTab === 'chats'}
-              class="mural-wa-tab"
+              variant="unstyled"
+              class_name={`mural-wa-tab ${mobileTab === 'chats' ? 'active' : ''}`}
               on:click={() => (mobileTab = 'chats')}
             >
               Chats
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              class:active={mobileTab === 'contacts'}
-              class="mural-wa-tab"
+              variant="unstyled"
+              class_name={`mural-wa-tab ${mobileTab === 'contacts' ? 'active' : ''}`}
               on:click={() => (mobileTab = 'contacts')}
             >
               Contatos
-            </button>
+            </Button>
           </div>
 
-          <label class="sr-only" for="mural-mobile-search">Buscar</label>
-          <div class="mural-search-shell">
-            <Search size={16} />
-            <input
-              id="mural-mobile-search"
-              bind:value={threadQuery}
-              class="mural-whatsapp-search"
-              placeholder={mobileTab === 'chats' ? 'Buscar chats...' : 'Buscar contatos...'}
-            />
-          </div>
+          <FieldInput
+            id="mural-mobile-search"
+            label="Buscar"
+            icon={Search}
+            bind:value={threadQuery}
+            class_name="w-full"
+            placeholder={mobileTab === 'chats' ? 'Buscar chats...' : 'Buscar contatos...'}
+          />
 
           <div class="mural-whatsapp-thread-list">
             {#if mobileTab === 'chats'}
               {#each filteredThreads as thread}
-                <button
+                <Button
                   type="button"
-                  class:active={currentThreadData?.id === thread.id}
-                  class="mural-whatsapp-thread"
+                  variant="unstyled"
+                  class_name={`mural-whatsapp-thread ${currentThreadData?.id === thread.id ? 'active' : ''}`}
                   on:click={() => {
                     selectedThreadId = thread.id;
                     mobileScreen = 'chat';
@@ -487,13 +485,14 @@
                   {#if thread.unreadCount > 0}
                     <span class="mural-thread-unread">{formatBadge(thread.unreadCount)}</span>
                   {/if}
-                </button>
+                </Button>
               {/each}
             {:else}
               {#each orderedContacts as contato}
-                <button
+                <Button
                   type="button"
-                  class="mural-whatsapp-thread"
+                  variant="unstyled"
+                  class_name="mural-whatsapp-thread"
                   on:click={() => {
                     selectedThreadId = contato.id;
                     mobileScreen = 'chat';
@@ -506,7 +505,7 @@
                     </span>
                     <span class="mural-whatsapp-thread-subtitle">Contato da empresa</span>
                   </span>
-                </button>
+                </Button>
               {/each}
             {/if}
           </div>
@@ -515,9 +514,16 @@
         <section class="mural-whatsapp-chat vtur-card">
           <div class="mural-whatsapp-chat-header">
             <div class="mural-chat-header-left">
-              <button type="button" class="mural-wa-back" on:click={() => (mobileScreen = 'list')}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                ariaLabel="Voltar para a lista"
+                class_name="mural-wa-back !h-8 !w-8 !p-0"
+                on:click={() => (mobileScreen = 'list')}
+              >
                 <ArrowLeft size={16} />
-              </button>
+              </Button>
               <span class:company={currentThreadData?.type === 'company'} class="mural-thread-avatar mural-chat-avatar">
                 {getInitials(currentThreadData?.name)}
               </span>
@@ -568,9 +574,15 @@
                     <div class="chat-bubble-meta">
                       <span>{formatDateTimeBR(recado.created_at)}</span>
                       {#if canDeleteRecado(recado)}
-                        <button type="button" class="chat-inline-btn chat-inline-btn--danger" on:click={() => (deleteTarget = recado)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          class_name="chat-inline-btn !px-0 !py-0 text-red-600 hover:!bg-transparent hover:!text-red-700"
+                          on:click={() => (deleteTarget = recado)}
+                        >
                           Excluir
-                        </button>
+                        </Button>
                       {/if}
                     </div>
                   </div>
@@ -589,12 +601,12 @@
               <div class="mural-inline-note">Anexos ainda não estão disponíveis neste ambiente.</div>
             {/if}
             <div class="mural-input-row">
-              <textarea
+              <FieldTextarea
                 bind:value={conteudo}
-                rows="3"
-                class="vtur-input w-full"
+                rows={3}
+                class_name="w-full"
                 placeholder="Digite sua mensagem..."
-              ></textarea>
+              />
               <Button type="submit" color="operacao" variant="primary" loading={sending} class_name="min-w-[128px] justify-center">
                 <Send size={15} class="mr-1.5" />
                 Enviar
@@ -618,19 +630,22 @@
               {isMaster() ? 'Master' : 'Equipe'}
             </div>
           </div>
-          <label class="sr-only" for="mural-search">Buscar conversa</label>
-          <div class="mural-search-shell">
-            <Search size={16} />
-            <input id="mural-search" bind:value={threadQuery} class="mural-whatsapp-search" placeholder="Buscar chats ou contatos..." />
-          </div>
+          <FieldInput
+            id="mural-search"
+            label="Buscar conversa"
+            icon={Search}
+            bind:value={threadQuery}
+            class_name="w-full"
+            placeholder="Buscar chats ou contatos..."
+          />
         </div>
 
         <div class="mural-whatsapp-thread-list">
           {#each filteredThreads as thread}
-            <button
+            <Button
               type="button"
-              class:active={currentThreadData?.id === thread.id}
-              class="mural-whatsapp-thread"
+              variant="unstyled"
+              class_name={`mural-whatsapp-thread ${currentThreadData?.id === thread.id ? 'active' : ''}`}
               on:click={() => (selectedThreadId = thread.id)}
             >
               <span class:company={thread.type === 'company'} class="mural-thread-avatar">
@@ -648,7 +663,7 @@
               {#if thread.unreadCount > 0}
                 <span class="mural-thread-unread">{formatBadge(thread.unreadCount)}</span>
               {/if}
-            </button>
+            </Button>
           {/each}
         </div>
       </aside>
@@ -713,10 +728,16 @@
                     <span>{formatDateTimeBR(recado.created_at)}</span>
                     <div class="chat-bubble-actions">
                       {#if canDeleteRecado(recado)}
-                        <button type="button" class="chat-inline-btn chat-inline-btn--danger" on:click={() => (deleteTarget = recado)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          class_name="chat-inline-btn !px-0 !py-0 text-red-600 hover:!bg-transparent hover:!text-red-700"
+                          on:click={() => (deleteTarget = recado)}
+                        >
                           <Trash2 size={13} class="mr-1" />
                           Excluir
-                        </button>
+                        </Button>
                       {/if}
                     </div>
                   </div>
@@ -751,12 +772,12 @@
           </div>
 
           <div class="mural-input-row">
-            <textarea
+            <FieldTextarea
               bind:value={conteudo}
-              rows="3"
-              class="vtur-input w-full"
+              rows={3}
+              class_name="w-full"
               placeholder="Digite sua mensagem..."
-            ></textarea>
+            />
             <Button type="submit" color="operacao" variant="primary" loading={sending} class_name="min-w-[148px] justify-center">
               <Send size={15} class="mr-1.5" />
               Enviar

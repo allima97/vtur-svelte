@@ -610,23 +610,22 @@
     />
 
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="todo-view">Visualizacao</label>
+      <p class="block text-sm font-medium text-slate-700 mb-1">Visualizacao</p>
       <div class="flex gap-2">
-        <button
-          id="todo-view"
-          type="button"
-          class="flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors {viewMode === 'kanban' ? 'border-operacao-300 bg-operacao-50 text-operacao-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}"
+        <Button
+          variant={viewMode === 'kanban' ? 'primary' : 'secondary'}
+          class_name="flex-1"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
-        </button>
-        <button
-          type="button"
-          class="flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors {viewMode === 'lista' ? 'border-operacao-300 bg-operacao-50 text-operacao-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}"
+        </Button>
+        <Button
+          variant={viewMode === 'lista' ? 'primary' : 'secondary'}
+          class_name="flex-1"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
-        </button>
+        </Button>
       </div>
     </div>
   </div>
@@ -656,12 +655,12 @@
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
       {#each categorias as categoria}
-        <button
-          type="button"
-          class="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
+        <Button
+          variant="ghost"
+          class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
           on:click={() => openCategory(categoria)}
         >
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start justify-between gap-3 w-full">
             <div class="flex items-center gap-3 min-w-0">
               <span
                 class="inline-block h-4 w-4 rounded-full border border-white/30"
@@ -676,7 +675,7 @@
               {itens.filter((item) => item.categoria_id === categoria.id).length}
             </span>
           </div>
-        </button>
+        </Button>
       {/each}
     </div>
   {/if}
@@ -737,12 +736,12 @@
               </div>
             {:else}
               {#each group.items as item}
-                <button
-                  type="button"
-                  class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
+                <Button
+                  variant="ghost"
+                  class_name="w-full justify-start rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-operacao-200 hover:shadow-md"
                   on:click={() => openTask(item.id)}
                 >
-                  <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start justify-between gap-3 w-full">
                     <div class="min-w-0">
                       <h5 class="font-semibold text-slate-900 truncate">{item.titulo}</h5>
                       <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -763,7 +762,7 @@
                   {#if item.descricao}
                     <p class="mt-3 line-clamp-2 text-sm text-slate-600">{item.descricao}</p>
                   {/if}
-                </button>
+                </Button>
               {/each}
             {/if}
           </div>
@@ -774,9 +773,9 @@
 </Card>
 
 <Card color="operacao">
-  <button
-    type="button"
-    class="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
+  <Button
+    variant="ghost"
+    class_name="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:bg-slate-100"
     on:click={() => (archivedExpanded = !archivedExpanded)}
   >
     <div>
@@ -786,7 +785,7 @@
     <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
       {archivedItems.length}
     </span>
-  </button>
+  </Button>
 
   {#if archivedExpanded}
     <div class="mt-4">
@@ -952,13 +951,14 @@
       <p class="block text-sm font-medium text-slate-700 mb-2">Cor</p>
       <div class="grid grid-cols-4 gap-2">
         {#each CATEGORY_PALETTE as color}
-          <button
-            type="button"
-            class="h-10 rounded-xl border transition {categoryForm.cor === color ? 'border-slate-900 ring-2 ring-slate-200' : 'border-slate-200'}"
-            style="background:{color}"
+          <Button
+            variant="ghost"
+            class_name="h-10 rounded-xl border transition {categoryForm.cor === color ? 'border-slate-900 ring-2 ring-slate-200' : 'border-slate-200'}"
+            ariaLabel={`Selecionar cor ${color}`}
             on:click={() => (categoryForm.cor = color)}
-            aria-label={`Selecionar cor ${color}`}
-          ></button>
+          >
+            <span class="w-full h-full rounded-lg" style="background:{color}"></span>
+          </Button>
         {/each}
       </div>
     </div>

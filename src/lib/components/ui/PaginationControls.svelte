@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Button from './Button.svelte';
+  import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+
   export let page = 1;
   export let total = 0;
   export let pageSize = 10;
@@ -18,13 +21,25 @@
     </div>
 
     <div class="actions">
-      <button type="button" disabled={page <= 1} on:click={onPrev}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page <= 1}
+        on:click={() => onPrev?.()}
+      >
+        <ChevronLeft size={16} />
         Anterior
-      </button>
+      </Button>
       <span>Página {page} de {totalPages}</span>
-      <button type="button" disabled={page >= totalPages} on:click={onNext}>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page >= totalPages}
+        on:click={() => onNext?.()}
+      >
         Próxima
-      </button>
+        <ChevronRight size={16} />
+      </Button>
     </div>
   </nav>
 {/if}
@@ -48,21 +63,6 @@
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-  }
-
-  button {
-    border: 1px solid #d1d5db;
-    background: #fff;
-    color: #374151;
-    border-radius: 10px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   span {

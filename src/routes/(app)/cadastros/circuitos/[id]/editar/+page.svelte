@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldRadioGroup, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { Route, Save, ArrowLeft } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -127,19 +127,19 @@
         class_name="w-full"
       />
 
-      <div>
-        <p class="block text-sm font-medium text-slate-700 mb-1">Guia</p>
-        <div class="flex items-center gap-4 mt-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.guia} value={true} class="w-4 h-4 text-financeiro-600" />
-            <span class="text-sm text-slate-700">Sim</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.guia} value={false} class="w-4 h-4 text-slate-600" />
-            <span class="text-sm text-slate-700">Não</span>
-          </label>
-        </div>
-      </div>
+      <FieldRadioGroup
+        id="circuito-guia"
+        label="Guia"
+        value={circuito.guia ? 'true' : 'false'}
+        options={[
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' }
+        ]}
+        class_name="w-full"
+        on:change={(event) => {
+          circuito.guia = String((event.currentTarget as HTMLInputElement | null)?.value || 'false') === 'true';
+        }}
+      />
 
       <div class="md:col-span-2">
         <FieldTextarea

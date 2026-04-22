@@ -74,13 +74,14 @@
           <FileDown size={18} />
           <span class="hidden md:inline ml-2">Salvar PDF</span>
         </Button>
-        <button 
-          on:click={close}
-          class="ml-1 md:ml-2 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+        <Button 
+          variant="ghost"
+          size="sm"
           title="Fechar"
+          on:click={close}
         >
           <X size={20} />
-        </button>
+        </Button>
       </div>
     </header>
 

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-svelte';
   import Button from './Button.svelte';
+  import Checkbox from './Checkbox.svelte';
+  import FieldInput from './form/FieldInput.svelte';
+  import FieldSelect from './form/FieldSelect.svelte';
   import type { ModuleColor } from '$lib/theme/colors';
   import type { ComponentType } from 'svelte';
 
@@ -169,6 +172,10 @@
     activeFilters = { ...activeFilters, [key]: value };
   }
 
+  function getEventValue(event: Event) {
+    return String((event.currentTarget as HTMLInputElement | HTMLSelectElement | null)?.value ?? '');
+  }
+
   function goToPage(page: number) {
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
@@ -186,6 +193,8 @@
   function isHtmlContent(value: string) {
     return /<[^>]+>/.test(value);
   }
+
+  $: pageSizeValue = String(currentPageSize);
 </script>
 
 <div class="space-y-4">
@@ -197,15 +206,12 @@
 
       <div class="flex flex-wrap items-center gap-2">
         {#if searchable}
-          <div class="relative">
-            <Search size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              bind:value={searchQuery}
-              class="vtur-input vtur-input--search w-full pl-10 pr-4 py-2 sm:w-72"
-            />
-          </div>
+          <FieldInput
+            placeholder="Buscar..."
+            bind:value={searchQuery}
+            icon={Search}
+            class_name="w-full sm:w-72"
+          />
         {/if}
 
         {#if filterable && filters.length > 0}
@@ -238,31 +244,27 @@
     <div class="vtur-filter-panel">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {#each filters as filter}
-          <div>
-            <label for="filter-{filter.key}" class="mb-1 block text-sm font-medium text-slate-700">{filter.label}</label>
-            {#if filter.type === 'select'}
-              <select
-                id="filter-{filter.key}"
-                class="vtur-input w-full px-3 py-2"
-                value={activeFilters[filter.key] || ''}
-                on:change={(e) => applyFilter(filter.key, e.currentTarget.value)}
-              >
-                <option value="">Todos</option>
-                {#each filter.options || [] as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-            {:else}
-              <input
-                id="filter-{filter.key}"
-                type={filter.type === 'date' ? 'date' : 'text'}
-                class="vtur-input w-full px-3 py-2"
-                placeholder={`Filtrar ${filter.label.toLowerCase()}`}
-                value={activeFilters[filter.key] || ''}
-                on:input={(e) => applyFilter(filter.key, e.currentTarget.value)}
-              />
-            {/if}
-          </div>
+          {#if filter.type === 'select'}
+            <FieldSelect
+              id={`filter-${filter.key}`}
+              label={filter.label}
+              value={String(activeFilters[filter.key] || '')}
+              options={filter.options || []}
+              placeholder="Todos"
+              class_name="w-full"
+              on:change={(event) => applyFilter(filter.key, getEventValue(event))}
+            />
+          {:else}
+            <FieldInput
+              id={`filter-${filter.key}`}
+              label={filter.label}
+              type={filter.type === 'date' ? 'date' : 'text'}
+              value={String(activeFilters[filter.key] || '')}
+              placeholder={`Filtrar ${filter.label.toLowerCase()}`}
+              class_name="w-full"
+              on:input={(event) => applyFilter(filter.key, getEventValue(event))}
+            />
+          {/if}
         {/each}
       </div>
       <div class="mt-4 flex justify-end">
@@ -280,18 +282,26 @@
           <tr>
             {#if selectable}
               <th class="w-10 px-4 py-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selectAll}
+                  color={color}
+                  ariaLabel="Selecionar todos os registros"
+                  class_name="rounded border-slate-300"
                   on:change={toggleSelectAll}
-                  class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
               </th>
             {/if}
             {#each columns as column}
               <th class="px-6 py-3 text-left" style={column.width ? `width: ${column.width}` : ''}>
                 {#if column.sortable}
-                  <button class="flex items-center gap-1 transition-colors hover:text-slate-900" on:click={() => handleSort(column)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    class_name="!min-h-0 !rounded-none !px-0 !py-0 font-inherit text-inherit hover:!bg-transparent hover:!text-slate-900"
+                    ariaLabel={`Ordenar por ${column.label}`}
+                    on:click={() => handleSort(column)}
+                  >
                     {column.label}
                     {#if sortKey === column.key}
                       {#if sortDirection === 'asc'}
@@ -302,7 +312,7 @@
                     {:else}
                       <ArrowUpDown size={14} class="text-slate-400" />
                     {/if}
-                  </button>
+                  </Button>
                 {:else}
                   {column.label}
                 {/if}
@@ -332,11 +342,12 @@
               <tr class="transition-colors hover:bg-slate-50/90" class:cursor-pointer={onRowClick} on:click={() => onRowClick?.(row)}>
                 {#if selectable}
                   <td class="px-4 py-4" on:click|stopPropagation>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedRows.has(keyExtractor(row))}
+                      color={color}
+                      ariaLabel={`Selecionar linha ${keyExtractor(row)}`}
+                      class_name="rounded border-slate-300"
                       on:change={() => toggleRowSelection(row)}
-                      class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                   </td>
                 {/if}
@@ -374,26 +385,60 @@
         </div>
 
         <div class="flex items-center gap-4">
-          <select bind:value={currentPageSize} class="vtur-input w-20 px-2 py-1 text-sm">
-            {#each pageSizeOptions as size}
-              <option value={size}>{size}</option>
-            {/each}
-          </select>
+          <FieldSelect
+            label="Itens por página"
+            srLabel={true}
+            value={pageSizeValue}
+            options={pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }))}
+            placeholder={null}
+            class_name="w-20"
+            on:change={(event) => {
+              currentPageSize = Number(getEventValue(event)) || pageSize;
+            }}
+          />
 
           <div class="flex items-center gap-1">
-            <button on:click={() => goToPage(1)} disabled={currentPage === 1} class="rounded-lg p-2 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+            <Button
+              on:click={() => goToPage(1)}
+              disabled={currentPage === 1}
+              variant="ghost"
+              size="xs"
+              class_name="h-9 w-9 !p-0"
+              ariaLabel="Primeira página"
+            >
               <ChevronsLeft size={16} />
-            </button>
-            <button on:click={() => goToPage(currentPage - 1)} disabled={currentPage === 1} class="rounded-lg p-2 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+            </Button>
+            <Button
+              on:click={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              variant="ghost"
+              size="xs"
+              class_name="h-9 w-9 !p-0"
+              ariaLabel="Página anterior"
+            >
               <ChevronLeft size={16} />
-            </button>
+            </Button>
             <span class="px-3 py-1 text-sm">Página {currentPage} de {totalPages}</span>
-            <button on:click={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} class="rounded-lg p-2 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+            <Button
+              on:click={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              variant="ghost"
+              size="xs"
+              class_name="h-9 w-9 !p-0"
+              ariaLabel="Próxima página"
+            >
               <ChevronRight size={16} />
-            </button>
-            <button on:click={() => goToPage(totalPages)} disabled={currentPage === totalPages} class="rounded-lg p-2 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
+            </Button>
+            <Button
+              on:click={() => goToPage(totalPages)}
+              disabled={currentPage === totalPages}
+              variant="ghost"
+              size="xs"
+              class_name="h-9 w-9 !p-0"
+              ariaLabel="Última página"
+            >
               <ChevronsRight size={16} />
-            </button>
+            </Button>
           </div>
         </div>
       </div>

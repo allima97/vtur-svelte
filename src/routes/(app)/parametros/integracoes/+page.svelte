@@ -2,13 +2,30 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput } from '$lib/components/ui';
   import { Plug, Save, Check, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   let saving = false;
   let testando = false;
 
-  const integracoes = [
+  type IntegracaoCampo = {
+    nome: string;
+    valor: string;
+    tipo: 'text' | 'password';
+    readonly?: boolean;
+  };
+
+  type Integracao = {
+    id: string;
+    nome: string;
+    descricao: string;
+    icone: string;
+    status: 'conectado' | 'desconectado' | 'configurar' | 'erro';
+    campos: IntegracaoCampo[];
+  };
+
+  const integracoes: Integracao[] = [
     {
       id: 'supabase',
       nome: 'Supabase',
@@ -138,44 +155,51 @@
               Testar
             </Button>
           {/if}
-          <button
+          <Button
             type="button"
-            class="p-2 text-slate-400 hover:text-financeiro-600 hover:bg-financeiro-50 rounded-lg transition-colors"
+            variant="ghost"
+            size="sm"
+            class_name="p-2"
             title="Documentação"
-            aria-label="Abrir documentação da integração"
+            ariaLabel="Abrir documentação da integração"
           >
             <ExternalLink size={18} />
-          </button>
+          </Button>
         </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {#each int.campos as campo, campoIndex}
           <div>
-            <label for={`integracao-${int.id}-${campoIndex}`} class="block text-sm font-medium text-slate-700 mb-1">{campo.nome}</label>
             {#if campo.readonly}
               <div class="flex items-center gap-2">
-                <input 
+                <FieldInput
                   id={`integracao-${int.id}-${campoIndex}`}
-                  type="text" 
-                  value={campo.valor}
-                  readonly
-                  class="vtur-input w-full bg-slate-50 text-slate-500"
+                  label={campo.nome}
+                  type="text"
+                  bind:value={campo.valor}
+                  readonly={true}
+                  class_name="w-full"
                 />
-                <button 
+                <Button
                   type="button"
-                  class="p-2 text-slate-400 hover:text-financeiro-600 rounded-lg"
+                  variant="ghost"
+                  size="sm"
+                  class_name="mt-6 p-2"
+                  title="Copiar valor"
+                  ariaLabel={`Copiar ${campo.nome}`}
                   on:click={() => { navigator.clipboard.writeText(campo.valor); toast.success('Copiado!'); }}
                 >
                   📋
-                </button>
+                </Button>
               </div>
             {:else}
-              <input 
+              <FieldInput
                 id={`integracao-${int.id}-${campoIndex}`}
-                type={campo.tipo} 
-                value={campo.valor}
-                class="vtur-input w-full"
+                label={campo.nome}
+                type={campo.tipo}
+                bind:value={campo.valor}
+                class_name="w-full"
               />
             {/if}
           </div>

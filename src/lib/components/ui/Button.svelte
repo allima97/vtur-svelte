@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button as FlowbiteButton } from 'flowbite-svelte';
 
-  export let variant: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' = 'primary';
+  export let variant: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' = 'primary';
   export let size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
   export let color:
     | 'blue'
@@ -60,7 +60,9 @@
     ghost:
       'border border-transparent bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-200 shadow-none',
     danger:
-      'border-transparent bg-red-600 text-white hover:bg-red-700 focus:ring-red-200 shadow-[0_10px_24px_rgba(220,38,38,0.18)]'
+      'border-transparent bg-red-600 text-white hover:bg-red-700 focus:ring-red-200 shadow-[0_10px_24px_rgba(220,38,38,0.18)]',
+    unstyled:
+      'border-transparent bg-transparent text-inherit hover:bg-transparent focus:ring-slate-200 shadow-none'
   };
 
   $: resolvedColor = colorAlias[color] || 'blue';

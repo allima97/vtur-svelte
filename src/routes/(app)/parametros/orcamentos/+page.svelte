@@ -97,13 +97,26 @@
         <FieldInput id="orc-filial" label="Filial / Agência" bind:value={settings.filial_nome} placeholder="Nome da filial ou agência" class_name="w-full" />
         <FieldInput id="orc-email" label="E-mail" type="email" bind:value={settings.email} placeholder="consultor@agencia.com.br" class_name="w-full" />
         <FieldInput id="orc-telefone" label="Telefone" bind:value={settings.telefone} placeholder="(00) 0000-0000" class_name="w-full" />
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="orc-whatsapp">WhatsApp</label>
-          <div class="flex gap-2">
-            <input bind:value={settings.whatsapp_codigo_pais} class="vtur-input w-16" placeholder="55" maxlength="4" />
-            <input id="orc-whatsapp" bind:value={settings.whatsapp} class="vtur-input flex-1" placeholder="(00) 00000-0000" />
+        <div class="space-y-2">
+          <p class="text-sm font-medium text-slate-700">WhatsApp</p>
+          <div class="grid grid-cols-[88px,1fr] gap-2">
+            <FieldInput
+              id="orc-whatsapp-codigo"
+              label="DDI"
+              bind:value={settings.whatsapp_codigo_pais}
+              placeholder="55"
+              maxlength={4}
+              class_name="w-full"
+            />
+            <FieldInput
+              id="orc-whatsapp"
+              label="Número"
+              bind:value={settings.whatsapp}
+              placeholder="(00) 00000-0000"
+              helper="Código do país + número (ex: 55 + 11 99999-9999)"
+              class_name="w-full"
+            />
           </div>
-          <p class="mt-1 text-xs text-slate-500">Código do país + número (ex: 55 + 11 99999-9999)</p>
         </div>
       </div>
     </Card>

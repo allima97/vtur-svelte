@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
@@ -463,35 +464,27 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-    <div>
-      <label for="dash-inicio" class="mb-1 block text-sm font-medium text-slate-700">Data início</label>
-      <input id="dash-inicio" type="date" bind:value={periodoInicio} class="vtur-input w-full" />
-    </div>
-    <div>
-      <label for="dash-fim" class="mb-1 block text-sm font-medium text-slate-700">Data fim</label>
-      <input id="dash-fim" type="date" bind:value={periodoFim} class="vtur-input w-full" />
-    </div>
+    <FieldInput id="dash-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
+    <FieldInput id="dash-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
     {#if empresas.length > 0}
-      <div>
-        <label for="dash-empresa" class="mb-1 block text-sm font-medium text-slate-700">Empresa</label>
-        <select id="dash-empresa" bind:value={empresaSelecionada} class="vtur-input w-full">
-          <option value="">Todas</option>
-          {#each empresas as e}
-            <option value={e.id}>{e.nome}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="dash-empresa"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
     {/if}
     {#if vendedoresFiltro.length > 0}
-      <div>
-        <label for="dash-vendedor" class="mb-1 block text-sm font-medium text-slate-700">Vendedor</label>
-        <select id="dash-vendedor" bind:value={vendedorSelecionado} class="vtur-input w-full">
-          <option value="">Todos</option>
-          {#each vendedoresFiltro as v}
-            <option value={v.id}>{v.nome}</option>
-          {/each}
-        </select>
-      </div>
+      <FieldSelect
+        id="dash-vendedor"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((v) => ({ value: v.id, label: v.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
     {/if}
     <div class="flex items-end gap-2 xl:col-span-2">
       <Button

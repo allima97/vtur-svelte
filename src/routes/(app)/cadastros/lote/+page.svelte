@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Upload, FileText, CheckCircle, AlertCircle, Download } from 'lucide-svelte';
 
@@ -101,35 +102,39 @@
   <div class="lg:col-span-2 space-y-6">
     <Card title="Configuração da importação">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="lote-tipo">Tipo de produto *</label>
-          <select id="lote-tipo" bind:value={tipoId} class="vtur-input w-full">
-            <option value="">Selecione uma opção</option>
-            {#each tipos as t}
-              <option value={t.id}>{t.nome}</option>
-            {/each}
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700" for="lote-sub">Estado/Subdivisão (opcional)</label>
-          <select id="lote-sub" bind:value={subdivisaoId} class="vtur-input w-full">
-            <option value="">Todas as cidades</option>
-            {#each subdivisoes as s}
-              <option value={s.id}>{s.nome}</option>
-            {/each}
-          </select>
-        </div>
+        <FieldSelect
+          id="lote-tipo"
+          label="Tipo de produto"
+          required={true}
+          bind:value={tipoId}
+          options={[
+            ...tipos.map((t) => ({ value: t.id, label: t.nome }))
+          ]}
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="lote-sub"
+          label="Estado/Subdivisão (opcional)"
+          bind:value={subdivisaoId}
+          placeholder={null}
+          options={[
+            { value: '', label: 'Todas as cidades' },
+            ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))
+          ]}
+          class_name="w-full"
+        />
       </div>
     </Card>
 
     <Card title="Lista de produtos">
       <p class="text-sm text-slate-500 mb-3">Cole um produto por linha. O nome será usado diretamente.</p>
-      <textarea
+      <FieldTextarea
         bind:value={textoProdutos}
-        rows="12"
-        class="vtur-input w-full font-mono text-sm"
+        rows={12}
+        class_name="w-full"
+        monospace={true}
         placeholder="Pacote Europa Clássica&#10;Hotel Copacabana Palace&#10;Passagem Aérea GRU-LIS&#10;..."
-      ></textarea>
+      />
       <p class="mt-1 text-xs text-slate-500">
         {textoProdutos.split('\n').filter((l) => l.trim()).length} produto(s) na lista
       </p>

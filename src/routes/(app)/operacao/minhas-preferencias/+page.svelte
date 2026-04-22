@@ -222,9 +222,16 @@
   onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
-    <button on:click|stopPropagation={() => deletePref(row.id)} class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Excluir" disabled={deletingId === row.id}>
+    <Button
+      variant="ghost"
+      size="xs"
+      color="operacao"
+      title="Excluir"
+      disabled={deletingId === row.id}
+      on:click={(e) => {e.stopPropagation(); deletePref(row.id);}}
+    >
       <Trash2 size={15} />
-    </button>
+    </Button>
   </svelte:fragment>
 </DataTable>
 

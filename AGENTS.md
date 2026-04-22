@@ -138,6 +138,42 @@ Wrappers consolidados em `src/lib/components/ui`:
 - **`admin/parametros-importacao/+page.svelte`**: Modal (termo, descrição, checkbox ativo) migrado para `FieldInput`/`FieldCheckbox`.
 - **`operacao/documentos-viagens/+page.svelte`**: Input de busca migrado para `FieldInput` com ícone.
 
+### Telas de Autenticação (Onda 8) ✅
+- **`auth/nova-senha/+page.svelte`**: Inputs de senha (nova e confirmação) migrados para `FieldInput` com `type="password"` e `actionIcon` para toggle eye/eye-off. Icon `Lock` posicionado via `icon` prop.
+- **`auth/recuperar-senha/+page.svelte`**: Input de email migrado para `FieldInput` com `type="email"` e `icon={Mail}`.
+- **`auth/mfa/+page.svelte`**: Input de código MFA migrado para `FieldInput` com `type="text"`, `icon={KeyRound}`, `maxlength={6}`, classe custom para texto centrado e monospace, e `helper` para instruções.
+
+### Hotspots Restantes (Onda 9) ✅
+- **`operacao/tarefas/+page.svelte`**: 10+ botões nativos migrados para `Button` — toggle Kanban/Lista, cards de categoria, cards de tarefa no kanban, botão de expandir tarefas arquivadas, seletor de cores. Restam apenas exceções estruturais (grids densas, swatches de cor como children).
+
+### Máximo Impacto (Onda 10) ✅
+- **`orcamentos/+page.svelte`**: 3 botões de toggle (Ver apenas críticos, Ver prontos para venda, Limpar filtro) migrados para `Button` com variant condicional.
+- **`financeiro/formas-pagamento/+page.svelte`**: 5 botões de filtro (Todas, Ativas, Inativas, Sem comissão, Com desconto) migrados para `Button` com cores específicas.
+- **`vendas/importar/+page.svelte`**: 2 botões de tipo de importação (CVC, Cruzeiro) migrados para `Button` com variant condicional.
+
+### Infraestrutura e Hotspots (Onda 11) ✅
+- **`lib/components/ui/PaginationControls.svelte`**: 2 botões Anterior/Próxima migrados para `Button` com icons `ChevronLeft`/`ChevronRight`. CSS selectors obsoletos removidos.
+- **`lib/components/ui/ToastContainer.svelte`**: 1 botão de dismissal migrado para `Button` com icon X.
+- **`consultoria-online/+page.svelte`**: 3 botões migrados — filtro de status (chips) para `Button` com variant condicional, botão atualizar e exportar iCal para `Button` ghost size xs.
+- **`parametros/crm/+page.svelte`**: 4 botões migrados — wizard steps (1. Arte, 2. Mensagem, 3. Prévia) com cores condicionais (primary/outline), chips de filtro de tema, chips de templates rápidos, botão de itálico na assinatura.
+- **`negado/+page.svelte`**: 2 botões CTA migrados — "Ir para o início" (primary orange, size lg) e "Voltar" (outline, size lg).
+- **`operacao/minhas-preferencias/+page.svelte`**: 1 botão de delete em row-actions migrado para `Button` ghost com icon `Trash2`, suportando `disabled` state.
+- **`operacao/viagens/[id]/+page.svelte`**: 2 botões migrados — modal close button (ghost, xs) e link "Ver ficha completa" (ghost, xs, color clientes).
+
+### Hotspots Adicionais (Onda 12) ✅
+- **`operacao/viagens/[id]/+page.svelte`**: 1 botão adicional migrado — seletor de status dentro do modal (3 opções com variant condicional).
+- **`cadastros/+page.svelte`**: 2 botões migrados — "Consultar" e "Novo" para cada categoria de cadastro, variante ghost com icons.
+- **`lib/components/modais/VoucherPreviewModal.svelte`**: 1 botão de close migrado para `Button` ghost, xs.
+- **`operacao/documentos-viagens/+page.svelte`**: 1 botão de delete em row-actions migrado para `Button` ghost com icon `Trash2`.
+- **`diagnostico/+page.svelte`**: 1 botão "Executar Diagnostico" migrado para `Button` color financeiro.
+- **`debug/+page.svelte`**: 1 botão "Atualizar" com icon refresh migrado para `Button` secondary.
+
+### Não Migrados (Exceções Legítimas) ✅
+  - `lib/components/ui/Tabs.svelte` (2+ botões por instância) — requer role="tab" e aria-selected que Button não expõe; melhor deixar nativo para preservar acessibilidade.
+  - KPI card buttons em `vendas/[id]` e `clientes/[id]` — estruturais com lógica visual complexa (cores condicionais, múltiplos ícones/conteúdo).
+  - Theme selector gallery em `parametros/crm/+page.svelte` (linha 539) — card seletor visual complexo com imagem + overlay.
+  - Autocomplete dropdown items em `parametros/crm/+page.svelte` (linha 628) — padrão aceitável para dropdowns.
+
 ### Melhorias nos Wrappers (Onda 6)
 - **`FieldInput`**: Adicionadas props `prefix` e `suffix` para texto posicionado dentro do input (ex: "R$" no preço base). Prop `value` ampliada para aceitar `string | number`.
 - **`FieldSelect`**: Adicionada prop `srLabel` para labels acessíveis mas visualmente ocultos.

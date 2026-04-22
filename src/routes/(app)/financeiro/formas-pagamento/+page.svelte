@@ -286,11 +286,49 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-wrap items-center gap-2">
-    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'todas' ? 'border-financeiro-300 bg-financeiro-50 text-financeiro-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'todas')}>Todas ({formasPagamento.length})</button>
-    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'ativas' ? 'border-green-300 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'ativas')}>Ativas ({ativas.length})</button>
-    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'inativas' ? 'border-slate-300 bg-slate-100 text-slate-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'inativas')}>Inativas ({inativas.length})</button>
-    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'sem_comissao' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'sem_comissao')}>Sem comissão ({semComissao.length})</button>
-    <button type="button" class={`rounded-full border px-4 py-2 text-sm font-medium ${filtroRapido === 'com_desconto' ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-slate-200 bg-white text-slate-700'}`} on:click={() => (filtroRapido = 'com_desconto')}>Com desconto ({comDesconto.length})</button>
+    <Button
+      variant={filtroRapido === 'todas' ? 'primary' : 'secondary'}
+      size="sm"
+      class_name="rounded-full"
+      on:click={() => (filtroRapido = 'todas')}
+    >
+      Todas ({formasPagamento.length})
+    </Button>
+    <Button
+      variant={filtroRapido === 'ativas' ? 'primary' : 'secondary'}
+      size="sm"
+      color="green"
+      class_name="rounded-full"
+      on:click={() => (filtroRapido = 'ativas')}
+    >
+      Ativas ({ativas.length})
+    </Button>
+    <Button
+      variant={filtroRapido === 'inativas' ? 'primary' : 'secondary'}
+      size="sm"
+      class_name="rounded-full"
+      on:click={() => (filtroRapido = 'inativas')}
+    >
+      Inativas ({inativas.length})
+    </Button>
+    <Button
+      variant={filtroRapido === 'sem_comissao' ? 'primary' : 'secondary'}
+      size="sm"
+      color="orange"
+      class_name="rounded-full"
+      on:click={() => (filtroRapido = 'sem_comissao')}
+    >
+      Sem comissão ({semComissao.length})
+    </Button>
+    <Button
+      variant={filtroRapido === 'com_desconto' ? 'primary' : 'secondary'}
+      size="sm"
+      color="blue"
+      class_name="rounded-full"
+      on:click={() => (filtroRapido = 'com_desconto')}
+    >
+      Com desconto ({comDesconto.length})
+    </Button>
   </div>
 </Card>
 

@@ -3,7 +3,8 @@
   import { supabase } from '$lib/db/supabase';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import { Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-svelte';
+  import { FieldInput } from '$lib/components/ui';
+  import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
   
   let email = '';
   let password = '';
@@ -13,6 +14,8 @@
   let loading = false;
   let error: string | null = null;
   let success = false;
+  let showPassword = false;
+  let showConfirmPassword = false;
   
   async function handleSubmit() {
     if (!email || !password || !nome || !token) {
@@ -101,94 +104,73 @@
         
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
           <!-- Token -->
-          <div>
-            <label for="token" class="block text-sm font-medium text-slate-700 mb-1">
-              Código do Convite
-            </label>
-            <input
-              id="token"
-              type="text"
-              bind:value={token}
-              class="vtur-input"
-              placeholder="Cole o código do convite"
-              disabled={loading}
-            />
-          </div>
+          <FieldInput
+            id="token"
+            label="Código do Convite"
+            type="text"
+            bind:value={token}
+            placeholder="Cole o código do convite"
+            disabled={loading}
+            class_name="w-full"
+          />
           
           <!-- Nome -->
-          <div>
-            <label for="nome" class="block text-sm font-medium text-slate-700 mb-1">
-              Nome Completo
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="nome"
-                type="text"
-                bind:value={nome}
-                class="vtur-input pl-10"
-                placeholder="Seu nome"
-                disabled={loading}
-              />
-            </div>
-          </div>
+          <FieldInput
+            id="nome"
+            label="Nome Completo"
+            type="text"
+            bind:value={nome}
+            placeholder="Seu nome"
+            icon={User}
+            autocomplete="name"
+            disabled={loading}
+            class_name="w-full"
+          />
           
           <!-- Email -->
-          <div>
-            <label for="email" class="block text-sm font-medium text-slate-700 mb-1">
-              Email
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="email"
-                type="email"
-                bind:value={email}
-                class="vtur-input pl-10"
-                placeholder="seu@email.com"
-                disabled={loading}
-              />
-            </div>
-          </div>
+          <FieldInput
+            id="email"
+            label="Email"
+            type="email"
+            bind:value={email}
+            placeholder="seu@email.com"
+            icon={Mail}
+            autocomplete="email"
+            disabled={loading}
+            class_name="w-full"
+          />
           
           <!-- Senha -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-slate-700 mb-1">
-              Senha
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="password"
-                type="password"
-                bind:value={password}
-                class="vtur-input pl-10"
-                placeholder="Mínimo 6 caracteres"
-                disabled={loading}
-              />
-            </div>
-          </div>
+          <FieldInput
+            id="password"
+            label="Senha"
+            type={showPassword ? 'text' : 'password'}
+            bind:value={password}
+            placeholder="Mínimo 6 caracteres"
+            icon={Lock}
+            actionIcon={showPassword ? EyeOff : Eye}
+            actionLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            onAction={() => (showPassword = !showPassword)}
+            autocomplete="new-password"
+            disabled={loading}
+            class_name="w-full"
+          />
           
           <!-- Confirmar Senha -->
-          <div>
-            <label for="confirmPassword" class="block text-sm font-medium text-slate-700 mb-1">
-              Confirmar Senha
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              bind:value={confirmPassword}
-              class="vtur-input"
-              placeholder="Digite a senha novamente"
-              disabled={loading}
-            />
-          </div>
+          <FieldInput
+            id="confirmPassword"
+            label="Confirmar Senha"
+            type={showConfirmPassword ? 'text' : 'password'}
+            bind:value={confirmPassword}
+            placeholder="Digite a senha novamente"
+            icon={Lock}
+            actionIcon={showConfirmPassword ? EyeOff : Eye}
+            actionLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+            onAction={() => (showConfirmPassword = !showConfirmPassword)}
+            autocomplete="new-password"
+            disabled={loading}
+            class_name="w-full"
+          />
           
           <!-- Botão -->
           <Button

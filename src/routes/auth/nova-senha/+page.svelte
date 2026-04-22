@@ -4,6 +4,7 @@
   import { supabase } from '$lib/db/supabase';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
 
   let password = '';
@@ -126,45 +127,29 @@
         {/if}
 
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-          <div>
-            <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Nova senha</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                bind:value={password}
-                class="vtur-input pl-10 pr-10 w-full"
-                placeholder="Mínimo 6 caracteres"
-                disabled={loading}
-              />
-              <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" on:click={() => (showPassword = !showPassword)}>
-                {#if showPassword}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
-              </button>
-            </div>
-          </div>
+          <FieldInput
+            label="Nova senha"
+            bind:value={password}
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Mínimo 6 caracteres"
+            disabled={loading}
+            icon={Lock}
+            actionIcon={showPassword ? EyeOff : Eye}
+            actionLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            onAction={() => { showPassword = !showPassword; }}
+          />
 
-          <div>
-            <label for="confirm" class="block text-sm font-medium text-slate-700 mb-1">Confirmar senha</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="confirm"
-                type={showConfirm ? 'text' : 'password'}
-                bind:value={confirmPassword}
-                class="vtur-input pl-10 pr-10 w-full"
-                placeholder="Repita a senha"
-                disabled={loading}
-              />
-              <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" on:click={() => (showConfirm = !showConfirm)}>
-                {#if showConfirm}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
-              </button>
-            </div>
-          </div>
+          <FieldInput
+            label="Confirmar senha"
+            bind:value={confirmPassword}
+            type={showConfirm ? 'text' : 'password'}
+            placeholder="Repita a senha"
+            disabled={loading}
+            icon={Lock}
+            actionIcon={showConfirm ? EyeOff : Eye}
+            actionLabel={showConfirm ? 'Ocultar senha' : 'Mostrar senha'}
+            onAction={() => { showConfirm = !showConfirm; }}
+          />
 
           <Button type="submit" variant="primary" size="lg" loading={loading} class_name="w-full justify-center">
             Redefinir senha

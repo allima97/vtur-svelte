@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X, MessageCircle, Mail, Send, Phone, Copy } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
 
   export let open: boolean = false;
@@ -196,7 +197,16 @@
           </div>
           <div><h3 class="text-lg font-semibold text-slate-900">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3><p class="text-sm text-slate-500">{clienteNome}</p></div>
         </div>
-        <button type="button" aria-label="Fechar aviso" on:click={onClose} class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><X size={20} /></button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          ariaLabel="Fechar aviso"
+          class_name="h-10 w-10 !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
+          on:click={onClose}
+        >
+          <X size={20} />
+        </Button>
       </div>
 
       <div class="p-6 overflow-y-auto max-h-[60vh] space-y-4">
@@ -208,8 +218,26 @@
         <div>
           <p class="block text-sm font-medium text-slate-700 mb-2">Canal de Envio</p>
           <div class="flex gap-2">
-            <button type="button" on:click={() => canalAtivo = 'whatsapp'} disabled={!clienteTelefone} class="flex-1 py-3 px-4 rounded-lg border-2 transition-all flex items-center justify-center gap-2 {canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 bg-white text-slate-600'} {(!clienteTelefone) ? 'opacity-50 cursor-not-allowed' : ''}"><MessageCircle size={20} />WhatsApp</button>
-            <button type="button" on:click={() => canalAtivo = 'email'} disabled={!clienteEmail} class="flex-1 py-3 px-4 rounded-lg border-2 transition-all flex items-center justify-center gap-2 {canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-slate-200 bg-white text-slate-600'} {(!clienteEmail) ? 'opacity-50 cursor-not-allowed' : ''}"><Mail size={20} />Email</button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!clienteTelefone}
+              class_name={`flex-1 justify-center border-2 py-3 ${canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700 hover:!bg-green-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              on:click={() => canalAtivo = 'whatsapp'}
+            >
+              <MessageCircle size={20} />
+              WhatsApp
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!clienteEmail}
+              class_name={`flex-1 justify-center border-2 py-3 ${canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700 hover:!bg-orange-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              on:click={() => canalAtivo = 'email'}
+            >
+              <Mail size={20} />
+              Email
+            </Button>
           </div>
         </div>
 
@@ -220,19 +248,51 @@
           {:else}
             <div class="flex flex-wrap gap-2">
               {#each templatesFiltrados as template}
-                <button type="button" on:click={() => { templateSelecionado = template.id; aplicarTemplate(); }} class="px-3 py-2 text-sm rounded-lg border transition-colors {templateSelecionado === template.id ? 'bg-clientes-100 border-clientes-300 text-clientes-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}">{template.nome}</button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  class_name={templateSelecionado === template.id ? 'border-clientes-300 bg-clientes-100 text-clientes-700 hover:!bg-clientes-100' : 'text-slate-600'}
+                  on:click={() => { templateSelecionado = template.id; aplicarTemplate(); }}
+                >
+                  {template.nome}
+                </Button>
               {/each}
             </div>
           {/if}
         </div>
 
         {#if canalAtivo === 'email'}
-          <div><label for="assunto-aviso" class="block text-sm font-medium text-slate-700 mb-2">Assunto</label><input id="assunto-aviso" class="vtur-input w-full" value={assuntoAtual} readonly /></div>
+          <FieldInput
+            id="assunto-aviso"
+            label="Assunto"
+            value={assuntoAtual}
+            readonly={true}
+            class_name="w-full"
+          />
         {/if}
 
         <div>
-          <div class="flex items-center justify-between mb-2"><label for="mensagem-aviso" class="block text-sm font-medium text-slate-700">Mensagem</label><button type="button" on:click={copiarMensagem} class="text-xs text-clientes-600 hover:text-clientes-800 flex items-center gap-1"><Copy size={12} />Copiar</button></div>
-          <textarea id="mensagem-aviso" bind:value={mensagemPersonalizada} rows="5" class="vtur-input w-full" placeholder="Digite sua mensagem personalizada..."></textarea>
+          <div class="mb-2 flex items-center justify-between">
+            <label for="mensagem-aviso" class="block text-sm font-medium text-slate-700">Mensagem</label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              class_name="!px-0 !py-0 text-xs text-clientes-600 hover:!bg-transparent hover:!text-clientes-800"
+              on:click={copiarMensagem}
+            >
+              <Copy size={12} />
+              Copiar
+            </Button>
+          </div>
+          <FieldTextarea
+            id="mensagem-aviso"
+            bind:value={mensagemPersonalizada}
+            rows={5}
+            class_name="w-full"
+            placeholder="Digite sua mensagem personalizada..."
+          />
           <p class="text-xs text-slate-500 mt-1">Use {'{nome}'} para o primeiro nome ou {'{nome_completo}'} para o nome completo</p>
         </div>
 

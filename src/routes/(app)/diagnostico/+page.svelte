@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { supabase } from '$lib/db/supabase';
 
   let sessionInfo = 'Carregando...';
@@ -127,12 +128,12 @@
     </table>
     
     <div class="mt-4">
-      <button
-        class="px-4 py-2 bg-financeiro-600 text-white rounded-lg hover:bg-financeiro-700"
+      <Button
+        color="financeiro"
         on:click={runDiagnostics}
       >
         Executar Diagnostico
-      </button>
+      </Button>
     </div>
   </Card>
 

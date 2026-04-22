@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import {
@@ -124,24 +125,26 @@
 <!-- Filtros -->
 <Card color="comissoes" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="c-ano">Ano</label>
-      <input
-        id="c-ano"
-        type="number"
-        bind:value={filtroAno}
-        min="2020" max="2100"
-        class="vtur-input w-24"
-      />
-    </div>
-    <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="c-status">Status</label>
-      <select id="c-status" bind:value={filtroStatus} class="vtur-input">
-        <option value="todas">Todas</option>
-        <option value="pendente">Pendentes</option>
-        <option value="pago">Pagas</option>
-      </select>
-    </div>
+    <FieldInput
+      id="c-ano"
+      label="Ano"
+      type="number"
+      bind:value={filtroAno}
+      min="2020"
+      max="2100"
+      class_name="w-24"
+    />
+    <FieldSelect
+      id="c-status"
+      label="Status"
+      bind:value={filtroStatus}
+      placeholder={null}
+      options={[
+        { value: 'todas', label: 'Todas' },
+        { value: 'pendente', label: 'Pendentes' },
+        { value: 'pago', label: 'Pagas' }
+      ]}
+    />
     <Button variant="primary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" href="/comissoes/fechamento">
       <FileText size={16} class="mr-2" />

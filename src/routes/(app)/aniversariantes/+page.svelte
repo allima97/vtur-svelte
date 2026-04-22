@@ -3,11 +3,11 @@
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
+  import { FieldSelect } from '$lib/components/ui';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
-  import { CalendarDays, MessageCircle, RefreshCw, Gift } from 'lucide-svelte';
+  import { CalendarDays, RefreshCw, Gift } from 'lucide-svelte';
 
   type Aniversariante = {
     id: string;
@@ -23,6 +23,7 @@
   let aniversariantes: Aniversariante[] = [];
   let loading = true;
   let diasAfrente = 30;
+  let diasAfrenteFiltro = '30';
 
   const columns = [
     {
@@ -76,6 +77,8 @@
 
   onMount(load);
 
+  $: diasAfrente = Number(diasAfrenteFiltro);
+
   $: hoje = aniversariantes.filter((a) => a.aniversario_hoje).length;
   $: proximos7 = aniversariantes.filter((a) => {
     if (!a.nascimento) return false;
@@ -111,15 +114,21 @@
 </div>
 
 <Card color="clientes" class="mb-6">
-  <div class="flex items-center gap-4">
-    <label class="text-sm font-medium text-slate-700" for="dias-afrente">Mostrar próximos</label>
-    <select id="dias-afrente" bind:value={diasAfrente} on:change={load} class="vtur-input">
-      <option value={7}>7 dias</option>
-      <option value={15}>15 dias</option>
-      <option value={30}>30 dias</option>
-      <option value={60}>60 dias</option>
-      <option value={90}>90 dias</option>
-    </select>
+  <div class="max-w-xs">
+    <FieldSelect
+      id="dias-afrente"
+      label="Mostrar próximos"
+      bind:value={diasAfrenteFiltro}
+      placeholder={null}
+      options={[
+        { value: '7', label: '7 dias' },
+        { value: '15', label: '15 dias' },
+        { value: '30', label: '30 dias' },
+        { value: '60', label: '60 dias' },
+        { value: '90', label: '90 dias' }
+      ]}
+      on:change={load}
+    />
   </div>
 </Card>
 

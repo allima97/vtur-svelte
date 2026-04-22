@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldRadioGroup, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { Route, Save, ArrowLeft, Plus, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -171,35 +171,33 @@
         class_name="w-full"
       />
 
-      <!-- Guia -->
-      <div>
-        <p class="block text-sm font-medium text-slate-700 mb-1">Guia Acompanhante</p>
-        <div class="flex items-center gap-4 mt-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.guia} value={true} class="w-4 h-4 text-financeiro-600" />
-            <span class="text-sm text-slate-700">Sim</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.guia} value={false} class="w-4 h-4 text-slate-600" />
-            <span class="text-sm text-slate-700">Não</span>
-          </label>
-        </div>
-      </div>
+      <FieldRadioGroup
+        id="novo-circuito-guia"
+        label="Guia Acompanhante"
+        value={circuito.guia ? 'true' : 'false'}
+        options={[
+          { value: 'true', label: 'Sim' },
+          { value: 'false', label: 'Não' }
+        ]}
+        class_name="w-full"
+        on:change={(event) => {
+          circuito.guia = String((event.currentTarget as HTMLInputElement | null)?.value || 'false') === 'true';
+        }}
+      />
 
-      <!-- Status -->
-      <div>
-        <p class="block text-sm font-medium text-slate-700 mb-1">Status</p>
-        <div class="flex items-center gap-4 mt-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.ativo} value={true} class="w-4 h-4 text-financeiro-600" />
-            <span class="text-sm text-slate-700">Ativo</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" bind:group={circuito.ativo} value={false} class="w-4 h-4 text-slate-600" />
-            <span class="text-sm text-slate-700">Inativo</span>
-          </label>
-        </div>
-      </div>
+      <FieldRadioGroup
+        id="novo-circuito-status"
+        label="Status"
+        value={circuito.ativo ? 'true' : 'false'}
+        options={[
+          { value: 'true', label: 'Ativo' },
+          { value: 'false', label: 'Inativo' }
+        ]}
+        class_name="w-full"
+        on:change={(event) => {
+          circuito.ativo = String((event.currentTarget as HTMLInputElement | null)?.value || 'false') === 'true';
+        }}
+      />
 
       <div class="md:col-span-2">
         <FieldTextarea
@@ -241,14 +239,17 @@
           {/if}
         </div>
       {/each}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
+        color="financeiro"
+        class_name="mt-4 justify-start !px-0 text-financeiro-600 hover:!bg-transparent hover:!text-financeiro-700"
         on:click={addDestino}
-        class="flex items-center gap-2 text-financeiro-600 hover:text-financeiro-700 font-medium text-sm mt-4"
       >
         <Plus size={18} />
         Adicionar Destino
-      </button>
+      </Button>
     </div>
   </Card>
 
@@ -291,29 +292,27 @@
             <div class="flex items-center gap-4">
               <span class="text-sm font-medium text-slate-700">Refeições incluídas:</span>
               {#each ['Café', 'Almoço', 'Jantar'] as refeicao}
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={dia.refeicoes.includes(refeicao)}
-                    on:change={() => toggleRefeicao(index, refeicao)}
-                    class="w-4 h-4 text-financeiro-600 rounded"
-                  />
-                  <span class="text-sm text-slate-600">{refeicao}</span>
-                </label>
+                <FieldCheckbox
+                  label={refeicao}
+                  checked={dia.refeicoes.includes(refeicao)}
+                  on:change={() => toggleRefeicao(index, refeicao)}
+                />
               {/each}
             </div>
           </div>
         </div>
       {/each}
       
-      <button
+      <Button
         type="button"
+        variant="outline"
+        color="financeiro"
+        class_name="w-full justify-center border-2 border-dashed border-financeiro-300 py-3 text-financeiro-600 hover:!border-financeiro-500 hover:!bg-financeiro-50"
         on:click={addDiaRoteiro}
-        class="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-financeiro-300 text-financeiro-600 hover:border-financeiro-500 hover:bg-financeiro-50 rounded-lg transition-colors font-medium"
       >
         <Plus size={20} />
         Adicionar Dia
-      </button>
+      </Button>
     </div>
   </Card>
 

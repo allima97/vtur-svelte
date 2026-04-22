@@ -173,13 +173,13 @@
     const clientName = String(params.primeiroNome || params.nomeCompleto || '').trim();
     if (clientName) q.set('cliente_nome_literal', clientName.endsWith(',') ? clientName : `${clientName},`);
     if (params.mensagem) q.set('corpo', params.mensagem);
-    q.set('footer_lead', params.assinatura.linha1 || '');
+    q.set('footer_lead', '');
     if (params.assinatura.linha2) q.set('assinatura', params.assinatura.linha2);
     q.set('cargo_consultor', params.assinatura.linha3 || '');
-    q.set('footer_lead_font_size', String(params.assinatura.linha1_font_size || 40));
+    q.set('footer_lead_font_size', '40');
     q.set('consultant_font_size', String(params.assinatura.linha2_font_size || 40));
     q.set('consultant_role_font_size', String(params.assinatura.linha3_font_size || 24));
-    q.set('footer_lead_italic', params.assinatura.linha1_italic ? '1' : '0');
+    q.set('footer_lead_italic', '0');
     q.set('consultant_italic', params.assinatura.linha2_italic ? '1' : '0');
     q.set('consultant_role_italic', params.assinatura.linha3_italic ? '1' : '0');
     q.set('signature_font_size', String(params.assinatura.linha2_font_size || 40));
@@ -302,9 +302,9 @@
       // Pré-preenche assinatura com dados salvos
       if (savedSignature) {
         assinatura = {
-          linha1: (savedSignature as any).linha1 || '',
-          linha1_font_size: (savedSignature as any).linha1_font_size || 40,
-          linha1_italic: Boolean((savedSignature as any).linha1_italic),
+          linha1: '',
+          linha1_font_size: 40,
+          linha1_italic: false,
           linha2: (savedSignature as any).linha2 || (data.settings?.consultor_nome || ''),
           linha2_font_size: (savedSignature as any).linha2_font_size || 40,
           linha2_italic: Boolean((savedSignature as any).linha2_italic),
@@ -494,13 +494,14 @@
   <!-- Wizard steps indicator -->
   <div class="mb-6 flex items-center gap-2">
     {#each ['1. Arte', '2. Mensagem', '3. Prévia'] as step, i}
-      <button
-        class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors
-          {wizardStep === i ? 'bg-blue-600 text-white' : wizardStep > i ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}"
+      <Button
+        variant={wizardStep === i ? 'primary' : wizardStep > i ? 'outline' : 'outline'}
+        size="sm"
+        color={wizardStep > i ? 'green' : 'crm'}
         on:click={() => (wizardStep = i)}
       >
         {step}
-      </button>
+      </Button>
       {#if i < 2}
         <div class="h-px w-4 bg-slate-200"></div>
       {/if}
@@ -515,13 +516,15 @@
         <!-- Filter chips -->
         <div class="flex flex-wrap gap-1.5">
           {#each filterOptions as opt}
-            <button
-              class="rounded-full px-3 py-1 text-xs font-medium transition-colors
-                {temaFilter === opt.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
+            <Button
+              variant={temaFilter === opt.value ? 'primary' : 'outline'}
+              size="xs"
+              color="crm"
+              class_name="rounded-full"
               on:click={() => (temaFilter = opt.value)}
             >
               {opt.label}
-            </button>
+            </Button>
           {/each}
         </div>
       </div>
@@ -660,13 +663,15 @@
             <p class="mb-1.5 text-sm font-medium text-slate-700">Texto rápido</p>
             <div class="flex flex-wrap gap-1.5">
               {#each activeMessages.slice(0, 8) as tpl}
-                <button
-                  class="rounded-full border px-2.5 py-1 text-xs transition-colors
-                    {selectedMessageTemplateId === tpl.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'}"
+                <Button
+                  variant={selectedMessageTemplateId === tpl.id ? 'primary' : 'outline'}
+                  size="xs"
+                  color="crm"
+                  class_name="rounded-full"
                   on:click={() => selectMessageTemplate(tpl)}
                 >
                   {tpl.nome}
-                </button>
+                </Button>
               {/each}
             </div>
           </div>
@@ -711,7 +716,6 @@
           </div>
           <div class="space-y-2">
             {#each [
-              { key: 'linha1' as const, sizeKey: 'linha1_font_size' as const, italicKey: 'linha1_italic' as const, placeholder: 'Linha opcional (ex: Com carinho,)' },
               { key: 'linha2' as const, sizeKey: 'linha2_font_size' as const, italicKey: 'linha2_italic' as const, placeholder: 'Seu nome (obrigatório)' },
               { key: 'linha3' as const, sizeKey: 'linha3_font_size' as const, italicKey: 'linha3_italic' as const, placeholder: 'Seu cargo (opcional)' },
             ] as line, i}
@@ -730,19 +734,19 @@
                   class_name="w-24"
                   on:change={(event) => (assinatura[line.sizeKey] = Number((event.target as HTMLSelectElement).value))}
                 />
-                <button
-                  class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border text-sm font-medium transition-colors
-                    {assinatura[line.italicKey] ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}"
-                  on:click={() => (assinatura[line.italicKey] = !assinatura[line.italicKey])}
+                <Button
+                  variant={assinatura[line.italicKey] ? 'primary' : 'outline'}
+                  size="xs"
+                  color="crm"
                   title="Itálico"
-                  type="button"
+                  on:click={() => (assinatura[line.italicKey] = !assinatura[line.italicKey])}
                 >
                   <em>I</em>
-                </button>
+                </Button>
               </div>
             {/each}
           </div>
-          <p class="mt-1 text-xs text-slate-400">Máx. 3 linhas · 20 palavras no total</p>
+          <p class="mt-1 text-xs text-slate-400">Máx. 2 linhas · 20 palavras no total</p>
         </div>
 
         <div class="flex justify-between">
@@ -854,7 +858,7 @@
           </div>
           <div class="flex gap-2">
             <dt class="w-24 flex-shrink-0 text-slate-500">Assinatura:</dt>
-            <dd class="font-medium text-slate-800">{[assinatura.linha1, assinatura.linha2, assinatura.linha3].filter(Boolean).join(' · ') || '—'}</dd>
+            <dd class="font-medium text-slate-800">{[assinatura.linha2, assinatura.linha3].filter(Boolean).join(' · ') || '—'}</dd>
           </div>
         </dl>
 

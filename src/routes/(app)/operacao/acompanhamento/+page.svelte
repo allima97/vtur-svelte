@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { CalendarDays, ExternalLink, Loader2, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
@@ -212,37 +213,31 @@
 
 <Card color="operacao" class="mb-6">
   <div class="grid grid-cols-1 lg:grid-cols-[1.6fr_repeat(3,minmax(0,1fr))] gap-4">
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="follow-search">Busca</label>
-      <div class="relative">
-        <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          id="follow-search"
-          bind:value={searchQuery}
-          class="vtur-input w-full pl-9"
-          placeholder="Cliente, destino ou texto do follow-up"
-        />
-      </div>
-    </div>
+    <FieldInput
+      id="follow-search"
+      label="Busca"
+      bind:value={searchQuery}
+      class_name="w-full"
+      placeholder="Cliente, destino ou texto do follow-up"
+      icon={Search}
+    />
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="follow-status">Status</label>
-      <select id="follow-status" bind:value={statusFilter} class="vtur-input w-full">
-        <option value="abertos">Abertos</option>
-        <option value="todos">Todos</option>
-        <option value="fechados">Fechados</option>
-      </select>
-    </div>
+    <FieldSelect
+      id="follow-status"
+      label="Status"
+      bind:value={statusFilter}
+      options={[
+        { value: 'abertos', label: 'Abertos' },
+        { value: 'todos', label: 'Todos' },
+        { value: 'fechados', label: 'Fechados' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="follow-start">Inicio</label>
-      <input id="follow-start" type="date" bind:value={inicio} class="vtur-input w-full" />
-    </div>
+    <FieldInput id="follow-start" label="Inicio" type="date" bind:value={inicio} class_name="w-full" />
 
-    <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="follow-end">Fim</label>
-      <input id="follow-end" type="date" bind:value={fim} class="vtur-input w-full" />
-    </div>
+    <FieldInput id="follow-end" label="Fim" type="date" bind:value={fim} class_name="w-full" />
   </div>
 
   <div class="mt-4 flex flex-wrap gap-2">
@@ -325,22 +320,17 @@
         </div>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="follow-text">Texto do follow-up</label>
-        <textarea
-          id="follow-text"
-          bind:value={form.texto}
-          class="vtur-input w-full"
-          rows="6"
-          placeholder="Registre aqui o retorno operacional, feedback do cliente e proximos passos."
-        ></textarea>
-      </div>
+      <FieldTextarea
+        id="follow-text"
+        label="Texto do follow-up"
+        bind:value={form.texto}
+        class_name="w-full"
+        rows={6}
+        placeholder="Registre aqui o retorno operacional, feedback do cliente e proximos passos."
+      />
 
       <div class="flex flex-wrap items-center gap-4">
-        <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input type="checkbox" bind:checked={form.fechado} class="rounded border-slate-300" />
-          Marcar follow-up como fechado
-        </label>
+        <FieldCheckbox label="Marcar follow-up como fechado" bind:checked={form.fechado} color="operacao" />
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">

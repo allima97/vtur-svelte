@@ -2,6 +2,7 @@
   import { supabase } from '$lib/db/supabase';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-svelte';
 
   let email = '';
@@ -91,23 +92,15 @@
         {/if}
 
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-          <div>
-            <label for="email" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="email"
-                type="email"
-                bind:value={email}
-                class="vtur-input pl-10 w-full"
-                placeholder="seu@email.com"
-                disabled={loading}
-                autocomplete="email"
-              />
-            </div>
-          </div>
+          <FieldInput
+            label="E-mail"
+            bind:value={email}
+            type="email"
+            placeholder="seu@email.com"
+            disabled={loading}
+            autocomplete="email"
+            icon={Mail}
+          />
 
           <Button type="submit" variant="primary" size="lg" loading={loading || cooldown > 0} class_name="w-full justify-center">
             {cooldown > 0 ? `Aguarde ${cooldown}s...` : 'Enviar link de recuperação'}

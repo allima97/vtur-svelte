@@ -30,7 +30,7 @@
     bind:value
     {disabled}
     {required}
-    class="text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+    class="vtur-input text-sm {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
     on:change
     on:blur
   >

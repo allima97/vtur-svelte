@@ -5,6 +5,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { AlertCircle, Shield, KeyRound } from 'lucide-svelte';
 
   let codigo = '';
@@ -130,35 +131,27 @@
         {/if}
 
         <div class="space-y-4">
-          <div>
-            <label for="mfa-code" class="block text-sm font-medium text-slate-700 mb-1">Código de verificação</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <KeyRound size={18} class="text-slate-400" />
-              </div>
-              <input
-                id="mfa-code"
-                type="text"
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                bind:value={codigo}
-                on:input={(e) => { codigo = normalizeCodigo((e.currentTarget as HTMLInputElement).value); }}
-                on:keydown={handleKeydown}
-                class="vtur-input pl-10 w-full text-center text-2xl tracking-widest font-mono"
-                placeholder="000000"
-                maxlength="6"
-                disabled={verificando}
-              />
-            </div>
-            <p class="mt-1 text-xs text-slate-500">Abra o aplicativo autenticador (Google Authenticator, Authy, etc.) e informe o código de 6 dígitos.</p>
-          </div>
+          <FieldInput
+            label="Código de verificação"
+            bind:value={codigo}
+            type="text"
+            autocomplete="one-time-code"
+            on:input={(e) => { codigo = normalizeCodigo((e.currentTarget as HTMLInputElement).value); }}
+            on:keydown={handleKeydown}
+            placeholder="000000"
+            maxlength={6}
+            disabled={verificando}
+            icon={KeyRound}
+            helper="Abra o aplicativo autenticador (Google Authenticator, Authy, etc.) e informe o código de 6 dígitos."
+            class_name="[&_input]:text-center [&_input]:text-2xl [&_input]:tracking-widest [&_input]:font-mono"
+          />
 
           <Button
             type="button"
             variant="primary"
             size="lg"
             loading={verificando}
-            class_name="w-full justify-center"
+            class_name="w-full justify-center mt-6"
             on:click={verificar}
           >
             Verificar

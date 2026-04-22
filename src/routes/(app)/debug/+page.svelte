@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
   let debugData: any = null;
@@ -38,23 +39,23 @@
 </svelte:head>
 
 <div class="p-6">
-  <PageHeader
-    title="Debug de Permissões"
-    subtitle="Informações de diagnóstico do usuário"
-    icon={Bug}
-    color="gray"
-  >
-    <svelte:fragment slot="actions">
-      <button 
-        on:click={loadDebugData}
-        class="vtur-btn-secondary flex items-center gap-2"
-        disabled={loading}
-      >
-        <RefreshCw size={18} class={loading ? 'animate-spin' : ''} />
-        Atualizar
-      </button>
-    </svelte:fragment>
-  </PageHeader>
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <PageHeader
+        title="Debug de Permissões"
+        subtitle="Informações de diagnóstico do usuário"
+        color="gray"
+      />
+    </div>
+    <Button 
+      variant="secondary"
+      disabled={loading}
+      on:click={loadDebugData}
+    >
+      <RefreshCw size={18} class={loading ? 'animate-spin' : ''} />
+      Atualizar
+    </Button>
+  </div>
 
   {#if loading}
     <div class="flex items-center justify-center py-12">

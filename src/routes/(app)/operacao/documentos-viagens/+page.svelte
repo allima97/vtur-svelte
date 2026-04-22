@@ -160,14 +160,16 @@
   <svelte:fragment slot="row-actions" let:row>
     <div class="flex items-center gap-1">
       {#if canDelete}
-        <button
-          on:click|stopPropagation={() => deleteDoc(row.id)}
-          class="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+        <Button
+          variant="ghost"
+          size="xs"
+          color="operacao"
           title="Excluir"
           disabled={deletingId === row.id}
+          on:click={() => deleteDoc(row.id)}
         >
           <Trash2 size={15} />
-        </button>
+        </Button>
       {/if}
     </div>
   </svelte:fragment>

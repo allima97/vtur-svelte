@@ -114,6 +114,10 @@
     min-width: 0;
   }
 
+  .vtur-sidebar--collapsed ~ .vtur-layout {
+    margin-left: calc(1rem + 90px + 1rem);
+  }
+
   .vtur-page-wrap {
     min-width: 0;
   }
@@ -277,6 +281,11 @@
       radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 42%);
     color: #e2e8f0;
     box-shadow: 0 18px 42px rgba(2, 6, 23, 0.28);
+    transition: width 0.3s ease;
+  }
+
+  .vtur-sidebar--collapsed {
+    width: 90px;
   }
 
   .vtur-sidebar--mobile {
@@ -288,6 +297,28 @@
     border-radius: 0;
     border-inline: 0;
     box-shadow: 0 20px 44px rgba(2, 6, 23, 0.34);
+  }
+
+  .vtur-sidebar__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  }
+
+  .vtur-sidebar__toggle-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease;
+  }
+
+  .vtur-sidebar__toggle-button:hover {
+    color: #f8fafc;
+    transform: scale(1.1);
   }
 
   .vtur-sidebar__header {
@@ -429,6 +460,29 @@
     text-overflow: ellipsis;
   }
 
+  .vtur-sidebar--collapsed .vtur-sidebar__item-label {
+    display: none;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__item {
+    justify-content: center;
+    padding-inline: 0.4rem;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__item-main {
+    width: 100%;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__section-title {
+    display: none;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__badge {
+    display: none;
+  }
+
   .vtur-sidebar__badge {
     display: inline-flex;
     align-items: center;
@@ -450,6 +504,14 @@
     flex-direction: column;
     gap: 0.45rem;
     margin-bottom: 0.9rem;
+  }
+
+  .vtur-sidebar__quick-actions .vtur-sidebar__item {
+    justify-content: flex-start;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__quick-actions .vtur-sidebar__item {
+    justify-content: center;
   }
 
   .vtur-sidebar__quick-link {
@@ -500,6 +562,14 @@
 
   .vtur-sidebar__profile-copy {
     min-width: 0;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__profile-copy {
+    display: none;
+  }
+
+  .vtur-sidebar--collapsed .vtur-sidebar__profile {
+    justify-content: center;
   }
 
   .vtur-sidebar__profile-name {

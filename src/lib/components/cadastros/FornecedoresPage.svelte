@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Building2, MapPin, Phone, Wallet, Plus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -168,36 +169,47 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
-    <div>
-      <label for="forn-busca" class="mb-1 block text-sm font-medium text-slate-700">Buscar</label>
-      <input id="forn-busca" bind:value={busca} class="vtur-input w-full" placeholder="Fantasia, razão social, responsável..." />
-    </div>
-    <div>
-      <label for="forn-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-      <select id="forn-status" bind:value={filtroStatus} class="vtur-input w-full">
-        <option value="">Todos</option>
-        <option value="ativo">Ativo</option>
-        <option value="inativo">Inativo</option>
-      </select>
-    </div>
-    <div>
-      <label for="forn-local" class="mb-1 block text-sm font-medium text-slate-700">Localização</label>
-      <select id="forn-local" bind:value={filtroLocalizacao} class="vtur-input w-full">
-        <option value="">Todas</option>
-        <option value="brasil">Brasil</option>
-        <option value="exterior">Exterior</option>
-      </select>
-    </div>
-    <div>
-      <label for="forn-fat" class="mb-1 block text-sm font-medium text-slate-700">Faturamento</label>
-      <select id="forn-fat" bind:value={filtroFaturamento} class="vtur-input w-full">
-        <option value="">Todos</option>
-        <option value="pre_pago">Pré-pago</option>
-        <option value="semanal">Semanal</option>
-        <option value="quinzenal">Quinzenal</option>
-        <option value="mensal">Mensal</option>
-      </select>
-    </div>
+    <FieldInput
+      id="forn-busca"
+      label="Buscar"
+      bind:value={busca}
+      placeholder="Fantasia, razão social, responsável..."
+    />
+    <FieldSelect
+      id="forn-status"
+      label="Status"
+      bind:value={filtroStatus}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todos' },
+        { value: 'ativo', label: 'Ativo' },
+        { value: 'inativo', label: 'Inativo' }
+      ]}
+    />
+    <FieldSelect
+      id="forn-local"
+      label="Localização"
+      bind:value={filtroLocalizacao}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todas' },
+        { value: 'brasil', label: 'Brasil' },
+        { value: 'exterior', label: 'Exterior' }
+      ]}
+    />
+    <FieldSelect
+      id="forn-fat"
+      label="Faturamento"
+      bind:value={filtroFaturamento}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todos' },
+        { value: 'pre_pago', label: 'Pré-pago' },
+        { value: 'semanal', label: 'Semanal' },
+        { value: 'quinzenal', label: 'Quinzenal' },
+        { value: 'mensal', label: 'Mensal' }
+      ]}
+    />
   </div>
 </Card>
 

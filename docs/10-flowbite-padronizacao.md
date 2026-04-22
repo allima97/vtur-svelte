@@ -81,7 +81,24 @@ Ondas já executadas nesta frente:
 Ajustes estruturais já feitos durante a migração:
 
 - `FieldInput` e `Input` corrigidos na raiz para não “sumirem” e para manterem ícones posicionados corretamente
+- `FieldInput`, `FieldSelect`, `FieldTextarea` e `Input` alinhados ao mesmo contrato visual de `vtur-input`, eliminando diferenças de border-radius entre wrappers e campos nativos
 - `operacao/vouchers/+page.svelte` alinhado ao fluxo novo em página, sem reabrir o editor de criação como modal sobreposto
+- `CalculatorModal` migrado para wrappers nos campos principais de cálculo; restou apenas o seletor de parcelas como controle nativo simples
+- `orcamentos/novo` migrou a grade principal de itens para `FieldInput` e `FieldSelect`; o autocomplete remoto de cliente permanece como exceção intencional
+- `vendas/nova` e `vendas/[id]/editar` agora reutilizam `CidadeAutocomplete` também no topo do formulário; restam como exceções visíveis apenas o autocomplete remoto de cliente e os botões estruturais do stepper
+- `DataTable` migrou busca, filtros e paginação para `FieldInput`, `FieldSelect` e `Button`; restam nativos apenas os checkboxes de seleção e o botão estrutural de ordenação no cabeçalho
+- `operacao/recados` migrou as buscas e as ações inline principais para `FieldInput` e `Button`; restam nativos apenas as abas e os itens estruturais do mural (threads/contatos)
+- `cadastros/circuitos` migrou filtros, exclusão da listagem, radios de status/guia e ações simples dos formulários para wrappers; restam apenas escolhas estruturais pontuais como a grade dinâmica do roteiro
+- `ModalAvisoCliente` e `ModalInteracaoQuote` migraram campos e ações principais para wrappers; os dois saíram da faixa crítica
+- `master/usuarios/+page` e `admin/usuarios/+page` migraram os filtros restantes para `FieldSelect`; as listagens saíram da faixa crítica
+- `DataTable` agora usa apenas wrappers também para seleção e ordenação, com a nova primitive `Checkbox`; o componente saiu da faixa crítica
+- `vendas/nova` e `vendas/[id]/editar` agora reutilizam também `ClienteAutocomplete` e `CidadeAutocomplete`; restaram apenas exceções estruturais pontuais fora da camada de UI
+- `operacao/recados` passou a usar wrappers também nas abas e itens interativos do mural, apoiado pela nova variante `unstyled` de `Button`; a tela saiu da faixa crítica
+- `orcamentos/roteiros/+page` migrou ação de exclusão e o modal de criação/edição para wrappers; a listagem saiu da faixa crítica
+- `orcamentos/roteiros/[id]` ficou sem `input/select/textarea/button` cru no formulário e nos modais auxiliares; a tela saiu da zona crítica da padronização
+- `relatorios/clientes`, `relatorios/vendas` e `operacao/acompanhamento` já tiveram filtros e campos principais de modal migrados para wrappers
+- `UnifiedDashboard` já teve os filtros superiores migrados para `FieldInput` e `FieldSelect`
+- `operacao/recados` já teve os compositores de mensagem migrados para `FieldTextarea`; restam buscas e ações estruturais próprias do mural
 
 ## Inventário rápido
 
@@ -158,18 +175,20 @@ Gaps ainda relevantes:
 
 ## Hotspots prioritários
 
+Hotspots recalculados após as ondas já concluídas. A lista antiga de `parametros/*`, `admin/*` e `master/*` ficou desatualizada porque vários desses arquivos já migraram quase tudo relevante.
+
 Arquivos que ainda concentram mais HTML cru relevante:
 
-1. `src/lib/components/modais/VoucherEditorModal.svelte`
-2. `src/routes/(app)/operacao/vouchers/novo/+page.svelte`
-3. `src/lib/components/cadastros/FornecedorForm.svelte`
-4. `src/routes/(app)/parametros/empresa/+page.svelte`
-5. `src/routes/(app)/financeiro/caixa/+page.svelte`
-6. `src/routes/(app)/parametros/tipo-produtos/+page.svelte`
-7. `src/routes/(app)/operacao/controle-sac/+page.svelte`
-8. `src/routes/(app)/clientes/[id]/+page.svelte`
-9. `src/routes/(app)/parametros/avisos/+page.svelte`
-10. `src/lib/components/cadastros/ProdutoOperacionalForm.svelte`
+1. `src/lib/components/cadastros/FornecedorForm.svelte` em autocomplete remoto de cidade
+2. `src/lib/components/vendas/CidadeAutocomplete.svelte`
+3. `src/lib/components/vendas/ClienteAutocomplete.svelte`
+4. `src/routes/(app)/parametros/integracoes/+page.svelte` em ações/documentação externas
+5. `src/routes/(app)/parametros/cambios/+page.svelte` em refinamentos de modal
+6. `src/routes/auth/nova-senha/+page.svelte`
+7. `src/routes/auth/recuperar-senha/+page.svelte`
+8. `src/routes/auth/mfa/+page.svelte`
+9. `src/routes/(app)/operacao/minhas-preferencias/+page.svelte` em autocomplete remoto
+10. `src/lib/components/ui/AlertMessage.svelte`
 
 ## Onde a padronização mais falta
 

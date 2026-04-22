@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
+  import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Calculator, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
@@ -49,14 +50,6 @@
   let saving = false;
   let showCalculator = false;
   let currentStep = 0;
-  let clienteInput = '';
-  let cidadeInput = '';
-  let showClienteOptions = false;
-  let showCidadeOptions = false;
-  let clienteSearchResults: Cliente[] = [];
-  let cidadeSearchResults: Option[] = [];
-  let clienteSearchTimer: ReturnType<typeof setTimeout> | null = null;
-  let cidadeSearchTimer: ReturnType<typeof setTimeout> | null = null;
   let ensuringCidadeId = '';
   let errors: Record<string, string> = {};
   let lastDestinoCidadeId = '';
@@ -201,12 +194,12 @@
         venda.cliente_id = orcamento.client_id;
         const clienteExistente = clientes.find(c => c.id === orcamento.client_id);
         if (!clienteExistente && orcamento.cliente) {
-          clientes = [...clientes, {
+          mergeClientes([{
             id: orcamento.client_id,
             nome: orcamento.cliente.nome,
             email: orcamento.cliente.email,
             telefone: orcamento.cliente.telefone
-          }];
+          }]);
         }
       }
       
@@ -368,6 +361,18 @@
     return `${cliente.nome}${cliente.cpf ? ` • ${cliente.cpf}` : ''}`;
   }
 
+  function mergeClientes(items: Cliente[]) {
+    if (!items.length) return;
+    const byId = new Map<string, Cliente>();
+    clientes.forEach((item) => byId.set(String(item.id), item));
+    items.forEach((item) => {
+      const id = String(item?.id || '').trim();
+      if (!id) return;
+      byId.set(id, { ...(byId.get(id) || {}), ...item });
+    });
+    clientes = Array.from(byId.values());
+  }
+
   function getCidadeLabel(cidade: Option) {
     const preferred = String(cidade.label || '').trim();
     if (preferred) return preferred;
@@ -459,122 +464,6 @@
       // Sem impacto funcional; mantemos a tela usavel.
     } finally {
       if (ensuringCidadeId === id) ensuringCidadeId = '';
-    }
-  }
-
-  function getClientesFiltrados(input: string) {
-    if (clienteSearchResults.length > 0) return clienteSearchResults;
-    const term = input.trim().toLowerCase();
-    if (!term) return clientes.slice(0, 30);
-    return clientes
-      .filter((item) => {
-        const haystack = [item.nome, item.email, item.telefone, item.whatsapp, item.cpf].join(' ').toLowerCase();
-        return haystack.includes(term);
-      })
-      .slice(0, 30);
-  }
-
-  function getCidadesFiltradas(input: string) {
-    if (cidadeSearchResults.length > 0) return sortCidades(cidadeSearchResults, input);
-    const term = normalizeLookup(input);
-    if (!term) return sortCidades(cidades).slice(0, 30);
-    return sortCidades(
-      cidades.filter((item) =>
-        normalizeLookup(
-          [item.nome, item.estado, item.uf, item.sigla, item.subdivisao_nome, item.subdivisao?.nome, item.subdivisao?.sigla]
-            .filter(Boolean)
-            .join(' ')
-        ).includes(term)
-      ),
-      input
-    ).slice(0, 30);
-  }
-
-  function applyClienteInput() {
-    const selected = clientes.find((item) => getClienteLabel(item) === clienteInput.trim());
-    venda.cliente_id = selected?.id || '';
-  }
-
-  function applyCidadeInput() {
-    const raw = cidadeInput.trim();
-    const normalized = normalizeLookup(raw);
-    const source = [...cidadeSearchResults, ...cidades];
-    const selected = source.find((item) => {
-      return (
-        normalizeLookup(getCidadeLabel(item)) === normalized ||
-        normalizeLookup(String(item.nome || '')) === normalized
-      );
-    });
-    venda.destino_cidade_id = selected?.id || '';
-    if (selected?.id) mergeCidades([selected]);
-  }
-
-  function selectCliente(cliente: Cliente) {
-    venda.cliente_id = cliente.id;
-    clienteInput = getClienteLabel(cliente);
-    clienteSearchResults = [];
-    showClienteOptions = false;
-  }
-
-  function selectCidade(cidade: Option) {
-    venda.destino_cidade_id = cidade.id;
-    cidadeInput = getCidadeLabel(cidade);
-    mergeCidades([cidade]);
-    cidadeSearchResults = [];
-    showCidadeOptions = false;
-  }
-
-  function onClienteBlur() {
-    setTimeout(() => {
-      showClienteOptions = false;
-      applyClienteInput();
-    }, 120);
-  }
-
-  function onCidadeBlur() {
-    setTimeout(() => {
-      showCidadeOptions = false;
-      applyCidadeInput();
-    }, 120);
-  }
-
-  async function searchClientesRemoto(term: string) {
-    const query = term.trim();
-    if (query.length < 2) {
-      clienteSearchResults = [];
-      return;
-    }
-    try {
-      const response = await fetch(`/api/v1/clientes?search=${encodeURIComponent(query)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
-      clienteSearchResults = Array.isArray(payload?.items) ? payload.items.slice(0, 30) : [];
-    } catch {
-      clienteSearchResults = [];
-    }
-  }
-
-  async function searchCidadesRemoto(term: string) {
-    const query = term.trim();
-    if (query.length < 2) {
-      cidadeSearchResults = [];
-      return;
-    }
-    try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(query)}&limite=30`);
-      if (!response.ok) return;
-      const payload = await response.json();
-      if (Array.isArray(payload)) {
-        cidadeSearchResults = payload.slice(0, 30);
-        mergeCidades(cidadeSearchResults);
-      } else if (Array.isArray(payload?.items)) {
-        cidadeSearchResults = payload.items.slice(0, 30);
-        mergeCidades(cidadeSearchResults);
-      } else {
-        cidadeSearchResults = [];
-      }
-    } catch {
-      cidadeSearchResults = [];
     }
   }
 
@@ -723,15 +612,8 @@
   }
 
   $: clienteSelecionado = getClienteSelecionado();
-  $: if (clienteSelecionado && clienteInput !== getClienteLabel(clienteSelecionado)) {
-    clienteInput = getClienteLabel(clienteSelecionado);
-  }
-  $: cidadeSelecionada = cidades.find((item) => item.id === venda.destino_cidade_id) || null;
   $: if (venda.destino_cidade_id) {
     ensureCidadeLoaded(venda.destino_cidade_id);
-  }
-  $: if (cidadeSelecionada && cidadeInput !== getCidadeLabel(cidadeSelecionada)) {
-    cidadeInput = getCidadeLabel(cidadeSelecionada);
   }
   $: totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
   $: totalTaxas = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);
@@ -777,18 +659,18 @@
 {:else}
   <div class="mb-6 rounded-[14px] border border-slate-200 bg-white p-4">
     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <button type="button" class="rounded-xl border px-4 py-3 text-left {currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200'}" on:click={() => goStep(0)}>
+      <Button type="button" variant="secondary" class_name={`min-h-[76px] w-full items-start rounded-xl border px-4 py-3 text-left ${currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700 hover:!bg-vendas-50' : 'border-slate-200'}`} on:click={() => goStep(0)}>
         <p class="text-xs font-semibold uppercase tracking-wide">Etapa 1</p>
         <p class="font-semibold">Dados da venda</p>
-      </button>
-      <button type="button" class="rounded-xl border px-4 py-3 text-left {currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200'}" on:click={() => goStep(1)}>
+      </Button>
+      <Button type="button" variant="secondary" class_name={`min-h-[76px] w-full items-start rounded-xl border px-4 py-3 text-left ${currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700 hover:!bg-vendas-50' : 'border-slate-200'}`} on:click={() => goStep(1)}>
         <p class="text-xs font-semibold uppercase tracking-wide">Etapa 2</p>
         <p class="font-semibold">Recibos</p>
-      </button>
-      <button type="button" class="rounded-xl border px-4 py-3 text-left {currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200'}" on:click={() => goStep(2)}>
+      </Button>
+      <Button type="button" variant="secondary" class_name={`min-h-[76px] w-full items-start rounded-xl border px-4 py-3 text-left ${currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700 hover:!bg-vendas-50' : 'border-slate-200'}`} on:click={() => goStep(2)}>
         <p class="text-xs font-semibold uppercase tracking-wide">Etapa 3</p>
         <p class="font-semibold">Forma de pagamento</p>
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -820,43 +702,15 @@
           {/if}
 
           <div class="md:col-span-2">
-            <label for="venda-nova-cliente" class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>
-            <div class="relative">
-              <input
-                id="venda-nova-cliente"
-                bind:value={clienteInput}
-                on:input={(event) => {
-                  const term = String((event.currentTarget as HTMLInputElement)?.value || '');
-                  clienteInput = term;
-                  venda.cliente_id = '';
-                  showClienteOptions = true;
-                  if (clienteSearchTimer) clearTimeout(clienteSearchTimer);
-                  clienteSearchTimer = setTimeout(() => searchClientesRemoto(term), 180);
-                }}
-                on:focus={() => (showClienteOptions = true)}
-                on:blur={onClienteBlur}
-                class="vtur-input w-full"
-                class:border-red-500={errors.cliente_id}
-                placeholder="Digite para buscar cliente"
-              />
-              {#if showClienteOptions}
-                <div class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                  {#if getClientesFiltrados(clienteInput).length === 0}
-                    <div class="px-3 py-2 text-sm text-slate-500">Nenhum cliente encontrado</div>
-                  {:else}
-                    {#each getClientesFiltrados(clienteInput) as cliente}
-                      <button
-                        type="button"
-                        class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
-                        on:mousedown|preventDefault={() => selectCliente(cliente)}
-                      >
-                        {getClienteLabel(cliente)}
-                      </button>
-                    {/each}
-                  {/if}
-                </div>
-              {/if}
-            </div>
+            <ClienteAutocomplete
+              id="venda-nova-cliente"
+              label="Cliente"
+              required={true}
+              bind:value={venda.cliente_id}
+              clients={clientes}
+              error={errors.cliente_id}
+              on:loaded={(event) => mergeClientes(event.detail)}
+            />
             {#if clienteSelecionado}
               <p class="mt-1 text-xs text-slate-500">{clienteSelecionado.email || clienteSelecionado.whatsapp || clienteSelecionado.telefone || 'Cliente selecionado'}</p>
             {/if}
@@ -864,45 +718,16 @@
           </div>
 
           <div>
-            <label for="venda-nova-cidade" class="mb-1 block text-sm font-medium text-slate-700">Cidade padrão da venda</label>
-            <div class="relative">
-              <input
-                id="venda-nova-cidade"
-                bind:value={cidadeInput}
-                on:input={(event) => {
-                  const term = String((event.currentTarget as HTMLInputElement)?.value || '');
-                  cidadeInput = term;
-                  venda.destino_cidade_id = '';
-                  showCidadeOptions = true;
-                  if (cidadeSearchTimer) clearTimeout(cidadeSearchTimer);
-                  cidadeSearchTimer = setTimeout(() => searchCidadesRemoto(term), 180);
-                }}
-                on:focus={() => (showCidadeOptions = true)}
-                on:blur={onCidadeBlur}
-                class="vtur-input w-full"
-                class:border-red-500={errors.destino_cidade_id}
-                placeholder="Digite a cidade (ex.: Orlando)"
-              />
-              {#if showCidadeOptions}
-                <div class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                  {#if getCidadesFiltradas(cidadeInput).length === 0}
-                    <div class="px-3 py-2 text-sm text-slate-500">Nenhuma cidade encontrada</div>
-                  {:else}
-                    {#each getCidadesFiltradas(cidadeInput) as cidade}
-                      <button
-                        type="button"
-                        class="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-slate-50"
-                        on:mousedown|preventDefault={() => selectCidade(cidade)}
-                      >
-                        {getCidadeLabel(cidade)}
-                      </button>
-                    {/each}
-                  {/if}
-                </div>
-              {/if}
-            </div>
+            <CidadeAutocomplete
+              id="venda-nova-cidade"
+              label="Cidade padrão da venda"
+              placeholder="Digite a cidade (ex.: Orlando)"
+              bind:value={venda.destino_cidade_id}
+              cities={cidades}
+              error={errors.destino_cidade_id}
+              on:loaded={(event) => mergeCidades(event.detail)}
+            />
             <p class="mt-1 text-xs text-slate-500">Use esta cidade em todos os recibos por padrão. Você pode trocar em recibos específicos na etapa seguinte.</p>
-            {#if errors.destino_cidade_id}<p class="mt-1 text-xs text-red-600">{errors.destino_cidade_id}</p>{/if}
           </div>
 
           <div>
@@ -1111,9 +936,15 @@
                   <FieldInput id={`venda-nova-pagamento-total-${index}`} label="Total" bind:value={pagamento.valor_total} class_name="w-full" />
                 </div>
                 <div>
-                  <label for={`venda-nova-pagamento-parcelas-${index}`} class="mb-1 block text-sm font-medium text-slate-700">Qtd. parcelas</label>
                   <div class="flex gap-2">
-                    <input id={`venda-nova-pagamento-parcelas-${index}`} type="number" min="1" bind:value={pagamento.parcelas_qtd} class="vtur-input w-full" />
+                    <FieldInput
+                      id={`venda-nova-pagamento-parcelas-${index}`}
+                      label="Qtd. parcelas"
+                      type="number"
+                      min="1"
+                      bind:value={pagamento.parcelas_qtd}
+                      class_name="w-full"
+                    />
                     <Button type="button" variant="secondary" on:click={() => rebuildParcelas(index)}>Gerar</Button>
                   </div>
                 </div>
@@ -1139,9 +970,9 @@
                   <div class="space-y-2">
                     {#each pagamento.parcelas as parcela, parcelaIndex}
                       <div class="grid grid-cols-1 gap-2 md:grid-cols-4">
-                        <input bind:value={parcela.numero} class="vtur-input w-full" placeholder="Número" />
-                        <input bind:value={parcela.valor} class="vtur-input w-full" placeholder="Valor" />
-                        <input type="date" bind:value={parcela.vencimento} class="vtur-input w-full" />
+                        <FieldInput bind:value={parcela.numero} class_name="w-full" placeholder="Número" />
+                        <FieldInput bind:value={parcela.valor} class_name="w-full" placeholder="Valor" />
+                        <FieldInput type="date" bind:value={parcela.vencimento} class_name="w-full" />
                         <Button type="button" variant="danger" on:click={() => removeParcela(index, parcelaIndex)}>Remover</Button>
                       </div>
                     {/each}

@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Package, MapPin, Globe2, Hotel, Plus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -205,35 +206,44 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
-    <div>
-      <label for="produtos-busca" class="mb-1 block text-sm font-medium text-slate-700">Buscar</label>
-      <input id="produtos-busca" bind:value={search} class="vtur-input w-full" placeholder="Nome, destino, tipo, cidade..." />
-    </div>
-    <div>
-      <label for="produtos-tipo" class="mb-1 block text-sm font-medium text-slate-700">Tipo</label>
-      <select id="produtos-tipo" bind:value={filtroTipo} class="vtur-input w-full">
-        <option value="">Todos</option>
-        {#each tipos as tipo}
-          <option value={tipo.id}>{tipo.nome || tipo.tipo}</option>
-        {/each}
-      </select>
-    </div>
-    <div>
-      <label for="produtos-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-      <select id="produtos-status" bind:value={filtroStatus} class="vtur-input w-full">
-        <option value="">Todos</option>
-        <option value="ativo">Ativo</option>
-        <option value="inativo">Inativo</option>
-      </select>
-    </div>
-    <div>
-      <label for="produtos-abrangencia" class="mb-1 block text-sm font-medium text-slate-700">Abrangência</label>
-      <select id="produtos-abrangencia" bind:value={filtroAbrangencia} class="vtur-input w-full">
-        <option value="">Todas</option>
-        <option value="global">Global</option>
-        <option value="cidade">Por cidade</option>
-      </select>
-    </div>
+    <FieldInput
+      id="produtos-busca"
+      label="Buscar"
+      bind:value={search}
+      placeholder="Nome, destino, tipo, cidade..."
+    />
+    <FieldSelect
+      id="produtos-tipo"
+      label="Tipo"
+      bind:value={filtroTipo}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todos' },
+        ...tipos.map((tipo) => ({ value: tipo.id, label: tipo.nome || tipo.tipo || '-' }))
+      ]}
+    />
+    <FieldSelect
+      id="produtos-status"
+      label="Status"
+      bind:value={filtroStatus}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todos' },
+        { value: 'ativo', label: 'Ativo' },
+        { value: 'inativo', label: 'Inativo' }
+      ]}
+    />
+    <FieldSelect
+      id="produtos-abrangencia"
+      label="Abrangência"
+      bind:value={filtroAbrangencia}
+      placeholder={null}
+      options={[
+        { value: '', label: 'Todas' },
+        { value: 'global', label: 'Global' },
+        { value: 'cidade', label: 'Por cidade' }
+      ]}
+    />
   </div>
 </Card>
 

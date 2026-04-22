@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { Button } from '$lib/components/ui';
 </script>
 
 <svelte:head>
@@ -23,18 +24,21 @@
     </p>
 
     <div class="flex flex-col sm:flex-row gap-3 justify-center">
-      <button
-        class="inline-flex items-center justify-center rounded-xl bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600 transition-colors"
+      <Button
+        variant="primary"
+        color="orange"
+        size="lg"
         on:click={() => goto('/dashboard')}
       >
         Ir para o início
-      </button>
-      <button
-        class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+      </Button>
+      <Button
+        variant="outline"
+        size="lg"
         on:click={() => history.back()}
       >
         Voltar
-      </button>
+      </Button>
     </div>
   </div>
 </div>

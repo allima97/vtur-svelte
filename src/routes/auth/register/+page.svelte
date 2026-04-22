@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import { supabase } from '$lib/db/supabase';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import { FieldInput } from '$lib/components/ui';
   import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
 
   let nome = '';
@@ -10,6 +10,7 @@
   let password = '';
   let confirmPassword = '';
   let showPassword = false;
+  let showConfirmPassword = false;
   let loading = false;
   let error: string | null = null;
   let success = false;
@@ -79,43 +80,59 @@
         {/if}
 
         <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-          <div>
-            <label for="reg-nome" class="block text-sm font-medium text-slate-700 mb-1">Nome completo</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <User size={18} class="text-slate-400" />
-              </div>
-              <input id="reg-nome" type="text" bind:value={nome} class="vtur-input pl-10 w-full" placeholder="Seu nome" disabled={loading} />
-            </div>
-          </div>
+          <FieldInput
+            id="reg-nome"
+            label="Nome completo"
+            type="text"
+            bind:value={nome}
+            placeholder="Seu nome"
+            icon={User}
+            autocomplete="name"
+            disabled={loading}
+            class_name="w-full"
+          />
 
-          <div>
-            <label for="reg-email" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail size={18} class="text-slate-400" />
-              </div>
-              <input id="reg-email" type="email" bind:value={email} class="vtur-input pl-10 w-full" placeholder="seu@email.com" disabled={loading} autocomplete="email" />
-            </div>
-          </div>
+          <FieldInput
+            id="reg-email"
+            label="E-mail"
+            type="email"
+            bind:value={email}
+            placeholder="seu@email.com"
+            icon={Mail}
+            autocomplete="email"
+            disabled={loading}
+            class_name="w-full"
+          />
 
-          <div>
-            <label for="reg-password" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock size={18} class="text-slate-400" />
-              </div>
-              <input id="reg-password" type={showPassword ? 'text' : 'password'} bind:value={password} class="vtur-input pl-10 pr-10 w-full" placeholder="Mínimo 6 caracteres" disabled={loading} />
-              <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600" on:click={() => (showPassword = !showPassword)}>
-                {#if showPassword}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
-              </button>
-            </div>
-          </div>
+          <FieldInput
+            id="reg-password"
+            label="Senha"
+            type={showPassword ? 'text' : 'password'}
+            bind:value={password}
+            placeholder="Mínimo 6 caracteres"
+            icon={Lock}
+            actionIcon={showPassword ? EyeOff : Eye}
+            actionLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            onAction={() => (showPassword = !showPassword)}
+            autocomplete="new-password"
+            disabled={loading}
+            class_name="w-full"
+          />
 
-          <div>
-            <label for="reg-confirm" class="block text-sm font-medium text-slate-700 mb-1">Confirmar senha</label>
-            <input id="reg-confirm" type="password" bind:value={confirmPassword} class="vtur-input w-full" placeholder="Repita a senha" disabled={loading} />
-          </div>
+          <FieldInput
+            id="reg-confirm"
+            label="Confirmar senha"
+            type={showConfirmPassword ? 'text' : 'password'}
+            bind:value={confirmPassword}
+            placeholder="Repita a senha"
+            icon={Lock}
+            actionIcon={showConfirmPassword ? EyeOff : Eye}
+            actionLabel={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
+            onAction={() => (showConfirmPassword = !showConfirmPassword)}
+            autocomplete="new-password"
+            disabled={loading}
+            class_name="w-full"
+          />
 
           <Button type="submit" variant="primary" size="lg" loading={loading} class_name="w-full justify-center">
             Criar conta

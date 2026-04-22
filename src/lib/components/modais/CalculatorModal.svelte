@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { X, Calculator, Percent, DollarSign, CreditCard } from 'lucide-svelte';
+  import { X, Calculator, Percent, DollarSign } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   
   // Props
@@ -42,6 +43,7 @@
   $: comissaoValor = (valorFinal * calc.comissaoPercentual / 100);
   
   $: valorParcela = calc.parcelas > 1 ? (valorFinal / calc.parcelas) : valorFinal;
+  $: parcelasValue = String(calc.parcelas);
   
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat('pt-BR', {
@@ -109,14 +111,16 @@
             <p class="text-sm text-slate-500">Calcule comissões, descontos e parcelas</p>
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          class_name="p-2"
+          ariaLabel="Fechar calculadora"
           on:click={onClose}
-          aria-label="Fechar calculadora"
-          class="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X size={20} />
-        </button>
+        </Button>
       </div>
       
       <!-- Content -->
@@ -125,23 +129,16 @@
           <!-- Coluna Esquerda - Entradas -->
           <div class="space-y-4">
             <!-- Valor Bruto -->
-            <div>
-              <label for="calc-valor-bruto" class="block text-sm font-medium text-slate-700 mb-1">
-                Valor Bruto
-              </label>
-              <div class="relative">
-                <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="calc-valor-bruto"
-                  type="number"
-                  bind:value={calc.valorBruto}
-                  min="0"
-                  step="0.01"
-                  class="vtur-input pl-10 w-full"
-                  placeholder="0,00"
-                />
-              </div>
-            </div>
+            <FieldInput
+              id="calc-valor-bruto"
+              label="Valor Bruto"
+              type="number"
+              bind:value={calc.valorBruto}
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              icon={DollarSign}
+            />
             
             <!-- Desconto -->
             <fieldset>
@@ -149,122 +146,104 @@
                 Desconto
               </legend>
               <div class="flex gap-2 mb-2">
-                <button
+                <Button
                   type="button"
+                  variant={calc.descontoTipo === 'percentual' ? 'primary' : 'secondary'}
+                  color="vendas"
+                  class_name="flex-1"
                   on:click={() => calc.descontoTipo = 'percentual'}
-                  class="flex-1 py-2 px-3 text-sm rounded-lg border transition-colors {calc.descontoTipo === 'percentual' ? 'bg-vendas-100 border-vendas-300 text-vendas-700' : 'bg-white border-slate-200 text-slate-600'}"
                 >
                   <Percent size={14} class="inline mr-1" />
                   %
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={calc.descontoTipo === 'valor' ? 'primary' : 'secondary'}
+                  color="vendas"
+                  class_name="flex-1"
                   on:click={() => calc.descontoTipo = 'valor'}
-                  class="flex-1 py-2 px-3 text-sm rounded-lg border transition-colors {calc.descontoTipo === 'valor' ? 'bg-vendas-100 border-vendas-300 text-vendas-700' : 'bg-white border-slate-200 text-slate-600'}"
                 >
                   <DollarSign size={14} class="inline mr-1" />
                   R$
-                </button>
+                </Button>
               </div>
               {#if calc.descontoTipo === 'percentual'}
-                <div class="relative">
-                  <Percent size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="number"
-                    bind:value={calc.descontoPercentual}
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    class="vtur-input pl-10 w-full"
-                    placeholder="0,00"
-                  />
-                </div>
+                <FieldInput
+                  id="calc-desconto-percentual"
+                  type="number"
+                  bind:value={calc.descontoPercentual}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  placeholder="0,00"
+                  icon={Percent}
+                />
                 <!-- Descontos sugeridos -->
                 <div class="flex gap-1 mt-2">
                   {#each [5, 10, 15, 20] as pct}
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="xs"
+                      class_name="px-2 py-1"
                       on:click={() => aplicarDescontoSugerido(pct)}
-                      class="px-2 py-1 text-xs bg-slate-100 hover:bg-vendas-100 text-slate-600 hover:text-vendas-700 rounded transition-colors"
                     >
                       {pct}%
-                    </button>
+                    </Button>
                   {/each}
-                </div>
+                  </div>
               {:else}
-                <div class="relative">
-                  <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    id="calc-desconto-valor"
-                    type="number"
-                    bind:value={calc.descontoValor}
-                    min="0"
-                    step="0.01"
-                    class="vtur-input pl-10 w-full"
-                    placeholder="0,00"
-                  />
-                </div>
+                <FieldInput
+                  id="calc-desconto-valor"
+                  type="number"
+                  bind:value={calc.descontoValor}
+                  min="0"
+                  step="0.01"
+                  placeholder="0,00"
+                  icon={DollarSign}
+                />
               {/if}
             </fieldset>
             
             <!-- Taxas -->
-            <div>
-              <label for="calc-taxas" class="block text-sm font-medium text-slate-700 mb-1">
-                Taxas (cartão, etc.)
-              </label>
-              <div class="relative">
-                <DollarSign size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="calc-taxas"
-                  type="number"
-                  bind:value={calc.taxas}
-                  min="0"
-                  step="0.01"
-                  class="vtur-input pl-10 w-full"
-                  placeholder="0,00"
-                />
-              </div>
-            </div>
+            <FieldInput
+              id="calc-taxas"
+              label="Taxas (cartão, etc.)"
+              type="number"
+              bind:value={calc.taxas}
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              icon={DollarSign}
+            />
             
             <!-- Comissão -->
-            <div>
-              <label for="calc-comissao" class="block text-sm font-medium text-slate-700 mb-1">
-                % Comissão
-              </label>
-              <div class="relative">
-                <Percent size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  id="calc-comissao"
-                  type="number"
-                  bind:value={calc.comissaoPercentual}
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  class="vtur-input pl-10 w-full"
-                  placeholder="10,00"
-                />
-              </div>
-            </div>
+            <FieldInput
+              id="calc-comissao"
+              label="% Comissão"
+              type="number"
+              bind:value={calc.comissaoPercentual}
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="10,00"
+              icon={Percent}
+            />
             
             <!-- Parcelas -->
-            <div>
-              <label for="calc-parcelas" class="block text-sm font-medium text-slate-700 mb-1">
-                Número de Parcelas
-              </label>
-              <div class="relative">
-                <CreditCard size={18} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <select
-                  id="calc-parcelas"
-                  bind:value={calc.parcelas}
-                  class="vtur-input pl-10 w-full"
-                >
-                  <option value={1}>À vista</option>
-                  {#each [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as num}
-                    <option value={num}>{num}x</option>
-                  {/each}
-                </select>
-              </div>
-            </div>
+            <FieldSelect
+              id="calc-parcelas"
+              label="Número de Parcelas"
+              bind:value={parcelasValue}
+              placeholder={null}
+              options={[
+                { value: '1', label: 'À vista' },
+                ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => ({ value: String(num), label: `${num}x` }))
+              ]}
+              on:change={() => {
+                calc.parcelas = Number(parcelasValue);
+              }}
+            />
           </div>
           
           <!-- Coluna Direita - Resultados -->

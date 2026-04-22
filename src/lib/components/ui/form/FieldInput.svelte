@@ -8,11 +8,16 @@
   export let required = false;
   export let disabled = false;
   export let readonly = false;
+  export let autocomplete: any = null;
   export let error: string | null = null;
   export let helper: string | null = null;
   export let icon: any = null;
   export let prefix: string | null = null;
   export let suffix: string | null = null;
+  export let actionIcon: any = null;
+  export let actionLabel: string | null = null;
+  export let onAction: (() => void) | undefined = undefined;
+  export let actionDisabled = false;
   export let id: string | null = null;
   export let name: string | null = null;
   export let list: string | null = null;
@@ -23,6 +28,15 @@
   export let class_name = '';
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: inputClasses = [
+    'vtur-input',
+    'text-sm',
+    icon || prefix ? 'pl-10' : '',
+    suffix || actionIcon ? 'pr-10' : '',
+    error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
+  ]
+    .filter(Boolean)
+    .join(' ');
 </script>
 
 <div class={class_name}>
@@ -47,17 +61,19 @@
         {disabled}
         {required}
         {readonly}
+        autocomplete={autocomplete ?? undefined}
         {min}
         {max}
         {step}
         {maxlength}
         wrapperClass="relative w-full"
         color={error ? 'red' : 'base'}
-        class="text-sm {prefix ? 'pl-8' : ''} {suffix ? 'pr-8' : ''} {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+        class={inputClasses}
         on:input
         on:change
         on:blur
         on:focus
+        on:keydown
       >
         <svelte:component this={icon} slot="left" class="h-4 w-4 text-slate-400" />
       </Input>
@@ -72,21 +88,34 @@
         {disabled}
         {required}
         {readonly}
+        autocomplete={autocomplete ?? undefined}
         {min}
         {max}
         {step}
         {maxlength}
         wrapperClass="relative w-full"
         color={error ? 'red' : 'base'}
-        class="text-sm {prefix ? 'pl-8' : ''} {suffix ? 'pr-8' : ''} {error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'}"
+        class={inputClasses}
         on:input
         on:change
         on:blur
         on:focus
+        on:keydown
       />
     {/if}
     {#if suffix}
       <span class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{suffix}</span>
+    {/if}
+    {#if actionIcon}
+      <button
+        type="button"
+        class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={actionLabel ?? undefined}
+        disabled={actionDisabled}
+        on:click={() => onAction?.()}
+      >
+        <svelte:component this={actionIcon} class="h-4 w-4" />
+      </button>
     {/if}
   </div>
 

@@ -697,32 +697,34 @@
   <!-- Tipo de importação -->
   <Card title="Tipo de importação" color="vendas">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <button
-        type="button"
-        class={`rounded-xl border p-4 text-left transition ${tipoImportacao === 'cvc' ? 'border-vendas-500 bg-vendas-50' : 'border-slate-200 hover:border-vendas-300'}`}
+      <Button
+        variant={tipoImportacao === 'cvc' ? 'primary' : 'secondary'}
+        color="vendas"
+        class_name="rounded-xl"
         on:click={() => (tipoImportacao = 'cvc')}
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 w-full">
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><FileSpreadsheet size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Contrato CVC</p>
             <p class="text-sm text-slate-500">Importe contratos de pacotes, hotéis e serviços CVC.</p>
           </div>
         </div>
-      </button>
-      <button
-        type="button"
-        class={`rounded-xl border p-4 text-left transition ${tipoImportacao === 'roteiro' ? 'border-vendas-500 bg-vendas-50' : 'border-slate-200 hover:border-vendas-300'}`}
+      </Button>
+      <Button
+        variant={tipoImportacao === 'roteiro' ? 'primary' : 'secondary'}
+        color="vendas"
+        class_name="rounded-xl"
         on:click={() => (tipoImportacao = 'roteiro')}
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 w-full">
           <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><Ship size={20} /></div>
           <div>
             <p class="font-semibold text-slate-900">Reserva de Cruzeiro</p>
             <p class="text-sm text-slate-500">Importe reservas de cruzeiro (roteiro).</p>
           </div>
         </div>
-      </button>
+      </Button>
     </div>
   </Card>
 
