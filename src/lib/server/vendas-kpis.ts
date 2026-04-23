@@ -349,8 +349,6 @@ async function fetchResolvedRows(
 
   let rows = toRateioShape(
     await fetchSalesReportRows(client, {
-      dataInicio: params.dataInicio,
-      dataFim: params.dataFim,
       companyIds: normalizedCompanyIds,
       vendedorIds: params.vendedorIds,
       includeCancelled: true

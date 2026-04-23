@@ -219,7 +219,7 @@ export async function fetchSalesReportRows(
       .from('vendas')
       .select(selectClause)
       .order('data_venda', { ascending: false })
-      .limit(5000);
+      .limit(50000);
 
     if (!params.includeCancelled) {
       query = query.eq('cancelada', false);
