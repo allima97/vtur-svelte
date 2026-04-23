@@ -433,13 +433,13 @@
             <Button
               type="button"
               variant="unstyled"
-              class_name="vtur-sidebar__section-toggle"
+              class_name="vtur-sidebar__section-toggle !px-1 !py-0"
               on:click={() => toggleSection(idx)}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
               <ChevronDown
                 size={12}
-                class="transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
+                class="vtur-sidebar__section-toggle-icon transition-transform duration-200 {collapsed[idx] ? '' : 'rotate-180'}"
               />
             </Button>
           {:else}
@@ -540,7 +540,7 @@
         <Button
           type="button"
           variant="unstyled"
-          class_name="vtur-sidebar__item"
+          class_name="vtur-sidebar__item !px-[0.4rem] !py-[0.74rem]"
           on:click={handleRefreshPermissions}
           disabled={refreshingPerms}
           ariaLabel="Atualizar permissões"
@@ -554,7 +554,7 @@
         <Button
           type="button"
           variant="unstyled"
-          class_name="vtur-sidebar__item"
+          class_name="vtur-sidebar__item !px-[0.4rem] !py-[0.74rem]"
           on:click={handleLogout}
           ariaLabel="Fazer logout"
           title="Sair"

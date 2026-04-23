@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { loadAvisoTemplates } from '$lib/server/admin';
+import { buildOfficialTemplateRows } from '$lib/cards/officialLibrary';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -17,6 +17,44 @@ function inferTipo(nome: string) {
   return 'geral';
 }
 
+type ScopeValue = 'system' | 'master' | 'gestor' | 'user';
+
+function normalizeScope(value?: string | null): ScopeValue {
+  const scope = String(value || '').trim().toLowerCase();
+  if (scope === 'system' || scope === 'master' || scope === 'gestor' || scope === 'user') return scope;
+  return 'system';
+}
+
+function inCompany(companyId: string | null, allowed: Set<string>) {
+  const key = String(companyId || '').trim();
+  return key ? allowed.has(key) : false;
+}
+
+function canAccessScopedRow(params: {
+  isAdmin: boolean;
+  userId: string;
+  companyIds: Set<string>;
+  rowUserId?: string | null;
+  rowCompanyId?: string | null;
+  rowScope?: string | null;
+}) {
+  const { isAdmin, userId, companyIds, rowUserId, rowCompanyId, rowScope } = params;
+  if (isAdmin) return true;
+  if (String(rowUserId || '') === userId) return true;
+  const scope = normalizeScope(rowScope);
+  if (scope === 'system') return true;
+  if (scope === 'user') return false;
+  return inCompany(rowCompanyId || null, companyIds);
+}
+
+function normalizeTemplateKey(value?: string | null) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -27,18 +65,77 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['clientes', 'vendas'], 1, 'Sem acesso aos avisos do cliente.');
     }
 
-    const templates = await loadAvisoTemplates(client);
+    const companyIds = new Set<string>();
+    if (scope.companyId) companyIds.add(String(scope.companyId));
+    if (scope.papel === 'MASTER') {
+      const { data: vinculos } = await client
+        .from('master_empresas')
+        .select('company_id, status')
+        .eq('master_id', user.id);
+      (vinculos || []).forEach((row: any) => {
+        const status = String(row?.status || '').toLowerCase();
+        const companyId = String(row?.company_id || '').trim();
+        if (!companyId || status === 'rejected') return;
+        companyIds.add(companyId);
+      });
+    }
+
+    const { data: templates, error } = await client
+      .from('user_message_templates')
+      .select('id, user_id, company_id, scope, nome, assunto, corpo, ativo')
+      .order('nome', { ascending: true });
+
+    if (error) throw error;
+
+    const visibleTemplates = (templates || [])
+      .filter((item: any) => item?.ativo !== false)
+      .filter((item: any) =>
+        canAccessScopedRow({
+          isAdmin: Boolean(scope.isAdmin),
+          userId: user.id,
+          companyIds,
+          rowUserId: item?.user_id || null,
+          rowCompanyId: item?.company_id || null,
+          rowScope: item?.scope || null,
+        })
+      );
+
+    const dedup = new Map<string, { id: string; nome: string; tipo: string; assunto: string; conteudo: string }>();
+
+    visibleTemplates.forEach((item: any) => {
+      const nome = String(item?.nome || '').trim();
+      if (!nome) return;
+      const key = normalizeTemplateKey(nome);
+      if (!key || dedup.has(key)) return;
+      dedup.set(key, {
+        id: String(item.id),
+        nome,
+        tipo: inferTipo(nome),
+        assunto: String(item.assunto || item.titulo || ''),
+        conteudo: String(item.corpo || ''),
+      });
+    });
+
+    const officialTemplates = buildOfficialTemplateRows(user.id, String(scope.companyId || '').trim() || null, {});
+    officialTemplates.forEach((item) => {
+      if (!item.ativo) return;
+      const nome = String(item.nome || '').trim();
+      if (!nome) return;
+      const key = normalizeTemplateKey(nome);
+      if (!key || dedup.has(key)) return;
+      dedup.set(key, {
+        id: `official-template:${key}`,
+        nome,
+        tipo: inferTipo(nome),
+        assunto: String(item.assunto || item.titulo || ''),
+        conteudo: String(item.corpo || ''),
+      });
+    });
+
+    const items = Array.from(dedup.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+
     return json({
-      items: templates
-        .filter((item: any) => item.ativo !== false)
-        .map((item: any) => ({
-          id: item.id,
-          nome: item.nome,
-          tipo: inferTipo(item.nome),
-          assunto: item.assunto || '',
-          conteudo: item.mensagem || '',
-          sender_key: item.sender_key || 'avisos'
-        }))
+      items
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar templates de aviso.');

@@ -19,6 +19,7 @@
   let enviando = false;
   let templates: any[] = [];
   let carregandoTemplates = false;
+  let erroTemplates = '';
   let modalReady = false;
   let historico: any[] = [];
   let carregandoHistorico = false;
@@ -39,14 +40,6 @@
     modalReady = false;
   }
 
-  function getTemplatesFallback() {
-    return [
-      { id: '1', nome: 'Aniversario', tipo: 'aniversario', assunto: 'Feliz aniversario, {nome}', conteudo: 'Feliz aniversario {nome}! Desejamos um dia incrivel e muitas viagens maravilhosas!' },
-      { id: '2', nome: 'Follow-up padrao', tipo: 'follow_up', assunto: 'Seguimento VTUR', conteudo: 'Ola {nome}, tudo bem? Estamos entrando em contato sobre seu orcamento. Podemos conversar?' },
-      { id: '3', nome: 'Promocao', tipo: 'promocao', assunto: 'Promocao especial para voce', conteudo: 'Oi {nome}! Temos uma promocao exclusiva para voce. Entre em contato conosco.' }
-    ];
-  }
-
   async function prepararModal() {
     canalAtivo = clienteTelefone ? 'whatsapp' : 'email';
     await Promise.all([carregarTemplates(), carregarHistorico()]);
@@ -62,17 +55,43 @@
 
   async function carregarTemplates() {
     carregandoTemplates = true;
+    erroTemplates = '';
     try {
       const response = await fetch('/api/v1/clientes/avisos/templates');
       if (response.ok) {
         const data = await response.json();
-        templates = Array.isArray(data?.items) && data.items.length > 0 ? data.items : getTemplatesFallback();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (items.length > 0) {
+          templates = items;
+          return;
+        }
+
+        // Fallback para a biblioteca CRM quando o endpoint de avisos retorna vazio.
+        const libraryResponse = await fetch('/api/v1/crm/library');
+        if (!libraryResponse.ok) {
+          const errorPayload = await libraryResponse.json().catch(() => ({}));
+          throw new Error(errorPayload?.error || 'Erro ao carregar biblioteca CRM');
+        }
+        const libraryData = await libraryResponse.json();
+        const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
+        templates = mensagens
+          .filter((item: any) => item?.ativo !== false)
+          .map((item: any) => ({
+            id: String(item.id || ''),
+            nome: String(item.nome || 'Template CRM'),
+            tipo: String(item.categoria || 'geral'),
+            assunto: String(item.assunto || item.titulo || ''),
+            conteudo: String(item.corpo || ''),
+          }))
+          .filter((item: any) => item.id && item.conteudo);
       } else {
-        templates = getTemplatesFallback();
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || 'Erro ao carregar templates de avisos');
       }
     } catch (err) {
       console.error('Erro ao carregar templates:', err);
-      templates = getTemplatesFallback();
+      templates = [];
+      erroTemplates = err instanceof Error ? err.message : 'Falha ao carregar templates';
     } finally {
       carregandoTemplates = false;
     }
@@ -222,7 +241,7 @@
               type="button"
               variant="secondary"
               disabled={!clienteTelefone}
-              class_name={`flex-1 justify-center border-2 py-3 ${canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700 hover:!bg-green-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'whatsapp' ? 'border-green-500 bg-green-50 text-green-700 hover:!bg-green-50' : 'border-slate-200 bg-white text-slate-600'}`}
               on:click={() => canalAtivo = 'whatsapp'}
             >
               <MessageCircle size={20} />
@@ -232,7 +251,7 @@
               type="button"
               variant="secondary"
               disabled={!clienteEmail}
-              class_name={`flex-1 justify-center border-2 py-3 ${canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700 hover:!bg-orange-50' : 'border-slate-200 bg-white text-slate-600'}`}
+              class_name={`flex-1 justify-center gap-2.5 border-2 py-3 ${canalAtivo === 'email' ? 'border-orange-500 bg-orange-50 text-orange-700 hover:!bg-orange-50' : 'border-slate-200 bg-white text-slate-600'}`}
               on:click={() => canalAtivo = 'email'}
             >
               <Mail size={20} />
@@ -245,6 +264,14 @@
           <p class="block text-sm font-medium text-slate-700 mb-2">Template</p>
           {#if carregandoTemplates}
             <div class="text-center py-2"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div></div>
+          {:else if erroTemplates}
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              {erroTemplates}
+            </div>
+          {:else if templatesFiltrados.length === 0}
+            <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Nenhum template ativo encontrado no CRM para seu escopo.
+            </div>
           {:else}
             <div class="flex flex-wrap gap-2">
               {#each templatesFiltrados as template}

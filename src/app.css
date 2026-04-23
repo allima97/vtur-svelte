@@ -380,7 +380,7 @@
   .vtur-sidebar__section-toggle {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start !important;
     width: 100%;
     background: transparent;
     border: none;
@@ -388,6 +388,13 @@
     padding: 0 0.45rem;
     margin: 0.9rem 0 0.3rem;
     color: rgba(226, 232, 240, 0.72);
+    gap: 0.45rem;
+    text-align: left;
+  }
+
+  .vtur-sidebar__section-toggle-icon {
+    margin-left: auto;
+    flex: 0 0 auto;
   }
 
   .vtur-sidebar__section-toggle:hover {
@@ -495,14 +502,14 @@
   }
 
   .vtur-sidebar__footer {
-    padding: 0.85rem 1rem 1rem;
+    padding: 0.85rem 0.7rem 1rem;
     border-top: 1px solid rgba(148, 163, 184, 0.16);
   }
 
   .vtur-sidebar__quick-actions {
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 0.18rem;
     margin-bottom: 0.9rem;
   }
 
