@@ -51,6 +51,11 @@ export type VendasKpiAgg = {
   countAtivas: number;
 };
 
+export type VendasTimelinePoint = {
+  date: string;
+  value: number;
+};
+
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
   'credito pax',
@@ -371,8 +376,6 @@ async function fetchResolvedRows(
     if (splitSaleIds.length > 0) {
       const splitRows = toRateioShape(
         await fetchSalesReportRows(client, {
-          dataInicio: params.dataInicio,
-          dataFim: params.dataFim,
           companyIds: normalizedCompanyIds,
           vendaIds: splitSaleIds,
           includeCancelled: true
@@ -592,7 +595,7 @@ export async function fetchAndComputeVendasKpis(
     const syntheticKey = [
       toDateKey(row?.data_venda),
       toStr(row?.vendedor_id),
-      toNum((row as any)?.valor_total || (row as any)?.valor_total_bruto),
+      toStr((row as any)?.valor_total || (row as any)?.valor_total_bruto),
       toStr((row as any)?.linked_venda_id)
     ].join('|');
     const vendaKey = toStr((row as any)?.source_venda_id || (row as any)?.linked_venda_id || row?.id) || `synt:${syntheticKey}`;
@@ -716,4 +719,139 @@ export async function fetchAndComputeVendasKpis(
     countVendas: qtdVendas,
     countAtivas
   };
+}
+
+export async function fetchAndComputeVendasTimeline(
+  client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    accessibleClientIds?: string[];
+  }
+): Promise<VendasTimelinePoint[]> {
+  const { rows, rateioMap } = await fetchResolvedRows(client, params);
+
+  const vendaIds = Array.from(
+    new Set(
+      rows
+        .map((row) => toStr((row as any)?.source_venda_id || (row as any)?.linked_venda_id || row?.id))
+        .filter((id) => isUuid(id))
+    )
+  );
+  const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
+  const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(client, vendaIds, termosNaoComissionaveis);
+
+  const scopeVendedorIds = new Set((params.vendedorIds || []).map((id) => toStr(id)).filter(Boolean));
+  const hasScopeVendedores = scopeVendedorIds.size > 0;
+  const timelineMap = new Map<string, number>();
+
+  const groupedByVenda = new Map<string, { vendaRows: VendaAggregateRow[]; recibos: NonNullReceiptRow[] }>();
+
+  rows.forEach((row) => {
+    const syntheticKey = [
+      toDateKey(row?.data_venda),
+      toStr(row?.vendedor_id),
+      toStr((row as any)?.valor_total || (row as any)?.valor_total_bruto),
+      toStr((row as any)?.linked_venda_id)
+    ].join('|');
+    const vendaKey = toStr((row as any)?.source_venda_id || (row as any)?.linked_venda_id || row?.id) || `synt:${syntheticKey}`;
+    const current = groupedByVenda.get(vendaKey) || { vendaRows: [], recibos: [] };
+    current.vendaRows.push(row);
+    if (Array.isArray(row?.vendas_recibos) && row.vendas_recibos.length > 0) {
+      current.recibos.push(...normalizeReceiptRows(row.vendas_recibos));
+    }
+    groupedByVenda.set(vendaKey, current);
+  });
+
+  groupedByVenda.forEach((group, vendaKey) => {
+    const vendaPrincipal =
+      group.vendaRows.find((row) => toStr(row?.id) === vendaKey) || group.vendaRows[0];
+
+    if (isStatusCancelado((vendaPrincipal as any)?.status, vendaPrincipal?.cancelada)) return;
+
+    const vendaDate = toDateKey(vendaPrincipal?.data_venda);
+    const recibosAll = filterRecibosCanceladosMesmoMes(group.recibos || []);
+
+    const recibosByKey = new Map<string, ReportReceiptRow>();
+    const recibosByBusiness = new Set<string>();
+    recibosAll.forEach((recibo) => {
+      const reciboId = toStr(recibo?.id);
+      const businessKey = buildReciboBusinessKey(recibo);
+      if (businessKey && recibosByBusiness.has(businessKey)) return;
+      if (businessKey) recibosByBusiness.add(businessKey);
+      const key =
+        reciboId ||
+        businessKey ||
+        `${toDateKey(recibo?.data_venda)}|${getReciboBruto(recibo)}|${getReciboTaxas(recibo)}`;
+      if (!recibosByKey.has(key)) recibosByKey.set(key, recibo);
+    });
+    const recibosUnique = Array.from(recibosByKey.values());
+    const somaBrutoRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboBruto(recibo), 0);
+
+    const linkedNaoComissionado = toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0);
+    const naoComissionadoSemRecibo = toNum(naoComissionadoPorVenda.porVendaSemRecibo.get(vendaKey) || 0);
+    const usarModoPorRecibo = linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
+    const naoComissionadoTotalPagamentos = Math.max(0, toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0));
+    const fatorComissionavel =
+      !usarModoPorRecibo && somaBrutoRecibos > 0
+        ? Math.max(0, Math.min(1, (somaBrutoRecibos - naoComissionadoTotalPagamentos) / somaBrutoRecibos))
+        : 1;
+
+    const recibosPeriodo = recibosUnique.filter((recibo) => {
+      const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
+      return Boolean(reciboDate) && reciboDate >= params.dataInicio && reciboDate <= params.dataFim;
+    });
+
+    recibosPeriodo.forEach((recibo) => {
+      const reciboId = toStr(recibo?.id);
+      const naoComissionadoRecibo = usarModoPorRecibo && reciboId
+        ? toNum(naoComissionadoPorVenda.porRecibo.get(reciboId) || 0)
+        : 0;
+
+      const fatorRecibo = usarModoPorRecibo ? 1 : fatorComissionavel;
+      const bruto = usarModoPorRecibo
+        ? Math.max(0, getReciboBruto(recibo) - naoComissionadoRecibo)
+        : getReciboBruto(recibo) * fatorRecibo;
+
+      const vendedorId = toStr((vendaPrincipal as any)?.vendedor_id);
+      const rateio = reciboId ? rateioMap.get(reciboId) : null;
+      const baseAllocations =
+        rateio &&
+        rateio.ativo &&
+        isUuid(rateio.vendedor_origem_id) &&
+        isUuid(rateio.vendedor_destino_id) &&
+        toNum(rateio.percentual_destino) > 0 &&
+        toNum(rateio.percentual_origem) > 0
+          ? [
+              {
+                vendedorId: toStr(rateio.vendedor_origem_id),
+                fator: Math.max(0, Math.min(1, toNum(rateio.percentual_origem) / 100))
+              },
+              {
+                vendedorId: toStr(rateio.vendedor_destino_id),
+                fator: Math.max(0, Math.min(1, toNum(rateio.percentual_destino) / 100))
+              }
+            ]
+          : [{ vendedorId, fator: 1 }];
+
+      const allocations = hasScopeVendedores
+        ? baseAllocations.filter((item) => scopeVendedorIds.has(item.vendedorId))
+        : baseAllocations;
+
+      const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
+      if (!reciboDate) return;
+
+      allocations.forEach((allocation) => {
+        const brutoAlloc = bruto * allocation.fator;
+        if (brutoAlloc <= 0) return;
+        timelineMap.set(reciboDate, (timelineMap.get(reciboDate) || 0) + brutoAlloc);
+      });
+    });
+  });
+
+  return Array.from(timelineMap.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, value]) => ({ date, value: Number(value.toFixed(2)) }));
 }

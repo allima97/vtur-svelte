@@ -41,6 +41,9 @@ export type ReportReceiptRow = {
     valor_neto?: number | null;
     valor_em_reais?: number | null;
   } | null;
+  valor_comissionavel?: number | null;
+  valor_comissao_calculada?: number | null;
+  percentual_comissao_calculado?: number | null;
 } | null;
 
 export type ReportVendaRow = {

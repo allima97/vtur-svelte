@@ -19,6 +19,7 @@
     numero_recibo: string | null;
     numero_recibo_normalizado: string | null;
     data_venda: string | null;
+    produto_id?: string | null;
     tipo_produto: string;
     produto_nome: string;
     cidade_nome: string | null;
@@ -33,6 +34,8 @@
     valor_liquido_override?: number | null;
     valor_meta_override?: number | null;
     valor_comissionavel?: number | null;
+    valor_comissao_calculada?: number | null;
+    percentual_comissao_calculado?: number | null;
   }
 
   interface VendaRelatorio {
@@ -87,6 +90,32 @@
   interface RelatorioPayload {
     items: VendaRelatorio[];
     resumo: Resumo;
+    series?: {
+      mensal?: Array<{ key: string; total_valor: number }>;
+      diaria?: Array<{ date: string; value: number }>;
+    };
+  }
+
+  interface ReciboLinha {
+    id: string;
+    venda_id: string;
+    codigo: string;
+    numero_recibo: string | null;
+    data_venda: string | null;
+    produto_id: string | null;
+    cliente_nome: string;
+    cliente_cpf: string | null;
+    vendedor_nome: string;
+    destino_nome: string;
+    cidade_nome: string | null;
+    produto_nome: string;
+    tipo_produto: string;
+    valor_total: number;
+    valor_taxas: number;
+    comissao: number;
+    percentual_comissao: number;
+    status: VendaRelatorio['status'];
+    forma_pagamento: string;
   }
 
   function getDefaultRange() {
@@ -145,20 +174,62 @@
   }
 
   function getReciboTaxasExibicao(recibo: Recibo) {
-    const taxasBase = hasConciliacaoOverride(recibo)
-      ? Math.max(0, Number(recibo.valor_taxas || 0))
-      : Math.max(0, Number(recibo.valor_taxas || 0) - Number(recibo.valor_du || 0));
-    return taxasBase * getFatorComissionavelRecibo(recibo);
+    return Math.max(0, Number(recibo.valor_taxas || 0)) * getFatorComissionavelRecibo(recibo);
   }
 
-  function getLastSixMonthsRange() {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+  function normalizarDataIso(value?: string | null) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const iso = raw.includes('T') ? raw.slice(0, 10) : raw;
+    return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : '';
+  }
+
+  function buildReciboBusinessKey(
+    recibo: Pick<ReciboLinha, 'numero_recibo' | 'produto_id' | 'produto_nome' | 'data_venda'>
+  ) {
+    const numeroRecibo = String(recibo.numero_recibo || '').trim().toLowerCase();
+    const produtoId = String(recibo.produto_id || recibo.produto_nome || '').trim().toLowerCase();
+    const dataVenda = normalizarDataIso(recibo.data_venda);
+    if (!numeroRecibo || !produtoId || !dataVenda) return '';
+    return `${numeroRecibo}::${produtoId}::${dataVenda}`;
+  }
+
+  function normalizarRecibosPeriodo(recibos: ReciboLinha[], inicio?: string | null, fim?: string | null) {
+    const ini = normalizarDataIso(inicio);
+    const end = normalizarDataIso(fim);
+    const idsSeen = new Set<string>();
+    const businessSeen = new Set<string>();
+
+    return recibos.filter((recibo) => {
+      const data = normalizarDataIso(recibo.data_venda);
+      if (ini && (!data || data < ini)) return false;
+      if (end && (!data || data > end)) return false;
+
+      const reciboId = String(recibo.id || '').trim();
+      if (reciboId) {
+        if (idsSeen.has(reciboId)) return false;
+        idsSeen.add(reciboId);
+      }
+
+      const businessKey = buildReciboBusinessKey(recibo);
+      if (businessKey) {
+        if (businessSeen.has(businessKey)) return false;
+        businessSeen.add(businessKey);
+      }
+
+      return true;
+    });
+  }
+
+  function getLastSixMonthsRange(referenceIso?: string | null) {
+    const reference = referenceIso ? new Date(`${referenceIso}T12:00:00`) : new Date();
+    const start = new Date(reference.getFullYear(), reference.getMonth() - 5, 1);
     return {
       start: start.toISOString().slice(0, 10),
-      end: today.toISOString().slice(0, 10)
+      end: reference.toISOString().slice(0, 10)
     };
   }
+
 
   const defaultRange = getDefaultRange();
 
@@ -183,10 +254,14 @@
   let destinoFiltro = '';
   let produtoFiltro = '';
   let tipoProdutoFiltro = '';
-  let vendasHistorico: VendaRelatorio[] = [];
+  let chartSeries: NonNullable<RelatorioPayload['series']> = {
+    mensal: [],
+    diaria: []
+  };
 
   const columns = [
     { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
+    { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
     {
       key: 'data_venda',
       label: 'Data',
@@ -195,9 +270,11 @@
       formatter: (value: string | null) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
     },
     { key: 'cliente_nome', label: 'Cliente', sortable: true },
+    { key: 'cliente_cpf', label: 'CPF', sortable: true, width: '140px' },
     { key: 'vendedor_nome', label: 'Vendedor', sortable: true, width: '160px' },
     { key: 'destino_nome', label: 'Destino', sortable: true },
-    { key: 'destino_cidade_nome', label: 'Cidade', sortable: true },
+    { key: 'cidade_nome', label: 'Cidade', sortable: true },
+    { key: 'produto_nome', label: 'Produto', sortable: true },
     {
       key: 'valor_total',
       label: 'Valor',
@@ -218,6 +295,13 @@
       sortable: true,
       align: 'right' as const,
       formatter: (value: number) => formatCurrency(value)
+    },
+    {
+      key: 'percentual_comissao',
+      label: '% Comissão',
+      sortable: true,
+      align: 'right' as const,
+      formatter: (value: number) => `${value.toFixed(2).replace('.', ',')}%`
     },
     {
       key: 'status',
@@ -303,12 +387,12 @@
 
     try {
       const principal = await fetchRelatorioRange(dataInicio, dataFim);
-      const historicoRange = getLastSixMonthsRange();
-      const historico = await fetchRelatorioRange(historicoRange.start, historicoRange.end);
-
       vendas = principal.items || [];
       resumo = principal.resumo || resumo;
-      vendasHistorico = historico.items || [];
+      chartSeries = {
+        mensal: principal.series?.mensal || [],
+        diaria: principal.series?.diaria || []
+      };
 
       syncUrl();
 
@@ -316,8 +400,10 @@
         toast.success('Relatório atualizado');
       }
     } catch (err) {
-      vendas = [];
-      vendasHistorico = [];
+      if (vendas.length === 0) {
+        vendas = [];
+      }
+      chartSeries = { mensal: [], diaria: [] };
       const msg = err instanceof Error ? err.message : 'Erro ao carregar relatório de vendas';
       console.error('[loadRelatorio] Erro:', msg);
       toast.error(msg);
@@ -378,25 +464,28 @@
   }
 
   function handleExport() {
-    if (vendas.length === 0) {
-      toast.info('Não há vendas para exportar');
+    if (recibosFiltrados.length === 0) {
+      toast.info('Não há recibos para exportar');
       return;
     }
 
-    const headers = ['Código', 'Data', 'Cliente', 'CPF', 'Vendedor', 'Destino', 'Cidade', 'Valor', 'Taxas', 'Comissão', 'Status', 'Pagamento'];
-    const rows = vendas.map((venda) => [
-      venda.codigo,
-      venda.data_venda ? new Date(venda.data_venda).toLocaleDateString('pt-BR') : '',
-      venda.cliente_nome,
-      venda.cliente_cpf || '',
-      venda.vendedor_nome,
-      venda.destino_nome,
-      venda.destino_cidade_nome || '',
-      venda.valor_total.toFixed(2).replace('.', ','),
-      venda.valor_taxas.toFixed(2).replace('.', ','),
-      venda.comissao.toFixed(2).replace('.', ','),
-      venda.status,
-      venda.forma_pagamento
+    const headers = ['Código', 'Recibo', 'Data', 'Cliente', 'CPF', 'Vendedor', 'Destino', 'Cidade', 'Produto', 'Valor', 'Taxas', 'Comissão', '% Comissão', 'Status', 'Pagamento'];
+    const rows = recibosFiltrados.map((recibo) => [
+      recibo.codigo,
+      recibo.numero_recibo || '',
+      recibo.data_venda ? new Date(recibo.data_venda).toLocaleDateString('pt-BR') : '',
+      recibo.cliente_nome,
+      recibo.cliente_cpf || '',
+      recibo.vendedor_nome,
+      recibo.destino_nome,
+      recibo.cidade_nome || '',
+      recibo.produto_nome,
+      recibo.valor_total.toFixed(2).replace('.', ','),
+      recibo.valor_taxas.toFixed(2).replace('.', ','),
+      recibo.comissao.toFixed(2).replace('.', ','),
+      recibo.percentual_comissao.toFixed(2).replace('.', ','),
+      recibo.status,
+      recibo.forma_pagamento
     ]);
 
     const csv = ['\uFEFF' + headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
@@ -420,8 +509,8 @@
     void loadRelatorio(true);
   }
 
-  function handleRowClick(row: VendaRelatorio) {
-    void goto(`/vendas/${row.id}`);
+  function handleRowClick(row: ReciboLinha) {
+    void goto(`/vendas/${row.venda_id}`);
   }
 
   // Regra fiel de escopo: vendedor/uso individual não deve escolher empresa ou vendedor global.
@@ -436,39 +525,62 @@
     vendedorSelecionado = '';
   }
 
-  $: vendasFiltradas = vendas;
-  $: recibosHistorico = vendasHistorico.flatMap((venda) => (Array.isArray(venda.recibos) ? venda.recibos : []));
-  $: recibosFiltrados = vendasFiltradas.flatMap((venda) => (Array.isArray(venda.recibos) ? venda.recibos : []));
-  $: totalVendas = recibosFiltrados.reduce((acc, recibo) => acc + getReciboBrutoExibicao(recibo), 0);
-  $: totalComissoes = vendasFiltradas.reduce((acc, venda) => acc + (venda.comissao || 0), 0);
+  function buildReciboLinhas(
+    rows: VendaRelatorio[],
+    periodo: { inicio?: string | null; fim?: string | null } = { inicio: dataInicio, fim: dataFim }
+  ): ReciboLinha[] {
+    const linhas = rows.flatMap((venda) =>
+      (Array.isArray(venda.recibos) ? venda.recibos : []).map((recibo, index) => ({
+        id: recibo.id || `${venda.id}:${index}`,
+        venda_id: venda.id,
+        codigo: venda.codigo,
+        numero_recibo: recibo.numero_recibo,
+        data_venda: recibo.data_venda || venda.data_venda,
+        produto_id: recibo.produto_id || null,
+        cliente_nome: venda.cliente_nome,
+        cliente_cpf: venda.cliente_cpf,
+        vendedor_nome: venda.vendedor_nome,
+        destino_nome: venda.destino_nome,
+        cidade_nome: recibo.cidade_nome || venda.destino_cidade_nome,
+        produto_nome: recibo.produto_nome,
+        tipo_produto: recibo.tipo_produto,
+        valor_total: getReciboBrutoExibicao(recibo),
+        valor_taxas: getReciboTaxasExibicao(recibo),
+        comissao: Number(recibo.valor_comissao_calculada || 0),
+        percentual_comissao: Number(recibo.percentual_comissao_calculado || 0),
+        status: venda.status,
+        forma_pagamento: venda.forma_pagamento
+      }))
+    );
+
+    return normalizarRecibosPeriodo(linhas, periodo.inicio, periodo.fim);
+  }
+
+  $: recibosFiltrados = buildReciboLinhas(vendas, { inicio: dataInicio, fim: dataFim });
+  $: totalVendas = Number(resumo.total_valor || 0);
+  $: totalComissoes = Number(resumo.total_comissao || 0);
   $: totalRecibos = recibosFiltrados.length;
-  $: ticketMedio = totalRecibos > 0 ? totalVendas / totalRecibos : 0;
+  $: ticketMedio = Number(resumo.ticket_medio || 0);
   $: monthKeys = (() => {
-    const today = new Date();
+    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
     return Array.from({ length: 6 }, (_, index) => {
-      const d = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+      const d = new Date(reference.getFullYear(), reference.getMonth() - (5 - index), 1);
       const month = String(d.getMonth() + 1).padStart(2, '0');
       return `${d.getFullYear()}-${month}`;
     });
   })();
 
   $: currentMonthKey = (() => {
-    const today = new Date();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    return `${today.getFullYear()}-${month}`;
+    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
+    const month = String(reference.getMonth() + 1).padStart(2, '0');
+    return `${reference.getFullYear()}-${month}`;
   })();
-
-  $: totalVendidoMesCorrente = recibosHistorico
-    .filter((recibo) => String(recibo?.data_venda || '').slice(0, 7) === currentMonthKey)
-    .reduce((sum, recibo) => sum + getReciboBrutoExibicao(recibo), 0);
 
   $: vendasPorMesData = (() => {
     const monthMap = new Map<string, number>();
 
-    recibosHistorico.forEach((recibo) => {
-      if (!recibo.data_venda) return;
-      const key = recibo.data_venda.slice(0, 7);
-      monthMap.set(key, (monthMap.get(key) || 0) + getReciboBrutoExibicao(recibo));
+    (chartSeries.mensal || []).forEach((item) => {
+      monthMap.set(item.key, Number(item.total_valor || 0));
     });
 
     return {
@@ -484,18 +596,16 @@
   })();
 
   $: vendasPorDiaMesData = (() => {
-    const today = new Date();
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
+    const daysInMonth = new Date(reference.getFullYear(), reference.getMonth() + 1, 0).getDate();
     const dayMap = new Map<number, number>();
 
-    recibosHistorico
-      .filter((recibo) => String(recibo?.data_venda || '').slice(0, 7) === currentMonthKey)
-      .forEach((recibo) => {
-        const date = String(recibo?.data_venda || '').slice(0, 10);
+    (chartSeries.diaria || []).forEach((point) => {
+        const date = String(point?.date || '').slice(0, 10);
         if (!date) return;
         const day = Number(date.slice(8, 10));
         if (!Number.isFinite(day) || day <= 0) return;
-        dayMap.set(day, (dayMap.get(day) || 0) + getReciboBrutoExibicao(recibo));
+        dayMap.set(day, (dayMap.get(day) || 0) + Number(point.value || 0));
       });
 
     const labels = Array.from({ length: daysInMonth }, (_, idx) => String(idx + 1).padStart(2, '0'));
@@ -604,8 +714,8 @@
 
 <KPIGrid className="mb-6" columns={5}>
   <KPICard 
-    title="Total vendido (mês corrente)" 
-    value={formatCurrency(totalVendidoMesCorrente)} 
+    title="Total vendido" 
+    value={formatCurrency(totalVendas)} 
     color="financeiro" 
     icon={DollarSign} 
   />
@@ -639,7 +749,7 @@
   <Card header="Vendas por mês (últimos 6 meses)" color="financeiro">
     <ChartJS type="bar" data={vendasPorMesData} height={280} />
   </Card>
-  <Card header="Venda por dia do mês corrente" color="financeiro">
+  <Card header="Venda por dia do mês selecionado" color="financeiro">
     <ChartJS type="line" data={vendasPorDiaMesData} height={280} />
   </Card>
 </div>
@@ -648,7 +758,7 @@
 
 <DataTable
   {columns}
-  data={vendasFiltradas}
+  data={recibosFiltrados}
   color="financeiro"
   {loading}
   searchable={true}

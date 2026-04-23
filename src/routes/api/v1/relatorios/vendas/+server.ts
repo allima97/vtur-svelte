@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  resolveAccessibleClientIds,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
@@ -32,6 +33,7 @@ import {
   fetchSplitSaleIdsForDestinationVendedores
 } from '$lib/vendas/rateio';
 import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
+import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -240,6 +242,40 @@ function getVendaTaxasExibicao(row: any) {
   );
 }
 
+function getLastSixMonthBuckets(referenceIso: string) {
+  const reference = new Date(`${referenceIso}T12:00:00`);
+  return Array.from({ length: 6 }, (_, index) => {
+    const current = new Date(reference.getFullYear(), reference.getMonth() - (5 - index), 1);
+    const start = new Date(current.getFullYear(), current.getMonth(), 1);
+    const isReferenceMonth =
+      current.getFullYear() === reference.getFullYear() && current.getMonth() === reference.getMonth();
+    const end = isReferenceMonth
+      ? new Date(reference.getFullYear(), reference.getMonth(), reference.getDate())
+      : new Date(current.getFullYear(), current.getMonth() + 1, 0);
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    return {
+      key: `${current.getFullYear()}-${month}`,
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10)
+    };
+  });
+}
+
+function getCurrentMonthDayBuckets(referenceIso: string) {
+  const reference = new Date(`${referenceIso}T12:00:00`);
+  const year = reference.getFullYear();
+  const month = reference.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  return Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(year, month, index + 1).toISOString().slice(0, 10);
+    return {
+      date,
+      day: index + 1
+    };
+  });
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -328,8 +364,7 @@ export async function GET(event) {
         dataFim,
         companyIds,
         vendedorIds,
-        includeCancelled: true,
-        filterByReceiptDate: true
+        includeCancelled: true
       })
     );
 
@@ -351,8 +386,7 @@ export async function GET(event) {
             dataFim,
             companyIds,
             vendaIds: splitSaleIds,
-            includeCancelled: true,
-            filterByReceiptDate: true
+            includeCancelled: true
           })
         );
         rows = mergeRowsById(rows, splitRows);
@@ -549,6 +583,17 @@ export async function GET(event) {
         const valorComissionavel = usarModoPorRecibo
           ? Math.max(0, brutoBase - naoComissionadoRecibo)
           : brutoBase * fatorComissionavel;
+        const commissionByReceipt = resolveVendaCommission(
+          {
+            ...row,
+            desconto_comercial_valor: 0,
+            valor_total_bruto: brutoBase,
+            valor_total_pago: brutoBase,
+            valor_nao_comissionado: Math.max(0, brutoBase - valorComissionavel),
+            recibos: [{ ...recibo }]
+          },
+          commissionContext
+        );
 
         return {
           id: recibo?.id || null,
@@ -557,6 +602,7 @@ export async function GET(event) {
           numero_recibo_normalizado: recibo?.numero_recibo_normalizado ?? null,
           recibo_short: String(recibo?.numero_recibo ?? '').slice(0, 8),
           data_venda: recibo?.data_venda || row.data_venda,
+          produto_id: recibo?.produto_id || null,
           tipo_produto: descriptor.tipo,
           produto_nome: descriptor.produto,
           cidade_nome: getReceiptCidadeNome(recibo, row),
@@ -570,18 +616,20 @@ export async function GET(event) {
           valor_bruto_override: recibo?.valor_bruto_override ?? null,
           valor_liquido_override: recibo?.valor_liquido_override ?? null,
           valor_meta_override: recibo?.valor_meta_override ?? null,
-          valor_comissionavel: valorComissionavel
+          valor_comissionavel: valorComissionavel,
+          valor_comissao_calculada: commissionByReceipt.valorComissao,
+          percentual_comissao_calculado: commissionByReceipt.percentual
         };
       });
-
-      const commission = resolveVendaCommission(
-        {
-          ...row,
-          recibos: receiptRows,
-          valor_nao_comissionado: linkedNaoComissionado
-        },
-        commissionContext
-      );
+      const commission = {
+        valorComissao: roundToMoney(
+          recibos.reduce(
+            (sum: number, recibo: { valor_comissao_calculada?: number | null }) =>
+              sum + toNum(recibo.valor_comissao_calculada),
+            0
+          )
+        )
+      };
 
       return {
         id: row.id,
@@ -635,11 +683,65 @@ export async function GET(event) {
       .map(([id, nome]) => ({ id, nome }))
       .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
 
+    const accessibleClientIds = !scope.isAdmin
+      ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
+      : [];
+
+    const sharedKpis = await fetchAndComputeVendasKpis(client, {
+      dataInicio,
+      dataFim,
+      companyIds,
+      vendedorIds,
+      accessibleClientIds
+    });
+
+    const historyBuckets = getLastSixMonthBuckets(dataFim);
+    const dayBuckets = getCurrentMonthDayBuckets(dataFim);
+
+    const [monthlySeries, dailySeries] = await Promise.all([
+      Promise.all(
+        historyBuckets.map(async (bucket) => {
+          const bucketKpis = await fetchAndComputeVendasKpis(client, {
+            dataInicio: bucket.start,
+            dataFim: bucket.end,
+            companyIds,
+            vendedorIds,
+            accessibleClientIds
+          });
+
+          return {
+            key: bucket.key,
+            total_valor: Number(bucketKpis.totalVendas || 0)
+          };
+        })
+      ),
+      Promise.all(
+        dayBuckets.map(async (bucket) => {
+          if (bucket.date > dataFim) {
+            return { date: bucket.date, value: 0 };
+          }
+
+          const bucketKpis = await fetchAndComputeVendasKpis(client, {
+            dataInicio: bucket.date,
+            dataFim: bucket.date,
+            companyIds,
+            vendedorIds,
+            accessibleClientIds
+          });
+
+          return {
+            date: bucket.date,
+            value: Number(bucketKpis.totalVendas || 0)
+          };
+        })
+      )
+    ]);
+
     // KPIs agregados
     const totalVendas = items.length;
     const vendasConfirmadas = items.filter(i => i.status === 'confirmada').length;
     const vendasCanceladas = items.filter(i => i.status === 'cancelada').length;
-    const totalValor = items.reduce((sum, item) => sum + Number(item.valor_total || 0), 0);
+    const totalValor = Number(sharedKpis.totalVendas || 0);
     const totalComissao = items.reduce((sum, item) => sum + Number(item.comissao || 0), 0);
     const ticketMedio = totalVendas > 0 ? totalValor / totalVendas : 0;
 
@@ -655,6 +757,16 @@ export async function GET(event) {
         total_comissao: totalComissao,
         ticket_medio: ticketMedio
       },
+      series: {
+        mensal: monthlySeries.map((item) => ({
+          key: item.key,
+          total_valor: Number(item.total_valor.toFixed(2))
+        })),
+        diaria: dailySeries.map((item) => ({
+          date: item.date,
+          value: Number(item.value.toFixed(2))
+        }))
+      },
       periodo: {
         data_inicio: dataInicio,
         data_fim: dataFim
@@ -663,4 +775,8 @@ export async function GET(event) {
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar relatorio de vendas.');
   }
+}
+
+function roundToMoney(value: number) {
+  return Number(value.toFixed(2));
 }
