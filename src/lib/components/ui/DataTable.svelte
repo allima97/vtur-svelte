@@ -15,6 +15,8 @@
     sortable?: boolean;
     width?: string;
     align?: 'left' | 'center' | 'right';
+    headerClass?: string;
+    cellClass?: string;
     formatter?: (value: any, row: T) => string;
     component?: ComponentType;
     componentProps?: (row: T) => Record<string, any>;
@@ -25,6 +27,24 @@
     label: string;
     type: 'text' | 'select' | 'date' | 'date-range';
     options?: { value: string; label: string }[];
+  }
+
+  function defaultKeyExtractor(row: any): string {
+    const directKey =
+      row?.id ??
+      row?.uuid ??
+      row?._id ??
+      row?.key ??
+      row?.vendedor_id ??
+      row?.cliente_id ??
+      row?.numero_recibo;
+
+    if (directKey != null && String(directKey).trim() !== '') {
+      return String(directKey);
+    }
+
+    // Fallback determinístico para evitar chaves voláteis no #each.
+    return JSON.stringify(row ?? {});
   }
 
   export let data: any[] = [];
@@ -42,8 +62,10 @@
   export let filters: FilterOption[] = [];
   export let title: string = '';
   export let emptyMessage: string = 'Nenhum registro encontrado';
-  export let keyExtractor: (row: any) => string = (row) => row.id || Math.random().toString();
+  export let keyExtractor: (row: any) => string = defaultKeyExtractor;
+  export let rowClass: ((row: any) => string) | undefined = undefined;
 
+  export let extraSearchKeys: string[] = [];
   export let onRowClick: ((row: any) => void) | undefined = undefined;
   export let onSelectionChange: ((selected: any[]) => void) | undefined = undefined;
   export let onExport: (() => void) | undefined = undefined;
@@ -64,8 +86,14 @@
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter((row) => {
-        return columns.some((col) => {
+        const matchesColumn = columns.some((col) => {
           const value = row[col.key];
+          if (value == null) return false;
+          return String(value).toLowerCase().includes(query);
+        });
+        if (matchesColumn) return true;
+        return extraSearchKeys.some((key) => {
+          const value = row[key];
           if (value == null) return false;
           return String(value).toLowerCase().includes(query);
         });
@@ -292,13 +320,13 @@
               </th>
             {/if}
             {#each columns as column}
-              <th class="px-6 py-3 text-left" style={column.width ? `width: ${column.width}` : ''}>
+              <th class={`px-6 py-3 text-left ${column.headerClass || ''}`} style={column.width ? `width: ${column.width}` : ''}>
                 {#if column.sortable}
                   <Button
                     type="button"
                     variant="ghost"
                     size="xs"
-                    class_name="!min-h-0 !rounded-none !px-0 !py-0 font-inherit text-inherit hover:!bg-transparent hover:!text-slate-900"
+                    class_name={`!min-h-0 !rounded-none !px-0 !py-0 font-inherit text-inherit hover:!bg-transparent hover:!text-slate-900 ${column.headerClass || ''}`}
                     ariaLabel={`Ordenar por ${column.label}`}
                     on:click={() => handleSort(column)}
                   >
@@ -339,7 +367,7 @@
             </tr>
           {:else}
             {#each paginatedData as row (keyExtractor(row))}
-              <tr class="transition-colors hover:bg-slate-50/90" class:cursor-pointer={onRowClick} on:click={() => onRowClick?.(row)}>
+              <tr class={`transition-colors hover:bg-slate-50/90 ${rowClass?.(row) || ''}`} class:cursor-pointer={onRowClick} on:click={() => onRowClick?.(row)}>
                 {#if selectable}
                   <td class="px-4 py-4" on:click|stopPropagation>
                     <Checkbox
@@ -352,7 +380,7 @@
                   </td>
                 {/if}
                 {#each columns as column}
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-label={column.label}>
+                  <td class={`px-6 py-4 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ''}`} data-label={column.label}>
                     {#if column.component}
                       <svelte:component this={column.component} {...column.componentProps?.(row) || {}} />
                     {:else}

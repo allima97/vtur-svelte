@@ -767,7 +767,9 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     gap: 0.75rem;
     padding: 1.25rem;
     border-radius: 18px;
@@ -790,10 +792,16 @@
     min-height: 100px !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-start !important;
-    justify-content: space-between !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
     gap: 0.5rem !important;
     padding: 1.25rem !important;
+  }
+
+  .vtur-kpi-card .text-left,
+  .vtur-card.vtur-kpi .text-left {
+    text-align: center !important;
   }
 
   /* Grid de KPIs: todos os filhos com mesma altura, preenchem 100% da linha */

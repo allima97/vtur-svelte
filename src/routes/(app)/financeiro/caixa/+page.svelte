@@ -319,7 +319,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
@@ -332,7 +332,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-green-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-green-400 !p-0 hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${resumo.saldo >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}><DollarSign size={20} /></div>
@@ -345,7 +345,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><ArrowUpRight size={20} /></div>
@@ -358,7 +358,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-slate-300 !p-0 !text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-slate-300 !p-0 hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><ArrowDownRight size={20} /></div>

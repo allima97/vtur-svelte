@@ -188,8 +188,33 @@
     return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
+  function clamp(value: number, min: number, max: number) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function interpolateRgb(from: [number, number, number], to: [number, number, number], t: number) {
+    const ratio = clamp(t, 0, 1);
+    const r = Math.round(from[0] + (to[0] - from[0]) * ratio);
+    const g = Math.round(from[1] + (to[1] - from[1]) * ratio);
+    const b = Math.round(from[2] + (to[2] - from[2]) * ratio);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  function getMetaAtingimentoColor(percentual: number) {
+    const pct = clamp(percentual, 0, 100);
+    if (pct < 80) return 'rgb(239, 68, 68)';
+    const ratio = (pct - 80) / 20;
+    return interpolateRgb([249, 115, 22], [34, 197, 94], ratio);
+  }
+
   $: metaTotal = metas.reduce((sum, m) => sum + Number(m.meta_geral || 0), 0);
+  $: metaSeguroTotal = metas.reduce((sum, m) => sum + Number(m.meta_diferenciada || 0), 0);
   $: atingimentoPct = metaTotal > 0 ? (vendasAgg.totalVendas / metaTotal) * 100 : 0;
+  $: atingimentoSeguroPct = metaSeguroTotal > 0 ? (vendasAgg.totalSeguro / metaSeguroTotal) * 100 : 0;
+  $: atingimentoPctClamped = clamp(atingimentoPct, 0, 100);
+  $: atingimentoSeguroPctClamped = clamp(atingimentoSeguroPct, 0, 100);
+  $: metaAtingimentoColor = getMetaAtingimentoColor(atingimentoPctClamped);
+  $: metaSeguroAtingimentoColor = getMetaAtingimentoColor(atingimentoSeguroPctClamped);
   $: qtdOrcamentos = orcamentos.length;
   $: conversaoPct = qtdOrcamentos > 0 ? (vendasAgg.qtdVendas / qtdOrcamentos) * 100 : 0;
 
@@ -466,7 +491,7 @@
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
     <FieldInput id="dash-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
     <FieldInput id="dash-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
-    {#if empresas.length > 0}
+    {#if userCtx?.papel !== 'VENDEDOR' && empresas.length > 0}
       <FieldSelect
         id="dash-empresa"
         label="Empresa"
@@ -475,7 +500,7 @@
         class_name="w-full"
       />
     {/if}
-    {#if vendedoresFiltro.length > 0}
+    {#if userCtx?.papel !== 'VENDEDOR' && vendedoresFiltro.length > 0}
       <FieldSelect
         id="dash-vendedor"
         label="Vendedor"
@@ -569,8 +594,11 @@
                 <p class="text-2xl font-bold text-slate-900">{formatCurrency(metaTotal)}</p>
                 {#if metaTotal > 0}
                   <div class="mt-2 w-full">
-                    <div class="h-1.5 w-full rounded-full bg-slate-200">
-                      <div class="h-1.5 rounded-full bg-teal-500 transition-all" style={`width:${Math.min(atingimentoPct, 100).toFixed(1)}%`}></div>
+                    <div class="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        class="h-2 rounded-full transition-all"
+                        style={`width:${atingimentoPctClamped.toFixed(1)}%;background:linear-gradient(to right,rgb(239,68,68) 0%,rgb(249,115,22) 79%,rgb(34,197,94) 100%);background-size:${atingimentoPctClamped > 0 ? (100 / atingimentoPctClamped * 100).toFixed(1) : 100}% 100%;`}
+                      ></div>
                     </div>
                     <p class="mt-0.5 text-xs text-slate-400">{atingimentoPct.toFixed(1)}% atingido</p>
                   </div>
@@ -606,13 +634,25 @@
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
               <Award size={20} />
             </div>
-            <div>
+            <div class="w-full">
               <p class="text-sm font-medium text-slate-500">Seguro viagem</p>
               {#if loading}
                 <div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
               {:else}
                 <p class="text-2xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
-                <p class="mt-0.5 text-xs text-slate-400">No período</p>
+                {#if metaSeguroTotal > 0}
+                  <div class="mt-2 w-full">
+                    <div class="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        class="h-2 rounded-full transition-all"
+                        style={`width:${atingimentoSeguroPctClamped.toFixed(1)}%;background:linear-gradient(to right,rgb(239,68,68) 0%,rgb(249,115,22) 79%,rgb(34,197,94) 100%);background-size:${atingimentoSeguroPctClamped > 0 ? (100 / atingimentoSeguroPctClamped * 100).toFixed(1) : 100}% 100%;`}
+                      ></div>
+                    </div>
+                    <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguroPct.toFixed(1)}% da meta de seguro</p>
+                  </div>
+                {:else}
+                  <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro cadastrada</p>
+                {/if}
               {/if}
             </div>
           </div>

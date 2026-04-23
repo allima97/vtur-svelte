@@ -717,6 +717,9 @@
 	"/api/v1/vendas/recibo-delete": [
 		"src/routes/api/v1/vendas/recibo-delete/+server.ts"
 	],
+	"/api/v1/vendas/recibo-edit": [
+		"src/routes/api/v1/vendas/recibo-edit/+server.ts"
+	],
 	"/api/v1/vendas/recibo-notas": [
 		"src/routes/api/v1/vendas/recibo-notas/+server.ts"
 	],

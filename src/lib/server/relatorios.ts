@@ -89,7 +89,8 @@ function isMissingColumnError(error: unknown) {
 function buildSalesSelect(
   includeAdvancedFields: boolean,
   includeKpiField: boolean,
-  includeConciliacaoFields: boolean
+  includeConciliacaoFields: boolean,
+  receiptRelation = 'recibos:vendas_recibos'
 ) {
   const tipoProdutoCols = includeAdvancedFields
     ? [
@@ -171,7 +172,7 @@ function buildSalesSelect(
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
         destinos:produtos!destino_id (id, nome, tipo_produto),
-        recibos:vendas_recibos (${reciboCols})
+        ${receiptRelation} (${reciboCols})
       `
     : `
         id,
@@ -190,7 +191,7 @@ function buildSalesSelect(
         vendedor:users!vendedor_id (nome_completo, email),
         destino_cidade:cidades!destino_cidade_id (id, nome),
         destinos:produtos!destino_id (id, nome, tipo_produto),
-        recibos:vendas_recibos (${reciboCols})
+        ${receiptRelation} (${reciboCols})
       `;
 
   return vendaCols;
@@ -205,8 +206,11 @@ export async function fetchSalesReportRows(
     vendedorIds?: string[];
     vendaIds?: string[];
     includeCancelled?: boolean;
+    filterByReceiptDate?: boolean;
   }
 ) {
+  const receiptRelation = params.filterByReceiptDate ? 'recibos:vendas_recibos!inner' : 'recibos:vendas_recibos';
+
   const executeQuery = async (selectClause: string) => {
     let query = client
       .from('vendas')
@@ -219,11 +223,11 @@ export async function fetchSalesReportRows(
     }
 
     if (params.dataInicio) {
-      query = query.gte('data_venda', params.dataInicio);
+      query = query.gte(params.filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', params.dataInicio);
     }
 
     if (params.dataFim) {
-      query = query.lte('data_venda', params.dataFim);
+      query = query.lte(params.filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', params.dataFim);
     }
 
     if ((params.companyIds || []).length > 0) {
@@ -242,10 +246,10 @@ export async function fetchSalesReportRows(
   };
 
   const selectVariants = [
-    buildSalesSelect(true, true, true),
-    buildSalesSelect(true, false, true),
-    buildSalesSelect(true, false, false),
-    buildSalesSelect(false, false, false)
+    buildSalesSelect(true, true, true, receiptRelation),
+    buildSalesSelect(true, false, true, receiptRelation),
+    buildSalesSelect(true, false, false, receiptRelation),
+    buildSalesSelect(false, false, false, receiptRelation)
   ];
 
   let lastError: unknown = null;
@@ -354,10 +358,31 @@ export function getReceiptCidadeNome(
   return String(receipt?.destino_cidade?.nome || fallback?.destino_cidade?.nome || '').trim() || null;
 }
 
-export function getVendaCommission(row: Pick<ReportVendaRow, 'valor_taxas' | 'recibos'>) {
+export function getVendaCommission(row: Pick<ReportVendaRow, 'recibos'>) {
   const recibos = Array.isArray(row.recibos) ? row.recibos : [];
-  const totalTaxas = recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_taxas || 0), 0);
-  return totalTaxas > 0 ? totalTaxas : Number(row.valor_taxas || 0);
+  if (recibos.length === 0) return 0;
+
+  const hasCommissionSignal = recibos.some(
+    (recibo) => recibo?.valor_comissao_loja != null || Number(recibo?.percentual_comissao_loja || 0) > 0
+  );
+
+  if (!hasCommissionSignal) return 0;
+
+  const totalCommission = recibos.reduce((sum, recibo) => {
+    if (recibo?.valor_comissao_loja != null) {
+      return sum + Number(recibo.valor_comissao_loja || 0);
+    }
+
+    const percentual = Number(recibo?.percentual_comissao_loja || 0);
+    if (percentual > 0) {
+      const valorBase = Number(recibo?.valor_total || 0);
+      return sum + (valorBase * percentual) / 100;
+    }
+
+    return sum;
+  }, 0);
+
+  return Math.max(0, Number(totalCommission.toFixed(2)));
 }
 
 export function getReceiptProductDescriptor(

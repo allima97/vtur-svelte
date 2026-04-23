@@ -10,6 +10,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -287,10 +288,20 @@ export async function GET(event) {
     const includeOrcamentos = String(searchParams.get('include_orcamentos') || '1').trim() === '1';
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids'));
+    const accessibleClientIds = !scope.isAdmin
+      ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
+      : [];
     const canOperacao = scope.isAdmin || hasModuloAccess(scope, ['operacao'], 1);
     const canConsultoria = scope.isAdmin || hasModuloAccess(scope, ['consultoria_online', 'consultoria'], 1);
 
     const scopeVendedorIds = new Set(vendedorIds.map((id) => String(id || '').trim()).filter(Boolean));
+    const vendasKpis = await fetchAndComputeVendasKpis(client, {
+      dataInicio: inicio,
+      dataFim: fim,
+      companyIds,
+      vendedorIds,
+      accessibleClientIds
+    });
 
     // -------------------------------------------------------------------------
     // 1. Busca vendas do vendedor
@@ -587,8 +598,12 @@ export async function GET(event) {
             podeVerOperacao: canOperacao,
             podeVerConsultoria: canConsultoria,
             vendasAgg: {
-              totalVendas, totalTaxas, totalLiquido: totalVendas - totalTaxas, totalSeguro,
-              qtdVendas, ticketMedio: qtdVendas > 0 ? totalVendas / qtdVendas : 0,
+              totalVendas: vendasKpis.totalVendas,
+              totalTaxas: vendasKpis.totalTaxas,
+              totalLiquido: vendasKpis.totalLiquido,
+              totalSeguro: vendasKpis.totalSeguro,
+              qtdVendas: vendasKpis.countAtivas,
+              ticketMedio: vendasKpis.countAtivas > 0 ? vendasKpis.totalVendas / vendasKpis.countAtivas : 0,
               timeline: Array.from(timelineMap.entries()).map(([date, value]) => ({ date, value })),
               topDestinos: Array.from(destinoMap.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5),
               porProduto: Array.from(produtoMap.values()).sort((a, b) => b.value - a.value).slice(0, 6)
@@ -621,8 +636,12 @@ export async function GET(event) {
       podeVerOperacao: canOperacao,
       podeVerConsultoria: canConsultoria,
       vendasAgg: {
-        totalVendas, totalTaxas, totalLiquido: totalVendas - totalTaxas, totalSeguro,
-        qtdVendas, ticketMedio: qtdVendas > 0 ? totalVendas / qtdVendas : 0,
+        totalVendas: vendasKpis.totalVendas,
+        totalTaxas: vendasKpis.totalTaxas,
+        totalLiquido: vendasKpis.totalLiquido,
+        totalSeguro: vendasKpis.totalSeguro,
+        qtdVendas: vendasKpis.countAtivas,
+        ticketMedio: vendasKpis.countAtivas > 0 ? vendasKpis.totalVendas / vendasKpis.countAtivas : 0,
         timeline: Array.from(timelineMap.entries()).map(([date, value]) => ({ date, value })),
         topDestinos: Array.from(destinoMap.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5),
         porProduto: Array.from(produtoMap.values()).sort((a, b) => b.value - a.value).slice(0, 6)

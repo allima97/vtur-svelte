@@ -11,7 +11,7 @@
   import {
     ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
-    AlertCircle, Clock, CheckCircle, Shield
+    AlertCircle, Clock, CheckCircle, Shield, Pencil, Save, X
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -25,6 +25,49 @@
   let processando = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let ensuringProdutos = new Set<string>();
+
+  // Edição inline de recibo
+  let editingReciboId: string | null = null;
+  let editingReciboNumero = '';
+  let savingRecibo = false;
+
+  function startEditRecibo(recibo: any) {
+    editingReciboId = recibo.id;
+    editingReciboNumero = recibo.numero_recibo || '';
+  }
+
+  function cancelEditRecibo() {
+    editingReciboId = null;
+    editingReciboNumero = '';
+  }
+
+  async function saveRecibo(recibo: any) {
+    const numero = editingReciboNumero.trim();
+    if (!numero) return;
+    savingRecibo = true;
+    try {
+      const res = await fetch('/api/v1/vendas/recibo-edit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venda_id: vendaId, recibo_id: recibo.id, numero_recibo: numero })
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        toast.error(msg || 'Erro ao salvar recibo');
+        return;
+      }
+      // Atualiza localmente
+      recibo.numero_recibo = numero;
+      venda = { ...venda };
+      editingReciboId = null;
+      editingReciboNumero = '';
+      toast.success('Recibo atualizado');
+    } catch {
+      toast.error('Erro ao salvar recibo');
+    } finally {
+      savingRecibo = false;
+    }
+  }
 
   async function ensureServerSessionCookie() {
     if (!browser) return;
@@ -164,7 +207,12 @@
 
   function formatDate(dateString: string | null): string {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    const raw = String(dateString).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [year, month, day] = raw.split('-').map(Number);
+      return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
+    }
+    return new Date(raw).toLocaleDateString('pt-BR');
   }
 
   function getReciboCidade(recibo: any): string {
@@ -200,7 +248,9 @@
     : 0;
   $: totalPagamentosValor = Array.isArray(venda?.pagamentos)
     ? venda.pagamentos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
-    : Number(venda?.valor_total_pago || 0);
+    : totalRecibosValor > 0
+      ? totalRecibosValor
+      : Number(venda?.valor_total_pago || 0);
   $: destinosVenda = Array.isArray(venda?.recibos)
     ? Array.from(
         new Set(
@@ -215,9 +265,9 @@
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: conciliacaoPendente = venda?.conciliado === false;
   $: vendaPendente = venda?.status === 'pendente';
-  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'edit');
-  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'delete');
-  $: canCancel = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('vendas', 'edit') || permissoes.can('vendas', 'delete');
+  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'edit');
+  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'delete');
+  $: canCancel = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'edit') || permissoes.can('vendas', 'delete');
   $: alertaOperacionalClasse = vendaPendente
     ? 'border-amber-200 bg-amber-50 text-amber-800'
     : conciliacaoPendente || !fechamentoFinanceiroOk
@@ -466,13 +516,26 @@
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Reserva</th>
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Período</th>
                   <th class="text-right py-3 px-3 text-sm font-semibold text-slate-600">Valor</th>
+                  {#if canEdit}
+                  <th class="w-16 py-3 px-3"></th>
+                  {/if}
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 {#each venda.recibos as recibo}
                   <tr class="hover:bg-slate-50">
                     <td class="py-3 px-3 text-slate-900" data-label="Recibo">
-                      <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
+                      {#if editingReciboId === recibo.id}
+                        <input
+                          type="text"
+                          class="vtur-input w-full min-w-[160px]"
+                          bind:value={editingReciboNumero}
+                          on:keydown={(e) => { if (e.key === 'Enter') saveRecibo(recibo); if (e.key === 'Escape') cancelEditRecibo(); }}
+                          disabled={savingRecibo}
+                        />
+                      {:else}
+                        <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
+                      {/if}
                     </td>
                     <td class="py-3 px-3 text-slate-700" data-label="Produto">
                       {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || recibo.produto_resolvido?.nome || 'N/A'}
@@ -481,12 +544,30 @@
                     <td class="py-3 px-3 text-center text-slate-700" data-label="Reserva">{recibo.numero_reserva || '-'}</td>
                     <td class="py-3 px-3 text-center text-slate-700" data-label="Período">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
                     <td class="py-3 px-3 text-right font-medium text-slate-900" data-label="Valor">{formatCurrency(recibo.valor_total)}</td>
+                    {#if canEdit}
+                    <td class="py-3 px-3 text-center">
+                      {#if editingReciboId === recibo.id}
+                        <div class="flex items-center gap-1 justify-center">
+                          <Button variant="ghost" size="xs" on:click={() => saveRecibo(recibo)} loading={savingRecibo} title="Salvar">
+                            <Save size={14} />
+                          </Button>
+                          <Button variant="ghost" size="xs" on:click={cancelEditRecibo} disabled={savingRecibo} title="Cancelar">
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      {:else}
+                        <Button variant="ghost" size="xs" on:click={() => startEditRecibo(recibo)} title="Editar número do recibo">
+                          <Pencil size={14} />
+                        </Button>
+                      {/if}
+                    </td>
+                    {/if}
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
                 <tr class="border-t-2 border-slate-200">
-                  <td colspan="5" class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
+                  <td colspan={canEdit ? 6 : 5} class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
                   <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">{formatCurrency(totalRecibosValor)}</td>
                 </tr>
               </tfoot>

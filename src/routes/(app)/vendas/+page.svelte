@@ -27,9 +27,26 @@
     recibos: string[];
   }
 
+  interface VendasKpis {
+    totalVendas: number;
+    totalTaxas: number;
+    totalLiquido: number;
+    totalSeguro: number;
+    countVendas: number;
+    countAtivas: number;
+  }
+
   let vendas: Venda[] = [];
   let loading = true;
   let errorMessage: string | null = null;
+  let kpisMesCorrente: VendasKpis = {
+    totalVendas: 0,
+    totalTaxas: 0,
+    totalLiquido: 0,
+    totalSeguro: 0,
+    countVendas: 0,
+    countAtivas: 0
+  };
   let filters: Array<{
     key: string;
     label: string;
@@ -123,7 +140,16 @@
         include_kpis: 1
       });
 
-      vendas = Array.isArray(payload?.items) ? payload.items : [];
+      vendas = (Array.isArray(payload?.items) ? payload.items : []).map((v: Venda) => {
+        const recibos: string[] = Array.isArray(v.recibos) ? v.recibos : [];
+        const variants = recibos.flatMap((r) => {
+          const noDash = r.replace(/-/g, '');
+          const parts = r.split('-');
+          const numPart = parts.length > 1 ? parts[parts.length - 1] : '';
+          return [r, noDash, numPart].filter(Boolean);
+        });
+        return { ...v, _recibos_busca: variants.join(' ') };
+      });
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : 'Erro ao carregar vendas.';
       vendas = [];
@@ -133,8 +159,47 @@
     }
   }
 
+  function getCurrentMonthRange() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      inicio: start.toISOString().slice(0, 10),
+      fim: now.toISOString().slice(0, 10)
+    };
+  }
+
+  async function loadKpisMesCorrente() {
+    try {
+      const range = getCurrentMonthRange();
+      const payload: any = await apiGet('/api/v1/vendas/kpis', {
+        inicio: range.inicio,
+        fim: range.fim
+      });
+      kpisMesCorrente = {
+        totalVendas: Number(payload?.kpis?.totalVendas || 0),
+        totalTaxas: Number(payload?.kpis?.totalTaxas || 0),
+        totalLiquido: Number(payload?.kpis?.totalLiquido || 0),
+        totalSeguro: Number(payload?.kpis?.totalSeguro || 0),
+        countVendas: Number(payload?.kpis?.countVendas || 0),
+        countAtivas: Number(payload?.kpis?.countAtivas || 0)
+      };
+    } catch (err) {
+      kpisMesCorrente = {
+        totalVendas: 0,
+        totalTaxas: 0,
+        totalLiquido: 0,
+        totalSeguro: 0,
+        countVendas: 0,
+        countAtivas: 0
+      };
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar KPIs do mês corrente.';
+      toast.error(msg);
+    }
+  }
+
   onMount(() => {
     void loadVendas();
+    void loadKpisMesCorrente();
   });
 
   $: showVendedorFilter = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
@@ -190,16 +255,12 @@
     toast.info('A exportação sera ligada na proxima etapa. Os dados reais ja estao conectados.');
   }
 
-  function getResumoVendas() {
-    const total = vendas.reduce((acc, venda) => acc + Number(venda.valor_total || 0), 0);
-    const taxas = vendas.reduce((acc, venda) => acc + Number(venda.valor_taxas || 0), 0);
-    const confirmadas = vendas.filter((venda) => venda.status === 'confirmada').length;
-    const pendentes = vendas.filter((venda) => venda.status === 'pendente').length;
-
-    return { total, taxas, confirmadas, pendentes };
+  function formatCurrency(value: number | null | undefined) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(Number(value) || 0);
   }
-
-  $: resumo = getResumoVendas();
 </script>
 
 <svelte:head>
@@ -234,10 +295,10 @@
 {/if}
 
 <KPIGrid className="mb-6" columns={4}>
-  <KPICard title="Total de vendas" value={vendas.length} color="vendas" icon={ShoppingCart} />
-  <KPICard title="Valor total" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resumo.total)} color="vendas" icon={DollarSign} />
-  <KPICard title="Confirmadas" value={resumo.confirmadas} color="clientes" icon={Calendar} />
-  <KPICard title="Pendentes" value={resumo.pendentes} color="financeiro" icon={Calendar} />
+  <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
+  <KPICard title="Valor total (mês corrente)" value={formatCurrency(kpisMesCorrente.totalVendas)} color="vendas" icon={DollarSign} />
+  <KPICard title="Taxas (mês corrente)" value={formatCurrency(kpisMesCorrente.totalTaxas)} color="clientes" icon={Calendar} />
+  <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
 </KPIGrid>
 
 <DataTable
@@ -250,6 +311,7 @@
   searchable={true}
   filterable={true}
   exportable={true}
+  extraSearchKeys={['_recibos_busca']}
   onRowClick={handleRowClick}
   onExport={handleExport}
   emptyMessage="Nenhuma venda encontrada para o escopo atual"

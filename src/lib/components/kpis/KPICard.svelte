@@ -57,10 +57,10 @@
   Estrutura: borda superior colorida → ícone → título → valor
 -->
 <div
-  class="vtur-kpi-card flex flex-col items-start gap-3 border-t-[3px] p-5 {borderColor[color]}"
+  class="vtur-kpi-card flex flex-col items-center gap-3 border-t-[3px] p-5 text-center {borderColor[color]}"
 >
   {#if loading}
-    <div class="flex h-full w-full flex-col items-start gap-2">
+    <div class="flex h-full w-full flex-col items-center gap-2">
       <div class="h-9 w-9 animate-pulse rounded-xl bg-slate-100"></div>
       <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
       <div class="h-7 w-16 animate-pulse rounded bg-slate-100"></div>
@@ -74,7 +74,7 @@
     {/if}
 
     <!-- Título + Valor -->
-    <div class="min-w-0 flex-1">
+    <div class="min-w-0 flex-1 text-center">
       <p class="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] leading-tight text-slate-500">{title}</p>
       <p class="text-[1.85rem] font-bold leading-none tracking-tight text-slate-900">{value}</p>
       {#if subtitle}
