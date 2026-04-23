@@ -86,7 +86,11 @@ function isMissingColumnError(error: unknown) {
   return code === '42703' || (message.includes('column') && message.includes('does not exist'));
 }
 
-function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boolean) {
+function buildSalesSelect(
+  includeAdvancedFields: boolean,
+  includeKpiField: boolean,
+  includeConciliacaoFields: boolean
+) {
   const tipoProdutoCols = includeAdvancedFields
     ? [
         'id',
@@ -104,48 +108,47 @@ function buildSalesSelect(includeAdvancedFields: boolean, includeKpiField: boole
         .join(', ')
     : 'id, nome, tipo';
 
-  const reciboCols = includeAdvancedFields
-    ? `
-        id,
-        numero_recibo,
-        data_venda,
-        produto_id,
-        destino_cidade:cidades!destino_cidade_id (id, nome),
-        valor_total,
-        valor_taxas,
-        valor_du,
-        valor_rav,
-        tipo_pacote,
-        percentual_comissao_loja,
-        faixa_comissao,
-        valor_comissao_loja,
-        cancelado_por_conciliacao_em,
-        cancelado_por_conciliacao_observacao,
-        valor_bruto_override,
-        valor_liquido_override,
-        valor_meta_override,
-        tipo_produtos (${tipoProdutoCols}),
-        produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)
-      `
-    : `
-        id,
-        numero_recibo,
-        data_venda,
-        produto_id,
-        destino_cidade:cidades!destino_cidade_id (id, nome),
-        valor_total,
-        valor_taxas,
-        valor_du,
-        valor_rav,
-        tipo_pacote,
-        percentual_comissao_loja,
-        faixa_comissao,
-        valor_comissao_loja,
-        cancelado_por_conciliacao_em,
-        cancelado_por_conciliacao_observacao,
-        tipo_produtos (id, nome, tipo),
-        produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)
-      `;
+  const reciboBaseCols = [
+    'id',
+    'numero_recibo',
+    'data_venda',
+    'produto_id',
+    'destino_cidade:cidades!destino_cidade_id (id, nome)',
+    'valor_total',
+    'valor_taxas',
+    'valor_du',
+    'valor_rav',
+    'tipo_pacote'
+  ];
+
+  const reciboConciliacaoCols = includeConciliacaoFields
+    ? [
+        'percentual_comissao_loja',
+        'faixa_comissao',
+        'valor_comissao_loja',
+        'cancelado_por_conciliacao_em',
+        'cancelado_por_conciliacao_observacao',
+        'valor_bruto_override',
+        'valor_liquido_override',
+        'valor_meta_override'
+      ]
+    : [];
+
+  const reciboProdutoCols = includeAdvancedFields
+    ? [
+        `tipo_produtos (${tipoProdutoCols})`,
+        'produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)'
+      ]
+    : [
+        'tipo_produtos (id, nome, tipo)',
+        'produto_resolvido:produtos!produto_resolvido_id (id, nome, tipo_produto, valor_neto, valor_em_reais)'
+      ];
+
+  const reciboCols = [
+    ...reciboBaseCols,
+    ...reciboConciliacaoCols,
+    ...reciboProdutoCols
+  ].join(',\n        ');
 
   const vendaCols = includeAdvancedFields
     ? `
@@ -200,6 +203,7 @@ export async function fetchSalesReportRows(
     dataFim?: string | null;
     companyIds?: string[];
     vendedorIds?: string[];
+    vendaIds?: string[];
     includeCancelled?: boolean;
   }
 ) {
@@ -230,13 +234,18 @@ export async function fetchSalesReportRows(
       query = query.in('vendedor_id', params.vendedorIds || []);
     }
 
+    if ((params.vendaIds || []).length > 0) {
+      query = query.in('id', params.vendaIds || []);
+    }
+
     return query;
   };
 
   const selectVariants = [
-    buildSalesSelect(true, true),
-    buildSalesSelect(true, false),
-    buildSalesSelect(false, false)
+    buildSalesSelect(true, true, true),
+    buildSalesSelect(true, false, true),
+    buildSalesSelect(true, false, false),
+    buildSalesSelect(false, false, false)
   ];
 
   let lastError: unknown = null;

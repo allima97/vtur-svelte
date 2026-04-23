@@ -9,6 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
+import { applyPersistedComissao, buildPersistedComissaoKey, fetchPersistedComissoes } from '$lib/server/comissoes-registro';
 import { fetchSalesReportRows, getVendaClienteNome, getVendaVendedorNome } from '$lib/server/relatorios';
 
 export async function POST(event) {
@@ -102,6 +103,7 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const vendedorId = searchParams.get('vendedor_id');
+    const statusParam = String(searchParams.get('status') || '').trim().toLowerCase();
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id') || searchParams.get('company_id'));
     const mes = searchParams.get('mes');
     const ano = searchParams.get('ano');
@@ -119,9 +121,29 @@ export async function GET(event) {
       vendedorIds
     });
     const commissionContext = await fetchCommissionContext(client, { companyIds, rows: vendas as any });
+    const persistedSnapshot = await fetchPersistedComissoes(client, {
+      companyIds,
+      vendaIds: (vendas || []).map((row) => row.id),
+      vendedorIds: (vendas || []).map((row) => String(row.vendedor_id || '')).filter(Boolean)
+    });
+    const persistedByKey = new Map(
+      persistedSnapshot.rows.map((row) => [buildPersistedComissaoKey(row.venda_id, row.vendedor_id), row] as const)
+    );
 
-    const items = (vendas || []).map((v: any) => {
+    let items = (vendas || []).map((v: any) => {
       const resolved = resolveVendaCommission(v, commissionContext);
+      const persisted = persistedByKey.get(buildPersistedComissaoKey(v.id, v.vendedor_id));
+      const persistedApplied = applyPersistedComissao(
+        {
+          valor_venda: resolved.valorVenda,
+          valor_comissionavel: resolved.valorComissionavel,
+          percentual_aplicado: resolved.percentual,
+          valor_comissao: resolved.valorComissao,
+          valor_pago: 0,
+          status: 'pendente'
+        },
+        persisted
+      );
       return {
         id: v.id,
         venda_id: v.id,
@@ -130,23 +152,35 @@ export async function GET(event) {
         cliente: getVendaClienteNome(v),
         vendedor_id: v.vendedor_id,
         vendedor: getVendaVendedorNome(v),
-        valor_venda: resolved.valorVenda,
-        valor_comissionavel: resolved.valorComissionavel,
-        percentual_aplicado: resolved.percentual,
-        valor_comissao: resolved.valorComissao,
+        valor_venda: persistedApplied.valor_venda,
+        valor_comissionavel: persistedApplied.valor_comissionavel,
+        percentual_aplicado: persistedApplied.percentual_aplicado,
+        valor_comissao: persistedApplied.valor_comissao,
+        valor_pago: persistedApplied.valor_pago,
         regra_nome: resolved.regraNome,
-        status: 'PENDENTE',
+        status: persistedApplied.status.toUpperCase(),
         mes_referencia: mesNum,
-        ano_referencia: anoNum
+        ano_referencia: anoNum,
+        data_pagamento: persisted?.data_pagamento || null
       };
     });
 
-    const totalPendente = items.reduce((acc: number, i: any) => acc + Number(i.valor_comissao || 0), 0);
+    if (statusParam && statusParam !== 'todas') {
+      items = items.filter((item: any) => String(item.status || '').toLowerCase() === statusParam);
+    }
+
+    const totalPendente = items
+      .filter((item: any) => String(item.status || '').toLowerCase() !== 'paga')
+      .reduce((acc: number, i: any) => acc + Number(i.valor_comissao || 0), 0);
+    const totalPago = items
+      .filter((item: any) => String(item.status || '').toLowerCase() === 'paga')
+      .reduce((acc: number, i: any) => acc + Number(i.valor_pago || i.valor_comissao || 0), 0);
 
     return json({
       items,
       total: items.length,
-      resumo: { total_pendente: totalPendente, total_pago: 0, total_geral: totalPendente }
+      resumo: { total_pendente: totalPendente, total_pago: totalPago, total_geral: totalPendente + totalPago },
+      persistencia_disponivel: persistedSnapshot.available
     });
 
   } catch (err) {

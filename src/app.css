@@ -950,7 +950,6 @@
   }
 
   .vtur-dialog__footer {
-    border-top: 1px solid rgba(226, 232, 240, 0.82);
     background: transparent;
   }
 
@@ -960,6 +959,36 @@
     justify-content: flex-end;
     gap: 0.75rem;
     padding: 1rem 1.25rem;
+  }
+
+  .vtur-dialog__footer-actions .vtur-button {
+    min-width: 10.5rem;
+  }
+
+  .vtur-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: transparent;
+  }
+
+  .vtur-modal-footer--between {
+    justify-content: space-between;
+  }
+
+  .vtur-modal-footer__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  .vtur-modal-footer .vtur-button,
+  .vtur-modal-footer__actions .vtur-button {
+    min-width: 10.5rem;
   }
 
   .vtur-upload-dropzone {
@@ -1038,9 +1067,16 @@
       gap: 0.75rem;
     }
 
-    .vtur-dialog__footer-actions .vtur-button {
+    .vtur-dialog__footer-actions .vtur-button,
+    .vtur-modal-footer .vtur-button,
+    .vtur-modal-footer__actions .vtur-button {
       width: auto !important;
       justify-content: center !important;
+    }
+
+    .vtur-modal-footer,
+    .vtur-modal-footer--between {
+      justify-content: flex-end;
     }
   }
 }

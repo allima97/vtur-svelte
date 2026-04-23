@@ -1667,7 +1667,7 @@
           </div>
         {/if}
       </div>
-      <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+      <div class="vtur-modal-footer">
         <Button type="button" variant="secondary" on:click={() => { showGerarModal = false; gerarLoading = false; }}>
           Cancelar
         </Button>
@@ -1735,7 +1735,7 @@
           <p class="text-center text-sm text-slate-400 py-4">Nenhum resultado. Tente buscar acima.</p>
         {/if}
       </div>
-      <div class="flex justify-end border-t border-slate-100 px-6 py-4">
+      <div class="vtur-modal-footer">
         <Button type="button" variant="secondary" on:click={() => { showDiasBusca = false; }}>Fechar</Button>
       </div>
     </div>

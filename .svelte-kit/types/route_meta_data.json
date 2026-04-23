@@ -1060,6 +1060,10 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/operacao/viagens/nova": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/operacao/viagens/[id]": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"

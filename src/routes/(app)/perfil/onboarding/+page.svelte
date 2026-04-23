@@ -25,7 +25,6 @@
     estado: '',
     uso_individual: null as boolean | null
   };
-  let usoIndividualValue = '';
 
   const ESTADOS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
@@ -94,9 +93,6 @@
 
   onMount(load);
 
-  // Sync form → string (one-way, no write-back to form)
-  $: usoIndividualValue = form.uso_individual === null ? '' : String(form.uso_individual);
-
   function onUsoIndividualChange(e: Event) {
     const val = (e.currentTarget as HTMLSelectElement | HTMLInputElement).value;
     form = { ...form, uso_individual: val === '' ? null : val === 'true' };
@@ -155,16 +151,16 @@
       <FieldRadioGroup
         id="ob-uso"
         label={null}
-        value={usoIndividualValue}
+        value={form.uso_individual === null ? '' : String(form.uso_individual)}
         on:change={onUsoIndividualChange}
         orientation="column"
         options={[
           { value: 'false', label: 'Uso corporativo' },
           { value: 'true', label: 'Uso individual' }
         ]}
-        helper={usoIndividualValue === 'false'
+        helper={form.uso_individual === false
           ? 'Faço parte de uma equipe ou agência.'
-          : usoIndividualValue === 'true'
+          : form.uso_individual === true
             ? 'Trabalho de forma independente.'
             : 'Escolha como você usa o sistema.'}
         class_name="w-full"

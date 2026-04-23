@@ -824,7 +824,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="flex justify-end gap-3 p-4 border-t border-slate-100">
+        <div class="vtur-modal-footer">
           <Button variant="ghost" on:click={() => showEditModal = false}>Cancelar</Button>
           <Button variant="primary" on:click={saveViagem} loading={saving}>Salvar Alterações</Button>
         </div>
@@ -869,7 +869,7 @@
           </div>
         </div>
 
-        <div class="flex justify-end gap-3 p-4 border-t border-slate-100">
+        <div class="vtur-modal-footer">
           <Button variant="ghost" on:click={() => showStatusModal = false}>Cancelar</Button>
           <Button variant="primary" on:click={saveViagem} loading={saving}>Confirmar</Button>
         </div>

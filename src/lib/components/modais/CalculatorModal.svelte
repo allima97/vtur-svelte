@@ -301,11 +301,11 @@
       </div>
       
       <!-- Footer -->
-      <div class="flex items-center justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
+      <div class="vtur-modal-footer vtur-modal-footer--between">
         <Button variant="ghost" on:click={limpar}>
           Limpar
         </Button>
-        <div class="flex gap-3">
+        <div class="vtur-modal-footer__actions">
           <Button variant="secondary" on:click={onClose}>
             Cancelar
           </Button>

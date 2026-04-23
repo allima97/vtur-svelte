@@ -10,6 +10,9 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - Endpoint `/api/auth/set-session` implementado para sincronizar tokens
 - Layout sincroniza tokens ao carregar
 - Login salva sessão nos cookies
+- `@supabase/ssr` agora usa o storage key correto (`sb-<project-ref>-auth-token`)
+- `/api/auth/set-session` passou a usar `supabase.auth.setSession()` no servidor, eliminando o cookie manual incompatível
+- O layout principal agora re-sincroniza a sessão também em `TOKEN_REFRESHED`, `USER_UPDATED`, `PASSWORD_RECOVERY` e `MFA_CHALLENGE_VERIFIED`
 
 ### Relatórios ✅
 - `relatorios/vendas`: Campos `cliente_cpf`, `cidade`, `valor_taxas`, `recibos[]` adicionados
@@ -18,10 +21,12 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 ### Issues Identificados
 
 #### 1. Roteiros (`orcamentos/roteiros`) ⚠️
-- **Problema**: Clique na linha redireciona de volta para a lista
-- **Causa**: API retorna 401 (não autenticado) e o erro redireciona para lista
-- **Raiz**: Tokens não estão sendo sincronizados corretamente para chamadas de API
-- **Solução**: Verificar se `/api/auth/set-session` está sendo chamado corretamente após login
+- **Problema histórico**: Clique na linha redirecionava de volta para a lista
+- **Causa observada**: API retornava 401 e a tela tratava isso redirecionando
+- **Correção aplicada na raiz**:
+  - `set-session` agora grava a sessão no formato esperado pelo `@supabase/ssr`
+  - o layout re-sincroniza sessão em refresh de token
+- **Próximo passo**: validar em browser se o 401 em `orcamentos/roteiros/[id]` desapareceu
 
 #### 2. Conciliação (`financeiro/conciliacao`) ✅
 - **Status**: Implementação completa com paridade funcional ao vtur-app
@@ -39,17 +44,40 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - **Correção aplicada**: Dashboard financeiro (`financeiro/+page.svelte`) agora consome `/api/v1/conciliacao/summary` em vez de `/api/v1/pagamentos`, refletindo dados reais de conciliação nos KPIs
 
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
-- **Problema**: Cálculo básico sem templates/regras complexas
-- **Diferenças**:
-  - vtur-app: Templates (FIXO/ESCALONAVEL), metas de vendedores, faixas de comissão, conciliação override
-  - vtur-svelte: Cálculo simples `valor * percentual_padrao / 100`
-- **APIs existem**: `/api/v1/financeiro/comissoes/*` mas são básicas
-- **Solução**: Implementar lógica de templates e faixas de comissão
+- **Diagnóstico atualizado**: o motor em `src/lib/server/comissoes.ts` já implementa muito mais do que o diagnóstico antigo indicava
+- **Já cobre**:
+  - regras `GERAL` e `ESCALONAVEL`
+  - tiers/faixas
+  - metas de vendedor e metas por produto
+  - regras por produto, tipo de pacote e pacote do produto
+  - override de conciliação
+- **Correções aplicadas**:
+  - `/api/v1/financeiro/comissoes/pagamento` agora persiste baixa real na tabela `comissoes`
+  - `GET /api/v1/financeiro/comissoes` e `GET /api/v1/financeiro/comissoes/calcular` passaram a sobrepor o cálculo com o estado persistido (`status`, `valor_pago`, `data_pagamento`, `observacoes_pagamento`)
+  - `PUT /api/v1/financeiro/comissoes/pagamento` permite editar data e observações de comissão paga
+  - `DELETE /api/v1/financeiro/comissoes/pagamento` cancela comissão persistida
+  - `financeiro/comissoes/+page.svelte` mostra e mantém esses estados com feedback de sucesso e erro
+  - `financeiro/comissoes/calculo/+page.svelte` passou a exibir pendentes, pagas e canceladas no período
+- **Achado de ambiente**:
+  - o ambiente local validado em `2026-04-22` está sem a tabela `comissoes`
+  - a API agora expõe `persistencia_disponivel`
+  - `financeiro/comissoes` e `financeiro/comissoes/calculo` mostram aviso explícito quando o ledger não existe
+  - ações de pagar/editar/cancelar ficam desabilitadas ou retornam aviso claro, evitando falso positivo de sucesso
+- **Próximo passo**: provisionar a tabela `comissoes` no ambiente que ainda não a possui e então validar o fluxo real de baixa/edição/cancelamento ponta a ponta
 
 #### 4. Acompanhamento (`operacao/acompanhamento`) ℹ️
 - **Status**: Implementado com follow-ups derivados de viagens
 - **Diferença**: vtur-app tem CRUD completo de viagens em `ViagensListaIsland`
 - **vtur-svelte**: Foca em follow-ups operacionais
+
+#### 5. Viagens (`operacao/viagens`) ✅
+- **Status**: CRUD operacional agora fechado no front principal
+- **Implementado**:
+  - listagem em `/operacao/viagens`
+  - detalhe/edição em `/operacao/viagens/[id]`
+  - criação em `/operacao/viagens/nova`
+  - `POST /api/v1/viagens/create` agora retorna a viagem criada e resolve `company_id` com segurança a partir do cliente/escopo
+  - filtro de status da listagem agora considera os status reais do banco (`planejada`, `confirmada`, `em_viagem`) além dos labels normalizados da UI
 
 ## APIs Disponíveis
 
@@ -169,7 +197,6 @@ Wrappers consolidados em `src/lib/components/ui`:
 - **`debug/+page.svelte`**: 1 botão "Atualizar" com icon refresh migrado para `Button` secondary.
 
 ### Não Migrados (Exceções Legítimas) ✅
-  - `lib/components/ui/Tabs.svelte` (2+ botões por instância) — requer role="tab" e aria-selected que Button não expõe; melhor deixar nativo para preservar acessibilidade.
   - KPI card buttons em `vendas/[id]` e `clientes/[id]` — estruturais com lógica visual complexa (cores condicionais, múltiplos ícones/conteúdo).
   - Theme selector gallery em `parametros/crm/+page.svelte` (linha 539) — card seletor visual complexo com imagem + overlay.
   - Autocomplete dropdown items em `parametros/crm/+page.svelte` (linha 628) — padrão aceitável para dropdowns.
@@ -186,7 +213,7 @@ Não introduzir imports diretos de `flowbite-svelte` em páginas de negócio; se
 
 ## Próximos Passos Gerais
 
-1. **Corrigir auth sync**: Garantir que tokens sejam salvos em cookies após login
-2. **Reimplementar conciliação**: UI deve usar APIs de `/api/v1/conciliacao/*`
-3. **Expandir comissões**: Implementar templates e faixas de comissão
+1. **Validar `orcamentos/roteiros/[id]` em browser**: confirmar que o 401 histórico desapareceu após a correção de auth sync
+2. **Validar fluxo real de comissões**: pagar, editar, cancelar e recarregar para confirmar persistência ponta a ponta
+3. **Decidir modelo contábil de comissão**: confirmar se a tabela `comissoes` já é o ledger canônico ou se ainda falta um extrato separado
 4. **Verificar viagens**: Comparar CRUD de viagens entre sistemas

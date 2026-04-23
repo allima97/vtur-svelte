@@ -29,6 +29,8 @@
     valor_pago: number;
     valor_taxas?: number;
     status: string;
+    data_pagamento?: string | null;
+    observacoes_pagamento?: string | null;
   }
 
   interface ResumoVendedor {
@@ -53,8 +55,12 @@
   let showPagamentoMultiploDialog = false;
   let showDetalhesDialog = false;
   let processando = false;
+  let persistenciaDisponivel = true;
   let dataPagamento = new Date().toISOString().split('T')[0];
   let observacoesPagamento = '';
+  let detalhesDataPagamento = '';
+  let detalhesObservacoes = '';
+  let salvandoDetalhes = false;
 
   $: statusOptions = [
     { value: 'todas', label: 'Todas' },
@@ -83,6 +89,7 @@
       const response = await fetch(`/api/v1/financeiro/comissoes?${params.toString()}`);
       if (!response.ok) throw new Error('Erro ao carregar comissões');
       const data = await response.json();
+      persistenciaDisponivel = data.persistencia_disponivel !== false;
       comissoes = (data.items || []).map((item: any) => ({
         ...item,
         valor_venda: Number(item.valor_venda || 0),
@@ -91,7 +98,9 @@
         valor_comissao: Number(item.valor_comissao || 0),
         valor_pago: Number(item.valor_pago || 0),
         valor_taxas: Number(item.valor_taxas || 0),
-        status: String(item.status || 'pendente').toLowerCase()
+        status: String(item.status || 'pendente').toLowerCase(),
+        data_pagamento: item.data_pagamento || null,
+        observacoes_pagamento: item.observacoes_pagamento || null
       }));
       resumoVendedores = data.resumo || [];
     } catch (err) {
@@ -120,8 +129,22 @@
 
   function getStatusBadge(status: string) {
     const key = (status || '').toLowerCase();
-    const cls = key === 'pago' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
-    const label = key === 'pago' ? 'Pago' : 'Pendente';
+    const cls =
+      key === 'pago'
+        ? 'bg-green-100 text-green-700'
+        : key === 'cancelada'
+          ? 'bg-red-100 text-red-700'
+          : key === 'processando'
+            ? 'bg-blue-100 text-blue-700'
+            : 'bg-amber-100 text-amber-700';
+    const label =
+      key === 'pago'
+        ? 'Pago'
+        : key === 'cancelada'
+          ? 'Cancelada'
+          : key === 'processando'
+            ? 'Processando'
+            : 'Pendente';
     return `<span class=\"inline-flex px-2 py-1 text-xs font-medium rounded-full ${cls}\">${label}</span>`;
   }
 
@@ -138,6 +161,10 @@
   ];
 
   function abrirPagamento(comissao: Comissao) {
+    if (!persistenciaDisponivel) {
+      toast.warning('Persistência de comissão indisponível neste ambiente. Nenhuma baixa pode ser salva agora.');
+      return;
+    }
     if (comissao.status !== 'pendente') return;
     comissaoSelecionada = comissao;
     dataPagamento = new Date().toISOString().split('T')[0];
@@ -147,18 +174,107 @@
 
   function abrirDetalhes(comissao: Comissao) {
     comissaoSelecionada = comissao;
+    detalhesDataPagamento = comissao.data_pagamento || new Date().toISOString().split('T')[0];
+    detalhesObservacoes = comissao.observacoes_pagamento || '';
     showDetalhesDialog = true;
+  }
+
+  async function handleAtualizarDetalhesPagamento() {
+    if (!comissaoSelecionada || comissaoSelecionada.status !== 'pago') return;
+    if (!persistenciaDisponivel) {
+      toast.warning('Persistência de comissão indisponível neste ambiente. Nenhuma alteração pode ser salva agora.');
+      return;
+    }
+
+    salvandoDetalhes = true;
+    try {
+      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comissao_ids: [comissaoSelecionada.id],
+          data_pagamento: detalhesDataPagamento,
+          observacoes: detalhesObservacoes
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao atualizar pagamento');
+      if (data?.fallback) {
+        persistenciaDisponivel = false;
+        toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
+        return;
+      }
+
+      toast.success('Dados do pagamento atualizados com sucesso');
+      showDetalhesDialog = false;
+      comissaoSelecionada = null;
+      await loadComissoes();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar pagamento');
+    } finally {
+      salvandoDetalhes = false;
+    }
+  }
+
+  async function handleCancelarComissao() {
+    if (!comissaoSelecionada) return;
+    if (!persistenciaDisponivel) {
+      toast.warning('Persistência de comissão indisponível neste ambiente. Nenhuma alteração pode ser salva agora.');
+      return;
+    }
+
+    salvandoDetalhes = true;
+    try {
+      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comissao_ids: [comissaoSelecionada.id],
+          observacoes: detalhesObservacoes
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao cancelar comissão');
+      if (data?.fallback) {
+        persistenciaDisponivel = false;
+        toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
+        return;
+      }
+
+      toast.success('Comissão cancelada com sucesso');
+      showDetalhesDialog = false;
+      comissaoSelecionada = null;
+      await loadComissoes();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar comissão');
+    } finally {
+      salvandoDetalhes = false;
+    }
   }
 
   async function handleConfirmarPagamento() {
     if (!comissaoSelecionada) return;
+    if (!persistenciaDisponivel) {
+      toast.warning('Persistência de comissão indisponível neste ambiente. Nenhuma baixa pode ser salva agora.');
+      return;
+    }
     try {
       const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comissao_ids: [comissaoSelecionada.id], data_pagamento: dataPagamento, observacoes: observacoesPagamento })
       });
-      if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao registrar pagamento');
+      if (data?.fallback) {
+        persistenciaDisponivel = false;
+        toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
+        return;
+      }
       toast.success('Pagamento registrado com sucesso');
       showPagamentoDialog = false;
       comissaoSelecionada = null;
@@ -170,14 +286,23 @@
 
   async function handlePagamentoMultiplo() {
     if (comissoesSelecionadas.length === 0) return;
+    if (!persistenciaDisponivel) {
+      toast.warning('Persistência de comissão indisponível neste ambiente. Nenhuma baixa pode ser salva agora.');
+      return;
+    }
     try {
       const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comissao_ids: comissoesSelecionadas, data_pagamento: dataPagamento, observacoes: observacoesPagamento })
       });
-      if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao registrar pagamentos');
+      if (data?.fallback) {
+        persistenciaDisponivel = false;
+        toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
+        return;
+      }
       toast.success(`${data.pagas} comissões marcadas como pagas`);
       showPagamentoMultiploDialog = false;
       comissoesSelecionadas = [];
@@ -331,17 +456,31 @@
     A tela de comissões agora funciona também como fila operacional: <strong>{pendentes.length}</strong> pendências de pagamento somando <strong>{formatCurrency(totalPendente)}</strong>.
   </div>
 
+  {#if !persistenciaDisponivel}
+    <Card header="Persistência indisponível" color="orange" class="mb-6">
+      <div class="flex items-start gap-3 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <AlertCircle size={18} class="mt-0.5 shrink-0" />
+        <div>
+          <p class="font-medium">Este ambiente está sem o ledger de comissões persistido.</p>
+          <p class="mt-1 text-amber-800">
+            A listagem e o cálculo continuam funcionando, mas ações como pagar, editar pagamento e cancelar comissão não serão salvas até a tabela <code>comissoes</code> estar disponível.
+          </p>
+        </div>
+      </div>
+    </Card>
+  {/if}
+
   {#if resumoVendedores.length > 0}
     <Card header="Resumo por Vendedor" color="financeiro" class="mb-6"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{#each resumoVendedores as dados}<div class="p-4 bg-slate-50 rounded-lg"><p class="font-medium text-slate-900 truncate" title={dados.vendedor_nome}>{dados.vendedor_nome}</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-slate-500">Vendas:</span><span class="font-medium">{dados.total_vendas}</span></div><div class="flex justify-between"><span class="text-slate-500">Comissão:</span><span class="font-medium">{formatCurrency(dados.total_comissao)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pago:</span><span class="font-medium text-green-600">{formatCurrency(dados.total_pago)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pendente:</span><span class="font-medium text-amber-600">{formatCurrency(dados.total_pendente)}</span></div></div></div>{/each}</div></Card>
   {/if}
 
-  {#if comissoesSelecionadas.length > 0}
+  {#if persistenciaDisponivel && comissoesSelecionadas.length > 0}
     <Card header="Pagamento em Lote" color="financeiro" class="mb-6"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-600"><strong>{comissoesSelecionadas.length}</strong> comissões selecionadas</p><p class="text-lg font-semibold text-financeiro-600">{formatCurrency(valorSelecionado)}</p></div><Button variant="primary" color="financeiro" on:click={() => { dataPagamento = new Date().toISOString().split('T')[0]; observacoesPagamento = ''; showPagamentoMultiploDialog = true; }}><CheckCircle size={16} class="mr-2" />Pagar Selecionadas</Button></div></Card>
   {/if}
 
-  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
+  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
-      <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)}>Pagar</Button>{/if}</div>
+      <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
     </svelte:fragment>
   </DataTable>
 {/if}
@@ -358,6 +497,53 @@
 
 <Dialog bind:open={showDetalhesDialog} title="Detalhes da Comissão" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>
   {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div><div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Data da Venda</p><p class="font-medium">{comissaoSelecionada.data_venda ? new Date(comissaoSelecionada.data_venda).toLocaleDateString('pt-BR') : '-'}</p></div><div><p class="text-slate-500">Regra</p><p class="font-medium">{comissaoSelecionada.regra_nome || 'Sem regra'}</p></div><div><p class="text-slate-500">Tipo de pacote</p><p class="font-medium">{comissaoSelecionada.tipo_pacote || '-'}</p></div><div><p class="text-slate-500">Percentual aplicado</p><p class="font-medium">{Number(comissaoSelecionada.percentual_aplicado || 0).toFixed(2)}%</p></div></div><div class="border-t pt-4"><h4 class="font-medium text-slate-900 mb-2">Valores</h4><div class="grid grid-cols-2 gap-4 text-sm"><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Valor comissionável</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissionavel || 0)}</p></div><div><p class="text-slate-500">Valor Comissão</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div><p class="text-slate-500">Valor Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago || 0)}</p></div></div></div></div>
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div>
+        <div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div>
+        <div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div>
+        <div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div>
+        <div><p class="text-slate-500">Data da Venda</p><p class="font-medium">{comissaoSelecionada.data_venda ? new Date(comissaoSelecionada.data_venda).toLocaleDateString('pt-BR') : '-'}</p></div>
+        <div><p class="text-slate-500">Regra</p><p class="font-medium">{comissaoSelecionada.regra_nome || 'Sem regra'}</p></div>
+        <div><p class="text-slate-500">Tipo de pacote</p><p class="font-medium">{comissaoSelecionada.tipo_pacote || '-'}</p></div>
+        <div><p class="text-slate-500">Percentual aplicado</p><p class="font-medium">{Number(comissaoSelecionada.percentual_aplicado || 0).toFixed(2)}%</p></div>
+      </div>
+
+      <div class="border-t pt-4">
+        <h4 class="font-medium text-slate-900 mb-2">Valores</h4>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div>
+          <div><p class="text-slate-500">Valor comissionável</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissionavel || 0)}</p></div>
+          <div><p class="text-slate-500">Valor Comissão</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div>
+          <div><p class="text-slate-500">Valor Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago || 0)}</p></div>
+        </div>
+      </div>
+
+      {#if comissaoSelecionada.status === 'pago'}
+        <div class="border-t pt-4 space-y-4">
+          <FieldInput id="detalhe-comissao-data-pagamento" label="Data do pagamento" type="date" bind:value={detalhesDataPagamento} class_name="w-full" />
+          <FieldTextarea id="detalhe-comissao-observacoes" label="Observações do pagamento" bind:value={detalhesObservacoes} rows={3} class_name="w-full" placeholder="Observações internas do pagamento..." />
+          <div class="flex flex-wrap gap-3">
+            <Button variant="primary" color="financeiro" on:click={handleAtualizarDetalhesPagamento} disabled={salvandoDetalhes}>
+              Salvar ajustes
+            </Button>
+            <Button variant="secondary" color="red" on:click={handleCancelarComissao} disabled={salvandoDetalhes}>
+              Cancelar comissão
+            </Button>
+          </div>
+        </div>
+      {:else if comissaoSelecionada.status === 'pendente'}
+        <div class="border-t pt-4">
+          <p class="text-sm text-slate-500">Esta comissão ainda está pendente de pagamento. Use a ação <strong>Pagar</strong> na listagem para registrar a baixa.</p>
+        </div>
+      {:else if comissaoSelecionada.status === 'cancelada'}
+        <div class="border-t pt-4">
+          <p class="text-sm text-slate-500">Esta comissão foi cancelada.</p>
+          {#if comissaoSelecionada.observacoes_pagamento}
+            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{comissaoSelecionada.observacoes_pagamento}</p>
+          {/if}
+        </div>
+      {/if}
+    </div>
   {/if}
 </Dialog>

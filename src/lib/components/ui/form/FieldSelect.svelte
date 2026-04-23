@@ -20,6 +20,7 @@
     'text-sm',
     error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
   );
+  $: selectPlaceholder = placeholder === null ? '' : placeholder ?? undefined;
 </script>
 
 <div class={class_name}>
@@ -35,13 +36,11 @@
     bind:value
     {disabled}
     {required}
+    placeholder={selectPlaceholder}
     class={selectClasses}
     on:change
     on:blur
   >
-    {#if placeholder}
-      <option value="">{placeholder}</option>
-    {/if}
     {#each options as option}
       <option value={option.value} disabled={option.disabled}>{option.label}</option>
     {/each}

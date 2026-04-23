@@ -1,3 +1,4 @@
+import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -8,31 +9,34 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     if (!access_token || !refresh_token) {
       return json({ error: 'Tokens obrigatorios' }, { status: 400 });
     }
-    
-    // Configurações do cookie
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Salva os tokens nos cookies que o Supabase SSR client espera
-    // São os nomes padrão: sb-access-token e sb-refresh-token
-    cookies.set('sb-access-token', access_token, {
-      path: '/',
-      httpOnly: true, // SSR can read, client-side JS cannot access for security
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7 // 7 dias
+
+    const supabase = createSupabaseServerClient({
+      get: (name) => cookies.get(name),
+      set: (name, value, options) => {
+        cookies.set(name, value, { ...options, path: '/' });
+      },
+      remove: (name, options) => {
+        cookies.delete(name, { ...options, path: '/' });
+      }
     });
-    
-    cookies.set('sb-refresh-token', refresh_token, {
-      path: '/',
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30 // 30 dias
+
+    const { error } = await supabase.auth.setSession({
+      access_token,
+      refresh_token
     });
-    
-    console.log('[set-session] Cookies configurados com sucesso');
-    
-    return json({ ok: true });
+
+    if (error) {
+      console.error('[set-session] Falha ao sincronizar sessao:', error);
+      return json({ error: error.message || 'Erro ao definir sessao' }, { status: 401 });
+    }
+
+    // Limpa cookies legados que nao sao lidos pelo @supabase/ssr.
+    cookies.delete('sb-access-token', { path: '/' });
+    cookies.delete('sb-refresh-token', { path: '/' });
+
+    console.log('[set-session] Sessao sincronizada com sucesso');
+
+    return json({ ok: true, storageKey: getSupabaseAuthStorageKey() });
   } catch (err) {
     console.error('[set-session] Erro:', err);
     return json({ error: 'Erro ao definir sessao' }, { status: 500 });

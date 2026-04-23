@@ -285,7 +285,7 @@
       </div>
       
       <!-- Footer -->
-      <div class="flex items-center justify-end gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
+      <div class="vtur-modal-footer">
         <Button variant="secondary" on:click={onClose}>
           Fechar
         </Button>

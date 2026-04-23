@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect } from '$lib/components/ui';
   import { 
-    Calculator, Play, RefreshCw, CheckCircle, AlertCircle, 
-    DollarSign, TrendingUp, Calendar, Users, Download 
+    Calculator, RefreshCw, CheckCircle, AlertCircle,
+    DollarSign, TrendingUp
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -16,7 +17,7 @@
     percentual: number;
     valor_comissao: number;
     regra: string;
-    status: 'calculada' | 'ignorada' | 'erro';
+    status: 'calculada' | 'ignorada' | 'erro' | 'paga' | 'pendente' | 'cancelada';
     motivo?: string;
   }
 
@@ -33,13 +34,15 @@
   
   let comissoesPendentes: any[] = [];
   let resumoComissoes = { total_pendente: 0, total_pago: 0, total_geral: 0 };
+  let persistenciaDisponivel = true;
 
   // Filtros
   let filtroDataInicio = '';
   let filtroDataFim = '';
-  let filtroMes = new Date().getMonth() + 1;
+  let filtroMes = String(new Date().getMonth() + 1);
   let filtroAno = new Date().getFullYear();
   let filtroVendedor = '';
+  let filtroStatus = 'todas';
   let vendedores: any[] = [];
 
   onMount(() => {
@@ -59,7 +62,9 @@
     loading = true;
     try {
       const params = new URLSearchParams();
-      params.set('status', 'PENDENTE');
+      if (filtroStatus !== 'todas') {
+        params.set('status', filtroStatus);
+      }
       params.set('mes', String(filtroMes));
       params.set('ano', String(filtroAno));
       if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
@@ -70,6 +75,7 @@
       const data = await response.json();
       comissoesPendentes = data.items || [];
       resumoComissoes = data.resumo || { total_pendente: 0, total_pago: 0, total_geral: 0 };
+      persistenciaDisponivel = data.persistencia_disponivel !== false;
     } catch (err) {
       toast.error('Erro ao carregar comissões pendentes');
       console.error(err);
@@ -99,7 +105,7 @@
         body: JSON.stringify({
           data_inicio: filtroDataInicio,
           data_fim: filtroDataFim,
-          mes_referencia: filtroMes,
+          mes_referencia: Number(filtroMes),
           ano_referencia: filtroAno,
           vendedor_ids: filtroVendedor ? [filtroVendedor] : undefined
         })
@@ -129,13 +135,19 @@
   }
 
   function getStatusBadge(status: string) {
-    switch (status) {
+    switch (String(status || '').toLowerCase()) {
       case 'calculada':
         return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Calculada</span>';
       case 'ignorada':
         return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Ignorada</span>';
       case 'erro':
         return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Erro</span>';
+      case 'paga':
+        return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Paga</span>';
+      case 'pendente':
+        return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Pendente</span>';
+      case 'cancelada':
+        return '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Cancelada</span>';
       default:
         return status;
     }
@@ -208,14 +220,41 @@
       sortable: true, 
       align: 'right' as const,
       formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+    },
+    {
+      key: 'valor_pago',
+      label: 'Pago',
+      sortable: true,
+      align: 'right' as const,
+      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
+    },
+    {
+      key: 'data_pagamento',
+      label: 'Data Pgto',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string) => getStatusBadge(value)
     }
   ];
 
   $: totalVendasPeriodo = comissoesPendentes.reduce((acc, c) => acc + c.valor_venda, 0);
-  $: totalComissoesPeriodo = comissoesPendentes.reduce((acc, c) => acc + c.valor_comissao, 0);
-  $: mediaPercentual = totalVendasPeriodo > 0 
-    ? ((totalComissoesPeriodo / totalVendasPeriodo) * 100).toFixed(2)
-    : '0.00';
+  $: totalPagoPeriodo = Number(resumoComissoes.total_pago || 0);
+  $: totalPendentePeriodo = Number(resumoComissoes.total_pendente || 0);
+  $: quantidadePagas = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'paga').length;
+  $: quantidadePendentes = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'pendente').length;
+  $: statusOptions = [
+    { value: 'todas', label: 'Todas' },
+    { value: 'pendente', label: 'Pendentes' },
+    { value: 'paga', label: 'Pagas' },
+    { value: 'cancelada', label: 'Canceladas' }
+  ];
 </script>
 
 <svelte:head>
@@ -224,7 +263,7 @@
 
 <PageHeader 
   title="Cálculo de Comissões"
-  subtitle="Calcule e gere comissões para os vendedores"
+  subtitle="Acompanhe o cálculo e o estado persistido das comissões por período"
   color="financeiro"
   breadcrumbs={[
     { label: 'Financeiro', href: '/financeiro' },
@@ -235,7 +274,7 @@
 
 <!-- Filtros -->
 <Card header="Filtros de Cálculo" color="financeiro" class="mb-6">
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
     <FieldInput
       label="Data Início"
       type="date"
@@ -264,6 +303,13 @@
       label="Ano"
       type="number"
       bind:value={filtroAno}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      label="Status"
+      bind:value={filtroStatus}
+      options={statusOptions}
       class_name="w-full"
     />
 
@@ -309,8 +355,8 @@
   <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Calculator size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Comissões Pendentes</p>
-      <p class="text-2xl font-bold text-slate-900">{comissoesPendentes.length}</p>
+      <p class="text-sm font-medium text-slate-500">Pendentes no período</p>
+      <p class="text-2xl font-bold text-slate-900">{quantidadePendentes}</p>
     </div>
   </div>
 
@@ -327,24 +373,40 @@
   <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><DollarSign size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Comissões no Período</p>
+      <p class="text-sm font-medium text-slate-500">Total pendente</p>
       <p class="text-2xl font-bold text-slate-900">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalComissoesPeriodo)}
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalPendentePeriodo)}
       </p>
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><PercentIcon size={20} /></div>
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">% Médio</p>
-      <p class="text-2xl font-bold text-slate-900">{mediaPercentual}%</p>
+      <p class="text-sm font-medium text-slate-500">Total pago</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalPagoPeriodo)}
+      </p>
     </div>
   </div>
 </div>
 
 <!-- Lista de Comissões Pendentes -->
-<Card header={`Comissões Calculadas - ${comissoesPendentes.length} registros`} color="financeiro">
+<Card header={`Comissões do período - ${comissoesPendentes.length} registros`} color="financeiro">
+  <div class="mb-4 rounded-[18px] border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
+    O painel agora mistura cálculo e persistência: ele mostra <strong>{quantidadePendentes}</strong> pendentes, <strong>{quantidadePagas}</strong> pagas e respeita o status salvo no módulo principal de comissões.
+  </div>
+  {#if !persistenciaDisponivel}
+    <div class="mb-4 flex items-start gap-3 rounded-[18px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+      <AlertCircle size={18} class="mt-0.5 shrink-0" />
+      <div>
+        <p class="font-medium">Persistência indisponível neste ambiente.</p>
+        <p class="mt-1 text-amber-800">
+          O cálculo continua funcionando, mas os status persistidos de pagamento e cancelamento só ficarão completos quando a tabela <code>comissoes</code> estiver disponível.
+        </p>
+      </div>
+    </div>
+  {/if}
   <DataTable
     columns={columnsPendentes}
     data={comissoesPendentes}
@@ -353,7 +415,7 @@
     pageSize={25}
     searchable={true}
     exportable={true}
-    emptyMessage="Nenhuma comissão pendente encontrada para o período selecionado"
+    emptyMessage="Nenhuma comissão encontrada para o período e status selecionados"
   />
 </Card>
 
@@ -392,7 +454,7 @@
       <div>
         <p class="text-slate-500">Referência</p>
         <p class="font-medium">
-          {new Date(filtroAno, filtroMes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          {new Date(filtroAno, Number(filtroMes) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
         </p>
       </div>
       <div>
@@ -405,7 +467,7 @@
       </div>
       <div>
         <p class="text-slate-500">Status Atual</p>
-        <p class="font-medium">{comissoesPendentes.length} comissões pendentes</p>
+        <p class="font-medium">{quantidadePendentes} pendentes · {quantidadePagas} pagas</p>
       </div>
     </div>
   </div>
@@ -466,8 +528,3 @@
     </div>
   {/if}
 </Dialog>
-
-<script context="module">
-  import { Percent as PercentIcon } from 'lucide-svelte';
-  import { goto } from '$app/navigation';
-</script>

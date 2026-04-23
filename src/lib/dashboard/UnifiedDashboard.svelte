@@ -472,7 +472,6 @@
         label="Empresa"
         bind:value={empresaSelecionada}
         options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
-        placeholder={null}
         class_name="w-full"
       />
     {/if}
@@ -482,7 +481,6 @@
         label="Vendedor"
         bind:value={vendedorSelecionado}
         options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((v) => ({ value: v.id, label: v.nome }))]}
-        placeholder={null}
         class_name="w-full"
       />
     {/if}

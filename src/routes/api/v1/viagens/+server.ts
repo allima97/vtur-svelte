@@ -85,8 +85,15 @@ export async function GET(event) {
       .order('data_inicio', { ascending: true })
       .limit(1000);
 
-    if (status && status !== 'todas') {
-      query = query.eq('status', status);
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    if (normalizedStatus && normalizedStatus !== 'todas') {
+      if (normalizedStatus === 'programada') {
+        query = query.in('status', ['planejada', 'programada', 'confirmada']);
+      } else if (normalizedStatus === 'em_andamento') {
+        query = query.in('status', ['em_andamento', 'em_viagem']);
+      } else {
+        query = query.eq('status', normalizedStatus);
+      }
     }
 
     if (companyIds.length > 0) {

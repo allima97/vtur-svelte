@@ -15,6 +15,19 @@ function getSupabasePublicConfig() {
   };
 }
 
+export function getSupabaseAuthStorageKey() {
+  const { url } = getSupabasePublicConfig();
+  if (!url) return 'sb-auth-token';
+
+  try {
+    const hostname = new URL(url).hostname;
+    const projectRef = hostname.split('.')[0];
+    return projectRef ? `sb-${projectRef}-auth-token` : 'sb-auth-token';
+  } catch {
+    return 'sb-auth-token';
+  }
+}
+
 /**
  * Cria ou retorna um cliente Supabase para o browser
  */
@@ -34,7 +47,11 @@ export function createSupabaseBrowserClient() {
     if (!url || !anonKey) {
       throw new Error('Credenciais publicas do Supabase nao configuradas');
     }
-    browserClient = createBrowserClient(url, anonKey);
+    browserClient = createBrowserClient(url, anonKey, {
+      cookieOptions: {
+        name: getSupabaseAuthStorageKey()
+      }
+    });
   }
   
   return browserClient;
@@ -69,6 +86,9 @@ export function createSupabaseServerClient(cookies: {
   }
   
   return createServerClient(url, anonKey, {
+    cookieOptions: {
+      name: getSupabaseAuthStorageKey()
+    },
     cookies: {
       get: (name) => cookies.get(name),
       set: (name, value, options) => cookies.set(name, value, options),

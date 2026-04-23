@@ -5,8 +5,41 @@
   import { supabase } from '$lib/db/supabase';
   import { auth, sessionSynced } from '$lib/stores/auth';
   import type { LayoutData } from './$types';
+  import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
   
-  export let data: LayoutData;
+  type RootLayoutData = LayoutData & {
+    session?: Session | null;
+    user?: User | null;
+  };
+
+  export let data: RootLayoutData;
+
+  async function syncServerSession(session: { access_token: string; refresh_token: string } | null, source: string) {
+    if (!session) {
+      sessionSynced.set(true);
+      return;
+    }
+
+    try {
+      const result = await fetch('/api/auth/set-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      });
+
+      if (!result.ok) {
+        console.warn(`[Auth] Falha ao sincronizar sessão (${source}) status:`, result.status);
+      }
+
+      sessionSynced.set(true);
+    } catch (syncErr) {
+      console.warn(`[Auth] Erro ao sincronizar sessão (${source}):`, syncErr);
+      sessionSynced.set(true);
+    }
+  }
   
   // Inicializa auth store com dados do servidor
   // Se o servidor já tem sessão (via cookie SSR), marca sessionSynced imediatamente
@@ -15,70 +48,51 @@
     sessionSynced.set(true);
   }
   
-  onMount(async () => {
-    if (browser) {
-      // Escuta mudanças de autenticação
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('[AuthStateChange]', event, session ? 'com sessao' : 'sem sessao');
-        if (event === 'SIGNED_IN' && session) {
-          auth.setAuth(session.user, session);
-          // Sincroniza sessão com cookies do servidor
-          console.log('[Auth] Sincronizando tokens para cookies...');
-          try {
-            const result = await fetch('/api/auth/set-session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                access_token: session.access_token,
-                refresh_token: session.refresh_token
-              })
-            });
-            if (result.ok) {
-              sessionSynced.set(true);
-            } else {
-              console.warn('[Auth] Falha ao sincronizar sessão (status:', result.status, ')');
-              // Marca como sincronizado mesmo assim — as APIs vão retornar 401 se necessário
-              sessionSynced.set(true);
-            }
-          } catch (syncErr) {
-            console.warn('[Auth] Erro ao sincronizar sessão (ignorado):', syncErr);
+  onMount(() => {
+    if (!browser) return;
+
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    (async () => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event: AuthChangeEvent, session: Session | null) => {
+          console.log('[AuthStateChange]', event, session ? 'com sessao' : 'sem sessao');
+          if (
+            (event === 'SIGNED_IN' ||
+              event === 'TOKEN_REFRESHED' ||
+              event === 'USER_UPDATED' ||
+              event === 'PASSWORD_RECOVERY' ||
+              event === 'MFA_CHALLENGE_VERIFIED') &&
+            session
+          ) {
+            auth.setAuth(session.user, session);
+            await syncServerSession(session, event);
+          } else if (event === 'SIGNED_OUT') {
+            auth.clear();
             sessionSynced.set(true);
           }
-        } else if (event === 'SIGNED_OUT') {
-          auth.clear();
         }
-      });
-      
-      // Também sincroniza cookies quando há session disponível
+      );
+
+      unsubscribe = () => subscription.unsubscribe();
+
       const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+
       console.log('[Layout] Session no mount:', session ? 'existe' : 'nao existe');
       if (session) {
         console.log('[Layout] Sincronizando session existente...');
-        try {
-          const res = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            })
-          });
-          if (res.ok) {
-            sessionSynced.set(true);
-          } else {
-            console.warn('[Layout] set-session retornou', res.status, '— marcando synced mesmo assim');
-            sessionSynced.set(true);
-          }
-        } catch (syncErr) {
-          // Falha silenciosa — o usuário continua autenticado via Supabase JS
-          console.warn('[Layout] Falha ao sincronizar cookie de sessão (ignorado):', syncErr);
-          sessionSynced.set(true);
-        }
+        await syncServerSession(session, 'mount');
+      } else {
+        sessionSynced.set(true);
       }
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   });
 </script>
 

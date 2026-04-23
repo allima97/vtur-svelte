@@ -321,7 +321,7 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-between gap-3 p-4 border-t border-slate-100 bg-slate-50/50">
+      <div class="vtur-modal-footer vtur-modal-footer--between">
         <Button variant="secondary" on:click={onClose}>Cancelar</Button>
         <Button variant="primary" color={canalAtivo === 'whatsapp' ? 'green' : 'orange'} on:click={enviarMensagem} loading={enviando}><Send size={16} class="mr-2" />Enviar por {canalAtivo === 'whatsapp' ? 'WhatsApp' : 'Email'}</Button>
       </div>

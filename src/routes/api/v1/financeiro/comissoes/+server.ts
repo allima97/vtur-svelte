@@ -14,6 +14,7 @@ import {
   getVendaClienteNome
 } from '$lib/server/relatorios';
 import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
+import { applyPersistedComissao, buildPersistedComissaoKey, fetchPersistedComissoes } from '$lib/server/comissoes-registro';
 
 export async function GET(event) {
   try {
@@ -41,11 +42,29 @@ export async function GET(event) {
       vendedorIds
     });
     const commissionContext = await fetchCommissionContext(client, { companyIds, rows });
+    const persistedSnapshot = await fetchPersistedComissoes(client, {
+      companyIds,
+      vendaIds: rows.map((row) => row.id),
+      vendedorIds: rows.map((row) => String(row.vendedor_id || '')).filter(Boolean)
+    });
+    const persistedByKey = new Map(
+      persistedSnapshot.rows.map((row) => [buildPersistedComissaoKey(row.venda_id, row.vendedor_id), row] as const)
+    );
 
     let items = rows.map((row) => {
       const commission = resolveVendaCommission(row, commissionContext);
-      const valorPago = 0;
-      const itemStatus = 'pendente';
+      const persisted = persistedByKey.get(buildPersistedComissaoKey(row.id, row.vendedor_id));
+      const persistedApplied = applyPersistedComissao(
+        {
+          valor_venda: commission.valorVenda,
+          valor_comissionavel: commission.valorComissionavel,
+          percentual_aplicado: commission.percentual,
+          valor_comissao: commission.valorComissao,
+          valor_pago: 0,
+          status: 'pendente'
+        },
+        persisted
+      );
 
       return {
         id: row.id,
@@ -57,19 +76,21 @@ export async function GET(event) {
         vendedor_short: (getVendaVendedorNome(row) || '').slice(0, 20),
         vendedor_label: (getVendaVendedorNome(row) || ''),
         vendedor_id: row.vendedor_id,
-        valor_venda: commission.valorVenda,
-        valor_comissionavel: commission.valorComissionavel,
-        percentual_aplicado: commission.percentual,
+        valor_venda: persistedApplied.valor_venda,
+        valor_comissionavel: persistedApplied.valor_comissionavel,
+        percentual_aplicado: persistedApplied.percentual_aplicado,
         regra_nome: commission.regraNome,
         tipo_pacote: commission.tipoPacote,
-        valor_comissao: commission.valorComissao,
-        valor_pago: valorPago,
+        valor_comissao: persistedApplied.valor_comissao,
+        valor_pago: persistedApplied.valor_pago,
         valor_taxas: Number(row.valor_taxas || 0),
         data_venda: row.data_venda,
         data_embarque: row.data_embarque,
-        status: itemStatus,
+        status: persistedApplied.status,
         // Parity alias for UI/templates
-        status_label: itemStatus
+        status_label: persistedApplied.status,
+        data_pagamento: persisted?.data_pagamento || null,
+        observacoes_pagamento: persisted?.observacoes_pagamento || null
       };
     });
 
@@ -91,8 +112,8 @@ export async function GET(event) {
       atual.total_vendas += 1;
       atual.total_comissao += c.valor_comissao;
       if (c.status === 'pago') {
-        atual.total_pago += c.valor_comissao;
-      } else {
+        atual.total_pago += c.valor_pago || c.valor_comissao;
+      } else if (c.status !== 'cancelada') {
         atual.total_pendente += c.valor_comissao;
       }
       resumoMap.set(vendedorKey, atual);
@@ -101,7 +122,8 @@ export async function GET(event) {
     return json({
       items,
       total: items.length,
-      resumo: Array.from(resumoMap.values())
+      resumo: Array.from(resumoMap.values()),
+      persistencia_disponivel: persistedSnapshot.available
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar comissoes.');
