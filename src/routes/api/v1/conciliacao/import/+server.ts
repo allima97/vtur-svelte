@@ -338,7 +338,7 @@ export async function POST(event) {
         venda_recibo_id: vendaReciboId,
         origem: String(l.origem || 'manual').trim(),
         conciliado: false,
-      };
+      });
     }
 
     const BATCH = 100;

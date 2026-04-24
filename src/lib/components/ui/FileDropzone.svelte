@@ -57,6 +57,9 @@
       {#if description && fileNames.length === 0}
         <p class="vtur-upload-dropzone__meta leading-tight">{description}</p>
       {/if}
+      {#if hint && fileNames.length === 0}
+        <p class="vtur-upload-dropzone__meta leading-tight">{hint}</p>
+      {/if}
     </div>
 
     <input
