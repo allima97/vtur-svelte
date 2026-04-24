@@ -7,7 +7,6 @@ import {
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -81,6 +80,48 @@ function isSeguroRecibo(recibo: any) {
   return tipo.includes('seguro') || nome.includes('seguro');
 }
 
+async function fetchGestorEquipeVendedorIds(client: any, gestorId: string) {
+  if (!gestorId) return [] as string[];
+
+  try {
+    const { data, error } = await client.rpc('gestor_equipe_vendedor_ids', { uid: gestorId });
+    if (error) throw error;
+    return Array.from(
+      new Set(
+        (data || [])
+          .map((row: any) => String(row?.vendedor_id || '').trim())
+          .filter(Boolean)
+      )
+    );
+  } catch {
+    const { data, error } = await client
+      .from('gestor_vendedor')
+      .select('vendedor_id, ativo')
+      .eq('gestor_id', gestorId);
+    if (error) throw error;
+
+    return Array.from(
+      new Set(
+        (data || [])
+          .filter((row: any) => row?.ativo !== false)
+          .map((row: any) => String(row?.vendedor_id || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+}
+
+function isRankingAllowedUser(row: any) {
+  if (!row?.id) return false;
+  if (row?.active === false) return false;
+  if (row?.uso_individual === true) return false;
+  const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
+  const tipoNome = String(userType?.name || '').toUpperCase();
+  const isVendedor = tipoNome.includes('VENDEDOR');
+  const isGestorParticipante = tipoNome.includes('GESTOR') && Boolean(row?.participa_ranking);
+  return isVendedor || isGestorParticipante;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -99,20 +140,82 @@ export async function GET(event) {
       searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
     );
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
-    let requestedVendedorIds = await resolveScopedVendedorIds(
-      client,
-      scope,
-      searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
-    );
-    let vendedorIds = requestedVendedorIds;
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isAdminByType = tipoNome.includes('ADMIN');
+    const isGestorByType = tipoNome.includes('GESTOR');
+    const isMasterByType = tipoNome.includes('MASTER');
+
+    let vendedorIds = explicitRequestedVendedorIds;
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
-    // Paridade com vtur-app: vendedor/viewer vê ranking geral da empresa,
-    // não apenas o próprio usuário.
-    if (scope.isVendedor && companyIds.length > 0) {
+    if (isGestorByType) {
+      const vendedorEquipeIds = await fetchGestorEquipeVendedorIds(client, scope.userId);
+      const companyRankingUsers = companyIds.length > 0
+        ? await (async () => {
+            let companyUsersQuery = client
+              .from('users')
+              .select('id, active, uso_individual, participa_ranking, user_types(name)')
+              .eq('active', true)
+              .limit(5000);
+
+            companyUsersQuery = companyIds.length === 1
+              ? companyUsersQuery.eq('company_id', companyIds[0])
+              : companyUsersQuery.in('company_id', companyIds);
+
+            const { data: companyUsersData, error: companyUsersError } = await companyUsersQuery;
+            if (companyUsersError) throw companyUsersError;
+
+            return (companyUsersData || []).filter((row: any) => isRankingAllowedUser(row));
+          })()
+        : [];
+
+      const companyEligibleIds = companyRankingUsers
+        .map((row: any) => String(row?.id || '').trim())
+        .filter(Boolean);
+
+      const companyGestorIds = companyRankingUsers
+        .filter((row: any) => {
+          const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
+          const roleName = String(userType?.name || '').toUpperCase();
+          return roleName.includes('GESTOR');
+        })
+        .map((row: any) => String(row?.id || '').trim())
+        .filter(Boolean);
+
+      const teamSellerIds = companyRankingUsers
+        .map((row: any) => String(row?.id || '').trim())
+        .filter((id) => vendedorEquipeIds.includes(id));
+
+      const scopedRankingIds = teamSellerIds.length > 0
+        ? Array.from(new Set([...teamSellerIds, ...companyGestorIds]))
+        : companyEligibleIds;
+
+      if (scopedRankingIds.length > 0) {
+        const { data: equipeData, error: equipeError } = await client
+          .from('users')
+          .select('id, active, uso_individual, participa_ranking, user_types(name)')
+          .in('id', scopedRankingIds)
+          .eq('active', true)
+          .limit(5000);
+
+        if (equipeError) throw equipeError;
+
+        const equipePermitidaIds = (equipeData || [])
+          .filter((row: any) => isRankingAllowedUser(row))
+          .map((row: any) => String(row?.id || '').trim())
+          .filter(Boolean);
+
+        if (explicitRequestedVendedorIds.length > 0) {
+          const permitidos = new Set(equipePermitidaIds);
+          vendedorIds = explicitRequestedVendedorIds.filter((id) => permitidos.has(id));
+        } else {
+          vendedorIds = equipePermitidaIds;
+        }
+      }
+    } else if (!isAdminByType && !isMasterByType && companyIds.length > 0) {
       const { data: equipeData, error: equipeError } = await client
         .from('users')
-        .select('id, active, participa_ranking, user_types(name)')
+        .select('id, active, uso_individual, participa_ranking, user_types(name)')
         .in('company_id', companyIds)
         .eq('active', true)
         .limit(5000);
@@ -120,12 +223,7 @@ export async function GET(event) {
       if (equipeError) throw equipeError;
 
       const equipeIds = (equipeData || [])
-        .filter((row: any) => {
-          const tipoNome = String(row?.user_types?.name || '').toUpperCase();
-          const isVendedor = tipoNome.includes('VENDEDOR');
-          const isGestorParticipante = tipoNome.includes('GESTOR') && Boolean(row?.participa_ranking);
-          return isVendedor || isGestorParticipante;
-        })
+        .filter((row: any) => isRankingAllowedUser(row))
         .map((row: any) => String(row?.id || '').trim())
         .filter(Boolean);
 
@@ -140,7 +238,7 @@ export async function GET(event) {
     if (vendedorIds.length === 0 && companyIds.length > 0) {
       const { data: companyUsers, error: companyUsersError } = await client
         .from('users')
-        .select('id, user_types(name), participa_ranking')
+        .select('id, active, uso_individual, user_types(name), participa_ranking')
         .in('company_id', companyIds)
         .eq('active', true)
         .limit(5000);
@@ -148,13 +246,7 @@ export async function GET(event) {
       if (companyUsersError) throw companyUsersError;
 
       vendedorIds = (companyUsers || [])
-        .filter((row: any) => {
-          const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
-          const tipoNome = String(userType?.name || '').toUpperCase();
-          const isVendedor = tipoNome.includes('VENDEDOR');
-          const isGestorParticipante = tipoNome.includes('GESTOR') && Boolean(row?.participa_ranking);
-          return isVendedor || isGestorParticipante;
-        })
+        .filter((row: any) => isRankingAllowedUser(row))
         .map((row: any) => String(row?.id || '').trim())
         .filter(Boolean);
     }
@@ -163,7 +255,7 @@ export async function GET(event) {
     if (vendedorIds.length > 0) {
       const { data: teamUsers, error: teamUsersError } = await client
         .from('users')
-        .select('id, nome_completo, email')
+        .select('id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name)')
         .in('id', vendedorIds)
         .eq('active', true)
         .limit(5000);
@@ -172,6 +264,7 @@ export async function GET(event) {
 
       const scopedIds: string[] = [];
       (teamUsers || []).forEach((row: any) => {
+        if (!isRankingAllowedUser(row)) return;
         const id = String(row?.id || '').trim();
         const nome = String(row?.nome_completo || row?.email || 'Equipe VTUR');
         if (nome.toLowerCase().includes('baixa rac')) return;

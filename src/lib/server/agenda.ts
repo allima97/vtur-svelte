@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ensureModuloAccess,
+  fetchGestorEquipeIdsComGestor,
+  parseUuidList,
   resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   toISODateLocal,
   type UserScope
 } from '$lib/server/v1';
@@ -189,10 +190,30 @@ export async function resolveFollowUpFilters(
   scope: UserScope,
   searchParams: URLSearchParams
 ) {
-  const requestedCompanyId = String(searchParams.get('company_id') || '').trim();
-  const requestedVendedorIds = String(searchParams.get('vendedor_ids') || '').trim();
+  const requestedCompanyId = String(
+    searchParams.get('company_id') || searchParams.get('empresa_id') || ''
+  ).trim();
+  const requestedVendedorRaw = String(
+    searchParams.get('vendedor_ids') || searchParams.get('vendedor_id') || ''
+  ).trim();
   const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
-  const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorIds);
+  const requestedVendedorIds = parseUuidList(requestedVendedorRaw);
+  const tipoNome = String(scope.tipoNome || '').toUpperCase();
+
+  let vendedorIds: string[] = [];
+
+  if (tipoNome.includes('ADMIN')) {
+    vendedorIds = requestedVendedorIds;
+  } else if (tipoNome.includes('GESTOR')) {
+    const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+    vendedorIds = requestedVendedorIds.length > 0
+      ? requestedVendedorIds.filter((id) => equipeIds.includes(id))
+      : equipeIds;
+  } else if (tipoNome.includes('MASTER')) {
+    vendedorIds = requestedVendedorIds;
+  } else {
+    vendedorIds = [scope.userId];
+  }
 
   return {
     companyIds,

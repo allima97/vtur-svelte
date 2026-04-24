@@ -1,5 +1,5 @@
 <script lang="ts">
-  import UnifiedDashboard from '$lib/dashboard/UnifiedDashboard.svelte';
+  import AdminDashboard from '$lib/dashboard/AdminDashboard.svelte';
 </script>
 
-<UnifiedDashboard title="Dashboard admin" subtitle="Visão global do sistema e indicadores administrativos." />
+<AdminDashboard />

@@ -3,10 +3,11 @@ import {
   getAdminClient,
   getMonthRange,
   hasModuloAccess,
+  fetchGestorEquipeIdsComGestor,
+  parseUuidList,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -110,6 +111,48 @@ function isConciliacaoEfetivada(status?: string | null, descricao?: string | nul
   const s = normalize(status);
   const d = normalize(descricao);
   return s.includes('BAIXA') || d.includes('BAIXA');
+}
+
+async function fetchGestorCompanyScopeIds(
+  client: any,
+  options: { companyIds?: string[]; userIds?: string[] }
+) {
+  const companyIds = Array.from(new Set((options.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+  const userIds = Array.from(new Set((options.userIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
+
+  let query = client
+    .from('users')
+    .select('id, active, uso_individual, user_types(name), company_id')
+    .limit(1000);
+
+  if (userIds.length === 1) {
+    query = query.eq('id', userIds[0]);
+  } else if (userIds.length > 1) {
+    query = query.in('id', userIds);
+  } else if (companyIds.length === 1) {
+    query = query.eq('company_id', companyIds[0]);
+  } else if (companyIds.length > 1) {
+    query = query.in('company_id', companyIds);
+  }
+
+  try {
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || [])
+      .filter((row: any) => {
+        if (!row?.id) return false;
+        if (row?.active === false) return false;
+        if (row?.uso_individual === true) return false;
+        if (userIds.length > 0) return true;
+        const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
+        return role.includes('VENDEDOR') || role.includes('GESTOR');
+      })
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -286,8 +329,47 @@ export async function GET(event) {
     const inicio = String(searchParams.get('inicio') || defaultInicio).trim();
     const fim = String(searchParams.get('fim') || defaultFim).trim();
     const includeOrcamentos = String(searchParams.get('include_orcamentos') || '1').trim() === '1';
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids'));
+
+    const requestedCompanyId = searchParams.get('company_id');
+    const requestedVendedorIds = parseUuidList(searchParams.get('vendedor_ids'));
+
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isAdminByType = tipoNome.includes('ADMIN');
+    const isGestorByType = tipoNome.includes('GESTOR');
+    const isMasterByType = tipoNome.includes('MASTER');
+    const responsePapel = isAdminByType
+      ? 'ADMIN'
+      : isMasterByType
+        ? 'MASTER'
+        : isGestorByType
+          ? 'GESTOR'
+          : 'VENDEDOR';
+
+    let companyIds: string[] = [];
+    let vendedorIds: string[] = [];
+
+    if (isAdminByType) {
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      vendedorIds = requestedVendedorIds;
+    } else if (isGestorByType) {
+      companyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
+      vendedorIds = requestedVendedorIds.length > 0
+        ? requestedVendedorIds
+        : await fetchGestorCompanyScopeIds(client, { companyIds });
+    } else if (isMasterByType) {
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      const allowedMasterIds = await fetchGestorCompanyScopeIds(client, { companyIds });
+
+      if (requestedVendedorIds.length > 0) {
+        vendedorIds = requestedVendedorIds.filter((id) => allowedMasterIds.includes(id));
+      } else {
+        vendedorIds = allowedMasterIds;
+      }
+    } else {
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      vendedorIds = [scope.userId];
+    }
+
     const accessibleClientIds = !scope.isAdmin
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
@@ -594,7 +676,7 @@ export async function GET(event) {
         if (clientIds.length === 0) {
           return json({
             inicio, fim,
-            userCtx: { usuarioId: user.id, nome: scope.nome, papel: scope.papel, vendedorIds },
+            userCtx: { usuarioId: user.id, nome: scope.nome, papel: responsePapel, vendedorIds },
             podeVerOperacao: canOperacao,
             podeVerConsultoria: canConsultoria,
             vendasAgg: {
@@ -632,7 +714,7 @@ export async function GET(event) {
 
     return json({
       inicio, fim,
-      userCtx: { usuarioId: user.id, nome: scope.nome, papel: scope.papel, vendedorIds },
+      userCtx: { usuarioId: user.id, nome: scope.nome, papel: responsePapel, vendedorIds },
       podeVerOperacao: canOperacao,
       podeVerConsultoria: canConsultoria,
       vendasAgg: {

@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   requireAuthenticatedUser,
-  resolveScopedVendedorIds,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -13,8 +14,7 @@ function isRankingUserType(value?: string | null) {
   return (
     normalized.includes('VENDEDOR') ||
     normalized.includes('GESTOR') ||
-    normalized.includes('MASTER') ||
-    normalized.includes('ADMIN')
+    normalized.includes('MASTER')
   );
 }
 
@@ -30,15 +30,52 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const requestedCompanyId = String(searchParams.get('empresa_id') || '').trim();
-    const scopedTeamIds = await resolveScopedVendedorIds(client, scope, null);
-    const companyIdsForUsers =
-      scope.isAdmin || scope.companyIds.length === 0
-        ? requestedCompanyId
-          ? [requestedCompanyId]
-          : []
-        : requestedCompanyId && scope.companyIds.includes(requestedCompanyId)
-          ? [requestedCompanyId]
-          : scope.companyIds;
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isAdminByType = tipoNome.includes('ADMIN');
+    const isGestorByType = tipoNome.includes('GESTOR');
+    const isMasterByType = tipoNome.includes('MASTER');
+
+    let scopedTeamIds: string[] = [];
+    let companyIdsForUsers: string[] = [];
+    let enforceCorporateOnly = false;
+
+    if (isAdminByType) {
+      companyIdsForUsers = requestedCompanyId ? [requestedCompanyId] : [];
+    } else if (isGestorByType) {
+      companyIdsForUsers = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
+      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+      let gestoresIds: string[] = [];
+
+      if (companyIdsForUsers.length > 0) {
+        let gestoresQuery = client
+          .from('users')
+          .select('id, user_types(name)')
+          .eq('uso_individual', false)
+          .eq('active', true)
+          .limit(500);
+
+        gestoresQuery = companyIdsForUsers.length === 1
+          ? gestoresQuery.eq('company_id', companyIdsForUsers[0])
+          : gestoresQuery.in('company_id', companyIdsForUsers);
+
+        const { data: gestoresData } = await gestoresQuery;
+        gestoresIds = (gestoresData || [])
+          .filter((row: any) => {
+            const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
+            return isRankingUserType(role);
+          })
+          .map((row: any) => String(row?.id || '').trim())
+          .filter(Boolean);
+      }
+
+      scopedTeamIds = Array.from(new Set([...equipeIds, ...gestoresIds]));
+    } else if (isMasterByType) {
+      companyIdsForUsers = resolveScopedCompanyIds(scope, requestedCompanyId);
+      enforceCorporateOnly = true;
+    } else {
+      companyIdsForUsers = resolveScopedCompanyIds(scope, requestedCompanyId);
+      scopedTeamIds = [scope.userId];
+    }
 
     let companiesQuery = client
       .from('companies')
@@ -60,17 +97,24 @@ export async function GET(event) {
             nome_completo,
             email,
             company_id,
+            active,
+            uso_individual,
             user_types (name),
             companies (nome_fantasia, nome_empresa)
           `)
           .limit(1000);
 
+        if (!scope.isAdmin && scopedTeamIds.length > 0) {
+          query = query.in('id', scopedTeamIds);
+          return query;
+        }
+
         if (!scope.isAdmin && companyIdsForUsers.length > 0) {
           query = query.in('company_id', companyIdsForUsers);
         }
 
-        if (!scope.isAdmin && scopedTeamIds.length > 0) {
-          query = query.in('id', scopedTeamIds);
+        if (enforceCorporateOnly) {
+          query = query.eq('uso_individual', false).eq('active', true);
         }
 
         return query;
@@ -88,6 +132,9 @@ export async function GET(event) {
 
     const vendedores = (usersRes.data || [])
       .filter((row: any) => {
+        if (row?.active === false) return false;
+        if (row?.uso_individual === true) return false;
+        if (isGestorByType && scopedTeamIds.length > 0) return true;
         const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
         return isRankingUserType(userType?.name);
       })

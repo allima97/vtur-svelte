@@ -1,13 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { Filter, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
+  import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet } from '$lib/services/api';
@@ -76,6 +75,10 @@
   let dataFim = defaultRange.end;
   let empresaSelecionada = '';
   let vendedorSelecionado = '';
+  let filtrosInicializados = false;
+  let lastAppliedFilterKey = '';
+  let pendingFilterKey = '';
+  let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
   let resumo: Resumo = {
     meta_mes: 0,
     meta_seguro: 0,
@@ -252,7 +255,7 @@
   function syncUrl() {
     const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
-    if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
+    if (vendedorSelecionado) params.set('vendedor_ids', vendedorSelecionado);
     void goto(`/relatorios/ranking?${params.toString()}`, {
       replaceState: true,
       noScroll: true,
@@ -260,9 +263,16 @@
     });
   }
 
-  async function gerarRanking() {
-    await loadRanking(true);
-    syncUrl();
+  function scheduleAutoApply() {
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+
+    pendingFilterKey = currentFilterKey;
+    applyFiltersTimer = setTimeout(() => {
+      lastAppliedFilterKey = pendingFilterKey;
+      syncUrl();
+      void loadRanking();
+      applyFiltersTimer = null;
+    }, 250);
   }
 
   function handleExportVendas() {
@@ -311,9 +321,15 @@
     dataInicio = params.get('data_inicio') || defaultRange.start;
     dataFim = params.get('data_fim') || defaultRange.end;
     empresaSelecionada = params.get('empresa_id') || '';
-    vendedorSelecionado = params.get('vendedor_id') || '';
+    vendedorSelecionado = params.get('vendedor_ids') || params.get('vendedor_id') || '';
     await loadBase();
     await loadRanking();
+    lastAppliedFilterKey = currentFilterKey;
+    filtrosInicializados = true;
+  });
+
+  onDestroy(() => {
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
   });
 
   $: top3 = vendedores.slice(0, 3);
@@ -331,9 +347,15 @@
   $: showBuscaRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: showExportRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: diasRestantesNoMes = getDiasRestantesNoMes();
+  $: currentFilterKey = [dataInicio, dataFim, empresaSelecionada, vendedorSelecionado].join('|');
+  $: isFiltroVendedorAtivo = vendedorSelecionado.trim().length > 0;
+  $: showPodioTop3 = showRankingPodio && !isFiltroVendedorAtivo;
 
   $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
   $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
+  $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
+    scheduleAutoApply();
+  }
 
   $: atingimentoVendasPct = resumo.meta_mes > 0 ? (resumo.total_receita / resumo.meta_mes) * 100 : 0;
   $: atingimentoVendasPctClamped = clamp(atingimentoVendasPct, 0, 100);
@@ -360,7 +382,7 @@
 
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <FieldInput id="rank-inicio" type="date" label="Data início" bind:value={dataInicio} />
     <FieldInput id="rank-fim" type="date" label="Data fim" bind:value={dataFim} />
     {#if showEmpresaFiltro}
@@ -379,12 +401,6 @@
         options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((v) => ({ value: v.id, label: v.nome }))]}
       />
     {/if}
-    <div class="flex items-end">
-      <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRanking}>
-        <Filter size={16} class="mr-2" />
-        Aplicar
-      </Button>
-    </div>
   </div>
 </Card>
 
@@ -458,7 +474,7 @@
 </KPIGrid>
 
 <!-- Pódio top 3 -->
-{#if showRankingPodio && !loading && top3.length > 0}
+{#if showPodioTop3 && !loading && top3.length > 0}
   <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
     {#each top3 as v, i}
       <div class="vtur-card p-5 text-center border-t-4

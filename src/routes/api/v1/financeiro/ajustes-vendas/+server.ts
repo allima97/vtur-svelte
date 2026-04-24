@@ -5,6 +5,7 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -19,133 +20,130 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
     }
 
+    const requestedCompanyId = String(event.url.searchParams.get('company_id') || '').trim();
+    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+     if (companyIds.length === 0 && !scope.isAdmin) {
+       return json({ items: [], vendedores: [] });
+     }
+
     const { searchParams } = event.url;
     const inicio = String(searchParams.get('inicio') || '').trim();
     const fim = String(searchParams.get('fim') || '').trim();
     const vendedorId = String(searchParams.get('vendedor_id') || '').trim();
     const q = String(searchParams.get('q') || '').trim();
+    const limit = 120;
 
-    let equipeIds: string[] | null = null;
-    if (scope.isGestor) {
-      equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-    }
-
-    // Resolve os vendedor IDs a filtrar
-    let vendedorIdsFilter: string[] | null = null;
-    if (vendedorId && isUuid(vendedorId)) {
-      // Filtro explícito — respeita o escopo do gestor (só permite IDs da equipe)
-      if (equipeIds) {
-        vendedorIdsFilter = equipeIds.includes(vendedorId) ? [vendedorId] : [];
-      } else {
-        vendedorIdsFilter = [vendedorId];
-      }
-    } else if (equipeIds) {
-      vendedorIdsFilter = equipeIds;
-    }
-
-    // Filtro impossível — gestor sem equipe ou vendedor fora da equipe
-    if (vendedorIdsFilter && vendedorIdsFilter.length === 0) {
-      return json({ items: [], vendedores: [] });
-    }
-
-    // Query partindo de vendas para poder filtrar diretamente nas colunas da tabela principal
+    // Query principal: vendas_recibos com vendas!inner para filtrar corretamente
     let query = client
-      .from('vendas')
+      .from('vendas_recibos')
       .select(`
         id,
+        venda_id,
+        numero_recibo,
         data_venda,
-        cancelada,
-        company_id,
-        vendedor_id,
-        vendedor:users!vendedor_id(id, nome_completo),
-        clientes(id, nome),
-        recibos:vendas_recibos(
+        valor_total,
+        valor_taxas,
+        vendas!inner(
           id,
-          venda_id,
-          numero_recibo,
-          valor_total,
-          valor_taxas,
-          produto_resolvido:produtos!produto_resolvido_id(
-            id, nome,
-            tipo_produto:tipo_produtos!tipo_produto_id(id, nome, soma_na_meta)
-          ),
-          rateio:vendas_recibos_rateio(
-            id, ativo, vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
-            vendedor_destino:users!vendedor_destino_id(id, nome_completo)
-          )
+          vendedor_id,
+          cliente_id,
+          cancelada,
+          company_id,
+          clientes!cliente_id(nome)
         )
       `)
-      .eq('cancelada', false)
       .order('data_venda', { ascending: false })
-      .limit(300);
+      .limit(limit);
 
-    if (scope.companyId && !scope.isAdmin) {
-      query = query.eq('company_id', scope.companyId);
-    }
+    if (companyIds.length === 1) {
+       query = query.eq('vendas.company_id', companyIds[0]);
+    } else if (companyIds.length > 1) {
+       query = query.in('vendas.company_id', companyIds);
+     }
+    query = query.eq('vendas.cancelada', false);
     if (inicio) query = query.gte('data_venda', inicio);
     if (fim) query = query.lte('data_venda', fim);
-    if (vendedorIdsFilter && vendedorIdsFilter.length === 1) {
-      query = query.eq('vendedor_id', vendedorIdsFilter[0]);
-    } else if (vendedorIdsFilter && vendedorIdsFilter.length > 1) {
-      query = query.in('vendedor_id', vendedorIdsFilter);
+    if (vendedorId && isUuid(vendedorId)) {
+      query = query.eq('vendas.vendedor_id', vendedorId);
     }
+    if (q) query = (query as any).or(`numero_recibo.ilike.%${q}%`);
 
     const { data, error: queryError } = await query;
-    if (queryError) {
-      console.error('[ajustes-vendas] queryError:', JSON.stringify(queryError));
-      if (String(queryError.code || '').includes('42P01')) {
-        return json({ items: [], vendedores: [] });
-      }
-      throw queryError;
+    if (queryError) throw queryError;
+
+    const reciboIds = (data || []).map((r: any) => String(r.id)).filter(Boolean);
+
+    // Busca rateios separadamente (evita joins problemáticos)
+    let rateioMap = new Map<string, any>();
+    if (reciboIds.length > 0) {
+      const { data: rateioData, error: rateioError } = await client
+        .from('vendas_recibos_rateio')
+        .select(`
+          id, venda_recibo_id, ativo,
+          vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
+          vendedor_destino:users!vendedor_destino_id(id, nome_completo)
+        `)
+        .in('venda_recibo_id', reciboIds);
+
+      if (rateioError && !String(rateioError.code || '').includes('42P01')) throw rateioError;
+      (rateioData || []).forEach((r: any) => {
+        if (r.venda_recibo_id) rateioMap.set(r.venda_recibo_id, r);
+      });
     }
 
-    // Achata vendas → recibos em uma lista plana de itens
-    let items = (data || []).flatMap((venda: any) => {
-      const recibos = Array.isArray(venda.recibos) ? venda.recibos : [];
-      return recibos.map((recibo: any) => {
-        const tipoProduto = recibo.produto_resolvido?.tipo_produto;
-        const somaNaMeta = tipoProduto?.soma_na_meta ?? null;
-        return {
-          id: `vr:${recibo.id}`,
-          recibo_origem_id: recibo.id,
-          venda_id: recibo.venda_id,
-          numero_recibo: recibo.numero_recibo || '-',
-          data_venda: venda.data_venda || null,
-          valor_total: Number(recibo.valor_total || 0),
-          valor_taxas: Number(recibo.valor_taxas || 0),
-          vendedor_origem_id: venda.vendedor_id || '',
-          vendedor_origem_nome: venda.vendedor?.nome_completo || 'Vendedor',
-          cliente_nome: venda.clientes?.nome || 'Cliente',
-          produto_nome: recibo.produto_resolvido?.nome || '-',
-          produto_tipo_nome: tipoProduto?.nome || null,
-          soma_na_meta: somaNaMeta,
-          rateio: Array.isArray(recibo.rateio) ? (recibo.rateio[0] || null) : (recibo.rateio || null)
-        };
-      });
+    // Busca nomes dos vendedores
+    const vendedorIdsFromRows = [...new Set((data || []).map((r: any) => String(r.vendas?.vendedor_id || '')).filter(Boolean))];
+    const vendedorNomeMap = new Map<string, string>();
+    if (vendedorIdsFromRows.length > 0) {
+      const { data: vData } = await client.from('users').select('id, nome_completo').in('id', vendedorIdsFromRows);
+      (vData || []).forEach((v: any) => vendedorNomeMap.set(v.id, v.nome_completo));
+    }
+
+    const items = (data || []).map((row: any) => {
+      const rateio = rateioMap.get(row.id) || null;
+      const vendedorOrigemId = String(row.vendas?.vendedor_id || '');
+      return {
+        id: `vr:${row.id}`,
+        recibo_origem_id: row.id,
+        venda_id: String(row.venda_id || ''),
+        numero_recibo: String(row.numero_recibo || '').trim() || '-',
+        data_venda: String(row.data_venda || '').slice(0, 10),
+        valor_total: Number(row.valor_total || 0),
+        valor_taxas: Number(row.valor_taxas || 0),
+        vendedor_origem_id: vendedorOrigemId,
+        vendedor_origem_nome: vendedorNomeMap.get(vendedorOrigemId) || 'Vendedor',
+        cliente_nome: String(row.vendas?.clientes?.nome || ''),
+        rateio: rateio ? {
+          id: String(rateio.id || ''),
+          ativo: Boolean(rateio.ativo),
+          vendedor_destino_id: String(rateio.vendedor_destino_id || ''),
+          vendedor_destino: rateio.vendedor_destino || null,
+          percentual_origem: Number(rateio.percentual_origem || 0),
+          percentual_destino: Number(rateio.percentual_destino || 0),
+          observacao: rateio.observacao || null,
+          updated_at: rateio.updated_at || null
+        } : null
+      };
     });
 
-    if (q) {
-      const qLower = q.toLowerCase();
-      items = items.filter((item: any) =>
-        [item.numero_recibo, item.cliente_nome, item.vendedor_origem_nome, item.produto_nome]
-          .join(' ').toLowerCase().includes(qLower)
-      );
-    }
-
+    // Vendedores para o filtro
     let vendedoresQuery = client
       .from('users')
       .select('id, nome_completo')
       .eq('active', true)
       .order('nome_completo')
       .limit(100);
-    if (scope.companyId && !scope.isAdmin)
-      vendedoresQuery = vendedoresQuery.eq('company_id', scope.companyId);
+    if (companyIds.length === 1) {
+       vendedoresQuery = vendedoresQuery.eq('company_id', companyIds[0]);
+    } else if (companyIds.length > 1) {
+       vendedoresQuery = vendedoresQuery.in('company_id', companyIds);
+     }
     const { data: vendedoresData } = await vendedoresQuery;
 
-    return json({ items, vendedores: vendedoresData || [] });
+    return json({ items, vendedores: (vendedoresData || []).map((v: any) => ({ id: v.id, nome_completo: v.nome_completo })) });
   } catch (err: any) {
-    console.error('[ajustes-vendas] catch err:', err);
-    return json({ error: String(err?.message || err), stack: String(err?.stack || '') }, { status: 500 });
+    console.error('[ajustes-vendas] GET error:', err);
+    return toErrorResponse(err, 'Erro ao carregar ajustes de vendas.');
   }
 }
 

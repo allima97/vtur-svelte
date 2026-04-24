@@ -206,10 +206,6 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	if (isSystemAdmin) {
-		return resolve(event);
-	}
-
 	// Bloqueio de onboarding (reutiliza perfil ja carregado)
 	const rotasOnboardingPermitidas = ['/perfil', '/auth', '/api/companies', '/api/welcome-email'];
 	const isOnboardingAllowed = rotasOnboardingPermitidas.some((prefix) => pathname.startsWith(prefix));
@@ -272,6 +268,21 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			targetUrl.search = url.search;
 			throw redirect(303, targetUrl.toString());
 		}
+	}
+
+	if (isSystemAdmin) {
+		const isSystemAdminAllowedRoute =
+			pathname.startsWith('/admin') ||
+			pathname.startsWith('/dashboard/admin') ||
+			pathname.startsWith('/perfil') ||
+			pathname.startsWith('/negado') ||
+			pathname.startsWith('/documentacao');
+
+		if (!isSystemAdminAllowedRoute) {
+			throw redirect(303, '/dashboard/admin');
+		}
+
+		return resolve(event);
 	}
 
 	if (

@@ -4,6 +4,7 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -21,32 +22,6 @@ function isRateioTableMissingError(err: any) {
     code === "42P01" &&
     (message.includes("vendas_recibos_rateio") || message.includes("does not exist"))
   );
-}
-
-async function fetchGestorEquipeIdsComGestor(client: any, gestorId: string): Promise<string[]> {
-  const { data, error } = await client
-    .from("gestor_vendedor")
-    .select("vendedor_id")
-    .eq("gestor_id", gestorId)
-    .eq("ativo", true);
-  if (error) {
-    console.error("[fetchGestorEquipeIds]", error);
-    return [];
-  }
-  return (data || []).map((row: any) => String(row?.vendedor_id || "").trim()).filter(Boolean);
-}
-
-function resolveCompanyId(scope: any, requestedCompanyId?: string | null) {
-  if (requestedCompanyId && isUuid(requestedCompanyId)) {
-    return requestedCompanyId;
-  }
-  if (scope.isAdmin && scope.companyId) {
-    return scope.companyId;
-  }
-  if (scope.isMaster && scope.companyId) {
-    return scope.companyId;
-  }
-  return null;
 }
 
 export async function GET(event: RequestEvent) {
@@ -79,15 +54,9 @@ export async function GET(event: RequestEvent) {
       return json({ error: "vendedor_id invalido." }, { status: 400 });
     }
 
-    const companyId = resolveCompanyId(scope, requestedCompanyId);
-    if (!companyId) {
+    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    if (companyIds.length === 0) {
       return json({ error: "company_id nao resolvido para este usuario." }, { status: 400 });
-    }
-
-    let equipeIds: string[] | null = null;
-    if (scope.papel === "GESTOR") {
-      equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      if (equipeIds.length === 0) return json({ items: [] });
     }
 
     let query = client
@@ -112,17 +81,19 @@ export async function GET(event: RequestEvent) {
           )
         `
       )
-      .eq("vendas.company_id", companyId)
       .eq("vendas.cancelada", false)
       .order("data_venda", { ascending: false })
       .limit(limit);
 
+    if (companyIds.length === 1) {
+      query = query.eq("vendas.company_id", companyIds[0]);
+    } else {
+      query = query.in("vendas.company_id", companyIds);
+    }
+
     if (inicio) query = query.gte("data_venda", inicio);
     if (fim) query = query.lte("data_venda", fim);
     if (vendedorId) query = query.eq("vendas.vendedor_id", vendedorId);
-    if (equipeIds && equipeIds.length > 0) {
-      query = query.in("vendas.vendedor_id", equipeIds);
-    }
     if (termo) {
       query = query.or(`numero_recibo.ilike.%${termo}%`);
     }
@@ -153,7 +124,7 @@ export async function GET(event: RequestEvent) {
           )
         `
       )
-      .eq("company_id", companyId)
+      .in("company_id", companyIds)
       .is("venda_recibo_id", null)
       .neq("is_baixa_rac", true)
       .order("movimento_data", { ascending: false })
@@ -162,7 +133,6 @@ export async function GET(event: RequestEvent) {
     if (inicio) conciliacaoQuery = conciliacaoQuery.gte("movimento_data", inicio);
     if (fim) conciliacaoQuery = conciliacaoQuery.lte("movimento_data", fim);
     if (vendedorId) conciliacaoQuery = conciliacaoQuery.eq("ranking_vendedor_id", vendedorId);
-    if (equipeIds && equipeIds.length > 0) conciliacaoQuery = conciliacaoQuery.in("ranking_vendedor_id", equipeIds);
     if (termo) conciliacaoQuery = conciliacaoQuery.ilike("documento", `%${termo}%`);
 
     const { data: conciliacaoData, error: conciliacaoError } = await conciliacaoQuery;
@@ -174,7 +144,7 @@ export async function GET(event: RequestEvent) {
 
     let rateioMap = new Map<string, any>();
     if (reciboIds.length > 0 || conciliacaoIds.length > 0) {
-      const { data: rateioData, error: rateioError } = await client
+      let rateioQuery = client
         .from("vendas_recibos_rateio")
         .select(
           `
@@ -193,8 +163,15 @@ export async function GET(event: RequestEvent) {
               nome_completo
             )
           `
-        )
-        .eq("company_id", companyId);
+        );
+
+      if (companyIds.length === 1) {
+        rateioQuery = rateioQuery.eq("company_id", companyIds[0]);
+      } else {
+        rateioQuery = rateioQuery.in("company_id", companyIds);
+      }
+
+      const { data: rateioData, error: rateioError } = await rateioQuery;
 
       if (rateioError) {
         if (!isRateioTableMissingError(rateioError)) {
@@ -315,11 +292,13 @@ export async function GET(event: RequestEvent) {
     let vendedoresQuery = client
       .from("users")
       .select("id, nome_completo")
-      .eq("company_id", companyId)
       .eq("active", true)
       .order("nome_completo", { ascending: true });
-    if (equipeIds && equipeIds.length > 0) {
-      vendedoresQuery = vendedoresQuery.in("id", equipeIds);
+
+    if (companyIds.length === 1) {
+      vendedoresQuery = vendedoresQuery.eq("company_id", companyIds[0]);
+    } else {
+      vendedoresQuery = vendedoresQuery.in("company_id", companyIds);
     }
     const { data: vendedoresData, error: vendedoresError } = await vendedoresQuery;
     if (vendedoresError) throw vendedoresError;

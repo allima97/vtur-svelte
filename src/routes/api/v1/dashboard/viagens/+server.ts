@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   fetchGestorEquipeIdsComGestor,
   getAdminClient,
+  parseUuidList,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -15,16 +16,30 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     const { searchParams } = event.url;
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
+    const companyIds = resolveScopedCompanyIds(
+      scope,
+      searchParams.get('company_id') || searchParams.get('empresa_id')
+    );
+    const requestedVendedorIds = parseUuidList(
+      searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
+    );
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
 
     const hoje = new Date().toISOString().slice(0, 10);
     const em30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    let equipeIds: string[] = [];
-    if (scope.isGestor) {
-      equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-    } else if (!scope.isAdmin && !scope.isMaster) {
-      equipeIds = [scope.userId];
+    let vendedorIds: string[] = [];
+    if (tipoNome.includes('ADMIN')) {
+      vendedorIds = requestedVendedorIds;
+    } else if (tipoNome.includes('GESTOR')) {
+      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+      vendedorIds = requestedVendedorIds.length > 0
+        ? requestedVendedorIds.filter((id) => equipeIds.includes(id))
+        : equipeIds;
+    } else if (tipoNome.includes('MASTER')) {
+      vendedorIds = requestedVendedorIds;
+    } else {
+      vendedorIds = [scope.userId];
     }
 
     // Viagens próximas (embarque nos próximos 30 dias)
@@ -44,7 +59,7 @@ export async function GET(event) {
       .limit(100);
 
     if (companyIds.length > 0) vendasQuery = vendasQuery.in('company_id', companyIds);
-    if (equipeIds.length > 0) vendasQuery = vendasQuery.in('vendedor_id', equipeIds);
+    if (vendedorIds.length > 0) vendasQuery = vendasQuery.in('vendedor_id', vendedorIds);
 
     const { data: vendas, error: vendasError } = await vendasQuery;
     if (vendasError) throw vendasError;
@@ -65,7 +80,7 @@ export async function GET(event) {
       .limit(50);
 
     if (companyIds.length > 0) emAndamentoQuery = emAndamentoQuery.in('company_id', companyIds);
-    if (equipeIds.length > 0) emAndamentoQuery = emAndamentoQuery.in('vendedor_id', equipeIds);
+    if (vendedorIds.length > 0) emAndamentoQuery = emAndamentoQuery.in('vendedor_id', vendedorIds);
 
     const { data: emAndamento } = await emAndamentoQuery;
 

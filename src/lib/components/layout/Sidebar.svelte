@@ -72,6 +72,13 @@
 
   $: currentPath = $page.url.pathname;
   $: currentUser = $auth.user;
+  $: dashboardHref = $permissoes.isSystemAdmin
+    ? '/dashboard/admin'
+    : $permissoes.isMaster
+      ? '/dashboard/master'
+      : $permissoes.isGestor
+        ? '/dashboard/gestor'
+        : '/dashboard/vendedor';
   $: userDisplayName =
     currentUser?.user_metadata?.nome_completo ||
     currentUser?.user_metadata?.nome ||
@@ -79,12 +86,12 @@
     'Usuario';
   $: userEmail = currentUser?.email || 'Sem email';
 
-  const menuSections: MenuSection[] = [
+  $: menuSections = [
     {
       title: 'INFORMATIVOS',
       collapsible: false,
       items: [
-        { key: 'dashboard', name: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { key: 'dashboard', name: 'Dashboard', href: dashboardHref, icon: LayoutDashboard },
         { key: 'tarefas', name: 'Tarefas', href: '/operacao/tarefas', icon: SquareCheckBig },
         { key: 'agenda', name: 'Agenda', href: '/operacao/agenda', icon: Calendar },
         { key: 'acompanhamento', name: 'Acompanhamento', href: '/operacao/acompanhamento', icon: FileText },
@@ -160,7 +167,7 @@
         { key: 'preferencias', name: 'Preferências', href: '/operacao/minhas-preferencias', icon: Star }
       ]
     }
-  ];
+  ] as MenuSection[];
 
   const masterItems: MenuItem[] = [
     { name: 'Master', href: '/master', icon: Shield },
@@ -223,6 +230,15 @@
     if (!item.href) return true;
     if (isHiddenByUserPreference(item)) return false;
     if (!$permissoes.ready) return true;
+
+    if ($permissoes.isSystemAdmin) {
+      if (item.href === '/') return true;
+      if (item.href.startsWith('/dashboard/admin')) return true;
+      if (item.href.startsWith('/admin')) return true;
+      if (item.href.startsWith('/perfil')) return true;
+      if (item.href.startsWith('/documentacao')) return true;
+      return false;
+    }
 
     // Perfil e autenticacao devem permanecer acessiveis mesmo sem modulo mapeado.
     if (item.href.startsWith('/perfil')) return true;
@@ -308,7 +324,7 @@
   let mobileNavEntries: NavEntry[] = [];
 
   $: mobileNavEntries = [
-    { name: 'Dashboard',      href: '/',                       icon: LayoutDashboard },
+    { name: 'Dashboard',      href: dashboardHref,             icon: LayoutDashboard },
     { name: 'Clientes',       href: '/clientes',               icon: Users },
     { name: 'Vendas',         href: '/vendas',                 icon: ShoppingCart },
     { name: 'Orçamentos',     href: '/orcamentos',             icon: FileText },
