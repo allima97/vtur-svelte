@@ -333,6 +333,9 @@
 	"/api/v1/debug/permissions": [
 		"src/routes/api/v1/debug/permissions/+server.ts"
 	],
+	"/api/v1/debug/vendas-recibos-diff": [
+		"src/routes/api/v1/debug/vendas-recibos-diff/+server.ts"
+	],
 	"/api/v1/documentacao": [
 		"src/routes/api/v1/documentacao/+server.ts"
 	],

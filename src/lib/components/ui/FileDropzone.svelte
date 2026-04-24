@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Dropzone, Helper, Label } from 'flowbite-svelte';
+  import { Helper, Label } from 'flowbite-svelte';
+  import { createEventDispatcher } from 'svelte';
 
   export let label: string | null = null;
   export let title = 'Clique para escolher um arquivo';
@@ -16,8 +17,16 @@
   export let icon: any = null;
   export let class_name = '';
 
+  const dispatch = createEventDispatcher();
+
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
   $: fileNames = files ? Array.from(files).map((file) => file.name) : [];
+
+  function handleChange(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    files = input.files ?? undefined;
+    dispatch('change', event);
+  }
 </script>
 
 <div class={class_name}>
@@ -27,44 +36,40 @@
     </Label>
   {/if}
 
-  <Dropzone
-    id={fieldId}
-    {name}
-    bind:files
-    {accept}
-    {disabled}
-    {required}
-    class={`vtur-upload-dropzone ${error ? 'border-red-300 ring-1 ring-red-200' : ''}`}
-    on:change
-    on:blur
-    on:focus
-    on:drop
+  <label
+    for={fieldId}
+    class="vtur-upload-dropzone flex cursor-pointer items-center gap-3 px-4 py-2.5 {error ? 'border-red-300 ring-1 ring-red-200' : ''} {disabled ? 'cursor-not-allowed opacity-60' : ''}"
   >
-    <div class="flex flex-col items-center gap-3 px-5 py-6 text-center">
-      {#if icon}
-        <div class="vtur-upload-dropzone__icon">
-          <svelte:component this={icon} size={22} />
-        </div>
-      {/if}
-
-      <div class="space-y-1">
-        <p class="vtur-upload-dropzone__title">{title}</p>
-        {#if description}
-          <p class="vtur-upload-dropzone__meta">{description}</p>
-        {/if}
+    {#if icon}
+      <div class="vtur-upload-dropzone__icon shrink-0">
+        <svelte:component this={icon} size={16} />
       </div>
+    {/if}
 
-      {#if fileNames.length > 0}
-        <div class="space-y-1">
-          {#each fileNames as fileName}
-            <p class="vtur-upload-dropzone__file">{fileName}</p>
-          {/each}
-        </div>
-      {:else if hint}
-        <p class="vtur-upload-dropzone__hint">{hint}</p>
+    <div class="min-w-0">
+      <p class="vtur-upload-dropzone__title leading-tight">
+        {#if fileNames.length > 0}
+          {fileNames.join(', ')}
+        {:else}
+          {title}
+        {/if}
+      </p>
+      {#if description && fileNames.length === 0}
+        <p class="vtur-upload-dropzone__meta leading-tight">{description}</p>
       {/if}
     </div>
-  </Dropzone>
+
+    <input
+      {id}
+      {name}
+      type="file"
+      {accept}
+      {disabled}
+      {required}
+      class="hidden"
+      on:change={handleChange}
+    />
+  </label>
 
   {#if error}
     <Helper class="mt-1 text-red-600">{error}</Helper>

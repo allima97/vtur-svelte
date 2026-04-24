@@ -1,17 +1,4 @@
-/**
- * Lógica de Rateio de Vendas — vtur-svelte
- *
- * Portabilizado FIELMENTE do vtur-app (src/lib/vendasRateio.ts).
- * NÃO alterar sem sincronizar com o vtur-app.
- *
- * REGRAS CRÍTICAS:
- *  - percentual_origem + percentual_destino = 100
- *  - cloneReciboWithFactor escala todos os campos financeiros por fator
- *  - applyRateioToSalesForScopedVendedores: achata vendas por vendedor com base no rateio
- *  - rateio_source_recibo_id preserva o ID original (sem sufixo ::rateio:)
- */
-
-export type RateioRow = {
+type RateioRow = {
   venda_recibo_id?: string | null;
   conciliacao_recibo_id?: string | null;
   vendedor_origem_id?: string | null;
@@ -21,12 +8,8 @@ export type RateioRow = {
   ativo?: boolean | null;
 };
 
-// ---------------------------------------------------------------------------
-// HELPERS INTERNOS
-// ---------------------------------------------------------------------------
-
 function toStr(value?: unknown) {
-  return String(value || '').trim();
+  return String(value || "").trim();
 }
 
 function toNumber(value?: unknown) {
@@ -34,14 +17,10 @@ function toNumber(value?: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/**
- * Remove o sufixo ::rateio:<vendedorId> de um ID sintético.
- * Usado para lookup na tabela de rateio com o ID real do recibo.
- */
 function normalizeReciboLookupId(value?: unknown) {
   const raw = toStr(value);
-  if (!raw) return '';
-  return raw.replace(/::rateio:[^:]+$/i, '').replace(/:recibo$/i, '');
+  if (!raw) return "";
+  return raw.replace(/::rateio:[^:]+$/i, "").replace(/:recibo$/i, "");
 }
 
 function normalizeCompanyScopeIds(companyId?: string | null, companyIds?: string[] | null) {
@@ -70,16 +49,6 @@ function resolveReciboBruto(recibo: Record<string, any>) {
   return Math.max(0, toNumber(recibo?.valor_bruto_override ?? recibo?.valor_total));
 }
 
-// ---------------------------------------------------------------------------
-// CLONE COM FATOR
-// ---------------------------------------------------------------------------
-
-/**
- * Clona um recibo de venda aplicando um fator de escala em todos os valores financeiros.
- * O ID resultante é <id_original>::rateio:<vendedorId> para diferenciar de recibos reais.
- *
- * Portabilizado fielmente do vtur-app cloneReciboWithFactor().
- */
 export function cloneReciboWithFactor<T extends Record<string, any>>(
   recibo: T,
   fator: number,
@@ -89,7 +58,7 @@ export function cloneReciboWithFactor<T extends Record<string, any>>(
   const rawId = toStr(recibo?.id);
   const nextId =
     options?.forceSyntheticId || rawId
-      ? `${rawId || 'recibo'}::rateio:${vendedorId}`
+      ? `${rawId || "recibo"}::rateio:${vendedorId}`
       : rawId;
 
   return {
@@ -108,20 +77,7 @@ export function cloneReciboWithFactor<T extends Record<string, any>>(
   } as T;
 }
 
-// ---------------------------------------------------------------------------
-// FETCH RATEIO (server-side only)
-// ---------------------------------------------------------------------------
-
-/**
- * Busca os registros de rateio para uma lista de IDs de recibos.
- * Retorna um Map<id_recibo, RateioRow>.
- *
- * Portabilizado fielmente do vtur-app fetchRateioByReciboIds().
- */
-export async function fetchRateioByReciboIds(
-  client: any,
-  reciboIds: string[]
-): Promise<Map<string, RateioRow>> {
+export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
   const ids = Array.from(
     new Set((reciboIds || []).map((id) => normalizeReciboLookupId(id)).filter(Boolean))
   );
@@ -134,12 +90,12 @@ export async function fetchRateioByReciboIds(
   for (let index = 0; index < ids.length; index += 200) {
     const chunk = ids.slice(index, index + 200);
     const { data: byVendaRecibo, error: byVendaErr } = await client
-      .from('vendas_recibos_rateio')
+      .from("vendas_recibos_rateio")
       .select(
-        'venda_recibo_id, conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo'
+        "venda_recibo_id, conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo"
       )
-      .eq('ativo', true)
-      .in('venda_recibo_id', chunk);
+      .eq("ativo", true)
+      .in("venda_recibo_id", chunk);
     if (byVendaErr) throw byVendaErr;
     (byVendaRecibo || []).forEach((row: any) => {
       const key = toStr(row?.venda_recibo_id);
@@ -147,12 +103,12 @@ export async function fetchRateioByReciboIds(
     });
 
     const { data: byConcRecibo, error: byConcErr } = await client
-      .from('vendas_recibos_rateio')
+      .from("vendas_recibos_rateio")
       .select(
-        'venda_recibo_id, conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo'
+        "venda_recibo_id, conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo"
       )
-      .eq('ativo', true)
-      .in('conciliacao_recibo_id', chunk);
+      .eq("ativo", true)
+      .in("conciliacao_recibo_id", chunk);
     if (byConcErr) throw byConcErr;
     (byConcRecibo || []).forEach((row: any) => {
       const key = toStr(row?.conciliacao_recibo_id);
@@ -161,7 +117,6 @@ export async function fetchRateioByReciboIds(
     });
   }
 
-  // Cross-reference: conciliacao_recibo_id -> venda_recibo_id
   const concIds = Array.from(
     new Set(
       byConcReciboRows
@@ -173,9 +128,9 @@ export async function fetchRateioByReciboIds(
     for (let index = 0; index < concIds.length; index += 200) {
       const chunk = concIds.slice(index, index + 200);
       const { data: concRows, error: concErr } = await client
-        .from('conciliacao_recibos')
-        .select('id, venda_recibo_id')
-        .in('id', chunk);
+        .from("conciliacao_recibos")
+        .select("id, venda_recibo_id")
+        .in("id", chunk);
       if (concErr) throw concErr;
       (concRows || []).forEach((row: any) => {
         const concId = toStr(row?.id);
@@ -190,12 +145,6 @@ export async function fetchRateioByReciboIds(
   return map;
 }
 
-/**
- * Retorna os venda_ids das vendas em que o vendedor é destino de um rateio.
- * Usado para incluir vendas de outros vendedores no ranking do destino.
- *
- * Portabilizado fielmente do vtur-app fetchSplitSaleIdsForDestinationVendedores().
- */
 export async function fetchSplitSaleIdsForDestinationVendedores(
   client: any,
   options: {
@@ -203,22 +152,22 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
     companyIds?: string[] | null;
     vendedorIds?: string[] | null;
   }
-): Promise<string[]> {
+) {
   const scopedCompanyIds = normalizeCompanyScopeIds(options.companyId, options.companyIds);
   const scopedVendedorIds = Array.from(
     new Set((options.vendedorIds || []).map((id) => toStr(id)).filter(isUuid))
   );
-  if (scopedVendedorIds.length === 0) return [];
+  if (scopedVendedorIds.length === 0) return [] as string[];
 
   let splitQuery = client
-    .from('vendas_recibos_rateio')
-    .select('venda_recibo_id, conciliacao_recibo_id')
-    .eq('ativo', true)
-    .in('vendedor_destino_id', scopedVendedorIds);
+    .from("vendas_recibos_rateio")
+    .select("venda_recibo_id, conciliacao_recibo_id")
+    .eq("ativo", true)
+    .in("vendedor_destino_id", scopedVendedorIds);
   if (scopedCompanyIds.length === 1) {
-    splitQuery = splitQuery.eq('company_id', scopedCompanyIds[0]);
+    splitQuery = splitQuery.eq("company_id", scopedCompanyIds[0]);
   } else if (scopedCompanyIds.length > 1) {
-    splitQuery = splitQuery.in('company_id', scopedCompanyIds);
+    splitQuery = splitQuery.in("company_id", scopedCompanyIds);
   }
 
   const { data: splitRows, error: splitErr } = await splitQuery;
@@ -235,9 +184,9 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
 
   if (vendaReciboIds.length > 0) {
     const { data: recibosRows, error: recibosErr } = await client
-      .from('vendas_recibos')
-      .select('id, venda_id')
-      .in('id', vendaReciboIds);
+      .from("vendas_recibos")
+      .select("id, venda_id")
+      .in("id", vendaReciboIds);
     if (recibosErr) throw recibosErr;
     (recibosRows || []).forEach((row: any) => {
       const vendaId = toStr(row?.venda_id);
@@ -247,9 +196,9 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
 
   if (concReciboIds.length > 0) {
     const { data: concRows, error: concErr } = await client
-      .from('conciliacao_recibos')
-      .select('id, venda_id')
-      .in('id', concReciboIds);
+      .from("conciliacao_recibos")
+      .select("id, venda_id")
+      .in("id", concReciboIds);
     if (concErr) throw concErr;
     (concRows || []).forEach((row: any) => {
       const vendaId = toStr(row?.venda_id);
@@ -260,36 +209,12 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   return Array.from(vendaIds);
 }
 
-// ---------------------------------------------------------------------------
-// APLICAR RATEIO EM LISTA DE VENDAS
-// ---------------------------------------------------------------------------
-
-/**
- * Achata a lista de vendas expandindo cada venda em entradas por vendedor,
- * aplicando os fatores de rateio aos valores financeiros de cada recibo.
- *
- * Comportamento:
- * - Se não há rateio para o recibo: mantém o recibo com vendedor_id original
- * - Se há rateio ativo: cria dois registros — um para origem (pct_origem/100), outro para destino
- * - Se scopedVendedorIds fornecido: filtra apenas os vendedores no escopo
- *
- * Portabilizado FIELMENTE do vtur-app applyRateioToSalesForScopedVendedores().
- */
 export function applyRateioToSalesForScopedVendedores<
   T extends {
     vendedor_id?: string | null;
     vendas_recibos?: Array<Record<string, any>> | null;
   }
->(
-  items: T[],
-  rateioMap: Map<string, RateioRow>,
-  scopedVendedorIds?: string[] | null
-): Array<T & {
-  rateio_source_venda_id: string | null;
-  rateio_scope_bruto_total: number;
-  rateio_source_bruto_total: number;
-  rateio_scope_factor: number;
-}> {
+>(items: T[], rateioMap: Map<string, RateioRow>, scopedVendedorIds?: string[] | null) {
   const scopedSet = new Set((scopedVendedorIds || []).map((id) => toStr(id)).filter(Boolean));
   const hasScope = scopedSet.size > 0;
 
@@ -379,14 +304,6 @@ export function applyRateioToSalesForScopedVendedores<
           rateio_scope_factor: scopeFactor,
         };
       })
-      .filter(
-        (nextItem) =>
-          Array.isArray(nextItem.vendas_recibos) && nextItem.vendas_recibos.length > 0
-      ) as Array<T & {
-        rateio_source_venda_id: string | null;
-        rateio_scope_bruto_total: number;
-        rateio_source_bruto_total: number;
-        rateio_scope_factor: number;
-      }>;
+      .filter((nextItem) => Array.isArray(nextItem.vendas_recibos) && nextItem.vendas_recibos.length > 0);
   });
 }

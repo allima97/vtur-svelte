@@ -314,6 +314,9 @@ export async function GET(event) {
     const destinoFilter = String(searchParams.get('destino') || '').trim().toLowerCase();
     const produtoFilter = String(searchParams.get('produto') || '').trim().toLowerCase();
     const tipoProdutoFilter = String(searchParams.get('tipo_produto') || '').trim().toLowerCase();
+    const accessibleClientIds = !scope.isAdmin
+      ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
+      : [];
 
     let conciliacaoSobrepoeVendas = false;
     if (companyIds.length > 0) {
@@ -358,162 +361,270 @@ export async function GET(event) {
       return id ? [id] : [];
     };
 
-    let rows = toRateioShape(
-      await fetchSalesReportRows(client, {
-        dataInicio,
-        dataFim,
-        companyIds,
-        vendedorIds,
-        includeCancelled: true
-      })
-    );
-
-    if (vendedorIds.length > 0) {
-      let splitSaleIds: string[] = [];
-      try {
-        splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(client, {
-          companyId: companyIds[0] || null,
-          vendedorIds
-        });
-      } catch (error) {
-        console.warn('[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino:', error);
-      }
-
-      if (splitSaleIds.length > 0) {
-        const splitRows = toRateioShape(
-          await fetchSalesReportRows(client, {
-            dataInicio,
-            dataFim,
-            companyIds,
-            vendaIds: splitSaleIds,
-            includeCancelled: true
-          })
-        );
-        rows = mergeRowsById(rows, splitRows);
-      }
-    }
-
-    let concReceipts: any[] = [];
-    try {
-      concReceipts = await fetchEffectiveConciliacaoReceipts({
-        client,
-        companyId: companyIds[0] || null,
-        companyIds,
-        inicio: dataInicio,
-        fim: dataFim,
-        vendedorIds,
-        excludeVendedorIds: undefined
-      });
-    } catch (error) {
-      console.warn('[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides:', error);
-      concReceipts = [];
-    }
-
-    if (vendedorIds.length > 0) {
-      let splitConcQuery = client
-        .from('vendas_recibos_rateio')
-        .select('conciliacao_recibo_id')
-        .eq('ativo', true)
-        .in('vendedor_destino_id', vendedorIds)
-        .not('conciliacao_recibo_id', 'is', null)
-        .limit(5000);
-
-      if (companyIds.length > 0) {
-        splitConcQuery = splitConcQuery.in('company_id', companyIds);
-      }
-
-      const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
-      if (splitConcErr) {
-        console.warn('[relatorios/vendas] split conciliation indisponivel:', splitConcErr);
-      }
-
-      const splitConcIdSet = new Set(
-        ((splitConcRows as any[]) || [])
-          .map((row: any) => String(row?.conciliacao_recibo_id || '').trim())
-          .filter(Boolean)
-      );
-
-      if (splitConcIdSet.size > 0) {
-        let concAll: any[] = [];
-        try {
-          concAll = await fetchEffectiveConciliacaoReceipts({
-            client,
-            companyId: companyIds[0] || null,
-            companyIds,
-            inicio: dataInicio,
-            fim: dataFim,
-            vendedorIds: null,
-            excludeVendedorIds: undefined
-          });
-        } catch (error) {
-          console.warn('[relatorios/vendas] conciliation all indisponivel:', error);
-          concAll = [];
-        }
-
-        const seenConcIds = new Set((concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)));
-        concAll.forEach((item: any) => {
-          const candidateIds = getConciliacaoIds(item);
-          if (candidateIds.length === 0) return;
-          if (!candidateIds.some((id: string) => splitConcIdSet.has(id))) return;
-          if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
-          candidateIds.forEach((id: string) => seenConcIds.add(id));
-          concReceipts.push(item);
-        });
-      }
-    }
-
-    const overriddenReceiptIds = new Set(
-      concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
-    );
-
-    const baseRows = rows
-      .map((row: any) => {
-        const recibos = Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : [];
-        const withoutOverridden = conciliacaoSobrepoeVendas
-          ? recibos.filter(
-              (recibo: any) => !overriddenReceiptIds.has(String(recibo?.id || '').trim())
-            )
-          : recibos;
-
-        return {
-          ...row,
-          vendas_recibos: filterRecibosCanceladosMesmoMes(withoutOverridden)
-        };
-      })
-      .filter((row: any) => Array.isArray(row?.vendas_recibos) && row.vendas_recibos.length > 0);
-
-    const mergedRows =
-      concReceipts.length > 0
-        ? [...baseRows, ...buildConciliacaoSyntheticVendas(concReceipts)]
-        : baseRows;
-
-    if (mergedRows.length > 0) {
-      const reciboIds = mergedRows
-        .flatMap((row: any) => (Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : []))
-        .map((recibo: any) => String(recibo?.id || '').trim())
-        .filter(Boolean);
-
-      try {
-        const rateioMap = await fetchRateioByReciboIds(client, reciboIds);
-        rows = applyRateioToSalesForScopedVendedores(mergedRows, rateioMap, vendedorIds);
-      } catch (error) {
-        console.warn('[relatorios/vendas] rateio indisponivel, seguindo sem rateio:', error);
-        rows = mergedRows;
-      }
-    } else {
-      rows = [];
-    }
-
     const toRecibosView = (row: any) => {
       if (Array.isArray(row?.vendas_recibos)) return row.vendas_recibos;
       if (Array.isArray(row?.recibos)) return row.recibos;
       return [];
     };
 
-    const rowsView = rows.map((row: any) => ({
-      ...row,
-      recibos: toRecibosView(row)
-    }));
+    const loadRowsViewForPeriod = async (periodStart: string, periodEnd: string) => {
+      let rows = toRateioShape(
+        await fetchSalesReportRows(client, {
+          dataInicio: periodStart,
+          dataFim: periodEnd,
+          companyIds,
+          vendedorIds,
+          includeCancelled: true
+        })
+      );
+
+      if (vendedorIds.length > 0) {
+        let splitSaleIds: string[] = [];
+        try {
+          splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(client, {
+            companyId: companyIds[0] || null,
+            companyIds,
+            vendedorIds
+          });
+        } catch (error) {
+          console.warn('[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino:', error);
+        }
+
+        if (splitSaleIds.length > 0) {
+          const splitRows = toRateioShape(
+            await fetchSalesReportRows(client, {
+              dataInicio: periodStart,
+              dataFim: periodEnd,
+              companyIds,
+              vendaIds: splitSaleIds,
+              includeCancelled: true
+            })
+          );
+          rows = mergeRowsById(rows, splitRows);
+        }
+      }
+
+      let concReceipts: any[] = [];
+      try {
+        concReceipts = await fetchEffectiveConciliacaoReceipts({
+          client,
+          companyId: companyIds[0] || null,
+          companyIds,
+          inicio: periodStart,
+          fim: periodEnd,
+          vendedorIds,
+          excludeVendedorIds: undefined
+        });
+      } catch (error) {
+        console.warn('[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides:', error);
+        concReceipts = [];
+      }
+
+      if (vendedorIds.length > 0) {
+        let splitConcQuery = client
+          .from('vendas_recibos_rateio')
+          .select('conciliacao_recibo_id')
+          .eq('ativo', true)
+          .in('vendedor_destino_id', vendedorIds)
+          .not('conciliacao_recibo_id', 'is', null);
+
+        if (companyIds.length > 0) {
+          splitConcQuery = splitConcQuery.in('company_id', companyIds);
+        }
+
+        const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
+        if (splitConcErr) {
+          console.warn('[relatorios/vendas] split conciliation indisponivel:', splitConcErr);
+        }
+
+        const splitConcIdSet = new Set(
+          ((splitConcRows as any[]) || [])
+            .map((row: any) => String(row?.conciliacao_recibo_id || '').trim())
+            .filter(Boolean)
+        );
+
+        if (splitConcIdSet.size > 0) {
+          let concAll: any[] = [];
+          try {
+            concAll = await fetchEffectiveConciliacaoReceipts({
+              client,
+              companyId: companyIds[0] || null,
+              companyIds,
+              inicio: periodStart,
+              fim: periodEnd,
+              vendedorIds: null,
+              excludeVendedorIds: undefined
+            });
+          } catch (error) {
+            console.warn('[relatorios/vendas] conciliation all indisponivel:', error);
+            concAll = [];
+          }
+
+          const seenConcIds = new Set((concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)));
+          concAll.forEach((item: any) => {
+            const candidateIds = getConciliacaoIds(item);
+            if (candidateIds.length === 0) return;
+            if (!candidateIds.some((id: string) => splitConcIdSet.has(id))) return;
+            if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
+            candidateIds.forEach((id: string) => seenConcIds.add(id));
+            concReceipts.push(item);
+          });
+        }
+      }
+
+      const overriddenReceiptIds = new Set(
+        concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
+      );
+
+      const baseRows = rows
+        .map((row: any) => {
+          const recibos = Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : [];
+          const withoutOverridden = conciliacaoSobrepoeVendas
+            ? recibos.filter(
+                (recibo: any) => !overriddenReceiptIds.has(String(recibo?.id || '').trim())
+              )
+            : recibos;
+
+          return {
+            ...row,
+            vendas_recibos: filterRecibosCanceladosMesmoMes(withoutOverridden)
+          };
+        })
+        .filter((row: any) => Array.isArray(row?.vendas_recibos) && row.vendas_recibos.length > 0);
+
+      const mergedRows =
+        concReceipts.length > 0
+          ? [...baseRows, ...buildConciliacaoSyntheticVendas(concReceipts)]
+          : baseRows;
+
+      if (mergedRows.length === 0) {
+        return [] as any[];
+      }
+
+      try {
+        const reciboIds = mergedRows
+          .flatMap((row: any) => (Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : []))
+          .map((recibo: any) => String(recibo?.id || '').trim())
+          .filter(Boolean);
+        const rateioMap = await fetchRateioByReciboIds(client, reciboIds);
+        rows = applyRateioToSalesForScopedVendedores(mergedRows, rateioMap, vendedorIds);
+      } catch (error) {
+        console.warn('[relatorios/vendas] rateio indisponivel, seguindo sem rateio:', error);
+        rows = mergedRows;
+      }
+
+      return rows.map((row: any) => ({
+        ...row,
+        recibos: toRecibosView(row)
+      }));
+    };
+
+    const filterRowsForReport = (rowsInput: any[]) =>
+      rowsInput.filter((row) => {
+        if (clienteId && String(row.cliente_id || '').trim() !== clienteId) {
+          return false;
+        }
+
+        const destino = getVendaDestino(row).toLowerCase();
+        if (destinoFilter && !destino.includes(destinoFilter)) {
+          return false;
+        }
+
+        if (produtoFilter || tipoProdutoFilter) {
+          const recibos = Array.isArray(row.recibos) && row.recibos.length > 0 ? row.recibos : [null];
+          const matches = recibos.some((recibo: ReportReceiptRow) => {
+            const descriptor = getReceiptProductDescriptor(recibo, row);
+            const produtoMatches = !produtoFilter || descriptor.produto.toLowerCase().includes(produtoFilter);
+            const tipoMatches = !tipoProdutoFilter || descriptor.tipo.toLowerCase().includes(tipoProdutoFilter);
+            return produtoMatches && tipoMatches;
+          });
+
+          if (!matches) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+    const loadConsultaRowsForPeriod = async (periodStart: string, periodEnd: string) => {
+      let query = client
+        .from('vendas')
+        .select(`
+          id,
+          numero_venda,
+          vendedor_id,
+          cliente_id,
+          company_id,
+          data_venda,
+          data_embarque,
+          data_final,
+          valor_total,
+          valor_total_bruto,
+          valor_taxas,
+          cancelada,
+          clientes (nome, whatsapp),
+          vendedor:users!vendedor_id (nome_completo),
+          destino_cidade:cidades!destino_cidade_id (id, nome),
+          destinos:produtos!destino_id (nome, cidade_id),
+          recibos:vendas_recibos (
+            id,
+            numero_recibo,
+            numero_reserva,
+            destino_cidade:cidades!destino_cidade_id (id, nome),
+            tipo_pacote,
+            valor_total,
+            valor_taxas,
+            valor_du,
+            valor_rav,
+            data_inicio,
+            data_fim,
+            tipo_produtos (id, nome, tipo),
+            produto_resolvido:produtos!produto_resolvido_id (id, nome)
+          )
+        `)
+        .order('data_venda', { ascending: false })
+        .limit(5000);
+
+      if (periodStart) query = query.gte('data_venda', periodStart);
+      if (periodEnd) query = query.lte('data_venda', periodEnd);
+      if (companyIds.length > 0) query = query.in('company_id', companyIds);
+      if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
+      if (clienteId) query = query.eq('cliente_id', clienteId);
+      else if (!scope.isAdmin && accessibleClientIds.length > 0) query = query.in('cliente_id', accessibleClientIds);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return ((data || []) as any[]).map((row) => ({
+        ...row,
+        recibos: Array.isArray(row?.recibos) ? row.recibos : []
+      }));
+    };
+
+    const computeConsultaKpiTotalFromRows = (rowsInput: any[]) => {
+      const filtered = filterRowsForReport(rowsInput);
+      let total = 0;
+
+      filtered.forEach((row) => {
+        const status = getVendaStatus(row);
+        if (statusFilter && status !== statusFilter) {
+          return;
+        }
+
+        const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
+        if (recibos.length > 0) {
+          total += recibos.reduce((sum: number, recibo: any) => sum + Number(recibo?.valor_total || 0), 0);
+          return;
+        }
+
+        total += Number(row?.valor_total || 0);
+      });
+
+      return Number(total.toFixed(2));
+    };
+
+    const rowsView = await loadRowsViewForPeriod(dataInicio, dataFim);
 
     const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
       client,
@@ -530,32 +641,7 @@ export async function GET(event) {
       rowsView.map((row) => row.id)
     );
 
-    const filteredRows = rowsView.filter((row) => {
-      if (clienteId && String(row.cliente_id || '').trim() !== clienteId) {
-        return false;
-      }
-
-      const destino = getVendaDestino(row).toLowerCase();
-      if (destinoFilter && !destino.includes(destinoFilter)) {
-        return false;
-      }
-
-      if (produtoFilter || tipoProdutoFilter) {
-        const recibos = Array.isArray(row.recibos) && row.recibos.length > 0 ? row.recibos : [null];
-        const matches = recibos.some((recibo: ReportReceiptRow) => {
-          const descriptor = getReceiptProductDescriptor(recibo, row);
-          const produtoMatches = !produtoFilter || descriptor.produto.toLowerCase().includes(produtoFilter);
-          const tipoMatches = !tipoProdutoFilter || descriptor.tipo.toLowerCase().includes(tipoProdutoFilter);
-          return produtoMatches && tipoMatches;
-        });
-
-        if (!matches) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    const filteredRows = filterRowsForReport(rowsView);
 
     let items = filteredRows.map((row) => {
       const status = getVendaStatus(row);
@@ -682,10 +768,6 @@ export async function GET(event) {
     )
       .map(([id, nome]) => ({ id, nome }))
       .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
-
-    const accessibleClientIds = !scope.isAdmin
-      ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
-      : [];
 
     const sharedKpis = await fetchAndComputeVendasKpis(client, {
       dataInicio,

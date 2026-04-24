@@ -623,6 +623,27 @@
       transform: translateX(0);
     }
 
+    .vtur-sidebar__item,
+    .vtur-sidebar__item.vtur-button {
+      font-size: 1.55rem !important;
+      padding: 1.1rem 1.1rem !important;
+      gap: 1.1rem;
+      border-radius: 16px;
+    }
+
+    .vtur-sidebar__item-main {
+      gap: 1.1rem;
+    }
+
+    .vtur-sidebar__item-label {
+      font-size: 1.55rem !important;
+    }
+
+    .vtur-sidebar__item-icon svg {
+      width: 33px !important;
+      height: 33px !important;
+    }
+
     .vtur-sidebar__body {
       padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
     }
@@ -1010,7 +1031,7 @@
     border: 1.5px dashed #cbd5e1 !important;
     border-radius: 18px !important;
     background: linear-gradient(180deg, #f8fafc, #ffffff) !important;
-    min-height: 172px !important;
+    min-height: unset !important;
     transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -1024,8 +1045,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 3.25rem;
-    height: 3.25rem;
+    width: 1.75rem;
+    height: 1.75rem;
     border-radius: 999px;
     background: #dcfce7;
     color: #16a34a;

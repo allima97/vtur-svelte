@@ -287,7 +287,7 @@
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-wrap items-center gap-2">
     <Button
-      variant={filtroRapido === 'todas' ? 'primary' : 'secondary'}
+      variant={filtroRapido === 'todas' ? 'selected' : 'secondary'}
       size="sm"
       class_name="rounded-full"
       on:click={() => (filtroRapido = 'todas')}
@@ -295,7 +295,7 @@
       Todas ({formasPagamento.length})
     </Button>
     <Button
-      variant={filtroRapido === 'ativas' ? 'primary' : 'secondary'}
+      variant={filtroRapido === 'ativas' ? 'selected' : 'secondary'}
       size="sm"
       color="green"
       class_name="rounded-full"
@@ -304,7 +304,7 @@
       Ativas ({ativas.length})
     </Button>
     <Button
-      variant={filtroRapido === 'inativas' ? 'primary' : 'secondary'}
+      variant={filtroRapido === 'inativas' ? 'selected' : 'secondary'}
       size="sm"
       class_name="rounded-full"
       on:click={() => (filtroRapido = 'inativas')}
@@ -312,7 +312,7 @@
       Inativas ({inativas.length})
     </Button>
     <Button
-      variant={filtroRapido === 'sem_comissao' ? 'primary' : 'secondary'}
+      variant={filtroRapido === 'sem_comissao' ? 'selected' : 'secondary'}
       size="sm"
       color="orange"
       class_name="rounded-full"
@@ -321,7 +321,7 @@
       Sem comissão ({semComissao.length})
     </Button>
     <Button
-      variant={filtroRapido === 'com_desconto' ? 'primary' : 'secondary'}
+      variant={filtroRapido === 'com_desconto' ? 'selected' : 'secondary'}
       size="sm"
       color="blue"
       class_name="rounded-full"

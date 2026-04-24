@@ -613,14 +613,14 @@
       <p class="block text-sm font-medium text-slate-700 mb-1">Visualizacao</p>
       <div class="flex gap-2">
         <Button
-          variant={viewMode === 'kanban' ? 'primary' : 'secondary'}
+          variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
           class_name="flex-1"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
-          variant={viewMode === 'lista' ? 'primary' : 'secondary'}
+          variant={viewMode === 'lista' ? 'selected' : 'secondary'}
           class_name="flex-1"
           on:click={() => (viewMode = 'lista')}
         >

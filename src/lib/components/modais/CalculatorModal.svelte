@@ -148,7 +148,7 @@
               <div class="flex gap-2 mb-2">
                 <Button
                   type="button"
-                  variant={calc.descontoTipo === 'percentual' ? 'primary' : 'secondary'}
+                  variant={calc.descontoTipo === 'percentual' ? 'selected' : 'secondary'}
                   color="vendas"
                   class_name="flex-1"
                   on:click={() => calc.descontoTipo = 'percentual'}
@@ -158,7 +158,7 @@
                 </Button>
                 <Button
                   type="button"
-                  variant={calc.descontoTipo === 'valor' ? 'primary' : 'secondary'}
+                  variant={calc.descontoTipo === 'valor' ? 'selected' : 'secondary'}
                   color="vendas"
                   class_name="flex-1"
                   on:click={() => calc.descontoTipo = 'valor'}

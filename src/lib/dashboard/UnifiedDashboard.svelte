@@ -491,7 +491,7 @@
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
     <FieldInput id="dash-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
     <FieldInput id="dash-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
-    {#if userCtx?.papel !== 'VENDEDOR' && empresas.length > 0}
+    {#if (userCtx?.papel === 'MASTER' || userCtx?.papel === 'ADMIN') && empresas.length > 0}
       <FieldSelect
         id="dash-empresa"
         label="Empresa"

@@ -232,7 +232,7 @@
   <div class="mb-6 flex flex-wrap gap-3">
     <Button
       type="button"
-      variant={abaAtiva === 'dados' ? 'primary' : 'secondary'}
+      variant={abaAtiva === 'dados' ? 'selected' : 'secondary'}
       color={abaAtiva === 'dados' ? 'clientes' : undefined}
       on:click={() => (abaAtiva = 'dados')}
     >
@@ -241,7 +241,7 @@
     </Button>
     <Button
       type="button"
-      variant={abaAtiva === 'acompanhantes' ? 'primary' : 'secondary'}
+      variant={abaAtiva === 'acompanhantes' ? 'selected' : 'secondary'}
       color={abaAtiva === 'acompanhantes' ? 'clientes' : undefined}
       on:click={() => (abaAtiva = 'acompanhantes')}
     >

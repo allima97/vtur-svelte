@@ -6,7 +6,7 @@
   export let label: string | null = null;
   export let value: string | number = '';
   export let placeholder: string = '';
-  export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local' | 'tel' | 'time' | 'url' = 'text';
+  export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local' | 'month' | 'tel' | 'time' | 'url' = 'text';
   export let required = false;
   export let disabled = false;
   export let readonly = false;

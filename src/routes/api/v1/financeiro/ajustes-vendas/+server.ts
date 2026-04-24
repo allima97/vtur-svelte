@@ -30,70 +30,98 @@ export async function GET(event) {
       equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
     }
 
+    // Resolve os vendedor IDs a filtrar
+    let vendedorIdsFilter: string[] | null = null;
+    if (vendedorId && isUuid(vendedorId)) {
+      // Filtro explícito — respeita o escopo do gestor (só permite IDs da equipe)
+      if (equipeIds) {
+        vendedorIdsFilter = equipeIds.includes(vendedorId) ? [vendedorId] : [];
+      } else {
+        vendedorIdsFilter = [vendedorId];
+      }
+    } else if (equipeIds) {
+      vendedorIdsFilter = equipeIds;
+    }
+
+    // Filtro impossível — gestor sem equipe ou vendedor fora da equipe
+    if (vendedorIdsFilter && vendedorIdsFilter.length === 0) {
+      return json({ items: [], vendedores: [] });
+    }
+
+    // Query partindo de vendas para poder filtrar diretamente nas colunas da tabela principal
     let query = client
-      .from('vendas_recibos')
+      .from('vendas')
       .select(`
         id,
-        venda_id,
-        numero_recibo,
-        valor_total,
-        valor_taxas,
-        produto_resolvido:produtos!produto_resolvido_id(
-          id, nome,
-          tipo_produto:tipo_produtos!tipo_produto_id(id, nome, soma_na_meta)
-        ),
-        venda:vendas!venda_id(
+        data_venda,
+        cancelada,
+        company_id,
+        vendedor_id,
+        vendedor:users!vendedor_id(id, nome_completo),
+        clientes(id, nome),
+        recibos:vendas_recibos(
           id,
-          data_venda,
-          cancelada,
-          vendedor_id,
-          vendedor:users!vendedor_id(id, nome_completo),
-          cliente:clientes!cliente_id(id, nome)
-        ),
-        rateio:vendas_recibos_rateio(
-          id, ativo, vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
-          vendedor_destino:users!vendedor_destino_id(id, nome_completo)
+          venda_id,
+          numero_recibo,
+          valor_total,
+          valor_taxas,
+          produto_resolvido:produtos!produto_resolvido_id(
+            id, nome,
+            tipo_produto:tipo_produtos!tipo_produto_id(id, nome, soma_na_meta)
+          ),
+          rateio:vendas_recibos_rateio(
+            id, ativo, vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
+            vendedor_destino:users!vendedor_destino_id(id, nome_completo)
+          )
         )
       `)
-      .eq('venda.cancelada', false)
-      .order('venda.data_venda', { ascending: false })
-      .limit(120);
+      .eq('cancelada', false)
+      .order('data_venda', { ascending: false })
+      .limit(300);
 
     if (scope.companyId && !scope.isAdmin) {
-      query = query.eq('venda.company_id', scope.companyId);
+      query = query.eq('company_id', scope.companyId);
     }
-    if (inicio) query = query.gte('venda.data_venda', inicio);
-    if (fim) query = query.lte('venda.data_venda', fim);
-    if (vendedorId && isUuid(vendedorId)) query = query.eq('venda.vendedor_id', vendedorId);
-    if (equipeIds && equipeIds.length > 0) query = query.in('venda.vendedor_id', equipeIds);
+    if (inicio) query = query.gte('data_venda', inicio);
+    if (fim) query = query.lte('data_venda', fim);
+    if (vendedorIdsFilter && vendedorIdsFilter.length === 1) {
+      query = query.eq('vendedor_id', vendedorIdsFilter[0]);
+    } else if (vendedorIdsFilter && vendedorIdsFilter.length > 1) {
+      query = query.in('vendedor_id', vendedorIdsFilter);
+    }
 
     const { data, error: queryError } = await query;
     if (queryError) {
+      console.error('[ajustes-vendas] queryError:', JSON.stringify(queryError));
       if (String(queryError.code || '').includes('42P01')) {
         return json({ items: [], vendedores: [] });
       }
       throw queryError;
     }
 
-    let items = (data || []).map((row: any) => {
-      const tipoProduto = row.produto_resolvido?.tipo_produto;
-      const somaNaMeta = tipoProduto?.soma_na_meta ?? null;
-      return {
-        id: `vr:${row.id}`,
-        recibo_origem_id: row.id,
-        venda_id: row.venda_id,
-        numero_recibo: row.numero_recibo || '-',
-        data_venda: row.venda?.data_venda || null,
-        valor_total: Number(row.valor_total || 0),
-        valor_taxas: Number(row.valor_taxas || 0),
-        vendedor_origem_id: row.venda?.vendedor_id || '',
-        vendedor_origem_nome: row.venda?.vendedor?.nome_completo || 'Vendedor',
-        cliente_nome: row.venda?.cliente?.nome || 'Cliente',
-        produto_nome: row.produto_resolvido?.nome || '-',
-        produto_tipo_nome: tipoProduto?.nome || null,
-        soma_na_meta: somaNaMeta,
-        rateio: Array.isArray(row.rateio) ? (row.rateio[0] || null) : (row.rateio || null)
-      };
+    // Achata vendas → recibos em uma lista plana de itens
+    let items = (data || []).flatMap((venda: any) => {
+      const recibos = Array.isArray(venda.recibos) ? venda.recibos : [];
+      return recibos.map((recibo: any) => {
+        const tipoProduto = recibo.produto_resolvido?.tipo_produto;
+        const somaNaMeta = tipoProduto?.soma_na_meta ?? null;
+        return {
+          id: `vr:${recibo.id}`,
+          recibo_origem_id: recibo.id,
+          venda_id: recibo.venda_id,
+          numero_recibo: recibo.numero_recibo || '-',
+          data_venda: venda.data_venda || null,
+          valor_total: Number(recibo.valor_total || 0),
+          valor_taxas: Number(recibo.valor_taxas || 0),
+          vendedor_origem_id: venda.vendedor_id || '',
+          vendedor_origem_nome: venda.vendedor?.nome_completo || 'Vendedor',
+          cliente_nome: venda.clientes?.nome || 'Cliente',
+          produto_nome: recibo.produto_resolvido?.nome || '-',
+          produto_tipo_nome: tipoProduto?.nome || null,
+          soma_na_meta: somaNaMeta,
+          rateio: Array.isArray(recibo.rateio) ? (recibo.rateio[0] || null) : (recibo.rateio || null)
+        };
+      });
     });
 
     if (q) {
@@ -115,8 +143,9 @@ export async function GET(event) {
     const { data: vendedoresData } = await vendedoresQuery;
 
     return json({ items, vendedores: vendedoresData || [] });
-  } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar ajustes de vendas.');
+  } catch (err: any) {
+    console.error('[ajustes-vendas] catch err:', err);
+    return json({ error: String(err?.message || err), stack: String(err?.stack || '') }, { status: 500 });
   }
 }
 

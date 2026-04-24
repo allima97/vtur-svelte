@@ -698,7 +698,7 @@
   <Card title="Tipo de importação" color="vendas">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Button
-        variant={tipoImportacao === 'cvc' ? 'primary' : 'secondary'}
+        variant={tipoImportacao === 'cvc' ? 'selected' : 'secondary'}
         color="vendas"
         class_name="rounded-xl"
         on:click={() => (tipoImportacao = 'cvc')}
@@ -712,7 +712,7 @@
         </div>
       </Button>
       <Button
-        variant={tipoImportacao === 'roteiro' ? 'primary' : 'secondary'}
+        variant={tipoImportacao === 'roteiro' ? 'selected' : 'secondary'}
         color="vendas"
         class_name="rounded-xl"
         on:click={() => (tipoImportacao = 'roteiro')}

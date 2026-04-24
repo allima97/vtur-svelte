@@ -403,7 +403,7 @@
     class="vtur-sidebar"
     class:vtur-sidebar--mobile={$isMobile}
     class:vtur-sidebar--open={$isMobile && $sidebar.isOpen}
-    class:vtur-sidebar--collapsed={!isMenuExpanded}
+    class:vtur-sidebar--collapsed={!isMenuExpanded && !$isMobile}
     aria-label="Menu principal do sistema"
     style={$isMobile ? 'position:fixed;z-index:999;' : ''}
   >
@@ -540,7 +540,7 @@
         <Button
           type="button"
           variant="unstyled"
-          class_name="vtur-sidebar__item !px-[0.4rem] !py-[0.74rem]"
+          class_name="vtur-sidebar__item"
           on:click={handleRefreshPermissions}
           disabled={refreshingPerms}
           ariaLabel="Atualizar permissões"
@@ -554,7 +554,7 @@
         <Button
           type="button"
           variant="unstyled"
-          class_name="vtur-sidebar__item !px-[0.4rem] !py-[0.74rem]"
+          class_name="vtur-sidebar__item"
           on:click={handleLogout}
           ariaLabel="Fazer logout"
           title="Sair"

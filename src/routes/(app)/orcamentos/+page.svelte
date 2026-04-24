@@ -401,7 +401,7 @@
 
 <div class="mb-4 flex flex-wrap items-center gap-3">
   <Button
-    variant={somenteCriticos ? 'primary' : 'secondary'}
+    variant={somenteCriticos ? 'selected' : 'secondary'}
     size="sm"
     class_name="rounded-full"
     on:click={() => {
@@ -417,7 +417,7 @@
   </Button>
 
   <Button
-    variant={somenteProntosVenda ? 'primary' : 'secondary'}
+    variant={somenteProntosVenda ? 'selected' : 'secondary'}
     size="sm"
     color="green"
     class_name="rounded-full"

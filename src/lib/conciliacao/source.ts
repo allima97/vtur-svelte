@@ -448,11 +448,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         groupedConcIds[0] ||
         `conc:${documento}`;
 
+      const effectiveSaleDate = linkedReciboMeta?.data_venda || effectiveDate;
+
       return {
         id: preferredConciliacaoId,
         conciliacao_ids: groupedConcIds,
         documento,
-        data_venda: effectiveDate,
+        data_venda: effectiveSaleDate,
         vendedor_id: vendedorId,
         produto_id: produtoId,
         linked_venda_id: linkedVendaId,

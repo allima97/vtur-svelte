@@ -5,6 +5,7 @@ import {
   getMonthRange,
   parseUuidList,
   requireAuthenticatedUser,
+  resolveAccessibleClientIds,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
@@ -24,6 +25,7 @@ import {
   fetchRateioByReciboIds,
   fetchSplitSaleIdsForDestinationVendedores
 } from '$lib/vendas/rateio';
+import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const start = new Date(`${dataInicio}T00:00:00`);
@@ -210,6 +212,10 @@ export async function GET(event) {
       });
     }
 
+    const accessibleClientIds = !scope.isAdmin
+      ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
+      : [];
+
     let conciliacaoSobrepoeVendas = false;
     if (companyIds.length > 0) {
       const { data: parametrosRows, error: parametrosError } = await client
@@ -267,6 +273,7 @@ export async function GET(event) {
       if (vendedorIds.length > 0) {
         const splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(client, {
           companyId: companyIds[0] || null,
+          companyIds,
           vendedorIds
         });
 
@@ -299,8 +306,7 @@ export async function GET(event) {
           .select('conciliacao_recibo_id')
           .eq('ativo', true)
           .in('vendedor_destino_id', vendedorIds)
-          .not('conciliacao_recibo_id', 'is', null)
-          .limit(5000);
+          .not('conciliacao_recibo_id', 'is', null);
 
         if (companyIds.length > 0) {
           splitConcQuery = splitConcQuery.in('company_id', companyIds);
@@ -374,9 +380,21 @@ export async function GET(event) {
       return applyRateioToSalesForScopedVendedores(mergedSales, rateioMap, vendedorIds);
     };
 
-    const [rows, previousRows, quotesRes, metasRes] = await Promise.all([
-      buildPeriodRows(dataInicio, dataFim),
-      buildPeriodRows(previousPeriod.dataInicio, previousPeriod.dataFim),
+    const [currentKpiPayload, previousKpiPayload, quotesRes, metasRes] = await Promise.all([
+      fetchVendasKpiReciboContributions(client, {
+        dataInicio,
+        dataFim,
+        companyIds,
+        vendedorIds,
+        accessibleClientIds
+      }),
+      fetchVendasKpiReciboContributions(client, {
+        dataInicio: previousPeriod.dataInicio,
+        dataFim: previousPeriod.dataFim,
+        companyIds,
+        vendedorIds,
+        accessibleClientIds
+      }),
       (async () => {
         let query = client
           .from('quote')
@@ -432,6 +450,8 @@ export async function GET(event) {
       }
     >();
     const previousRevenueMap = new Map<string, number>();
+    const salesCountMap = new Map<string, Set<string>>();
+    const receiptCountMap = new Map<string, Set<string>>();
 
     rankingTeamMap.forEach((teamUser) => {
       rankingMap.set(teamUser.id, {
@@ -449,8 +469,8 @@ export async function GET(event) {
       });
     });
 
-    rows.forEach((row: any) => {
-      const vendedorId = String(row.vendedor_id || '').trim();
+    currentKpiPayload.contributions.forEach((contribution) => {
+      const vendedorId = String(contribution.vendedorId || '').trim();
       if (!vendedorId) return;
 
       const current = rankingMap.get(vendedorId) || {
@@ -467,34 +487,35 @@ export async function GET(event) {
         total_seguro: 0
       };
 
-      const recibos = Array.isArray(row?.vendas_recibos)
-        ? row.vendas_recibos
-        : Array.isArray(row?.recibos)
-          ? row.recibos
-          : [];
-      current.total_vendas += 1;
-      current.total_recibos += recibos.length;
-      current.total_receita += recibos.reduce((sum: number, recibo: any) => sum + resolveReciboBruto(recibo), 0);
-      current.total_comissao += recibos.reduce((sum: number, recibo: any) => sum + resolveReciboTaxas(recibo), 0);
-      current.total_liquido += recibos.reduce((sum: number, recibo: any) => sum + resolveReciboLiquido(recibo), 0);
-      current.total_seguro += recibos
-        .filter((recibo: any) => isSeguroRecibo(recibo))
-        .reduce((sum: number, recibo: any) => sum + resolveReciboBruto(recibo), 0);
+      const saleKey = String(contribution.vendaKey || '').trim() || `sale:${vendedorId}`;
+      const receiptKey = `${saleKey}::${String(contribution.reciboId || contribution.reciboNumero || '').trim()}`;
+      const salesSet = salesCountMap.get(vendedorId) || new Set<string>();
+      salesSet.add(saleKey);
+      salesCountMap.set(vendedorId, salesSet);
+      const receiptsSet = receiptCountMap.get(vendedorId) || new Set<string>();
+      if (receiptKey !== `${saleKey}::`) receiptsSet.add(receiptKey);
+      receiptCountMap.set(vendedorId, receiptsSet);
+
+      current.total_receita += Number(contribution.bruto || 0);
+      current.total_comissao += Number(contribution.taxas || 0);
+      current.total_liquido += Number(contribution.bruto || 0) - Number(contribution.taxas || 0);
+      if (contribution.isSeguro) {
+        current.total_seguro += Number(contribution.bruto || 0);
+      }
       rankingMap.set(vendedorId, current);
     });
 
-    previousRows.forEach((row: any) => {
-      const vendedorId = String(row.vendedor_id || '').trim();
+    rankingMap.forEach((current, vendedorId) => {
+      current.total_vendas = salesCountMap.get(vendedorId)?.size || 0;
+      current.total_recibos = receiptCountMap.get(vendedorId)?.size || 0;
+    });
+
+    previousKpiPayload.contributions.forEach((contribution) => {
+      const vendedorId = String(contribution.vendedorId || '').trim();
       if (!vendedorId) return;
-      const recibos = Array.isArray(row?.vendas_recibos)
-        ? row.vendas_recibos
-        : Array.isArray(row?.recibos)
-          ? row.recibos
-          : [];
       previousRevenueMap.set(
         vendedorId,
-        (previousRevenueMap.get(vendedorId) || 0) +
-          recibos.reduce((sum: number, recibo: any) => sum + resolveReciboBruto(recibo), 0)
+        (previousRevenueMap.get(vendedorId) || 0) + Number(contribution.bruto || 0)
       );
     });
 
