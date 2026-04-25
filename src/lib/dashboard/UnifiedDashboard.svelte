@@ -962,9 +962,16 @@
     {/if}
 
     <div class="vtur-card p-6">
-      <div class="mb-4">
-        <h3 class="text-base font-bold text-slate-900">Atividades Recentes</h3>
-        <p class="text-sm text-slate-500">Últimas movimentações no sistema</p>
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <Clock size={18} />
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Atividades Recentes</h3>
+            <p class="text-xs text-slate-500">Últimas movimentações no sistema</p>
+          </div>
+        </div>
       </div>
       <div class="border-t border-slate-100 pt-4">
         {#if loading}
