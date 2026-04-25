@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -61,6 +61,30 @@
     };
   }
 
+  function monthToDateValue(monthValue: string) {
+    const range = getMonthRange(monthValue);
+    return `${range.month}-01`;
+  }
+
+  function dateValueToMonth(dateValue: string) {
+    const raw = String(dateValue || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      return raw.slice(0, 7);
+    }
+    return getMonthRange('').month;
+  }
+
+  function formatMonthLabel(monthValue: string) {
+    const range = getMonthRange(monthValue);
+    const [yearText, monthText] = range.month.split('-');
+    const monthDate = new Date(Number(yearText), Number(monthText) - 1, 1);
+    const label = new Intl.DateTimeFormat('pt-BR', {
+      month: 'long',
+      year: 'numeric'
+    }).format(monthDate);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   }
@@ -70,12 +94,9 @@
   let vendedores: VendedorRanking[] = [];
   let loading = true;
   let mesSelecionado = defaultRange.month;
+  let mesReferenciaData = monthToDateValue(defaultRange.month);
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
-  let filtrosInicializados = false;
-  let lastAppliedFilterKey = '';
-  let pendingFilterKey = '';
-  let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
   let resumo: Resumo = {
     meta_mes: 0,
     meta_seguro: 0,
@@ -244,16 +265,20 @@
     });
   }
 
-  function scheduleAutoApply() {
-    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+  async function applyMonthFilter(monthValue: string) {
+    const range = getMonthRange(monthValue);
+    mesSelecionado = range.month;
+    mesReferenciaData = monthToDateValue(range.month);
+    dataInicio = range.start;
+    dataFim = range.end;
+    syncUrl();
+    await loadRanking();
+  }
 
-    pendingFilterKey = currentFilterKey;
-    applyFiltersTimer = setTimeout(() => {
-      lastAppliedFilterKey = pendingFilterKey;
-      syncUrl();
-      void loadRanking();
-      applyFiltersTimer = null;
-    }, 250);
+  function handleMesReferenciaChange() {
+    const monthValue = dateValueToMonth(mesReferenciaData);
+    if (monthValue === mesSelecionado) return;
+    void applyMonthFilter(monthValue);
   }
 
   function handleExportVendas() {
@@ -302,15 +327,10 @@
     const selectedMonth = params.get('mes') || dataInicio.slice(0, 7) || defaultRange.month;
     const range = getMonthRange(selectedMonth);
     mesSelecionado = range.month;
+    mesReferenciaData = monthToDateValue(range.month);
     dataInicio = range.start;
     dataFim = range.end;
     await loadRanking();
-    lastAppliedFilterKey = currentFilterKey;
-    filtrosInicializados = true;
-  });
-
-  onDestroy(() => {
-    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
   });
 
   $: top3 = vendedores.slice(0, 3);
@@ -327,17 +347,7 @@
   $: showExportRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: diasRestantesNoMes = getDiasRestantesNoMes();
   $: showPodioTop3 = showRankingPodio;
-  $: currentFilterKey = mesSelecionado;
-
-  $: {
-    const range = getMonthRange(mesSelecionado);
-    dataInicio = range.start;
-    dataFim = range.end;
-  }
-
-  $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
-    scheduleAutoApply();
-  }
+  $: mesSelecionadoLabel = formatMonthLabel(mesSelecionado);
 
   $: atingimentoVendasPct = resumo.meta_mes > 0 ? (resumo.total_receita / resumo.meta_mes) * 100 : 0;
   $: atingimentoVendasPctClamped = clamp(atingimentoVendasPct, 0, 100);
@@ -366,8 +376,18 @@
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <FieldInput id="rank-mes" type="month" label="Mês" bind:value={mesSelecionado} />
+    <FieldInput
+      id="rank-mes"
+      type="date"
+      label="Mês"
+      helper="Selecione qualquer dia do mês desejado"
+      bind:value={mesReferenciaData}
+      on:change={handleMesReferenciaChange}
+    />
   </div>
+  <p class="mt-2 text-sm font-medium text-slate-600">
+    Mês selecionado: <span class="text-slate-900">{mesSelecionadoLabel}</span>
+  </p>
 </Card>
 
 <!-- KPIs -->

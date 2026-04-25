@@ -122,6 +122,22 @@ function isRankingAllowedUser(row: any) {
   return isVendedor || isGestorParticipante;
 }
 
+function getMonthRangeFromKey(monthKey: string) {
+  const normalized = String(monthKey || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(normalized)) return null;
+
+  const [yearText, monthText] = normalized.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return null;
+
+  const lastDay = new Date(year, month, 0).getDate();
+  return {
+    inicio: `${yearText}-${monthText}-01`,
+    fim: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}`
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -134,8 +150,15 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const currentMonth = getMonthRange();
-    const dataInicio = String(searchParams.get('data_inicio') || searchParams.get('inicio') || currentMonth.inicio).trim();
-    const dataFim = String(searchParams.get('data_fim') || searchParams.get('fim') || currentMonth.fim).trim();
+    const mesParam = String(searchParams.get('mes') || '').trim();
+    const mesRange = getMonthRangeFromKey(mesParam);
+    let dataInicio = String(searchParams.get('data_inicio') || searchParams.get('inicio') || currentMonth.inicio).trim();
+    let dataFim = String(searchParams.get('data_fim') || searchParams.get('fim') || currentMonth.fim).trim();
+
+    if (mesRange) {
+      dataInicio = mesRange.inicio;
+      dataFim = mesRange.fim;
+    }
     const explicitRequestedVendedorIds = parseUuidList(
       searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
     );
@@ -503,13 +526,13 @@ export async function GET(event) {
         return query;
       })(),
       (async () => {
-        const metasPeriod = getMonthRange();
+        const metasReference = getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
         let query = client
           .from('metas_vendedor')
           .select('id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo')
           .eq('ativo', true)
-          .gte('periodo', metasPeriod.inicio)
-          .lte('periodo', metasPeriod.fim)
+          .gte('periodo', metasReference.inicio)
+          .lte('periodo', metasReference.fim)
           .limit(1000);
 
         if (vendedorIds.length > 0) {
