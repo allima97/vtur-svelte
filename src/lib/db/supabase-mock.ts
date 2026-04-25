@@ -133,8 +133,16 @@ export function shouldUseMock(): boolean {
   try {
     // No browser, verifica localStorage primeiro
     if (typeof window !== 'undefined') {
+      const host = String(window.location?.hostname || '').toLowerCase();
+      const isLocalHost =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host === '[::1]' ||
+        host.endsWith('.local');
+
       const forceMock = localStorage.getItem('vtur_force_mock');
-      if (forceMock === 'true') return true;
+      if (isLocalHost && forceMock === 'true') return true;
     }
     
     // Verifica se as credenciais são válidas
