@@ -799,13 +799,6 @@
     </div>
   </div>
 {:else}
-  <Card color="crm" class="mb-6">
-    <div>
-      <h3 class="font-semibold text-slate-800">Fluxo simplificado</h3>
-      <p class="mt-1 text-sm text-slate-500">Selecione tema, template e cliente em uma única etapa para gerar a prévia.</p>
-    </div>
-  </Card>
-
   <!-- STEP 0: Selecionar tema de arte -->
   {#if wizardStep === 0}
     <Card color="crm">
