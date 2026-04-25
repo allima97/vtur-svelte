@@ -1206,6 +1206,9 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/test-env": [
+		"src/routes/test-env/+server.ts"
+	],
 	"/(app)/vendas": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"

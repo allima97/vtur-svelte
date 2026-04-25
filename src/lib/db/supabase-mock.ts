@@ -3,7 +3,7 @@
  * Substitui as chamadas ao Supabase quando não há credenciais configuradas
  */
 
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 import { goto } from '$app/navigation';
 import { env as publicEnv } from '$env/dynamic/public';
 
@@ -131,10 +131,12 @@ export const mockSupabaseClient = {
 // Verifica se deve usar mock (quando não há credenciais do Supabase)
 export function shouldUseMock(): boolean {
   try {
+    let isLocalRuntime = dev;
+
     // No browser, verifica localStorage primeiro
     if (typeof window !== 'undefined') {
       const host = String(window.location?.hostname || '').toLowerCase();
-      const isLocalHost =
+      isLocalRuntime =
         host === 'localhost' ||
         host === '127.0.0.1' ||
         host === '::1' ||
@@ -142,14 +144,18 @@ export function shouldUseMock(): boolean {
         host.endsWith('.local');
 
       const forceMock = localStorage.getItem('vtur_force_mock');
-      if (isLocalHost && forceMock === 'true') return true;
+      if (isLocalRuntime && forceMock === 'true') return true;
     }
     
     // Verifica se as credenciais são válidas
     const url = publicEnv.PUBLIC_SUPABASE_URL;
     const key = publicEnv.PUBLIC_SUPABASE_ANON_KEY;
     
-    // Se não há URL ou key, ou são os valores padrão de exemplo, usa mock
+    // Fora do ambiente local/dev nunca faz fallback silencioso para mock.
+    // Em produção, a ausência de bindings deve falhar de forma explícita.
+    if (!isLocalRuntime) return false;
+
+    // Em ambiente local/dev, se não há URL ou key, ou são valores de exemplo, usa mock.
     if (!url || !key) return true;
     if (url.includes('seu-projeto') || url.includes('placeholder')) return true;
     if (key.includes('sua-anon-key') || key.includes('placeholder')) return true;
@@ -157,6 +163,6 @@ export function shouldUseMock(): boolean {
     return false;
   } catch (e) {
     console.error('🔍 [Supabase] Erro ao verificar mock:', e);
-    return true;
+    return dev;
   }
 }
