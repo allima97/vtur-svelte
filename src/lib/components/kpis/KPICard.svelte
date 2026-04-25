@@ -52,9 +52,9 @@
 
 <!--
   KPI Card — layout horizontal limpo (sem border-t colorida).
-  Estrutura: [texto (título + valor + tendência)] [ícone arredondado à direita]
+  Estrutura: [ícone] [texto (título + valor + tendência)]
 -->
-<div class="vtur-kpi-card flex items-start justify-between gap-4 p-5 text-left">
+<div class="vtur-kpi-card flex items-start gap-4 p-5 text-left">
   {#if loading}
     <div class="flex w-full flex-col gap-2">
       <div class="h-3 w-28 animate-pulse rounded bg-slate-100"></div>
@@ -63,6 +63,15 @@
     </div>
     <div class="h-11 w-11 flex-shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
   {:else}
+    <!-- Ícone -->
+    {#if icon}
+      <div
+        class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl {style.bg}"
+      >
+        <svelte:component this={icon} size={20} strokeWidth={2} class={style.fg} />
+      </div>
+    {/if}
+
     <!-- Texto -->
     <div class="min-w-0 flex-1">
       <p class="mb-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -93,14 +102,5 @@
         </div>
       {/if}
     </div>
-
-    <!-- Ícone -->
-    {#if icon}
-      <div
-        class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl {style.bg}"
-      >
-        <svelte:component this={icon} size={20} strokeWidth={2} class={style.fg} />
-      </div>
-    {/if}
   {/if}
 </div>
