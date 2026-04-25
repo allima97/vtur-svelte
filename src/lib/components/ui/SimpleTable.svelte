@@ -25,21 +25,7 @@
   export let class_name = '';
   export let tableClass = '';
 
-  const colorClasses: Record<string, string> = {
-    default: 'border-slate-200 before:bg-slate-300',
-    blue: 'border-blue-200 before:bg-blue-500',
-    green: 'border-green-200 before:bg-green-500',
-    orange: 'border-orange-200 before:bg-orange-500',
-    teal: 'border-teal-200 before:bg-teal-500',
-    purple: 'border-purple-200 before:bg-purple-500',
-    crm: 'border-purple-200 before:bg-purple-500',
-    clientes: 'border-blue-200 before:bg-blue-500',
-    orcamentos: 'border-blue-200 before:bg-blue-500',
-    vendas: 'border-green-200 before:bg-green-500',
-    financeiro: 'border-orange-200 before:bg-orange-500',
-    operacao: 'border-teal-200 before:bg-teal-500',
-    comissoes: 'border-orange-200 before:bg-orange-500'
-  };
+  // color prop mantido para compatibilidade com páginas existentes — sem efeito visual
 </script>
 
 <div class={`space-y-3 ${class_name}`.trim()}>
@@ -50,7 +36,7 @@
     </div>
   {/if}
 
-  <div class={`relative overflow-hidden rounded-[20px] border bg-white before:absolute before:left-0 before:right-0 before:top-0 before:h-1.5 before:rounded-t-[20px] ${colorClasses[color] ?? colorClasses.default} ${shadow ? 'shadow-sm' : ''}`.trim()}>
+  <div class={`overflow-hidden vtur-table-shell ${shadow ? 'shadow-sm' : ''}`.trim()}>
     <Table striped={striped} hoverable={hoverable} class={`w-full text-sm table-mobile-cards ${tableClass}`.trim()}>
       <slot />
     </Table>

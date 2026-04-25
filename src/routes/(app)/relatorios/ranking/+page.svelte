@@ -4,9 +4,9 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
+  import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet } from '$lib/services/api';
@@ -42,22 +42,22 @@
     meta_total: number;
   }
 
-  interface EmpresaFiltro {
-    id: string;
-    nome: string;
-  }
-
-  interface VendedorFiltro {
-    id: string;
-    nome: string;
-  }
-
-  function getDefaultRange() {
+  function getMonthRange(monthValue: string) {
+    const raw = String(monthValue || '').trim();
     const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const fallbackYear = today.getFullYear();
+    const fallbackMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const normalized = /^\d{4}-\d{2}$/.test(raw) ? raw : `${fallbackYear}-${fallbackMonth}`;
+
+    const [yearText, monthText] = normalized.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const lastDay = new Date(year, month, 0).getDate();
+
     return {
-      start: startOfMonth.toISOString().slice(0, 10),
-      end: today.toISOString().slice(0, 10)
+      month: normalized,
+      start: `${yearText}-${monthText}-01`,
+      end: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}`
     };
   }
 
@@ -65,16 +65,13 @@
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   }
 
-  const defaultRange = getDefaultRange();
+  const defaultRange = getMonthRange('');
 
   let vendedores: VendedorRanking[] = [];
-  let empresas: EmpresaFiltro[] = [];
-  let vendedoresFiltro: VendedorFiltro[] = [];
   let loading = true;
+  let mesSelecionado = defaultRange.month;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
-  let empresaSelecionada = '';
-  let vendedorSelecionado = '';
   let filtrosInicializados = false;
   let lastAppliedFilterKey = '';
   let pendingFilterKey = '';
@@ -218,26 +215,12 @@
     }
   ];
 
-  async function loadBase() {
-    try {
-      const data = await apiGet<{ empresas: EmpresaFiltro[]; vendedores: VendedorFiltro[] }>('/api/v1/relatorios/base');
-      empresas = data.empresas || [];
-      vendedoresFiltro = data.vendedores || [];
-    } catch {
-      empresas = [];
-      vendedoresFiltro = [];
-      toast.error('Erro ao carregar filtros do ranking');
-    }
-  }
-
   async function loadRanking(showSuccess = false) {
     loading = true;
     try {
       const data = await apiGet<{ items: VendedorRanking[]; resumo: Resumo }>('/api/v1/relatorios/ranking', {
         data_inicio: dataInicio,
-        data_fim: dataFim,
-        empresa_id: empresaSelecionada || undefined,
-        vendedor_ids: vendedorSelecionado || undefined
+        data_fim: dataFim
       });
 
       vendedores = data.items || [];
@@ -253,9 +236,7 @@
   }
 
   function syncUrl() {
-    const params = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
-    if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
-    if (vendedorSelecionado) params.set('vendedor_ids', vendedorSelecionado);
+    const params = new URLSearchParams({ mes: mesSelecionado });
     void goto(`/relatorios/ranking?${params.toString()}`, {
       replaceState: true,
       noScroll: true,
@@ -318,11 +299,11 @@
 
   onMount(async () => {
     const params = new URLSearchParams(window.location.search);
-    dataInicio = params.get('data_inicio') || defaultRange.start;
-    dataFim = params.get('data_fim') || defaultRange.end;
-    empresaSelecionada = params.get('empresa_id') || '';
-    vendedorSelecionado = params.get('vendedor_ids') || params.get('vendedor_id') || '';
-    await loadBase();
+    const selectedMonth = params.get('mes') || dataInicio.slice(0, 7) || defaultRange.month;
+    const range = getMonthRange(selectedMonth);
+    mesSelecionado = range.month;
+    dataInicio = range.start;
+    dataFim = range.end;
     await loadRanking();
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
@@ -340,19 +321,20 @@
       posicao: index + 1
     }));
 
-  // Regra de escopo: vendedor/uso individual não escolhe empresa ou vendedor global.
-  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
-  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+  // Ranking: filtro somente por mês
   $: showRankingPodio = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor;
   $: showBuscaRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: showExportRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: diasRestantesNoMes = getDiasRestantesNoMes();
-  $: currentFilterKey = [dataInicio, dataFim, empresaSelecionada, vendedorSelecionado].join('|');
-  $: isFiltroVendedorAtivo = vendedorSelecionado.trim().length > 0;
-  $: showPodioTop3 = showRankingPodio && !isFiltroVendedorAtivo;
+  $: showPodioTop3 = showRankingPodio;
+  $: currentFilterKey = mesSelecionado;
 
-  $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
-  $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
+  $: {
+    const range = getMonthRange(mesSelecionado);
+    dataInicio = range.start;
+    dataFim = range.end;
+  }
+
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
     scheduleAutoApply();
   }
@@ -374,6 +356,7 @@
   title="Ranking de Vendas"
   subtitle="Comparativo por responsável com meta, conversão, comissão e tendência."
   color="financeiro"
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatórios', href: '/relatorios' },
     { label: 'Ranking de Vendas' }
@@ -383,24 +366,7 @@
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <FieldInput id="rank-inicio" type="date" label="Data início" bind:value={dataInicio} />
-    <FieldInput id="rank-fim" type="date" label="Data fim" bind:value={dataFim} />
-    {#if showEmpresaFiltro}
-      <FieldSelect
-        id="rank-empresa"
-        label="Empresa"
-        bind:value={empresaSelecionada}
-        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
-      />
-    {/if}
-    {#if showVendedorFiltro}
-      <FieldSelect
-        id="rank-vendedor"
-        label="Vendedor"
-        bind:value={vendedorSelecionado}
-        options={[{ value: '', label: 'Todos' }, ...vendedoresFiltro.map((v) => ({ value: v.id, label: v.nome }))]}
-      />
-    {/if}
+    <FieldInput id="rank-mes" type="month" label="Mês" bind:value={mesSelecionado} />
   </div>
 </Card>
 

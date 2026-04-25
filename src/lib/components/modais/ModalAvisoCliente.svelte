@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { X, MessageCircle, Mail, Send, Phone, Copy } from 'lucide-svelte';
+  import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
 
   export let open: boolean = false;
@@ -14,16 +14,152 @@
   export let onEnviar: (dados: any) => void = () => {};
 
   let canalAtivo: 'whatsapp' | 'email' = 'whatsapp';
+  let temaSelecionado = 'all';
   let templateSelecionado = '';
   let mensagemPersonalizada = '';
+  let previewCardUrl = '';
+  let previewTextColor = '';
   let enviando = false;
   let templates: any[] = [];
+  let crmThemesById: Record<string, any> = {};
+  let crmSignature: any = null;
+  let crmSettings: any = null;
   let carregandoTemplates = false;
   let erroTemplates = '';
   let modalReady = false;
   let historico: any[] = [];
   let carregandoHistorico = false;
   let historicoIndisponivel = false;
+  let lastTemaSelecionado = 'all';
+  let lastTemplateSelecionado = '';
+
+  const TEMA_LABELS: Record<string, string> = {
+    all: 'Todos',
+    aniversario: 'Aniversário',
+    natal: 'Natal',
+    pascoa: 'Páscoa',
+    ano_novo: 'Ano Novo',
+    dia_das_maes: 'Dia das Mães',
+    dia_dos_pais: 'Dia dos Pais',
+    dia_da_mulher: 'Dia da Mulher',
+    dia_do_viajante: 'Dia do Viajante',
+    geral: 'Geral'
+  };
+
+  const CARD_TEXT_COLOR_PRESETS: Array<{ label: string; value: string }> = [
+    { label: 'Padrão', value: '' },
+    { label: 'Azul', value: '#1B4F9A' },
+    { label: 'Grafite', value: '#0F172A' },
+    { label: 'Preto suave', value: '#111827' },
+    { label: 'Verde', value: '#166534' },
+    { label: 'Rosa', value: '#BE185D' },
+    { label: 'Vinho', value: '#7F1D1D' },
+    { label: 'Roxo', value: '#581C87' },
+    { label: 'Marrom', value: '#7C2D12' }
+  ];
+
+  function normalizeText(value?: string | null) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  function getPrimeiroNome(nome: string) {
+    return (nome || '').trim().split(/\s+/)[0] || '';
+  }
+
+  function buildPreviewUrl(params: {
+    themeId: string;
+    themeAssetUrl?: string | null;
+    titulo: string;
+    primeiroNome: string;
+    nomeCompleto: string;
+    mensagem: string;
+    assinaturaNome: string;
+    assinaturaCargo: string;
+    logoUrl: string | null;
+    textColor?: string;
+  }): string {
+    const q = new URLSearchParams();
+    q.set('theme_id', params.themeId);
+    if (params.themeAssetUrl) q.set('theme_asset_url', params.themeAssetUrl);
+    if (params.titulo) q.set('titulo', params.titulo);
+
+    const safeNome = String(params.nomeCompleto || params.primeiroNome || 'Cliente').trim();
+    q.set('nome', safeNome || 'Cliente');
+
+    const clientName = String(params.primeiroNome || params.nomeCompleto || '').trim();
+    if (clientName) q.set('cliente_nome_literal', clientName.endsWith(',') ? clientName : `${clientName},`);
+
+    if (params.mensagem) q.set('corpo', params.mensagem);
+    q.set('footer_lead', '');
+    if (params.assinaturaNome) q.set('assinatura', params.assinaturaNome);
+    q.set('cargo_consultor', params.assinaturaCargo || '');
+    if (params.logoUrl) q.set('logo_url', params.logoUrl);
+    if (params.textColor) q.set('text_color', params.textColor);
+
+    return `/api/v1/cards/render.svg?${q.toString()}`;
+  }
+
+  function resolveTemaBucket(normalizedThemeText: string): string {
+    if (!normalizedThemeText) return 'geral';
+    if (normalizedThemeText.includes('anivers') || normalizedThemeText.includes('birthday')) return 'aniversario';
+    if (normalizedThemeText.includes('natal') || normalizedThemeText.includes('christmas')) return 'natal';
+    if (normalizedThemeText.includes('pascoa') || normalizedThemeText.includes('easter')) return 'pascoa';
+    if (
+      normalizedThemeText.includes('ano novo') ||
+      normalizedThemeText.includes('ano_novo') ||
+      normalizedThemeText.includes('new-year') ||
+      normalizedThemeText.includes('reveillon') ||
+      normalizedThemeText.includes('new year')
+    ) {
+      return 'ano_novo';
+    }
+    if (normalizedThemeText.includes('dia das maes') || normalizedThemeText.includes('mother')) return 'dia_das_maes';
+    if (normalizedThemeText.includes('dia dos pais') || normalizedThemeText.includes('father')) return 'dia_dos_pais';
+    if (normalizedThemeText.includes('dia da mulher') || normalizedThemeText.includes('women')) return 'dia_da_mulher';
+    if (normalizedThemeText.includes('viajant') || normalizedThemeText.includes('travel')) return 'dia_do_viajante';
+    return 'geral';
+  }
+
+  function resolveGreetingByTheme(theme?: { nome?: string; categoria?: string | null; greeting_text?: string | null }): string {
+    const explicit = String(theme?.greeting_text || '').trim();
+    if (explicit) return explicit;
+    const source = `${theme?.nome || ''} ${theme?.categoria || ''}`;
+    const normalized = normalizeText(source);
+    if (normalized.includes('anivers') || normalized.includes('birthday')) return 'Feliz Aniversário!';
+    if (normalized.includes('pascoa') || normalized.includes('easter')) return 'Feliz Páscoa!';
+    if (normalized.includes('natal') || normalized.includes('christmas')) return 'Feliz Natal!';
+    if (
+      normalized.includes('ano novo') ||
+      normalized.includes('ano-novo') ||
+      normalized.includes('new-year') ||
+      normalized.includes('anonovo') ||
+      normalized.includes('new year')
+    ) {
+      return 'Feliz Ano Novo!';
+    }
+    if (normalized.includes('dia das maes') || normalized.includes('mother')) return 'Feliz Dia das Mães!';
+    if (normalized.includes('dia dos pais') || normalized.includes('father')) return 'Feliz Dia dos Pais!';
+    if (normalized.includes('dia da mulher') || normalized.includes('women')) return 'Feliz Dia da Mulher!';
+    if (normalized.includes('viajant') || normalized.includes('travel')) return 'Boas viagens e muitas conquistas!';
+    return '';
+  }
+
+  function stripLegacyGreeting(message: string): string {
+    const raw = String(message || '').replace(/\r/g, '');
+    if (!raw.trim()) return '';
+    const lines = raw.split('\n');
+    const first = normalizeText(lines[0] || '');
+    const looksLikeLegacy =
+      first.startsWith('prezado') ||
+      first.startsWith('prezada') ||
+      first.includes('[nome do cliente]') ||
+      first.includes('{nome}');
+    if (!looksLikeLegacy) return raw;
+    return lines.slice(1).join('\n').trimStart();
+  }
 
   $: isAniversariante = clienteNascimento ? isBirthdayToday(clienteNascimento) : false;
   $: templateAtual = templates.find((t) => t.id === templateSelecionado);
@@ -42,14 +178,13 @@
 
   async function prepararModal() {
     canalAtivo = clienteTelefone ? 'whatsapp' : 'email';
+    temaSelecionado = 'all';
+    templateSelecionado = '';
+    mensagemPersonalizada = '';
     await Promise.all([carregarTemplates(), carregarHistorico()]);
 
-    if (!templateSelecionado && templates.length > 0) {
-      const preferred = isAniversariante ? templates.find((t) => t.tipo === 'aniversario') : templates[0];
-      if (preferred) {
-        templateSelecionado = preferred.id;
-        aplicarTemplate();
-      }
+    if (isAniversariante && templates.some((t: any) => t.tipo === 'aniversario')) {
+      temaSelecionado = 'aniversario';
     }
   }
 
@@ -57,36 +192,123 @@
     carregandoTemplates = true;
     erroTemplates = '';
     try {
-      const response = await fetch('/api/v1/clientes/avisos/templates');
-      if (response.ok) {
-        const data = await response.json();
-        const items = Array.isArray(data?.items) ? data.items : [];
-        if (items.length > 0) {
-          templates = items;
-          return;
-        }
+      const libraryResponse = await fetch('/api/v1/crm/library');
+      if (!libraryResponse.ok) {
+        const errorPayload = await libraryResponse.json().catch(() => ({}));
+        throw new Error(errorPayload?.error || 'Erro ao carregar biblioteca CRM');
+      }
 
-        // Fallback para a biblioteca CRM quando o endpoint de avisos retorna vazio.
-        const libraryResponse = await fetch('/api/v1/crm/library');
-        if (!libraryResponse.ok) {
-          const errorPayload = await libraryResponse.json().catch(() => ({}));
-          throw new Error(errorPayload?.error || 'Erro ao carregar biblioteca CRM');
-        }
-        const libraryData = await libraryResponse.json();
-        const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
-        templates = mensagens
-          .filter((item: any) => item?.ativo !== false)
-          .map((item: any) => ({
-            id: String(item.id || ''),
-            nome: String(item.nome || 'Template CRM'),
-            tipo: String(item.categoria || 'geral'),
-            assunto: String(item.assunto || item.titulo || ''),
-            conteudo: String(item.corpo || ''),
-          }))
-          .filter((item: any) => item.id && item.conteudo);
-      } else {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || 'Erro ao carregar templates de avisos');
+      const libraryData = await libraryResponse.json();
+      const categorias = Array.isArray(libraryData?.categories) ? libraryData.categories : [];
+      const temas = Array.isArray(libraryData?.themes) ? libraryData.themes : [];
+      const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
+      crmSignature = libraryData?.signature || null;
+      crmSettings = libraryData?.settings || null;
+
+      crmThemesById = Object.fromEntries(
+        temas
+          .filter((theme: any) => String(theme?.id || '').trim())
+          .map((theme: any) => [String(theme.id), theme])
+      );
+
+      const categoryNameById = new Map<string, string>(
+        categorias.map((cat: any) => [String(cat?.id || '').trim(), String(cat?.nome || '').trim()])
+      );
+
+      const activeMessages = mensagens.filter((item: any) => item?.ativo !== false);
+      const activeThemes = temas.filter((item: any) => item?.ativo !== false);
+
+      templates = activeThemes
+        .map((theme: any) => {
+          const categoryName: string =
+            categoryNameById.get(String(theme?.categoria_id || '').trim()) || String(theme?.categoria || '').trim();
+          const selectedCategory = normalizeText(categoryName);
+          const normalizedThemeText = normalizeText(`${theme?.nome || ''} ${categoryName || ''}`);
+          const themeBucket = resolveTemaBucket(normalizedThemeText);
+
+          const bucketMatchedMessages = [...activeMessages]
+            .filter((message: any) => {
+              const normalizedMessageText = normalizeText(
+                `${message?.nome || ''} ${message?.titulo || ''} ${message?.categoria || ''}`
+              );
+              return resolveTemaBucket(normalizedMessageText) === themeBucket;
+            })
+            .sort((a: any, b: any) => String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR'));
+
+          const ranked = [...activeMessages]
+            .map((message: any) => {
+              const messageCategory = normalizeText(String(message?.categoria || ''));
+              const isGeneral = !messageCategory || messageCategory === 'geral' || messageCategory === 'general';
+              let categoryRank = 1;
+
+              if (!selectedCategory) {
+                categoryRank = isGeneral ? 3 : 2;
+              } else if (messageCategory === selectedCategory) {
+                categoryRank = 5;
+              } else if (
+                messageCategory &&
+                (messageCategory.includes(selectedCategory) || selectedCategory.includes(messageCategory))
+              ) {
+                categoryRank = 4;
+              } else if (isGeneral) {
+                categoryRank = 3;
+              } else {
+                categoryRank = 2;
+              }
+
+              return { message, categoryRank };
+            })
+            .sort((a, b) => {
+              if (a.categoryRank !== b.categoryRank) return b.categoryRank - a.categoryRank;
+              return String(a.message?.nome || '').localeCompare(String(b.message?.nome || ''), 'pt-BR');
+            });
+
+          const selectedMessage = bucketMatchedMessages[0] || ranked[0]?.message || null;
+          const greetingByTheme = resolveGreetingByTheme({
+            nome: String(theme?.nome || ''),
+            categoria: categoryName,
+            greeting_text: String(theme?.greeting_text || '')
+          });
+
+          const assunto = String(selectedMessage?.titulo || '').trim() || greetingByTheme;
+          const conteudo = stripLegacyGreeting(String(selectedMessage?.corpo || ''));
+
+          return {
+            id: String(theme?.id || ''),
+            nome: String(theme?.nome || 'Template CRM'),
+            tipo: resolveTemaBucket(normalizedThemeText),
+            assunto,
+            conteudo,
+            mensagem_id: selectedMessage?.id ? String(selectedMessage.id) : null,
+            theme_id: String(theme?.id || ''),
+            theme_asset_url: String(theme?.asset_url || '')
+          };
+        })
+        .filter((item: any) => item.id)
+        .sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+
+      if (templates.length === 0 && activeMessages.length > 0) {
+        templates = activeMessages
+          .map((message: any) => {
+            const nome = String(message?.nome || '').trim();
+            const categoria = String(message?.categoria || '').trim();
+            const normalizedMessageText = normalizeText(`${nome} ${categoria}`);
+            const assunto = String(message?.titulo || message?.assunto || '').trim();
+            const conteudo = stripLegacyGreeting(String(message?.corpo || ''));
+
+            return {
+              id: String(message?.id || ''),
+              nome: nome || 'Template CRM',
+              tipo: resolveTemaBucket(normalizedMessageText),
+              assunto,
+              conteudo,
+              mensagem_id: message?.id ? String(message.id) : null,
+              theme_id: String(message?.theme_id || ''),
+              theme_asset_url: String(crmThemesById[String(message?.theme_id || '')]?.asset_url || '')
+            };
+          })
+          .filter((item: any) => item.id)
+          .sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
       }
     } catch (err) {
       console.error('Erro ao carregar templates:', err);
@@ -119,13 +341,113 @@
     return String(texto || '')
       .replace(/\{nome\}/gi, clienteNome.split(' ')[0] || clienteNome)
       .replace(/\{nome_completo\}/gi, clienteNome)
-      .replace(/\{email\}/gi, clienteEmail || '');
+      .replace(/\{email\}/gi, clienteEmail || '')
+      .replace(/\{\{primeiro_nome\}\}/gi, clienteNome.split(' ')[0] || clienteNome)
+      .replace(/\{\{nome_cliente\}\}/gi, clienteNome)
+      .replace(/\{\{consultor\}\}/gi, '');
   }
 
   function aplicarTemplate() {
     const template = templates.find((t) => t.id === templateSelecionado);
     if (template) {
       mensagemPersonalizada = aplicarVariaveis(template.conteudo || template.mensagem || '');
+    }
+  }
+
+  function focarEdicaoMensagem() {
+    const el = document.getElementById('mensagem-aviso') as HTMLTextAreaElement | null;
+    if (!el) return;
+    el.focus();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function resetPreviewTextColor() {
+    previewTextColor = '';
+  }
+
+  function openPreviewSvg() {
+    if (!previewCardUrl) return;
+    window.open(previewCardUrl, '_blank');
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function renderSvgToPngBlob(svgText: string): Promise<Blob> {
+    const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    try {
+      const img = document.createElement('img');
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Falha ao carregar SVG para conversão de PNG.'));
+        img.src = svgUrl;
+      });
+
+      const width = Math.max(1, img.naturalWidth || 1080);
+      const height = Math.max(1, img.naturalHeight || 1080);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Falha ao inicializar canvas para conversão PNG.');
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!pngBlob) throw new Error('Falha ao gerar blob PNG da prévia.');
+      return pngBlob;
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+  }
+
+  async function downloadPreviewPng() {
+    if (!previewCardUrl) return;
+    try {
+      const pngUrl = previewCardUrl.replace('/render.svg', '/render.png');
+      const pngResp = await fetch(pngUrl, { headers: { Accept: 'image/png' } });
+
+      if (pngResp.ok) {
+        const contentType = String(pngResp.headers.get('content-type') || '').toLowerCase();
+        if (contentType.includes('image/png')) {
+          const blob = await pngResp.blob();
+          downloadBlob(blob, `crm-cliente-${Date.now()}.png`);
+          return;
+        }
+      }
+
+      const svgResp = await fetch(previewCardUrl, { headers: { Accept: 'image/svg+xml,text/plain,*/*' } });
+      if (!svgResp.ok) throw new Error('Falha ao carregar SVG para gerar PNG local.');
+      const svgText = await svgResp.text();
+      const pngBlob = await renderSvgToPngBlob(svgText);
+      downloadBlob(pngBlob, `crm-cliente-${Date.now()}.png`);
+      toast.info('PNG gerado localmente no navegador.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao baixar PNG.');
+    }
+  }
+
+  function sharePreviewOnWhatsApp() {
+    if (!previewCardUrl) return;
+    const pngUrl = previewCardUrl.replace('/render.svg', '/render.png');
+    const primeiroNome = getPrimeiroNome(clienteNome);
+    const text = `Segue seu cartao, ${primeiroNome || 'cliente'}: ${pngUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  }
+
+  function clearPreviewActions() {
+    previewTextColor = '';
+    if (templateSelecionado) {
+      aplicarTemplate();
     }
   }
 
@@ -203,7 +525,90 @@
     return value || '-';
   }
 
-  const templatesFiltrados = templates;
+  $: temaOptions = (() => {
+    const base = [{ label: 'Todos', value: 'all' }];
+    const seen = new Set<string>(['all']);
+
+    templates.forEach((item: any) => {
+      const key = String(item?.tipo || 'geral').trim() || 'geral';
+      if (seen.has(key)) return;
+      seen.add(key);
+      base.push({ label: TEMA_LABELS[key] || key.replaceAll('_', ' '), value: key });
+    });
+
+    return base;
+  })();
+
+  $: templatesFiltrados = temaSelecionado === 'all'
+    ? templates
+    : templates.filter((item: any) => String(item?.tipo || 'geral') === temaSelecionado);
+
+  $: templateOptions = [
+    { label: templatesFiltrados.length ? 'Selecione o template' : 'Nenhum template disponível', value: '' },
+    ...templatesFiltrados.map((template: any) => ({
+      label: String(template?.nome || 'Template CRM'),
+      value: String(template?.id || '')
+    }))
+  ];
+
+  $: if (templateSelecionado && !templatesFiltrados.some((item: any) => item.id === templateSelecionado)) {
+    templateSelecionado = '';
+    mensagemPersonalizada = '';
+  }
+
+  $: if (temaSelecionado !== lastTemaSelecionado) {
+    lastTemaSelecionado = temaSelecionado;
+    const filtrados = temaSelecionado === 'all'
+      ? templates
+      : templates.filter((item: any) => String(item?.tipo || 'geral') === temaSelecionado);
+
+    const atual = filtrados.find((item: any) => String(item?.id || '') === templateSelecionado);
+    const target = atual || filtrados[0];
+
+    if (!target?.id) {
+      templateSelecionado = '';
+      mensagemPersonalizada = '';
+    } else if (String(target.id) !== templateSelecionado) {
+      templateSelecionado = String(target.id);
+    }
+  }
+
+  $: if (templateSelecionado !== lastTemplateSelecionado) {
+    lastTemplateSelecionado = templateSelecionado;
+    if (templateSelecionado) {
+      aplicarTemplate();
+    }
+  }
+
+  $: {
+    const template = templates.find((item: any) => item.id === templateSelecionado);
+    const themeId = String(template?.theme_id || template?.id || '').trim();
+    const themeAssetFromTemplate = String(template?.theme_asset_url || '').trim();
+    const themeAssetFromMap = String(crmThemesById[themeId]?.asset_url || '').trim();
+    const themeAssetUrl = themeAssetFromTemplate || themeAssetFromMap;
+    const primeiroNome = getPrimeiroNome(clienteNome);
+    const assinaturaNome = String(crmSignature?.linha2 || crmSettings?.consultor_nome || '').trim();
+    const assinaturaCargo = String(crmSignature?.linha3 || '').trim();
+    const titulo = assuntoAtual;
+
+    if (!themeId || !mensagemPersonalizada.trim()) {
+      previewCardUrl = '';
+    } else {
+      previewCardUrl = buildPreviewUrl({
+        themeId,
+        themeAssetUrl,
+        titulo,
+        primeiroNome,
+        nomeCompleto: clienteNome,
+        mensagem: mensagemPersonalizada,
+        assinaturaNome,
+        assinaturaCargo,
+        logoUrl: String(crmSettings?.logo_url || '').trim() || null,
+        textColor: previewTextColor
+      });
+    }
+  }
+
 </script>
 
 {#if open}
@@ -261,7 +666,6 @@
         </div>
 
         <div>
-          <p class="block text-sm font-medium text-slate-700 mb-2">Template</p>
           {#if carregandoTemplates}
             <div class="text-center py-2"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div></div>
           {:else if erroTemplates}
@@ -273,18 +677,24 @@
               Nenhum template ativo encontrado no CRM para seu escopo.
             </div>
           {:else}
-            <div class="flex flex-wrap gap-2">
-              {#each templatesFiltrados as template}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  class_name={templateSelecionado === template.id ? 'border-clientes-300 bg-clientes-100 text-clientes-700 hover:!bg-clientes-100' : 'text-slate-600'}
-                  on:click={() => { templateSelecionado = template.id; aplicarTemplate(); }}
-                >
-                  {template.nome}
-                </Button>
-              {/each}
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FieldSelect
+                id="aviso-tema"
+                label="Tema"
+                bind:value={temaSelecionado}
+                options={temaOptions}
+                placeholder={null}
+                class_name="w-full"
+              />
+
+              <FieldSelect
+                id="aviso-template"
+                label="Template"
+                bind:value={templateSelecionado}
+                options={templateOptions}
+                placeholder={null}
+                class_name="w-full"
+              />
             </div>
           {/if}
         </div>
@@ -324,7 +734,50 @@
         </div>
 
         {#if mensagemPersonalizada}
-          <div class="bg-slate-50 rounded-lg p-3"><p class="text-xs text-slate-500 mb-1">Preview:</p><p class="text-sm text-slate-700 whitespace-pre-wrap">{mensagemPersonalizada}</p></div>
+          <div class="bg-slate-50 rounded-lg p-3 space-y-3">
+            <p class="text-xs text-slate-500 mb-1">Preview:</p>
+            {#if previewCardUrl}
+              <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <img src={previewCardUrl} alt="Prévia do cartão" class="w-full" />
+              </div>
+            {/if}
+
+            <div class="flex justify-center">
+              <div class="inline-flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2">
+                <Button type="button" variant="outline" color="clientes" size="xs" title="Editar texto" on:click={focarEdicaoMensagem}>
+                  <Pencil size={14} />
+                </Button>
+                <Button type="button" variant="outline" color="clientes" size="xs" title="Abrir cartão" disabled={!previewCardUrl} on:click={openPreviewSvg}>
+                  <ExternalLink size={14} />
+                </Button>
+                <Button type="button" variant="outline" color="clientes" size="xs" title="Baixar PNG" disabled={!previewCardUrl} on:click={downloadPreviewPng}>
+                  <Download size={14} />
+                </Button>
+                <Button type="button" variant="outline" color="clientes" size="xs" title="Compartilhar no WhatsApp" disabled={!previewCardUrl} on:click={sharePreviewOnWhatsApp}>
+                  <MessageCircle size={14} />
+                </Button>
+                <Button type="button" variant="outline" color="clientes" size="xs" title="Limpar ajustes" on:click={clearPreviewActions}>
+                  <X size={14} />
+                </Button>
+              </div>
+            </div>
+
+            <div class="flex justify-center">
+              <div class="inline-flex flex-wrap items-center justify-center gap-2">
+                {#each CARD_TEXT_COLOR_PRESETS.filter((color) => color.value) as color}
+                  <button
+                    type="button"
+                    class={`h-8 w-8 rounded-lg border-2 transition ${previewTextColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
+                    style={`background-color: ${color.value}`}
+                    title={`Aplicar ${color.label}`}
+                    aria-label={`Aplicar ${color.label}`}
+                    aria-pressed={previewTextColor === color.value}
+                    on:click={() => (previewTextColor = color.value)}
+                  ></button>
+                {/each}
+              </div>
+            </div>
+          </div>
         {/if}
 
         <div class="border-t border-slate-100 pt-4">

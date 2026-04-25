@@ -562,6 +562,7 @@ export async function GET(event) {
 
     const timelineMap = new Map<string, number>();
     const destinoMap = new Map<string, number>();
+    const destinoCountMap = new Map<string, number>();
     const produtoMap = new Map<string, { id: string; name: string; value: number }>();
 
     sales.forEach((row) => {
@@ -579,6 +580,7 @@ export async function GET(event) {
         qtdVendas += 1;
         if (vendaDate) timelineMap.set(vendaDate, (timelineMap.get(vendaDate) || 0) + valorTotal);
         destinoMap.set(destinoNome, (destinoMap.get(destinoNome) || 0) + valorTotal);
+        destinoCountMap.set(destinoNome, (destinoCountMap.get(destinoNome) || 0) + 1);
         const cur = produtoMap.get('sem-produto') || { id: 'sem-produto', name: 'Produto', value: 0 };
         produtoMap.set('sem-produto', { ...cur, value: cur.value + valorTotal });
         return;
@@ -598,6 +600,7 @@ export async function GET(event) {
         const reciboDate = recibo._conciliacao_data_venda || toDateKey(recibo.data_venda) || vendaDate;
         const allocations = getReciboAllocations(recibo, vendedorId, scopeVendedorIds);
         if (allocations.length === 0) return;
+        let countedDestino = false;
 
         // Usa valores de conciliação como override se disponível
         const bruto = recibo._conciliacao_valor_bruto != null
@@ -623,6 +626,7 @@ export async function GET(event) {
 
           if (reciboDate) timelineMap.set(reciboDate, (timelineMap.get(reciboDate) || 0) + brutoAlloc);
           destinoMap.set(destinoNome, (destinoMap.get(destinoNome) || 0) + brutoAlloc);
+          countedDestino = true;
 
           if (isSeguro(recibo)) totalSeguro += brutoAlloc;
 
@@ -631,6 +635,10 @@ export async function GET(event) {
           const curProd = produtoMap.get(productId) || { id: productId, name: productName, value: 0 };
           produtoMap.set(productId, { ...curProd, value: curProd.value + brutoAlloc });
         });
+
+        if (countedDestino) {
+          destinoCountMap.set(destinoNome, (destinoCountMap.get(destinoNome) || 0) + 1);
+        }
       });
     });
 
@@ -687,7 +695,10 @@ export async function GET(event) {
               qtdVendas: vendasKpis.countAtivas,
               ticketMedio: vendasKpis.countAtivas > 0 ? vendasKpis.totalVendas / vendasKpis.countAtivas : 0,
               timeline: Array.from(timelineMap.entries()).map(([date, value]) => ({ date, value })),
-              topDestinos: Array.from(destinoMap.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5),
+              topDestinos: Array.from(destinoMap.entries())
+                .map(([name, value]) => ({ name, value, count: destinoCountMap.get(name) || 0 }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 5),
               porProduto: Array.from(produtoMap.values()).sort((a, b) => b.value - a.value).slice(0, 6)
             },
             metas: metasData || [], orcamentos: [], widgetPrefs: []
@@ -725,7 +736,10 @@ export async function GET(event) {
         qtdVendas: vendasKpis.countAtivas,
         ticketMedio: vendasKpis.countAtivas > 0 ? vendasKpis.totalVendas / vendasKpis.countAtivas : 0,
         timeline: Array.from(timelineMap.entries()).map(([date, value]) => ({ date, value })),
-        topDestinos: Array.from(destinoMap.entries()).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5),
+        topDestinos: Array.from(destinoMap.entries())
+          .map(([name, value]) => ({ name, value, count: destinoCountMap.get(name) || 0 }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5),
         porProduto: Array.from(produtoMap.values()).sort((a, b) => b.value - a.value).slice(0, 6)
       },
       metas: metasData || [],

@@ -6,8 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { FieldInput } from '$lib/components/ui';
-  import { RefreshCw, Trash2, Search, FileText, ExternalLink } from 'lucide-svelte';
+  import { RefreshCw, Trash2, FileText, ExternalLink } from 'lucide-svelte';
 
   type Documento = {
     id: string;
@@ -25,7 +24,6 @@
   let documentos: Documento[] = [];
   let loading = true;
   let deletingId = '';
-  let busca = '';
 
   $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('documentos_viagens', 'delete') || permissoes.can('operacao', 'delete');
 
@@ -88,9 +86,7 @@
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (busca.trim()) params.set('q', busca.trim());
-      const response = await fetch(`/api/v1/operacao/documentos-viagens?${params.toString()}`);
+      const response = await fetch('/api/v1/operacao/documentos-viagens');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       documentos = payload.items || [];
@@ -136,25 +132,14 @@
   ]}
 />
 
-<Card color="operacao" class="mb-6">
-  <div class="flex gap-4 items-end">
-    <FieldInput
-      bind:value={busca}
-      icon={Search}
-      placeholder="Buscar documentos..."
-      class_name="max-w-sm flex-1"
-    />
-    <Button variant="primary" size="sm" on:click={load}>Buscar</Button>
-  </div>
-</Card>
-
 <DataTable
   {columns}
   data={documentos}
   color="operacao"
   {loading}
   title="Documentos disponíveis"
-  searchable={false}
+  searchable={true}
+  extraSearchKeys={['file_name', 'title', 'mime_type']}
   emptyMessage="Nenhum documento encontrado"
 >
   <svelte:fragment slot="row-actions" let:row>

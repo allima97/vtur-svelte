@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Loader2 } from 'lucide-svelte';
+  import { TrendingUp, TrendingDown } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
 
   export let title: string;
@@ -21,65 +21,86 @@
     | 'orcamentos'
     | 'comissoes' = 'blue';
 
-  const iconBg: Record<string, string> = {
-    blue:   'bg-blue-50 text-blue-500',
-    green:  'bg-green-50 text-green-500',
-    orange: 'bg-orange-50 text-orange-500',
-    teal:   'bg-teal-50 text-teal-500',
-    violet: 'bg-violet-50 text-violet-500',
-    slate:  'bg-slate-100 text-slate-500',
-    clientes: 'bg-blue-50 text-blue-500',
-    vendas: 'bg-green-50 text-green-500',
-    financeiro: 'bg-orange-50 text-orange-500',
-    operacao: 'bg-teal-50 text-teal-500',
-    orcamentos: 'bg-blue-50 text-blue-500',
-    comissoes: 'bg-orange-50 text-orange-500',
+  /**
+   * Indicador de tendência — opcional.
+   * Ex: trend={{ value: 12.5, isPositive: true }} → "+12,5% vs. período anterior"
+   */
+  export let trend: { value: number; isPositive: boolean; label?: string } | undefined = undefined;
+
+  /*
+   * Ícone: fundo suave + cor do ícone — unificados em slate/indigo para
+   * visual limpo. A prop `color` é aceita mas não gera cores vibrantes
+   * diferentes por módulo — todos usam o mesmo fundo neutro levemente colorido.
+   */
+  const iconStyle: Record<string, { bg: string; fg: string }> = {
+    blue:       { bg: 'bg-indigo-50',  fg: 'text-indigo-500' },
+    violet:     { bg: 'bg-indigo-50',  fg: 'text-indigo-500' },
+    clientes:   { bg: 'bg-indigo-50',  fg: 'text-indigo-500' },
+    orcamentos: { bg: 'bg-indigo-50',  fg: 'text-indigo-500' },
+    green:      { bg: 'bg-emerald-50', fg: 'text-emerald-500' },
+    vendas:     { bg: 'bg-emerald-50', fg: 'text-emerald-500' },
+    orange:     { bg: 'bg-amber-50',   fg: 'text-amber-500' },
+    financeiro: { bg: 'bg-amber-50',   fg: 'text-amber-500' },
+    comissoes:  { bg: 'bg-amber-50',   fg: 'text-amber-500' },
+    teal:       { bg: 'bg-teal-50',    fg: 'text-teal-500' },
+    operacao:   { bg: 'bg-teal-50',    fg: 'text-teal-500' },
+    slate:      { bg: 'bg-slate-100',  fg: 'text-slate-500' },
   };
 
-  const borderColor: Record<string, string> = {
-    blue:   'border-t-blue-400',
-    green:  'border-t-green-400',
-    orange: 'border-t-orange-400',
-    teal:   'border-t-teal-400',
-    violet: 'border-t-violet-400',
-    slate:  'border-t-slate-300',
-    clientes: 'border-t-blue-400',
-    vendas: 'border-t-green-400',
-    financeiro: 'border-t-orange-400',
-    operacao: 'border-t-teal-400',
-    orcamentos: 'border-t-blue-400',
-    comissoes: 'border-t-orange-400',
-  };
+  $: style = iconStyle[color] ?? iconStyle.blue;
 </script>
 
 <!--
-  KPI Card padronizado — altura mínima fixa, layout consistente.
-  Estrutura: borda superior colorida → ícone → título → valor
+  KPI Card — layout horizontal limpo (sem border-t colorida).
+  Estrutura: [texto (título + valor + tendência)] [ícone arredondado à direita]
 -->
-<div
-  class="vtur-kpi-card flex flex-col items-center gap-3 border-t-[3px] p-5 text-center {borderColor[color]}"
->
+<div class="vtur-kpi-card flex items-start justify-between gap-4 p-5 text-left">
   {#if loading}
-    <div class="flex h-full w-full flex-col items-center gap-2">
-      <div class="h-9 w-9 animate-pulse rounded-xl bg-slate-100"></div>
-      <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
-      <div class="h-7 w-16 animate-pulse rounded bg-slate-100"></div>
+    <div class="flex w-full flex-col gap-2">
+      <div class="h-3 w-28 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-8 w-20 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-2.5 w-36 animate-pulse rounded bg-slate-100"></div>
     </div>
+    <div class="h-11 w-11 flex-shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
   {:else}
-    <!-- Ícone -->
-    {#if icon}
-      <div class="flex h-11 w-11 items-center justify-center rounded-[14px] ring-1 ring-black/5 {iconBg[color]}">
-        <svelte:component this={icon} size={20} strokeWidth={2} />
-      </div>
-    {/if}
-
-    <!-- Título + Valor -->
-    <div class="min-w-0 flex-1 text-center">
-      <p class="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] leading-tight text-slate-500">{title}</p>
-      <p class="text-[1.85rem] font-bold leading-none tracking-tight text-slate-900">{value}</p>
+    <!-- Texto -->
+    <div class="min-w-0 flex-1">
+      <p class="mb-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {title}
+      </p>
+      <p class="text-[1.75rem] font-bold leading-none tracking-tight text-slate-900">
+        {value}
+      </p>
       {#if subtitle}
-        <p class="mt-1.5 text-xs text-slate-400">{subtitle}</p>
+        <p class="mt-1 text-xs text-slate-400">{subtitle}</p>
+      {/if}
+
+      <!-- Tendência -->
+      {#if trend}
+        <div class="mt-2 flex items-center gap-1">
+          {#if trend.isPositive}
+            <TrendingUp size={13} class="flex-shrink-0 text-emerald-500" />
+            <span class="text-xs font-semibold text-emerald-600">
+              +{trend.value.toFixed(1).replace('.', ',')}%
+            </span>
+          {:else}
+            <TrendingDown size={13} class="flex-shrink-0 text-red-500" />
+            <span class="text-xs font-semibold text-red-600">
+              {trend.value.toFixed(1).replace('.', ',')}%
+            </span>
+          {/if}
+          <span class="text-[0.68rem] text-slate-400">{trend.label ?? 'vs. período anterior'}</span>
+        </div>
       {/if}
     </div>
+
+    <!-- Ícone -->
+    {#if icon}
+      <div
+        class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl {style.bg}"
+      >
+        <svelte:component this={icon} size={20} strokeWidth={2} class={style.fg} />
+      </div>
+    {/if}
   {/if}
 </div>

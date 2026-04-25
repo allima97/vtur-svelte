@@ -2,6 +2,7 @@
   import { Input, Label, Helper } from 'flowbite-svelte';
   import Button from '../Button.svelte';
   import { buildVturInputClasses } from '../inputContract';
+  import { inputMask, type MaskType } from '$lib/actions/inputMask';
 
   export let label: string | null = null;
   export let value: string | number = '';
@@ -29,6 +30,12 @@
   export let maxlength: number | null = null;
   export let class_name = '';
 
+  /**
+   * Máscara automática — opcional, não afeta nenhum uso existente.
+   * Valores: 'cpf' | 'cnpj' | 'phone' | 'cep' | 'date' | 'rg'
+   */
+  export let mask: MaskType | undefined = undefined;
+
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
   $: inputClasses = buildVturInputClasses(
     'text-sm',
@@ -49,7 +56,33 @@
     {#if prefix}
       <span class="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-slate-400 select-none">{prefix}</span>
     {/if}
-    {#if icon}
+
+    {#if mask}
+      <!--
+        Quando há máscara: usa <input> nativo com a action inputMask.
+        O Flowbite Input não expõe o elemento DOM interno, então caímos
+        no input nativo com as mesmas classes visuais (vtur-input).
+      -->
+      <input
+        use:inputMask={{ type: mask }}
+        id={fieldId}
+        {name}
+        {type}
+        bind:value
+        placeholder={placeholder || ''}
+        {disabled}
+        {required}
+        {readonly}
+        autocomplete={autocomplete ?? undefined}
+        maxlength={maxlength ?? undefined}
+        class="{inputClasses} w-full"
+        on:input
+        on:change
+        on:blur
+        on:focus
+        on:keydown
+      />
+    {:else if icon}
       <Input
         id={fieldId}
         {name}

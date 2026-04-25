@@ -9,7 +9,7 @@
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
+  import { ArrowLeft, Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
 
@@ -269,6 +269,7 @@
   title="Vendas por Produto"
   subtitle="Performance por tipo de produto"
   color="financeiro"
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatorios', href: '/relatorios' },
     { label: 'Produtos' }

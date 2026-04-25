@@ -96,7 +96,7 @@
         <FieldInput id="orc-consultor" label="Nome do Consultor" bind:value={settings.consultor_nome} placeholder="Seu nome completo" class_name="w-full" />
         <FieldInput id="orc-filial" label="Filial / Agência" bind:value={settings.filial_nome} placeholder="Nome da filial ou agência" class_name="w-full" />
         <FieldInput id="orc-email" label="E-mail" type="email" bind:value={settings.email} placeholder="consultor@agencia.com.br" class_name="w-full" />
-        <FieldInput id="orc-telefone" label="Telefone" bind:value={settings.telefone} placeholder="(00) 0000-0000" class_name="w-full" />
+        <FieldInput id="orc-telefone" label="Telefone" bind:value={settings.telefone} placeholder="(00) 0000-0000" mask="phone" class_name="w-full" />
         <div class="space-y-2">
           <p class="text-sm font-medium text-slate-700">WhatsApp</p>
           <div class="grid grid-cols-[88px,1fr] gap-2">

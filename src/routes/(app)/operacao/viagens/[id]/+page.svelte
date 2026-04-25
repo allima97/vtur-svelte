@@ -356,22 +356,29 @@
   />
 
   <!-- Status Banner -->
-  <div class="mb-6 p-4 rounded-lg border bg-{getStatusColor(viagem.status)}-50 border-{getStatusColor(viagem.status)}-200">
+  {@const bannerClasses = {
+    planejada:  'bg-slate-50 border-slate-200',
+    confirmada: 'bg-blue-50 border-blue-200',
+    em_viagem:  'bg-amber-50 border-amber-200',
+    concluida:  'bg-green-50 border-green-200',
+    cancelada:  'bg-red-50 border-red-200'
+  }}
+  <div class="mb-6 p-4 rounded-xl border {bannerClasses[viagem.status] ?? bannerClasses.planejada}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3">
         <Badge color={getStatusColor(viagem.status)} size="lg">
           {getStatusLabel(viagem.status)}
         </Badge>
-        <span class="text-sm text-slate-600">
+        <span class="text-sm text-slate-500">
           Última atualização: {formatDateTime(viagem.updated_at)}
         </span>
       </div>
       <div class="flex gap-2">
         {#if viagem.venda_id}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
-            on:click={() => goto(`/vendas/${viagem.venda_id}`)}
+            on:click={() => goto(`/vendas/${viagem?.venda_id}`)}
           >
             <CreditCard size={16} class="mr-2" />
             Ver Venda
@@ -383,29 +390,31 @@
 
   <!-- KPIs -->
   <div class="vtur-kpi-grid mb-6">
-    <KPICard 
-      title="Data de Saída" 
+    <KPICard
+      title="Data de Saída"
       value={formatDate(dataSaida)}
-      color="clientes" 
+      color="operacao"
       icon={Calendar}
     />
-    <KPICard 
-      title="Data de Retorno" 
+    <KPICard
+      title="Data de Retorno"
       value={formatDate(dataRetorno)}
-      color="clientes" 
+      color="operacao"
       icon={Calendar}
     />
-    <KPICard 
-      title="Duração" 
+    <KPICard
+      title="Duração"
       value={`${diasViagem} dias`}
-      color="clientes" 
+      color="vendas"
       icon={Clock}
+      subtitle={diasViagem > 1 ? 'dias de viagem' : 'dia de viagem'}
     />
-    <KPICard 
-      title="Viajantes" 
+    <KPICard
+      title="Viajantes"
       value={viagem.passageiros?.length || 1}
-      color="clientes" 
+      color="clientes"
       icon={Users}
+      subtitle={viagem.passageiros?.length === 1 ? 'passageiro' : 'passageiros'}
     />
   </div>
 
@@ -532,7 +541,7 @@
                   </div>
                   
                   <div class="text-right">
-                    <p class="text-2xl font-bold text-clientes-600">
+                    <p class="text-2xl font-bold text-indigo-600">
                       {formatCurrency(recibo.valor_total)}
                     </p>
                     {#if recibo.valor_taxas > 0}
@@ -549,7 +558,7 @@
             <div class="flex justify-end pt-4 border-t border-slate-200">
               <div class="text-right">
                 <p class="text-sm text-slate-500">Valor Total da Viagem</p>
-                <p class="text-3xl font-bold text-clientes-600">
+                <p class="text-3xl font-bold text-indigo-600">
                   {formatCurrency(viagem.venda?.valor_total)}
                 </p>
               </div>
@@ -670,7 +679,7 @@
           <div class="space-y-4">
             <div class="flex justify-between items-center">
               <span class="text-slate-600">Valor Total</span>
-              <span class="text-xl font-bold text-clientes-600">
+              <span class="text-xl font-bold text-indigo-600">
                 {formatCurrency(viagem.venda.valor_total)}
               </span>
             </div>

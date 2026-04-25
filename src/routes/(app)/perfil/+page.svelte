@@ -173,8 +173,8 @@
         <FieldInput id="perfil-nome" label="Nome completo" required bind:value={form.nome_completo} placeholder="Seu nome completo" icon={User} class_name="lg:col-span-2 w-full" />
         <FieldInput id="perfil-cargo" label="Cargo" bind:value={form.cargo} placeholder="Ex: Consultor de Viagens" class_name="w-full" />
         <FieldInput id="perfil-assinatura" label="Assinatura de exibição" bind:value={form.assinatura_exibicao} placeholder="Nome para exibição em documentos" class_name="w-full" />
-        <FieldInput id="perfil-cpf" label="CPF" bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} class_name="w-full" />
-        <FieldInput id="perfil-rg" label="RG" bind:value={form.rg} placeholder="Documento de identidade" class_name="w-full" />
+        <FieldInput id="perfil-cpf" label="CPF" bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} mask="cpf" class_name="w-full" />
+        <FieldInput id="perfil-rg" label="RG" bind:value={form.rg} placeholder="Documento de identidade" mask="rg" class_name="w-full" />
         <FieldInput id="perfil-nascimento" label="Data de nascimento" type="date" bind:value={form.data_nascimento} class_name="w-full" />
         <FieldInput
           id="perfil-email"
@@ -191,14 +191,14 @@
 
     <Card title="Contato" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <FieldInput id="perfil-telefone" label="Telefone" bind:value={form.telefone} placeholder="(00) 0000-0000" icon={Phone} class_name="w-full" />
-        <FieldInput id="perfil-whatsapp" label="WhatsApp" bind:value={form.whatsapp} placeholder="(00) 00000-0000" icon={Phone} class_name="w-full" />
+        <FieldInput id="perfil-telefone" label="Telefone" bind:value={form.telefone} placeholder="(00) 0000-0000" mask="phone" icon={Phone} class_name="w-full" />
+        <FieldInput id="perfil-whatsapp" label="WhatsApp" bind:value={form.whatsapp} placeholder="(00) 00000-0000" mask="phone" icon={Phone} class_name="w-full" />
       </div>
     </Card>
 
     <Card title="Endereço" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <FieldInput id="perfil-cep" label="CEP" bind:value={form.cep} placeholder="00000-000" maxlength={9} icon={MapPin} on:blur={buscarCep} class_name="w-full" />
+        <FieldInput id="perfil-cep" label="CEP" bind:value={form.cep} placeholder="00000-000" maxlength={9} mask="cep" icon={MapPin} on:blur={buscarCep} class_name="w-full" />
         {#if cepStatus}
           <p class="text-xs text-slate-500">{cepStatus}</p>
         {/if}

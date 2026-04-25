@@ -225,9 +225,9 @@
   $: pageSizeValue = String(currentPageSize);
 </script>
 
-<div class="space-y-4">
+<div class="datatable-card vtur-card overflow-hidden">
   {#if title || searchable || filterable || exportable}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-5 pt-4 pb-4">
       {#if title}
         <h3 class="text-lg font-semibold text-slate-900">{title}</h3>
       {/if}
@@ -269,7 +269,7 @@
   {/if}
 
   {#if showFilters && filters.length > 0}
-    <div class="vtur-filter-panel">
+    <div class="datatable-filter-panel vtur-filter-panel">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {#each filters as filter}
           {#if filter.type === 'select'}

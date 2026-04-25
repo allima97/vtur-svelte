@@ -9,6 +9,7 @@
   import {
     AlertCircle,
     Banknote,
+    BarChart3,
     Building2,
     Calendar,
     ChevronDown,
@@ -112,7 +113,9 @@
         { key: 'controle_sac', name: 'Controle SAC', href: '/operacao/controle-sac', icon: AlertCircle },
         { key: 'campanhas', name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
         { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
-        { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video }
+        { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video },
+        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
+        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
       ]
     },
     {
@@ -126,17 +129,6 @@
         { key: 'ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings },
         { key: 'formas_pagamento', name: 'Formas de Pagto', href: '/financeiro/formas-pagamento', icon: CreditCard },
         { key: 'regras', name: 'Regras', href: '/financeiro/regras', icon: Settings }
-      ]
-    },
-    {
-      title: 'RELATÓRIOS',
-      collapsible: true,
-      items: [
-        { key: 'rel_vendas', name: 'Vendas', href: '/relatorios/vendas', icon: FileSpreadsheet },
-        { key: 'rel_produtos', name: 'Por produto', href: '/relatorios/produtos', icon: Package },
-        { key: 'rel_clientes', name: 'Por cliente', href: '/relatorios/clientes', icon: Users },
-        { key: 'rel_destinos', name: 'Por destino', href: '/relatorios/destinos', icon: MapPinned },
-        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
       ]
     },
     {

@@ -10,7 +10,7 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
+  import { ArrowLeft, Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
 
@@ -635,6 +635,7 @@
   title="Relatório de Vendas"
   subtitle="Leitura detalhada das vendas com drill-down operacional por cliente, destino, produto e responsável."
   color="financeiro"
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatórios', href: '/relatorios' },
     { label: 'Vendas' }
@@ -754,13 +755,12 @@
   </Card>
 </div>
 
-<Card header="Detalhamento de vendas" color="financeiro" padding="none" class="mb-3" />
-
 <DataTable
   {columns}
   data={recibosFiltrados}
   color="financeiro"
   {loading}
+  title="Detalhamento de vendas"
   searchable={true}
   exportable={true}
   onExport={handleExport}

@@ -234,8 +234,8 @@
     <div class="grid gap-4 md:grid-cols-2">
       <FieldInput id="empresa-legal" label="Nome da empresa" bind:value={form.nome_empresa} class_name="w-full" />
       <FieldInput id="empresa-fantasia" label="Nome fantasia" bind:value={form.nome_fantasia} class_name="w-full" />
-      <FieldInput id="empresa-cnpj" label="CNPJ" bind:value={form.cnpj} class_name="w-full" />
-      <FieldInput id="empresa-telefone" label="Telefone" bind:value={form.telefone} class_name="w-full" />
+      <FieldInput id="empresa-cnpj" label="CNPJ" bind:value={form.cnpj} mask="cnpj" class_name="w-full" />
+      <FieldInput id="empresa-telefone" label="Telefone" bind:value={form.telefone} mask="phone" class_name="w-full" />
       <FieldInput id="empresa-endereco" label="Endereco" bind:value={form.endereco} class_name="md:col-span-2 w-full" />
       <FieldInput id="empresa-cidade" label="Cidade" bind:value={form.cidade} class_name="w-full" />
       <FieldInput id="empresa-estado" label="Estado" bind:value={form.estado} class_name="w-full" />

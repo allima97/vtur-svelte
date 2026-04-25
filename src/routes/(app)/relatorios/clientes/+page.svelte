@@ -9,7 +9,7 @@
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Filter, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
+  import { ArrowLeft, Filter, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
 
@@ -266,6 +266,7 @@
   title="Vendas por Cliente"
   subtitle="Analise de clientes e historico de compras"
   color="financeiro"
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatorios', href: '/relatorios' },
     { label: 'Clientes' }

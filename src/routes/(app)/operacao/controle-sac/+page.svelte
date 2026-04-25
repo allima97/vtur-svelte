@@ -1,15 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
-  import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock, Search } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-svelte';
 
   type SacRegistro = {
     id: string;
@@ -38,8 +36,6 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
-  let statusFiltro = 'all';
-  let busca = '';
 
   let form = createForm();
 
@@ -144,11 +140,7 @@
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (statusFiltro !== 'all') params.set('status', statusFiltro);
-      if (busca.trim()) params.set('q', busca.trim());
-
-      const response = await fetch(`/api/v1/operacao/sac?${params.toString()}`);
+      const response = await fetch('/api/v1/operacao/sac');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       registros = payload.items || [];
@@ -270,28 +262,16 @@
   </div>
 </div>
 
-<Card color="operacao" class="mb-6">
-  <div class="flex flex-wrap gap-4 items-end">
-    <FieldInput bind:value={busca} icon={Search} placeholder="Buscar por recibo, tour, motivo..." class_name="flex-1 min-w-[200px]" />
-    <FieldSelect
-      id="sac-status"
-      label="Status"
-      bind:value={statusFiltro}
-      options={[{ value: 'all', label: 'Todos' }, ...STATUS_OPCOES]}
-      placeholder="Todos"
-      class_name="w-40"
-    />
-    <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
-  </div>
-</Card>
-
 <DataTable
   {columns}
   data={registros}
   color="operacao"
   {loading}
   title="Registros SAC"
-  searchable={false}
+  searchable={true}
+  extraSearchKeys={['motivo', 'recibo', 'tour', 'contratante_pax', 'responsavel']}
+  filterable={true}
+  filters={[{ key: 'status', label: 'Status', type: 'select', options: [{ value: '', label: 'Todos' }, ...STATUS_OPCOES] }]}
   emptyMessage="Nenhum registro SAC encontrado"
   onRowClick={canEdit ? (row) => openEdit(row) : undefined}
 >

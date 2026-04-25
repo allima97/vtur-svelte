@@ -1,12 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
-  import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, Megaphone, ExternalLink } from 'lucide-svelte';
@@ -31,7 +29,6 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
-  let filtroStatus = '';
 
   let form = createForm();
 
@@ -106,9 +103,7 @@
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus) params.set('status', filtroStatus);
-      const response = await fetch(`/api/v1/operacao/campanhas?${params.toString()}`);
+      const response = await fetch('/api/v1/operacao/campanhas');
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       campanhas = payload.items || [];
@@ -232,25 +227,6 @@
   </div>
 </div>
 
-<Card color="operacao" class="mb-6">
-  <div class="flex gap-4 items-end">
-    <FieldSelect
-      id="camp-status"
-      label="Status"
-      bind:value={filtroStatus}
-      options={[
-        { value: '', label: 'Todos' },
-        { value: 'ativa', label: 'Ativas' },
-        { value: 'inativa', label: 'Inativas' },
-        { value: 'cancelada', label: 'Canceladas' }
-      ]}
-      placeholder={null}
-      class_name="min-w-[160px]"
-    />
-    <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
-  </div>
-</Card>
-
 <DataTable
   {columns}
   data={campanhas}
@@ -258,6 +234,20 @@
   {loading}
   title="Campanhas"
   searchable={true}
+  filterable={true}
+  filters={[
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { value: '', label: 'Todos' },
+        { value: 'ativa', label: 'Ativas' },
+        { value: 'inativa', label: 'Inativas' },
+        { value: 'cancelada', label: 'Canceladas' }
+      ]
+    }
+  ]}
   emptyMessage="Nenhuma campanha encontrada"
   onRowClick={canEdit ? (row) => openEdit(row) : undefined}
 >

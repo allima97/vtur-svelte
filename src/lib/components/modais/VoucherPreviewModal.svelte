@@ -5,10 +5,38 @@
   import { buildVoucherPreviewDocument } from '../../vouchers/preview';
   import type { VoucherRecord, VoucherAssetRecord } from '../../vouchers/types';
   import { createEventDispatcher } from 'svelte';
+  import { isMobile } from '$lib/stores/ui';
+  import { onMount } from 'svelte';
 
   export let open = false;
   export let voucher: VoucherRecord | null = null;
   export let assets: VoucherAssetRecord[] = [];
+
+  let sidebarCollapsed = false;
+
+  // Detecta se a sidebar está colapsada lendo a classe do DOM
+  function checkSidebarCollapsed() {
+    sidebarCollapsed = !!document.querySelector('.vtur-sidebar--collapsed');
+  }
+
+  onMount(() => {
+    checkSidebarCollapsed();
+    // Observa mudanças de classe na sidebar
+    const sidebar = document.querySelector('.vtur-sidebar');
+    if (sidebar) {
+      const observer = new MutationObserver(checkSidebarCollapsed);
+      observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+      return () => observer.disconnect();
+    }
+  });
+
+  $: if (open) checkSidebarCollapsed();
+
+  $: contentLeft = $isMobile
+    ? '0px'
+    : sidebarCollapsed
+      ? 'calc(1rem + 90px + 1rem)'
+      : 'calc(1rem + var(--vtur-sidebar-width) + 1rem)';
 
   let iframe: HTMLIFrameElement;
   
@@ -42,8 +70,9 @@
 {#if open && voucher}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div 
+  <div
     class="fixed z-[100] flex flex-col bg-slate-100 voucher-preview-area"
+    style="left: {contentLeft}; top: {$isMobile ? 'var(--vtur-topbar-height)' : 'var(--vtur-desktop-shell-top)'};"
     transition:fade={{ duration: 150 }}
   >
     <!-- Header fixo com ações - Responsivo -->
@@ -86,18 +115,19 @@
     </header>
 
     <!-- Preview do Voucher -->
-    <div class="flex-1 overflow-auto p-2 md:p-6">
-      <div class="max-w-5xl mx-auto h-full">
+    <div class="flex-1 overflow-hidden p-2 md:p-4">
+      <div class="max-w-5xl mx-auto h-full flex flex-col">
         {#if docHtml}
           <iframe
             bind:this={iframe}
             srcdoc={docHtml}
-            class="w-full h-full min-h-[500px] md:min-h-[600px] bg-white shadow-lg rounded-lg"
+            class="w-full flex-1 bg-white shadow-lg rounded-lg border border-slate-200"
             title="Voucher Preview"
             sandbox="allow-scripts allow-same-origin"
+            style="min-height: 0;"
           ></iframe>
         {:else}
-          <div class="flex items-center justify-center h-full text-slate-500">
+          <div class="flex items-center justify-center flex-1 text-slate-500">
             Carregando preview...
           </div>
         {/if}
@@ -107,19 +137,9 @@
 {/if}
 
 <style>
-  /* Desktop: fica dentro da área de conteúdo (à direita da sidebar, abaixo da topbar) */
+  /* left e top vêm via style inline (reativo ao estado da sidebar) */
   .voucher-preview-area {
-    top: var(--vtur-desktop-shell-top);
-    left: calc(1rem + var(--vtur-sidebar-width) + 1rem);
     right: 0;
     bottom: 0;
-  }
-
-  /* Mobile: ocupa tudo abaixo da topbar */
-  @media (max-width: 1023px) {
-    .voucher-preview-area {
-      top: var(--vtur-topbar-height);
-      left: 0;
-    }
   }
 </style>

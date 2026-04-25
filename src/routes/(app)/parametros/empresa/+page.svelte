@@ -147,7 +147,7 @@
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FieldInput id="emp-razao" label="Razão Social" type="text" bind:value={form.nome_empresa} class_name="md:col-span-2 w-full" />
         <FieldInput id="emp-fantasia" label="Nome Fantasia" type="text" bind:value={form.nome_fantasia} class_name="w-full" />
-        <FieldInput id="emp-cnpj" label="CNPJ" type="text" bind:value={form.cnpj} placeholder="00.000.000/0000-00" class_name="w-full" />
+        <FieldInput id="emp-cnpj" label="CNPJ" type="text" bind:value={form.cnpj} placeholder="00.000.000/0000-00" mask="cnpj" class_name="w-full" />
         <FieldInput id="emp-ie" label="Inscrição Estadual" type="text" bind:value={form.ie} class_name="w-full" />
         <FieldInput id="emp-im" label="Inscrição Municipal" type="text" bind:value={form.im} class_name="w-full" />
       </div>
@@ -157,7 +157,7 @@
     <Card title="Contato" color="financeiro">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FieldInput id="emp-email" label="E-mail" type="email" bind:value={form.email} class_name="w-full" />
-        <FieldInput id="emp-telefone" label="Telefone" type="text" bind:value={form.telefone} placeholder="(00) 0000-0000" class_name="w-full" />
+        <FieldInput id="emp-telefone" label="Telefone" type="text" bind:value={form.telefone} placeholder="(00) 0000-0000" mask="phone" class_name="w-full" />
         <FieldInput id="emp-website" label="Website" type="url" bind:value={form.website} placeholder="https://" class_name="md:col-span-2 w-full" />
       </div>
     </Card>
@@ -178,7 +178,7 @@
           placeholder="Selecione uma opção"
           class_name="w-full"
         />
-        <FieldInput id="emp-cep" label="CEP" type="text" bind:value={form.cep} placeholder="00000-000" class_name="w-full" />
+        <FieldInput id="emp-cep" label="CEP" type="text" bind:value={form.cep} placeholder="00000-000" mask="cep" class_name="w-full" />
       </div>
     </Card>
 

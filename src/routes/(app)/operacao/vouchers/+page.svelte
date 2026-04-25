@@ -2,20 +2,17 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
-  import { Plus, Ticket, FileText, ExternalLink, Trash2, Loader2, Search } from 'lucide-svelte';
+  import { Plus, Ticket, FileText, ExternalLink, Trash2, Loader2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
 
   let vouchers: VoucherRecord[] = [];
   let assets: VoucherAssetRecord[] = [];
   let loading = true;
-  let searchQuery = '';
   let showPreview = false;
   let previewVoucher: VoucherRecord | null = null;
   let companyId: string | null = null;
@@ -143,16 +140,6 @@
   }
 
   // Funções de preview removidas - agora usamos o modal VoucherPreviewModal
-
-  $: filteredVouchers = vouchers.filter(v => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      v.nome?.toLowerCase().includes(q) ||
-      v.codigo_fornecedor?.toLowerCase().includes(q) ||
-      v.codigo_systur?.toLowerCase().includes(q)
-    );
-  });
 </script>
 
 <svelte:head>
@@ -221,26 +208,15 @@
   </div>
 </div>
 
-<!-- Filtros -->
-<Card color="clientes" class="mb-6">
-  <div class="flex gap-4">
-    <FieldInput
-      bind:value={searchQuery}
-      placeholder="Buscar vouchers..."
-      icon={Search}
-      class_name="max-w-md flex-1"
-    />
-  </div>
-</Card>
-
 <!-- Tabela -->
 <DataTable
   {columns}
-  data={filteredVouchers}
+  data={vouchers}
   color="clientes"
   {loading}
   title="Lista de Vouchers"
-  searchable={false}
+  searchable={true}
+  extraSearchKeys={['codigo_systur']}
   onRowClick={handleRowClick}
   emptyMessage="Nenhum voucher encontrado"
 >

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import type { ChartData } from 'chart.js';
+  import type { ChartData, ChartOptions } from 'chart.js';
   import {
     BarChart3,
     PieChart,
@@ -18,6 +18,7 @@
     Filter
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
 
   interface EmpresaFiltro {
     id: string;
@@ -112,6 +113,41 @@
     };
   }
 
+  function getMonthRange(ym: string) {
+    const [y, m] = ym.split('-').map(Number);
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m, 0);
+    return {
+      inicio: start.toISOString().slice(0, 10),
+      fim: end.toISOString().slice(0, 10)
+    };
+  }
+
+  const lineChartOptions: ChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => ` ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ctx.raw))}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(148,163,184,0.1)' },
+        ticks: { font: { size: 11, family: "'Inter', sans-serif" } }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11, family: "'Inter', sans-serif" } }
+      }
+    }
+  };
+
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -132,6 +168,10 @@
   }
 
   const currentMonth = getCurrentMonthRange();
+  const defaultMonth = new Date().toISOString().slice(0, 7);
+
+  let mesSelecionado = defaultMonth;
+  let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
 
   let dashboard: DashboardPayload = {
     inicio: currentMonth.inicio,
@@ -202,8 +242,26 @@
     await Promise.all([loadBaseFilters(), loadDashboard()]);
   });
 
+  onDestroy(() => {
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+  });
+
   function applyFilters() {
     void loadDashboard();
+  }
+
+  function scheduleApply() {
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+    applyFiltersTimer = setTimeout(() => {
+      void loadDashboard();
+      applyFiltersTimer = null;
+    }, 400);
+  }
+
+  $: if ($permissoes.isVendedor && mesSelecionado) {
+    const range = getMonthRange(mesSelecionado);
+    periodoInicio = range.inicio;
+    periodoFim = range.fim;
   }
 
   function getStatusBadgeClass(status: string) {
@@ -258,9 +316,15 @@
       {
         label: 'Receita',
         data: dashboard.vendasAgg.timeline.map((item) => item.value),
-        backgroundColor: '#f97316',
-        borderColor: '#ea580c',
-        borderWidth: 2
+        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+        borderColor: '#6366f1',
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: '#6366f1',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
       }
     ]
   } satisfies ChartData;
@@ -289,34 +353,47 @@
 />
 
 <Card color="financeiro" class="mb-6">
-  <div class="flex flex-col lg:flex-row gap-4 items-end">
-    <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-      <FieldInput id="relatorios-data-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
-      <FieldInput id="relatorios-data-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
-      <FieldSelect
-        id="relatorios-empresa"
-        label="Empresa"
-        bind:value={empresaSelecionada}
-        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
-        placeholder="Todas"
+  {#if $permissoes.isVendedor}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FieldInput
+        id="relatorios-mes"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
         class_name="w-full"
+        on:change={scheduleApply}
       />
-      <FieldSelect
-        id="relatorios-vendedor"
-        label="Vendedor"
-        bind:value={vendedorSelecionado}
-        options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
-        placeholder="Todos"
-        class_name="w-full"
-      />
-      <div class="flex items-end">
-        <Button variant="primary" color="financeiro" class_name="w-full" on:click={applyFilters}>
-          <Filter size={16} class="mr-2" />
-          Atualizar
-        </Button>
+    </div>
+  {:else}
+    <div class="flex flex-col lg:flex-row gap-4 items-end">
+      <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <FieldInput id="relatorios-data-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
+        <FieldInput id="relatorios-data-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
+        <FieldSelect
+          id="relatorios-empresa"
+          label="Empresa"
+          bind:value={empresaSelecionada}
+          options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+          placeholder="Todas"
+          class_name="w-full"
+        />
+        <FieldSelect
+          id="relatorios-vendedor"
+          label="Vendedor"
+          bind:value={vendedorSelecionado}
+          options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
+          placeholder="Todos"
+          class_name="w-full"
+        />
+        <div class="flex items-end">
+          <Button variant="primary" color="financeiro" class_name="w-full" on:click={applyFilters}>
+            <Filter size={16} class="mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
     </div>
-  </div>
+  {/if}
 </Card>
 
 {#if errorMessage}
@@ -339,7 +416,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
   <Card header="Evolução das vendas" color="financeiro">
-    <ChartJS type="bar" data={vendasPorMesData} height={280} />
+    <ChartJS type="line" data={vendasPorMesData} options={lineChartOptions} height={280} />
   </Card>
 
   <Card header="Top destinos" color="financeiro">
@@ -347,75 +424,38 @@
   </Card>
 </div>
 
-<h2 class="text-lg font-semibold text-slate-900 mb-4">Relatórios disponíveis</h2>
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-  {#each relatorios as relatorio}
-    <Card color="financeiro" class="group hover:shadow-lg transition-all duration-200">
-      <div class="mb-4 flex items-start justify-between">
-        <div class="rounded-lg bg-financeiro-50 p-3">
-          <svelte:component this={relatorio.icone} size={24} class="text-financeiro-600" />
+<Card color="financeiro" class="mb-8">
+  <div class="mb-4 flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-slate-900">Relatórios disponíveis</h2>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    {#each relatorios as relatorio}
+      <Card color="financeiro" class="group h-full hover:shadow-lg transition-all duration-200 !p-4">
+        <div class="mb-3 flex items-start justify-between gap-2">
+          <div class="rounded-lg bg-financeiro-50 p-2.5">
+            <svelte:component this={relatorio.icone} size={20} class="text-financeiro-600" />
+          </div>
+          <span class="rounded-full bg-financeiro-50 px-2 py-1 text-[11px] font-medium leading-tight text-financeiro-700 text-right">
+            {relatorio.stats(dashboard)}
+          </span>
         </div>
-        <span class="rounded-full bg-financeiro-50 px-2 py-1 text-xs font-medium text-financeiro-700">
-          {relatorio.stats(dashboard)}
-        </span>
-      </div>
 
-      <h3 class="text-lg font-semibold text-slate-900 mb-1">{relatorio.titulo}</h3>
-      <p class="text-sm text-slate-500 mb-3">{relatorio.descricao}</p>
+        <h3 class="mb-1 text-base font-semibold leading-tight text-slate-900">{relatorio.titulo}</h3>
+        <p class="mb-3 text-xs leading-5 text-slate-500">{relatorio.descricao}</p>
 
-      <Button
-        on:click={() => openRelatorio(relatorio.rota)}
-        variant="unstyled"
-        size="sm"
-        class_name="inline-flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
-      >
-        Abrir relatório
-        <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
-      </Button>
-    </Card>
-  {/each}
-</div>
-
-<Card header="Orçamentos recentes" color="financeiro">
-  <div class="overflow-x-visible md:overflow-x-auto">
-    <table class="w-full text-sm table-mobile-cards">
-      <thead class="vtur-table__head">
-        <tr>
-          <th class="px-4 py-3 text-left">Data</th>
-          <th class="px-4 py-3 text-left">Cliente</th>
-          <th class="px-4 py-3 text-left">Destino</th>
-          <th class="px-4 py-3 text-left">Status</th>
-          <th class="px-4 py-3 text-right">Valor</th>
-        </tr>
-      </thead>
-      <tbody class="vtur-table__body">
-        {#if loading}
-          <tr>
-            <td colspan="5" class="px-4 py-10 text-center text-slate-500">Carregando relatórios...</td>
-          </tr>
-        {:else if dashboard.orcamentos.length === 0}
-          <tr>
-            <td colspan="5" class="px-4 py-10 text-center text-slate-500">Nenhum orçamento encontrado no período.</td>
-          </tr>
-        {:else}
-          {#each dashboard.orcamentos as orcamento}
-            {@const firstItem = Array.isArray(orcamento.quote_item) ? orcamento.quote_item[0] : null}
-            <tr class="cursor-pointer transition-colors hover:bg-slate-50/90" on:click={() => goto(`/orcamentos/${orcamento.id}`)}>
-              <td class="px-4 py-4 text-slate-600">{formatDate(orcamento.created_at)}</td>
-              <td class="px-4 py-4 font-medium text-slate-900">{String(orcamento.cliente?.nome || 'Cliente sem nome')}</td>
-              <td class="px-4 py-4 text-slate-600">
-                {String(firstItem?.city_name || firstItem?.product_name || firstItem?.title || firstItem?.item_type || 'Sem itens')}
-              </td>
-              <td class="px-4 py-4">
-                <span class={getStatusBadgeClass(String(orcamento.status_negociacao || orcamento.status || 'Pendente'))}>
-                  {String(orcamento.status_negociacao || orcamento.status || 'Pendente')}
-                </span>
-              </td>
-              <td class="px-4 py-4 text-right font-semibold text-slate-900">{formatCurrency(Number(orcamento.total || 0))}</td>
-            </tr>
-          {/each}
-        {/if}
-      </tbody>
-    </table>
+        <Button
+          on:click={() => openRelatorio(relatorio.rota)}
+          variant="unstyled"
+          size="sm"
+          class_name="inline-flex items-center gap-1 text-sm font-medium text-financeiro-600 hover:text-financeiro-700 transition-colors"
+        >
+          Abrir relatório
+          <ArrowRight size={16} class="group-hover:translate-x-1 transition-transform" />
+        </Button>
+      </Card>
+    {/each}
   </div>
 </Card>
+
+
