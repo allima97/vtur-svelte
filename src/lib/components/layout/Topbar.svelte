@@ -3,11 +3,13 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
-  import { Dropdown, DropdownItem, DropdownDivider } from 'flowbite-svelte';
-  import { Bell, Calendar, LogOut, User, Settings, Shield } from 'lucide-svelte';
+  import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from 'flowbite-svelte';
+  import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from 'lucide-svelte';
+  import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
 
   let loggingOut = false;
   let userDropdownOpen = false;
+  let showCalculator = false;
 
   $: currentUser = $auth.user;
   $: userDisplayName =
@@ -53,8 +55,23 @@
     <!-- Direita: ações + avatar -->
     <div class="vtur-topbar__actions">
       {#if !$isMobile}
-        <!-- Atalho agenda (só desktop) -->
+        <!-- Calculadora -->
         <Button
+          id="topbar-btn-calc"
+          type="button"
+          variant="unstyled"
+          size="sm"
+          class_name="vtur-icon-button !h-10 !w-10 !rounded-xl !p-0"
+          ariaLabel="Calculadora"
+          on:click={() => (showCalculator = true)}
+        >
+          <Calculator size={18} />
+        </Button>
+        <Tooltip triggeredBy="#topbar-btn-calc" placement="bottom">Calculadora</Tooltip>
+
+        <!-- Agenda -->
+        <Button
+          id="topbar-btn-agenda"
           href="/operacao/agenda"
           variant="unstyled"
           size="sm"
@@ -63,8 +80,11 @@
         >
           <Calendar size={18} />
         </Button>
-        <!-- Bell (só desktop) -->
+        <Tooltip triggeredBy="#topbar-btn-agenda" placement="bottom">Agenda</Tooltip>
+
+        <!-- Recados -->
         <Button
+          id="topbar-btn-bell"
           type="button"
           variant="unstyled"
           size="sm"
@@ -74,6 +94,7 @@
         >
           <Bell size={18} />
         </Button>
+        <Tooltip triggeredBy="#topbar-btn-bell" placement="bottom">Recados</Tooltip>
       {/if}
 
       <!-- Avatar com dropdown (sempre visível) -->
@@ -136,3 +157,9 @@
     </div>
   </div>
 </header>
+
+<CalculatorModal
+  bind:open={showCalculator}
+  onClose={() => (showCalculator = false)}
+  onConfirm={() => (showCalculator = false)}
+/>

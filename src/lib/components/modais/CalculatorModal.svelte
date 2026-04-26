@@ -1,14 +1,23 @@
 <script lang="ts">
-  import { X, Calculator, Percent, DollarSign } from 'lucide-svelte';
+  import { X, Calculator, Percent, DollarSign, TrendingDown } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  
+  import ConcorrenciaTab from '$lib/components/modais/ConcorrenciaTab.svelte';
+
   // Props
   export let open: boolean = false;
   export let valorBruto: number = 0;
   export let onClose: () => void = () => {};
   export let onConfirm: (resultado: CalculoResultado) => void = () => {};
+
+  // Abas
+  let abaAtiva = 'calculadora';
+  const abas = [
+    { key: 'calculadora', label: 'Calculadora', icon: Calculator },
+    { key: 'concorrencia', label: 'Concorrência', icon: TrendingDown },
+  ];
   
   interface CalculoResultado {
     valorBruto: number;
@@ -98,7 +107,7 @@
     tabindex="0"
   >
     <div 
-      class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+      class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-vendas-50">
@@ -122,9 +131,19 @@
           <X size={20} />
         </Button>
       </div>
-      
+
+      <!-- Abas -->
+      <div class="px-6 pt-4 pb-0 border-b border-slate-100">
+        <Tabs items={abas} bind:activeKey={abaAtiva} />
+      </div>
+
       <!-- Content -->
       <div class="p-6 overflow-y-auto max-h-[60vh]">
+
+        <!-- Aba Concorrência -->
+        {#if abaAtiva === 'concorrencia'}
+          <ConcorrenciaTab />
+        {:else}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Coluna Esquerda - Entradas -->
           <div class="space-y-4">
@@ -298,21 +317,29 @@
             </div>
           </div>
         </div>
+        {/if}
       </div>
-      
+
       <!-- Footer -->
       <div class="vtur-modal-footer vtur-modal-footer--between">
-        <Button variant="ghost" on:click={limpar}>
-          Limpar
-        </Button>
-        <div class="vtur-modal-footer__actions">
+        {#if abaAtiva === 'calculadora'}
+          <Button variant="ghost" on:click={limpar}>
+            Limpar
+          </Button>
+          <div class="vtur-modal-footer__actions">
+            <Button variant="secondary" on:click={onClose}>
+              Cancelar
+            </Button>
+            <Button variant="primary" color="vendas" on:click={handleConfirm}>
+              Aplicar Valores
+            </Button>
+          </div>
+        {:else}
+          <div></div>
           <Button variant="secondary" on:click={onClose}>
-            Cancelar
+            Fechar
           </Button>
-          <Button variant="primary" color="vendas" on:click={handleConfirm}>
-            Aplicar Valores
-          </Button>
-        </div>
+        {/if}
       </div>
     </div>
   </div>

@@ -7,9 +7,8 @@
   import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
-  import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import { toast } from '$lib/stores/ui';
-  import { ArrowLeft, Calculator, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
   $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
@@ -51,7 +50,6 @@
 
   let loading = true;
   let saving = false;
-  let showCalculator = false;
   let currentStep = 0;
   let ensuringCidadeId = '';
   let ensuringProdutoId = '';
@@ -881,11 +879,7 @@
   <form class="space-y-6" on:submit|preventDefault={handleSubmit}>
     {#if currentStep === 0}
       <FormPanel title="Dados da venda" description="Atualize os dados principais da venda" class_name="border-green-200">
-        <div slot="header-actions" class="flex items-center">
-          <Button type="button" variant="secondary" on:click={() => (showCalculator = true)}>
-            <Calculator size={16} class="mr-2" /> Calculadora
-          </Button>
-        </div>
+        <div slot="header-actions"></div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {#if canAssignVendedor}
           <div>
@@ -1249,9 +1243,3 @@
   </form>
 {/if}
 
-<CalculatorModal
-  bind:open={showCalculator}
-  valorBruto={parseMoney(venda.valor_total_bruto || venda.valor_total)}
-  onClose={() => (showCalculator = false)}
-  onConfirm={applyValoresCalculadora}
-/>

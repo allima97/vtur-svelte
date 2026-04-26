@@ -8,7 +8,6 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
   import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
   import {
     TrendingUp,
@@ -18,7 +17,7 @@
     FileText,
     Award,
     SlidersHorizontal,
-    Calculator,
+
     MapPin,
     Gift,
     BarChart2,
@@ -133,7 +132,7 @@
   let errorMessage: string | null = null;
   let showCustomize = false;
   let savingCustomize = false;
-  let showCalculator = false;
+
 
   function getDefaultPeriod() {
     const today = new Date();
@@ -698,8 +697,7 @@
   breadcrumbs={[{ label: 'Dashboard' }]}
   actions={[
     { label: 'Personalizar', onClick: () => (showCustomize = true), variant: 'secondary', icon: SlidersHorizontal },
-    { label: 'Ranking', onClick: goToRanking, variant: 'outline', icon: BarChart2 },
-    { label: 'Calculadora', onClick: () => (showCalculator = true), variant: 'outline', icon: Calculator }
+    { label: 'Ranking', onClick: goToRanking, variant: 'outline', icon: BarChart2 }
   ]}
 />
 
@@ -1223,9 +1221,3 @@
   onToggleKpi={toggleKpi}
 />
 
-<CalculatorModal
-  open={showCalculator}
-  valorBruto={vendasAgg.totalVendas}
-  onClose={() => (showCalculator = false)}
-  onConfirm={() => { showCalculator = false; }}
-/>
