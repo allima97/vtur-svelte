@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Calendar, ChevronLeft, ChevronRight } from 'lucide-svelte';
 
@@ -67,8 +68,7 @@
     for (let i = -6; i <= 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-      items.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+      items.push({ value, label: formatYearMonthLabel(value) });
     }
     return items;
   }
@@ -183,7 +183,7 @@
   onMount(load);
 
   $: diasDoMes = getDaysInMonth(periodoAtual);
-  $: periodoLabel = new Date(periodoAtual + '-01T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  $: periodoLabel = formatYearMonthLabel(periodoAtual);
 </script>
 
 <svelte:head>

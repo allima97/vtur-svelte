@@ -808,6 +808,7 @@
               label="Data de Retorno"
               type="date"
               bind:value={editForm.data_fim}
+              min={editForm.data_inicio || null}
               id="viagem-edit-data-fim"
             />
             <FieldTextarea

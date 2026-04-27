@@ -368,7 +368,7 @@
     <div class="flex flex-col lg:flex-row gap-4 items-end">
       <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <FieldInput id="relatorios-data-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
-        <FieldInput id="relatorios-data-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
+        <FieldInput id="relatorios-data-fim" label="Data fim" type="date" bind:value={periodoFim} min={periodoInicio || null} class_name="w-full" />
         <FieldSelect
           id="relatorios-empresa"
           label="Empresa"

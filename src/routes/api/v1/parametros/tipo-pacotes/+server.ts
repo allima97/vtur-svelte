@@ -9,6 +9,15 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function parseDecimal(value: any) {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const normalized = raw.replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -67,15 +76,21 @@ export async function POST(event) {
       return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409 });
     }
 
-    const toNum = (v: any) => (v === null || v === undefined || v === '' ? null : Number(v));
+    const fixMetaNaoAtingida = parseDecimal(fix_meta_nao_atingida);
+    const fixMetaAtingida = parseDecimal(fix_meta_atingida);
+    const fixSuperMeta = parseDecimal(fix_super_meta);
+
+    if (Number.isNaN(fixMetaNaoAtingida) || Number.isNaN(fixMetaAtingida) || Number.isNaN(fixSuperMeta)) {
+      return json({ error: 'Percentuais invalidos. Use apenas numeros (ex: 0.8).' }, { status: 400 });
+    }
 
     const payload = {
       nome: nomeTrimmed,
       ativo: ativo !== false,
       rule_id: rule_id && isUuid(rule_id) ? rule_id : null,
-      fix_meta_nao_atingida: toNum(fix_meta_nao_atingida),
-      fix_meta_atingida: toNum(fix_meta_atingida),
-      fix_super_meta: toNum(fix_super_meta)
+      fix_meta_nao_atingida: fixMetaNaoAtingida,
+      fix_meta_atingida: fixMetaAtingida,
+      fix_super_meta: fixSuperMeta
     };
 
     let result;

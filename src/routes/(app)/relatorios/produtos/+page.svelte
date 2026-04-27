@@ -289,6 +289,7 @@
     label="Data Fim"
     type="date"
     bind:value={dataFim}
+    min={dataInicio || null}
     class_name="w-full"
   />
   {#if showEmpresaFiltro}

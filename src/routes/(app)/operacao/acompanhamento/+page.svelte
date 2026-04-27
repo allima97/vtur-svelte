@@ -237,7 +237,7 @@
 
     <FieldInput id="follow-start" label="Inicio" type="date" bind:value={inicio} class_name="w-full" />
 
-    <FieldInput id="follow-end" label="Fim" type="date" bind:value={fim} class_name="w-full" />
+    <FieldInput id="follow-end" label="Fim" type="date" bind:value={fim} min={inicio || null} class_name="w-full" />
   </div>
 
   <div class="mt-4 flex flex-wrap gap-2">

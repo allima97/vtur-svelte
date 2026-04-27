@@ -53,7 +53,6 @@ declare module '$env/static/private' {
 	export const COLOR: string;
 	export const npm_config_noproxy: string;
 	export const npm_config_local_prefix: string;
-	export const GIT_EDITOR: string;
 	export const USER: string;
 	export const COMMAND_MODE: string;
 	export const npm_config_globalconfig: string;
@@ -63,6 +62,7 @@ declare module '$env/static/private' {
 	export const npm_execpath: string;
 	export const PATH: string;
 	export const npm_package_json: string;
+	export const _: string;
 	export const LaunchInstanceID: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_init_module: string;
@@ -77,7 +77,6 @@ declare module '$env/static/private' {
 	export const npm_config_npm_version: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const XPC_FLAGS: string;
-	export const GIT_MERGE_AUTOEDIT: string;
 	export const npm_config_node_gyp: string;
 	export const npm_package_version: string;
 	export const XPC_SERVICE_NAME: string;
@@ -93,12 +92,10 @@ declare module '$env/static/private' {
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
 	export const OSLogRateLimit: string;
-	export const GIT_PAGER: string;
 	export const SECURITYSESSIONID: string;
 	export const npm_node_execpath: string;
 	export const npm_config_prefix: string;
 	export const COLORTERM: string;
-	export const _: string;
 	export const NODE_ENV: string;
 }
 
@@ -203,7 +200,6 @@ declare module '$env/dynamic/private' {
 		COLOR: string;
 		npm_config_noproxy: string;
 		npm_config_local_prefix: string;
-		GIT_EDITOR: string;
 		USER: string;
 		COMMAND_MODE: string;
 		npm_config_globalconfig: string;
@@ -213,6 +209,7 @@ declare module '$env/dynamic/private' {
 		npm_execpath: string;
 		PATH: string;
 		npm_package_json: string;
+		_: string;
 		LaunchInstanceID: string;
 		npm_config_userconfig: string;
 		npm_config_init_module: string;
@@ -227,7 +224,6 @@ declare module '$env/dynamic/private' {
 		npm_config_npm_version: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		XPC_FLAGS: string;
-		GIT_MERGE_AUTOEDIT: string;
 		npm_config_node_gyp: string;
 		npm_package_version: string;
 		XPC_SERVICE_NAME: string;
@@ -243,12 +239,10 @@ declare module '$env/dynamic/private' {
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
 		OSLogRateLimit: string;
-		GIT_PAGER: string;
 		SECURITYSESSIONID: string;
 		npm_node_execpath: string;
 		npm_config_prefix: string;
 		COLORTERM: string;
-		_: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;

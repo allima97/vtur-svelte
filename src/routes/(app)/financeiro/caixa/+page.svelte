@@ -394,6 +394,7 @@
           label="Data Fim"
           type="date"
           bind:value={dataFim}
+          min={dataInicio || null}
           class_name="min-w-[180px]"
           on:change={carregarDados}
         />

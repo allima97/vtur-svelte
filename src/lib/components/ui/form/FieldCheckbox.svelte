@@ -10,6 +10,7 @@
   export let id: string | null = null;
   export let name: string | null = null;
   export let value = 'on';
+  export let align: 'start' | 'center' = 'start';
   export let color:
     | 'blue'
     | 'green'
@@ -46,10 +47,12 @@
 
   $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
   $: resolvedColor = colorAlias[color] || 'blue';
+  $: containerAlignClass = align === 'center' ? 'items-center' : 'items-start';
+  $: labelWrapperClass = align === 'center' ? 'min-w-0' : 'min-w-0 pt-0.5';
 </script>
 
 <div class={class_name}>
-  <div class="flex items-start gap-3">
+  <div class={`flex gap-3 ${containerAlignClass}`}>
     <Checkbox
       id={fieldId}
       {name}
@@ -65,7 +68,7 @@
       on:click
     />
 
-    <div class="min-w-0 pt-0.5">
+    <div class={labelWrapperClass}>
       {#if label}
         <label for={fieldId} class="block cursor-pointer text-sm font-medium text-slate-700">
           {label}

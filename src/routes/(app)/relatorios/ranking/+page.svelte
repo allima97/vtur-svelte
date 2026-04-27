@@ -7,6 +7,7 @@
   import { FieldInput } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
+  import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet } from '$lib/services/api';
@@ -75,14 +76,7 @@
   }
 
   function formatMonthLabel(monthValue: string) {
-    const range = getMonthRange(monthValue);
-    const [yearText, monthText] = range.month.split('-');
-    const monthDate = new Date(Number(yearText), Number(monthText) - 1, 1);
-    const label = new Intl.DateTimeFormat('pt-BR', {
-      month: 'long',
-      year: 'numeric'
-    }).format(monthDate);
-    return label.charAt(0).toUpperCase() + label.slice(1);
+    return formatYearMonthLabel(getMonthRange(monthValue).month);
   }
 
   function formatCurrency(value: number): string {

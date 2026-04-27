@@ -70,6 +70,20 @@ export function formatDateShort(value: string | Date | null | undefined): string
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(d);
 }
 
+export function formatYearMonthLabel(value: string | null | undefined): string {
+  const raw = String(value || '').trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return raw || '-';
+
+  const [yearText, monthText] = raw.split('-');
+  const monthDate = new Date(Number(yearText), Number(monthText) - 1, 1);
+  if (isNaN(monthDate.getTime())) return raw;
+
+  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(monthDate);
+  const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const yearShort = yearText.slice(-2);
+  return `${monthTitle}-${yearShort}`;
+}
+
 // ─── Documentos ───────────────────────────────────────────────────────────────
 
 export function formatCPF(value: string | null | undefined): string {

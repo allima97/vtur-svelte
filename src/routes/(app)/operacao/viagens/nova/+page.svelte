@@ -256,6 +256,7 @@
         label="Data final"
         type="date"
         bind:value={form.data_fim}
+        min={form.data_inicio || null}
         helper="Opcional. Se vazio, o dossiê considera apenas a data de início."
         class_name="w-full"
       />

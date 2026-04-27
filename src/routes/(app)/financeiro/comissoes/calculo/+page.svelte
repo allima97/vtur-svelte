@@ -286,6 +286,7 @@
       label="Data Fim"
       type="date"
       bind:value={filtroDataFim}
+      min={filtroDataInicio || null}
       class_name="w-full"
     />
 

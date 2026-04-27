@@ -175,10 +175,15 @@
       label: 'Cliente / Destino', 
       sortable: true,
       formatter: (value: string, row: Viagem) => {
+        const dotClass = row.status === 'cancelada'
+          ? 'bg-red-400'
+          : row.tipo === 'internacional'
+            ? 'bg-purple-400'
+            : 'bg-green-400';
         return `<div class="flex flex-col">
           <span class="font-medium text-slate-900">${value}</span>
           <span class="text-xs text-slate-500 flex items-center gap-1">
-            <span class="w-2 h-2 rounded-full ${row.tipo === 'internacional' ? 'bg-purple-400' : 'bg-green-400'}"></span>
+            <span class="w-2 h-2 rounded-full ${dotClass}"></span>
             ${row.destino}
           </span>
         </div>`;
@@ -393,7 +398,23 @@
   exportable={true}
   onRowClick={handleRowClick}
   onExport={handleExport}
-  onSearch={handleBusca}
-  onFilterChange={handleFiltroChange}
   emptyMessage="Nenhuma viagem encontrada"
 />
+
+<div class="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+  <p class="font-medium text-slate-700">Legenda dos indicadores:</p>
+  <div class="mt-2 flex flex-wrap items-center gap-4">
+    <span class="inline-flex items-center gap-2">
+      <span class="h-2.5 w-2.5 rounded-full bg-green-400"></span>
+      Viagem nacional
+    </span>
+    <span class="inline-flex items-center gap-2">
+      <span class="h-2.5 w-2.5 rounded-full bg-purple-400"></span>
+      Viagem internacional
+    </span>
+    <span class="inline-flex items-center gap-2">
+      <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
+      Viagem cancelada
+    </span>
+  </div>
+</div>

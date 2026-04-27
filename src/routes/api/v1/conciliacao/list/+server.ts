@@ -199,6 +199,94 @@ export async function GET(event) {
       };
     });
 
+    const vendaIdsLinked = Array.from(new Set(rows.map((row: any) => String(row?.venda_id || '').trim()).filter(Boolean)));
+    const reciboIdsLinked = Array.from(new Set(rows.map((row: any) => String(row?.venda_recibo_id || '').trim()).filter(Boolean)));
+
+    const vendasById = new Map<string, any>();
+    const clientesById = new Map<string, string>();
+    const vendedoresById = new Map<string, string>();
+    const recibosById = new Map<string, any>();
+
+    if (vendaIdsLinked.length > 0) {
+      const { data: vendasData, error: vendasError } = await client
+        .from('vendas')
+        .select('id, numero_venda, cliente_id, vendedor_id')
+        .eq('company_id', companyId)
+        .in('id', vendaIdsLinked)
+        .limit(1000);
+      if (vendasError) throw vendasError;
+
+      (vendasData || []).forEach((item: any) => {
+        const id = String(item?.id || '').trim();
+        if (id) vendasById.set(id, item);
+      });
+
+      const clienteIds = Array.from(
+        new Set((vendasData || []).map((item: any) => String(item?.cliente_id || '').trim()).filter(Boolean))
+      );
+      const vendedorIds = Array.from(
+        new Set((vendasData || []).map((item: any) => String(item?.vendedor_id || '').trim()).filter(Boolean))
+      );
+
+      if (clienteIds.length > 0) {
+        const { data: clientesData } = await client.from('clientes').select('id, nome').in('id', clienteIds).limit(1000);
+        (clientesData || []).forEach((cliente: any) => {
+          const id = String(cliente?.id || '').trim();
+          const nome = String(cliente?.nome || '').trim();
+          if (id) clientesById.set(id, nome || '-');
+        });
+      }
+
+      if (vendedorIds.length > 0) {
+        const { data: vendedoresData } = await client
+          .from('users')
+          .select('id, nome_completo')
+          .in('id', vendedorIds)
+          .limit(1000);
+        (vendedoresData || []).forEach((vendedor: any) => {
+          const id = String(vendedor?.id || '').trim();
+          const nome = String(vendedor?.nome_completo || '').trim();
+          if (id) vendedoresById.set(id, nome || '-');
+        });
+      }
+    }
+
+    if (reciboIdsLinked.length > 0) {
+      const { data: recibosData } = await client
+        .from('vendas_recibos')
+        .select('id, venda_id, numero_recibo, numero_reserva')
+        .in('id', reciboIdsLinked)
+        .limit(1000);
+      (recibosData || []).forEach((item: any) => {
+        const id = String(item?.id || '').trim();
+        if (id) recibosById.set(id, item);
+      });
+    }
+
+    rows = rows.map((row: any) => {
+      const vendaId = String(row?.venda_id || '').trim();
+      const reciboId = String(row?.venda_recibo_id || '').trim();
+      const venda = vendaId ? vendasById.get(vendaId) : null;
+      const recibo = reciboId ? recibosById.get(reciboId) : null;
+
+      const clienteNome = venda?.cliente_id ? clientesById.get(String(venda.cliente_id)) || null : null;
+      const vendedorNome = venda?.vendedor_id ? vendedoresById.get(String(venda.vendedor_id)) || null : null;
+      const numeroVenda = venda?.numero_venda ? String(venda.numero_venda).trim() : null;
+      const numeroRecibo = recibo?.numero_recibo
+        ? String(recibo.numero_recibo).trim()
+        : recibo?.numero_reserva
+          ? String(recibo.numero_reserva).trim()
+          : null;
+
+      return {
+        ...row,
+        venda_numero: numeroVenda,
+        venda_cliente_nome: clienteNome,
+        venda_vendedor_nome: vendedorNome,
+        recibo_numero: numeroRecibo
+      };
+    });
+
     return json(rows, {
       headers: {
         'Cache-Control': 'private, max-age=5',

@@ -74,6 +74,8 @@ export function createSupabaseServerClient(cookies: {
   get: (name: string) => string | undefined;
   set: (name: string, value: string, options: Record<string, unknown>) => void;
   remove: (name: string, options: Record<string, unknown>) => void;
+  getAll?: () => Array<{ name: string; value: string }>;
+  setAll?: (entries: Array<{ name: string; value: string; options?: Record<string, unknown> }>) => void;
 }) {
   // Usa mock se não há credenciais válidas
   if (shouldUseMock()) {
@@ -90,9 +92,17 @@ export function createSupabaseServerClient(cookies: {
       name: getSupabaseAuthStorageKey()
     },
     cookies: {
-      get: (name) => cookies.get(name),
-      set: (name, value, options) => cookies.set(name, value, options),
-      remove: (name, options) => cookies.remove(name, options)
+      // Compatibilidade com @supabase/ssr: usa getAll/setAll para leitura/escrita de cookies.
+      getAll: () => (typeof cookies.getAll === 'function' ? cookies.getAll() : []),
+      setAll: (entries) => {
+        if (typeof cookies.setAll === 'function') {
+          cookies.setAll(entries);
+          return;
+        }
+        entries.forEach((entry) => {
+          cookies.set(entry.name, entry.value, entry.options || {});
+        });
+      }
     }
   });
 }

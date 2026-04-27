@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Label, Select, Helper } from 'flowbite-svelte';
   import { buildVturInputClasses } from '../inputContract';
+  import { formatYearMonthLabel } from '$lib/utils/formatters';
 
   export let label: string | null = null;
   export let srLabel = false;
@@ -21,6 +22,17 @@
     error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'focus:ring-blue-200'
   );
   $: selectPlaceholder = placeholder === null ? '' : placeholder ?? undefined;
+  $: normalizedOptions = options.map((option) => {
+    const rawLabel = String(option?.label ?? '');
+    const formattedLabel = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawLabel)
+      ? formatYearMonthLabel(rawLabel)
+      : rawLabel;
+
+    return {
+      ...option,
+      label: formattedLabel
+    };
+  });
 </script>
 
 <div class={class_name}>
@@ -41,7 +53,7 @@
     on:change
     on:blur
   >
-    {#each options as option}
+    {#each normalizedOptions as option}
       <option value={option.value} disabled={option.disabled}>{option.label}</option>
     {/each}
   </Select>

@@ -69,6 +69,8 @@
   export let onRowClick: ((row: any) => void) | undefined = undefined;
   export let onSelectionChange: ((selected: any[]) => void) | undefined = undefined;
   export let onExport: (() => void) | undefined = undefined;
+  export let onSearch: ((query: string) => void) | undefined = undefined;
+  export let onFilterChange: ((key: string, value: any) => void) | undefined = undefined;
 
   let searchQuery = '';
   let activeFilters: Record<string, any> = {};
@@ -198,6 +200,7 @@
 
   function applyFilter(key: string, value: any) {
     activeFilters = { ...activeFilters, [key]: value };
+    onFilterChange?.(key, value);
   }
 
   function getEventValue(event: Event) {
@@ -223,6 +226,7 @@
   }
 
   $: pageSizeValue = String(currentPageSize);
+  $: onSearch?.(searchQuery);
 </script>
 
 <div class="datatable-card vtur-card overflow-hidden">

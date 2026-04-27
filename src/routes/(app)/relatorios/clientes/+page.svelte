@@ -275,7 +275,7 @@
 
 <FilterPanel color="financeiro">
   <FieldInput id="rel-clientes-data-inicio" label="Data Inicio" type="date" bind:value={dataInicio} class_name="w-full" />
-  <FieldInput id="rel-clientes-data-fim" label="Data Fim" type="date" bind:value={dataFim} class_name="w-full" />
+  <FieldInput id="rel-clientes-data-fim" label="Data Fim" type="date" bind:value={dataFim} min={dataInicio || null} class_name="w-full" />
   {#if showEmpresaFiltro}
     <FieldSelect
       id="rel-clientes-empresa"

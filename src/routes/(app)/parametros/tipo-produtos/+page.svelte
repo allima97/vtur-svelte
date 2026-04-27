@@ -40,7 +40,7 @@
       descricao: '',
       ativo: true,
       soma_na_meta: true,
-      regra_comissionamento: 'padrao',
+      regra_comissionamento: 'geral',
       usa_meta_produto: false,
       meta_produto_valor: '',
       comissao_produto_meta_pct: '',
@@ -61,9 +61,8 @@
   ];
 
   const REGRAS = [
-    { value: 'padrao', label: 'Padrão' },
-    { value: 'fixo', label: 'Fixo' },
-    { value: 'nao_comissionavel', label: 'Não comissionável' }
+    { value: 'geral', label: 'Geral' },
+    { value: 'diferenciado', label: 'Diferenciado' }
   ];
 
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('parametros', 'edit');
@@ -131,7 +130,7 @@
       descricao: tipo.descricao || '',
       ativo: tipo.ativo,
       soma_na_meta: tipo.soma_na_meta,
-      regra_comissionamento: tipo.regra_comissionamento || 'padrao',
+      regra_comissionamento: tipo.regra_comissionamento || 'geral',
       usa_meta_produto: Boolean(tipo.usa_meta_produto),
       meta_produto_valor: tipo.meta_produto_valor != null ? String(tipo.meta_produto_valor) : '',
       comissao_produto_meta_pct: tipo.comissao_produto_meta_pct != null ? String(tipo.comissao_produto_meta_pct) : '',
@@ -165,7 +164,17 @@
           exibe_kpi_comissao: form.exibe_kpi_comissao
         })
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const raw = await response.text();
+        let message = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed?.error) message = String(parsed.error);
+        } catch {
+          // resposta nao-json
+        }
+        throw new Error(message || 'Erro ao salvar tipo de produto.');
+      }
       toast.success(editingId ? 'Tipo de produto atualizado.' : 'Tipo de produto criado.');
       modalOpen = false;
       await load();

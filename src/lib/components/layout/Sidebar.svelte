@@ -9,7 +9,6 @@
   import {
     AlertCircle,
     Banknote,
-    BarChart3,
     Building2,
     Calendar,
     ChevronDown,
@@ -41,6 +40,7 @@
     Video,
     Wallet
   } from 'lucide-svelte';
+  import { FilePenSolid } from 'flowbite-svelte-icons';
   import { slide } from 'svelte/transition';
   import Button from '$lib/components/ui/Button.svelte';
 
@@ -114,7 +114,7 @@
         { key: 'campanhas', name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
         { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
         { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video },
-        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
+        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: FilePenSolid as unknown as typeof LayoutDashboard },
         { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
       ]
     },
@@ -335,7 +335,7 @@
     { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
     { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
     { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
-    { name: 'Relatórios',     href: '/relatorios',             icon: FileSpreadsheet },
+    { name: 'Relatórios',     href: '/relatorios',             icon: FilePenSolid as unknown as typeof LayoutDashboard },
     { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
     $permissoes.isMaster
       ? { name: 'Master',     href: '/master',                 icon: Shield }

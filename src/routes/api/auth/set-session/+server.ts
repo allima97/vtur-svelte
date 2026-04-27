@@ -12,6 +12,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const supabase = createSupabaseServerClient({
       get: (name) => cookies.get(name),
+      getAll: () => cookies.getAll().map((cookie) => ({ name: cookie.name, value: cookie.value })),
       set: (name, value, options) => {
         cookies.set(name, value, { ...options, path: '/' });
       },

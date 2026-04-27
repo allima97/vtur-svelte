@@ -8,6 +8,26 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function isMissingColumnError(err: any) {
+  const code = String(err?.code || '');
+  const message = String(err?.message || '').toLowerCase();
+  const details = String(err?.details || '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    message.includes('does not exist') ||
+    message.includes('could not find') ||
+    details.includes('could not find')
+  );
+}
+
+function normalizeRegraComissionamento(value: unknown): 'geral' | 'diferenciado' {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'diferenciado') return 'diferenciado';
+  return 'geral';
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -31,15 +51,25 @@ export async function GET(event) {
 
     let { data, error } = await query;
 
-    // Se falhar por colunas inexistentes, tenta com colunas básicas
-    if (error && (String(error.code || '').includes('42703') || String(error.message || '').includes('does not exist'))) {
+    // Se falhar por colunas inexistentes, tenta com colunas basicas reais
+    if (error && isMissingColumnError(error)) {
       const fallback = await client
         .from('tipo_produtos')
-        .select('id, nome, tipo, descricao, ativo, created_at')
+        .select('id, nome, tipo, ativo, created_at')
         .order('nome', { ascending: true })
         .limit(200);
       if (!fallback.error) {
-        data = fallback.data as any;
+        data = (fallback.data || []).map((row: any) => ({
+          ...row,
+          descricao: null,
+          soma_na_meta: true,
+          regra_comissionamento: 'geral',
+          usa_meta_produto: false,
+          meta_produto_valor: null,
+          comissao_produto_meta_pct: null,
+          descontar_meta_geral: false,
+          exibe_kpi_comissao: true
+        })) as any;
         error = null;
       }
     }
@@ -83,11 +113,11 @@ export async function POST(event) {
 
     const payload = {
       nome: nomeTrimmed,
-      tipo: String(tipo || 'servico').trim(),
+      tipo: String(tipo || 'servico').trim() || 'servico',
       descricao: String(descricao || '').trim() || null,
       ativo: ativo !== false,
       soma_na_meta: Boolean(soma_na_meta),
-      regra_comissionamento: String(regra_comissionamento || 'geral').trim() === 'diferenciado' ? 'diferenciado' : 'geral',
+      regra_comissionamento: normalizeRegraComissionamento(regra_comissionamento),
       usa_meta_produto: Boolean(usa_meta_produto),
       meta_produto_valor: meta_produto_valor != null ? Number(meta_produto_valor) : null,
       comissao_produto_meta_pct: comissao_produto_meta_pct != null ? Number(comissao_produto_meta_pct) : null,
@@ -95,15 +125,55 @@ export async function POST(event) {
       exibe_kpi_comissao: Boolean(exibe_kpi_comissao)
     };
 
+    const fallbackPayload = {
+      nome: payload.nome,
+      tipo: payload.tipo,
+      ativo: payload.ativo,
+      soma_na_meta: payload.soma_na_meta,
+      regra_comissionamento: payload.regra_comissionamento
+    };
+
     let result;
     if (id && isUuid(id)) {
-      const { data: updated, error: updateError } = await client.from('tipo_produtos').update(payload).eq('id', id).select('id').single();
-      if (updateError) throw updateError;
-      result = updated;
+      const { data: updated, error: updateError } = await client
+        .from('tipo_produtos')
+        .update(payload)
+        .eq('id', id)
+        .select('id')
+        .single();
+
+      if (updateError) {
+        if (!isMissingColumnError(updateError)) throw updateError;
+        const { data: fallbackUpdated, error: fallbackUpdateError } = await client
+          .from('tipo_produtos')
+          .update(fallbackPayload)
+          .eq('id', id)
+          .select('id')
+          .single();
+        if (fallbackUpdateError) throw fallbackUpdateError;
+        result = fallbackUpdated;
+      } else {
+        result = updated;
+      }
     } else {
-      const { data: inserted, error: insertError } = await client.from('tipo_produtos').insert(payload).select('id').single();
-      if (insertError) throw insertError;
-      result = inserted;
+      const { data: inserted, error: insertError } = await client
+        .from('tipo_produtos')
+        .insert(payload)
+        .select('id')
+        .single();
+
+      if (insertError) {
+        if (!isMissingColumnError(insertError)) throw insertError;
+        const { data: fallbackInserted, error: fallbackInsertError } = await client
+          .from('tipo_produtos')
+          .insert(fallbackPayload)
+          .select('id')
+          .single();
+        if (fallbackInsertError) throw fallbackInsertError;
+        result = fallbackInserted;
+      } else {
+        result = inserted;
+      }
     }
 
     return json({ ok: true, id: result?.id });

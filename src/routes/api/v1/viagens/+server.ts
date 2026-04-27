@@ -4,6 +4,7 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
+  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse,
   getMonthRange,
@@ -55,10 +56,80 @@ export async function GET(event) {
     const status = searchParams.get('status');
     const periodo = searchParams.get('periodo');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
+    const requestedResponsavelRaw =
+      searchParams.get('responsavel_ids') ||
+      searchParams.get('responsavel_id') ||
+      searchParams.get('vendedor_ids') ||
+      searchParams.get('vendedor_id');
+    const scopedResponsavelIds = await resolveScopedVendedorIds(client, scope, requestedResponsavelRaw);
 
-    // ✅ Guard: não-admin sem empresa identificada não lista nada
-    if (!scope.isAdmin && companyIds.length === 0 && !scope.usoIndividual) {
+    // ✅ Guard: gestor/master sem empresa identificada não lista nada
+    if (!scope.isAdmin && (scope.isGestor || scope.isMaster) && companyIds.length === 0) {
       return json({ items: [], total: 0 });
+    }
+
+    const effectiveResponsavelIds = !scope.isAdmin
+      ? scope.isGestor || scope.isMaster
+        ? scopedResponsavelIds
+        : [user.id]
+      : scopedResponsavelIds;
+
+    let vendaIdsByResponsavel: string[] = [];
+    if (effectiveResponsavelIds.length > 0) {
+      let vendasQuery = client
+        .from('vendas')
+        .select('id')
+        .in('vendedor_id', effectiveResponsavelIds)
+        .limit(5000);
+
+      if (companyIds.length > 0) {
+        vendasQuery = vendasQuery.in('company_id', companyIds);
+      }
+
+      const { data: vendasByResponsavel } = await vendasQuery;
+      vendaIdsByResponsavel = (vendasByResponsavel || [])
+        .map((row: any) => String(row?.id || '').trim())
+        .filter(Boolean);
+    }
+
+    let clienteIdsByResponsavel: string[] = [];
+    if (effectiveResponsavelIds.length > 0) {
+      const clienteIds = new Set<string>();
+
+      // Clientes relacionados a vendas do vendedor/equipe
+      let clientesViaVendasQuery = client
+        .from('vendas')
+        .select('cliente_id')
+        .in('vendedor_id', effectiveResponsavelIds)
+        .not('cliente_id', 'is', null)
+        .limit(5000);
+      if (companyIds.length > 0) {
+        clientesViaVendasQuery = clientesViaVendasQuery.in('company_id', companyIds);
+      }
+      const { data: clientesViaVendas } = await clientesViaVendasQuery;
+      (clientesViaVendas || []).forEach((row: any) => {
+        const id = String(row?.cliente_id || '').trim();
+        if (id) clienteIds.add(id);
+      });
+
+      // Clientes criados pelo vendedor/equipe (fallback para viagens sem venda vinculada)
+      let clientesCriadosQuery = client
+        .from('clientes')
+        .select('id')
+        .in('created_by', effectiveResponsavelIds)
+        .limit(5000);
+      if (companyIds.length > 0) {
+        clientesCriadosQuery = clientesCriadosQuery.in('company_id', companyIds);
+      }
+      const { data: clientesCriados, error: clientesCriadosError } = await clientesCriadosQuery;
+      if (!clientesCriadosError) {
+        (clientesCriados || []).forEach((row: any) => {
+          const id = String(row?.id || '').trim();
+          if (id) clienteIds.add(id);
+        });
+      }
+
+      clienteIdsByResponsavel = Array.from(clienteIds);
     }
 
     let query = client
@@ -100,10 +171,6 @@ export async function GET(event) {
       query = query.in('company_id', companyIds);
     }
 
-    if (scope.usoIndividual) {
-      query = query.eq('responsavel_user_id', user.id);
-    }
-
     const periodoFilter = getPeriodoFilter(periodo);
     if (periodoFilter?.from && periodoFilter?.to) {
       query = query
@@ -114,7 +181,25 @@ export async function GET(event) {
     const { data, error } = await query;
     if (error) throw error;
 
-    const clienteIds = [...new Set((data || []).map((v: any) => v.cliente_id).filter(Boolean))];
+    const shouldApplyScopeFilter = !scope.isAdmin || effectiveResponsavelIds.length > 0;
+    const responsavelSet = new Set(effectiveResponsavelIds);
+    const vendaSet = new Set(vendaIdsByResponsavel);
+    const clienteSet = new Set(clienteIdsByResponsavel);
+
+    const scopedData = shouldApplyScopeFilter
+      ? (data || []).filter((row: any) => {
+          const responsavelId = String(row?.responsavel_user_id || '').trim();
+          const vendaId = String(row?.venda_id || '').trim();
+          const clienteId = String(row?.cliente_id || '').trim();
+          return (
+            (responsavelId && responsavelSet.has(responsavelId)) ||
+            (vendaId && vendaSet.has(vendaId)) ||
+            (clienteId && clienteSet.has(clienteId))
+          );
+        })
+      : (data || []);
+
+    const clienteIds = [...new Set((scopedData || []).map((v: any) => v.cliente_id).filter(Boolean))];
     const clientesMap = new Map<string, string>();
     if (clienteIds.length > 0) {
       const { data: clientesData } = await client
@@ -124,7 +209,7 @@ export async function GET(event) {
       (clientesData || []).forEach((c: any) => clientesMap.set(c.id, c.nome));
     }
 
-    const responsavelIds = [...new Set((data || []).map((v: any) => v.responsavel_user_id).filter(Boolean))];
+    const responsavelIds = [...new Set((scopedData || []).map((v: any) => v.responsavel_user_id).filter(Boolean))];
     const responsaveisMap = new Map<string, string>();
     if (responsavelIds.length > 0) {
       const { data: responsaveisData } = await client
@@ -134,7 +219,7 @@ export async function GET(event) {
       (responsaveisData || []).forEach((u: any) => responsaveisMap.set(u.id, u.nome_completo));
     }
 
-    const viagemIds = (data || []).map((v: any) => v.id);
+    const viagemIds = (scopedData || []).map((v: any) => v.id);
     const passageirosCountMap = new Map<string, number>();
     if (viagemIds.length > 0) {
       const { data: passageirosData } = await client
@@ -146,7 +231,7 @@ export async function GET(event) {
       });
     }
 
-    const vendaIds = [...new Set((data || []).map((v: any) => v.venda_id).filter(Boolean))];
+    const vendaIds = [...new Set((scopedData || []).map((v: any) => v.venda_id).filter(Boolean))];
     const vendasMap = new Map<string, number>();
     if (vendaIds.length > 0) {
       const { data: vendasData } = await client
@@ -162,7 +247,7 @@ export async function GET(event) {
       'new york', 'paris', 'londres', 'italia', 'espanha', 'portugal'
     ];
 
-    const items = (data || []).map((row: any) => {
+    const items = (scopedData || []).map((row: any) => {
       const numPassageiros = passageirosCountMap.get(row.id) || 1;
       const valorVenda = row.venda_id ? (vendasMap.get(row.venda_id) || 0) : 0;
       const tipoViagem =

@@ -97,6 +97,7 @@ function buildMfaSetupRedirectUrl(url: URL) {
 const supabaseHook: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabaseServerClient({
 		get: (name) => event.cookies.get(name),
+		getAll: () => event.cookies.getAll().map((cookie) => ({ name: cookie.name, value: cookie.value })),
 		set: (name, value, options) => {
 			event.cookies.set(name, value, { ...options, path: '/' });
 		},

@@ -120,7 +120,16 @@
 
     saving = true;
     try {
-      const toNum = (v: string) => (v.trim() === '' ? null : Number(v));
+      const toNum = (v: string | number | null | undefined, label: string) => {
+        const raw = String(v ?? '').trim();
+        if (!raw) return null;
+        const normalized = raw.replace(',', '.');
+        const parsed = Number(normalized);
+        if (!Number.isFinite(parsed)) {
+          throw new Error(`Valor invalido em ${label}.`);
+        }
+        return parsed;
+      };
       const response = await fetch('/api/v1/parametros/tipo-pacotes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,12 +138,22 @@
           nome: form.nome.trim(),
           ativo: form.ativo,
           rule_id: form.rule_id || null,
-          fix_meta_nao_atingida: toNum(form.fix_meta_nao_atingida),
-          fix_meta_atingida: toNum(form.fix_meta_atingida),
-          fix_super_meta: toNum(form.fix_super_meta)
+          fix_meta_nao_atingida: toNum(form.fix_meta_nao_atingida, '% Meta nao batida'),
+          fix_meta_atingida: toNum(form.fix_meta_atingida, '% Meta batida'),
+          fix_super_meta: toNum(form.fix_super_meta, '% Super meta')
         })
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) {
+        const raw = await response.text();
+        let message = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed?.error) message = String(parsed.error);
+        } catch {
+          // resposta nao-json
+        }
+        throw new Error(message || 'Erro ao salvar tipo de pacote.');
+      }
       toast.success(editingId ? 'Tipo de pacote atualizado.' : 'Tipo de pacote criado.');
       modalOpen = false;
       await load();

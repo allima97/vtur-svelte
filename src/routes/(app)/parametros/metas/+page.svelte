@@ -6,6 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Target, Trash2, RefreshCw } from 'lucide-svelte';
@@ -52,9 +53,7 @@
   }
 
   function formatPeriodo(value: string) {
-    if (!value) return '-';
-    const [year, month] = value.split('-');
-    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return formatYearMonthLabel(value);
   }
 
   const columns = [

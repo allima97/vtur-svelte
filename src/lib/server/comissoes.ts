@@ -842,12 +842,12 @@ export function resolveVendaCommission(
     let selectedOrigin: 'tipo_pacote' | 'produto_pacote' | 'produto' | 'fixo' | 'diferenciado' | 'sem_regra' =
       'sem_regra';
 
-    if (hasPackageRuleConfig(pacoteRegraTipo)) {
-      selectedRuleRef = pacoteRegraTipo;
-      selectedOrigin = 'tipo_pacote';
-    } else if (hasPackageRuleConfig(pacoteRegraProduto)) {
+    if (hasPackageRuleConfig(pacoteRegraProduto)) {
       selectedRuleRef = pacoteRegraProduto;
       selectedOrigin = 'produto_pacote';
+    } else if (hasPackageRuleConfig(pacoteRegraTipo)) {
+      selectedRuleRef = pacoteRegraTipo;
+      selectedOrigin = 'tipo_pacote';
     } else if (produtoRegraBase) {
       selectedRuleRef = produtoRegraBase;
       selectedOrigin = 'produto';

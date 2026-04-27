@@ -15,7 +15,6 @@
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
   import {
     AlertCircle,
-    Bot,
     Calendar,
     CheckCircle,
     Clock3,
@@ -27,6 +26,7 @@
     Loader2,
     RefreshCcw,
     Save,
+    Pencil,
     ShieldAlert,
     Upload,
     Users
@@ -63,6 +63,10 @@
     diff_taxas: number | null;
     venda_id: string | null;
     venda_recibo_id: string | null;
+    venda_numero?: string | null;
+    venda_cliente_nome?: string | null;
+    venda_vendedor_nome?: string | null;
+    recibo_numero?: string | null;
     ranking_vendedor_id: string | null;
     ranking_produto_id: string | null;
     ranking_assigned_at: string | null;
@@ -113,6 +117,10 @@
 
   type VendedorOption = { id: string; nome_completo: string };
   type ProdutoOption = { id: string; nome: string };
+  type DetalheRateioInfo = {
+    vendedor_destino_nome: string;
+    percentual_destino: number;
+  };
   type ImportPreviewRow = {
     documento: string;
     movimento_data: string | null;
@@ -188,6 +196,23 @@
   let rankingProdutoId = '';
   let isBaixaRac = false;
   let marcadoConciliado = false;
+  let detailsReadOnly = true;
+  let detalheRateioInfo: DetalheRateioInfo | null = null;
+  let detalheRateioLoading = false;
+
+  let detalheValorLancamentos = '';
+  let detalheValorTaxas = '';
+  let detalheValorDescontos = '';
+  let detalheValorAbatimentos = '';
+  let detalheValorNaoComissionavel = '';
+  let detalheValorCalculadaLoja = '';
+  let detalheValorVisaoMaster = '';
+  let detalheValorOpfax = '';
+  let detalheValorSaldo = '';
+  let detalheValorVendaReal = '';
+  let detalheValorComissaoLoja = '';
+  let detalhePercentualComissaoLoja = '';
+  let detalheFaixaComissao = '';
 
   let importText = '';
   let importFallbackDate = new Date().toISOString().slice(0, 10);
@@ -569,13 +594,61 @@
     }
   }
 
-  function openDetails(row: ConciliacaoItem) {
+  async function openDetails(row: ConciliacaoItem) {
     selectedRow = row;
     rankingVendedorId = row.ranking_vendedor_id || '';
     rankingProdutoId = row.ranking_produto_id || '';
     isBaixaRac = Boolean(row.is_baixa_rac);
     marcadoConciliado = Boolean(row.conciliado);
+    detailsReadOnly = true;
+    detalheRateioInfo = null;
+    fillDetailsForm(row);
     showDetailsDialog = true;
+    await loadDetalheRateioInfo(row);
+  }
+
+  async function loadDetalheRateioInfo(row: ConciliacaoItem) {
+    const vendaReciboId = String(row?.venda_recibo_id || '').trim();
+    if (!vendaReciboId) {
+      detalheRateioInfo = null;
+      return;
+    }
+
+    detalheRateioLoading = true;
+    try {
+      const params = new URLSearchParams({
+        venda_recibo_id: vendaReciboId,
+        conciliacao_recibo_id: String(row.id || '')
+      });
+      const response = await fetch(`/api/v1/conciliacao/rateio-info?${params.toString()}`);
+      const data = await response.json().catch(() => null);
+      const rateio = data?.rateio;
+
+      if (!response.ok || !rateio || rateio.ativo === false) {
+        detalheRateioInfo = null;
+        return;
+      }
+
+      const vendedorDestinoNome = String(rateio.vendedor_destino_nome || '').trim();
+      const percentualDestino = Number(rateio.percentual_destino || 0);
+      if (!vendedorDestinoNome || !Number.isFinite(percentualDestino) || percentualDestino <= 0) {
+        detalheRateioInfo = null;
+        return;
+      }
+
+      detalheRateioInfo = {
+        vendedor_destino_nome: vendedorDestinoNome,
+        percentual_destino: percentualDestino
+      };
+    } catch {
+      detalheRateioInfo = null;
+    } finally {
+      detalheRateioLoading = false;
+    }
+  }
+
+  function enableDetailsEdit() {
+    detailsReadOnly = false;
   }
 
   async function saveAssignment() {
@@ -592,11 +665,22 @@
           vendaId: selectedRow.venda_id || null,
           vendaReciboId: selectedRow.venda_recibo_id || null,
           isBaixaRac,
-          conciliado: marcadoConciliado
+          conciliado: marcadoConciliado,
+          valorLancamentos: parsePtBrNullable(detalheValorLancamentos),
+          valorTaxas: parsePtBrNullable(detalheValorTaxas),
+          valorDescontos: parsePtBrNullable(detalheValorDescontos),
+          valorAbatimentos: parsePtBrNullable(detalheValorAbatimentos),
+          valorNaoComissionavel: parsePtBrNullable(detalheValorNaoComissionavel),
+          valorCalculadaLoja: parsePtBrNullable(detalheValorCalculadaLoja),
+          valorVisaoMaster: parsePtBrNullable(detalheValorVisaoMaster),
+          valorOpfax: parsePtBrNullable(detalheValorOpfax),
+          valorSaldo: parsePtBrNullable(detalheValorSaldo),
+          valorComissaoLoja: parsePtBrNullable(detalheValorComissaoLoja)
         })
       });
       await parseJson(response, 'Erro ao salvar atribuição de conciliação.');
       toast.success('Atribuição salva com sucesso.');
+      detailsReadOnly = true;
       showDetailsDialog = false;
       await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
     } catch (error: any) {
@@ -836,6 +920,58 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function parsePtBrNullable(value: string) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    return parsePtBrNumberInput(raw);
+  }
+
+  function formatPtBrInput(value: number | null | undefined) {
+    if (value === null || value === undefined) return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fillDetailsForm(row: ConciliacaoItem) {
+    detalheValorLancamentos = formatPtBrInput(row.valor_lancamentos);
+    detalheValorTaxas = formatPtBrInput(row.valor_taxas);
+    detalheValorDescontos = formatPtBrInput(row.valor_descontos);
+    detalheValorAbatimentos = formatPtBrInput(row.valor_abatimentos);
+    detalheValorNaoComissionavel = formatPtBrInput(row.valor_nao_comissionavel);
+    detalheValorCalculadaLoja = formatPtBrInput(row.valor_calculada_loja);
+    detalheValorVisaoMaster = formatPtBrInput(row.valor_visao_master);
+    detalheValorOpfax = formatPtBrInput(row.valor_opfax);
+    detalheValorSaldo = formatPtBrInput(row.valor_saldo);
+
+    detalheValorVendaReal = formatPtBrInput(row.valor_venda_real);
+    detalheValorComissaoLoja = formatPtBrInput(row.valor_comissao_loja);
+    detalhePercentualComissaoLoja = formatPtBrInput(row.percentual_comissao_loja);
+    detalheFaixaComissao = String(row.faixa_comissao || '');
+  }
+
+  function recalculateDetailMetrics() {
+    const metrics = buildConciliacaoMetrics({
+      descricao: selectedRow?.descricao,
+      valorLancamentos: parsePtBrNullable(detalheValorLancamentos),
+      valorTaxas: parsePtBrNullable(detalheValorTaxas),
+      valorDescontos: parsePtBrNullable(detalheValorDescontos),
+      valorAbatimentos: parsePtBrNullable(detalheValorAbatimentos),
+      valorNaoComissionavel: parsePtBrNullable(detalheValorNaoComissionavel),
+      valorCalculadaLoja: parsePtBrNullable(detalheValorCalculadaLoja),
+      valorVisaoMaster: parsePtBrNullable(detalheValorVisaoMaster),
+      valorOpfax: parsePtBrNullable(detalheValorOpfax),
+      valorSaldo: parsePtBrNullable(detalheValorSaldo),
+      valorComissaoLoja: parsePtBrNullable(detalheValorComissaoLoja),
+      percentualComissaoLoja: parsePtBrNullable(detalhePercentualComissaoLoja)
+    });
+
+    detalheValorVendaReal = formatPtBrInput(metrics.valorVendaReal);
+    detalheValorComissaoLoja = formatPtBrInput(metrics.valorComissaoLoja);
+    detalhePercentualComissaoLoja = formatPtBrInput(metrics.percentualComissaoLoja);
+    detalheFaixaComissao = String(metrics.faixaComissao || '');
+  }
+
   function updateImportRow(index: number, patch: Partial<ImportPreviewRow>) {
     importPreparedRows = importPreparedRows.map((row, rowIndex) => {
       if (rowIndex !== index) return row;
@@ -1016,7 +1152,7 @@
       Exportar
     </Button>
     <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
-      <Bot size={16} class="mr-2" />Conciliar pendentes
+      <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
     </Button>
     <Button variant="secondary" on:click={loadAll} disabled={loading} loading={loading}>
       <RefreshCcw size={16} class="mr-2" />
@@ -1359,77 +1495,126 @@
   bind:open={showDetailsDialog}
   title="Detalhes da conciliação"
   color="financeiro"
-  showConfirm={true}
-  confirmText="Salvar atribuição"
+  showConfirm={!detailsReadOnly}
+  confirmText="Salvar"
   onConfirm={saveAssignment}
   loading={saving}
   maxWidth="840px"
 >
   {#if selectedRow}
     <div class="space-y-5">
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Extrato</p>
-          <p class="mt-2 text-lg font-semibold text-slate-900">{selectedRow.documento}</p>
-          <p class="text-sm text-slate-500">{selectedRow.descricao || 'Sem descrição'}</p>
-          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-slate-500">Data</p>
-              <p class="font-medium text-slate-900">{formatDate(selectedRow.movimento_data)}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Status</p>
-              <p class="font-medium text-slate-900">{selectedRow.status_label || selectedRow.status}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Valor loja</p>
-              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.valor_calculada_loja)}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">% loja</p>
-              <p class="font-medium text-slate-900">{formatPercent(selectedRow.percentual_comissao_loja)}</p>
-            </div>
+      <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Resumo da conciliação</p>
+        <div class="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
+          <div>
+            <p class="text-slate-500">Recibo vinculado</p>
+            <p class="font-medium text-slate-900">{selectedRow.recibo_numero || '-'}</p>
           </div>
-        </div>
-
-        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Auditoria do sistema</p>
-          <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p class="text-slate-500">Venda vinculada</p>
-              <p class="font-medium text-slate-900">{selectedRow.venda_id || '-'}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Recibo vinculado</p>
-              <p class="font-medium text-slate-900">{selectedRow.venda_recibo_id || '-'}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Match total</p>
-              <p class="font-medium text-slate-900">{selectedRow.match_total == null ? '-' : selectedRow.match_total ? 'Sim' : 'Não'}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Match taxas</p>
-              <p class="font-medium text-slate-900">{selectedRow.match_taxas == null ? '-' : selectedRow.match_taxas ? 'Sim' : 'Não'}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Dif. total</p>
-              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_total)}</p>
-            </div>
-            <div>
-              <p class="text-slate-500">Dif. taxas</p>
-              <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_taxas)}</p>
-            </div>
+          <div>
+            <p class="text-slate-500">Cliente da venda</p>
+            <p class="font-medium text-slate-900">{selectedRow.venda_cliente_nome || '-'}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Vendedor da venda</p>
+            <p class="font-medium text-slate-900">{selectedRow.venda_vendedor_nome || '-'}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Vendedor dividido</p>
+            <p class="font-medium text-slate-900">
+              {#if detalheRateioLoading}
+                Consultando...
+              {:else}
+                {detalheRateioInfo?.vendedor_destino_nome || '-'}
+              {/if}
+            </p>
+          </div>
+          <div>
+            <p class="text-slate-500">% dividido</p>
+            <p class="font-medium text-slate-900">
+              {#if detalheRateioLoading}
+                Consultando...
+              {:else if detalheRateioInfo}
+                {Number(detalheRateioInfo.percentual_destino || 0).toFixed(2)}%
+              {:else}
+                -
+              {/if}
+            </p>
+          </div>
+          <div>
+            <p class="text-slate-500">Data</p>
+            <p class="font-medium text-slate-900">{formatDate(selectedRow.movimento_data)}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Status</p>
+            <p class="font-medium text-slate-900">{selectedRow.status_label || selectedRow.status}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Valor loja</p>
+            <p class="font-medium text-slate-900">{formatCurrency(selectedRow.valor_calculada_loja)}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">% loja</p>
+            <p class="font-medium text-slate-900">{formatPercent(selectedRow.percentual_comissao_loja)}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Match total</p>
+            <p class="font-medium text-slate-900">{selectedRow.match_total == null ? '-' : selectedRow.match_total ? 'Sim' : 'Não'}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Match taxas</p>
+            <p class="font-medium text-slate-900">{selectedRow.match_taxas == null ? '-' : selectedRow.match_taxas ? 'Sim' : 'Não'}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Dif. total</p>
+            <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_total)}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Dif. taxas</p>
+            <p class="font-medium text-slate-900">{formatCurrency(selectedRow.diff_taxas)}</p>
+          </div>
+          <div>
+            <p class="text-slate-500">Conciliado</p>
+            <p class="font-medium text-slate-900">{selectedRow.conciliado ? 'Sim' : 'Não'}</p>
           </div>
         </div>
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4 md:col-span-2">
+          <div class="mb-3 flex items-center justify-between gap-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Campos da importação</p>
+            {#if detailsReadOnly}
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">Modo visual</span>
+            {:else}
+              <span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">Modo edição</span>
+            {/if}
+          </div>
+          <div class="grid gap-3 md:grid-cols-3">
+            <FieldInput id="conciliacao-valor-lancamentos" label="Valor lançamentos" bind:value={detalheValorLancamentos} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-taxas" label="Valor taxas" bind:value={detalheValorTaxas} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-descontos" label="Valor descontos" bind:value={detalheValorDescontos} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-abatimentos" label="Valor abatimentos" bind:value={detalheValorAbatimentos} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-nao-comissionavel" label="Valor não comissionável" bind:value={detalheValorNaoComissionavel} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-saldo" label="Valor saldo" bind:value={detalheValorSaldo} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-calculada-loja" label="Valor calculada loja" bind:value={detalheValorCalculadaLoja} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-visao-master" label="Valor visão master" bind:value={detalheValorVisaoMaster} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-opfax" label="Valor OPFAX" bind:value={detalheValorOpfax} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-valor-venda-real" label="Valor venda real" bind:value={detalheValorVendaReal} disabled={true} />
+            <FieldInput id="conciliacao-valor-comissao-loja" label="Valor comissão loja" bind:value={detalheValorComissaoLoja} disabled={detailsReadOnly} on:input={recalculateDetailMetrics} />
+            <FieldInput id="conciliacao-percentual-comissao-loja" label="% comissão loja" bind:value={detalhePercentualComissaoLoja} disabled={true} />
+          </div>
+          <div class="mt-3">
+            <FieldInput id="conciliacao-faixa-comissao" label="Faixa de comissão" bind:value={detalheFaixaComissao} disabled={true} />
+          </div>
+        </div>
+
         <FieldSelect
           id="conciliacao-vendedor"
           label="Vendedor de ranking"
           bind:value={rankingVendedorId}
           options={vendedorOptions}
           class_name="w-full"
+          disabled={detailsReadOnly}
         />
         <FieldSelect
           id="conciliacao-produto"
@@ -1437,17 +1622,17 @@
           bind:value={rankingProdutoId}
           options={produtoOptions}
           class_name="w-full"
+          disabled={detailsReadOnly}
         />
       </div>
 
       <div class="grid gap-3 md:grid-cols-2">
-        <FieldCheckbox label="Marcar como conciliado" bind:checked={marcadoConciliado} color="financeiro" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" />
-        <FieldCheckbox label="Marcar como Baixa RAC" bind:checked={isBaixaRac} color="financeiro" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" />
+        <FieldCheckbox label="Marcar como conciliado" bind:checked={marcadoConciliado} color="financeiro" align="center" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" disabled={detailsReadOnly} />
+        <FieldCheckbox label="Marcar como Baixa RAC" bind:checked={isBaixaRac} color="financeiro" align="center" class_name="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" disabled={detailsReadOnly} />
       </div>
 
       <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
         <Button variant="secondary" on:click={() => selectedRow && runAutoConciliacao(selectedRow.id)} disabled={running} loading={running}>
-          <Bot size={16} class="mr-2" />
           Tentar vínculo automático
         </Button>
         <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
@@ -1458,9 +1643,11 @@
   {/if}
 
   <svelte:fragment slot="actions">
-    <Button color="financeiro" on:click={saveAssignment} loading={saving}>
-      <Save size={16} class="mr-2" />
-      Salvar atribuição
-    </Button>
+    {#if detailsReadOnly}
+      <Button variant="secondary" on:click={enableDetailsEdit} disabled={saving || running}>
+        <Pencil size={16} class="mr-2" />
+        Editar
+      </Button>
+    {/if}
   </svelte:fragment>
 </Dialog>

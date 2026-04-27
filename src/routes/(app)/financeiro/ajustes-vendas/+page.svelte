@@ -192,6 +192,7 @@
       label="Data fim"
       type="date"
       bind:value={fim}
+      min={inicio || null}
       class_name="min-w-[160px]"
     />
     <FieldSelect

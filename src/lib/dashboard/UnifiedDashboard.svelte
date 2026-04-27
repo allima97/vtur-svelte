@@ -424,7 +424,7 @@
       {
         label: 'Receita',
         data: vendasAgg.porProduto.map((p) => p.value),
-        backgroundColor: ['#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5', '#e2e8f0']
+        backgroundColor: ['#fb923c', '#fdba74', '#fed7aa', '#ffedd5', '#fff7ed', '#e2e8f0']
       }
     ]
   } satisfies ChartData;

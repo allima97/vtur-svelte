@@ -7,11 +7,13 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
+  import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import {
     ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
-    AlertCircle, Clock, CheckCircle, Shield, Pencil, Save, X
+    AlertCircle, Clock, CheckCircle, Shield
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -28,47 +30,162 @@
   let showMesclar = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let ensuringProdutos = new Set<string>();
+  let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
+  let cidadesBase: Array<{ id: string; label?: string | null; nome?: string | null }> = [];
+  let tiposPacoteBase: Array<{ id: string; nome: string }> = [];
 
-  // Edição inline de recibo
+  // Edição por modal de recibo
+  let showEditReciboDialog = false;
   let editingReciboId: string | null = null;
-  let editingReciboNumero = '';
+  let isEditingReciboDetails = false;
   let savingRecibo = false;
+  let reciboForm = {
+    numero_recibo: '',
+    produto_id: '',
+    destino_cidade_id: '',
+    numero_reserva: '',
+    data_inicio: '',
+    data_fim: '',
+    valor_total: '',
+    tipo_pacote: ''
+  };
+
+  async function loadReciboBaseData() {
+    try {
+      const response = await fetch('/api/v1/vendas/cadastro-base');
+      if (!response.ok) return;
+      const data = await response.json();
+      produtosBase = (data.produtos || []).map((item: any) => ({
+        id: String(item.id),
+        nome: item.nome || 'Produto',
+        cidade_id: item.cidade_id || null
+      }));
+      cidadesBase = (data.cidades || []).map((item: any) => ({
+        id: String(item.id),
+        label: item.label || item.nome || 'Cidade',
+        nome: item.nome || 'Cidade'
+      }));
+      tiposPacoteBase = (data.tiposPacote || [])
+        .map((item: any) => ({ id: String(item.id || item.nome || ''), nome: item.nome || '' }))
+        .filter((item: any) => item.nome);
+    } catch {
+      // Nao bloqueia a tela principal.
+    }
+  }
+
+  function ensureReciboFormOptions(recibo: any) {
+    const produtoId = String(recibo?.produto_resolvido_id || recibo?.produto_id || '').trim();
+    const produtoNome =
+      produtosCache[produtoId]?.nome || recibo?.produto_resolvido?.nome || recibo?.produto?.nome || 'Produto';
+    if (produtoId && !produtosBase.some((item) => item.id === produtoId)) {
+      produtosBase = [...produtosBase, { id: produtoId, nome: produtoNome }];
+    }
+
+    const cidadeId = String(recibo?.destino_cidade_id || '').trim();
+    const cidadeNome = String(recibo?.destino_cidade?.nome || '').trim();
+    if (cidadeId && !cidadesBase.some((item) => item.id === cidadeId)) {
+      cidadesBase = [...cidadesBase, { id: cidadeId, label: cidadeNome || cidadeId, nome: cidadeNome || cidadeId }];
+    }
+
+    const tipoPacote = String(recibo?.tipo_pacote || '').trim();
+    if (tipoPacote && !tiposPacoteBase.some((item) => item.nome === tipoPacote)) {
+      tiposPacoteBase = [...tiposPacoteBase, { id: tipoPacote, nome: tipoPacote }];
+    }
+  }
 
   function startEditRecibo(recibo: any) {
+    ensureReciboFormOptions(recibo);
     editingReciboId = recibo.id;
-    editingReciboNumero = recibo.numero_recibo || '';
+    isEditingReciboDetails = false;
+    reciboForm = {
+      numero_recibo: String(recibo?.numero_recibo || ''),
+      produto_id: String(recibo?.produto_resolvido_id || recibo?.produto_id || ''),
+      destino_cidade_id: String(recibo?.destino_cidade_id || ''),
+      numero_reserva: String(recibo?.numero_reserva || ''),
+      data_inicio: String(recibo?.data_inicio || '').slice(0, 10),
+      data_fim: String(recibo?.data_fim || '').slice(0, 10),
+      valor_total: String(recibo?.valor_total || ''),
+      tipo_pacote: String(recibo?.tipo_pacote || '')
+    };
+    showEditReciboDialog = true;
   }
 
   function cancelEditRecibo() {
+    showEditReciboDialog = false;
     editingReciboId = null;
-    editingReciboNumero = '';
+    isEditingReciboDetails = false;
+    reciboForm = {
+      numero_recibo: '',
+      produto_id: '',
+      destino_cidade_id: '',
+      numero_reserva: '',
+      data_inicio: '',
+      data_fim: '',
+      valor_total: '',
+      tipo_pacote: ''
+    };
   }
 
-  async function saveRecibo(recibo: any) {
-    const numero = editingReciboNumero.trim();
-    if (!numero) return;
+  async function saveRecibo() {
+    const reciboId = editingReciboId;
+    const numero = reciboForm.numero_recibo.trim();
+    const produtoId = reciboForm.produto_id.trim();
+    if (!reciboId) return;
+    if (!numero) {
+      toast.error('Recibo e obrigatorio.');
+      return;
+    }
+    if (!produtoId) {
+      toast.error('Produto e obrigatorio.');
+      return;
+    }
     savingRecibo = true;
+    let saved = false;
     try {
       const res = await fetch('/api/v1/vendas/recibo-edit', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venda_id: vendaId, recibo_id: recibo.id, numero_recibo: numero })
+        body: JSON.stringify({
+          venda_id: vendaId,
+          recibo_id: reciboId,
+          numero_recibo: numero,
+          produto_id: produtoId,
+          destino_cidade_id: reciboForm.destino_cidade_id || null,
+          numero_reserva: reciboForm.numero_reserva || null,
+          data_inicio: reciboForm.data_inicio || null,
+          data_fim: reciboForm.data_fim || null,
+          valor_total: reciboForm.valor_total || null,
+          tipo_pacote: reciboForm.tipo_pacote || null
+        })
       });
       if (!res.ok) {
         const msg = await res.text();
         toast.error(msg || 'Erro ao salvar recibo');
         return;
       }
-      // Atualiza localmente
-      recibo.numero_recibo = numero;
-      venda = { ...venda };
+      saved = true;
+      // Fecha e reseta o modal imediatamente no sucesso.
+      showEditReciboDialog = false;
+      isEditingReciboDetails = false;
       editingReciboId = null;
-      editingReciboNumero = '';
+      await carregarVenda();
       toast.success('Recibo atualizado');
     } catch {
       toast.error('Erro ao salvar recibo');
     } finally {
       savingRecibo = false;
+      if (saved) {
+        reciboForm = {
+          numero_recibo: '',
+          produto_id: '',
+          destino_cidade_id: '',
+          numero_reserva: '',
+          data_inicio: '',
+          data_fim: '',
+          valor_total: '',
+          tipo_pacote: ''
+        };
+      }
     }
   }
 
@@ -93,6 +210,7 @@
   onMount(async () => {
     await ensureServerSessionCookie();
     await carregarVenda();
+    await loadReciboBaseData();
   });
 
   async function ensureProduto(produtoId: string) {
@@ -277,6 +395,27 @@
     : conciliacaoPendente || !fechamentoFinanceiroOk
       ? 'border-red-200 bg-red-50 text-red-800'
       : 'border-green-200 bg-green-50 text-green-700';
+  $: produtoSelectOptions = [
+    { value: '', label: 'Selecione um produto' },
+    ...produtosBase
+      .slice()
+      .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+      .map((produto) => ({ value: produto.id, label: produto.nome }))
+  ];
+  $: cidadeSelectOptions = [
+    { value: '', label: 'Selecione uma cidade' },
+    ...cidadesBase
+      .slice()
+      .sort((left, right) => String(left.label || left.nome || '').localeCompare(String(right.label || right.nome || ''), 'pt-BR'))
+      .map((cidade) => ({ value: cidade.id, label: cidade.label || cidade.nome || cidade.id }))
+  ];
+  $: tipoPacoteOptions = [
+    { value: '', label: 'Selecione um tipo de pacote' },
+    ...tiposPacoteBase
+      .slice()
+      .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+      .map((tipo) => ({ value: tipo.nome, label: tipo.nome }))
+  ];
 </script>
 
 <svelte:head>
@@ -320,7 +459,8 @@
       {
         label: 'Voltar',
         href: '/vendas',
-        variant: 'ghost' as const
+        variant: 'secondary' as const,
+        icon: ArrowLeft
       }
     ]}
   />
@@ -525,26 +665,25 @@
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Reserva</th>
                   <th class="text-center py-3 px-3 text-sm font-semibold text-slate-600">Período</th>
                   <th class="text-right py-3 px-3 text-sm font-semibold text-slate-600">Valor</th>
-                  {#if canEdit}
-                  <th class="w-16 py-3 px-3"></th>
-                  {/if}
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 {#each venda.recibos as recibo}
-                  <tr class="hover:bg-slate-50">
+                  <tr
+                    class="cursor-pointer hover:bg-slate-50"
+                    on:click={() => startEditRecibo(recibo)}
+                    on:keydown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        startEditRecibo(recibo);
+                      }
+                    }}
+                    tabindex="0"
+                    role="button"
+                    aria-label={`Abrir detalhes do recibo ${recibo.numero_recibo || ''}`.trim()}
+                  >
                     <td class="py-3 px-3 text-slate-900" data-label="Recibo">
-                      {#if editingReciboId === recibo.id}
-                        <input
-                          type="text"
-                          class="vtur-input w-full min-w-[160px]"
-                          bind:value={editingReciboNumero}
-                          on:keydown={(e) => { if (e.key === 'Enter') saveRecibo(recibo); if (e.key === 'Escape') cancelEditRecibo(); }}
-                          disabled={savingRecibo}
-                        />
-                      {:else}
-                        <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
-                      {/if}
+                      <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
                     </td>
                     <td class="py-3 px-3 text-slate-700" data-label="Produto">
                       {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || recibo.produto_resolvido?.nome || 'N/A'}
@@ -553,30 +692,12 @@
                     <td class="py-3 px-3 text-center text-slate-700" data-label="Reserva">{recibo.numero_reserva || '-'}</td>
                     <td class="py-3 px-3 text-center text-slate-700" data-label="Período">{formatDate(recibo.data_inicio)} - {formatDate(recibo.data_fim)}</td>
                     <td class="py-3 px-3 text-right font-medium text-slate-900" data-label="Valor">{formatCurrency(recibo.valor_total)}</td>
-                    {#if canEdit}
-                    <td class="py-3 px-3 text-center">
-                      {#if editingReciboId === recibo.id}
-                        <div class="flex items-center gap-1 justify-center">
-                          <Button variant="ghost" size="xs" on:click={() => saveRecibo(recibo)} loading={savingRecibo} title="Salvar">
-                            <Save size={14} />
-                          </Button>
-                          <Button variant="ghost" size="xs" on:click={cancelEditRecibo} disabled={savingRecibo} title="Cancelar">
-                            <X size={14} />
-                          </Button>
-                        </div>
-                      {:else}
-                        <Button variant="ghost" size="xs" on:click={() => startEditRecibo(recibo)} title="Editar número do recibo">
-                          <Pencil size={14} />
-                        </Button>
-                      {/if}
-                    </td>
-                    {/if}
                   </tr>
                 {/each}
               </tbody>
               <tfoot>
                 <tr class="border-t-2 border-slate-200">
-                  <td colspan={canEdit ? 6 : 5} class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
+                  <td colspan="5" class="py-4 px-3 text-right font-semibold text-slate-900">Total dos Recibos:</td>
                   <td class="py-4 px-3 text-right text-xl font-bold text-vendas-600">{formatCurrency(totalRecibosValor)}</td>
                 </tr>
               </tfoot>
@@ -589,6 +710,48 @@
           </div>
         {/if}
       </Card>
+
+      <Dialog
+        bind:open={showEditReciboDialog}
+        title="Detalhes do recibo"
+        description={canEdit ? 'Revise os dados do recibo. Para alterar, clique em Editar.' : 'Visualizacao dos dados do recibo.'}
+        color="vendas"
+        size="lg"
+        showConfirm={false}
+        loading={savingRecibo}
+        onCancel={cancelEditRecibo}
+        onclose={cancelEditRecibo}
+      >
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <FieldInput id="recibo-numero" label="Recibo" bind:value={reciboForm.numero_recibo} required disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldSelect id="recibo-produto" label="Produto" bind:value={reciboForm.produto_id} options={produtoSelectOptions} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldSelect id="recibo-cidade" label="Cidade" bind:value={reciboForm.destino_cidade_id} options={cidadeSelectOptions} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldInput id="recibo-reserva" label="Reserva" bind:value={reciboForm.numero_reserva} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldInput id="recibo-data-inicio" label="Periodo inicial" type="date" bind:value={reciboForm.data_inicio} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldInput id="recibo-data-fim" label="Periodo final" type="date" bind:value={reciboForm.data_fim} min={reciboForm.data_inicio || null} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldInput id="recibo-valor" label="Valor" type="number" step="0.01" bind:value={reciboForm.valor_total} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+          <FieldSelect id="recibo-tipo-pacote" label="Tipo de Pacote" bind:value={reciboForm.tipo_pacote} options={tipoPacoteOptions} disabled={!canEdit || !isEditingReciboDetails || savingRecibo} />
+        </div>
+        <svelte:fragment slot="actions">
+          {#if canEdit}
+            {#if isEditingReciboDetails}
+              <Button
+                variant="primary"
+                color="vendas"
+                on:click={saveRecibo}
+                loading={savingRecibo}
+                disabled={savingRecibo}
+              >
+                Salvar
+              </Button>
+            {:else}
+              <Button variant="primary" color="vendas" on:click={() => (isEditingReciboDetails = true)}>
+                Editar
+              </Button>
+            {/if}
+          {/if}
+        </svelte:fragment>
+      </Dialog>
 
       <Card header="Pagamentos" color="vendas">
         {#if venda.pagamentos && venda.pagamentos.length > 0}

@@ -646,7 +646,7 @@
   <div class="flex flex-col gap-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
       <FieldInput id="rel-vendas-data-inicio" label="Data início" type="date" bind:value={dataInicio} class_name="w-full" />
-      <FieldInput id="rel-vendas-data-fim" label="Data fim" type="date" bind:value={dataFim} class_name="w-full" />
+      <FieldInput id="rel-vendas-data-fim" label="Data fim" type="date" bind:value={dataFim} min={dataInicio || null} class_name="w-full" />
       {#if showEmpresaFiltro}
         <FieldSelect
           id="rel-vendas-empresa"

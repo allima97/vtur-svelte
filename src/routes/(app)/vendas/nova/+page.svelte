@@ -744,7 +744,7 @@
             <FieldInput id="venda-nova-data-embarque" label="Data de embarque" type="date" bind:value={venda.data_embarque} class_name="w-full" error={errors.data_embarque} required />
           </div>
           <div>
-            <FieldInput id="venda-nova-data-final" label="Data final" type="date" bind:value={venda.data_final} class_name="w-full" error={errors.data_final} required />
+            <FieldInput id="venda-nova-data-final" label="Data final" type="date" bind:value={venda.data_final} min={venda.data_embarque || null} class_name="w-full" error={errors.data_final} required />
           </div>
 
 
@@ -856,7 +856,7 @@
                   <FieldInput id={`venda-nova-recibo-inicio-${index}`} label="Data início" type="date" bind:value={recibo.data_inicio} class_name="w-full" error={errors[`recibo_inicio_${index}`]} required />
                 </div>
                 <div>
-                  <FieldInput id={`venda-nova-recibo-fim-${index}`} label="Data fim" type="date" bind:value={recibo.data_fim} class_name="w-full" error={errors[`recibo_fim_${index}`]} required />
+                  <FieldInput id={`venda-nova-recibo-fim-${index}`} label="Data fim" type="date" bind:value={recibo.data_fim} min={recibo.data_inicio || null} class_name="w-full" error={errors[`recibo_fim_${index}`]} required />
                 </div>
                 <div>
                   <FieldInput id={`venda-nova-recibo-total-${index}`} label="Valor total" bind:value={recibo.valor_total} class_name="w-full" error={errors[`recibo_total_${index}`]} required />

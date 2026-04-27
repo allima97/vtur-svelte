@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
   import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
@@ -104,7 +105,7 @@
   onMount(load);
 
   $: diasDoMes = getDaysInMonth(periodoAtual);
-  $: periodoLabel = new Date(periodoAtual + '-01T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  $: periodoLabel = formatYearMonthLabel(periodoAtual);
   $: diasTrabalhados = dias.filter((d) => d.tipo === 'TRABALHO' || d.tipo === 'PLANTAO').length;
   $: diasFolga = dias.filter((d) => d.tipo === 'FOLGA' || d.tipo === 'FERIAS' || d.tipo === 'LICENCA').length;
   $: usuarioId = $auth.user?.id || '';

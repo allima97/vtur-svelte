@@ -608,6 +608,7 @@
                 label="Data Fim"
                 type="date"
                 bind:value={form.data_fim}
+                min={form.data_inicio || null}
               />
             </div>
 
@@ -1031,6 +1032,7 @@
                               label="Check-out"
                               type="date"
                               value={hotel.data_fim || ''}
+                              min={hotel.data_inicio || null}
                               on:input={(e) => updateHotelDates(i, 'data_fim', (e.currentTarget as HTMLInputElement).value)}
                             />
                             <FieldInput

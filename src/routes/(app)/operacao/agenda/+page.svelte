@@ -573,6 +573,7 @@
           label="Data final"
           type="date"
           bind:value={eventForm.endDate}
+          min={eventForm.startDate || null}
           class_name="w-full"
         />
 
