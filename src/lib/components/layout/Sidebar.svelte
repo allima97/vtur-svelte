@@ -16,6 +16,7 @@
     ChevronLeft,
     ChevronRight,
     CreditCard,
+    FileChartColumn,
     FileSpreadsheet,
     FileText,
     Gift,
@@ -35,6 +36,7 @@
     SquareCheckBig,
     Star,
     Ticket,
+    Trophy,
     TrendingUp,
     Users,
     UserCircle,
@@ -114,8 +116,8 @@
         { key: 'campanhas', name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
         { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
         { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video },
-        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: BarChart2 },
-        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
+        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: FileChartColumn },
+        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: Trophy }
       ]
     },
     {
@@ -344,7 +346,7 @@
     { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
     { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
     { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
-    { name: 'Relatórios',     href: '/relatorios',             icon: BarChart2 },
+    { name: 'Relatórios',     href: '/relatorios',             icon: FileChartColumn },
     { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
     $permissoes.isMaster
       ? { name: 'Master',     href: '/master',                 icon: Shield }

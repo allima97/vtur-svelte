@@ -54,7 +54,7 @@
     options: Array<{ value: string; label: string }>;
   }> = [];
 
-  const columns = [
+  const columnsBase = [
     {
       key: 'codigo',
       label: 'Código',
@@ -130,6 +130,8 @@
     }
   ];
 
+  let columns = columnsBase;
+
   async function loadVendas() {
     loading = true;
     errorMessage = null;
@@ -203,6 +205,10 @@
   });
 
   $: showVendedorFilter = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
+  $: columns = showVendedorFilter
+    ? columnsBase
+    : columnsBase.filter((column) => column.key !== 'vendedor');
 
   $: filters = [
     {
