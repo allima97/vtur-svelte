@@ -15,6 +15,8 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import MesclarVendasModal from '$lib/components/modais/MesclarVendasModal.svelte';
+  import { Merge } from 'lucide-svelte';
 
   const vendaId = $page.params.id;
   const vendaIdSafe = vendaId ?? '';
@@ -23,6 +25,7 @@
   let loading = true;
   let error: string | null = null;
   let processando = false;
+  let showMesclar = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let ensuringProdutos = new Set<string>();
 
@@ -265,8 +268,9 @@
   $: fechamentoFinanceiroOk = Math.abs(diferencaFinanceira) < 0.01;
   $: conciliacaoPendente = venda?.conciliado === false;
   $: vendaPendente = venda?.status === 'pendente';
-  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'edit');
-  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'delete');
+  $: isDonoVenda = !!venda?.vendedor_id && venda.vendedor_id === $permissoes.userId;
+  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || isDonoVenda || permissoes.can('vendas', 'edit');
+  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || isDonoVenda || permissoes.can('vendas', 'delete');
   $: canCancel = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor || permissoes.can('vendas', 'edit') || permissoes.can('vendas', 'delete');
   $: alertaOperacionalClasse = vendaPendente
     ? 'border-amber-200 bg-amber-50 text-amber-800'
@@ -307,6 +311,11 @@
         href: `/vendas/${vendaId}/editar`,
         variant: 'secondary' as const,
         icon: Edit
+      }, {
+        label: 'Mesclar',
+        onClick: () => (showMesclar = true),
+        variant: 'outline' as const,
+        icon: Merge
       }] : []),
       {
         label: 'Voltar',
@@ -709,3 +718,11 @@
     </div>
   </div>
 {/if}
+
+<MesclarVendasModal
+  bind:open={showMesclar}
+  {vendaId}
+  vendaCodigo={venda?.codigo || ''}
+  onClose={() => (showMesclar = false)}
+  onMerged={() => { showMesclar = false; carregarVenda(); }}
+/>
