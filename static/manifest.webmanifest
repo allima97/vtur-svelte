@@ -14,7 +14,7 @@
       "purpose": "any"
     },
     {
-      "src": "/brand/vtur-symbol.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable any"
