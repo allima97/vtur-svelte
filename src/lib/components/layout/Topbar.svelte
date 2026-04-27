@@ -161,5 +161,4 @@
 <CalculatorModal
   bind:open={showCalculator}
   onClose={() => (showCalculator = false)}
-  onConfirm={() => (showCalculator = false)}
 />

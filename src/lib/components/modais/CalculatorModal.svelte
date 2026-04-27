@@ -7,7 +7,6 @@
   // Props
   export let open: boolean = false;
   export let onClose: () => void = () => {};
-  export let onConfirm: (resultado?: unknown) => void = () => {};
 
   // Abas
   let abaAtiva = 'calculadora';
@@ -314,7 +313,6 @@
     }
     calcError = null;
     calcValue = formatCalcResult(result);
-    onConfirm({ expression: expr, result });
   }
 
   function handleDisplayInput(event: Event) {
@@ -425,7 +423,7 @@
     tabindex="0"
   >
     <div 
-      class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
+      class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
     >
       <!-- Header -->
       <div class="vtur-modal-header border-b border-slate-100 bg-vendas-50">
@@ -434,8 +432,8 @@
             <Calculator size={24} class="text-vendas-600" />
           </div>
           <div class="vtur-modal-header__copy">
-            <h3 class="vtur-modal-header__title">Calculadora de Valores</h3>
-            <p class="vtur-modal-header__subtitle">Calcule comissões, descontos e parcelas</p>
+            <h3 class="vtur-modal-header__title">Calculadora</h3>
+            <p class="vtur-modal-header__subtitle">Operações rápidas no padrão visual do sistema</p>
           </div>
         </div>
         <Button
@@ -456,15 +454,18 @@
       </div>
 
       <!-- Content -->
-      <div class="vtur-modal-body-dense">
+      <div
+        class="vtur-modal-body-dense"
+        style={abaAtiva === 'calculadora' ? 'padding: 0.875rem 1rem; max-height: none; overflow: visible;' : undefined}
+      >
 
         <!-- Aba Concorrência -->
         {#if abaAtiva === 'concorrencia'}
           <ConcorrenciaTab />
         {:else}
-        <div class="mx-auto w-full max-w-[360px] rounded-[10px] border border-[#8b8b8b] bg-[#d0d0d0] shadow-[0_14px_26px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.7)]">
-          <div class="bg-transparent p-[10px_10px_12px]">
-            <div class="rounded-md border border-[#5f7f86] bg-[linear-gradient(180deg,#86c2d1,#7bb7c6)] px-4 py-4 shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)]">
+        <div class="mx-auto flex w-full max-w-md flex-col gap-3">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               <input
                 bind:this={calcInput}
                 type="text"
@@ -479,45 +480,46 @@
                     onClose();
                   }
                 }}
-                class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,7vw,2.1rem)] font-semibold text-slate-800 outline-none"
+                class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,6vw,2.1rem)] font-semibold tracking-tight text-slate-900 outline-none"
                 aria-label="Calculadora"
               />
             </div>
 
             {#if calcError}
-              <div class="mt-2 rounded-md bg-[#b94f45] px-3 py-2 text-[clamp(0.75rem,2.5vw,0.8rem)] text-red-200">
+              <div class="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {calcError}
               </div>
             {/if}
 
-            <div class="mt-3 rounded-lg bg-[#8e8e8e] p-1.5">
+            <div class="mt-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
               <div
-                class="grid gap-1.5 bg-transparent"
-                style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(40px, 10vw, 52px));"
+                class="grid gap-2 bg-transparent"
+                style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(42px, 8vw, 52px));"
               >
                 {#each calculatorKeys as key}
-                  {@const background =
+                  {@const buttonClass =
                     key.variant === 'operator'
-                      ? 'linear-gradient(180deg, #f4b564, #f08a2f)'
+                      ? 'border-vendas-200 bg-vendas-50 text-vendas-700 hover:bg-vendas-100'
                       : key.variant === 'danger'
-                        ? 'linear-gradient(180deg, #e58376, #cc5a4f)'
+                        ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
                         : key.variant === 'function'
-                          ? 'linear-gradient(180deg, #cfd3da, #aeb4bf)'
-                          : 'linear-gradient(180deg, #d7d5cc, #bdbbb2)'}
+                          ? 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'}
                   <button
                     type="button"
                     on:click={() => handleCalculatorAction(key)}
-                    class="flex items-center justify-center rounded-md border border-black/35 font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_0_rgba(0,0,0,0.2)]"
-                    style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; background: ${background}; font-size: ${key.label.length > 2 ? 'clamp(0.8rem, 2.6vw, 0.9rem)' : 'clamp(1rem, 3.2vw, 1.1rem)'};`}
+                    class={`flex items-center justify-center rounded-xl border font-semibold shadow-sm transition-colors ${buttonClass}`}
+                    style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; font-size: ${key.label.length > 2 ? 'clamp(0.76rem, 2.2vw, 0.88rem)' : 'clamp(0.95rem, 2.8vw, 1.05rem)'};`}
                   >
                     {key.label}
                   </button>
                 {/each}
               </div>
             </div>
-            <p class="mt-3 text-center text-xs text-slate-500">
-              Use teclado, Enter para calcular, Backspace para apagar e F9 para inverter o sinal.
-            </p>
+
+            <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+              Use o teclado ou os botões. `Enter` calcula, `Backspace` apaga, `Delete` limpa e `F9` inverte o sinal.
+            </div>
           </div>
         </div>
         {/if}
