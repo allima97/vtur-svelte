@@ -1133,11 +1133,12 @@
             ul { margin: 0; padding-left: 18px; }
             li { margin: 0 0 6px; }
             @media print {
+              @page { margin: 12mm; }
               body { background: white; }
               .toolbar { display: none; }
               .shell { max-width: none; padding: 0; }
               .preview-header-card, .preview-title-card, .preview-footer-card, .section { box-shadow: none; border-radius: 0; }
-              .preview-title-card, .section { padding: 0 0 18px; }
+              .preview-title-card, .section { padding: 12px 14px 18px; }
               .preview-table-wrap { border-radius: 0; }
             }
           </style>
