@@ -76,7 +76,7 @@
     <div class="vtur-auth-brand">
       <div class="vtur-auth-brand-lockup">
         <div class="vtur-auth-brand-row">
-          <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]" />
+          <img src="/brand/vtur-symbol.png" alt="VTUR" class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]" />
           <h1 class="vtur-auth-brand-title text-3xl font-bold">VTUR</h1>
         </div>
         <p class="vtur-auth-brand-subtitle">Sistema de Gestão de Viagens</p>

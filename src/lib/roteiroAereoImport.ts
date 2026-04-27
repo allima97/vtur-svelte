@@ -91,6 +91,7 @@ const KNOWN_AIRPORT_ALIASES: AirportAliasEntry[] = [
   { code: "EZE", city: "Buenos Aires", aliases: ["eze", "ezeiza", "ministro pistarini", "buenos aires - ezeiza"] },
   { code: "MVD", city: "Montevidéu", aliases: ["mvd", "montevideo", "montevideu", "carrasco"] },
   { code: "LIM", city: "Lima", aliases: ["lim", "lima", "jorge chavez", "jorge chávez"] },
+  { code: "CUZ", city: "Cusco", aliases: ["cuz", "cusco", "cuszco", "alejandro velasco astete"] },
   { code: "NYC", city: "Nova Iorque", aliases: ["nyc", "new york", "new york city", "nova york", "nova iorque"] },
   { code: "JFK", city: "Nova Iorque", aliases: ["jfk", "john f kennedy", "john f. kennedy", "kennedy international", "new york - john f kennedy", "nova iorque - john f kennedy"] },
   { code: "LGA", city: "Nova Iorque", aliases: ["lga", "laguardia", "new york - laguardia", "nova iorque - laguardia"] },
@@ -115,6 +116,7 @@ const KNOWN_AIRPORT_ALIASES: AirportAliasEntry[] = [
   { code: "LIN", city: "Milão", aliases: ["lin", "milan linate", "milao linate"] },
   { code: "BCN", city: "Barcelona", aliases: ["bcn", "barcelona", "el prat"] },
   { code: "FRA", city: "Frankfurt", aliases: ["fra", "frankfurt"] },
+  { code: "HEL", city: "Helsinque", aliases: ["hel", "helsinki", "helsinque"] },
   { code: "MUC", city: "Munique", aliases: ["muc", "munich", "munique"] },
   { code: "ZRH", city: "Zurique", aliases: ["zrh", "zurich", "zurique"] },
   { code: "GVA", city: "Genebra", aliases: ["gva", "geneva", "genebra"] },
@@ -570,16 +572,41 @@ function isProvider2DateTimeLine(line: string) {
   return PROVIDER2_DATE_TIME_RE.test(normalizeLine(line));
 }
 
+function isProvider2StatusLine(line: string) {
+  return /^(HK|HL|KK|TK|RR|RQ|NO|OK|UC|UN|US)$/i.test(normalizeLine(line));
+}
+
+function isProvider2AirportLine(
+  line: string,
+  runtimeAliases: AirportAliasEntry[] = [],
+  airportCodeCityLookup: Record<string, string> = {}
+) {
+  return Boolean(isAirportLine(line) || resolveAirportMatch(line, runtimeAliases, airportCodeCityLookup));
+}
+
 function isProvider2DurationLine(line: string) {
   return /^\d{2}:\d{2}$/.test(normalizeLine(line));
 }
 
 function isEquipmentLine(line: string) {
-  return /^[A-Z0-9]{2,4}$/i.test(normalizeLine(line));
+  const normalized = normalizeLine(line);
+  const folded = normalizeText(line);
+  return Boolean(
+    /^[A-Z0-9]{2,4}$/i.test(normalized) ||
+      folded.includes("boeing") ||
+      folded.includes("airbus") ||
+      folded.includes("embraer") ||
+      folded.includes("passenger") ||
+      normalized.includes("/")
+  );
 }
 
 function isNumericLine(line: string) {
   return /^\d+$/.test(normalizeLine(line));
+}
+
+function isProvider2BookingClassLine(line: string) {
+  return /^[A-Z](?:\/[A-Z])?$/i.test(normalizeLine(line));
 }
 
 function isCabinOrClassLine(line: string) {
@@ -721,126 +748,136 @@ function parseProvider2(
   if (lines.length < 6) return [];
 
   let cursor = 0;
-  const airlines: string[] = [];
-  while (cursor < lines.length && isProvider2AirlineLine(lines[cursor])) {
-    airlines.push(lines[cursor]);
-    cursor += 1;
-  }
-  const segmentCount = airlines.length;
-  if (segmentCount === 0) return [];
+  const imported: ImportedRoteiroAereo[] = [];
 
-  const takeBlock = (count: number, predicate?: (line: string) => boolean) => {
+  const takeContiguousBlock = (count: number, predicate: (line: string) => boolean) => {
     const out: string[] = [];
-    while (cursor < lines.length && out.length < count) {
-      const candidate = lines[cursor];
-      if (!candidate) {
-        cursor += 1;
-        continue;
-      }
-      if (!predicate || predicate(candidate)) {
-        out.push(candidate);
-      }
+    while (cursor < lines.length && out.length < count && predicate(lines[cursor] || "")) {
+      out.push(lines[cursor] || "");
       cursor += 1;
     }
     return out;
   };
 
-  const flightNumbers = takeBlock(segmentCount, isProvider2FlightNumberLine);
-  const departures = takeBlock(segmentCount, isProvider2DateTimeLine);
-  const arrivals = takeBlock(segmentCount, isProvider2DateTimeLine);
-  const origins = takeBlock(segmentCount);
-  const destinations = takeBlock(segmentCount);
-  const stops = takeBlock(segmentCount, isNumericLine);
-  takeBlock(segmentCount, isEquipmentLine); // equipamento
-  const durations = takeBlock(segmentCount, isProvider2DurationLine);
-
-  const cabinOrClassValues: string[] = [];
-  let reembolsoTipo = "";
-  let qtdAdultos = 0;
-  let qtdCriancas = 0;
-  let taxaTotal = 0;
-  let valorTotal = 0;
+  const skipWhile = (predicate: (line: string) => boolean) => {
+    while (cursor < lines.length && predicate(lines[cursor] || "")) {
+      cursor += 1;
+    }
+  };
 
   while (cursor < lines.length) {
-    const line = lines[cursor];
-    const normalized = normalizeText(line);
-    const moneyValues = extractMoneyValues(line);
+    skipWhile((line) => isProvider2StatusLine(line) || isNumericLine(line));
+    if (!isProvider2AirlineLine(lines[cursor] || "")) {
+      cursor += 1;
+      continue;
+    }
 
-    if (moneyValues.length > 0) {
-      const value = moneyValues[moneyValues.length - 1] || 0;
-      if (normalized.includes("taxa")) {
-        taxaTotal = value;
-      } else {
-        valorTotal = value;
+    const airlines = takeContiguousBlock(Number.MAX_SAFE_INTEGER, isProvider2AirlineLine);
+    const segmentCount = airlines.length;
+    if (segmentCount === 0) continue;
+
+    const flightNumbers = takeContiguousBlock(segmentCount, isProvider2FlightNumberLine);
+    const departures = takeContiguousBlock(segmentCount, isProvider2DateTimeLine);
+    const arrivals = takeContiguousBlock(segmentCount, isProvider2DateTimeLine);
+
+    skipWhile(isProvider2StatusLine);
+
+    const origins = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
+    const destinations = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
+    const stops = takeContiguousBlock(segmentCount, isNumericLine);
+    takeContiguousBlock(segmentCount, isEquipmentLine);
+    const durations = takeContiguousBlock(segmentCount, isProvider2DurationLine);
+    const bookingClasses = takeContiguousBlock(segmentCount, isProvider2BookingClassLine);
+    const cabinOrClassValues = takeContiguousBlock(segmentCount, isCabinOrClassLine);
+    const resolvedFareFamilies =
+      cabinOrClassValues.length === 1 && segmentCount > 1
+        ? Array.from({ length: segmentCount }, () => cabinOrClassValues[0] || "")
+        : cabinOrClassValues;
+
+    if (
+      flightNumbers.length < segmentCount ||
+      departures.length < segmentCount ||
+      arrivals.length < segmentCount ||
+      origins.length < segmentCount ||
+      destinations.length < segmentCount
+    ) {
+      continue;
+    }
+
+    let reembolsoTipo = "";
+    let qtdAdultos = 0;
+    let qtdCriancas = 0;
+    let taxaTotal = 0;
+    let valorTotal = 0;
+
+    while (cursor < lines.length && !isProvider2AirlineLine(lines[cursor] || "")) {
+      const line = lines[cursor] || "";
+      const normalized = normalizeText(line);
+      const moneyValues = extractMoneyValues(line);
+
+      if (moneyValues.length > 0) {
+        const value = moneyValues[moneyValues.length - 1] || 0;
+        if (normalized.includes("taxa")) {
+          taxaTotal = value;
+        } else {
+          valorTotal = value;
+        }
+        cursor += 1;
+        continue;
       }
-      cursor += 1;
-      continue;
-    }
 
-    if (isCabinOrClassLine(line) && cabinOrClassValues.length < segmentCount) {
-      cabinOrClassValues.push(line);
-      cursor += 1;
-      continue;
-    }
-
-    if (!reembolsoTipo && (normalized.includes("restrict") || normalized.includes("reembols") || normalized.includes("refund"))) {
-      reembolsoTipo = line;
-      cursor += 1;
-      continue;
-    }
-
-    if (isNumericLine(line)) {
-      const value = Number(line);
-      if (value > 0 && value <= 9 && qtdAdultos === 0) {
-        qtdAdultos = value;
-      } else if (value > 0 && value <= 9 && qtdAdultos > 0 && qtdCriancas === 0) {
-        qtdCriancas = value;
+      if (!reembolsoTipo && (normalized.includes("restrict") || normalized.includes("reembols") || normalized.includes("refund"))) {
+        reembolsoTipo = line;
+        cursor += 1;
+        continue;
       }
+
+      if (isOccupancyLine(line)) {
+        const occupancy = parseOccupancy(line);
+        qtdAdultos = occupancy.qtd_adultos;
+        qtdCriancas = occupancy.qtd_criancas;
+        cursor += 1;
+        continue;
+      }
+
       cursor += 1;
-      continue;
     }
 
-    cursor += 1;
-  }
+    const distributedTotals = splitTotalAcrossSegments(valorTotal, segmentCount);
+    const distributedTaxes = splitTotalAcrossSegments(taxaTotal, segmentCount);
 
-  if (qtdAdultos > 0 && qtdCriancas > 0 && qtdAdultos === qtdCriancas) {
-    qtdCriancas = 0;
-  }
-
-  const distributedTotals = splitTotalAcrossSegments(valorTotal, segmentCount);
-  const distributedTaxes = splitTotalAcrossSegments(taxaTotal, segmentCount);
-
-  return sortFlights(
-    airlines.map((airline, index) => {
+    airlines.forEach((airline, index) => {
       const departure = parseProvider2DateTime(departures[index] || "");
       const arrival = parseProvider2DateTime(arrivals[index] || "");
       const origem = origins[index] || "";
       const destino = destinations[index] || "";
       const cityOut = resolveCityFromAirportLabel(origem, runtimeAliases, airportCodeCityLookup);
       const cityIn = resolveCityFromAirportLabel(destino, runtimeAliases, airportCodeCityLookup);
-      return {
+      imported.push({
         trecho: [cityOut, cityIn].filter(Boolean).join(" - "),
         cia_aerea: parseProvider2Airline(airline),
         data_voo: departure?.date || "",
         data_inicio: departure?.date || "",
         data_fim: arrival?.date || departure?.date || "",
-        classe_reserva: cabinOrClassValues[index] || "",
+        classe_reserva: bookingClasses[index] || cabinOrClassValues[index] || "",
         hora_saida: departure?.time || "",
         aeroporto_saida: normalizeAirportField(origem, runtimeAliases, airportCodeCityLookup),
         duracao_voo: durations[index] || "",
         tipo_voo: parseFlightTypeFromStops(stops[index]),
         hora_chegada: formatArrivalTimeWithOffset(departure?.date, arrival?.date, arrival?.time),
         aeroporto_chegada: normalizeAirportField(destino, runtimeAliases, airportCodeCityLookup),
-        tarifa_nome: "",
+        tarifa_nome: resolvedFareFamilies[index] || "",
         reembolso_tipo: reembolsoTipo,
         qtd_adultos: qtdAdultos,
         qtd_criancas: qtdCriancas,
         taxas: distributedTaxes[index] ?? taxaTotal,
         valor_total: distributedTotals[index] ?? valorTotal,
-        ordem: index,
-      };
-    })
-  );
+        ordem: imported.length,
+      });
+    });
+  }
+
+  return sortFlights(imported);
 }
 
 function parseProviderCards(
@@ -1014,6 +1051,194 @@ function parseProviderCards(
   return sortFlights(imported);
 }
 
+function isTripDetailDateLine(line: string) {
+  return /^(?:[a-zA-ZÀ-ÿ-]+,\s*)?\d{1,2}\s+de\s+[a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+$/i.test(normalizeLine(line));
+}
+
+function parseTripDetailDate(line: string, referenceDate: Date, lastDate: Date | null) {
+  const normalized = normalizeLine(line);
+  const match = normalized.match(/(?:[a-zA-ZÀ-ÿ-]+,\s*)?(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)/i);
+  if (!match) return null;
+
+  let date = parseDate(Number(match[1]), match[2], referenceDate.getFullYear());
+  if (date && lastDate && date.getTime() < lastDate.getTime()) {
+    date = parseDate(Number(match[1]), match[2], referenceDate.getFullYear() + 1);
+  }
+  return date;
+}
+
+function isFlightNumberLooseLine(line: string) {
+  return /^[A-Z0-9]{1,3}\s*\d{2,4}$/i.test(normalizeLine(line));
+}
+
+function isTripDetailStopLine(line: string) {
+  return /^parada\s+de\s+/i.test(normalizeText(line));
+}
+
+function isTripDetailAirportNameLine(line: string) {
+  const normalized = normalizeLine(line);
+  if (!normalized) return false;
+  if (/^[A-Z]{3}$/.test(normalized)) return false;
+  if (isTimeLine(normalized) || isTripDetailDateLine(normalized)) return false;
+  if (isFlightNumberLooseLine(normalized) || isTripDetailStopLine(normalized)) return false;
+  if (isProviderCardMarkerLine(normalized) || /^trecho\s+\d+/i.test(normalized)) return false;
+  if (normalizeText(normalized).startsWith('atencao')) return false;
+  if (normalizeText(normalized).startsWith('inclui')) return false;
+  return /[a-zA-ZÀ-ÿ]/.test(normalized);
+}
+
+function parseTripDetailsProvider(
+  text: string,
+  referenceDate: Date,
+  runtimeAliases: AirportAliasEntry[] = [],
+  airportCodeCityLookup: Record<string, string> = {}
+) {
+  const lines = String(text || '')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => normalizeLine(line))
+    .filter(Boolean);
+
+  if (!lines.some((line) => /^trecho\s+\d+/i.test(line))) return [];
+  if (!lines.some((line) => normalizeText(line) === 'detalhes')) return [];
+
+  const occupancy = lines.find((line) => isOccupancyLine(line));
+  const pax = occupancy ? parseOccupancy(occupancy) : { qtd_adultos: 0, qtd_criancas: 0 };
+  const firstTrechoIndex = lines.findIndex((line) => /^trecho\s+\d+/i.test(line));
+  const preTrechoLines = (firstTrechoIndex > -1 ? lines.slice(0, firstTrechoIndex) : lines).filter(Boolean);
+  const airlineLine = preTrechoLines.find((line) => /airline|airlines|linhas aereas|linhas aéreas/i.test(normalizeText(line))) || '';
+  const fareName = preTrechoLines.find((line) => {
+    const normalized = normalizeText(line);
+    if (!normalized) return false;
+    if (normalized === 'aereo' || normalized === 'detalhes') return false;
+    if (isOccupancyLine(line) || extractMoneyValues(line).length > 0) return false;
+    if (isRefundLine(line) || /^classe\s+/i.test(normalized) || /^trecho\s+\d+/i.test(normalized)) return false;
+    if (normalized === normalizeText(airlineLine)) return false;
+    if (normalized.includes(' - ')) return false;
+    return !normalized.startsWith('voo ');
+  }) || '';
+  const refundLine = lines.find((line) => isRefundLine(line)) || '';
+  const classLine = lines.find((line) => /^classe\s+/i.test(normalizeText(line))) || '';
+  const classValue = classLine.replace(/^classe\s+/i, '').trim();
+  const totalLine = lines.find((line) => extractMoneyValues(line).length > 0) || '';
+  const totalValue = extractMoneyValues(totalLine)[0] || 0;
+
+  const imported: ImportedRoteiroAereo[] = [];
+  let cursor = lines.findIndex((line) => /^trecho\s+\d+/i.test(line));
+  let lastDate: Date | null = null;
+
+  while (cursor >= 0 && cursor < lines.length) {
+    if (!/^trecho\s+\d+/i.test(lines[cursor] || '')) {
+      cursor += 1;
+      continue;
+    }
+
+    cursor += 1;
+    while (cursor < lines.length && !isTripDetailDateLine(lines[cursor] || '')) {
+      cursor += 1;
+    }
+    if (cursor >= lines.length) break;
+
+    const baseDate = parseTripDetailDate(lines[cursor] || '', referenceDate, lastDate);
+    if (!baseDate) {
+      cursor += 1;
+      continue;
+    }
+    lastDate = baseDate;
+    const baseIsoDate = toIsoDate(baseDate);
+    cursor += 1;
+
+    const trechoSegments: ImportedRoteiroAereo[] = [];
+
+    while (cursor < lines.length && !/^trecho\s+\d+/i.test(lines[cursor] || '')) {
+      const departureTime = lines[cursor] || '';
+      if (!isTimeLine(departureTime)) {
+        if (normalizeText(lines[cursor] || '').startsWith('atencao')) break;
+        cursor += 1;
+        continue;
+      }
+
+      const airportOutCode = normalizeAirportCode(lines[cursor + 1] || '');
+      if (!isAirportLine(airportOutCode)) {
+        cursor += 1;
+        continue;
+      }
+
+      const airportOutLabel = lines[cursor + 2] || '';
+      const duration = lines[cursor + 3] || '';
+      const flightTypeLine = lines[cursor + 4] || '';
+      const flightNumber = lines[cursor + 5] || '';
+      const arrivalTime = lines[cursor + 6] || '';
+      const airportInCode = normalizeAirportCode(lines[cursor + 7] || '');
+      const airportInLabel = lines[cursor + 8] || '';
+
+      if (
+        !isTripDetailAirportNameLine(airportOutLabel) ||
+        !/^\d+h\s*\d{1,2}min$/i.test(duration) ||
+        !isFlightTypeLine(flightTypeLine) ||
+        !isFlightNumberLooseLine(flightNumber) ||
+        !isTimeLine(arrivalTime) ||
+        !isAirportLine(airportInCode) ||
+        !isTripDetailAirportNameLine(airportInLabel)
+      ) {
+        cursor += 1;
+        continue;
+      }
+
+      const dataFim = inferArrivalDateByTimes(baseIsoDate, departureTime, arrivalTime);
+      const cityOut = resolveCityFromAirportLabel(airportOutCode, runtimeAliases, airportCodeCityLookup);
+      const cityIn = resolveCityFromAirportLabel(airportInCode, runtimeAliases, airportCodeCityLookup);
+
+      trechoSegments.push({
+        trecho: [cityOut, cityIn].filter(Boolean).join(' - '),
+        cia_aerea: toTitleCase(parseAirline(airlineLine).cia_aerea || airlineLine || ''),
+        data_voo: baseIsoDate,
+        data_inicio: baseIsoDate,
+        data_fim: dataFim || baseIsoDate,
+        classe_reserva: classValue,
+        hora_saida: departureTime,
+        aeroporto_saida: airportOutCode,
+        duracao_voo: duration.replace(/\s+/g, ' ').trim(),
+        tipo_voo: 'Voo direto',
+        hora_chegada: formatArrivalTimeWithOffset(baseIsoDate, dataFim || baseIsoDate, arrivalTime),
+        aeroporto_chegada: airportInCode,
+        tarifa_nome: fareName,
+        reembolso_tipo: refundLine,
+        qtd_adultos: pax.qtd_adultos,
+        qtd_criancas: pax.qtd_criancas,
+        taxas: 0,
+        valor_total: 0,
+        ordem: imported.length + trechoSegments.length,
+      });
+
+      cursor += 9;
+      if (isTripDetailStopLine(lines[cursor] || '')) {
+        cursor += 1;
+      }
+    }
+
+    const trechoFlightType = trechoSegments.length <= 1 ? 'Voo direto' : `${trechoSegments.length - 1} escala`;
+    trechoSegments.forEach((segment) => {
+      imported.push({
+        ...segment,
+        tipo_voo: trechoFlightType,
+        ordem: imported.length,
+      });
+    });
+  }
+
+  if (imported.length === 0) return [];
+
+  const distributedTotals = splitTotalAcrossSegments(totalValue, imported.length);
+  return sortFlights(
+    imported.map((item, index) => ({
+      ...item,
+      valor_total: distributedTotals[index] ?? totalValue,
+      ordem: index,
+    }))
+  );
+}
+
 function collectProvider2AliasValues(
   text: string,
   runtimeAliases: AirportAliasEntry[] = [],
@@ -1032,46 +1257,53 @@ function collectProvider2AliasValues(
   if (lines.length < 6) return [];
 
   let cursor = 0;
-  const airlines: string[] = [];
-  while (cursor < lines.length && isProvider2AirlineLine(lines[cursor])) {
-    airlines.push(lines[cursor]);
-    cursor += 1;
-  }
-  const segmentCount = airlines.length;
-  if (segmentCount === 0) return [];
+  const aliases = new Set<string>();
 
-  const takeBlock = (count: number, predicate?: (line: string) => boolean) => {
+  const takeContiguousBlock = (count: number, predicate: (line: string) => boolean) => {
     const out: string[] = [];
-    while (cursor < lines.length && out.length < count) {
-      const candidate = lines[cursor];
-      if (!candidate) {
-        cursor += 1;
-        continue;
-      }
-      if (!predicate || predicate(candidate)) {
-        out.push(candidate);
-      }
+    while (cursor < lines.length && out.length < count && predicate(lines[cursor] || "")) {
+      out.push(lines[cursor] || "");
       cursor += 1;
     }
     return out;
   };
 
-  takeBlock(segmentCount, isProvider2FlightNumberLine);
-  takeBlock(segmentCount, isProvider2DateTimeLine);
-  takeBlock(segmentCount, isProvider2DateTimeLine);
-  const origins = takeBlock(segmentCount);
-  const destinations = takeBlock(segmentCount);
+  const skipWhile = (predicate: (line: string) => boolean) => {
+    while (cursor < lines.length && predicate(lines[cursor] || "")) {
+      cursor += 1;
+    }
+  };
 
-  const aliases = new Set<string>();
-  [...origins, ...destinations].forEach((label) => {
-    const normalizedLabel = normalizeLine(label);
-    if (!normalizedLabel || isAirportLine(normalizedLabel)) return;
-    const resolved = resolveAirportMatch(normalizedLabel, runtimeAliases, airportCodeCityLookup);
-    if (!resolved?.code) return;
-    const storageValue = buildAirportAliasStorageValue(normalizedLabel, resolved.code, resolved.city);
-    if (!storageValue) return;
-    aliases.add(storageValue);
-  });
+  while (cursor < lines.length) {
+    skipWhile((line) => isProvider2StatusLine(line) || isNumericLine(line));
+    if (!isProvider2AirlineLine(lines[cursor] || "")) {
+      cursor += 1;
+      continue;
+    }
+
+    const airlines = takeContiguousBlock(Number.MAX_SAFE_INTEGER, isProvider2AirlineLine);
+    const segmentCount = airlines.length;
+    if (segmentCount === 0) continue;
+
+    takeContiguousBlock(segmentCount, isProvider2FlightNumberLine);
+    takeContiguousBlock(segmentCount, isProvider2DateTimeLine);
+    takeContiguousBlock(segmentCount, isProvider2DateTimeLine);
+
+    skipWhile(isProvider2StatusLine);
+
+    const origins = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
+    const destinations = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
+
+    [...origins, ...destinations].forEach((label) => {
+      const normalizedLabel = normalizeLine(label);
+      if (!normalizedLabel || isAirportLine(normalizedLabel)) return;
+      const resolved = resolveAirportMatch(normalizedLabel, runtimeAliases, airportCodeCityLookup);
+      if (!resolved?.code) return;
+      const storageValue = buildAirportAliasStorageValue(normalizedLabel, resolved.code, resolved.city);
+      if (!storageValue) return;
+      aliases.add(storageValue);
+    });
+  }
 
   return Array.from(aliases);
 }
@@ -1152,6 +1384,9 @@ export function parseImportedRoteiroAereo(
   const airportCodeCityLookup = options.airportCodeCityLookup || {};
   const provider2 = parseProvider2(text, runtimeAliases, airportCodeCityLookup);
   if (provider2.length > 0) return provider2;
+
+  const tripDetails = parseTripDetailsProvider(text, referenceDate, runtimeAliases, airportCodeCityLookup);
+  if (tripDetails.length > 0) return tripDetails;
 
   const providerCards = parseProviderCards(text, referenceDate, runtimeAliases, airportCodeCityLookup);
   if (providerCards.length > 0) return providerCards;

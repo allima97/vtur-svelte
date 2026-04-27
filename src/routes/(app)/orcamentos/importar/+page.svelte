@@ -19,7 +19,8 @@
     ChevronDown,
     AlertCircle,
     CheckCircle,
-    Search
+    Search,
+    Plus
   } from 'lucide-svelte';
 
   // ── Tipos locais ─────────────────────────────────────────────────────────
@@ -117,9 +118,15 @@
     return Boolean(item.item_type && item.quantity > 0 && item.start_date && item.title && item.total_amount > 0);
   }
 
-  $: itensFiltrados = draft ? filtrarItens(draft.items, importMode) : [];
-  $: totalGeral = itensFiltrados.reduce((s, i) => s + (i.total_amount || 0), 0);
-  $: itensPendentes = itensFiltrados.filter((i) => !itemValido(i)).length;
+  // Itens filtrados com o índice real dentro de draft.items preservado
+  $: itensFiltrados = draft
+    ? filtrarItens(draft.items, importMode).map((item) => ({
+        item,
+        realIdx: draft!.items.indexOf(item)
+      }))
+    : [];
+  $: totalGeral = itensFiltrados.reduce((s, e) => s + (e.item.total_amount || 0), 0);
+  $: itensPendentes = itensFiltrados.filter((e) => !itemValido(e.item)).length;
   $: canExtract = textInput.trim().length > 0;
   $: canSave = draft !== null && clienteId !== '' && itensFiltrados.length > 0;
 
@@ -241,6 +248,83 @@
     draft = { ...draft, items, total: subtotal, average_confidence: avgConf };
   }
 
+  // ── Circuito: helpers ─────────────────────────────────────────────────────
+
+  function getCircuitMeta(item: QuoteItemDraft) {
+    const raw = (item.raw || {}) as { circuito_meta?: Record<string, unknown> };
+    return (raw.circuito_meta || {}) as { codigo?: string; serie?: string; itinerario?: string[]; tags?: string[] };
+  }
+
+  function getCircuitDays(item: QuoteItemDraft) {
+    return (item.segments || [])
+      .filter((seg) => seg.segment_type === 'circuit_day')
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  }
+
+  function updateCircuitMeta(itemIndex: number, updates: Record<string, unknown>) {
+    if (!draft) return;
+    const items = draft.items.map((item, idx) => {
+      if (idx !== itemIndex) return item;
+      const raw = (item.raw || {}) as Record<string, unknown>;
+      const meta = ((raw.circuito_meta || {}) as Record<string, unknown>);
+      return { ...item, raw: { ...raw, circuito_meta: { ...meta, ...updates } } };
+    });
+    draft = { ...draft, items };
+  }
+
+  function updateCircuitSegments(
+    itemIndex: number,
+    updater: (segs: NonNullable<QuoteItemDraft['segments']>) => NonNullable<QuoteItemDraft['segments']>
+  ) {
+    if (!draft) return;
+    const items = draft.items.map((item, idx) => {
+      if (idx !== itemIndex) return item;
+      const circuitDays = (item.segments || []).filter((s) => s.segment_type === 'circuit_day');
+      const otherSegs = (item.segments || []).filter((s) => s.segment_type !== 'circuit_day');
+      const updatedDays = updater(circuitDays).map((s, i) => ({ ...s, order_index: i }));
+      return { ...item, segments: [...otherSegs, ...updatedDays] };
+    });
+    draft = { ...draft, items };
+  }
+
+  function addCircuitDay(itemIndex: number) {
+    updateCircuitSegments(itemIndex, (segs) => [
+      ...segs,
+      {
+        segment_type: 'circuit_day',
+        order_index: segs.length,
+        data: { dia: segs.length + 1, titulo: '', descricao: '' }
+      }
+    ]);
+  }
+
+  function removeCircuitDay(itemIndex: number, segIndex: number) {
+    updateCircuitSegments(itemIndex, (segs) => segs.filter((_, i) => i !== segIndex));
+  }
+
+  function moveCircuitDay(itemIndex: number, segIndex: number, dir: 'up' | 'down') {
+    updateCircuitSegments(itemIndex, (segs) => {
+      const target = dir === 'up' ? segIndex - 1 : segIndex + 1;
+      if (target < 0 || target >= segs.length) return segs;
+      const next = [...segs];
+      [next[segIndex], next[target]] = [next[target], next[segIndex]];
+      return next;
+    });
+  }
+
+  function updateCircuitDayField(
+    itemIndex: number,
+    segIndex: number,
+    field: 'dia' | 'titulo' | 'descricao',
+    value: string | number
+  ) {
+    updateCircuitSegments(itemIndex, (segs) =>
+      segs.map((seg, i) =>
+        i === segIndex ? { ...seg, data: { ...(seg.data || {}), [field]: value } } : seg
+      )
+    );
+  }
+
   function limparTudo() {
     textInput = '';
     draft = null;
@@ -261,7 +345,7 @@
     try {
       const draftParaSalvar = {
         ...draft,
-        items: itensFiltrados
+        items: itensFiltrados.map((e) => e.item)
       };
 
       const res = await fetch('/api/v1/orcamentos/importar', {
@@ -506,7 +590,7 @@
   {#if draft && itensFiltrados.length > 0}
     <Card title="Itens extraídos — {itensFiltrados.length} item(s) · Total: {formatCurrency(totalGeral)}">
       <div class="space-y-3">
-        {#each itensFiltrados as item, idx}
+        {#each itensFiltrados as { item, realIdx }, displayIdx}
           {@const valido = itemValido(item)}
           <div class="rounded-xl border {valido ? 'border-slate-200' : 'border-amber-300 bg-amber-50'} bg-white p-4">
             <div class="mb-3 flex items-start justify-between gap-2">
@@ -517,25 +601,25 @@
                   <AlertCircle size={16} class="text-amber-500 shrink-0 mt-0.5" />
                 {/if}
                 <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Item {idx + 1} · {item.item_type || 'Sem tipo'} · Confiança: {Math.round((item.confidence || 0) * 100)}%
+                  Item {displayIdx + 1} · {item.item_type || 'Sem tipo'} · Confiança: {Math.round((item.confidence || 0) * 100)}%
                 </span>
               </div>
               <div class="flex gap-1">
                 <button
                   type="button"
                   class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
-                  disabled={idx === 0}
+                  disabled={displayIdx === 0}
                   title="Mover para cima"
-                  on:click={() => moveItem(idx, 'up')}
+                  on:click={() => moveItem(realIdx, 'up')}
                 >
                   <ChevronUp size={16} />
                 </button>
                 <button
                   type="button"
                   class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
-                  disabled={idx === itensFiltrados.length - 1}
+                  disabled={displayIdx === itensFiltrados.length - 1}
                   title="Mover para baixo"
-                  on:click={() => moveItem(idx, 'down')}
+                  on:click={() => moveItem(realIdx, 'down')}
                 >
                   <ChevronDown size={16} />
                 </button>
@@ -543,7 +627,7 @@
                   type="button"
                   class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
                   title="Remover item"
-                  on:click={() => removeItem(idx)}
+                  on:click={() => removeItem(realIdx)}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -557,7 +641,7 @@
                   type="text"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.title || ''}
-                  on:change={(e) => updateItem(idx, { title: e.currentTarget.value })}
+                  on:change={(e) => updateItem(realIdx, { title: e.currentTarget.value })}
                 />
               </div>
               <div>
@@ -566,7 +650,7 @@
                   type="text"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.item_type || ''}
-                  on:change={(e) => updateItem(idx, { item_type: e.currentTarget.value })}
+                  on:change={(e) => updateItem(realIdx, { item_type: e.currentTarget.value })}
                 />
               </div>
               <div>
@@ -575,7 +659,7 @@
                   type="text"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.city_name || ''}
-                  on:change={(e) => updateItem(idx, { city_name: e.currentTarget.value })}
+                  on:change={(e) => updateItem(realIdx, { city_name: e.currentTarget.value })}
                 />
               </div>
               <div>
@@ -585,7 +669,7 @@
                   min="1"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.quantity || 1}
-                  on:change={(e) => updateItem(idx, { quantity: Number(e.currentTarget.value) })}
+                  on:change={(e) => updateItem(realIdx, { quantity: Number(e.currentTarget.value) })}
                 />
               </div>
               <div>
@@ -594,7 +678,7 @@
                   type="date"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.start_date || ''}
-                  on:change={(e) => updateItem(idx, { start_date: e.currentTarget.value })}
+                  on:change={(e) => updateItem(realIdx, { start_date: e.currentTarget.value })}
                 />
               </div>
               <div>
@@ -603,7 +687,7 @@
                   type="date"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.end_date || ''}
-                  on:change={(e) => updateItem(idx, { end_date: e.currentTarget.value })}
+                  on:change={(e) => updateItem(realIdx, { end_date: e.currentTarget.value })}
                 />
               </div>
               <div>
@@ -614,7 +698,7 @@
                   step="0.01"
                   class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
                   value={item.total_amount || 0}
-                  on:change={(e) => updateItem(idx, { total_amount: Number(e.currentTarget.value) })}
+                  on:change={(e) => updateItem(realIdx, { total_amount: Number(e.currentTarget.value) })}
                 />
               </div>
               <div class="flex items-end">
@@ -628,6 +712,140 @@
               </p>
             {:else if item.start_date}
               <p class="mt-2 text-xs text-slate-400">{formatDate(item.start_date)}</p>
+            {/if}
+
+            <!-- ── Painel de circuito ── -->
+            {#if isCircuitItem(item)}
+              {@const meta = getCircuitMeta(item)}
+              {@const circuitDays = getCircuitDays(item)}
+              <div class="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-indigo-600">Detalhes do Circuito</p>
+
+                <!-- Meta: Codigo / Serie / Tags -->
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-slate-500">Código</label>
+                    <input
+                      type="text"
+                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                      value={meta.codigo || ''}
+                      on:change={(e) => updateCircuitMeta(realIdx, { codigo: e.currentTarget.value })}
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-slate-500">Série</label>
+                    <input
+                      type="text"
+                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                      value={meta.serie || ''}
+                      on:change={(e) => updateCircuitMeta(realIdx, { serie: e.currentTarget.value })}
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-slate-500">Tags <span class="font-normal text-slate-400">(uma por linha)</span></label>
+                    <textarea
+                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                      rows={2}
+                      value={(meta.tags || []).join('\n')}
+                      on:change={(e) => updateCircuitMeta(realIdx, { tags: e.currentTarget.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
+                    ></textarea>
+                  </div>
+                </div>
+
+                <!-- Itinerário -->
+                <div class="mt-3">
+                  <label class="mb-1 block text-xs font-medium text-slate-500">Itinerário <span class="font-normal text-slate-400">(uma cidade por linha)</span></label>
+                  <textarea
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                    rows={3}
+                    value={(meta.itinerario || []).join('\n')}
+                    on:change={(e) => updateCircuitMeta(realIdx, { itinerario: e.currentTarget.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
+                  ></textarea>
+                </div>
+
+                <!-- Dia a dia -->
+                <div class="mt-4">
+                  <div class="mb-2 flex items-center justify-between">
+                    <div>
+                      <p class="text-sm font-semibold text-slate-700">Dia a dia</p>
+                      <p class="text-xs text-slate-400">Título e descrição de cada etapa do circuito.</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="flex items-center gap-1 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                      on:click={() => addCircuitDay(realIdx)}
+                    >
+                      <Plus size={13} /> Adicionar dia
+                    </button>
+                  </div>
+
+                  {#if circuitDays.length === 0}
+                    <p class="rounded-lg border border-dashed border-slate-300 py-4 text-center text-xs text-slate-400">
+                      Nenhum dia encontrado no texto. Use "Adicionar dia" para criar manualmente.
+                    </p>
+                  {:else}
+                    <div class="space-y-2">
+                      {#each circuitDays as seg, segIdx}
+                        {@const dayData = (seg.data || {}) as { dia?: number; titulo?: string; descricao?: string }}
+                        <div class="rounded-lg border border-slate-200 bg-white p-3">
+                          <div class="grid grid-cols-3 gap-2 sm:grid-cols-[auto_1fr_auto]">
+                            <div class="w-20">
+                              <label class="mb-1 block text-xs font-medium text-slate-500">Dia</label>
+                              <input
+                                type="number"
+                                min="1"
+                                class="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+                                value={dayData.dia ?? segIdx + 1}
+                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'dia', Number(e.currentTarget.value) || segIdx + 1)}
+                              />
+                            </div>
+                            <div>
+                              <label class="mb-1 block text-xs font-medium text-slate-500">Cidade / Título</label>
+                              <input
+                                type="text"
+                                class="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+                                value={dayData.titulo || ''}
+                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'titulo', e.currentTarget.value)}
+                              />
+                            </div>
+                            <div class="flex items-end gap-1 pb-0.5">
+                              <button
+                                type="button"
+                                class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                disabled={segIdx === 0}
+                                title="Subir dia"
+                                on:click={() => moveCircuitDay(realIdx, segIdx, 'up')}
+                              ><ChevronUp size={14} /></button>
+                              <button
+                                type="button"
+                                class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                disabled={segIdx === circuitDays.length - 1}
+                                title="Descer dia"
+                                on:click={() => moveCircuitDay(realIdx, segIdx, 'down')}
+                              ><ChevronDown size={14} /></button>
+                              <button
+                                type="button"
+                                class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                title="Remover dia"
+                                on:click={() => removeCircuitDay(realIdx, segIdx)}
+                              ><Trash2 size={14} /></button>
+                            </div>
+                          </div>
+                          <div class="mt-2">
+                            <label class="mb-1 block text-xs font-medium text-slate-500">Descrição</label>
+                            <textarea
+                              class="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                              rows={2}
+                              value={dayData.descricao || ''}
+                              on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'descricao', e.currentTarget.value)}
+                            ></textarea>
+                          </div>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
             {/if}
           </div>
         {/each}

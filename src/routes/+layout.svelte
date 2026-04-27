@@ -43,8 +43,8 @@
   
   // Inicializa auth store com dados do servidor
   // Se o servidor já tem sessão (via cookie SSR), marca sessionSynced imediatamente
-  $: if (data.session && data.user) {
-    auth.setAuth(data.user, data.session);
+  $: if (data.session) {
+    auth.setAuth(data.user ?? data.session.user ?? null, data.session);
     sessionSynced.set(true);
   }
   
@@ -53,6 +53,7 @@
 
     let cancelled = false;
     let unsubscribe = () => {};
+    const hasServerSession = Boolean(data.session);
 
     (async () => {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -82,8 +83,13 @@
 
       console.log('[Layout] Session no mount:', session ? 'existe' : 'nao existe');
       if (session) {
-        console.log('[Layout] Sincronizando session existente...');
-        await syncServerSession(session, 'mount');
+        if (hasServerSession) {
+          console.log('[Layout] Sessao SSR ja existe; pulando sincronizacao redundante no mount.');
+          sessionSynced.set(true);
+        } else {
+          console.log('[Layout] Sincronizando session existente...');
+          await syncServerSession(session, 'mount');
+        }
       } else {
         sessionSynced.set(true);
       }

@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
   import Topbar from '$lib/components/layout/Topbar.svelte';
+  import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
   import { sidebar, isMobile } from '$lib/stores/ui';
   import { sessionSynced } from '$lib/stores/auth';
 
@@ -33,6 +34,8 @@
 </script>
 
 <svelte:window on:resize={handleResize} />
+
+<ToastContainer />
 
 <div class="vtur-app-shell">
   <Topbar />

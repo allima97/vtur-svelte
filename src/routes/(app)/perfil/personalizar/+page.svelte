@@ -102,16 +102,21 @@
   // Seções visíveis de acordo com as permissões do usuário atual.
   // $permissoes é referenciado explicitamente para que o Svelte recompute
   // quando o store de permissões ficar pronto (ready = true).
-  $: secoesVisiveis = ($permissoes, SECOES
-    .map((secao) => ({
-      ...secao,
-      items: secao.items.filter((item) => podeVerItem(item.href))
-    }))
-    .filter((secao) => secao.items.length > 0));
+  $: {
+    $permissoes;
+    secoesVisiveis = SECOES
+      .map((secao) => ({
+        ...secao,
+        items: secao.items.filter((item) => podeVerItem(item.href))
+      }))
+      .filter((secao) => secao.items.length > 0);
+  }
 
   type MenuPrefs = {
     hidden: string[];
   };
+
+  let secoesVisiveis = SECOES;
 
   let prefs: MenuPrefs = { hidden: [] };
   let loading = true;

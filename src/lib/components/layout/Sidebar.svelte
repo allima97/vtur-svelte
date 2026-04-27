@@ -67,6 +67,9 @@
 
   let isMenuExpanded = false;
   let menuPrefsHidden: string[] = [];
+  let visibleMenuSections: MenuSection[] = [];
+  let visibleMasterItems: MenuItem[] = [];
+  let visibleAdminItems: MenuItem[] = [];
 
   const MENU_PREFS_KEY = 'vtur:menu-prefs';
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
@@ -278,17 +281,20 @@
   });
 
   // hiddenMenuSet é referenciado explicitamente para garantir que o Svelte
-  // rastreie esta dependência e recompute visibleMenuSections quando as
+  // rastreie esta dependência e recompute os blocos visíveis quando as
   // preferências de ocultação do usuário mudarem.
-  $: visibleMenuSections = (hiddenMenuSet, menuSections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => canSeeItem(item)),
-    }))
-    .filter((section) => section.items.length > 0));
+  $: {
+    hiddenMenuSet;
+    visibleMenuSections = menuSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => canSeeItem(item)),
+      }))
+      .filter((section) => section.items.length > 0);
 
-  $: visibleMasterItems = (hiddenMenuSet, masterItems.filter((item) => canSeeItem(item)));
-  $: visibleAdminItems = (hiddenMenuSet, adminItems.filter((item) => canSeeItem(item)));
+    visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
+    visibleAdminItems = adminItems.filter((item) => canSeeItem(item));
+  }
 
   function handleItemClick() {
     if ($isMobile) sidebar.close();
@@ -339,6 +345,7 @@
   type NavEntry = { key?: string; name: string; href: string; icon: typeof LayoutDashboard };
 
   let mobileNavEntries: NavEntry[] = [];
+  let visibleMobileNavEntries: NavEntry[] = [];
 
   $: mobileNavEntries = [
     { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
@@ -370,9 +377,12 @@
     { key: 'meu_perfil',      name: 'Perfil',         href: '/perfil',                        icon: UserCircle },
   ];
 
-  $: visibleMobileNavEntries = (hiddenMenuSet, mobileNavEntries.filter((entry) =>
-    canSeeItem({ key: entry.key, name: entry.name, href: entry.href, icon: entry.icon })
-  ));
+  $: {
+    hiddenMenuSet;
+    visibleMobileNavEntries = mobileNavEntries.filter((entry) =>
+      canSeeItem({ key: entry.key, name: entry.name, href: entry.href, icon: entry.icon })
+    );
+  }
 
   // Encontra a entrada mais específica que bate com a rota atual
   $: currentNavEntry = (() => {

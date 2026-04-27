@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import { supabase } from '$lib/db/supabase';
+  import { mergeImportedRoteiroAereo, parseImportedRoteiroAereo } from '$lib/roteiroAereoImport';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -103,6 +104,19 @@
     taxas: number | null;
   };
 
+  type PdfSettings = {
+    consultor_nome?: string;
+    filial_nome?: string;
+    endereco_linha1?: string;
+    endereco_linha2?: string;
+    endereco_linha3?: string;
+    telefone?: string;
+    whatsapp?: string;
+    email?: string;
+    rodape_texto?: string;
+    logo_url?: string;
+  };
+
   // ─── Constants ─────────────────────────────────────────────────────────────
   const ABAS = [
     { id: 'itinerario', label: 'Itinerário' },
@@ -130,6 +144,7 @@
 
   let loading = $state(true);
   let saving = $state(false);
+  let previewingPdf = $state(false);
   let abaAtiva: AbaId = $state('itinerario');
 
   // Form fields
@@ -148,6 +163,7 @@
   let transportes: RotTransporte[] = $state([]);
   let investimentos: RotInvestimento[] = $state([]);
   let pagamentos: RotPagamento[] = $state([]);
+  let pdfSettings: PdfSettings = $state({});
 
   // Sugestões
   let sugestoes: Record<string, string[]> = $state({});
@@ -166,6 +182,10 @@
   let diasBuscaCidade = $state('');
   let diasBuscaResults: any[] = $state([]);
   let diasBuscaLoading = $state(false);
+  let showDiasImport = $state(false);
+  let diasImportText = $state('');
+  let diasImportMsg: string | null = $state(null);
+  let diasImportError: string | null = $state(null);
 
   // Import text
   let hotelImportText = $state('');
@@ -286,13 +306,193 @@
     }
   }
 
+  function normalizeImportLine(value: string): string {
+    return String(value || '')
+      .replace(/\r/g, '')
+      .replace(/\t/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function isImportSectionHeader(line: string): boolean {
+    const normalized = normalizeImportLine(line)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    return (
+      normalized === 'itinerario' ||
+      normalized === 'itinerario de viagem' ||
+      normalized === 'dia a dia' ||
+      normalized === 'roteiro' ||
+      normalized === 'programacao'
+    );
+  }
+
+  function parseDiaHeader(line: string): { dia: number | null; titulo: string } | null {
+    const normalized = normalizeImportLine(line);
+    if (!normalized || isImportSectionHeader(normalized)) return null;
+
+    const patterns = [
+      /^dia\s*(\d+)[ºoª]?\s*[:\-.–—]?\s*(.*)$/i,
+      /^(\d+)[ºoª]?\s*dia\s*[:\-.–—]?\s*(.*)$/i,
+      /^(\d+)[ºoª]?\s*[:\-.–—]\s*(.*)$/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (match) {
+        return {
+          dia: Number(match[1]) || null,
+          titulo: normalizeImportLine(match[2])
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function isImportStopHeader(line: string): boolean {
+    const normalized = normalizeImportLine(line)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    return (
+      normalized.startsWith('servicos inclusos') ||
+      normalized.startsWith('informacoes importantes') ||
+      normalized.startsWith('formas de pagamento') ||
+      normalized === 'importante' ||
+      normalized.startsWith('importante ') ||
+      normalized.startsWith('outros servicos')
+    );
+  }
+
+  function mapImportedTitleToDia(ordem: number, tituloBruto: string, descricaoLinhas: string[]): RotDia {
+    const titulo = normalizeImportLine(tituloBruto);
+    const descricao = descricaoLinhas.map((line) => normalizeImportLine(line)).filter(Boolean).join('\n');
+    const routeParts = titulo
+      .split(/\s(?:->|→|\/|\-|–|—)\s/)
+      .map((part) => normalizeImportLine(part))
+      .filter(Boolean);
+
+    const cidade = routeParts.length > 0 ? routeParts[0] : titulo;
+    const percurso = routeParts.length > 1 ? titulo : '';
+
+    return {
+      ...newDia(ordem),
+      ordem,
+      cidade,
+      percurso,
+      descricao
+    };
+  }
+
+  function parseDiasImportText(text: string): RotDia[] {
+    const raw = String(text || '').replace(/\r/g, '').trim();
+    if (!raw) return [];
+
+    const lines = raw.split('\n');
+    const parsed: RotDia[] = [];
+
+    let started = false;
+    let expectingTitleFromNextLine = false;
+    let currentTitle = '';
+    let currentDescription: string[] = [];
+
+    const commitCurrent = () => {
+      if (!currentTitle.trim() && currentDescription.length === 0) return;
+      parsed.push(mapImportedTitleToDia(parsed.length, currentTitle || `Dia ${parsed.length + 1}`, currentDescription));
+      currentTitle = '';
+      currentDescription = [];
+    };
+
+    for (const rawLine of lines) {
+      const line = normalizeImportLine(rawLine);
+      if (!line) continue;
+      if (isImportSectionHeader(line)) continue;
+
+      if (started && isImportStopHeader(line)) {
+        break;
+      }
+
+      const header = parseDiaHeader(line);
+      if (header) {
+        started = true;
+        commitCurrent();
+        currentTitle = header.titulo;
+        currentDescription = [];
+        expectingTitleFromNextLine = !currentTitle;
+        continue;
+      }
+
+      if (!started) {
+        continue;
+      }
+
+      if (expectingTitleFromNextLine) {
+        currentTitle = line;
+        expectingTitleFromNextLine = false;
+        continue;
+      }
+
+      if (!currentTitle) {
+        currentTitle = line;
+      } else {
+        currentDescription.push(line);
+      }
+    }
+
+    commitCurrent();
+
+    if (parsed.length > 0) {
+      return reorder(parsed);
+    }
+
+    const blocks = raw
+      .split(/\n{2,}/)
+      .map((block) => block.split('\n').map((line) => normalizeImportLine(line)).filter(Boolean))
+      .filter((block) => block.length > 0);
+
+    return reorder(
+      blocks.map((block, index) => {
+        const [titulo, ...descricaoLinhas] = block;
+        return mapImportedTitleToDia(index, titulo || `Dia ${index + 1}`, descricaoLinhas);
+      })
+    );
+  }
+
+  function handleImportDiasText() {
+    diasImportMsg = null;
+    diasImportError = null;
+
+    if (!diasImportText.trim()) {
+      diasImportError = 'Cole o texto do dia a dia do circuito.';
+      return;
+    }
+
+    const imported = parseDiasImportText(diasImportText);
+    if (imported.length === 0) {
+      diasImportError = 'Nenhum dia foi identificado. Use linhas como "Dia 1 - Chegada" ou blocos separados por linha em branco.';
+      return;
+    }
+
+    dias = imported;
+    duracao = String(imported.length);
+    diasImportMsg = `${imported.length} dia(s) montado(s) automaticamente.`;
+    toast.success(`${imported.length} dia(s) importado(s) para o roteiro.`);
+    showDiasImport = false;
+    diasImportText = '';
+  }
+
   // ─── Load ──────────────────────────────────────────────────────────────────
   async function load() {
     loading = true;
     try {
-      const [roteiroRes, sugestoesRes] = await Promise.all([
+      const [roteiroRes, sugestoesRes, settingsRes] = await Promise.all([
         fetch(`/api/v1/roteiros/${roteiroId}`),
         fetch('/api/v1/roteiros/sugestoes-busca').catch(() => null),
+        fetch('/api/v1/parametros/orcamentos-pdf').catch(() => null),
       ]);
 
       if (!roteiroRes.ok) {
@@ -342,6 +542,11 @@
       if (sugestoesRes?.ok) {
         const sData = await sugestoesRes.json();
         sugestoes = sData || {};
+      }
+
+      if (settingsRes?.ok) {
+        const settingsData = await settingsRes.json();
+        pdfSettings = settingsData?.settings || {};
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiro.');
@@ -426,10 +631,10 @@
     clienteSearchTimeout = setTimeout(async () => {
       gerarClienteLoading = true;
       try {
-        const res = await fetch(`/api/v1/clientes?q=${encodeURIComponent(gerarClienteQ)}&limit=8`);
+        const res = await fetch(`/api/v1/clientes?search=${encodeURIComponent(gerarClienteQ)}`);
         if (!res.ok) return;
         const data = await res.json();
-        gerarClienteResults = data.clientes || data || [];
+        gerarClienteResults = data.items || data.clientes || data || [];
       } finally {
         gerarClienteLoading = false;
       }
@@ -514,17 +719,465 @@
       return;
     }
     try {
-      const lines = aereoImportText.split('\n').filter(l => l.trim());
-      const imported: RotTransporte[] = lines.map((line, idx) => {
-        const t = newTransporte(idx);
-        t.trecho = line.trim();
-        return t;
-      });
-      transportes = reorder([...transportes, ...imported]);
+      const imported = parseImportedRoteiroAereo(aereoImportText, new Date());
+      if (imported.length === 0) {
+        aereoImportError = 'Nenhum trecho aéreo foi identificado no texto colado.';
+        return;
+      }
+
+      const existingImported = transportes.map((item, index) => ({
+        trecho: item.trecho || '',
+        cia_aerea: item.cia_aerea || '',
+        data_voo: item.data_voo || item.data_inicio || '',
+        data_inicio: item.data_inicio || item.data_voo || '',
+        data_fim: item.data_fim || item.data_voo || '',
+        classe_reserva: item.classe_reserva || '',
+        hora_saida: item.hora_saida || '',
+        aeroporto_saida: item.aeroporto_saida || '',
+        duracao_voo: item.duracao_voo || '',
+        tipo_voo: item.tipo_voo || '',
+        hora_chegada: item.hora_chegada || '',
+        aeroporto_chegada: item.aeroporto_chegada || '',
+        tarifa_nome: item.tarifa_nome || '',
+        reembolso_tipo: '',
+        qtd_adultos: Number(item.qtd_adultos || 0),
+        qtd_criancas: Number(item.qtd_criancas || 0),
+        taxas: Number(item.taxas || 0),
+        valor_total: Number(item.valor_total || 0),
+        ordem: index
+      }));
+
+      const merged = mergeImportedRoteiroAereo(existingImported, imported);
+      transportes = reorder(
+        merged.map((item, idx) => ({
+          ...newTransporte(idx),
+          ordem: idx,
+          tipo: 'Aéreo',
+          trecho: item.trecho || '',
+          cia_aerea: item.cia_aerea || '',
+          data_voo: item.data_voo || '',
+          data_inicio: item.data_inicio || item.data_voo || '',
+          data_fim: item.data_fim || item.data_voo || '',
+          classe_reserva: item.classe_reserva || '',
+          hora_saida: item.hora_saida || '',
+          aeroporto_saida: item.aeroporto_saida || '',
+          duracao_voo: item.duracao_voo || '',
+          tipo_voo: item.tipo_voo || '',
+          hora_chegada: item.hora_chegada || '',
+          aeroporto_chegada: item.aeroporto_chegada || '',
+          tarifa_nome: item.tarifa_nome || '',
+          qtd_adultos: item.qtd_adultos || null,
+          qtd_criancas: item.qtd_criancas || null,
+          taxas: item.taxas || null,
+          valor_total: item.valor_total || null
+        }))
+      );
       aereoImportText = '';
-      aereoImportMsg = `${imported.length} linha(s) importada(s). Revise os campos.`;
+      aereoImportMsg = `${imported.length} trecho(s) aéreo(s) importado(s). Revise os campos.`;
     } catch {
       aereoImportError = 'Não foi possível importar.';
+    }
+  }
+
+  function escapePreviewHtml(value: string | number | null | undefined) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function buildPreviewList(items: string[]) {
+    const filtered = items.map((item) => String(item || '').trim()).filter(Boolean);
+    if (filtered.length === 0) {
+      return '<p class="empty">Nenhum conteúdo informado.</p>';
+    }
+    return `<ul>${filtered.map((item) => `<li>${escapePreviewHtml(item)}</li>`).join('')}</ul>`;
+  }
+
+  function buildPreviewCards<T>(items: T[], render: (item: T, index: number) => string) {
+    if (items.length === 0) {
+      return '<p class="empty">Nenhum conteúdo informado.</p>';
+    }
+    return items.map(render).join('');
+  }
+
+  function formatPreviewDate(value: string | null | undefined) {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+
+    const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      return `${day}-${month}-${year}`;
+    }
+
+    const isoDateTimeMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T.*$/);
+    if (isoDateTimeMatch) {
+      const [, year, month, day] = isoDateTimeMatch;
+      return `${day}-${month}-${year}`;
+    }
+
+    return normalized;
+  }
+
+  function buildPreviewSection(title: string, content: string) {
+    if (!content.trim()) return '';
+    return `<section class="section"><h2>${escapePreviewHtml(title)}</h2><div class="grid">${content}</div></section>`;
+  }
+
+  function buildPreviewRawSection(title: string, content: string, sectionClass = '') {
+    if (!content.trim()) return '';
+    const className = ['section', sectionClass].filter(Boolean).join(' ');
+    return `<section class="${className}"><h2>${escapePreviewHtml(title)}</h2>${content}</section>`;
+  }
+
+  function buildPreviewListSection(title: string, items: string[]) {
+    const filtered = items.map((item) => String(item || '').trim()).filter(Boolean);
+    if (filtered.length === 0) return '';
+    return `<section class="section"><h2>${escapePreviewHtml(title)}</h2>${buildPreviewList(filtered)}</section>`;
+  }
+
+  function buildPreviewTable(headers: string[], rows: string[][], className = '') {
+    if (rows.length === 0) return '';
+    return `<div class="preview-table-wrap ${escapePreviewHtml(className)}"><table class="preview-table ${escapePreviewHtml(className)}">
+      <thead>
+        <tr>${headers.map((header) => `<th>${escapePreviewHtml(header)}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map((row) => `<tr>${row.map((cell) => `<td>${escapePreviewHtml(cell || '-')}</td>`).join('')}</tr>`)
+          .join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  function splitTrechoCities(value: string | null | undefined) {
+    const parts = String(value || '')
+      .split(/\s+-\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return {
+      origem: parts[0] || '',
+      destino: parts[1] || '',
+    };
+  }
+
+  function resolvePreviewAirlineIata(value: string | null | undefined) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized.includes('lufthansa')) return 'LH';
+    if (normalized.includes('latam')) return 'LA';
+    if (normalized.includes('gol')) return 'G3';
+    if (normalized.includes('azul')) return 'AD';
+    if (normalized.includes('sky')) return 'H2';
+    if (normalized.includes('tap')) return 'TP';
+    if (normalized.includes('iberia')) return 'IB';
+    if (normalized.includes('air france')) return 'AF';
+    if (normalized.includes('klm')) return 'KL';
+    if (normalized.includes('emirates')) return 'EK';
+    if (normalized.includes('qatar')) return 'QR';
+    if (normalized.includes('turkish')) return 'TK';
+    return String(value || '').trim().slice(0, 3).toUpperCase();
+  }
+
+  function formatFlightCity(value: string | null | undefined) {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+    return normalized
+      .split(/\s*-\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)[0] || normalized;
+  }
+
+  function formatFlightPlace(city: string | null | undefined, airportCode: string | null | undefined) {
+    const cityLabel = formatFlightCity(city);
+    const code = String(airportCode || '').trim().toUpperCase();
+    if (cityLabel && code) return `${cityLabel} (${code})`;
+    if (cityLabel) return cityLabel;
+    if (code) return code;
+    return '';
+  }
+
+  function buildPreviewFlightTable(items: RotTransporte[]) {
+    if (items.length === 0) return '';
+
+    const airlineLegend = new Map<string, string>();
+    const rows = items
+      .map((item) => {
+        const trecho = splitTrechoCities(item.trecho || '');
+        const ciaCompleta = String(item.cia_aerea || '').trim();
+        const cia = resolvePreviewAirlineIata(ciaCompleta) || ciaCompleta || 'AÉREO';
+        if (ciaCompleta && cia && cia !== ciaCompleta.toUpperCase()) {
+          airlineLegend.set(cia, ciaCompleta);
+        }
+        const origem = formatFlightPlace(trecho.origem, item.aeroporto_saida) || '-';
+        const destino = formatFlightPlace(trecho.destino, item.aeroporto_chegada) || '-';
+        const horarios = [String(item.hora_saida || '').trim(), String(item.hora_chegada || '').trim()].filter(Boolean).join(' / ') || '-';
+
+        return [
+          cia,
+          origem,
+          formatPreviewDate(item.data_voo || item.data_inicio),
+          destino,
+          formatPreviewDate(item.data_fim || item.data_voo || item.data_inicio),
+          horarios,
+        ];
+      })
+      .filter((row) => row.length > 0);
+
+    const legendHtml = airlineLegend.size > 0
+      ? `<div class="preview-legend">${Array.from(airlineLegend.entries()).map(([code, name]) => `<div><b>${escapePreviewHtml(code)}</b> = ${escapePreviewHtml(name)}</div>`).join('')}</div>`
+      : '';
+
+    return `${buildPreviewTable(['Cia', 'Origem', 'Saída', 'Destino', 'Chegada', 'Horários'], rows, 'flight-preview-table')}${legendHtml}`;
+  }
+
+  function buildRoteiroPreviewHtml() {
+    const diasItems = dias.filter((dia) => dia.cidade || dia.percurso || dia.data || dia.descricao);
+    const diasHtml = diasItems.length > 0
+      ? buildPreviewCards(
+      diasItems,
+      (dia, index) => `
+        <article class="card">
+          <h3>Dia ${index + 1} - ${escapePreviewHtml(dia.cidade || dia.percurso || 'Sem título')}</h3>
+          ${dia.data ? `<p class="meta">${escapePreviewHtml(formatPreviewDate(dia.data))}</p>` : ''}
+          ${dia.percurso && dia.percurso !== dia.cidade ? `<p class="meta">${escapePreviewHtml(dia.percurso)}</p>` : ''}
+          ${dia.descricao ? `<p>${escapePreviewHtml(dia.descricao).replace(/\n/g, '<br>')}</p>` : '<p class="empty">Sem descrição.</p>'}
+        </article>`
+    ) : '';
+
+    const transportesItems = transportes.filter((item) => item.trecho || item.cia_aerea || item.data_voo);
+    const transportesHtml = transportesItems.length > 0
+      ? buildPreviewFlightTable(transportesItems)
+      : '';
+
+    const hoteisItems = hoteis.filter((item) => item.hotel || item.cidade);
+    const groupedHoteis = Array.from(
+      hoteisItems.reduce((map, item) => {
+        const key = String(item.cidade || 'Hotéis').trim() || 'Hotéis';
+        if (!map.has(key)) map.set(key, [] as RotHotel[]);
+        map.get(key)?.push(item);
+        return map;
+      }, new Map<string, RotHotel[]>())
+    );
+    const hoteisHtml = groupedHoteis.length > 0
+      ? groupedHoteis
+          .map(([cidade, itens]) => {
+            const rows = itens.map((item) => [
+              String(item.hotel || '').trim() || '-',
+              formatPreviewDate(item.data_inicio) || '-',
+              formatPreviewDate(item.data_fim) || '-',
+              Number(item.noites || 0) > 0 ? String(Number(item.noites || 0)) : '-',
+              String(item.apto || '').trim() || '-',
+              String(item.regime || '').trim() || '-',
+            ]);
+            return `<div class="preview-group-block"><div class="preview-group-title">${escapePreviewHtml(cidade)}</div>${buildPreviewTable(['Nome hotel', 'Início', 'Fim', 'Noites', 'Acomodação', 'Regime'], rows, 'hotel-preview-table')}</div>`;
+          })
+          .join('')
+      : '';
+
+    const passeiosItems = passeios.filter((item) => item.passeio || item.cidade);
+    const groupedPasseios = Array.from(
+      passeiosItems.reduce((map, item) => {
+        const key = String(item.cidade || 'Serviços').trim() || 'Serviços';
+        if (!map.has(key)) map.set(key, [] as RotPasseio[]);
+        map.get(key)?.push(item);
+        return map;
+      }, new Map<string, RotPasseio[]>())
+    );
+    const passeiosHtml = groupedPasseios.length > 0
+      ? groupedPasseios
+          .map(([cidade, itens]) => {
+            const rows = itens.map((item) => {
+              const dataInicio = formatPreviewDate(item.data_inicio);
+              const dataFim = formatPreviewDate(item.data_fim);
+              const data = dataInicio && dataFim && dataInicio !== dataFim ? `${dataInicio} a ${dataFim}` : dataInicio || dataFim || '-';
+              return [data, String(item.passeio || '').trim() || '-', String(item.ingressos || '').trim() || '-'];
+            });
+            return `<div class="preview-group-block"><div class="preview-group-title">${escapePreviewHtml(cidade)}</div>${buildPreviewTable(['Data', 'Descrição', 'Ingressos'], rows, 'passeio-preview-table')}</div>`;
+          })
+          .join('')
+      : '';
+
+    const investimentoRows = investimentos
+      .filter((item) => item.tipo || Number(item.valor_por_pessoa || 0) > 0 || Number(item.valor_por_apto || 0) > 0)
+      .map((item) => [
+        String(item.tipo || '').trim() || '-',
+        Number(item.valor_por_pessoa || 0) > 0 ? `R$ ${formatBRL(Number(item.valor_por_pessoa || 0))}` : '-',
+        Number(item.qtd_apto || 0) > 0 ? String(Number(item.qtd_apto || 0)) : '-',
+        Number(item.valor_por_apto || 0) > 0 ? `R$ ${formatBRL(Number(item.valor_por_apto || 0))}` : '-',
+      ]);
+    const investimentoHtml = investimentoRows.length > 0
+      ? buildPreviewTable(['Tipo', 'Valor por Pessoa', 'Qte Paxs', 'Valor total por Apto'], investimentoRows, 'investimento-preview-table')
+      : '';
+
+    const pagamentosItems = pagamentos.filter((item) => item.servico || item.valor_total_com_taxas);
+    const pagamentosHtml = pagamentosItems.length > 0
+      ? buildPreviewCards(
+      pagamentosItems,
+      (item) => `<article class="card compact"><h3>${escapePreviewHtml(item.servico || 'Pagamento')}</h3><p>${escapePreviewHtml([item.forma_pagamento, item.valor_total_com_taxas != null ? `R$ ${formatBRL(Number(item.valor_total_com_taxas || 0))}` : ''].filter(Boolean).join(' • '))}</p></article>`
+    ) : '';
+
+    const includesSection = buildPreviewListSection('O roteiro inclui', incluiTexto.split('\n'));
+    const excludesSection = buildPreviewListSection('O roteiro não inclui', naoIncluiTexto.split('\n'));
+    const infoSection = buildPreviewListSection('Informações importantes', informacoesImportantes.split('\n'));
+
+    const footerLines = String(pdfSettings.rodape_texto || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const rightLines = [
+      pdfSettings.consultor_nome ? `Consultor: ${pdfSettings.consultor_nome}` : '',
+      pdfSettings.telefone ? `Telefone: ${pdfSettings.telefone}` : '',
+      pdfSettings.whatsapp ? `WhatsApp: ${pdfSettings.whatsapp}` : '',
+      pdfSettings.email ? `E-mail: ${pdfSettings.email}` : '',
+    ].filter(Boolean);
+
+    const citiesLine = [inicioCidade, fimCidade].filter(Boolean).join(' • ');
+    const periodText = (() => {
+      const firstDia = diasItems.find((item) => item.data)?.data || transportesItems.find((item) => item.data_voo || item.data_inicio)?.data_voo || transportesItems.find((item) => item.data_inicio)?.data_inicio || '';
+      const lastDia = [...diasItems].reverse().find((item) => item.data)?.data || [...transportesItems].reverse().find((item) => item.data_fim || item.data_voo || item.data_inicio)?.data_fim || '';
+      const start = formatPreviewDate(firstDia);
+      const end = formatPreviewDate(lastDia);
+      if (start && end && start !== end) return `${start} a ${end}`;
+      return start || end || '';
+    })();
+
+    const headerCardHtml = `
+      <section class="preview-header-card">
+        <table class="preview-header-table">
+          <tbody>
+            <tr>
+              <td class="preview-header-left">
+                ${pdfSettings.logo_url ? `<img src="${escapePreviewHtml(pdfSettings.logo_url)}" class="preview-logo" />` : ''}
+                <div class="preview-header-copy">
+                  ${pdfSettings.filial_nome ? `<div>${escapePreviewHtml(`Filial: ${pdfSettings.filial_nome}`)}</div>` : ''}
+                  ${pdfSettings.endereco_linha1 ? `<div>${escapePreviewHtml(pdfSettings.endereco_linha1)}</div>` : ''}
+                  ${pdfSettings.endereco_linha2 ? `<div>${escapePreviewHtml(pdfSettings.endereco_linha2)}</div>` : ''}
+                  ${pdfSettings.endereco_linha3 ? `<div>${escapePreviewHtml(pdfSettings.endereco_linha3)}</div>` : ''}
+                </div>
+              </td>
+              <td class="preview-header-right">
+                ${rightLines.map((line) => `<div>${escapePreviewHtml(line)}</div>`).join('')}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="preview-header-divider"></div>
+      </section>`;
+
+    const titleCardHtml = `
+      <section class="preview-title-card">
+        <div class="preview-title-kicker">Roteiro Personalizado</div>
+        <div class="preview-title-name">${escapePreviewHtml(nome || 'Roteiro')}</div>
+        ${citiesLine ? `<div class="preview-title-meta"><b>Cidades:</b> ${escapePreviewHtml(citiesLine)}</div>` : ''}
+        ${periodText ? `<div class="preview-title-meta"><b>Período:</b> ${escapePreviewHtml(periodText)}</div>` : ''}
+      </section>`;
+
+    const footerHtml = footerLines.length > 0
+      ? `<section class="preview-footer-card"><div>${footerLines.map((line) => escapePreviewHtml(line)).join('<br/>')}</div></section>`
+      : '';
+
+    return `<!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${escapePreviewHtml(nome || 'Roteiro')}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+            .shell { max-width: 960px; margin: 0 auto; padding: 24px; }
+            .toolbar { position: sticky; top: 0; display: flex; justify-content: flex-end; gap: 12px; padding: 16px 0; background: #f8fafc; }
+            .toolbar button { border: 0; border-radius: 999px; padding: 10px 16px; background: #0f766e; color: white; cursor: pointer; }
+            .preview-header-card, .preview-title-card, .preview-footer-card, .section { background: white; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
+            .preview-header-card { padding: 12px 14px; margin: 0 0 12px 0; }
+            .preview-header-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+            .preview-header-left, .preview-header-right { vertical-align: top; }
+            .preview-header-left { width: 52%; }
+            .preview-header-right { width: 48%; font-size: 11px; color: #334155; }
+            .preview-logo { max-width: 120px; max-height: 56px; width: auto; height: auto; object-fit: contain; }
+            .preview-header-copy { font-size: 11px; color: #0f172a; margin: 8px 0 0 0; }
+            .preview-header-divider { height: 1px; background: #dbe3f0; margin: 10px 0 0 0; }
+            .preview-title-card { padding: 14px 16px; margin: 0 0 14px 0; }
+            .preview-title-kicker { font-size: 18px; font-weight: 700; color: #1a2cc8; }
+            .preview-title-name { font-size: 15px; font-weight: 700; color: #0f172a; margin: 6px 0 0 0; }
+            .preview-title-meta { font-size: 12px; color: #334155; margin: 6px 0 0 0; }
+            .section { margin-top: 24px; background: white; border-radius: 18px; padding: 22px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
+            .section h2 { margin: 0 0 16px; font-size: 18px; }
+            .grid { display: grid; gap: 12px; }
+            .card { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; }
+            .card.compact h3 { margin-bottom: 6px; }
+            .card h3 { margin: 0 0 8px; font-size: 15px; }
+            .card p { margin: 0; line-height: 1.55; white-space: normal; }
+            .preview-table-wrap { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 14px; }
+            .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            .preview-table thead th { text-align: left; padding: 8px; border-bottom: 1px solid #cbd5e1; background: #eef2ff; color: #1e3a8a; }
+            .preview-table tbody td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #475569; vertical-align: top; }
+            .preview-table tbody tr:last-child td { border-bottom: 0; }
+            .preview-group-block { margin: 0 0 12px 0; }
+            .preview-group-title { font-size: 15px; font-weight: 700; color: #334155; margin: 0 0 10px 0; }
+            .preview-legend { margin-top: 10px; font-size: 11px; color: #334155; }
+            .preview-legend div + div { margin-top: 4px; }
+            .preview-footer-card { padding: 12px 14px; margin: 0 0 12px 0; font-size: 10px; color: #64748b; }
+            .hotel-preview-table.preview-table { font-size: 13px; }
+            .hotel-preview-table.preview-table thead th { font-size: 12px; }
+            .hotel-preview-table.preview-table tbody td { font-size: 13px; }
+            .flight-preview-table.preview-table { font-size: 13px; }
+            .flight-preview-table.preview-table thead th { font-size: 12px; }
+            .flight-preview-table.preview-table tbody td { font-size: 13px; }
+            .meta { color: #475569; font-size: 13px; margin-bottom: 8px !important; }
+            .empty { color: #64748b; font-style: italic; }
+            ul { margin: 0; padding-left: 18px; }
+            li { margin: 0 0 6px; }
+            @media print {
+              body { background: white; }
+              .toolbar { display: none; }
+              .shell { max-width: none; padding: 0; }
+              .preview-header-card, .preview-title-card, .preview-footer-card, .section { box-shadow: none; border-radius: 0; }
+              .preview-title-card, .section { padding: 0 0 18px; }
+              .preview-table-wrap { border-radius: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="shell">
+            <div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div>
+            ${headerCardHtml}
+            ${titleCardHtml}
+            ${buildPreviewSection('Itinerário Detalhado', diasHtml)}
+            ${buildPreviewRawSection('Hotéis Sugeridos', hoteisHtml, 'preview-hotels-section')}
+            ${buildPreviewRawSection('Passeios e Serviços', passeiosHtml, 'preview-passeios-section')}
+            ${buildPreviewRawSection('Passagem Aérea', transportesHtml, 'preview-airfare-section')}
+            ${buildPreviewRawSection('Investimento', investimentoHtml, 'preview-investimento-section')}
+            ${buildPreviewSection('Pagamento', pagamentosHtml)}
+            ${buildPreviewListSection('O que está incluído', incluiTexto.split('\n'))}
+            ${buildPreviewListSection('O que não está incluído', naoIncluiTexto.split('\n'))}
+            ${buildPreviewListSection('Informações Importantes', informacoesImportantes.split('\n'))}
+            ${footerHtml}
+          </div>
+        </body>
+      </html>`;
+  }
+
+  function handlePreviewPdf() {
+    if (!browser) return;
+    previewingPdf = true;
+    try {
+      const html = buildRoteiroPreviewHtml();
+      const previewUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      const previewWindow = window.open(previewUrl, '_blank');
+      if (!previewWindow) {
+        throw new Error('Não foi possível abrir a prévia do PDF. Verifique o bloqueador de pop-up.');
+      }
+      window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
+      previewWindow.focus();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao visualizar PDF.');
+    } finally {
+      previewingPdf = false;
     }
   }
 
@@ -616,6 +1269,10 @@
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <Button type="button" variant="secondary" size="sm" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+      <Button type="button" variant="secondary" size="sm" loading={previewingPdf} on:click={handlePreviewPdf}>
+        <FileText size={14} class="mr-1" />
+        Visualizar PDF
+      </Button>
       <Button type="button" variant="primary" color="clientes" size="sm" loading={saving} on:click={save}>
         <Save size={14} class="mr-1" />
         Salvar roteiro
@@ -642,6 +1299,10 @@
   {#if abaAtiva === 'itinerario'}
     <Card title="Itinerário dia a dia" color="clientes">
       <div class="mb-3 flex flex-wrap gap-2">
+        <Button type="button" variant="secondary" size="sm" on:click={() => { showDiasImport = true; diasImportError = null; diasImportMsg = null; }}>
+          <FileText size={13} class="mr-1" />
+          Importar dia a dia
+        </Button>
         <Button type="button" variant="secondary" size="sm" on:click={() => { showDiasBusca = true; }}>
           Buscar dias no banco
         </Button>
@@ -1609,6 +2270,10 @@
   <!-- ─── Botão salvar flutuante ─────────────────────────────────────────── -->
   <div class="mt-6 flex justify-end gap-3">
     <Button type="button" variant="secondary" on:click={() => goto('/orcamentos/roteiros')}>Cancelar</Button>
+    <Button type="button" variant="secondary" loading={previewingPdf} on:click={handlePreviewPdf}>
+      <FileText size={16} class="mr-2" />
+      Visualizar PDF
+    </Button>
     <Button type="button" variant="primary" color="clientes" loading={saving} on:click={save}>
       <Save size={16} class="mr-2" />
       Salvar roteiro
@@ -1737,6 +2402,40 @@
       </div>
       <div class="vtur-modal-footer">
         <Button type="button" variant="secondary" on:click={() => { showDiasBusca = false; }}>Fechar</Button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ─── Modal: Importar dia a dia ─────────────────────────────────────── -->
+{#if showDiasImport}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+    <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
+      <div class="border-b border-slate-100 px-6 py-4">
+        <h2 class="text-base font-semibold text-slate-800">Importar dia a dia do circuito</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Cole o texto do circuito e o sistema monta os dias automaticamente.</p>
+      </div>
+      <div class="space-y-3 px-6 py-4">
+        <FieldTextarea
+          bind:value={diasImportText}
+          rows={12}
+          class_name="w-full"
+          monospace={true}
+          placeholder={"Dia 1 - Chegada em Lisboa\nRecepção no aeroporto e traslado ao hotel.\n\nDia 2 - Lisboa\nCity tour e tarde livre."}
+        />
+        <p class="text-xs text-slate-500">
+          Formatos aceitos: <strong>Dia 1 - Título</strong>, <strong>1º Dia - Título</strong> ou blocos separados por linha em branco.
+        </p>
+        {#if diasImportMsg}<p class="text-xs text-green-600">{diasImportMsg}</p>{/if}
+        {#if diasImportError}<p class="text-xs text-red-600">{diasImportError}</p>{/if}
+      </div>
+      <div class="vtur-modal-footer">
+        <Button type="button" variant="secondary" on:click={() => { showDiasImport = false; diasImportError = null; diasImportMsg = null; }}>
+          Cancelar
+        </Button>
+        <Button type="button" variant="primary" color="clientes" on:click={handleImportDiasText}>
+          Importar dias
+        </Button>
       </div>
     </div>
   </div>
