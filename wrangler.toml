@@ -2,6 +2,10 @@ name = "vtur-svelte"
 main = ".svelte-kit/cloudflare/_worker.js"
 compatibility_date = "2026-04-19"
 
+[vars]
+PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_yO4zM8WFfmRTZKtBG1PaHw_9pLyVXMh"
+PUBLIC_SUPABASE_URL = "https://ggqmvruerbaqxthhnxrm.supabase.co"
+
 [assets]
 directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"

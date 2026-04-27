@@ -10,7 +10,7 @@ return {
 	assets: new Set(["assets/cards/themes-master/anniversary-purchase.svg","assets/cards/themes-master/anniversary-trip.svg","assets/cards/themes-master/birthday-elegant.png","assets/cards/themes-master/birthday-elegant.svg","assets/cards/themes-master/christmas-gold.png","assets/cards/themes-master/christmas-gold.svg","assets/cards/themes-master/client-day-premium.svg","assets/cards/themes-master/countdown-travel.svg","assets/cards/themes-master/document-reminder-clean.svg","assets/cards/themes-master/easter-pastel.png","assets/cards/themes-master/easter-pastel.svg","assets/cards/themes-master/exclusive-offer.svg","assets/cards/themes-master/fathers-day-classic.svg","assets/cards/themes-master/inactive-soft-recovery.svg","assets/cards/themes-master/long-holiday.svg","assets/cards/themes-master/mothers-day-floral.png","assets/cards/themes-master/mothers-day-floral.svg","assets/cards/themes-master/new-year-celebration.png","assets/cards/themes-master/new-year-celebration.svg","assets/cards/themes-master/post-trip-light.svg","assets/cards/themes-master/pre-embark-clean.svg","assets/cards/themes-master/premium-elegant.svg","assets/cards/themes-master/referral-soft.svg","assets/cards/themes-master/repurchase-soft.svg","assets/cards/themes-master/seasonal-campaign.svg","assets/cards/themes-master/special-date-soft.svg","assets/cards/themes-master/surprise-soft.svg","assets/cards/themes-master/travel-opportunity.svg","assets/cards/themes-master/travel-return-soft.svg","assets/cards/themes-master/valentines-romantic.svg","assets/cards/themes-master/vip-gold.svg","assets/cards/themes-master/vip-upgrade.svg","assets/cards/themes-master/welcome-clean.svg","assets/cards/themes-master/womens-day-soft.png","assets/cards/themes-master/womens-day-soft.svg","brand/vtur-symbol.svg"]),
 	mimeTypes: {".svg":"image/svg+xml",".png":"image/png",".ttf":"font/ttf"},
 	_: {
-		client: {start:"_app/immutable/entry/start.Bwc8_vPk.js",app:"_app/immutable/entry/app.Cmwq9n2S.js",imports:["_app/immutable/entry/start.Bwc8_vPk.js","_app/immutable/chunks/DMf-tKYE.js","_app/immutable/chunks/B5Fjrzad.js","_app/immutable/chunks/5wHLoNaQ.js","_app/immutable/chunks/C3YHwuiR.js","_app/immutable/entry/app.Cmwq9n2S.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/B5Fjrzad.js","_app/immutable/chunks/BSI5KTM8.js","_app/immutable/chunks/DKBbM5-O.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/C3YHwuiR.js","_app/immutable/chunks/VFDFf-1J.js","_app/immutable/chunks/BitXFih9.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
+		client: {start:"_app/immutable/entry/start.C09SWYYz.js",app:"_app/immutable/entry/app.BkY6thc8.js",imports:["_app/immutable/entry/start.C09SWYYz.js","_app/immutable/chunks/BrjkTlHn.js","_app/immutable/chunks/CiO8PEWf.js","_app/immutable/chunks/Cv-X2LBb.js","_app/immutable/chunks/CYTdQw_y.js","_app/immutable/entry/app.BkY6thc8.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/CiO8PEWf.js","_app/immutable/chunks/CE83V9Ys.js","_app/immutable/chunks/Dwt5qAvk.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/CYTdQw_y.js","_app/immutable/chunks/DWQWX_7w.js","_app/immutable/chunks/Cb3HOSM_.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
 		nodes: [
 			__memo(() => import('../output/server/nodes/0.js')),
 			__memo(() => import('../output/server/nodes/1.js')),
@@ -2653,6 +2653,13 @@ return {
 				params: [],
 				page: { layouts: [0,2,], errors: [1,,], leaf: 118 },
 				endpoint: null
+			},
+			{
+				id: "/test-env",
+				pattern: /^\/test-env\/?$/,
+				params: [],
+				page: null,
+				endpoint: __memo(() => import('../output/server/entries/endpoints/test-env/_server.ts.js'))
 			},
 			{
 				id: "/(app)/vendas",
