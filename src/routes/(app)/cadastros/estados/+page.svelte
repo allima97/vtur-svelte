@@ -142,7 +142,7 @@
       options={[{ value: '', label: 'Todos' }, ...paises.map((p) => ({ value: p.id, label: p.nome }))]}
       placeholder={null}
     />
-    <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
+    <Button variant="secondary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
 

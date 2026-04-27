@@ -145,7 +145,7 @@
         { value: 'pago', label: 'Pagas' }
       ]}
     />
-    <Button variant="primary" color="comissoes" on:click={load}>Filtrar</Button>
+    <Button variant="secondary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" href="/comissoes/fechamento">
       <FileText size={16} class="mr-2" />
       Fechamento mensal

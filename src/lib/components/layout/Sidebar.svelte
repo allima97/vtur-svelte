@@ -626,7 +626,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent px-2 py-2 text-slate-200 transition-all duration-200 hover:bg-white/10 hover:text-white ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open bg-white/12 text-white shadow-[0_10px_24px_rgba(15,23,42,0.28)]' : ''}`}
+      class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent px-2 py-2 text-white transition-all duration-200 hover:bg-transparent hover:text-white ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open text-white' : ''}`}
       on:click={() => sidebar.toggle()}
       ariaLabel="Abrir menu"
     >

@@ -243,7 +243,7 @@
   title="Vendas por Destino"
   subtitle="Analise de vendas por destino turistico"
   color="financeiro"
-  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatorios', href: '/relatorios' },
     { label: 'Destinos' }

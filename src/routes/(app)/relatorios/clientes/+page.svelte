@@ -266,7 +266,7 @@
   title="Vendas por Cliente"
   subtitle="Analise de clientes e historico de compras"
   color="financeiro"
-  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatorios', href: '/relatorios' },
     { label: 'Clientes' }

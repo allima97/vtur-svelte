@@ -299,7 +299,7 @@
       {
         label: 'Voltar',
         href: '/orcamentos',
-        variant: 'ghost'
+        variant: 'secondary'
       }
     ]}
   />

@@ -239,7 +239,7 @@
       options={vendedorOptions}
       placeholder={null}
     />
-    <Button variant="primary" color="comissoes" on:click={load}>Filtrar</Button>
+    <Button variant="secondary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" on:click={handleExport}>Exportar CSV</Button>
   </div>
 </Card>

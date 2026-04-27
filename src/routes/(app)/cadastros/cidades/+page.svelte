@@ -158,7 +158,7 @@
       options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
     />
-    <Button variant="primary" size="sm" on:click={load}>Filtrar</Button>
+    <Button variant="secondary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
 

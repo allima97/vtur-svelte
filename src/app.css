@@ -685,11 +685,11 @@
 
     .vtur-mobile-nav__menu {
       min-height: 48px;
-      color: #94a3b8;
+      color: #ffffff;
     }
 
     .vtur-mobile-nav__menu--open {
-      color: #60a5fa;
+      color: #ffffff;
     }
 
     .vtur-mobile-nav__current {

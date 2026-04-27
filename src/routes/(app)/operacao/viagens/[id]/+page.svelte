@@ -337,7 +337,7 @@
       {
         label: 'Voltar',
         href: '/operacao/viagens',
-        variant: 'ghost',
+        variant: 'secondary',
         icon: ArrowLeft
       },
       {

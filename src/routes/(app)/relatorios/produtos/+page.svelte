@@ -269,7 +269,7 @@
   title="Vendas por Produto"
   subtitle="Performance por tipo de produto"
   color="financeiro"
-  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatorios', href: '/relatorios' },
     { label: 'Produtos' }

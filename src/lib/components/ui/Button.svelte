@@ -25,7 +25,16 @@
   export let id: string | null = null;
   export let title: string | null = null;
   export let ariaLabel: string | null = null;
-  export let ariaHaspopup: boolean | 'true' | 'false' | string | null = null;
+  export let ariaHaspopup:
+    | boolean
+    | 'true'
+    | 'false'
+    | 'menu'
+    | 'listbox'
+    | 'tree'
+    | 'grid'
+    | 'dialog'
+    | null = null;
   export let ariaExpanded: boolean | null = null;
   export let role: string | null = null;
   export let ariaSelected: boolean | null = null;
@@ -59,9 +68,9 @@
     primary:
       'border-transparent bg-[#4f46e5] text-white hover:bg-[#4338ca] focus:ring-indigo-200 shadow-[0_10px_24px_rgba(79,70,229,0.22)]',
     secondary:
-      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 focus:ring-slate-200',
+      'border border-slate-300 bg-transparent text-slate-700 hover:bg-transparent hover:border-slate-400 hover:text-slate-900 focus:ring-slate-200 shadow-none',
     outline:
-      'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:border-slate-400 focus:ring-slate-200',
+      'border border-slate-300 bg-transparent text-slate-800 hover:bg-transparent hover:border-slate-400 focus:ring-slate-200 shadow-none',
     ghost:
       'border border-transparent bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-200 shadow-none',
     danger:

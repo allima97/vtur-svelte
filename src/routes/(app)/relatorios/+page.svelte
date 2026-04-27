@@ -386,7 +386,7 @@
           class_name="w-full"
         />
         <div class="flex items-end">
-          <Button variant="primary" color="financeiro" class_name="w-full" on:click={applyFilters}>
+          <Button variant="secondary" color="financeiro" class_name="w-full" on:click={applyFilters}>
             <Filter size={16} class="mr-2" />
             Atualizar
           </Button>

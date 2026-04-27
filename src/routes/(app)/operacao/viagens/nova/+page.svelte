@@ -190,7 +190,7 @@
     { label: 'Nova viagem' }
   ]}
   actions={[
-    { label: 'Voltar', href: '/operacao/viagens', variant: 'ghost', icon: ArrowLeft },
+    { label: 'Voltar', href: '/operacao/viagens', variant: 'secondary', icon: ArrowLeft },
     { label: 'Recarregar clientes', onClick: loadClientes, variant: 'secondary', icon: RefreshCw }
   ]}
 />

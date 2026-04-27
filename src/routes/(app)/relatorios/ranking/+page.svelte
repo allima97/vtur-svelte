@@ -360,7 +360,7 @@
   title="Ranking de Vendas"
   subtitle="Comparativo por responsável com meta, conversão, comissão e tendência."
   color="financeiro"
-  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'outline', icon: ArrowLeft }]}
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
   breadcrumbs={[
     { label: 'Relatórios', href: '/relatorios' },
     { label: 'Ranking de Vendas' }

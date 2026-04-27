@@ -209,7 +209,7 @@
       placeholder="Buscar..."
       class_name="min-w-[200px]"
     />
-    <Button variant="primary" color="financeiro" on:click={load}>Filtrar</Button>
+    <Button variant="secondary" color="financeiro" on:click={load}>Filtrar</Button>
   </div>
 </Card>
 
