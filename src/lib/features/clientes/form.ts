@@ -104,6 +104,16 @@ export function titleCaseAllWords(value: string) {
     .join(' ');
 }
 
+export function sanitizeImportedClienteNome(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const dividerIndex = raw.lastIndexOf('//');
+  const relevant = dividerIndex >= 0 ? raw.slice(dividerIndex + 2) : raw;
+
+  return relevant.replace(/^[\s\-–—:;,.\/]+/, '').trim();
+}
+
 export function formatTelefone(value: string) {
   const digits = onlyDigits(value).slice(0, 11);
   if (digits.length <= 2) return digits ? `(${digits}` : '';
@@ -175,9 +185,10 @@ export function joinTagsInput(value: unknown) {
 export function buildClientePayload(form: ClienteFormData) {
   const tipoPessoa = form.tipo_pessoa || 'PF';
   const documento = onlyDigits(form.cpf);
+  const nome = sanitizeImportedClienteNome(form.nome);
 
   return {
-    nome: titleCaseAllWords(form.nome),
+    nome: titleCaseAllWords(nome),
     nascimento: form.nascimento || null,
     cpf: documento || null,
     tipo_pessoa: tipoPessoa,
@@ -211,7 +222,7 @@ export function fillClienteFormFromApi(data: Record<string, any> | null | undefi
 
   return {
     ...initial,
-    nome: String(data.nome || ''),
+    nome: sanitizeImportedClienteNome(String(data.nome || '')),
     nascimento: String(data.nascimento || data.data_nascimento || '').slice(0, 10),
     cpf: formatDocumento(String(data.cpf || ''), tipoPessoa),
     tipo_pessoa: tipoPessoa,
@@ -240,8 +251,9 @@ export function validateClienteForm(form: ClienteFormData): ClienteValidationRes
   const errors: Record<string, string> = {};
   const documentoDigits = onlyDigits(form.cpf);
   const telefoneDigits = onlyDigits(form.telefone);
+  const nome = sanitizeImportedClienteNome(form.nome);
 
-  if (!String(form.nome || '').trim()) {
+  if (!nome) {
     errors.nome = 'Informe o nome completo do cliente.';
   }
 

@@ -383,7 +383,8 @@
       refreshingPerms = true;
       const supabase = createSupabaseBrowserClient();
       await permissoes.refresh(supabase);
-      toast.success('Permissões atualizadas.');
+      toast.success('Permissões atualizadas. Recarregando tela...');
+      window.location.reload();
     } catch (error) {
       console.error('Erro ao atualizar permissoes:', error);
       toast.error('Não foi possível atualizar as permissões.');
