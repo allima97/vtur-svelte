@@ -12,17 +12,14 @@
     FieldRadioGroup,
     FieldSelect,
     FieldTextarea,
-    FileDropzone
   } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import {
     ArrowLeft,
     Upload,
-    FileText,
     AlertCircle,
     CheckCircle,
     X,
-    Eye,
     Trash2,
     Plus,
     MapPin,
@@ -33,8 +30,10 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { extractContratosFromText, extractContratosFromPdf, extractPdfText } from '$lib/vendas/contratoCvcExtractor';
-  import { extractCruzeiroFromText, extractCruzeiroFromPdf } from '$lib/vendas/cruzeiroExtractor';
+  import { extractContratosFromText } from '$lib/vendas/contratoCvcExtractor';
+  import { extractCruzeiroFromText } from '$lib/vendas/cruzeiroExtractor';
+  import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
+  import { extractFacialCvcFromText } from '$lib/vendas/facialCvcExtractor';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
   type ContratoDraftUI = ContratoDraft & {
@@ -85,17 +84,12 @@
     warning?: string | null;
   };
 
-  let tipoImportacao: 'cvc' | 'roteiro' = 'cvc';
-  let file: File | null = null;
-  let selectedFiles: FileList | undefined = undefined;
+  let tipoImportacao: 'cvc' | 'roteiro' | 'facial_rextur' | 'facial_cvc' = 'cvc';
   let textInput = '';
   let contratos: ContratoDraftUI[] = [];
   let principalIndex = 0;
   let extracting = false;
   let saving = false;
-  let previewOpen = false;
-  let previewText = '';
-  let previewing = false;
   let statusMessage = '';
   let warningMessage = '';
   let duplicateModal: { message: string } | null = null;
@@ -123,6 +117,25 @@
   let contatoWhatsapp = '';
   let contatoEmail = '';
 
+  // Modal de CPF para importações sem CPF (Facial Rextur / Facial CVC)
+  let cpfModalOpen = false;
+  let cpfModalInput = '';
+  let cpfModalResolve: (() => void) | null = null;
+
+  function aguardarCpfModal(): Promise<void> {
+    cpfModalInput = '';
+    cpfModalOpen = true;
+    return new Promise((resolve) => {
+      cpfModalResolve = resolve;
+    });
+  }
+
+  function confirmarCpfModal() {
+    cpfModalOpen = false;
+    cpfModalResolve?.();
+    cpfModalResolve = null;
+  }
+
   let cidadeAutoIndefinida = false;
 
   const aplicaDuOptions = [
@@ -144,14 +157,6 @@
     value: v.id,
     label: v.nome_completo || 'Sem nome'
   }));
-
-  $: {
-    const nextFile = selectedFiles?.[0] || null;
-    if (nextFile !== file) {
-      file = nextFile;
-      if (file) textInput = '';
-    }
-  }
 
   $: if (principal && !cidadeManual && !cidadeAutoIndefinida) {
     const term = principal.destino || '';
@@ -431,50 +436,77 @@
     });
   }
 
-  function clearSelectedFile() {
-    selectedFiles = undefined;
-    file = null;
-  }
-
   async function handleExtract() {
-    if (!file && !textInput.trim()) {
-      toast.error('Selecione um PDF ou cole o texto do contrato.');
+    if (!textInput.trim()) {
+      toast.error('Cole o texto do contrato para continuar.');
       return;
     }
     extracting = true;
     statusMessage = '';
     try {
       let result: { contratos: ContratoDraft[]; raw_text: string } | null = null;
+
       if (tipoImportacao === 'cvc') {
-        if (textInput.trim()) {
-          result = await extractContratosFromText(textInput.trim());
-        } else if (file) {
-          result = await extractContratosFromPdf(file);
-        }
-      } else {
-        if (textInput.trim()) {
-          result = await extractCruzeiroFromText(textInput.trim());
-        } else if (file) {
-          result = await extractCruzeiroFromPdf(file);
-        }
+        result = await extractContratosFromText(textInput.trim());
+      } else if (tipoImportacao === 'roteiro') {
+        result = await extractCruzeiroFromText(textInput.trim());
+      } else if (tipoImportacao === 'facial_rextur') {
+        result = extractRexturFromText(textInput.trim());
+      } else if (tipoImportacao === 'facial_cvc') {
+        result = extractFacialCvcFromText(textInput.trim());
       }
 
       if (!result || !result.contratos.length) {
-        toast.error('Nenhum contrato encontrado na fonte fornecida.');
+        toast.error('Nenhum contrato encontrado no texto informado.');
         return;
       }
+
+      // Facial Rextur e Facial CVC não têm CPF — solicitar antes de continuar
+      const semCpf = tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc';
+      if (semCpf) {
+        extracting = false; // libera o botão enquanto aguarda modal
+        await aguardarCpfModal();
+        const cpfDigits = cpfModalInput.replace(/\D/g, '');
+        if (cpfDigits.length !== 11 && cpfDigits.length !== 14) {
+          toast.error('CPF/CNPJ inválido. Importação cancelada.');
+          return;
+        }
+        // Injetar CPF em todos os contratos extraídos
+        result.contratos = result.contratos.map(c => ({
+          ...c,
+          contratante: { ...c.contratante, cpf: cpfDigits } as any
+        }));
+        extracting = true;
+      }
+
+      const isFacial = tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc';
+
+      // Para facial: encontrar o produto "Passagem Facial" na lista (todas as cidades ou cidade atual)
+      const produtoPassagemFacialId = isFacial
+        ? (produtos.find(p =>
+            normalizeText(p.nome, { trim: true, collapseWhitespace: true }) === 'passagem facial'
+          )?.id || '')
+        : '';
 
       const novos = result.contratos.map((c) => {
         const normalizedTipoPacote = normalizeText(c.tipo_pacote || '');
         const tipoPacoteMatch = tiposPacote.find((item) => normalizeText(item.nome) === normalizedTipoPacote);
         const cidadeContratoId = isContratoLocacao(c) ? cidadeId : '';
+        // Facial: sempre "Passagem Facial" — não tenta mapear nos tipos cadastrados
+        const tipoPacoteFinal = isFacial
+          ? 'Passagem Facial'
+          : tipoPacoteMatch?.nome || c.tipo_pacote || (tipoImportacao === 'roteiro' ? 'Cruzeiro' : null);
+        const produtoFinal = isFacial
+          ? produtoPassagemFacialId || guessProdutoId({ ...c, produto_principal: 'Passagem Facial' }, cidadeContratoId || cidadeId)
+          : guessProdutoId(c, cidadeContratoId || cidadeId);
         return {
           ...c,
-          tipo_pacote: tipoPacoteMatch?.nome || c.tipo_pacote || (tipoImportacao === 'roteiro' ? 'Cruzeiro' : null),
+          produto_principal: isFacial ? 'Passagem Facial' : c.produto_principal,
+          tipo_pacote: tipoPacoteFinal,
           aplica_du: c.taxa_du != null && c.taxa_du > 0 ? true : null,
           usar_cidade_padrao: true,
           destino_cidade_id: cidadeContratoId || null,
-          produto_resolvido_id: guessProdutoId(c, cidadeContratoId || cidadeId)
+          produto_resolvido_id: produtoFinal
         };
       });
       contratos = [...contratos, ...novos];
@@ -483,29 +515,11 @@
         : `${novos.length} contrato(s) encontrado(s).`;
       toast.success(`${novos.length} contrato(s) extraído(s).`);
 
-      clearSelectedFile();
       textInput = '';
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro na extração.');
     } finally {
       extracting = false;
-    }
-  }
-
-  async function handlePreview() {
-    if (!file) {
-      toast.error('Selecione um PDF para pré-visualizar.');
-      return;
-    }
-    previewing = true;
-    try {
-      const text = await extractPdfText(file, { maxPages: tipoImportacao === 'roteiro' ? 6 : 4 });
-      previewText = text;
-      previewOpen = true;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao extrair texto do PDF.');
-    } finally {
-      previewing = false;
     }
   }
 
@@ -591,7 +605,8 @@
     const principalContract = contratos[principalIndex] || contratos[0];
     const cpf = String(principalContract?.contratante?.cpf || '').replace(/\D/g, '');
     if (cpf.length !== 11 && cpf.length !== 14) return 'Informe um CPF/CNPJ válido para o contratante principal.';
-    const missingTipo = contratos.find((c) => !c.tipo_pacote && tipoImportacao !== 'roteiro');
+    const skipTipo = tipoImportacao === 'roteiro' || tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc';
+    const missingTipo = contratos.find((c) => !c.tipo_pacote && !skipTipo);
     if (missingTipo) return 'Todos os contratos devem ter um tipo de pacote.';
     const missingProduto = contratos.find((c) => !c.produto_resolvido_id);
     if (missingProduto) return 'Selecione o produto de cada recibo antes de salvar.';
@@ -725,45 +740,61 @@
           </div>
         </div>
       </Button>
+      <Button
+        variant={tipoImportacao === 'facial_rextur' ? 'selected' : 'secondary'}
+        color="vendas"
+        class_name="rounded-xl"
+        on:click={() => (tipoImportacao = 'facial_rextur')}
+      >
+        <div class="flex items-center gap-3 w-full">
+          <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><User size={20} /></div>
+          <div>
+            <p class="font-semibold text-slate-900">Facial Rextur</p>
+            <p class="text-sm text-slate-500">Importe reservas da Rextur (Reserva Fácil).</p>
+          </div>
+        </div>
+      </Button>
+      <Button
+        variant={tipoImportacao === 'facial_cvc' ? 'selected' : 'secondary'}
+        color="vendas"
+        class_name="rounded-xl"
+        on:click={() => (tipoImportacao = 'facial_cvc')}
+      >
+        <div class="flex items-center gap-3 w-full">
+          <div class="rounded-lg bg-vendas-100 p-2 text-vendas-600"><MapPin size={20} /></div>
+          <div>
+            <p class="font-semibold text-slate-900">Facial CVC</p>
+            <p class="text-sm text-slate-500">Importe bilhetes aéreos do Facial CVC.</p>
+          </div>
+        </div>
+      </Button>
     </div>
   </Card>
 
   <!-- Fonte do contrato -->
-  <Card title="Fonte do contrato" color="vendas">
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-      <div>
-        <FileDropzone
-          label="Upload de PDF"
-          bind:files={selectedFiles}
-          accept=".pdf"
-          icon={FileText}
-          title="Clique para escolher o PDF"
-          description="Upload do contrato no padrão CVC ou reserva de cruzeiro"
-          hint="Aceita apenas `.pdf`"
-        />
-        <div class="mt-3 flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" on:click={handlePreview} loading={previewing} disabled={!file}>
-            <Eye size={16} class="mr-2" />Pré-visualizar PDF
-          </Button>
-          <Button type="button" variant="ghost" on:click={clearSelectedFile} disabled={!file}>
-            <X size={16} class="mr-2" />Limpar arquivo
-          </Button>
-        </div>
+  <Card title="Texto do contrato" color="vendas">
+    {#if tipoImportacao === 'facial_rextur'}
+      <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+        <AlertCircle size={16} class="mt-0.5 shrink-0 text-amber-600" />
+        <span>O <strong>CPF do contratante</strong> não consta na Reserva Fácil Rextur. Após extrair, será solicitado antes de salvar.</span>
       </div>
-      <div>
-        <FieldTextarea
-          id="importar-contrato-texto"
-          label="Ou cole o texto"
-          bind:value={textInput}
-          rows={6}
-          class_name="h-full"
-          placeholder="Cole aqui o texto do contrato..."
-          on:input={() => {
-            if (textInput.trim()) clearSelectedFile();
-          }}
-        />
+    {:else if tipoImportacao === 'facial_cvc'}
+      <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+        <AlertCircle size={16} class="mt-0.5 shrink-0 text-amber-600" />
+        <span>O <strong>CPF do contratante</strong> não consta no Facial CVC. Após extrair, será solicitado antes de salvar.</span>
       </div>
-    </div>
+    {/if}
+    <FieldTextarea
+      id="importar-contrato-texto"
+      label="Cole o texto do contrato"
+      bind:value={textInput}
+      rows={8}
+      placeholder={tipoImportacao === 'facial_rextur'
+        ? 'Cole aqui o texto da Reserva Fácil Rextur...'
+        : tipoImportacao === 'facial_cvc'
+        ? 'Cole aqui o texto do bilhete aéreo CVC...'
+        : 'Cole aqui o texto do contrato CVC ou reserva de cruzeiro...'}
+    />
     <div class="mt-4 flex justify-end">
       <Button type="button" variant="primary" color="vendas" on:click={handleExtract} loading={extracting}>
         <Upload size={16} class="mr-2" />
@@ -810,7 +841,7 @@
                 maxlength={18}
                 on:input={(e) => handleCpfChange(index, (e.currentTarget as HTMLInputElement).value)}
               />
-              {#if tipoImportacao !== 'roteiro'}
+              {#if tipoImportacao === 'cvc'}
                 <FieldSelect
                   id={`contrato-pacote-${index}`}
                   label="Tipo de pacote"
@@ -823,22 +854,31 @@
                 <FieldInput
                   id={`contrato-pacote-readonly-${index}`}
                   label="Tipo de pacote"
-                  value="Cruzeiro"
+                  value={contrato.tipo_pacote || (tipoImportacao === 'roteiro' ? 'Cruzeiro' : 'Aéreo')}
                   disabled={true}
                 />
               {/if}
-              <FieldSelect
-                id={`contrato-produto-${index}`}
-                label="Produto do recibo"
-                value={contrato.produto_resolvido_id || ''}
-                options={getProdutosPorCidade(getCidadeContratoId(contrato)).map((produto) => ({ value: produto.id, label: produto.nome }))}
-                placeholder="Selecione uma opção"
-                helper="Produto é individual do recibo. Destino continua sendo a cidade da viagem."
-                on:change={(e) => {
-                  const value = (e.currentTarget as HTMLSelectElement).value;
-                  contratos = contratos.map((c, i) => (i === index ? { ...c, produto_resolvido_id: value || null } : c));
-                }}
-              />
+              {#if tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc'}
+                <FieldInput
+                  id={`contrato-produto-readonly-${index}`}
+                  label="Produto do recibo"
+                  value="Passagem Facial"
+                  disabled={true}
+                />
+              {:else}
+                <FieldSelect
+                  id={`contrato-produto-${index}`}
+                  label="Produto do recibo"
+                  value={contrato.produto_resolvido_id || ''}
+                  options={getProdutosPorCidade(getCidadeContratoId(contrato)).map((produto) => ({ value: produto.id, label: produto.nome }))}
+                  placeholder="Selecione uma opção"
+                  helper="Produto é individual do recibo. Destino continua sendo a cidade da viagem."
+                  on:change={(e) => {
+                    const value = (e.currentTarget as HTMLSelectElement).value;
+                    contratos = contratos.map((c, i) => (i === index ? { ...c, produto_resolvido_id: value || null } : c));
+                  }}
+                />
+              {/if}
               <FieldInput id={`contrato-destino-${index}`} label="Destino" value={contrato.destino || '-'} disabled={true} />
               <FieldInput id={`contrato-total-${index}`} label="Total bruto" value={formatCurrency(contrato.total_bruto)} disabled={true} />
               <FieldInput
@@ -878,7 +918,7 @@
               {/if}
             </div>
 
-            {#if tipoImportacao === 'cvc' && (!isContratoLocacao(contrato) && (normalizeText(contrato.produto_tipo || '').includes('aereo') || contrato.taxa_du != null))}
+            {#if (tipoImportacao === 'cvc' || tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc') && (!isContratoLocacao(contrato) && contrato.taxa_du != null && contrato.taxa_du > 0)}
               <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p class="mb-2 text-sm font-medium text-slate-700">Taxa de DU comissionada</p>
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_140px] md:items-end">
@@ -992,16 +1032,33 @@
   {/if}
 </div>
 
-<!-- Modal de preview -->
+<!-- Modal de CPF (Facial Rextur / Facial CVC) -->
 <Dialog
-  bind:open={previewOpen}
-  title="Pré-visualização do PDF"
-  size="xl"
+  bind:open={cpfModalOpen}
+  title="CPF do contratante"
+  size="sm"
   showConfirm={false}
-  cancelText="Fechar"
-  onCancel={() => (previewOpen = false)}
+  cancelText="Cancelar"
+  onCancel={() => { cpfModalOpen = false; cpfModalResolve = null; }}
 >
-  <FieldTextarea class_name="h-full" rows={24} monospace={true} readonly={true} value={previewText} />
+  <div class="space-y-4">
+    <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+      <AlertCircle size={15} class="mt-0.5 shrink-0 text-amber-600" />
+      <span>O documento não contém CPF. Informe o CPF do contratante para continuar a importação.</span>
+    </div>
+    <FieldInput
+      id="cpf-modal-input"
+      label="CPF do contratante *"
+      bind:value={cpfModalInput}
+      placeholder="000.000.000-00"
+    />
+    <div class="flex justify-end gap-3 pt-2">
+      <Button type="button" variant="primary" color="vendas" on:click={confirmarCpfModal}
+        disabled={cpfModalInput.replace(/\D/g, '').length < 11}>
+        Confirmar e continuar
+      </Button>
+    </div>
+  </div>
 </Dialog>
 
 <!-- Modal de contato -->

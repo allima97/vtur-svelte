@@ -9,6 +9,7 @@
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
+  import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import {
     TrendingUp,
     ShoppingCart,
@@ -20,6 +21,7 @@
 
     MapPin,
     Gift,
+    Send,
     BarChart2,
     Plane,
     UserPlus,
@@ -177,6 +179,21 @@
   let aniversariantes: Aniversariante[] = [];
   let viagens: Viagem[] = [];
   let followUps: FollowUp[] = [];
+
+  // Modal aviso aniversariante
+  let showAvisoAniversario = false;
+  let avisoAniv: { id: string; nome: string; telefone: string; email: string; nascimento: string | null } | null = null;
+
+  function abrirAvisoAniversario(aniv: Aniversariante) {
+    avisoAniv = {
+      id: aniv.cliente_id || aniv.id,
+      nome: aniv.nome,
+      telefone: aniv.whatsapp || aniv.telefone || '',
+      email: '',
+      nascimento: aniv.nascimento || null
+    };
+    showAvisoAniversario = true;
+  }
   let consultorias: Consultoria[] = [];
 
   let empresas: { id: string; nome: string }[] = [];
@@ -261,7 +278,12 @@
 
   function getMetaAtingimentoColor(percentual: number) {
     const pct = clamp(percentual, 0, 100);
-    if (pct < 80) return 'rgb(239, 68, 68)';
+    // 0–80%: vermelho → laranja
+    if (pct < 80) {
+      const ratio = pct / 80;
+      return interpolateRgb([239, 68, 68], [249, 115, 22], ratio);
+    }
+    // 80–100%: laranja → verde
     const ratio = (pct - 80) / 20;
     return interpolateRgb([249, 115, 22], [34, 197, 94], ratio);
   }
@@ -703,7 +725,7 @@
 
 <!-- Filtros -->
 <Card color="financeiro" class="mb-6">
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
     <FieldSelect
       id="dash-periodo-modo"
       label="Período"
@@ -753,50 +775,50 @@
     {#each activeKpiOrder as kpiId}
       {#if kpiId === 'vendas_periodo'}
         <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={20} /></div>
-          <div>
-            <p class="text-sm font-medium text-slate-500">Vendas no período</p>
-            {#if loading}<div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
-            {:else}<p class="text-2xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalVendas)}</p>
-              <p class="mt-0.5 text-xs text-slate-400">Lucro: {formatCurrency(vendasAgg.totalLiquido)}</p>{/if}
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Vendas no período</p>
+            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
+            {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalVendas)}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-400">Lucro: {formatCurrency(vendasAgg.totalLiquido)}</p>{/if}
           </div>
         </div>
       {:else if kpiId === 'qtd_vendas'}
         <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={20} /></div>
-          <div>
-            <p class="text-sm font-medium text-slate-500">Qtd. vendas</p>
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Qtd. vendas</p>
             {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
-            {:else}<p class="text-2xl font-bold text-slate-900">{vendasAgg.qtdVendas}</p>
-              <p class="mt-0.5 text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>{/if}
+            {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{vendasAgg.qtdVendas}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>{/if}
           </div>
         </div>
       {:else if kpiId === 'meta_mes'}
         <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><Target size={20} /></div>
-          <div class="w-full">
-            <p class="text-sm font-medium text-slate-500">Meta do mês</p>
-            {#if loading}<div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
-            {:else}<p class="text-2xl font-bold text-slate-900">{formatCurrency(metaTotal)}</p>
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><Target size={18} /></div>
+          <div class="min-w-0 w-full flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Meta do mês</p>
+            {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
+            {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(metaTotal)}</p>
               {#if metaTotal > 0}
-                <div class="mt-2 w-full">
-                  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div class="h-2 rounded-full transition-all" style={`width:${atingimentoPctClamped.toFixed(1)}%;background:linear-gradient(to right,rgb(239,68,68) 0%,rgb(249,115,22) 79%,rgb(34,197,94) 100%);background-size:${atingimentoPctClamped > 0 ? (100 / atingimentoPctClamped * 100).toFixed(1) : 100}% 100%;`}></div>
+                <div class="mt-1.5 w-full">
+                  <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div class="h-1.5 rounded-full transition-all duration-500" style={`width:${atingimentoPctClamped.toFixed(1)}%;background-color:${metaAtingimentoColor};`}></div>
                   </div>
                   <p class="mt-0.5 text-xs text-slate-400">{atingimentoPct.toFixed(1)}% atingido</p>
                 </div>
-              {:else}<p class="mt-0.5 text-xs text-slate-400">Sem meta cadastrada</p>{/if}
+              {:else}<p class="mt-0.5 text-xs text-slate-400">Sem meta</p>{/if}
             {/if}
           </div>
         </div>
       {:else if kpiId === 'dias_mes'}
         <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={20} /></div>
-          <div>
-            <p class="text-sm font-medium text-slate-500">Dias no mês</p>
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Dias no mês</p>
             {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
-            {:else}<p class="text-2xl font-bold text-slate-900">{diasRestantes}d</p>
-              {#if metaDiaria > 0}<p class="mt-0.5 text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
+            {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{diasRestantes}d</p>
+              {#if metaDiaria > 0}<p class="mt-0.5 truncate text-xs text-slate-400">Meta/dia: {formatCurrency(metaDiaria)}</p>
               {:else if diasRestantes === 0}<p class="mt-0.5 text-xs text-slate-400">Fim do mês</p>
               {:else}<p class="mt-0.5 text-xs text-slate-400">Meta atingida ✓</p>{/if}
             {/if}
@@ -804,19 +826,19 @@
         </div>
       {:else if kpiId === 'seguro_viagem' && (loading || vendasAgg.totalSeguro > 0)}
         <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Award size={20} /></div>
-          <div class="w-full">
-            <p class="text-sm font-medium text-slate-500">Seguro viagem</p>
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Award size={18} /></div>
+          <div class="min-w-0 w-full flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>
             {#if loading}<div class="mt-1 h-7 w-24 animate-pulse rounded bg-slate-200"></div>
-            {:else}<p class="text-2xl font-bold text-slate-900">{formatCurrency(vendasAgg.totalSeguro)}</p>
+            {:else}<p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalSeguro)}</p>
               {#if metaSeguroTotal > 0}
-                <div class="mt-2 w-full">
-                  <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div class="h-2 rounded-full transition-all" style={`width:${atingimentoSeguroPctClamped.toFixed(1)}%;background:linear-gradient(to right,rgb(239,68,68) 0%,rgb(249,115,22) 79%,rgb(34,197,94) 100%);background-size:${atingimentoSeguroPctClamped > 0 ? (100 / atingimentoSeguroPctClamped * 100).toFixed(1) : 100}% 100%;`}></div>
+                <div class="mt-1.5 w-full">
+                  <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div class="h-1.5 rounded-full transition-all duration-500" style={`width:${atingimentoSeguroPctClamped.toFixed(1)}%;background-color:${metaSeguroAtingimentoColor};`}></div>
                   </div>
-                  <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguroPct.toFixed(1)}% da meta de seguro</p>
+                  <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguroPct.toFixed(1)}% meta</p>
                 </div>
-              {:else}<p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro cadastrada</p>{/if}
+              {:else}<p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro</p>{/if}
             {/if}
           </div>
         </div>
@@ -828,11 +850,11 @@
 <!-- Linha 1: Evolução das vendas -->
 {#if activeWidgetOrder.includes('timeline')}
   <div class="mb-6">
-    <div class="vtur-card p-6">
-      <div class="mb-4 flex items-start justify-between">
-        <div>
+    <div class="vtur-card p-4 sm:p-6">
+      <div class="mb-4 flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
           <h3 class="text-base font-bold text-slate-900">Evolução das vendas</h3>
-          <p class="text-sm text-slate-500">Análise do desempenho de vendas no período selecionado</p>
+          <p class="hidden text-sm text-slate-500 sm:block">Análise do desempenho de vendas no período selecionado</p>
         </div>
         <Button variant="secondary" size="sm" on:click={() => goto('/relatorios/vendas')} class_name="shrink-0">
           <BarChart2 size={14} class="mr-1.5" />Ver detalhes
@@ -851,7 +873,7 @@
 
 <!-- Linha 2: Top destinos + Vendas por produto -->
 {#if activeWidgetOrder.includes('top_destinos') || activeWidgetOrder.includes('por_produto')}
-  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
     {#if activeWidgetOrder.includes('top_destinos')}
       <div class="vtur-card p-6">
         <div class="mb-4">
@@ -907,7 +929,7 @@
 
 <!-- Linha 3: Próximas viagens + Atividades recentes + Aniversariantes -->
 {#if (activeWidgetOrder.includes('viagens') && podeVerOperacao) || activeWidgetOrder.includes('aniversariantes') || true}
-  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
     {#if activeWidgetOrder.includes('viagens') && podeVerOperacao}
       <div class="vtur-card p-6">
         <div class="mb-4 flex items-center justify-between">
@@ -938,12 +960,15 @@
               {#each viagens.slice(0, 5) as v}
                 {@const statusLabel = v.status === 'confirmada' ? 'Confirmado' : v.status === 'em_viagem' ? 'Em viagem' : v.status === 'pendente' ? 'Pendente' : v.status || 'Pendente'}
                 {@const statusClass = v.status === 'confirmada' ? 'bg-green-100 text-green-700' : v.status === 'em_viagem' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}
-                <div class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-slate-50 transition-colors">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                <a
+                  href="/operacao/viagens/{v.id}"
+                  class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:bg-indigo-50 hover:border-indigo-200 transition-colors group"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 group-hover:bg-indigo-200 transition-colors">
                     <MapPin size={18} />
                   </div>
                   <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-semibold text-slate-900">{v.destino || '-'}</p>
+                    <p class="truncate text-sm font-semibold text-slate-900 group-hover:text-indigo-700 transition-colors">{v.destino || '-'}</p>
                     <p class="truncate text-xs text-slate-500">{v.cliente_nome || '-'}</p>
                     <p class="text-xs text-slate-400 mt-0.5">
                       <span class="inline-flex items-center gap-1"><Calendar size={12} /> {formatDate(v.data_embarque)}</span>
@@ -951,7 +976,7 @@
                     </p>
                   </div>
                   <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {statusClass}">{statusLabel}</span>
-                </div>
+                </a>
               {/each}
             </div>
           {/if}
@@ -1035,19 +1060,26 @@
           {:else if aniversariantes.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum aniversariante este mês.</p>
           {:else}
-            <div class="space-y-2">
+            <div class="space-y-1">
               {#each aniversariantes.slice(0, 5) as aniv}
                 {@const iniciais = aniv.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
                 {@const idade = formatAgeFromBirthDate(aniv.nascimento)}
                 {@const contexto = formatBirthdayContext(aniv.nascimento)}
-                <div class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50 transition-colors">
-                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white">{iniciais}</div>
+                <button
+                  type="button"
+                  on:click={() => abrirAvisoAniversario(aniv)}
+                  title="Enviar aviso de aniversário"
+                  class="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-green-50 transition-colors group text-left"
+                >
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white group-hover:bg-green-600 transition-colors">{iniciais}</div>
                   <div class="min-w-0 flex-1">
-                    <p class="text-sm font-semibold text-slate-900">{aniv.nome}</p>
-                    <p class="text-xs text-slate-500">{#if idade !== null}{idade} anos{/if} {#if idade !== null}• {/if}{contexto}</p>
+                    <p class="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors">{aniv.nome}</p>
+                    <p class="text-xs text-slate-500">{#if idade !== null}{idade} anos{/if}{#if idade !== null} • {/if}{contexto}</p>
                   </div>
-                  <span class="shrink-0 text-green-600"><Gift size={16} /></span>
-                </div>
+                  <span class="shrink-0 text-slate-300 group-hover:text-green-500 transition-colors" title="Enviar aviso">
+                    <Send size={15} />
+                  </span>
+                </button>
               {/each}
             </div>
           {/if}
@@ -1059,7 +1091,7 @@
 
 <!-- Linha 4: Tarefas pendentes + Orçamentos recentes -->
 {#if activeWidgetOrder.includes('followups') || activeWidgetOrder.includes('orcamentos')}
-  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
     {#if activeWidgetOrder.includes('followups')}
       <div class="vtur-card p-6">
         <div class="mb-4 flex items-center justify-between">
@@ -1220,4 +1252,17 @@
   onMoveKpi={moveKpi}
   onToggleKpi={toggleKpi}
 />
+
+{#if avisoAniv}
+  <ModalAvisoCliente
+    bind:open={showAvisoAniversario}
+    clienteId={avisoAniv.id}
+    clienteNome={avisoAniv.nome}
+    clienteTelefone={avisoAniv.telefone}
+    clienteEmail={avisoAniv.email}
+    clienteNascimento={avisoAniv.nascimento}
+    onClose={() => { showAvisoAniversario = false; avisoAniv = null; }}
+    onEnviar={() => toast.success('Aviso preparado com sucesso.')}
+  />
+{/if}
 

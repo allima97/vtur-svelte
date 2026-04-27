@@ -3,17 +3,25 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Tabs from '$lib/components/ui/Tabs.svelte';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
   import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
 
   type EscalaDia = {
     id: string;
+    usuario_id: string;
     data: string;
     tipo: string | null;
     hora_inicio: string | null;
     hora_fim: string | null;
     observacao: string | null;
+  };
+
+  type Usuario = {
+    id: string;
+    nome_completo: string | null;
+    email: string | null;
   };
 
   type Feriado = { id: string; data: string; nome: string; tipo: string };
@@ -38,7 +46,10 @@
 
   let loading = true;
   let dias: EscalaDia[] = [];
+  let diasEquipe: EscalaDia[] = [];
+  let usuarios: Usuario[] = [];
   let feriados: Feriado[] = [];
+  let activeTab = 'minha_escala';
 
   const now = new Date();
   let periodoAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -57,6 +68,10 @@
     return dias.find((d) => d.data === data) || null;
   }
 
+  function getDiaEquipe(usuarioId: string, data: string): EscalaDia | null {
+    return diasEquipe.find((d) => d.usuario_id === usuarioId && d.data === data) || null;
+  }
+
   function isFeriado(data: string): Feriado | null {
     return feriados.find((f) => f.data === data) || null;
   }
@@ -68,7 +83,9 @@
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       const userId = $auth.user?.id;
-      dias = (payload.dias || []).filter((d: any) => d.usuario_id === userId);
+      diasEquipe = payload.dias || [];
+      usuarios = payload.usuarios || [];
+      dias = diasEquipe.filter((d: any) => d.usuario_id === userId);
       feriados = payload.feriados || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar escala.');
@@ -90,6 +107,15 @@
   $: periodoLabel = new Date(periodoAtual + '-01T00:00:00').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   $: diasTrabalhados = dias.filter((d) => d.tipo === 'TRABALHO' || d.tipo === 'PLANTAO').length;
   $: diasFolga = dias.filter((d) => d.tipo === 'FOLGA' || d.tipo === 'FERIAS' || d.tipo === 'LICENCA').length;
+  $: usuarioId = $auth.user?.id || '';
+  $: canViewEquipe = usuarios.some((usuario) => usuario.id !== usuarioId);
+  $: tabItems = [
+    { key: 'minha_escala', label: 'Minha Escala' },
+    ...(canViewEquipe ? [{ key: 'escala_equipe', label: 'Escala da Equipe', badge: usuarios.length }] : [])
+  ];
+  $: if (!canViewEquipe && activeTab !== 'minha_escala') {
+    activeTab = 'minha_escala';
+  }
 </script>
 
 <svelte:head>
@@ -98,7 +124,7 @@
 
 <PageHeader
   title="Minha Escala"
-  subtitle="Visualize sua escala de trabalho mensal."
+  subtitle="Visualize sua escala de trabalho mensal e, quando disponível, a escala da equipe."
   breadcrumbs={[
     { label: 'Perfil', href: '/perfil' },
     { label: 'Minha Escala' }
@@ -107,6 +133,8 @@
     { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw }
   ]}
 />
+
+<Tabs className="mb-6" bind:activeKey={activeTab} items={tabItems} />
 
 <Card class="mb-6">
   <div class="flex items-center justify-between gap-4">
@@ -123,39 +151,97 @@
   </div>
 </Card>
 
-<div class="vtur-kpi-grid mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calendar size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Dias trabalhados</p>
-      <p class="text-2xl font-bold text-slate-900">{diasTrabalhados}</p>
+{#if activeTab === 'minha_escala'}
+  <div class="vtur-kpi-grid mb-6">
+    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calendar size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Dias trabalhados</p>
+        <p class="text-2xl font-bold text-slate-900">{diasTrabalhados}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Folgas / Ferias</p>
+        <p class="text-2xl font-bold text-slate-900">{diasFolga}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><Calendar size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Feriados no mes</p>
+        <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400"><Calendar size={20} /></div>
+      <div>
+        <p class="text-sm font-medium text-slate-500">Sem registro</p>
+        <p class="text-2xl font-bold text-slate-900">{diasDoMes.length - diasTrabalhados - diasFolga}</p>
+      </div>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Folgas / Ferias</p>
-      <p class="text-2xl font-bold text-slate-900">{diasFolga}</p>
-    </div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><Calendar size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Feriados no mes</p>
-      <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
-    </div>
-  </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400"><Calendar size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Sem registro</p>
-      <p class="text-2xl font-bold text-slate-900">{diasDoMes.length - diasTrabalhados - diasFolga}</p>
-    </div>
-  </div>
-</div>
+{/if}
 
 {#if loading}
   <div class="flex items-center justify-center py-20 text-slate-500">Carregando escala...</div>
+{:else if activeTab === 'escala_equipe' && canViewEquipe}
+  <Card padding="none">
+    <div class="overflow-x-visible md:overflow-x-auto">
+      <table class="min-w-full text-xs table-mobile-cards">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="sticky left-0 z-10 min-w-[160px] bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700">Colaborador</th>
+            {#each diasDoMes as { date, dow, day }}
+              <th
+                class="min-w-[36px] px-1 py-3 text-center font-medium {dow === 0 || dow === 6 ? 'text-red-500' : 'text-slate-600'} {isFeriado(date) ? 'bg-red-50' : ''}"
+                title={isFeriado(date)?.nome || ''}
+              >
+                <div>{day}</div>
+                <div class="text-[10px] opacity-60">{'DSTQQSS'[dow]}</div>
+              </th>
+            {/each}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {#each usuarios as usuario}
+            <tr class="hover:bg-slate-50/50">
+              <td class="sticky left-0 z-10 border-r border-slate-100 bg-white px-4 py-2 font-medium text-slate-900">
+                {usuario.nome_completo || usuario.email || 'Usuário'}
+              </td>
+              {#each diasDoMes as { date, dow }}
+                {@const registro = getDiaEquipe(usuario.id, date)}
+                {@const feriado = isFeriado(date)}
+                <td class="px-0.5 py-1 text-center {dow === 0 || dow === 6 ? 'bg-slate-50/50' : ''}">
+                  {#if registro?.tipo}
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600'}">
+                      {TIPO_CODIGO[registro.tipo] || '?'}
+                    </span>
+                  {:else if feriado}
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold bg-red-100 text-red-600">H</span>
+                  {:else}
+                    <span class="inline-flex h-6 w-6 items-center justify-center rounded text-[10px] text-slate-300">·</span>
+                  {/if}
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex flex-wrap gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
+      {#each Object.entries(TIPO_LABEL) as [key, label]}
+        <span class="inline-flex items-center gap-1">
+          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold {TIPO_COLOR[key] || 'bg-slate-100'}">
+            {TIPO_CODIGO[key] || '?'}
+          </span>
+          {label}
+        </span>
+      {/each}
+    </div>
+  </Card>
 {:else}
   <Card padding="none">
     <div class="overflow-x-visible md:overflow-x-auto">

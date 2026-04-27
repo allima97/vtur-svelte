@@ -7,16 +7,26 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+/** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
+ *  evitando qualquer problema de timezone/DST. */
+function extractMonthDay(nascimento: string | null): { month: number; day: number } | null {
+  if (!nascimento) return null;
+  const m = String(nascimento).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return { month: Number(m[2]), day: Number(m[3]) };
+}
+
 function isBirthdayInRange(nascimento: string | null, diasAfrente = 30): boolean {
-  if (!nascimento) return false;
+  const parts = extractMonthDay(nascimento);
+  if (!parts) return false;
+
   const hoje = new Date();
-  const nascDate = new Date(nascimento + 'T00:00:00');
-  if (isNaN(nascDate.getTime())) return false;
+  hoje.setHours(0, 0, 0, 0);
 
   for (let i = 0; i <= diasAfrente; i++) {
     const check = new Date(hoje);
     check.setDate(hoje.getDate() + i);
-    if (nascDate.getMonth() === check.getMonth() && nascDate.getDate() === check.getDate()) {
+    if (parts.month === check.getMonth() + 1 && parts.day === check.getDate()) {
       return true;
     }
   }
@@ -24,10 +34,10 @@ function isBirthdayInRange(nascimento: string | null, diasAfrente = 30): boolean
 }
 
 function isToday(nascimento: string | null): boolean {
-  if (!nascimento) return false;
+  const parts = extractMonthDay(nascimento);
+  if (!parts) return false;
   const hoje = new Date();
-  const nascDate = new Date(nascimento + 'T00:00:00');
-  return nascDate.getMonth() === hoje.getMonth() && nascDate.getDate() === hoje.getDate();
+  return parts.month === hoje.getMonth() + 1 && parts.day === hoje.getDate();
 }
 
 export async function GET(event) {
@@ -65,6 +75,9 @@ export async function GET(event) {
       }))
       .sort((a: any, b: any) => {
         const hoje = new Date();
+        // Normaliza para meia-noite para que aniversários de hoje não sejam
+        // enviados para o próximo ano pela comparação com horário atual
+        hoje.setHours(0, 0, 0, 0);
         const getNextBirthday = (nascimento: string) => {
           const d = new Date(nascimento + 'T00:00:00');
           const next = new Date(hoje.getFullYear(), d.getMonth(), d.getDate());

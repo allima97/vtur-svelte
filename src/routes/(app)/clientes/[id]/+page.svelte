@@ -250,48 +250,48 @@
 
   <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
     <div class="vtur-kpi-card">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
-        <Wallet size={20} />
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
+        <Wallet size={18} />
       </div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Total em vendas</p>
-        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p>
-      </div>
-    </div>
-    <div class="vtur-kpi-card">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-        <Calendar size={20} />
-      </div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Última compra</p>
-        <p class="text-2xl font-bold text-slate-900">{formatDate(cliente.ultima_compra)}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Total em vendas</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(totalGasto)}</p>
       </div>
     </div>
     <div class="vtur-kpi-card">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
-        <ShoppingCart size={20} />
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+        <Calendar size={18} />
       </div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Viagens vinculadas</p>
-        <p class="text-2xl font-bold text-slate-900">{historicoVendas.length}</p>
-      </div>
-    </div>
-    <div class="vtur-kpi-card">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
-        <Ticket size={20} />
-      </div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Ticket médio</p>
-        <p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedio)}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Última compra</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatDate(cliente.ultima_compra)}</p>
       </div>
     </div>
     <div class="vtur-kpi-card">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
-        <FileText size={20} />
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
+        <ShoppingCart size={18} />
       </div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Orçamentos</p>
-        <p class="text-2xl font-bold text-slate-900">{historicoOrcamentos.length}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Viagens vinculadas</p>
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{historicoVendas.length}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card">
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
+        <Ticket size={18} />
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Ticket médio</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(ticketMedio)}</p>
+      </div>
+    </div>
+    <div class="vtur-kpi-card">
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
+        <FileText size={18} />
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Orçamentos</p>
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{historicoOrcamentos.length}</p>
       </div>
     </div>
   </div>

@@ -22,11 +22,12 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const periodo = String(searchParams.get('periodo') || '').trim(); // YYYY-MM
 
-    // Resolve equipe
+    // Resolve equipe visivel. Vendedores podem visualizar a escala da equipe,
+    // mas continuam sem permissao de edicao no POST.
     let equipeIds: string[] = [];
     if (scope.isGestor) {
       equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-    } else if (scope.isAdmin || scope.isMaster) {
+    } else {
       const { data: usersData } = await client
         .from('users')
         .select('id')
@@ -34,9 +35,6 @@ export async function GET(event) {
         .eq('company_id', scope.companyId || '')
         .limit(200);
       equipeIds = (usersData || []).map((u: any) => u.id);
-    } else {
-      // Vendedor vê apenas sua própria escala
-      equipeIds = [scope.userId];
     }
 
     // Busca escala_mes

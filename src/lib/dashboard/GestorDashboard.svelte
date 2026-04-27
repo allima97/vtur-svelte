@@ -296,7 +296,7 @@
 />
 
 <Card color="financeiro" class="mb-6">
-  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
     <FieldInput id="gestor-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
     <FieldInput id="gestor-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
     {#if userCtx?.papel === 'MASTER' && empresas.length > 0}
@@ -326,89 +326,80 @@
 
 <KPIGrid className="mb-6" columns={5}>
   <div class="vtur-kpi-card border-t-[3px] border-t-cyan-500">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><TrendingUp size={20} /></div>
-    <div class="w-full">
-      <p class="text-sm font-medium text-slate-500">{salesLabel}</p>
-      <p class="text-2xl font-bold text-slate-900">{loading ? '...' : formatCurrency(vendasAgg.totalVendas)}</p>
-      <p class="mt-0.5 text-xs text-slate-400">Líquido: {formatCurrency(vendasAgg.totalLiquido)}</p>
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><TrendingUp size={18} /></div>
+    <div class="min-w-0 w-full flex-1">
+      <p class="text-xs font-medium text-slate-500 sm:text-sm">{salesLabel}</p>
+      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(vendasAgg.totalVendas)}</p>
+      <p class="mt-0.5 truncate text-xs text-slate-400">Líquido: {formatCurrency(vendasAgg.totalLiquido)}</p>
       {#if metaTotal > 0}
-        <div class="mt-2 w-full">
+        <div class="mt-1.5 w-full">
           <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div
-              class="h-1.5 rounded-full transition-all"
-              style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoVendasColor};`}
-            ></div>
+            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoVendasColor};`}></div>
           </div>
           <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}% da meta</p>
         </div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta cadastrada</p>
+        <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
       {/if}
     </div>
   </div>
 
   <div class="vtur-kpi-card border-t-[3px] border-t-emerald-500">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Wallet size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">{countLabel}</p>
-      <p class="text-2xl font-bold text-slate-900">{loading ? '...' : vendasAgg.qtdVendas}</p>
-      <p class="mt-0.5 text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Wallet size={18} /></div>
+    <div class="min-w-0 flex-1">
+      <p class="text-xs font-medium text-slate-500 sm:text-sm">{countLabel}</p>
+      <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : vendasAgg.qtdVendas}</p>
+      <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
     </div>
   </div>
 
   <div class="vtur-kpi-card border-t-[3px] border-t-violet-500">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Target size={20} /></div>
-    <div class="w-full">
-      <p class="text-sm font-medium text-slate-500">{metaLabel}</p>
-      <p class="text-2xl font-bold text-slate-900">{loading ? '...' : formatCurrency(metaTotal)}</p>
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Target size={18} /></div>
+    <div class="min-w-0 w-full flex-1">
+      <p class="text-xs font-medium text-slate-500 sm:text-sm">{metaLabel}</p>
+      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(metaTotal)}</p>
       {#if metaTotal > 0}
-        <div class="mt-2 w-full">
+        <div class="mt-1.5 w-full">
           <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div
-              class="h-1.5 rounded-full transition-all"
-              style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoMetaColor};`}
-            ></div>
+            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoMetaColor};`}></div>
           </div>
-          <p class="mt-0.5 text-xs text-slate-400">Atingimento: {atingimento.toFixed(1)}%</p>
+          <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}%</p>
         </div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta cadastrada</p>
+        <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
       {/if}
     </div>
   </div>
 
   <div class="vtur-kpi-card border-t-[3px] border-t-amber-500">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><Users size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">{scopeLabel}</p>
-      <p class="text-2xl font-bold text-slate-900">{loading ? '...' : isFiltroVendedorAtivo ? 1 : teamSize}</p>
-      <p class="mt-0.5 text-xs text-slate-400">{scopeHelperLabel}</p>
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><Users size={18} /></div>
+    <div class="min-w-0 flex-1">
+      <p class="text-xs font-medium text-slate-500 sm:text-sm">{scopeLabel}</p>
+      <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : isFiltroVendedorAtivo ? 1 : teamSize}</p>
+      <p class="mt-0.5 truncate text-xs text-slate-400">{scopeHelperLabel}</p>
     </div>
   </div>
 
   <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Wallet size={20} /></div>
-    <div class="w-full">
-      <p class="text-sm font-medium text-slate-500">Seguro viagem</p>
-      <p class="text-2xl font-bold text-slate-900">{loading ? '...' : formatCurrency(vendasAgg.totalSeguro)}</p>
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Wallet size={18} /></div>
+    <div class="min-w-0 w-full flex-1">
+      <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>
+      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(vendasAgg.totalSeguro)}</p>
       {#if metaSeguroTotal > 0}
-        <div class="mt-2 w-full">
+        <div class="mt-1.5 w-full">
           <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div
-              class="h-1.5 rounded-full transition-all"
-              style={`width:${atingimentoSeguroClamped.toFixed(1)}%;background:${atingimentoSeguroColor};`}
-            ></div>
+            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoSeguroClamped.toFixed(1)}%;background:${atingimentoSeguroColor};`}></div>
           </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguro.toFixed(1)}% da meta de seguro</p>
+          <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguro.toFixed(1)}% meta</p>
         </div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro cadastrada</p>
+        <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro</p>
       {/if}
     </div>
   </div>
 </KPIGrid>
 
-<div class="grid gap-6 xl:grid-cols-2">
+<div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
   <Card header={evolucaoHeader} color="financeiro">
     {#if loading}
       <div class="h-56 animate-pulse rounded-xl bg-slate-100"></div>

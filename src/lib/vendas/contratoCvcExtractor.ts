@@ -3253,12 +3253,22 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
 
   const pagamentos: PagamentoDraft[] = [];
   const formaPagamento = pagamentoInfo?.forma || orcamentoInfo?.forma_pagamento || "";
-  const valorOrcamentoBase = orcamentoInfo?.valor_total ?? orcamentoInfo?.preco_orcamento ?? null;
+  // "Valor Total do Orçamento" já tem desconto de promoção aplicado pelo CVC.
+  // "Preço do Orçamento" é o bruto — quando usado como fallback, subtrair o desconto de promoção.
+  const valorOrcamentoTotal = orcamentoInfo?.valor_total ?? null;
+  const valorOrcamentoPreco = orcamentoInfo?.preco_orcamento ?? null;
+  const descontoPromocaoOrcamento = orcamentoInfo?.valor_total_desconto_promocao ?? 0;
+  const valorOrcamentoBase = valorOrcamentoTotal !== null
+    ? valorOrcamentoTotal
+    : valorOrcamentoPreco !== null
+      ? Math.max(0, valorOrcamentoPreco - descontoPromocaoOrcamento)
+      : null;
+
   if (formaPagamento) {
     pagamentos.push({
       forma: formaPagamento,
       plano: pagamentoInfo?.plano || orcamentoInfo?.plano || null,
-      valor_bruto: valorOrcamentoBase ?? null,
+      valor_bruto: valorOrcamentoPreco ?? valorOrcamentoBase ?? null,
       total: valorOrcamentoBase ?? null,
       parcelas: pagamentoInfo?.parcelas,
     });
@@ -3280,7 +3290,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
       : null,
     passageiros: passageirosContrato,
     pagamentos: pagamentos.length ? pagamentos : undefined,
-    total_bruto: contratanteInfo?.valor ?? valorOrcamentoBase ?? null,
+    total_bruto: contratanteInfo?.valor ?? valorOrcamentoPreco ?? valorOrcamentoBase ?? null,
     total_pago: valorOrcamentoBase ?? null,
     taxas_embarque:
       contratanteInfo?.taxa_embarque ??

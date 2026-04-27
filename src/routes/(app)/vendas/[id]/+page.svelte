@@ -338,10 +338,10 @@
       class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${vendaPendente ? 'border-t-amber-400' : venda?.status === 'cancelada' ? 'border-t-red-400' : venda?.status === 'concluida' ? 'border-t-blue-400' : 'border-t-green-400'}`}
       on:click={() => goto('/vendas')}
     >
-      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${vendaPendente ? 'bg-amber-50 text-amber-500' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-500' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-500' : 'bg-green-50 text-green-500'}`}><FileText size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Status operacional</p>
-        <p class="text-2xl font-bold text-slate-900">{getStatusLabel(venda.status)}</p>
+      <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${vendaPendente ? 'bg-amber-50 text-amber-500' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-500' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-500' : 'bg-green-50 text-green-500'}`}><FileText size={18} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Status operacional</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{getStatusLabel(venda.status)}</p>
       </div>
     </Button>
 
@@ -350,10 +350,10 @@
       class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${conciliacaoPendente ? 'border-t-red-400' : 'border-t-green-400'}`}
       on:click={() => goto('/financeiro/conciliacao')}
     >
-      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${conciliacaoPendente ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}><Shield size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Conciliacao</p>
-        <p class="text-2xl font-bold text-slate-900">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
+      <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${conciliacaoPendente ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}><Shield size={18} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Conciliacao</p>
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{conciliacaoPendente ? 'Pendente' : 'OK'}</p>
       </div>
     </Button>
 
@@ -362,10 +362,10 @@
       class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-amber-400'}`}
       on:click={() => goto('/financeiro/caixa')}
     >
-      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Diferenca financeira</p>
-        <p class="text-2xl font-bold text-slate-900">{formatCurrency(diferencaFinanceira)}</p>
+      <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={18} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Diferenca financeira</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(diferencaFinanceira)}</p>
       </div>
     </Button>
 
@@ -374,10 +374,10 @@
       class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-slate-400'}`}
       on:click={() => goto('/vendas')}
     >
-      <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><CheckCircle size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Situacao geral</p>
-        <p class="text-2xl font-bold text-slate-900">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estavel' : 'Atencao'}</p>
+      <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><CheckCircle size={18} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-medium text-slate-500 sm:text-sm">Situacao geral</p>
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'Estavel' : 'Atencao'}</p>
       </div>
     </Button>
   </div>

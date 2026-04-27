@@ -784,7 +784,7 @@
      estrutura consistente: ícone → título → valor
   */
   .vtur-kpi-card {
-    min-height: 110px;
+    min-height: 90px;
     width: 100%;
     box-sizing: border-box;
     display: flex !important;
@@ -792,8 +792,8 @@
     align-items: flex-start !important;
     justify-content: flex-start !important;
     text-align: left !important;
-    gap: 1rem;
-    padding: 1.25rem !important;
+    gap: 0.75rem;
+    padding: 1rem !important;
     border-radius: 14px !important;
     /* Borda perimetral sempre visível — neutraliza border-transparent do Button unstyled
        e border-t-[3px] border-t-* aplicados inline nas páginas */
@@ -842,15 +842,29 @@
     .vtur-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   /* Variantes para grids com número fixo de colunas */
-  /* 3 colunas: expande para 3 a partir de sm, fica em 3 no lg+ */
+  /* 3 colunas: mobile=1, sm=2, md+=3 */
   @media (min-width: 640px) {
-    .vtur-kpi-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .vtur-kpi-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   }
-  @media (min-width: 1024px) {
+  @media (min-width: 768px) {
     .vtur-kpi-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   }
 
-  .vtur-kpi-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  /* 5 colunas: mobile=2, sm=3, lg=5 */
+  @media (min-width: 640px) {
+    .vtur-kpi-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  }
+  @media (min-width: 1024px) {
+    .vtur-kpi-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  }
+
+  /* 6 colunas: mobile=2, sm=3, lg=4, xl=6 */
+  @media (min-width: 640px) {
+    .vtur-kpi-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  }
+  @media (min-width: 1024px) {
+    .vtur-kpi-grid-6 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  }
   @media (min-width: 1280px) {
     .vtur-kpi-grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
   }
@@ -1373,16 +1387,25 @@ thead.bg-slate-50 td {
    Feito via CSS mínimo; comportamento controlado via Svelte
    ========================================================= */
 
-/* Garante que topbar mobile use altura menor */
+/* Garante que topbar mobile use altura menor + atualiza CSS var para padding correto */
 @media (max-width: 1023px) {
+  :root {
+    --vtur-topbar-height: 3.5rem;
+  }
+
   .vtur-topbar {
     height: 3.5rem !important;
     padding: 0 0.875rem !important;
   }
 
-  /* Layout: sem margin-left (controlado via style inline no Svelte) */
+  /* Layout: sem margin-left; padding-top usa a var atualizada */
   .vtur-layout {
     margin-left: 0 !important;
+    padding-top: calc(var(--vtur-topbar-height) + 0.75rem) !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    /* Espaço para o bottom nav mobile */
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
@@ -1396,6 +1419,36 @@ thead.bg-slate-50 td {
   html, body {
     overflow-x: hidden !important;
     max-width: 100vw !important;
+  }
+
+  /* KPI cards: compactos no mobile */
+  .vtur-kpi-card {
+    min-height: 76px !important;
+    padding: 0.75rem !important;
+    gap: 0.6rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* Ícone do KPI menor no mobile */
+  .vtur-kpi-card .h-11 {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-width: 2.25rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Texto do KPI no mobile: valor menor para caber em 2 colunas */
+  .vtur-kpi-card p.text-\[1\.75rem\] {
+    font-size: 1.35rem !important;
+  }
+
+  /* Grid de KPIs: sempre 2 colunas no mobile, independente da variante */
+  .vtur-kpi-grid,
+  .vtur-kpi-grid-3,
+  .vtur-kpi-grid-5,
+  .vtur-kpi-grid-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.625rem !important;
   }
 
   /* Todas as tabelas que NÃO são mobile-cards: wrapper com scroll horizontal */

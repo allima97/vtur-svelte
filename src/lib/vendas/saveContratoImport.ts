@@ -767,7 +767,15 @@ export async function saveContratoImport(params: {
   const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney(c.desconto_comercial), 0);
   const pagamentosDedup = dedupePagamentos(contratos.flatMap((c) => c.pagamentos || []));
   const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
-  const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
+  // totalPago já vem líquido quando extraído do "Total Pago" do contrato.
+  // totalPagoFallback soma (valor_bruto - desconto) de cada pagamento — também líquido.
+  // descontoComercial (DESCONTOS COMERCIAIS) é um desconto global que reduz o valor final
+  // mas só quando o totalPago bruto não foi capturado diretamente como líquido.
+  // Para evitar dupla dedução, só abatemos descontoComercial quando o total vem do fallback
+  // (ou seja, quando não temos "Total Pago" explícito no contrato).
+  const totalPagoFinal = totalPago > 0
+    ? totalPago
+    : Math.max(0, totalPagoFallback - descontoComercial);
 
   const vendaPayload: any = {
     vendedor_id: vendedorId,
@@ -841,7 +849,8 @@ export async function saveContratoImport(params: {
       numero_recibo: contrato.contrato_numero,
       numero_reserva: contrato.reserva_numero || null,
       tipo_pacote: contrato.tipo_pacote || null,
-      valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto) || 0,
+      // total_pago já é líquido (após descontos). Usar total_bruto só quando total_pago ausente.
+      valor_total: parseMoney(contrato.total_pago != null ? contrato.total_pago : contrato.total_bruto) || 0,
       valor_taxas: parseMoney(contrato.taxas_embarque) || 0,
       valor_du: parseMoney(contrato.taxa_du) || 0,
       data_inicio: contrato.data_saida || null,

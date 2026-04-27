@@ -54,46 +54,44 @@
   KPI Card — layout horizontal limpo (sem border-t colorida).
   Estrutura: [ícone] [texto (título + valor + tendência)]
 -->
-<div class="vtur-kpi-card flex items-start gap-4 p-5 text-left">
+<div class="vtur-kpi-card flex items-start gap-3 text-left">
   {#if loading}
     <div class="flex w-full flex-col gap-2">
-      <div class="h-3 w-28 animate-pulse rounded bg-slate-100"></div>
-      <div class="h-8 w-20 animate-pulse rounded bg-slate-100"></div>
-      <div class="h-2.5 w-36 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-7 w-16 animate-pulse rounded bg-slate-100"></div>
+      <div class="h-2.5 w-28 animate-pulse rounded bg-slate-100"></div>
     </div>
-    <div class="h-11 w-11 flex-shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
+    <div class="h-10 w-10 flex-shrink-0 animate-pulse rounded-xl bg-slate-100"></div>
   {:else}
     <!-- Ícone -->
     {#if icon}
-      <div
-        class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl {style.bg}"
-      >
-        <svelte:component this={icon} size={20} strokeWidth={2} class={style.fg} />
+      <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl {style.bg}">
+        <svelte:component this={icon} size={18} strokeWidth={2} class={style.fg} />
       </div>
     {/if}
 
     <!-- Texto -->
     <div class="min-w-0 flex-1">
-      <p class="mb-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-slate-500">
+      <p class="mb-1 text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-slate-500 sm:text-[0.72rem]">
         {title}
       </p>
-      <p class="text-[1.75rem] font-bold leading-none tracking-tight text-slate-900">
+      <p class="truncate text-lg font-bold leading-none tracking-tight text-slate-900 sm:text-[1.6rem]">
         {value}
       </p>
       {#if subtitle}
-        <p class="mt-1 text-xs text-slate-400">{subtitle}</p>
+        <p class="mt-1 truncate text-xs text-slate-400">{subtitle}</p>
       {/if}
 
       <!-- Tendência -->
       {#if trend}
-        <div class="mt-2 flex items-center gap-1">
+        <div class="mt-1.5 flex items-center gap-1">
           {#if trend.isPositive}
-            <TrendingUp size={13} class="flex-shrink-0 text-emerald-500" />
+            <TrendingUp size={12} class="flex-shrink-0 text-emerald-500" />
             <span class="text-xs font-semibold text-emerald-600">
               +{trend.value.toFixed(1).replace('.', ',')}%
             </span>
           {:else}
-            <TrendingDown size={13} class="flex-shrink-0 text-red-500" />
+            <TrendingDown size={12} class="flex-shrink-0 text-red-500" />
             <span class="text-xs font-semibold text-red-600">
               {trend.value.toFixed(1).replace('.', ',')}%
             </span>
