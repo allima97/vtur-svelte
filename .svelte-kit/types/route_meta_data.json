@@ -1175,6 +1175,10 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/parametros/vouchers": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/perfil": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"

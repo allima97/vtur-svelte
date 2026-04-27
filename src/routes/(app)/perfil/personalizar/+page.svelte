@@ -69,6 +69,7 @@
         { key: 'cambios',       label: 'Câmbios',       href: '/parametros/cambios' },
         { key: 'tipo_pacotes',  label: 'Tipo Pacotes',  href: '/parametros/tipo-pacotes' },
         { key: 'tipo_produtos', label: 'Tipo Produtos', href: '/parametros/tipo-produtos' },
+        { key: 'vouchers_assets', label: 'Vouchers', href: '/parametros/vouchers' },
         { key: 'orcamentos_pdf',label: 'Orçamentos PDF',href: '/parametros/orcamentos' },
         { key: 'crm',           label: 'CRM',           href: '/parametros/crm' },
         { key: 'avisos',        label: 'Avisos',        href: '/parametros/avisos' },
