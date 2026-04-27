@@ -65,7 +65,7 @@
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
   <div class="w-full max-w-md">
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white text-3xl font-bold shadow-lg shadow-blue-500/30 mb-4">V</div>
+      <img src="/brand/vtur-symbol.svg" alt="VTUR" class="mx-auto mb-4 h-16 w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]" />
       <h1 class="text-2xl font-bold text-slate-900">Recuperar Senha</h1>
       <p class="text-slate-500 mt-1">Enviaremos um link para redefinir sua senha</p>
     </div>

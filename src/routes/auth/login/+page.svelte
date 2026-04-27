@@ -84,9 +84,7 @@
   <div class="w-full max-w-md">
     <!-- Logo -->
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white text-4xl font-bold shadow-xl shadow-blue-500/30 mb-4">
-        V
-      </div>
+      <img src="/brand/vtur-symbol.svg" alt="VTUR" class="mx-auto mb-4 h-20 w-auto object-contain drop-shadow-[0_14px_28px_rgba(15,23,42,0.18)]" />
       <h1 class="text-3xl font-bold text-slate-900">VTUR</h1>
       <p class="text-slate-500 mt-2">Sistema de Gestão de Viagens</p>
     </div>

@@ -163,8 +163,9 @@
   }
 
   .vtur-topbar__brand-image {
-    width: 2rem;
+    width: 2.6rem;
     height: 2rem;
+    object-fit: contain;
   }
 
   .vtur-topbar__brand-copy {

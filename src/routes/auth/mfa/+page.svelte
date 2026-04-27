@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
-  import { AlertCircle, Shield, KeyRound } from 'lucide-svelte';
+  import { AlertCircle, KeyRound } from 'lucide-svelte';
 
   let codigo = '';
   let loading = true;
@@ -112,9 +112,7 @@
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
   <div class="w-full max-w-md">
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 mb-4">
-        <Shield size={32} />
-      </div>
+      <img src="/brand/vtur-symbol.svg" alt="VTUR" class="mx-auto mb-4 h-16 w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]" />
       <h1 class="text-2xl font-bold text-slate-900">Verificação em Duas Etapas</h1>
       <p class="text-slate-500 mt-1">Informe o código do seu aplicativo autenticador</p>
     </div>
