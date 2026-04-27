@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestEvent } from '@sveltejs/kit';
+import { listarModulosComHeranca, MAPA_MODULOS, MODULO_ALIASES } from '$lib/config/modulos';
 
 export type Papel = 'ADMIN' | 'MASTER' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
 export type PermissaoNivel = 'none' | 'view' | 'create' | 'edit' | 'delete' | 'admin';
@@ -110,7 +111,9 @@ export function normalizeText(value?: string | null) {
 }
 
 export function normalizeModulo(value?: string | null) {
-  return normalizeText(value).replace(/\s+/g, '_');
+  const raw = normalizeText(value).replace(/\s+/g, '_');
+  if (!raw) return '';
+  return MODULO_ALIASES[raw] || raw;
 }
 
 export function permLevel(value?: string | null) {
@@ -143,6 +146,14 @@ function resolveUserTypeName(
 function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>) {
   const map: Record<string, PermissaoNivel> = {};
 
+  const setPerm = (key: string, incoming: PermissaoNivel) => {
+    if (!key) return;
+    const current = map[key] || 'none';
+    if (permLevel(incoming) > permLevel(current)) {
+      map[key] = incoming;
+    }
+  };
+
   rows.forEach((row) => {
     if (!row?.ativo) return;
 
@@ -150,10 +161,11 @@ function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: str
     if (!key) return;
 
     const incoming = String(row.permissao || '').toLowerCase() as PermissaoNivel;
-    const current = map[key] || 'none';
+    setPerm(key, incoming);
 
-    if (permLevel(incoming) > permLevel(current)) {
-      map[key] = incoming;
+    const rawModulo = String(row.modulo || '').trim().toLowerCase();
+    if (rawModulo && rawModulo !== key) {
+      setPerm(rawModulo, incoming);
     }
   });
 
@@ -287,22 +299,25 @@ export async function resolveUserScope(client: SupabaseClient, userId: string): 
 export function hasModuloAccess(scope: UserScope, modulos: string[], minLevel = 1) {
   if (scope.isAdmin) return true;
 
-  // Usuários autenticados com company_id ou uso_individual têm acesso view a todos os módulos
-  // (o controle fino é feito pelo hooks.server.ts nas rotas de página)
-  if (minLevel <= 1 && (scope.companyId || scope.usoIndividual)) return true;
-
-  // Para create/edit/delete, verifica permissões específicas
-  // Mas gestores e masters têm acesso amplo
-  if (scope.isGestor || scope.isMaster) {
-    if (minLevel <= 3) return true;
-  }
-
-  const allowed = new Set(
-    modulos
-      .map((modulo) => [String(modulo || '').trim().toLowerCase(), normalizeModulo(modulo)])
-      .flat()
-      .filter(Boolean)
+  const modulosConsulta = Array.from(
+    new Set(
+      modulos.flatMap((modulo) => {
+        const labels = listarModulosComHeranca(String(modulo || '').trim());
+        return labels.flatMap((label) => {
+          const key = MAPA_MODULOS[label];
+          return key ? [label, key] : [label];
+        });
+      })
+    )
   );
+
+  const allowed = new Set<string>();
+  modulosConsulta.forEach((entry) => {
+    const normalized = normalizeModulo(entry);
+    if (normalized) allowed.add(normalized);
+    const raw = String(entry || '').trim().toLowerCase();
+    if (raw) allowed.add(raw);
+  });
 
   // Verifica permissões específicas
   const hasSpecific = Object.entries(scope.permissoes).some(([modulo, permissao]) => {
@@ -313,9 +328,6 @@ export function hasModuloAccess(scope: UserScope, modulos: string[], minLevel = 
   });
 
   if (hasSpecific) return true;
-
-  // Fallback: usuários autenticados com company_id têm acesso create (level 2) por padrão
-  if (minLevel <= 2 && (scope.companyId || scope.usoIndividual)) return true;
 
   return false;
 }

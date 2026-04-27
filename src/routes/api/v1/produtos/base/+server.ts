@@ -9,7 +9,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 1, 'Sem acesso a Produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 1, 'Sem acesso a Produtos.');
     }
 
     const payload = await fetchProdutosBase(client, scope, event.url.searchParams);

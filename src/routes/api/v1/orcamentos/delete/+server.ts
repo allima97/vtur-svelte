@@ -16,7 +16,7 @@ export async function POST(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 4, 'Sem acesso para excluir Orcamentos.');
+      ensureModuloAccess(scope, ['Orcamentos'], 4, 'Sem acesso para excluir Orcamentos.');
     }
 
     const body = await event.request.json().catch(() => ({}));

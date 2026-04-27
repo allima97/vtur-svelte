@@ -223,7 +223,7 @@
       {
         label: 'Editar',
         href: `/clientes/${clienteId}/editar`,
-        variant: 'secondary',
+        variant: 'primary',
         icon: Edit
       },
       {

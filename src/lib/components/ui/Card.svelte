@@ -10,6 +10,8 @@
   export let color: 'default' | 'blue' | 'green' | 'orange' | 'teal' | 'purple' | 'crm' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'default';
   export let padding: 'none' | 'sm' | 'md' | 'lg' = 'md';
 
+  $: color;
+
   const paddingClasses: Record<string, string> = {
     none: 'p-0',
     sm: 'p-4',

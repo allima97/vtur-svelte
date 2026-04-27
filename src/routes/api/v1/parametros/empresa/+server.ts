@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros', 'admin'], 1, 'Sem acesso a Parâmetros da Empresa.');
+      ensureModuloAccess(scope, ['Parametros'], 1, 'Sem acesso a Parâmetros da Empresa.');
     }
 
     const companyId = scope.companyId;
@@ -44,7 +44,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros', 'admin'], 3, 'Sem permissão para editar dados da empresa.');
+      ensureModuloAccess(scope, ['Parametros'], 3, 'Sem permissão para editar dados da empresa.');
     }
 
     const companyId = scope.companyId;

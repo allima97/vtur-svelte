@@ -293,7 +293,7 @@
       {
         label: 'Editar',
         href: `/orcamentos/${orcamentoId}/editar`,
-        variant: 'secondary',
+        variant: 'primary',
         icon: Edit
       },
       {
@@ -649,7 +649,7 @@
           
           <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200">
             <Button
-              variant="secondary"
+              variant="primary"
               on:click={() => goto(`/orcamentos/${orcamentoId}/editar`)}
               class_name="w-full justify-center"
             >

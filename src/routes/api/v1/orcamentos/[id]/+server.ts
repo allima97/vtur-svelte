@@ -25,7 +25,7 @@ export async function GET(event) {
     const id = String(event.params.id || '').trim();
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a Orcamentos.');
+      ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Orcamentos.');
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
@@ -97,7 +97,7 @@ export async function PATCH(event) {
     const id = String(event.params.id || '').trim();
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem permissao para editar orcamentos.');
+      ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para editar orcamentos.');
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
@@ -155,7 +155,7 @@ export async function DELETE(event) {
     const id = String(event.params.id || '').trim();
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 3, 'Sem permissao para excluir orcamentos.');
+      ensureModuloAccess(scope, ['Orcamentos'], 3, 'Sem permissao para excluir orcamentos.');
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 

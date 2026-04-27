@@ -66,7 +66,7 @@
 
   const variantClasses: Record<string, string> = {
     primary:
-      'border-transparent bg-[#4f46e5] text-white hover:bg-[#4338ca] focus:ring-indigo-200 shadow-[0_10px_24px_rgba(79,70,229,0.22)]',
+      'border-transparent bg-gradient-to-r from-[#5b5ce6] to-[#3b82f6] text-white hover:from-[#4f46e5] hover:to-[#2563eb] focus:ring-indigo-200 shadow-[0_12px_28px_rgba(79,70,229,0.28)]',
     secondary:
       'border border-slate-300 bg-transparent text-slate-700 hover:bg-transparent hover:border-slate-400 hover:text-slate-900 focus:ring-slate-200 shadow-none',
     outline:

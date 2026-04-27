@@ -29,7 +29,7 @@ export async function GET(event: RequestEvent) {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'private, max-age=60',
+        'Cache-Control': 'no-store',
         Vary: 'Cookie'
       }
     });

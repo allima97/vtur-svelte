@@ -77,11 +77,11 @@
   >
     <!-- Header fixo com ações - Responsivo -->
     <header 
-      class="bg-white border-b border-slate-200 px-4 py-3 md:px-6 md:py-4 flex flex-col md:flex-row md:items-center justify-between shadow-sm shrink-0 gap-3"
+      class="voucher-preview__header bg-white border-b border-slate-200 shadow-sm shrink-0"
     >
-      <div class="min-w-0">
-        <h2 class="text-base md:text-xl font-bold text-slate-900 truncate">{voucher.nome}</h2>
-        <p class="text-xs md:text-sm text-slate-500 mt-0.5">
+      <div class="voucher-preview__meta min-w-0">
+        <h2 class="voucher-preview__title truncate">{voucher.nome}</h2>
+        <p class="voucher-preview__subtitle">
           {voucher.provider === 'special_tours' ? 'Special Tours' : 'Europamundo'}
           {#if voucher.codigo_fornecedor}
             <span class="hidden sm:inline"> • Código: {voucher.codigo_fornecedor}</span>
@@ -89,9 +89,9 @@
         </p>
       </div>
       
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="voucher-preview__actions shrink-0">
         <!-- Botões com ícones apenas no mobile, texto no desktop -->
-        <Button variant="secondary" on:click={handleEdit} class_name="!px-2 md:!px-4">
+        <Button variant="primary" on:click={handleEdit} class_name="!px-2 md:!px-4">
           <Edit size={18} />
           <span class="hidden md:inline ml-2">Editar</span>
         </Button>
@@ -106,6 +106,7 @@
         <Button 
           variant="ghost"
           size="sm"
+          class_name="voucher-preview__close"
           title="Fechar"
           on:click={close}
         >
@@ -141,5 +142,74 @@
   .voucher-preview-area {
     right: 0;
     bottom: 0;
+  }
+
+  .voucher-preview__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .voucher-preview__meta {
+    min-width: 0;
+  }
+
+  .voucher-preview__title {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #0f172a;
+  }
+
+  .voucher-preview__subtitle {
+    margin-top: 0.15rem;
+    font-size: 0.76rem;
+    line-height: 1.3;
+    color: #64748b;
+  }
+
+  .voucher-preview__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  :global(.voucher-preview__close) {
+    padding: 0.5rem !important;
+  }
+
+  @media (min-width: 768px) {
+    .voucher-preview__header {
+      padding: 1rem 1.5rem;
+    }
+
+    .voucher-preview__title {
+      font-size: 1.25rem;
+    }
+
+    .voucher-preview__subtitle {
+      font-size: 0.875rem;
+    }
+
+    .voucher-preview__actions {
+      gap: 0.5rem;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .voucher-preview__header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+
+    .voucher-preview__actions {
+      width: 100%;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
   }
 </style>

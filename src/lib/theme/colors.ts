@@ -3,7 +3,7 @@
  * Mantém a identidade visual do sistema original
  */
 
-export type ModuleColor = 'clientes' | 'orcamentos' | 'operacao' | 'financeiro' | 'vendas' | 'default';
+export type ModuleColor = 'clientes' | 'orcamentos' | 'operacao' | 'financeiro' | 'vendas' | 'comissoes' | 'default';
 
 export interface ColorScheme {
   primary: string;
@@ -72,6 +72,22 @@ export const MODULE_COLORS: Record<ModuleColor, ColorScheme> = {
     primary900: '#134e4a'
   },
   financeiro: {
+    primary: '#f97316',
+    primaryLight: '#fff7ed',
+    primaryBorder: '#fed7aa',
+    primaryDark: '#c2410c',
+    primary50: '#fff7ed',
+    primary100: '#ffedd5',
+    primary200: '#fed7aa',
+    primary300: '#fdba74',
+    primary400: '#fb923c',
+    primary500: '#f97316',
+    primary600: '#ea580c',
+    primary700: '#c2410c',
+    primary800: '#9a3412',
+    primary900: '#7c2d12'
+  },
+  comissoes: {
     primary: '#f97316',
     primaryLight: '#fff7ed',
     primaryBorder: '#fed7aa',

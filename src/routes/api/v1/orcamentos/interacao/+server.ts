@@ -17,7 +17,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem permissao para registrar interacoes.');
+      ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para registrar interacoes.');
     }
 
     const quoteId = String(event.url.searchParams.get('quote_id') || '').trim();
@@ -68,7 +68,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a interacoes.');
+      ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a interacoes.');
     }
 
     const quoteId = String(event.url.searchParams.get('quote_id') || '').trim();

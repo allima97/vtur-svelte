@@ -364,7 +364,7 @@
           Voltar
         </Button>
         {#if !isCreateMode}
-          <Button variant="ghost" type="button" on:click={() => (showDeleteDialog = true)}>
+          <Button variant="danger" type="button" on:click={() => (showDeleteDialog = true)}>
             <Trash2 size={18} class="mr-2" />
             Excluir
           </Button>

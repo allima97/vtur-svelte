@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Circuitos.');
+      ensureModuloAccess(scope, ['Circuitos'], 1, 'Sem acesso a Circuitos.');
     }
 
     const ativo = event.url.searchParams.get('ativo');
@@ -43,7 +43,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 2, 'Sem permissão para salvar circuitos.');
+      ensureModuloAccess(scope, ['Circuitos'], 2, 'Sem permissão para salvar circuitos.');
     }
 
     const body = await event.request.json();

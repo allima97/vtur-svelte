@@ -63,6 +63,7 @@ export async function GET(event) {
 
     const items = Array.from(byDestino.values())
       .map((item) => ({
+        ...item,
         destino_id: null,
         // Expose alias for parity with VTUR-APP expectations
         destino: item.destino,
@@ -74,8 +75,6 @@ export async function GET(event) {
         destino_display_short: String((item.destino ?? '')).slice(0, 12),
         destino_slug: String((item.destino ?? '')).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\\-]/g, ''),
         destino_codigo: String((item.destino ?? '')).replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
-        // Ensure existing payload remains intact
-        ...item,
         ticket_medio: item.quantidade > 0 ? item.receita / item.quantidade : 0,
         percentual: totalReceita > 0 ? (item.receita / totalReceita) * 100 : 0
       }))

@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 export const MAPA_MODULOS: Record<string, string> = {
   Dashboard: 'dashboard',
+  Financeiro: 'financeiro',
   Vendas: 'vendas_consulta',
   Orcamentos: 'orcamentos',
   Clientes: 'clientes',
@@ -129,6 +130,10 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/admin/planos': 'AdminPlanos',
   '/admin/modulos-sistema': 'AdminSystemModules',
   '/admin/crm': 'Admin',
+  '/admin/aniversariantes': 'Admin',
+  '/admin/avisos': 'Admin',
+  '/admin/email': 'Admin',
+  '/admin/parametros-importacao': 'Admin',
 
   // Master
   '/master/empresas': 'MasterEmpresas',
@@ -144,6 +149,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   // Orçamentos / Clientes
   '/orcamentos': 'Orcamentos',
   '/clientes': 'Clientes',
+  '/aniversariantes': 'Dashboard',
 
   // Cadastros
   '/cadastros': 'Cadastros',
@@ -158,6 +164,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/relatorios/vendas-por-produto': 'RelatorioProdutos',
   '/relatorios/vendas-por-cliente': 'RelatorioClientes',
   '/relatorios/ranking-vendas': 'Ranking de vendas',
+  '/relatorios/ranking': 'Ranking de vendas',
   '/relatorios/ranking-vendas/view': 'Dashboard',
 
   // Parâmetros
@@ -177,14 +184,18 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/parametros/empresa': 'Parametros',
 
   // Financeiro
+  '/financeiro/caixa': 'Financeiro',
   '/financeiro/conciliacao': 'Conciliação',
   '/financeiro/ajustes-vendas': 'Conciliação',
   '/financeiro/comissoes': 'Comissionamento',
   '/financeiro/comissoes/regras': 'RegrasComissao',
+  '/financeiro/regras': 'RegrasComissao',
 
   // Operação
   '/operacao/agenda': 'Agenda',
+  '/operacao/tarefas': 'Tarefas',
   '/operacao/todo': 'Tarefas',
+  '/operacao/acompanhamento': 'Operacao',
   '/operacao/recados': 'Mural de Recados',
   '/operacao/minhas-preferencias': 'Minhas Preferências',
   '/operacao/documentos-viagens': 'Documentos Viagens',

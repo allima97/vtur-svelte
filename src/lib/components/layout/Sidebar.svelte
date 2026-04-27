@@ -190,15 +190,6 @@
   let collapsed: Record<number, boolean> = {};
   let refreshingPerms = false;
 
-  function canAccessAdminArea() {
-    return (
-      $permissoes.isSystemAdmin ||
-      $permissoes.papel === 'MASTER' ||
-      Boolean($permissoes.acessos.admin) ||
-      Boolean($permissoes.acessos.admin_users)
-    );
-  }
-
   function loadMenuPrefs() {
     if (typeof window === 'undefined') return;
     try {
@@ -235,17 +226,15 @@
       return false;
     }
 
-    // Perfil e autenticacao devem permanecer acessiveis mesmo sem modulo mapeado.
-    if (item.href.startsWith('/perfil')) return true;
+    // Perfil e autenticacao devem permanecer acessiveis mesmo sem modulo mapeado,
+    // mas respeitando a preferência de ocultar do usuário.
+    if (item.href.startsWith('/perfil')) return !isHiddenByUserPreference(item);
 
     // Rotas master seguem gate exclusivo do papel MASTER.
     if (item.href.startsWith('/master')) return $permissoes.isMaster;
 
-    // Rotas de administracao seguem gate explicito da secao admin.
-    if (item.href.startsWith('/admin')) return canAccessAdminArea();
-
     const modulo = descobrirModulo(item.href);
-    if (!modulo) return true;
+    if (!modulo) return false;
 
     return permissoes.can(modulo, 'view');
   }
@@ -288,15 +277,18 @@
     };
   });
 
-  $: visibleMenuSections = menuSections
+  // hiddenMenuSet é referenciado explicitamente para garantir que o Svelte
+  // rastreie esta dependência e recompute visibleMenuSections quando as
+  // preferências de ocultação do usuário mudarem.
+  $: visibleMenuSections = (hiddenMenuSet, menuSections
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => canSeeItem(item)),
     }))
-    .filter((section) => section.items.length > 0);
+    .filter((section) => section.items.length > 0));
 
-  $: visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
-  $: visibleAdminItems = adminItems.filter((item) => canSeeItem(item));
+  $: visibleMasterItems = (hiddenMenuSet, masterItems.filter((item) => canSeeItem(item)));
+  $: visibleAdminItems = (hiddenMenuSet, adminItems.filter((item) => canSeeItem(item)));
 
   function handleItemClick() {
     if ($isMobile) sidebar.close();
@@ -344,43 +336,43 @@
   }
 
   // ── Mapa de rotas → (nome, ícone) para o bottom nav compacto ──
-  type NavEntry = { name: string; href: string; icon: typeof LayoutDashboard };
+  type NavEntry = { key?: string; name: string; href: string; icon: typeof LayoutDashboard };
 
   let mobileNavEntries: NavEntry[] = [];
 
   $: mobileNavEntries = [
-    { name: 'Dashboard',      href: dashboardHref,             icon: LayoutDashboard },
-    { name: 'Clientes',       href: '/clientes',               icon: Users },
-    { name: 'Vendas',         href: '/vendas',                 icon: ShoppingCart },
-    { name: 'Orçamentos',     href: '/orcamentos',             icon: FileText },
-    { name: 'Roteiros',       href: '/orcamentos/roteiros',    icon: MapIcon },
-    { name: 'Viagens',        href: '/operacao/viagens',       icon: Plane },
-    { name: 'Vouchers',       href: '/operacao/vouchers',      icon: Ticket },
-    { name: 'Tarefas',        href: '/operacao/tarefas',       icon: SquareCheckBig },
-    { name: 'Agenda',         href: '/operacao/agenda',        icon: Calendar },
-    { name: 'Acompanhamento', href: '/operacao/acompanhamento',icon: FileText },
-    { name: 'SAC',            href: '/operacao/controle-sac',  icon: AlertCircle },
-    { name: 'Campanhas',      href: '/operacao/campanhas',     icon: Megaphone },
-    { name: 'Documentos',     href: '/operacao/documentos-viagens', icon: FileText },
-    { name: 'Consultoria',    href: '/consultoria-online',     icon: Video },
-    { name: 'Aniversariantes',href: '/aniversariantes',        icon: Gift },
-    { name: 'Preferências',   href: '/operacao/minhas-preferencias', icon: Star },
-    { name: 'Caixa',          href: '/financeiro/caixa',       icon: TrendingUp },
-    { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
-    { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
-    { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
-    { name: 'Relatórios',     href: '/relatorios',             icon: FileChartColumn },
-    { name: 'Ranking',        href: '/relatorios/ranking',     icon: Trophy },
-    { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
+    { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
+    { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },
+    { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: ShoppingCart },
+    { key: 'orcamentos',      name: 'Orçamentos',     href: '/orcamentos',                    icon: FileText },
+    { key: 'roteiros',        name: 'Roteiros',       href: '/orcamentos/roteiros',           icon: MapIcon },
+    { key: 'viagens',         name: 'Viagens',        href: '/operacao/viagens',              icon: Plane },
+    { key: 'vouchers',        name: 'Vouchers',       href: '/operacao/vouchers',             icon: Ticket },
+    { key: 'tarefas',         name: 'Tarefas',        href: '/operacao/tarefas',              icon: SquareCheckBig },
+    { key: 'agenda',          name: 'Agenda',         href: '/operacao/agenda',               icon: Calendar },
+    { key: 'acompanhamento',  name: 'Acompanhamento', href: '/operacao/acompanhamento',       icon: FileText },
+    { key: 'controle_sac',    name: 'SAC',            href: '/operacao/controle-sac',         icon: AlertCircle },
+    { key: 'campanhas',       name: 'Campanhas',      href: '/operacao/campanhas',            icon: Megaphone },
+    { key: 'documentos',      name: 'Documentos',     href: '/operacao/documentos-viagens',   icon: FileText },
+    { key: 'consultoria_online', name: 'Consultoria', href: '/consultoria-online',            icon: Video },
+    { key: 'aniversariantes', name: 'Aniversariantes',href: '/aniversariantes',               icon: Gift },
+    { key: 'preferencias',    name: 'Preferências',   href: '/operacao/minhas-preferencias',  icon: Star },
+    { key: 'caixa',           name: 'Caixa',          href: '/financeiro/caixa',              icon: TrendingUp },
+    { key: 'conciliacao',     name: 'Conciliação',    href: '/financeiro/conciliacao',        icon: FileSpreadsheet },
+    { key: 'comissoes',       name: 'Comissões',      href: '/financeiro/comissoes',          icon: Wallet },
+    { key: 'fechamento',      name: 'Fechamento',     href: '/comissoes/fechamento',          icon: Wallet },
+    { key: 'relatorios',      name: 'Relatórios',     href: '/relatorios',                    icon: FileChartColumn },
+    { key: 'rel_ranking',     name: 'Ranking',        href: '/relatorios/ranking',            icon: Trophy },
+    { key: 'parametros',      name: 'Parâmetros',     href: '/parametros',                    icon: Settings },
     $permissoes.isMaster
       ? { name: 'Master',     href: '/master',                 icon: Shield }
       : { name: 'Admin',      href: '/admin',                  icon: Shield },
-    { name: 'Perfil',         href: '/perfil',                 icon: UserCircle },
+    { key: 'meu_perfil',      name: 'Perfil',         href: '/perfil',                        icon: UserCircle },
   ];
 
-  $: visibleMobileNavEntries = mobileNavEntries.filter((entry) =>
-    canSeeItem({ name: entry.name, href: entry.href, icon: entry.icon })
-  );
+  $: visibleMobileNavEntries = (hiddenMenuSet, mobileNavEntries.filter((entry) =>
+    canSeeItem({ key: entry.key, name: entry.name, href: entry.href, icon: entry.icon })
+  ));
 
   // Encontra a entrada mais específica que bate com a rota atual
   $: currentNavEntry = (() => {
@@ -485,7 +477,7 @@
             <Button
               type="button"
               variant="unstyled"
-              class_name="vtur-sidebar__section-toggle !px-1 !py-0"
+              class_name="vtur-sidebar__section-toggle !px-1 !py-0 !rounded-none !border-0 !bg-transparent !shadow-none focus:!ring-0"
               on:click={() => toggleSection(idx)}
             >
               <span class="vtur-sidebar__section-title">{section.title}</span>
@@ -562,7 +554,7 @@
         </section>
       {/if}
 
-      {#if canAccessAdminArea() && visibleAdminItems.length > 0}
+      {#if visibleAdminItems.length > 0}
         <section class="vtur-sidebar__section">
           <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
           <nav class="vtur-sidebar__nav" aria-label="Admin">

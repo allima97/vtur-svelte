@@ -448,7 +448,7 @@
       ...(canEdit ? [{
         label: 'Editar',
         href: `/vendas/${vendaId}/editar`,
-        variant: 'secondary' as const,
+        variant: 'primary' as const,
         icon: Edit
       }, {
         label: 'Mesclar',
@@ -745,7 +745,7 @@
                 Salvar
               </Button>
             {:else}
-              <Button variant="secondary" color="vendas" on:click={() => (isEditingReciboDetails = true)}>
+              <Button variant="primary" color="vendas" on:click={() => (isEditingReciboDetails = true)}>
                 Editar
               </Button>
             {/if}
@@ -821,7 +821,7 @@
 
           <div class="grid grid-cols-2 gap-3 pt-3 {venda.status !== 'cancelada' ? 'border-t border-slate-200' : ''}">
             {#if canEdit}
-            <Button variant="secondary" on:click={() => goto(`/vendas/${vendaId}/editar`)} class_name="w-full justify-center">
+            <Button variant="primary" on:click={() => goto(`/vendas/${vendaId}/editar`)} class_name="w-full justify-center">
               <Edit size={16} class="mr-2" />
               Editar
             </Button>
@@ -834,7 +834,7 @@
           </div>
 
           {#if canDelete}
-          <Button variant="ghost" class_name="w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50" on:click={handleExcluir}>
+          <Button variant="danger" class_name="w-full justify-center" on:click={handleExcluir}>
             <Trash2 size={16} class="mr-2" />
             Excluir Venda
           </Button>

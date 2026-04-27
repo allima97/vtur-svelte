@@ -7,6 +7,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function shouldScopeByOwner(scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean }) {
+  return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
+}
+
 function isMissingPercursoColumn(error: any) {
   const code = String(error?.code || '');
   const msg = String(error?.message || '');
@@ -23,7 +27,7 @@ export async function GET(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a Roteiros.');
+    ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Roteiros.');
 
     const q = event.url.searchParams.get('q') || '';
     const cidade = event.url.searchParams.get('cidade') || '';
@@ -40,10 +44,12 @@ export async function GET(event: RequestEvent) {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (companyId) {
+      if (!shouldScopeByOwner(scope) && companyId && !scope.isAdmin && !scope.isMaster) {
         query = query.eq('company_id', companyId);
       } else {
-        query = query.eq('created_by', user.id);
+        if (shouldScopeByOwner(scope)) {
+          query = query.eq('created_by', user.id);
+        }
       }
 
       if (cidade) {

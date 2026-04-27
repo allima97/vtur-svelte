@@ -1305,7 +1305,7 @@
         {/if}
 
         <div class="mt-4 flex justify-between">
-          <Button variant="secondary" on:click={prevStep}>
+          <Button variant="primary" on:click={prevStep}>
             <ChevronLeft size={16} class="mr-1" />
             Editar
           </Button>

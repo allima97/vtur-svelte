@@ -1644,7 +1644,7 @@
 
   <svelte:fragment slot="actions">
     {#if detailsReadOnly}
-      <Button variant="secondary" on:click={enableDetailsEdit} disabled={saving || running}>
+      <Button variant="primary" on:click={enableDetailsEdit} disabled={saving || running}>
         <Pencil size={16} class="mr-2" />
         Editar
       </Button>

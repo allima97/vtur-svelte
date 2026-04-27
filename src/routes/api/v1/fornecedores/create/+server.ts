@@ -15,7 +15,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros', 'fornecedores'], 2, 'Sem permissão para criar fornecedores.');
+      ensureModuloAccess(scope, ['Fornecedores'], 2, 'Sem permissão para criar fornecedores.');
     }
 
     const body = await event.request.json();

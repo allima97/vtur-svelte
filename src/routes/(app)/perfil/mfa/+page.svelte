@@ -191,7 +191,7 @@
               </div>
             </div>
             <Button
-              variant="secondary"
+              variant="danger"
               size="sm"
               loading={removing}
               on:click={() => removeFactor(factor.id)}

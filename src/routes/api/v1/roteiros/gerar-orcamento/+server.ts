@@ -14,7 +14,7 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem acesso para criar Orcamentos.');
+    ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para criar Orcamentos.');
 
     const body = await event.request.json().catch(() => null);
     if (!body) return new Response('Body invalido.', { status: 400 });

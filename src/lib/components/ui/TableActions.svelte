@@ -11,7 +11,7 @@
 
 <div class="table-actions flex flex-wrap items-center gap-2">
   {#if canEdit}
-    <Button type="button" variant="secondary" size="sm" on:click={() => onEdit?.()}>
+    <Button type="button" variant="primary" size="sm" on:click={() => onEdit?.()}>
       Editar
     </Button>
   {/if}

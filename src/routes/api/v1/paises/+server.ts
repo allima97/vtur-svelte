@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Países.');
+      ensureModuloAccess(scope, ['Paises'], 1, 'Sem acesso a Países.');
     }
 
     const { searchParams } = event.url;
@@ -51,7 +51,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 2, 'Sem permissão para salvar países.');
+      ensureModuloAccess(scope, ['Paises'], 2, 'Sem permissão para salvar países.');
     }
 
     const body = await event.request.json();
@@ -89,7 +89,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 4, 'Sem permissão para excluir países.');
+      ensureModuloAccess(scope, ['Paises'], 4, 'Sem permissão para excluir países.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

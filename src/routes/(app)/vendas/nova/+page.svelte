@@ -180,7 +180,7 @@
   
   async function carregarOrcamento(orcamentoId: string) {
     try {
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`);
+      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
       if (!response.ok) {
         console.error('Erro ao carregar orçamento:', await response.text());
         return;

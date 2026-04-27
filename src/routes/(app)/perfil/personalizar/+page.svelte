@@ -5,93 +5,109 @@
   import Button from '$lib/components/ui/Button.svelte';
   import FieldToggle from '$lib/components/ui/form/FieldToggle.svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
+  import { descobrirModulo } from '$lib/config/modulos';
   import { Save, RefreshCw } from 'lucide-svelte';
 
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
   const MENU_PREFS_KEY = 'vtur:menu-prefs';
 
-  // Seções do menu com seus itens
+  // Seções do menu com seus itens — espelha exatamente o Sidebar,
+  // incluindo o href para que possamos filtrar por permissão.
   const SECOES = [
     {
       key: 'informativos',
       label: 'Informativos',
       items: [
-        { key: 'dashboard', label: 'Dashboard' },
-        { key: 'tarefas', label: 'Tarefas' },
-        { key: 'agenda', label: 'Agenda' },
-        { key: 'acompanhamento', label: 'Acompanhamento' },
-        { key: 'recados', label: 'Recados' }
+        { key: 'dashboard',       label: 'Dashboard',        href: '/dashboard' },
+        { key: 'tarefas',         label: 'Tarefas',           href: '/operacao/tarefas' },
+        { key: 'agenda',          label: 'Agenda',            href: '/operacao/agenda' },
+        { key: 'acompanhamento',  label: 'Acompanhamento',    href: '/operacao/acompanhamento' },
+        { key: 'recados',         label: 'Recados',           href: '/operacao/recados' },
+        { key: 'aniversariantes', label: 'Aniversariantes',   href: '/aniversariantes' }
       ]
     },
     {
       key: 'operacao',
       label: 'Operação',
       items: [
-        { key: 'vendas', label: 'Vendas' },
-        { key: 'clientes', label: 'Clientes' },
-        { key: 'viagens', label: 'Viagens' },
-        { key: 'orcamentos', label: 'Orçamentos' },
-        { key: 'roteiros', label: 'Roteiros' },
-        { key: 'vouchers', label: 'Vouchers' },
-        { key: 'controle_sac', label: 'Controle SAC' },
-        { key: 'campanhas', label: 'Campanhas' },
-        { key: 'documentos', label: 'Documentos' },
-        { key: 'consultoria_online', label: 'Consultoria Online' }
+        { key: 'vendas',              label: 'Vendas',            href: '/vendas' },
+        { key: 'clientes',            label: 'Clientes',          href: '/clientes' },
+        { key: 'viagens',             label: 'Viagens',           href: '/operacao/viagens' },
+        { key: 'orcamentos',          label: 'Orçamentos',        href: '/orcamentos' },
+        { key: 'roteiros',            label: 'Roteiros',          href: '/orcamentos/roteiros' },
+        { key: 'vouchers',            label: 'Vouchers',          href: '/operacao/vouchers' },
+        { key: 'controle_sac',        label: 'Controle SAC',      href: '/operacao/controle-sac' },
+        { key: 'campanhas',           label: 'Campanhas',         href: '/operacao/campanhas' },
+        { key: 'documentos',          label: 'Documentos',        href: '/operacao/documentos-viagens' },
+        { key: 'consultoria_online',  label: 'Consultoria Online', href: '/consultoria-online' },
+        { key: 'relatorios',          label: 'Relatórios',        href: '/relatorios' },
+        { key: 'rel_ranking',         label: 'Ranking',           href: '/relatorios/ranking' }
       ]
     },
     {
       key: 'financeiro',
       label: 'Financeiro',
       items: [
-        { key: 'caixa', label: 'Caixa' },
-        { key: 'conciliacao', label: 'Conciliação' },
-        { key: 'comissoes', label: 'Comissões' },
-        { key: 'fechamento', label: 'Fechamento' },
-        { key: 'ajustes_vendas', label: 'Ajustes Vendas' },
-        { key: 'formas_pagamento', label: 'Formas de Pagamento' },
-        { key: 'regras', label: 'Regras' }
-      ]
-    },
-    {
-      key: 'relatorios',
-      label: 'Relatórios',
-      items: [
-        { key: 'rel_vendas', label: 'Vendas' },
-        { key: 'rel_produtos', label: 'Por Produto' },
-        { key: 'rel_clientes', label: 'Por Cliente' },
-        { key: 'rel_destinos', label: 'Por Destino' },
-        { key: 'rel_ranking', label: 'Ranking' }
+        { key: 'caixa',            label: 'Caixa',               href: '/financeiro/caixa' },
+        { key: 'conciliacao',      label: 'Conciliação',         href: '/financeiro/conciliacao' },
+        { key: 'comissoes',        label: 'Comissões',           href: '/financeiro/comissoes' },
+        { key: 'fechamento',       label: 'Fechamento',          href: '/comissoes/fechamento' },
+        { key: 'ajustes_vendas',   label: 'Ajustes Vendas',      href: '/financeiro/ajustes-vendas' },
+        { key: 'formas_pagamento', label: 'Formas de Pagamento', href: '/financeiro/formas-pagamento' },
+        { key: 'regras',           label: 'Regras',              href: '/financeiro/regras' }
       ]
     },
     {
       key: 'parametros',
       label: 'Parâmetros',
       items: [
-        { key: 'parametros', label: 'Parâmetros' },
-        { key: 'metas', label: 'Metas' },
-        { key: 'equipe', label: 'Equipe' },
-        { key: 'escalas', label: 'Escalas' },
-        { key: 'cambios', label: 'Câmbios' },
-        { key: 'tipo_pacotes', label: 'Tipo Pacotes' },
-        { key: 'tipo_produtos', label: 'Tipo Produtos' },
-        { key: 'orcamentos_pdf', label: 'Orçamentos PDF' },
-        { key: 'crm', label: 'CRM' },
-        { key: 'avisos', label: 'Avisos' },
-        { key: 'empresa', label: 'Empresa' }
+        { key: 'parametros',    label: 'Parâmetros',    href: '/parametros' },
+        { key: 'metas',         label: 'Metas',         href: '/parametros/metas' },
+        { key: 'equipe',        label: 'Equipe',        href: '/parametros/equipe' },
+        { key: 'escalas',       label: 'Escalas',       href: '/parametros/escalas' },
+        { key: 'cambios',       label: 'Câmbios',       href: '/parametros/cambios' },
+        { key: 'tipo_pacotes',  label: 'Tipo Pacotes',  href: '/parametros/tipo-pacotes' },
+        { key: 'tipo_produtos', label: 'Tipo Produtos', href: '/parametros/tipo-produtos' },
+        { key: 'orcamentos_pdf',label: 'Orçamentos PDF',href: '/parametros/orcamentos' },
+        { key: 'crm',           label: 'CRM',           href: '/parametros/crm' },
+        { key: 'avisos',        label: 'Avisos',        href: '/parametros/avisos' },
+        { key: 'empresa',       label: 'Empresa',       href: '/parametros/empresa' }
       ]
     },
     {
       key: 'perfil',
       label: 'Perfil',
       items: [
-        { key: 'meu_perfil', label: 'Meu Perfil' },
-        { key: 'minha_escala', label: 'Minha Escala' },
-        { key: 'autenticacao_2fa', label: 'Autenticação 2FA' },
-        { key: 'personalizar_menu', label: 'Personalizar Menu' },
-        { key: 'preferencias', label: 'Preferências' }
+        { key: 'meu_perfil',        label: 'Meu Perfil',        href: '/perfil' },
+        { key: 'minha_escala',      label: 'Minha Escala',      href: '/perfil/escala' },
+        { key: 'autenticacao_2fa',  label: 'Autenticação 2FA',  href: '/perfil/mfa' },
+        { key: 'personalizar_menu', label: 'Personalizar Menu', href: '/perfil/personalizar' },
+        { key: 'preferencias',      label: 'Preferências',      href: '/operacao/minhas-preferencias' }
       ]
     }
   ];
+
+  // Filtra um item de acordo com as permissões do usuário — mesma lógica do Sidebar.
+  function podeVerItem(href: string): boolean {
+    if (!$permissoes.ready) return true; // aguarda carregamento
+    if ($permissoes.isSystemAdmin) return true;
+    if (href.startsWith('/perfil')) return true; // perfil sempre acessível
+    if (href.startsWith('/master')) return $permissoes.isMaster;
+    const modulo = descobrirModulo(href);
+    if (!modulo) return false;
+    return permissoes.can(modulo, 'view');
+  }
+
+  // Seções visíveis de acordo com as permissões do usuário atual.
+  // $permissoes é referenciado explicitamente para que o Svelte recompute
+  // quando o store de permissões ficar pronto (ready = true).
+  $: secoesVisiveis = ($permissoes, SECOES
+    .map((secao) => ({
+      ...secao,
+      items: secao.items.filter((item) => podeVerItem(item.href))
+    }))
+    .filter((secao) => secao.items.length > 0));
 
   type MenuPrefs = {
     hidden: string[];
@@ -117,14 +133,16 @@
         const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
         prefs = { hidden };
         localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
+        window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
         setFeedback('Preferências do menu carregadas.', 'info');
       } else {
+        // API indisponível: usa localStorage como fallback
         setFeedback('Preferências remotas indisponíveis. Preferências locais carregadas.', 'info');
-      }
-      const stored = localStorage.getItem(MENU_PREFS_KEY);
-      if (stored && prefs.hidden.length === 0) {
-        const parsed = JSON.parse(stored) as MenuPrefs;
-        prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] };
+        const stored = localStorage.getItem(MENU_PREFS_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as MenuPrefs;
+          prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] };
+        }
       }
     } catch {
       const stored = localStorage.getItem(MENU_PREFS_KEY);
@@ -265,7 +283,7 @@
   <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
 {:else}
   <div class="space-y-6">
-    {#each SECOES as secao}
+    {#each secoesVisiveis as secao}
       <Card title={secao.label}>
         <div class="space-y-2">
           {#each secao.items as item}
@@ -274,10 +292,8 @@
               checked={!isHidden(item.key)}
               color="operacao"
               helper={isHidden(item.key) ? 'Oculto no menu lateral' : 'Visível no menu lateral'}
-              on:change={(event) => {
-                const checked = (event.currentTarget as HTMLInputElement)?.checked;
-                const isVisible = typeof checked === 'boolean' ? checked : !isHidden(item.key);
-                setItemHidden(item.key, !isVisible);
+              on:change={() => {
+                setItemHidden(item.key, !isHidden(item.key));
               }}
             />
           {/each}

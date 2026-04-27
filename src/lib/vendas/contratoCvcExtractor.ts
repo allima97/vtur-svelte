@@ -969,6 +969,7 @@ function parseRoteiroContratante(lines: string[]) {
   }
 
   if (nome) {
+    const nomeAtual = nome;
     const tokens = nome.trim().split(/\s+/);
     if (!nomeConfiavel) {
       const candidateLongest = mergedLines
@@ -978,7 +979,7 @@ function parseRoteiroContratante(lines: string[]) {
           if (/\d/.test(norm)) return false;
           if (/r\$/.test(norm)) return false;
           if (norm.includes("recibo") || norm.includes("taxa") || norm.includes("valor")) return false;
-          if (norm.length <= nome.length) return false;
+          if (norm.length <= nomeAtual.length) return false;
           return true;
         })
         .sort((a, b) => b.length - a.length)[0];
@@ -3036,10 +3037,18 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   }
 
   // Fallbacks adicionais para recibo e nome do contratante em layouts verticais quebrados
-  let contratanteAjustado = contratanteInfo || null;
-  if (!contratanteAjustado) {
-    contratanteAjustado = { nome: null, recibo: null, valor: null, taxa_embarque: null, taxa_du: null } as any;
-  }
+  const contratanteAjustado: NonNullable<RoteiroReservaDraft['contratante']> = {
+    nome: contratanteInfo?.nome ?? null,
+    recibo: contratanteInfo?.recibo ?? null,
+    valor: contratanteInfo?.valor ?? null,
+    taxa_embarque: contratanteInfo?.taxa_embarque ?? null,
+    taxa_du: contratanteInfo?.taxa_du ?? null,
+    taxas: contratanteInfo?.taxas ?? null,
+    taxa_traslado: contratanteInfo?.taxa_traslado ?? null,
+    taxa_remessa: contratanteInfo?.taxa_remessa ?? null,
+    taxa_iof: contratanteInfo?.taxa_iof ?? null,
+    passageiros: contratanteInfo?.passageiros ?? null
+  };
   if (!contratanteAjustado.recibo) {
     const reciboEncontrado =
       extractReciboNumero(sections.contratante.join(" ")) ||
@@ -3065,7 +3074,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   const contratanteInfoFinal = contratanteAjustado;
   const passageiroPrincipalNome = buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || ({} as any));
   if (passageiroPrincipalNome) {
-    const currentNorm = normalizeText(contratanteInfoFinal?.nome || "", { trim: true, collapseWhitespace: true });
+    const currentNorm = normalizeText(contratanteInfoFinal.nome || "", { trim: true, collapseWhitespace: true });
     const passageiroNorm = normalizeText(passageiroPrincipalNome, { trim: true, collapseWhitespace: true });
     if (
       !currentNorm ||

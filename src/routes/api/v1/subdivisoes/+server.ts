@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Estados/Subdivisões.');
+      ensureModuloAccess(scope, ['Subdivisoes'], 1, 'Sem acesso a Estados/Subdivisões.');
     }
 
     const { searchParams } = event.url;
@@ -54,7 +54,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 2, 'Sem permissão para salvar estados.');
+      ensureModuloAccess(scope, ['Subdivisoes'], 2, 'Sem permissão para salvar estados.');
     }
 
     const body = await event.request.json();
@@ -94,7 +94,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 4, 'Sem permissão para excluir estados.');
+      ensureModuloAccess(scope, ['Subdivisoes'], 4, 'Sem permissão para excluir estados.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

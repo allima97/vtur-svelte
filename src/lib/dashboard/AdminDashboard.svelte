@@ -39,7 +39,7 @@
 
   type MaintenancePayload = {
     maintenance_enabled: boolean;
-    maintenance_message: string | null;
+    maintenance_message: string;
     updated_at: string | null;
   };
 
@@ -48,7 +48,7 @@
   let summary: SummaryPayload | null = null;
   let maintenance: MaintenancePayload = {
     maintenance_enabled: false,
-    maintenance_message: null,
+    maintenance_message: '',
     updated_at: null
   };
 
@@ -78,7 +78,12 @@
   async function loadMaintenance() {
     const response = await fetch('/api/v1/admin/maintenance');
     if (!response.ok) throw new Error(await response.text());
-    maintenance = await response.json();
+    const payload = await response.json();
+    maintenance = {
+      maintenance_enabled: payload.maintenance_enabled === true,
+      maintenance_message: payload.maintenance_message || '',
+      updated_at: payload.updated_at || null
+    };
   }
 
   async function loadDashboard() {
@@ -134,7 +139,10 @@
         id="maintenance-enabled"
         label={maintenance.maintenance_enabled ? 'Manutenção ativa' : 'Manutenção desativada'}
         checked={maintenance.maintenance_enabled}
-        onCheckedChange={(value) => (maintenance = { ...maintenance, maintenance_enabled: value })}
+        on:change={(event) => {
+          const target = event.currentTarget as HTMLInputElement | null;
+          maintenance = { ...maintenance, maintenance_enabled: target?.checked === true };
+        }}
       />
       <FieldTextarea
         id="maintenance-message"

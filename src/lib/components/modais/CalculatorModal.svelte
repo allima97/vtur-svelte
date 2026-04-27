@@ -110,21 +110,21 @@
       class="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-vendas-50">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-vendas-100 flex items-center justify-center">
+      <div class="vtur-modal-header border-b border-slate-100 bg-vendas-50">
+        <div class="vtur-modal-header__lead">
+          <div class="vtur-modal-header__icon bg-vendas-100">
             <Calculator size={24} class="text-vendas-600" />
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-slate-900">Calculadora de Valores</h3>
-            <p class="text-sm text-slate-500">Calcule comissões, descontos e parcelas</p>
+          <div class="vtur-modal-header__copy">
+            <h3 class="vtur-modal-header__title">Calculadora de Valores</h3>
+            <p class="vtur-modal-header__subtitle">Calcule comissões, descontos e parcelas</p>
           </div>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          class_name="p-2"
+          class_name="vtur-modal-header__close p-2"
           ariaLabel="Fechar calculadora"
           on:click={onClose}
         >
@@ -133,18 +133,18 @@
       </div>
 
       <!-- Abas -->
-      <div class="px-6 pt-4 pb-0 border-b border-slate-100">
+      <div class="vtur-modal-tabs">
         <Tabs items={abas} bind:activeKey={abaAtiva} />
       </div>
 
       <!-- Content -->
-      <div class="p-6 overflow-y-auto max-h-[60vh]">
+      <div class="vtur-modal-body-dense">
 
         <!-- Aba Concorrência -->
         {#if abaAtiva === 'concorrencia'}
           <ConcorrenciaTab />
         {:else}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="vtur-modal-grid-compact grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Coluna Esquerda - Entradas -->
           <div class="space-y-4">
             <!-- Valor Bruto -->
@@ -266,7 +266,7 @@
           </div>
           
           <!-- Coluna Direita - Resultados -->
-          <div class="bg-slate-50 rounded-xl p-4 space-y-4">
+          <div class="vtur-modal-section-compact bg-slate-50 rounded-xl p-4 space-y-4">
             <h4 class="font-medium text-slate-900">Resumo</h4>
             
             <!-- Valor Bruto -->
@@ -301,7 +301,7 @@
             
             <!-- Parcelas -->
             {#if calc.parcelas > 1}
-              <div class="bg-blue-50 rounded-lg p-3">
+              <div class="vtur-modal-notice bg-blue-50 rounded-lg p-3">
                 <div class="flex justify-between items-center">
                   <span class="text-blue-700">{calc.parcelas}x de</span>
                   <span class="font-bold text-blue-800">{formatCurrency(valorParcela)}</span>

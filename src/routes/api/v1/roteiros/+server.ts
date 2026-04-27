@@ -8,6 +8,18 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
+  if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+    return (query as any).eq('created_by', scope.userId);
+  }
+
+  if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
+    return (query as any).eq('company_id', scope.companyId);
+  }
+
+  return query;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -18,12 +30,14 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a Roteiros.');
     }
 
-    const { data, error: queryError } = await client
+    const { data, error: queryError } = await applyRoteiroScope(
+      client
       .from('roteiro_personalizado')
       .select('id, nome, duracao, inicio_cidade, fim_cidade, created_at, updated_at')
-      .eq('created_by', scope.userId)
       .order('updated_at', { ascending: false })
-      .limit(200);
+      .limit(200),
+      scope
+    );
 
     if (queryError) throw queryError;
 
@@ -40,7 +54,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem permissão para salvar roteiros.');
+      ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissão para salvar roteiros.');
     }
 
     const body = await event.request.json();
@@ -61,7 +75,14 @@ export async function POST(event) {
     let roteiroId: string;
 
     if (id && isUuid(id)) {
-      const { error: updateError } = await client.from('roteiro_personalizado').update(payload).eq('id', id).eq('created_by', scope.userId);
+      const { data: existing, error: existingError } = await applyRoteiroScope(
+        client.from('roteiro_personalizado').select('id').eq('id', id).maybeSingle(),
+        scope
+      );
+      if (existingError) throw existingError;
+      if (!existing) return json({ error: 'Roteiro não encontrado.' }, { status: 404 });
+
+      const { error: updateError } = await client.from('roteiro_personalizado').update(payload).eq('id', id);
       if (updateError) throw updateError;
       roteiroId = id;
     } else {
@@ -104,11 +125,18 @@ export async function DELETE(event) {
     const id = String(event.url.searchParams.get('id') || '').trim();
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
 
+    const { data: existing, error: existingError } = await applyRoteiroScope(
+      client.from('roteiro_personalizado').select('id').eq('id', id).maybeSingle(),
+      scope
+    );
+
+    if (existingError) throw existingError;
+    if (!existing) return json({ error: 'Roteiro não encontrado.' }, { status: 404 });
+
     const { error: deleteError } = await client
       .from('roteiro_personalizado')
       .delete()
-      .eq('id', id)
-      .eq('created_by', scope.userId);
+      .eq('id', id);
 
     if (deleteError) throw deleteError;
 
@@ -124,7 +152,7 @@ export async function PATCH(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await request.json();
+    const body = await event.request.json();
     const { action } = body;
 
     if (action === 'sugestoes-busca') {

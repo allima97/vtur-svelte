@@ -32,7 +32,7 @@
       <p class="text-sm leading-relaxed text-slate-500">{message}</p>
     {/if}
     <slot />
-    <div class="mt-2 flex w-full items-center justify-center gap-3">
+    <div class="vtur-confirm-dialog__actions mt-2">
       <Button variant="secondary" on:click={handleCancel} disabled={loading}>
         {cancelLabel}
       </Button>

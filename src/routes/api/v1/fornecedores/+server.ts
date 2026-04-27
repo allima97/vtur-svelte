@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros', 'fornecedores'], 1, 'Sem acesso a Fornecedores.');
+      ensureModuloAccess(scope, ['Fornecedores'], 1, 'Sem acesso a Fornecedores.');
     }
 
     const payload = await fetchFornecedores(client, scope, event.url.searchParams);

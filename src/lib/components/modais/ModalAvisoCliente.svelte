@@ -614,34 +614,34 @@
 {#if open}
   <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" on:click|self={onClose} on:keydown={(event) => event.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="-1">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" role="document">
-      <div class="flex items-center justify-between p-4 border-b border-slate-100" class:bg-pink-50={isAniversariante} class:bg-clientes-50={!isAniversariante}>
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center" class:bg-pink-100={isAniversariante} class:bg-clientes-100={!isAniversariante}>
+      <div class="vtur-modal-header border-b border-slate-100" class:bg-pink-50={isAniversariante} class:bg-clientes-50={!isAniversariante}>
+        <div class="vtur-modal-header__lead">
+          <div class="vtur-modal-header__icon" class:bg-pink-100={isAniversariante} class:bg-clientes-100={!isAniversariante}>
             {#if isAniversariante}<span class="text-2xl">🎉</span>{:else}<MessageCircle size={24} class="text-clientes-600" />{/if}
           </div>
-          <div><h3 class="text-lg font-semibold text-slate-900">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3><p class="text-sm text-slate-500">{clienteNome}</p></div>
+          <div class="vtur-modal-header__copy"><h3 class="vtur-modal-header__title">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3><p class="vtur-modal-header__subtitle">{clienteNome}</p></div>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="xs"
           ariaLabel="Fechar aviso"
-          class_name="h-10 w-10 !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
+          class_name="vtur-modal-header__close !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
           on:click={onClose}
         >
           <X size={20} />
         </Button>
       </div>
 
-      <div class="p-6 overflow-y-auto max-h-[60vh] space-y-4">
-        <div class="bg-slate-50 rounded-lg p-3 flex items-center gap-4 flex-wrap">
+      <div class="vtur-modal-body-dense space-y-4">
+        <div class="vtur-modal-section-compact bg-slate-50 rounded-lg p-3 flex items-center gap-4 flex-wrap">
           <div class="flex items-center gap-2"><Phone size={16} class="text-slate-400" /><span class="text-sm text-slate-600">{clienteTelefone || 'Sem telefone'}</span></div>
           <div class="flex items-center gap-2"><Mail size={16} class="text-slate-400" /><span class="text-sm text-slate-600">{clienteEmail || 'Sem email'}</span></div>
         </div>
 
         <div>
           <p class="block text-sm font-medium text-slate-700 mb-2">Canal de Envio</p>
-          <div class="flex gap-2">
+          <div class="vtur-modal-grid-compact flex gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -669,15 +669,15 @@
           {#if carregandoTemplates}
             <div class="text-center py-2"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div></div>
           {:else if erroTemplates}
-            <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <div class="vtur-modal-notice rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               {erroTemplates}
             </div>
           {:else if templatesFiltrados.length === 0}
-            <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <div class="vtur-modal-notice rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">
               Nenhum template ativo encontrado no CRM para seu escopo.
             </div>
           {:else}
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div class="vtur-modal-grid-compact grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FieldSelect
                 id="aviso-tema"
                 label="Tema"
@@ -734,7 +734,7 @@
         </div>
 
         {#if mensagemPersonalizada}
-          <div class="bg-slate-50 rounded-lg p-3 space-y-3">
+          <div class="vtur-modal-section-compact bg-slate-50 rounded-lg p-3 space-y-3">
             <p class="text-xs text-slate-500 mb-1">Preview:</p>
             {#if previewCardUrl}
               <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -783,13 +783,13 @@
         <div class="border-t border-slate-100 pt-4">
           <div class="flex items-center justify-between mb-2"><p class="text-sm font-medium text-slate-700">Últimos avisos</p>{#if carregandoHistorico}<span class="text-xs text-slate-500">Carregando...</span>{/if}</div>
           {#if historicoIndisponivel}
-            <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">Histórico ainda indisponível no banco atual.</div>
+            <div class="vtur-modal-notice rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">Histórico ainda indisponível no banco atual.</div>
           {:else if historico.length === 0}
-            <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Nenhum aviso registrado para este cliente.</div>
+            <div class="vtur-modal-notice rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Nenhum aviso registrado para este cliente.</div>
           {:else}
             <div class="space-y-2">
               {#each historico as item}
-                <div class="rounded-lg border border-slate-200 px-3 py-2">
+                <div class="vtur-modal-list-item rounded-lg border border-slate-200 px-3 py-2">
                   <div class="flex items-center justify-between gap-2 text-xs"><span class="font-medium text-slate-700 uppercase">{item.canal}</span><span class="text-slate-500">{formatDate(item.created_at)}</span></div>
                   <p class="mt-1 text-sm font-medium text-slate-900">{item.assunto || 'Sem assunto'}</p>
                   <p class="mt-1 text-xs text-slate-600">{item.mensagem}</p>

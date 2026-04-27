@@ -290,7 +290,7 @@
               {/if}
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <Button size="sm" variant="secondary" on:click={() => openEdit(c)}>
+              <Button size="sm" variant="primary" on:click={() => openEdit(c)}>
                 Editar
               </Button>
               <Button

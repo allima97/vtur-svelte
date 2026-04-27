@@ -248,7 +248,7 @@
 <DataTable
   {columns}
   data={comissoes}
-  color="comissoes"
+  color="financeiro"
   {loading}
   title={`Fechamento ${filtroMes}/${filtroAno} — ${comissoes.length} registros`}
   searchable={true}

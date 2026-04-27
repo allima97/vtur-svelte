@@ -78,6 +78,10 @@
     usuario: string;
   }
 
+  type BadgeColor = 'gray' | 'dark' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'pink' | 'indigo' | 'teal' | 'operacao' | 'clientes' | 'vendas' | 'financeiro' | 'orcamentos' | 'comissoes';
+
+  type ViagemStatus = Viagem['status'];
+
   interface Viagem {
     id: string;
     venda_id: string;
@@ -110,7 +114,14 @@
   let saving = false;
 
   // Form de edição
-  let editForm = {
+  let editForm: {
+    data_inicio: string;
+    data_fim: string;
+    status: ViagemStatus;
+    observacoes: string;
+    follow_up_text: string;
+    follow_up_fechado: boolean;
+  } = {
     data_inicio: '',
     data_fim: '',
     status: 'planejada',
@@ -119,7 +130,7 @@
     follow_up_fechado: false
   };
 
-  const statusOptions = [
+  const statusOptions: Array<{ value: ViagemStatus; label: string; color: BadgeColor; icon: typeof Calendar }> = [
     { value: 'planejada', label: 'Planejada', color: 'gray', icon: Calendar },
     { value: 'confirmada', label: 'Confirmada', color: 'blue', icon: CheckCircle },
     { value: 'em_viagem', label: 'Em Viagem', color: 'yellow', icon: Plane },
@@ -136,7 +147,7 @@
     outro: 'Outro'
   };
 
-  const statusVoucherLabels: Record<string, { label: string; color: string }> = {
+  const statusVoucherLabels: Record<string, { label: string; color: BadgeColor }> = {
     pendente: { label: 'Pendente', color: 'yellow' },
     emitido: { label: 'Emitido', color: 'blue' },
     utilizado: { label: 'Utilizado', color: 'green' },
@@ -161,16 +172,17 @@
       }
 
       const data = await response.json();
-      viagem = data.viagem;
+      const viagemData: Viagem = data.viagem;
+      viagem = viagemData;
 
       // Preenche formulário de edição
       editForm = {
-        data_inicio: viagem.data_inicio ? viagem.data_inicio.split('T')[0] : '',
-        data_fim: viagem.data_fim ? viagem.data_fim.split('T')[0] : '',
-        status: viagem.status || 'planejada',
-        observacoes: viagem.observacoes || '',
-        follow_up_text: viagem.follow_up_text || '',
-        follow_up_fechado: viagem.follow_up_fechado || false
+        data_inicio: viagemData.data_inicio ? viagemData.data_inicio.split('T')[0] : '',
+        data_fim: viagemData.data_fim ? viagemData.data_fim.split('T')[0] : '',
+        status: viagemData.status || 'planejada',
+        observacoes: viagemData.observacoes || '',
+        follow_up_text: viagemData.follow_up_text || '',
+        follow_up_fechado: viagemData.follow_up_fechado || false
       };
     } catch (err) {
       console.error('Erro:', err);
@@ -219,8 +231,8 @@
     }
   }
 
-  function getStatusColor(status: string): string {
-    const colors: Record<string, string> = {
+  function getStatusColor(status: string): BadgeColor {
+    const colors: Record<string, BadgeColor> = {
       planejada: 'gray',
       confirmada: 'blue',
       em_viagem: 'yellow',
@@ -241,12 +253,12 @@
     return labels[status] || status;
   }
 
-  function formatDate(dateString: string | null): string {
+  function formatDate(dateString: string | null | undefined): string {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('pt-BR');
   }
 
-  function formatDateTime(dateString: string | null): string {
+  function formatDateTime(dateString: string | null | undefined): string {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('pt-BR');
   }
@@ -326,7 +338,6 @@
   <PageHeader
     title={`Dossiê da Viagem ${viagem.venda_id ? `• ${viagem.venda_id.slice(0, 8).toUpperCase()}` : ''}`}
     subtitle={viagem?.cliente ? `Cliente: ${viagem.cliente.nome}` : 'Carregando...'}
-    icon={Plane}
     color="clientes"
     breadcrumbs={[
       { label: 'Operação', href: '/operacao' },
@@ -337,13 +348,13 @@
       {
         label: 'Voltar',
         href: '/operacao/viagens',
-        variant: 'secondary',
+        variant: 'primary',
         icon: ArrowLeft
       },
       {
         label: 'Editar',
         onClick: () => showEditModal = true,
-        variant: 'secondary',
+        variant: 'primary',
         icon: Edit2
       },
       {
@@ -366,7 +377,7 @@
   <div class="mb-6 p-4 rounded-xl border {bannerClasses[viagem.status] ?? bannerClasses.planejada}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3">
-        <Badge color={getStatusColor(viagem.status)} size="lg">
+        <Badge color={getStatusColor(viagem.status)} size="md">
           {getStatusLabel(viagem.status)}
         </Badge>
         <span class="text-sm text-slate-500">
@@ -433,7 +444,10 @@
               variant="secondary"
               size="xs"
               color="clientes"
-              on:click={() => goto(`/clientes/${viagem.cliente?.id}`)}
+              on:click={() => {
+                const clienteId = viagem?.cliente?.id;
+                if (clienteId) goto(`/clientes/${clienteId}`);
+              }}
             >
               Ver ficha completa →
             </Button>
@@ -590,7 +604,7 @@
                   </div>
                 </div>
                 <div class="flex items-center gap-3">
-                  <Badge color={statusVoucherLabels[voucher.status]?.color || 'gray'}>
+                  <Badge color={statusVoucherLabels[voucher.status]?.color ?? 'gray'}>
                     {statusVoucherLabels[voucher.status]?.label || voucher.status}
                   </Badge>
                   {#if voucher.valor}
@@ -613,7 +627,7 @@
           <Button 
             variant="secondary" 
             size="sm"
-            on:click={() => goto(`/operacao/vouchers/novo?viagem_id=${viagem.id}`)}
+            on:click={() => goto(`/operacao/vouchers/novo?viagem_id=${viagem?.id ?? ''}`)}
           >
             <Plus size={16} class="mr-2" />
             Adicionar Voucher
@@ -736,7 +750,7 @@
           <Button 
             variant="secondary" 
             class_name="w-full justify-center"
-            on:click={() => goto(`/operacao/vouchers/novo?viagem_id=${viagem.id}`)}
+            on:click={() => goto(`/operacao/vouchers/novo?viagem_id=${viagem?.id ?? ''}`)}
           >
             <Plus size={18} class="mr-2" />
             Novo Voucher

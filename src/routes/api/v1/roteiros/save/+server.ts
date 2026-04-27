@@ -8,6 +8,18 @@ import {
   toISODateLocal
 } from '$lib/server/v1';
 
+function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
+  if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+    return (query as any).eq('created_by', scope.userId);
+  }
+
+  if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
+    return (query as any).eq('company_id', scope.companyId);
+  }
+
+  return query;
+}
+
 function normalizeDiaKey(d: {
   cidade: string;
   percurso?: string | null;
@@ -64,7 +76,7 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem acesso para salvar Roteiros.');
+    ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para salvar Roteiros.');
 
     const body = await event.request.json().catch(() => null);
     if (!body) return new Response('Body invalido.', { status: 400 });
@@ -107,6 +119,13 @@ export async function POST(event: RequestEvent) {
     } else {
       roteiroId = String(body.id).trim();
 
+      const { data: existing, error: existingError } = await applyRoteiroScope(
+        client.from('roteiro_personalizado').select('id').eq('id', roteiroId).maybeSingle(),
+        scope
+      );
+      if (existingError) throw existingError;
+      if (!existing) return new Response('Roteiro nao encontrado.', { status: 404 });
+
       const updatePayload: Record<string, any> = {
         nome,
         duracao: body.duracao || null,
@@ -121,8 +140,7 @@ export async function POST(event: RequestEvent) {
       const { error: updateErr } = await client
         .from('roteiro_personalizado')
         .update(updatePayload)
-        .eq('id', roteiroId)
-        .eq('created_by', user.id);
+        .eq('id', roteiroId);
 
       if (updateErr) throw updateErr;
     }

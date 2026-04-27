@@ -9,7 +9,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 1, 'Sem acesso a Produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 1, 'Sem acesso a Produtos.');
     }
 
     const id = String(event.params.id || '').trim();
@@ -31,7 +31,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 3, 'Sem permissão para editar produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 3, 'Sem permissão para editar produtos.');
     }
 
     const id = String(event.params.id || '').trim();
@@ -82,7 +82,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 4, 'Sem permissão para excluir produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 4, 'Sem permissão para excluir produtos.');
     }
 
     const id = String(event.params.id || '').trim();

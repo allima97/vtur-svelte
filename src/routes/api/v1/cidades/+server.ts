@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Cidades.');
+      ensureModuloAccess(scope, ['Cidades'], 1, 'Sem acesso a Cidades.');
     }
 
     const { searchParams } = event.url;
@@ -62,7 +62,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 2, 'Sem permissão para salvar cidades.');
+      ensureModuloAccess(scope, ['Cidades'], 2, 'Sem permissão para salvar cidades.');
     }
 
     const body = await event.request.json();
@@ -101,7 +101,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 4, 'Sem permissão para excluir cidades.');
+      ensureModuloAccess(scope, ['Cidades'], 4, 'Sem permissão para excluir cidades.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

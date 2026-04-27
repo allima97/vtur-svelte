@@ -16,7 +16,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros', 'fornecedores'], 1, 'Sem acesso a Fornecedores.');
+      ensureModuloAccess(scope, ['Fornecedores'], 1, 'Sem acesso a Fornecedores.');
     }
 
     const id = String(event.params.id || '').trim();
@@ -43,7 +43,7 @@ export async function PUT(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros', 'fornecedores'], 3, 'Sem permissão para editar fornecedores.');
+      ensureModuloAccess(scope, ['Fornecedores'], 3, 'Sem permissão para editar fornecedores.');
     }
 
     const id = String(event.params.id || '').trim();
@@ -118,7 +118,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros', 'fornecedores'], 5, 'Sem permissão para excluir fornecedores.');
+      ensureModuloAccess(scope, ['Fornecedores'], 5, 'Sem permissão para excluir fornecedores.');
     }
 
     const id = String(event.params.id || '').trim();

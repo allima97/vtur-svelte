@@ -323,12 +323,12 @@ async function parseConciliacaoXlsLayout(
     null;
 
   const rows = selected.rows;
-  const headerRow = (rows[selected.headerIndex] || []).map((cell) => String(cell || '').trim());
+  const headerRow = (rows[selected.headerIndex] || []).map((cell: unknown) => String(cell || '').trim());
 
   const colIndex = (needles: string[], fallback = -1) => {
-    const wanted = needles.map((value) => normalizeHeader(value));
-    const normalizedHeader = headerRow.map((value) => normalizeHeader(value));
-    const index = normalizedHeader.findIndex((head) => wanted.some((needle) => head.includes(needle)));
+    const wanted = needles.map((value: string) => normalizeHeader(value));
+    const normalizedHeader = headerRow.map((value: string) => normalizeHeader(value));
+    const index = normalizedHeader.findIndex((head: string) => wanted.some((needle) => head.includes(needle)));
     return index >= 0 ? index : fallback;
   };
 

@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros', 'admin'], 1, 'Sem acesso.');
+      ensureModuloAccess(scope, ['Admin'], 1, 'Sem acesso.');
     }
 
     let query = client
@@ -39,7 +39,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros', 'admin'], 2, 'Sem permissão.');
+      ensureModuloAccess(scope, ['Admin'], 2, 'Sem permissão.');
     }
 
     const body = await event.request.json();
@@ -78,7 +78,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros', 'admin'], 4, 'Sem permissão.');
+      ensureModuloAccess(scope, ['Admin'], 4, 'Sem permissão.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

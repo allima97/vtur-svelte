@@ -219,7 +219,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const vars = {
       nome: perfil.nome_completo || "",
       email: recipientEmail,
-      empresa: perfil.companies?.nome_fantasia || "",
+      empresa: perfil.companies?.[0]?.nome_fantasia || "",
     };
 
     const subject = applyTemplate(template.assunto, vars);

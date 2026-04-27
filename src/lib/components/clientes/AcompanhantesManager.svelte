@@ -279,7 +279,7 @@
               Novo
             </Button>
             {#if selectedId}
-              <Button type="button" variant="ghost" on:click={excluirAcompanhante} disabled={deleting}>
+              <Button type="button" variant="danger" on:click={excluirAcompanhante} disabled={deleting}>
                 <Trash2 size={16} class="mr-2" />
                 Excluir
               </Button>

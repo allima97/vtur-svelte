@@ -95,7 +95,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a Orcamentos.');
+      ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Orcamentos.');
     }
 
     const searchParams = event.url.searchParams;
@@ -137,7 +137,9 @@ export async function GET(event) {
       query = query.gte('created_at', periodoFilter.from).lte('created_at', periodoFilter.to + 'T23:59:59');
     }
 
-    let { data, error: queryError } = await query;
+    const queryResult = await query;
+    let data = (queryResult.data || null) as OrcamentoRow[] | null;
+    const queryError = queryResult.error;
 
     if (queryError) {
       console.error('[orcamentos/list] Erro na query com join:', queryError.message);
@@ -155,7 +157,7 @@ export async function GET(event) {
 
       const fallback = await fallbackQuery;
       if (fallback.error) throw fallback.error;
-      data = fallback.data;
+      data = (fallback.data || []) as OrcamentoRow[];
     }
 
     const clientIdsFromData = Array.from(new Set(

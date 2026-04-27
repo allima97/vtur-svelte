@@ -18,6 +18,20 @@
   import { normalizeVoucherExtraData, createBlankPassengerDetail, buildPassengerSummary, createBlankAppInfo } from '../../vouchers/extraData';
   import type { VoucherProvider, VoucherDia, VoucherHotel, VoucherRecord, VoucherAssetRecord, VoucherExtraData, VoucherTransferInfo, VoucherAppInfo } from '../../vouchers/types';
 
+  type VoucherDiaForm = Omit<VoucherDia, 'cidade'> & {
+    cidade: string;
+  };
+
+  type VoucherHotelForm = Omit<VoucherHotel, 'endereco' | 'data_inicio' | 'data_fim' | 'telefone' | 'contato' | 'status' | 'observacao'> & {
+    endereco: string;
+    data_inicio: string;
+    data_fim: string;
+    telefone: string;
+    contato: string;
+    status: string;
+    observacao: string;
+  };
+
   // Tipo local para o formulário do wizard
   interface VoucherForm {
     id: string | null;
@@ -35,8 +49,8 @@
     ativo: boolean;
     status: 'rascunho' | 'finalizado' | 'cancelado';
     extra_data: VoucherExtraData;
-    dias: VoucherDia[];
-    hoteis: VoucherHotel[];
+    dias: VoucherDiaForm[];
+    hoteis: VoucherHotelForm[];
   }
 
   export let open = false;
@@ -133,8 +147,8 @@
       ativo: v.ativo !== false,
       status: (v as any).status || 'finalizado',
       extra_data: normalizeVoucherExtraData(v.extra_data, v.provider),
-      dias: (v.voucher_dias || []).map((d, i) => ({ ...d, ordem: d.ordem ?? i })),
-      hoteis: (v.voucher_hoteis || []).map((h, i) => ({ ...h, ordem: h.ordem ?? i }))
+      dias: (v.voucher_dias || []).map((d, i) => normalizeDiaForForm(d, i)),
+      hoteis: (v.voucher_hoteis || []).map((h, i) => normalizeHotelForForm(h, i))
     };
   }
 
@@ -158,6 +172,39 @@
     const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
   }
+  function eventValue(event: Event) {
+    const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    return target?.value ?? '';
+  }
+  
+  function normalizeDiaForForm(dia: Partial<VoucherDia>, index: number): VoucherDiaForm {
+    return {
+      ...dia,
+      dia_numero: Number(dia.dia_numero ?? index + 1),
+      titulo: dia.titulo ?? '',
+      descricao: dia.descricao ?? '',
+      data_referencia: dia.data_referencia ?? null,
+      cidade: dia.cidade ?? '',
+      ordem: dia.ordem ?? index
+    };
+  }
+  
+  function normalizeHotelForForm(hotel: Partial<VoucherHotel>, index: number): VoucherHotelForm {
+    return {
+      ...hotel,
+      cidade: hotel.cidade ?? '',
+      hotel: hotel.hotel ?? '',
+      endereco: hotel.endereco ?? '',
+      data_inicio: hotel.data_inicio ?? '',
+      data_fim: hotel.data_fim ?? '',
+      noites: hotel.noites ?? null,
+      telefone: hotel.telefone ?? '',
+      contato: hotel.contato ?? '',
+      status: hotel.status ?? '',
+      observacao: hotel.observacao ?? '',
+      ordem: hotel.ordem ?? index
+    };
+  }
 
   function addDaysToDate(startDate: string, days: number): string {
     const date = new Date(startDate);
@@ -180,7 +227,7 @@
       titulo: '',
       descricao: '',
       data_referencia: form.data_inicio ? addDaysToDate(form.data_inicio, form.dias.length) : null,
-      cidade: null,
+      cidade: '',
       ordem: form.dias.length
     }];
     activeDayIndexes = [...activeDayIndexes, form.dias.length - 1];
@@ -251,8 +298,8 @@
     }
     try {
       const imported = parseSpecialToursCircuitPasteText(circuitPasteText);
-      form.dias = imported.dias.map((d, i) => ({ ...d, ordem: i }));
-      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => ({ ...h, ordem: form.hoteis.length + i }))];
+      form.dias = imported.dias.map((d, i) => normalizeDiaForForm({ ...d, ordem: i }, i));
+      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => normalizeHotelForForm({ ...h, ordem: form.hoteis.length + i }, form.hoteis.length + i))];
       syncDaysWithStartDate();
       circuitPasteText = '';
       toast.success('Itinerário importado com sucesso!');
@@ -268,7 +315,7 @@
     }
     try {
       const imported = parseSpecialToursHotelPaste(hotelPasteText);
-      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => ({ ...h, ordem: form.hoteis.length + i }))];
+      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => normalizeHotelForForm({ ...h, ordem: form.hoteis.length + i }, form.hoteis.length + i))];
       hotelPasteText = '';
       toast.success('Hotéis importados com sucesso!');
     } catch (err: any) {
@@ -440,12 +487,12 @@
       role="document"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-gradient-to-r from-clientes-50 to-white">
+      <div class="vtur-modal-header border-b border-slate-200 bg-gradient-to-r from-clientes-50 to-white">
         <div>
-          <h2 class="text-xl font-bold text-slate-900">
+          <h2 class="vtur-modal-header__title text-xl font-bold text-slate-900">
             {voucher ? 'Editar Voucher' : 'Novo Voucher'}
           </h2>
-          <p class="text-sm text-slate-500">
+          <p class="vtur-modal-header__subtitle text-sm text-slate-500">
             {providers.find(p => p.value === form.provider)?.label}
             {#if form.status === 'rascunho'}
               <span class="ml-2 inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
@@ -463,7 +510,7 @@
           variant="ghost"
           size="xs"
           ariaLabel="Fechar editor de voucher"
-          class_name="min-w-0 !rounded-lg !p-2 !text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
+          class_name="vtur-modal-header__close min-w-0 !rounded-lg !p-2 !text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
           on:click={close}
         >
           <X size={20} />
@@ -471,15 +518,15 @@
       </div>
 
       <!-- Wizard Steps -->
-      <div class="bg-slate-50 border-b border-slate-200">
-        <div class="flex">
+      <div class="vtur-modal-tabs bg-slate-50 border-b border-slate-200 !p-0">
+        <div class="flex overflow-x-auto scrollbar-dark">
           {#each steps as step, i}
             {@const status = getStepStatus(i)}
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              class_name={`flex-1 !rounded-none !border-0 !py-4 !px-2 !shadow-none flex flex-col items-center justify-center gap-1 text-sm font-medium transition-all relative ${
+              class_name={`min-w-[4.5rem] flex-1 !rounded-none !border-0 !py-3 md:!py-4 !px-2 !shadow-none flex flex-col items-center justify-center gap-1 text-xs md:text-sm font-medium transition-all relative ${
                 status === 'current'
                   ? '!bg-white !text-clientes-700 border-b-2 !border-clientes-500'
                   : status === 'completed'
@@ -510,13 +557,13 @@
       </div>
 
       <!-- Content -->
-      <div class="flex-1 overflow-y-auto p-6 bg-slate-50" style="min-height: 400px;">
+      <div class="vtur-modal-body-dense flex-1 bg-slate-50" style="min-height: 400px;">
         
         <!-- ETAPA 1: Dados da Viagem -->
         {#if currentStep === 0}
-          <div class="space-y-6" in:fade={{ duration: 200 }}>
+          <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             <!-- Provider -->
-            <fieldset class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <fieldset class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor</legend>
               {#if voucher}
                 <div class="py-2 px-4 rounded-lg border-2 border-clientes-500 bg-clientes-50 text-clientes-700 inline-block font-medium">
@@ -524,7 +571,7 @@
                 </div>
                 <p class="text-xs text-slate-500 mt-2">O fornecedor não pode ser alterado em um voucher existente.</p>
               {:else}
-                <div class="flex gap-3">
+                <div class="vtur-modal-grid-compact flex gap-3">
                   {#each providers as p}
                     <Button
                       type="button"
@@ -541,7 +588,7 @@
             </fieldset>
 
             <!-- Informações Principais -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <FileText size={20} class="text-clientes-500" />
                 Informações Principais
@@ -590,7 +637,7 @@
             </div>
 
             <!-- Datas -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Calendar size={20} class="text-clientes-500" />
                 Datas da Viagem
@@ -652,7 +699,7 @@
               {#if form.extra_data.passageiros_detalhes?.length}
                 <div class="space-y-3">
                   {#each form.extra_data.passageiros_detalhes as passenger, i}
-                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div class="vtur-modal-list-item p-4 bg-slate-50 rounded-lg border border-slate-200">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">Passageiro {i + 1}</span>
                         <Button
@@ -708,7 +755,7 @@
                   {/each}
                 </div>
               {:else}
-                <div class="text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <div class="vtur-modal-notice text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                   <Users size={32} class="mx-auto mb-2 opacity-50" />
                   <p>Nenhum passageiro adicionado</p>
                   <p class="text-sm">Clique em "Adicionar Passageiro" para incluir</p>
@@ -717,7 +764,7 @@
             </div>
 
             <!-- Resumo -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <FieldTextarea
                 id="voucher-modal-resumo"
                 label="Resumo da Viagem"
@@ -730,9 +777,9 @@
 
         <!-- ETAPA 2: Dia a Dia Circuito -->
         {:else if currentStep === 1}
-          <div class="space-y-6" in:fade={{ duration: 200 }}>
+          <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             <!-- Import from paste -->
-            <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+            <div class="vtur-modal-section-compact bg-blue-50 p-5 rounded-xl border border-blue-200">
               <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
                 <FileText size={16} />
                 Importar do Special Tours (colar texto)
@@ -742,7 +789,7 @@
                 rows={4}
                 placeholder="Cole aqui o itinerário do Special Tours..."
               />
-              <div class="flex gap-2 mt-3">
+              <div class="vtur-modal-grid-compact flex gap-2 mt-3">
                 <Button variant="secondary" size="sm" on:click={importCircuitFromPaste}>
                   <FileText size={14} class="mr-1" />
                   Importar Itinerário
@@ -756,7 +803,7 @@
             </div>
 
             <!-- Days List -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900">Dias do Circuito</h3>
                 <Button variant="primary" size="sm" on:click={addDay}>
@@ -766,7 +813,7 @@
               </div>
 
               {#if form.dias.length === 0}
-                <div class="text-center py-12 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <div class="vtur-modal-notice text-center py-12 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                   <Calendar size={40} class="mx-auto mb-3 opacity-50" />
                   <p class="font-medium">Nenhum dia adicionado</p>
                   <p class="text-sm mt-1">Importe ou adicione manualmente os dias do circuito</p>
@@ -775,15 +822,15 @@
                 <div class="space-y-3">
                   {#each form.dias as dia, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                      <div class="flex items-stretch justify-between bg-gradient-to-r from-slate-50 to-white transition-colors">
+                      <div class="vtur-modal-accordion-header bg-gradient-to-r from-slate-50 to-white transition-colors">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
+                          class_name="vtur-modal-accordion-trigger flex flex-1 !justify-start gap-4 !rounded-none !border-0 !bg-transparent !px-3 md:!px-4 !py-3 md:!py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
                           on:click={() => toggleDayAccordion(i)}
                         >
-                          <div class="w-10 h-10 rounded-full bg-clientes-100 text-clientes-700 flex items-center justify-center font-bold">
+                          <div class="vtur-modal-accordion-badge rounded-full bg-clientes-100 text-clientes-700 flex items-center justify-center font-bold">
                             {dia.dia_numero}
                           </div>
                           <div>
@@ -802,7 +849,7 @@
                             class="text-slate-400 ml-auto"
                           />
                         </Button>
-                        <div class="flex items-center gap-2 px-4">
+                        <div class="vtur-modal-accordion-actions flex items-center gap-2 px-4">
                           <Button
                             type="button"
                             variant="ghost"
@@ -839,7 +886,7 @@
                       </div>
                       
                       {#if activeDayIndexes.includes(i)}
-                        <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
+                        <div class="vtur-modal-accordion-panel p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FieldInput
                               id={`voucher-modal-dia-titulo-${i}`}
@@ -875,9 +922,9 @@
 
         <!-- ETAPA 3: Hotéis Confirmados -->
         {:else if currentStep === 2}
-          <div class="space-y-6" in:fade={{ duration: 200 }}>
+          <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             <!-- Import from paste -->
-            <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+            <div class="vtur-modal-section-compact bg-blue-50 p-5 rounded-xl border border-blue-200">
               <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
                 <FileText size={16} />
                 Importar Hotéis do Special Tours (colar texto)
@@ -887,7 +934,7 @@
                 rows={4}
                 placeholder="Cole aqui a lista de hotéis..."
               />
-              <div class="flex gap-2 mt-3">
+              <div class="vtur-modal-grid-compact flex gap-2 mt-3">
                 <Button variant="secondary" size="sm" on:click={importHotelsFromPaste}>
                   <FileText size={14} class="mr-1" />
                   Importar Hotéis
@@ -901,7 +948,7 @@
             </div>
 
             <!-- Hotels List -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900">Hotéis Confirmados</h3>
                 <Button variant="primary" size="sm" on:click={addHotel}>
@@ -911,7 +958,7 @@
               </div>
 
               {#if form.hoteis.length === 0}
-                <div class="text-center py-12 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <div class="vtur-modal-notice text-center py-12 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                   <Hotel size={40} class="mx-auto mb-3 opacity-50" />
                   <p class="font-medium">Nenhum hotel adicionado</p>
                   <p class="text-sm mt-1">Importe ou adicione manualmente os hotéis</p>
@@ -920,15 +967,15 @@
                 <div class="space-y-3">
                   {#each form.hoteis as hotel, i}
                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                      <div class="flex items-stretch justify-between bg-gradient-to-r from-slate-50 to-white transition-colors">
+                      <div class="vtur-modal-accordion-header bg-gradient-to-r from-slate-50 to-white transition-colors">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          class_name="flex flex-1 !justify-start gap-3 !rounded-none !border-0 !bg-transparent !px-4 !py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
+                          class_name="vtur-modal-accordion-trigger flex flex-1 !justify-start gap-3 !rounded-none !border-0 !bg-transparent !px-3 md:!px-4 !py-3 md:!py-4 !text-left !shadow-none hover:!from-slate-100 hover:!to-slate-50"
                           on:click={() => toggleHotelAccordion(i)}
                         >
-                          <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                          <div class="vtur-modal-accordion-badge rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
                             <Hotel size={20} />
                           </div>
                           <div>
@@ -943,7 +990,7 @@
                             class="text-slate-400 ml-auto"
                           />
                         </Button>
-                        <div class="flex items-center gap-2 px-4">
+                        <div class="vtur-modal-accordion-actions flex items-center gap-2 px-4">
                           <Button
                             type="button"
                             variant="ghost"
@@ -980,7 +1027,7 @@
                       </div>
                       
                       {#if activeHotelIndexes.includes(i)}
-                        <div class="p-4 space-y-4 border-t border-slate-100" transition:slide>
+                        <div class="vtur-modal-accordion-panel p-4 space-y-4 border-t border-slate-100" transition:slide>
                           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FieldInput
                               id={`voucher-modal-hotel-cidade-${i}`}
@@ -1011,7 +1058,7 @@
                               type="date"
                               value={hotel.data_inicio}
                               class_name="w-full"
-                              on:input={(e) => updateHotelDates(i, 'data_inicio', e.currentTarget.value)}
+                              on:input={(e) => updateHotelDates(i, 'data_inicio', eventValue(e))}
                             />
                             <FieldInput
                               id={`voucher-modal-hotel-checkout-${i}`}
@@ -1019,13 +1066,13 @@
                               type="date"
                               value={hotel.data_fim}
                               class_name="w-full"
-                              on:input={(e) => updateHotelDates(i, 'data_fim', e.currentTarget.value)}
+                              on:input={(e) => updateHotelDates(i, 'data_fim', eventValue(e))}
                             />
                             <FieldInput
                               id={`voucher-modal-hotel-noites-${i}`}
                               label="Noites"
                               type="number"
-                              bind:value={hotel.noites}
+                              value={hotel.noites ?? ''}
                               readonly
                               class_name="w-full"
                             />
@@ -1072,18 +1119,18 @@
 
         <!-- ETAPA 4: Extra Data -->
         {:else if currentStep === 3}
-          <div class="space-y-6" in:fade={{ duration: 200 }}>
+          <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
             
             <!-- Traslados -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Plane size={20} class="text-clientes-500" />
                 Traslados
               </h3>
               
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="vtur-modal-grid-compact grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Traslado Chegada -->
-                <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div class="vtur-modal-section-compact p-4 bg-green-50 rounded-lg border border-green-200">
                   <h4 class="font-medium text-green-900 mb-3 flex items-center gap-2">
                     <Plane size={16} class="rotate-45" />
                     Traslado Chegada
@@ -1100,7 +1147,7 @@
                         ...form.extra_data, 
                         traslado_chegada: { 
                           ...(form.extra_data.traslado_chegada || {}), 
-                          detalhes: e.currentTarget.value 
+                          detalhes: eventValue(e) 
                         } 
                       }}
                     />
@@ -1115,7 +1162,7 @@
                         ...form.extra_data, 
                         traslado_chegada: { 
                           ...(form.extra_data.traslado_chegada || {}), 
-                          notas: e.currentTarget.value 
+                          notas: eventValue(e) 
                         } 
                       }}
                     />
@@ -1130,7 +1177,7 @@
                         ...form.extra_data, 
                         traslado_chegada: { 
                           ...(form.extra_data.traslado_chegada || {}), 
-                          telefone_transferista: e.currentTarget.value 
+                          telefone_transferista: eventValue(e) 
                         } 
                       }}
                     />
@@ -1138,7 +1185,7 @@
                 </div>
 
                 <!-- Traslado Saída -->
-                <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div class="vtur-modal-section-compact p-4 bg-orange-50 rounded-lg border border-orange-200">
                   <h4 class="font-medium text-orange-900 mb-3 flex items-center gap-2">
                     <Plane size={16} class="-rotate-45" />
                     Traslado Saída
@@ -1155,7 +1202,7 @@
                         ...form.extra_data, 
                         traslado_saida: { 
                           ...(form.extra_data.traslado_saida || {}), 
-                          detalhes: e.currentTarget.value 
+                          detalhes: eventValue(e) 
                         } 
                       }}
                     />
@@ -1170,7 +1217,7 @@
                         ...form.extra_data, 
                         traslado_saida: { 
                           ...(form.extra_data.traslado_saida || {}), 
-                          notas: e.currentTarget.value 
+                          notas: eventValue(e) 
                         } 
                       }}
                     />
@@ -1185,7 +1232,7 @@
                         ...form.extra_data, 
                         traslado_saida: { 
                           ...(form.extra_data.traslado_saida || {}), 
-                          telefone_transferista: e.currentTarget.value 
+                          telefone_transferista: eventValue(e) 
                         } 
                       }}
                     />
@@ -1195,7 +1242,7 @@
             </div>
 
             <!-- Informações Importantes -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <AlertCircle size={20} class="text-amber-500" />
                 Informações Importantes
@@ -1207,12 +1254,12 @@
                 rows={5}
                 placeholder="Liste aqui as informações importantes para o passageiro..."
                 class_name="w-full"
-                on:input={(e) => form.extra_data = { ...form.extra_data, informacoes_importantes: e.currentTarget.value }}
+                on:input={(e) => form.extra_data = { ...form.extra_data, informacoes_importantes: eventValue(e) }}
               />
             </div>
 
             <!-- Apps Recomendados -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
                   <Smartphone size={20} class="text-clientes-500" />
@@ -1227,7 +1274,7 @@
               {#if form.extra_data.apps_recomendados?.length}
                 <div class="space-y-3">
                   {#each form.extra_data.apps_recomendados as app, i}
-                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div class="vtur-modal-list-item p-4 bg-slate-50 rounded-lg border border-slate-200">
                       <div class="flex items-center justify-between mb-3">
                         <span class="text-sm font-medium text-slate-700">App {i + 1}</span>
                         <Button
@@ -1247,7 +1294,7 @@
                           value={app.nome}
                           placeholder="Ex: Google Tradutor"
                           class_name="w-full"
-                          on:input={(e) => updateApp(i, 'nome', e.currentTarget.value)}
+                          on:input={(e) => updateApp(i, 'nome', eventValue(e))}
                         />
                         <FieldInput
                           id={`voucher-modal-app-descricao-${i}`}
@@ -1255,14 +1302,14 @@
                           value={app.descricao || ''}
                           placeholder="Para que serve o app"
                           class_name="w-full"
-                          on:input={(e) => updateApp(i, 'descricao', e.currentTarget.value)}
+                          on:input={(e) => updateApp(i, 'descricao', eventValue(e))}
                         />
                       </div>
                     </div>
                   {/each}
                 </div>
               {:else}
-                <div class="text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                <div class="vtur-modal-notice text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                   <Smartphone size={32} class="mx-auto mb-2 opacity-50" />
                   <p>Nenhum app adicionado</p>
                   <p class="text-sm">Adicione apps úteis para a viagem</p>
@@ -1271,7 +1318,7 @@
             </div>
 
             <!-- Emergência -->
-            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Phone size={20} class="text-red-500" />
                 Contatos de Emergência
@@ -1289,7 +1336,7 @@
                     ...form.extra_data, 
                     emergencia: { 
                       ...(form.extra_data.emergencia || {}), 
-                      escritorio: e.currentTarget.value 
+                      escritorio: eventValue(e) 
                     } 
                   }}
                 />
@@ -1304,7 +1351,7 @@
                     ...form.extra_data, 
                     emergencia: { 
                       ...(form.extra_data.emergencia || {}), 
-                      emergencia_24h: e.currentTarget.value 
+                      emergencia_24h: eventValue(e) 
                     } 
                   }}
                 />
@@ -1319,7 +1366,7 @@
                     ...form.extra_data, 
                     emergencia: { 
                       ...(form.extra_data.emergencia || {}), 
-                      whatsapp: e.currentTarget.value 
+                      whatsapp: eventValue(e) 
                     } 
                   }}
                 />
@@ -1330,7 +1377,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
+      <div class="vtur-modal-footer vtur-modal-footer--between border-t border-slate-200 bg-slate-50">
         <div>
           {#if currentStep > 0}
             <Button variant="secondary" on:click={prevStep}>
@@ -1339,8 +1386,8 @@
           {/if}
         </div>
         
-        <div class="flex gap-3">
-          <Button variant="ghost" on:click={close}>
+        <div class="vtur-modal-footer__actions flex gap-3">
+          <Button variant="secondary" on:click={close}>
             Cancelar
           </Button>
           

@@ -588,10 +588,11 @@ export async function GET(event) {
     currentKpiPayload.contributions.forEach((contribution) => {
       const vendedorId = String(contribution.vendedorId || '').trim();
       if (!vendedorId) return;
+      const vendedorNomeFallback = rankingTeamMap.get(vendedorId)?.nome || vendedorId;
 
       const current = rankingMap.get(vendedorId) || {
         vendedor_id: vendedorId,
-        vendedor_nome: getVendaVendedorNome(row),
+        vendedor_nome: vendedorNomeFallback,
         total_vendas: 0,
         total_recibos: 0,
         total_receita: 0,

@@ -14,7 +14,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Cadastros.');
+      ensureModuloAccess(scope, ['Cidades'], 1, 'Sem acesso a Cidades.');
     }
 
     const cidadeId = event.params.id;
@@ -45,7 +45,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 3, 'Sem permissao para editar cidades.');
+      ensureModuloAccess(scope, ['Cidades'], 3, 'Sem permissao para editar cidades.');
     }
 
     const cidadeId = event.params.id;
@@ -85,7 +85,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 4, 'Sem permissao para excluir cidades.');
+      ensureModuloAccess(scope, ['Cidades'], 4, 'Sem permissao para excluir cidades.');
     }
 
     const cidadeId = event.params.id;

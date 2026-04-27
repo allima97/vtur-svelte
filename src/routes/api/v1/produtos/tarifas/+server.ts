@@ -9,7 +9,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 1, 'Sem acesso a Produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 1, 'Sem acesso a Produtos.');
     }
 
     const produtoId = String(event.url.searchParams.get('produto_id') || '').trim();
@@ -29,7 +29,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 3, 'Sem permissão para editar produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 3, 'Sem permissão para editar produtos.');
     }
 
     const body = await event.request.json();

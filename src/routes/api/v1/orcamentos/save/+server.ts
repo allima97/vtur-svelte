@@ -130,7 +130,7 @@ export async function POST(event: RequestEvent) {
     const client = getAdminClient();
 
     const scope = await resolveUserScope(client, user.id);
-    ensureModuloAccess(scope, ['orcamentos', 'vendas'], 3, 'Sem acesso para editar Orcamentos.');
+    ensureModuloAccess(scope, ['Orcamentos'], 3, 'Sem acesso para editar Orcamentos.');
 
     const body = await event.request.json().catch(() => null);
     const quoteId = String(body?.quote_id || '').trim();

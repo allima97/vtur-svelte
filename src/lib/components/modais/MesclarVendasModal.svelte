@@ -145,25 +145,25 @@
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
 
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-vendas-50 flex-shrink-0">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-vendas-100 flex items-center justify-center">
+      <div class="vtur-modal-header border-b border-slate-100 bg-vendas-50 flex-shrink-0">
+        <div class="vtur-modal-header__lead">
+          <div class="vtur-modal-header__icon bg-vendas-100">
             <Merge size={20} class="text-vendas-600" />
           </div>
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">Mesclar Vendas</h3>
-            <p class="text-xs text-slate-500">
+          <div class="vtur-modal-header__copy">
+            <h3 class="vtur-modal-header__title">Mesclar Vendas</h3>
+            <p class="vtur-modal-header__subtitle">
               Venda principal: <span class="font-semibold text-slate-700">{vendaCodigo || vendaId.slice(0,8).toUpperCase()}</span>
             </p>
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" class_name="p-2" ariaLabel="Fechar" on:click={fechar}>
+        <Button type="button" variant="ghost" size="sm" class_name="vtur-modal-header__close p-2" ariaLabel="Fechar" on:click={fechar}>
           <X size={18} />
         </Button>
       </div>
 
       <!-- Aviso -->
-      <div class="flex-shrink-0 mx-4 mt-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex gap-2 items-start">
+      <div class="vtur-modal-notice flex-shrink-0 mx-4 mt-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex gap-2 items-start">
         <AlertTriangle size={15} class="text-amber-600 mt-0.5 flex-shrink-0" />
         <p class="text-xs text-amber-800">
           As vendas selecionadas serão <strong>absorvidas</strong> pela venda principal — seus recibos e pagamentos serão migrados e as vendas secundárias excluídas. Esta ação <strong>não pode ser desfeita</strong>.
@@ -171,7 +171,7 @@
       </div>
 
       <!-- Conteúdo -->
-      <div class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div class="vtur-modal-body-dense flex-1 space-y-3">
 
         {#if loading}
           <div class="flex items-center justify-center py-12 gap-3 text-slate-500">
@@ -180,7 +180,7 @@
           </div>
 
         {:else if erro}
-          <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex gap-2 items-center">
+          <div class="vtur-modal-notice rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex gap-2 items-center">
             <AlertTriangle size={16} class="text-red-500 flex-shrink-0" />
             <p class="text-sm text-red-700">{erro}</p>
           </div>
@@ -196,7 +196,7 @@
 
         {:else}
           <!-- Filtro e contador -->
-          <div class="flex items-center gap-3">
+          <div class="vtur-modal-grid-compact flex items-center gap-3">
             <div class="relative flex-1">
               <Search size={14} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -218,7 +218,7 @@
               <button
                 type="button"
                 on:click={() => toggleSelecionado(c.id)}
-                class="w-full text-left rounded-xl border-2 px-4 py-3 transition-all
+                class="vtur-modal-list-item w-full text-left rounded-xl border-2 px-4 py-3 transition-all
                   {sel
                     ? 'border-vendas-400 bg-vendas-50 shadow-sm'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}"
@@ -292,7 +292,7 @@
 
         {#if confirmando}
           <!-- Passo de confirmação -->
-          <div class="rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-3">
+          <div class="vtur-modal-notice rounded-lg bg-red-50 border border-red-200 px-4 py-3 mb-3">
             <p class="text-sm font-semibold text-red-800 mb-1">Confirmar mesclagem?</p>
             <p class="text-xs text-red-700">
               {totalSelecionados} venda{totalSelecionados !== 1 ? 's' : ''} será{totalSelecionados !== 1 ? 'ão' : ''} mesclada{totalSelecionados !== 1 ? 's' : ''} na venda principal e excluída{totalSelecionados !== 1 ? 's' : ''} permanentemente.
@@ -324,7 +324,7 @@
               {/if}
             </span>
             <div class="flex gap-2">
-              <Button variant="ghost" on:click={fechar}>Cancelar</Button>
+              <Button variant="secondary" on:click={fechar}>Cancelar</Button>
               <Button
                 variant="primary"
                 color="vendas"

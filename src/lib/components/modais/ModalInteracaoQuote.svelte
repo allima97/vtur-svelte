@@ -143,14 +143,14 @@
       class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-slate-100 bg-clientes-50">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-clientes-100 flex items-center justify-center">
+      <div class="vtur-modal-header border-b border-slate-100 bg-clientes-50">
+        <div class="vtur-modal-header__lead">
+          <div class="vtur-modal-header__icon bg-clientes-100">
             <MessageCircle size={24} class="text-clientes-600" />
           </div>
-          <div>
-            <h3 class="text-lg font-semibold text-slate-900">Histórico de Interações</h3>
-            <p class="text-sm text-slate-500">Cliente: {clienteNome}</p>
+          <div class="vtur-modal-header__copy">
+            <h3 class="vtur-modal-header__title">Histórico de Interações</h3>
+            <p class="vtur-modal-header__subtitle">Cliente: {clienteNome}</p>
           </div>
         </div>
         <Button
@@ -158,7 +158,7 @@
           variant="ghost"
           size="xs"
           ariaLabel="Fechar histórico de interações"
-          class_name="h-10 w-10 !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
+          class_name="vtur-modal-header__close !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
           on:click={onClose}
         >
           <X size={20} />
@@ -166,9 +166,9 @@
       </div>
       
       <!-- Content -->
-      <div class="p-6 overflow-y-auto max-h-[60vh]">
+      <div class="vtur-modal-body-dense">
         <!-- Nova Interação -->
-        <div class="bg-slate-50 rounded-xl p-4 mb-6">
+        <div class="vtur-modal-section-compact bg-slate-50 rounded-xl p-4 mb-6">
           <h4 class="font-medium text-slate-900 mb-4">Registrar Nova Interação</h4>
           
           <div class="space-y-4">
@@ -252,7 +252,7 @@
           {:else}
             <div class="space-y-3">
               {#each interacoes as interacao}
-                <div class="flex gap-3 p-3 bg-slate-50 rounded-lg">
+                <div class="vtur-modal-list-item flex gap-3 p-3 bg-slate-50 rounded-lg">
                   <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0">
                     <svelte:component 
                       this={getTipoIcon(interacao.tipo)} 

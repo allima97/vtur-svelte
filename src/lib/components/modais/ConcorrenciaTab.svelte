@@ -216,6 +216,10 @@
     novaForma = { label: '', tipo: 'simples', desconto: 0 };
   }
 
+  function resetForma() {
+    novaForma = { label: '', tipo: 'simples', desconto: 0 };
+  }
+
   function removerForma(id: string, grupo: 'padrao' | 'ingressos') {
     if (grupo === 'padrao') {
       config.padrao = config.padrao.filter(f => f.id !== id);

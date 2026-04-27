@@ -5,4 +5,4 @@ export * from './shared';
 export * from './venda';
 export * from './cliente';
 export * from './orcamento';
-export * from './viagem';
+export type { Viagem, ViagemListItem, ViagemDetalhe, ViagemPassageiro } from './viagem';

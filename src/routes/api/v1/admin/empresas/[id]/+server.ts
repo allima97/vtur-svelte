@@ -115,14 +115,15 @@ export async function PATCH(event) {
     const body = await event.request.json();
 
     // Apenas campos que existem na tabela companies
-    const ALLOWED: (keyof typeof body)[] = [
+    const ALLOWED = [
       'nome_empresa', 'nome_fantasia', 'cnpj', 'telefone',
       'endereco', 'cidade', 'estado', 'active'
-    ];
+    ] as const;
 
     const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const typedBody = body as Record<string, unknown>;
     for (const field of ALLOWED) {
-      if (body[field] !== undefined) updatePayload[field] = body[field];
+      if (typedBody[field] !== undefined) updatePayload[field] = typedBody[field];
     }
 
     if (Object.keys(updatePayload).length === 1) {

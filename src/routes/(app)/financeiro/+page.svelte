@@ -285,7 +285,7 @@
       </div>
       <div>
         <p class="text-sm font-medium text-slate-500">Backlog de conciliação</p>
-        <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.divergencias}</p>
+        <p class="text-2xl font-bold text-slate-900">{resumo.conciliacoesPendentes + resumo.semRanking + resumo.baixaRac}</p>
       </div>
     </Button>
 

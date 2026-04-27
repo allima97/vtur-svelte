@@ -14,7 +14,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const viagemId = String(event.url.searchParams.get('id') || event.params?.id || '').trim();
+    const viagemId = String(event.url.searchParams.get('id') || '').trim();
     if (!isUuid(viagemId)) return json({ error: 'ID de viagem inválido.' }, { status: 400 });
 
     const { data: viagem, error: viagemError } = await client

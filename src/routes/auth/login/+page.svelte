@@ -80,13 +80,17 @@
   <meta name="description" content="Acesse o sistema VTUR" />
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+<div class="vtur-auth-shell min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-md">
     <!-- Logo -->
-    <div class="text-center mb-8">
-      <img src="/brand/vtur-symbol.svg" alt="VTUR" class="mx-auto mb-4 h-20 w-auto object-contain drop-shadow-[0_14px_28px_rgba(15,23,42,0.18)]" />
-      <h1 class="text-3xl font-bold text-slate-900">VTUR</h1>
-      <p class="text-slate-500 mt-2">Sistema de Gestão de Viagens</p>
+    <div class="vtur-auth-brand">
+      <div class="vtur-auth-brand-lockup">
+        <div class="vtur-auth-brand-row">
+          <img src="/brand/vtur-symbol.svg" alt="VTUR" class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_14px_28px_rgba(15,23,42,0.18)]" />
+          <h1 class="vtur-auth-brand-title text-3xl font-bold">VTUR</h1>
+        </div>
+        <p class="vtur-auth-brand-subtitle">Sistema de Gestão de Viagens</p>
+      </div>
     </div>
     
     <Card padding="lg">
@@ -170,7 +174,7 @@
     </Card>
     
     <!-- Footer -->
-    <p class="mt-8 text-center text-sm text-slate-400">
+    <p class="vtur-auth-footer mt-8 text-center text-sm">
       © {new Date().getFullYear()} VTUR. Todos os direitos reservados.
     </p>
   </div>

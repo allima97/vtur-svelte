@@ -477,6 +477,9 @@
 	"/api/v1/orcamentos/[id]": [
 		"src/routes/api/v1/orcamentos/[id]/+server.ts"
 	],
+	"/api/v1/orcamentos/[id]/resumo-venda": [
+		"src/routes/api/v1/orcamentos/[id]/resumo-venda/+server.ts"
+	],
 	"/api/v1/pagamentos": [
 		"src/routes/api/v1/pagamentos/+server.ts"
 	],

@@ -16,7 +16,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem permissao para alterar status.');
+      ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para alterar status.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

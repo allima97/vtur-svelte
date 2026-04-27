@@ -7,7 +7,7 @@ export async function POST(event: RequestEvent) {
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
 
-    ensureModuloAccess(scope, ['orcamentos', 'vendas'], 2, 'Sem acesso para criar Orcamentos.');
+    ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para criar Orcamentos.');
 
     const body = await event.request.json().catch(() => null);
     const nome = String(body?.nome || '').trim();

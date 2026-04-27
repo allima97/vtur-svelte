@@ -9,7 +9,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['produtos', 'cadastros'], 2, 'Sem permissão para criar produtos.');
+      ensureModuloAccess(scope, ['Produtos'], 2, 'Sem permissão para criar produtos.');
     }
 
     const body = await event.request.json();

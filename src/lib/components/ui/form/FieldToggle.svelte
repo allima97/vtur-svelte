@@ -66,7 +66,7 @@
     <Toggle
       id={fieldId}
       {name}
-      bind:checked
+      {checked}
       {disabled}
       {size}
       color={resolvedColor as any}

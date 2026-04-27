@@ -527,7 +527,7 @@
             <Button variant="primary" color="financeiro" on:click={handleAtualizarDetalhesPagamento} disabled={salvandoDetalhes}>
               Salvar ajustes
             </Button>
-            <Button variant="secondary" color="red" on:click={handleCancelarComissao} disabled={salvandoDetalhes}>
+            <Button variant="danger" on:click={handleCancelarComissao} disabled={salvandoDetalhes}>
               Cancelar comissão
             </Button>
           </div>

@@ -14,7 +14,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 1, 'Sem acesso a Circuitos.');
+      ensureModuloAccess(scope, ['Circuitos'], 1, 'Sem acesso a Circuitos.');
     }
 
     const { data, error } = await client
@@ -43,7 +43,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 3, 'Sem permissão para editar circuitos.');
+      ensureModuloAccess(scope, ['Circuitos'], 3, 'Sem permissão para editar circuitos.');
     }
 
     const body = await event.request.json();
@@ -77,7 +77,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cadastros'], 4, 'Sem permissão para excluir circuitos.');
+      ensureModuloAccess(scope, ['Circuitos'], 4, 'Sem permissão para excluir circuitos.');
     }
 
     const { error } = await client

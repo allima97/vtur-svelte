@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
+  ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -12,6 +13,10 @@ export async function GET(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+
+    if (!scope.isAdmin) {
+      ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Roteiros.');
+    }
 
     const id = event.params.id;
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });

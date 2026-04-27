@@ -117,7 +117,9 @@
 
       toast.success(formData.id ? 'Voucher atualizado!' : 'Voucher criado!');
       showEditor = false;
-      await carregarVoucher($page.params.id);
+      if ($page.params.id) {
+        await carregarVoucher($page.params.id);
+      }
     } catch (err) {
       toast.error('Erro ao salvar voucher');
     }
@@ -222,7 +224,7 @@
             <FileText size={18} class="mr-2" />
             Visualizar
           </Button>
-          <Button variant="secondary" on:click={() => showEditor = true}>
+          <Button variant="primary" on:click={() => showEditor = true}>
             <Edit size={18} class="mr-2" />
             Editar
           </Button>
@@ -570,12 +572,12 @@
           <h3 class="font-semibold text-slate-900 mb-4">Ações</h3>
           
           <div class="space-y-3">
-            <Button variant="secondary" class="w-full justify-center" on:click={() => showEditor = true}>
+            <Button variant="primary" class_name="w-full justify-center" on:click={() => showEditor = true}>
               <Edit size={18} class="mr-2" />
               Editar Voucher
             </Button>
             
-            <Button variant="secondary" class="w-full justify-center" on:click={() => showPreview = true}>
+            <Button variant="secondary" class_name="w-full justify-center" on:click={() => showPreview = true}>
               <FileText size={18} class="mr-2" />
               Visualizar PDF
             </Button>
@@ -584,7 +586,7 @@
             
             <Button 
               variant="danger" 
-              class="w-full justify-center"
+              class_name="w-full justify-center"
               on:click={() => showDeleteDialog = true}
             >
               <Trash2 size={18} class="mr-2" />
@@ -659,7 +661,8 @@
 <Dialog
   bind:open={showDeleteDialog}
   title="Confirmar Exclusão"
-  color="danger"
+  color="operacao"
+  confirmVariant="danger"
   confirmText="Excluir"
   cancelText="Cancelar"
   onConfirm={excluirVoucher}

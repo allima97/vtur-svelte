@@ -25,6 +25,8 @@
   export let class_name = '';
   export let tableClass = '';
 
+  $: color;
+
   // color prop mantido para compatibilidade com páginas existentes — sem efeito visual
 </script>
 
