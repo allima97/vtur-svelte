@@ -298,11 +298,11 @@
   }
 
   .vtur-sidebar--mobile {
-    top: 0 !important;
+    top: var(--vtur-topbar-height) !important;
     left: 0 !important;
     width: min(88vw, 280px) !important;
-    height: 100vh !important;
-    height: 100svh !important;
+    height: calc(100vh - var(--vtur-topbar-height)) !important;
+    height: calc(100svh - var(--vtur-topbar-height)) !important;
     border-radius: 0;
     border-inline: 0;
     box-shadow: 0 20px 44px rgba(2, 6, 23, 0.34);
@@ -624,6 +624,11 @@
 
     .vtur-user-chip {
       padding-right: 0.5rem;
+    }
+
+    .vtur-sidebar-overlay {
+      top: var(--vtur-topbar-height);
+      z-index: 998;
     }
 
     .vtur-sidebar {

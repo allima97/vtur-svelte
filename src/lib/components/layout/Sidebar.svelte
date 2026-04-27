@@ -412,7 +412,7 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="fixed inset-0 bg-black/50 z-[998]"
+    class="vtur-sidebar-overlay"
     role="button"
     tabindex="0"
     aria-label="Fechar menu"
