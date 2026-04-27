@@ -1,16 +1,13 @@
 <script lang="ts">
-  import { X, Calculator, Percent, DollarSign, TrendingDown } from 'lucide-svelte';
+  import { X, Calculator, TrendingDown } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { toast } from '$lib/stores/ui';
   import ConcorrenciaTab from '$lib/components/modais/ConcorrenciaTab.svelte';
 
   // Props
   export let open: boolean = false;
-  export let valorBruto: number = 0;
   export let onClose: () => void = () => {};
-  export let onConfirm: (resultado: CalculoResultado) => void = () => {};
+  export let onConfirm: (resultado?: unknown) => void = () => {};
 
   // Abas
   let abaAtiva = 'calculadora';
@@ -18,84 +15,405 @@
     { key: 'calculadora', label: 'Calculadora', icon: Calculator },
     { key: 'concorrencia', label: 'Concorrência', icon: TrendingDown },
   ];
-  
-  interface CalculoResultado {
-    valorBruto: number;
-    descontoValor: number;
-    descontoPercentual: number;
-    taxas: number;
-    comissaoPercentual: number;
-    comissaoValor: number;
-    valorFinal: number;
-    parcelas: number;
-    valorParcela: number;
-  }
-  
-  // Estado do cálculo
-  let calc = {
-    valorBruto: valorBruto || 0,
-    descontoTipo: 'percentual' as 'percentual' | 'valor',
-    descontoPercentual: 0,
-    descontoValor: 0,
-    taxas: 0,
-    comissaoPercentual: 10, // Padrão 10%
-    parcelas: 1
+
+  type CalculatorKey = {
+    label: string;
+    action: 'clear' | 'toggle_sign' | 'append' | 'evaluate';
+    value?: string;
+    gridColumn: string;
+    gridRow: string;
+    variant: 'danger' | 'function' | 'operator' | 'number';
   };
-  
-  // Valores calculados
-  $: valorDesconto = calc.descontoTipo === 'percentual' 
-    ? (calc.valorBruto * calc.descontoPercentual / 100)
-    : calc.descontoValor;
-  
-  $: valorFinal = calc.valorBruto - valorDesconto - calc.taxas;
-  
-  $: comissaoValor = (valorFinal * calc.comissaoPercentual / 100);
-  
-  $: valorParcela = calc.parcelas > 1 ? (valorFinal / calc.parcelas) : valorFinal;
-  $: parcelasValue = String(calc.parcelas);
-  
-  function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value || 0);
+
+  const calculatorKeys: CalculatorKey[] = [
+    { label: 'AC', action: 'clear', gridColumn: '1', gridRow: '1', variant: 'danger' },
+    { label: '+/-', action: 'toggle_sign', gridColumn: '2', gridRow: '1', variant: 'function' },
+    { label: '%', action: 'append', value: '%', gridColumn: '3', gridRow: '1', variant: 'function' },
+    { label: '/', action: 'append', value: '/', gridColumn: '4', gridRow: '1', variant: 'operator' },
+    { label: '7', action: 'append', value: '7', gridColumn: '1', gridRow: '2', variant: 'number' },
+    { label: '8', action: 'append', value: '8', gridColumn: '2', gridRow: '2', variant: 'number' },
+    { label: '9', action: 'append', value: '9', gridColumn: '3', gridRow: '2', variant: 'number' },
+    { label: 'x', action: 'append', value: 'x', gridColumn: '4', gridRow: '2', variant: 'operator' },
+    { label: '4', action: 'append', value: '4', gridColumn: '1', gridRow: '3', variant: 'number' },
+    { label: '5', action: 'append', value: '5', gridColumn: '2', gridRow: '3', variant: 'number' },
+    { label: '6', action: 'append', value: '6', gridColumn: '3', gridRow: '3', variant: 'number' },
+    { label: '-', action: 'append', value: '-', gridColumn: '4', gridRow: '3', variant: 'operator' },
+    { label: '1', action: 'append', value: '1', gridColumn: '1', gridRow: '4', variant: 'number' },
+    { label: '2', action: 'append', value: '2', gridColumn: '2', gridRow: '4', variant: 'number' },
+    { label: '3', action: 'append', value: '3', gridColumn: '3', gridRow: '4', variant: 'number' },
+    { label: '+', action: 'append', value: '+', gridColumn: '4', gridRow: '4', variant: 'operator' },
+    { label: '0', action: 'append', value: '0', gridColumn: '1 / span 2', gridRow: '5', variant: 'number' },
+    { label: ',', action: 'append', value: '.', gridColumn: '3', gridRow: '5', variant: 'number' },
+    { label: '=', action: 'evaluate', gridColumn: '4', gridRow: '5', variant: 'operator' }
+  ];
+
+  type Token =
+    | { type: 'number'; value: number }
+    | { type: 'op'; value: '+' | '-' | '*' | '/' }
+    | { type: 'percent' }
+    | { type: 'paren'; value: '(' | ')' };
+
+  let calcValue = '0';
+  let calcError: string | null = null;
+  let calcInput: HTMLInputElement | null = null;
+
+  $: if (open && abaAtiva !== 'calculadora') {
+    calcError = null;
   }
-  
-  function handleConfirm() {
-    const resultado: CalculoResultado = {
-      valorBruto: calc.valorBruto,
-      descontoValor: valorDesconto,
-      descontoPercentual: calc.descontoPercentual,
-      taxas: calc.taxas,
-      comissaoPercentual: calc.comissaoPercentual,
-      comissaoValor: comissaoValor,
-      valorFinal: valorFinal,
-      parcelas: calc.parcelas,
-      valorParcela: valorParcela
+
+  $: if (open) {
+    abaAtiva = 'calculadora';
+  }
+
+  function sanitizeCalcInput(value: string) {
+    return value.replace(/,/g, '.').replace(/[^0-9+\-*/().x%\s]/gi, '');
+  }
+
+  function normalizeCalcNumberToken(token: string) {
+    if (!token) return '';
+    let normalized = token;
+    if (normalized.startsWith('.') || normalized.startsWith(',')) {
+      normalized = `0${normalized}`;
+    }
+    if (normalized.includes(',')) {
+      const [intPart, ...decParts] = normalized.split(',');
+      const integer = intPart.replace(/\./g, '');
+      const decimal = decParts.join('').replace(/\./g, '');
+      return decimal.length ? `${integer}.${decimal}` : `${integer}.`;
+    }
+    const dotCount = (normalized.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      return normalized.replace(/\./g, '');
+    }
+    if (dotCount === 1) {
+      const [intPart, decPart] = normalized.split('.');
+      if (decPart.length === 3 && intPart.length > 0) {
+        return `${intPart}${decPart}`;
+      }
+      return `${intPart}.${decPart}`;
+    }
+    return normalized;
+  }
+
+  function normalizeCalcDisplayInput(value: string) {
+    const cleaned = value.replace(/[^0-9+\-*/().,%x\s]/gi, '');
+    let result = '';
+    let currentNumber = '';
+    const flushNumber = () => {
+      if (!currentNumber) return;
+      result += normalizeCalcNumberToken(currentNumber);
+      currentNumber = '';
     };
-    
-    onConfirm(resultado);
-    toast.success('Valores aplicados!');
-    onClose();
+
+    for (let i = 0; i < cleaned.length; i += 1) {
+      const ch = cleaned[i];
+      if (/[0-9.,]/.test(ch)) {
+        currentNumber += ch;
+        continue;
+      }
+      flushNumber();
+      if (/[+\-*/()%x\s()]/i.test(ch)) {
+        result += ch.toLowerCase() === 'x' ? 'x' : ch;
+      }
+    }
+
+    flushNumber();
+    return result;
   }
-  
-  function aplicarDescontoSugerido(percentual: number) {
-    calc.descontoTipo = 'percentual';
-    calc.descontoPercentual = percentual;
+
+  function formatCalcResult(value: number) {
+    if (!Number.isFinite(value)) return '0';
+    if (Number.isInteger(value)) return String(value);
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    return rounded.toFixed(2);
   }
-  
-  function limpar() {
-    calc = {
-      valorBruto: valorBruto || 0,
-      descontoTipo: 'percentual',
-      descontoPercentual: 0,
-      descontoValor: 0,
-      taxas: 0,
-      comissaoPercentual: 10,
-      parcelas: 1
-    };
+
+  function formatCalcDisplay(value: string) {
+    if (!value) return '';
+    return value.replace(/(\d+(?:\.\d*)?|\.\d+)/g, (match) => {
+      let [intPart, decPart] = match.split('.');
+      if (!intPart) intPart = '0';
+      const normalizedInt = intPart.replace(/^0+(?=\d)/, '');
+      const baseInt = normalizedInt || '0';
+      const formattedInt = baseInt.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (decPart !== undefined) {
+        return `${formattedInt},${decPart}`;
+      }
+      return formattedInt;
+    });
+  }
+
+  function appendCalcValue(value: string) {
+    calcError = null;
+    calcValue = (() => {
+      if (calcValue === '0' && /[0-9]/.test(value)) return value;
+      if (calcValue === '0' && value === '.') return '0.';
+      return calcValue + value;
+    })();
+  }
+
+  function backspaceCalc() {
+    calcError = null;
+    if (calcValue.length <= 1) {
+      calcValue = '0';
+      return;
+    }
+    const next = calcValue.slice(0, -1);
+    calcValue = next === '-' ? '0' : next;
+  }
+
+  function clearCalc() {
+    calcError = null;
+    calcValue = '0';
+  }
+
+  function toggleSign() {
+    calcError = null;
+    const trimmed = calcValue.trim();
+    if (!trimmed || trimmed === '0') {
+      calcValue = '0';
+      return;
+    }
+    let end = trimmed.length - 1;
+    while (end >= 0 && !/[0-9.]/.test(trimmed[end])) end -= 1;
+    if (end < 0) return;
+    let start = end;
+    while (start >= 0 && /[0-9.]/.test(trimmed[start])) start -= 1;
+    start += 1;
+    let signIndex = start - 1;
+    while (signIndex >= 0 && trimmed[signIndex] === ' ') signIndex -= 1;
+    if (signIndex >= 0 && trimmed[signIndex] === '-') {
+      let before = signIndex - 1;
+      while (before >= 0 && trimmed[before] === ' ') before -= 1;
+      if (before < 0 || /[+\-*/(]/.test(trimmed[before])) {
+        calcValue = trimmed.slice(0, signIndex) + trimmed.slice(signIndex + 1);
+        return;
+      }
+    }
+    calcValue = trimmed.slice(0, start) + '-' + trimmed.slice(start);
+  }
+
+  function tokenizeExpression(input: string): Token[] {
+    const tokens: Token[] = [];
+    let i = 0;
+    while (i < input.length) {
+      const ch = input[i];
+      if (ch === ' ' || ch === '\t' || ch === '\n') {
+        i += 1;
+        continue;
+      }
+      if ((ch >= '0' && ch <= '9') || ch === '.') {
+        let num = ch;
+        i += 1;
+        while (i < input.length && ((input[i] >= '0' && input[i] <= '9') || input[i] === '.')) {
+          num += input[i];
+          i += 1;
+        }
+        const value = Number(num);
+        tokens.push({ type: 'number', value: Number.isFinite(value) ? value : 0 });
+        continue;
+      }
+      if (ch === '+' || ch === '-' || ch === '*' || ch === '/') {
+        tokens.push({ type: 'op', value: ch });
+        i += 1;
+        continue;
+      }
+      if (ch === '(' || ch === ')') {
+        tokens.push({ type: 'paren', value: ch });
+        i += 1;
+        continue;
+      }
+      if (ch === '%') {
+        tokens.push({ type: 'percent' });
+        i += 1;
+        continue;
+      }
+      i += 1;
+    }
+    return tokens;
+  }
+
+  function parseFactor(tokens: Token[], indexRef: { index: number }, base: number | null): number {
+    if (indexRef.index >= tokens.length) return 0;
+    const token = tokens[indexRef.index];
+    if (token.type === 'op' && (token.value === '+' || token.value === '-')) {
+      indexRef.index += 1;
+      const next = parseFactor(tokens, indexRef, base);
+      return token.value === '-' ? -next : next;
+    }
+    let value = 0;
+    if (token.type === 'number') {
+      value = token.value;
+      indexRef.index += 1;
+    } else if (token.type === 'paren' && token.value === '(') {
+      indexRef.index += 1;
+      value = parseExpression(tokens, indexRef, base);
+      const currentToken = tokens[indexRef.index];
+      if (currentToken?.type === 'paren' && currentToken.value === ')') {
+        indexRef.index += 1;
+      }
+    } else {
+      indexRef.index += 1;
+    }
+    if (tokens[indexRef.index]?.type === 'percent') {
+      indexRef.index += 1;
+      value = base !== null ? (base * value) / 100 : value / 100;
+    }
+    return value;
+  }
+
+  function parseTerm(tokens: Token[], indexRef: { index: number }, base: number | null): number {
+    let value = parseFactor(tokens, indexRef, base);
+    while (indexRef.index < tokens.length) {
+      const token = tokens[indexRef.index];
+      if (token.type === 'op' && (token.value === '*' || token.value === '/')) {
+        indexRef.index += 1;
+        const right = parseFactor(tokens, indexRef, null);
+        value = token.value === '*' ? value * right : value / right;
+        continue;
+      }
+      break;
+    }
+    return value;
+  }
+
+  function parseExpression(tokens: Token[], indexRef: { index: number }, base: number | null): number {
+    let value = parseTerm(tokens, indexRef, base);
+    while (indexRef.index < tokens.length) {
+      const token = tokens[indexRef.index];
+      if (token.type === 'op' && (token.value === '+' || token.value === '-')) {
+        indexRef.index += 1;
+        const right = parseTerm(tokens, indexRef, value);
+        value = token.value === '+' ? value + right : value - right;
+        continue;
+      }
+      break;
+    }
+    return value;
+  }
+
+  function evaluateExpression(input: string): number | null {
+    const tokens = tokenizeExpression(input);
+    if (!tokens.length) return 0;
+    const indexRef = { index: 0 };
+    const result = parseExpression(tokens, indexRef, null);
+    return Number.isFinite(result) ? result : null;
+  }
+
+  function evaluateCalc() {
+    const expr = sanitizeCalcInput(calcValue).trim().replace(/x/gi, '*');
+    if (!expr) {
+      calcError = null;
+      calcValue = '0';
+      return;
+    }
+    const result = evaluateExpression(expr);
+    if (result === null || Number.isNaN(result) || !Number.isFinite(result)) {
+      calcError = 'Expressão inválida.';
+      return;
+    }
+    calcError = null;
+    calcValue = formatCalcResult(result);
+    onConfirm({ expression: expr, result });
+  }
+
+  function handleDisplayInput(event: Event) {
+    calcError = null;
+    calcValue = normalizeCalcDisplayInput((event.currentTarget as HTMLInputElement).value);
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (!open || abaAtiva !== 'calculadora') return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    const target = event.target as HTMLElement | null;
+    const tagName = target?.tagName || '';
+    const isEditable =
+      tagName === 'INPUT' ||
+      tagName === 'TEXTAREA' ||
+      Boolean(target?.isContentEditable);
+
+    if (event.key === 'Escape') {
+      onClose();
+      return;
+    }
+
+    if (isEditable && target !== calcInput) return;
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      evaluateCalc();
+      return;
+    }
+
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      backspaceCalc();
+      return;
+    }
+
+    if (event.key === 'Delete') {
+      event.preventDefault();
+      clearCalc();
+      return;
+    }
+
+    if (event.key.toLowerCase() === 'c' && !isEditable) {
+      event.preventDefault();
+      clearCalc();
+      return;
+    }
+
+    if (/[0-9]/.test(event.key)) {
+      event.preventDefault();
+      appendCalcValue(event.key);
+      return;
+    }
+
+    if (event.key === '.' || event.key === ',') {
+      event.preventDefault();
+      appendCalcValue('.');
+      return;
+    }
+
+    if (['+', '-', '*', '/', 'x', 'X'].includes(event.key)) {
+      event.preventDefault();
+      appendCalcValue(event.key === '*' ? 'x' : event.key.toLowerCase());
+      return;
+    }
+
+    if (event.key === '%') {
+      event.preventDefault();
+      appendCalcValue('%');
+      return;
+    }
+
+    if (event.key === 'F9') {
+      event.preventDefault();
+      toggleSign();
+    }
+  }
+
+  function handleCalculatorAction(key: CalculatorKey) {
+    if (key.action === 'clear') {
+      clearCalc();
+      return;
+    }
+    if (key.action === 'toggle_sign') {
+      toggleSign();
+      return;
+    }
+    if (key.action === 'evaluate') {
+      evaluateCalc();
+      return;
+    }
+    if (key.action === 'append' && key.value) {
+      appendCalcValue(key.value);
+    }
   }
 </script>
+
+<svelte:window on:keydown={handleWindowKeydown} />
 
 {#if open}
   <div 
@@ -144,177 +462,62 @@
         {#if abaAtiva === 'concorrencia'}
           <ConcorrenciaTab />
         {:else}
-        <div class="vtur-modal-grid-compact grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Coluna Esquerda - Entradas -->
-          <div class="space-y-4">
-            <!-- Valor Bruto -->
-            <FieldInput
-              id="calc-valor-bruto"
-              label="Valor Bruto"
-              type="number"
-              bind:value={calc.valorBruto}
-              min="0"
-              step="0.01"
-              placeholder="0,00"
-              icon={DollarSign}
-            />
-            
-            <!-- Desconto -->
-            <fieldset>
-              <legend class="block text-sm font-medium text-slate-700 mb-1">
-                Desconto
-              </legend>
-              <div class="flex gap-2 mb-2">
-                <Button
-                  type="button"
-                  variant={calc.descontoTipo === 'percentual' ? 'selected' : 'secondary'}
-                  color="vendas"
-                  class_name="flex-1"
-                  on:click={() => calc.descontoTipo = 'percentual'}
-                >
-                  <Percent size={14} class="inline mr-1" />
-                  %
-                </Button>
-                <Button
-                  type="button"
-                  variant={calc.descontoTipo === 'valor' ? 'selected' : 'secondary'}
-                  color="vendas"
-                  class_name="flex-1"
-                  on:click={() => calc.descontoTipo = 'valor'}
-                >
-                  <DollarSign size={14} class="inline mr-1" />
-                  R$
-                </Button>
-              </div>
-              {#if calc.descontoTipo === 'percentual'}
-                <FieldInput
-                  id="calc-desconto-percentual"
-                  type="number"
-                  bind:value={calc.descontoPercentual}
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder="0,00"
-                  icon={Percent}
-                />
-                <!-- Descontos sugeridos -->
-                <div class="flex gap-1 mt-2">
-                  {#each [5, 10, 15, 20] as pct}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      class_name="px-2 py-1"
-                      on:click={() => aplicarDescontoSugerido(pct)}
-                    >
-                      {pct}%
-                    </Button>
-                  {/each}
-                  </div>
-              {:else}
-                <FieldInput
-                  id="calc-desconto-valor"
-                  type="number"
-                  bind:value={calc.descontoValor}
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  icon={DollarSign}
-                />
-              {/if}
-            </fieldset>
-            
-            <!-- Taxas -->
-            <FieldInput
-              id="calc-taxas"
-              label="Taxas (cartão, etc.)"
-              type="number"
-              bind:value={calc.taxas}
-              min="0"
-              step="0.01"
-              placeholder="0,00"
-              icon={DollarSign}
-            />
-            
-            <!-- Comissão -->
-            <FieldInput
-              id="calc-comissao"
-              label="% Comissão"
-              type="number"
-              bind:value={calc.comissaoPercentual}
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="10,00"
-              icon={Percent}
-            />
-            
-            <!-- Parcelas -->
-            <FieldSelect
-              id="calc-parcelas"
-              label="Número de Parcelas"
-              bind:value={parcelasValue}
-              placeholder={null}
-              options={[
-                { value: '1', label: 'À vista' },
-                ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => ({ value: String(num), label: `${num}x` }))
-              ]}
-              on:change={() => {
-                calc.parcelas = Number(parcelasValue);
-              }}
-            />
-          </div>
-          
-          <!-- Coluna Direita - Resultados -->
-          <div class="vtur-modal-section-compact bg-slate-50 rounded-xl p-4 space-y-4">
-            <h4 class="font-medium text-slate-900">Resumo</h4>
-            
-            <!-- Valor Bruto -->
-            <div class="flex justify-between items-center py-2 border-b border-slate-200">
-              <span class="text-slate-600">Valor Bruto</span>
-              <span class="font-medium text-slate-900">{formatCurrency(calc.valorBruto)}</span>
+        <div class="mx-auto w-full max-w-[360px] rounded-[10px] border border-[#8b8b8b] bg-[#d0d0d0] shadow-[0_14px_26px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.7)]">
+          <div class="bg-transparent p-[10px_10px_12px]">
+            <div class="rounded-md border border-[#5f7f86] bg-[linear-gradient(180deg,#86c2d1,#7bb7c6)] px-4 py-4 shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)]">
+              <input
+                bind:this={calcInput}
+                type="text"
+                value={formatCalcDisplay(calcValue)}
+                on:input={handleDisplayInput}
+                on:keydown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    evaluateCalc();
+                  }
+                  if (event.key === 'Escape') {
+                    onClose();
+                  }
+                }}
+                class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,7vw,2.1rem)] font-semibold text-slate-800 outline-none"
+                aria-label="Calculadora"
+              />
             </div>
-            
-            <!-- Desconto -->
-            <div class="flex justify-between items-center py-2 border-b border-slate-200">
-              <span class="text-red-600">Desconto</span>
-              <span class="font-medium text-red-600">-{formatCurrency(valorDesconto)}</span>
-            </div>
-            
-            <!-- Taxas -->
-            <div class="flex justify-between items-center py-2 border-b border-slate-200">
-              <span class="text-orange-600">Taxas</span>
-              <span class="font-medium text-orange-600">-{formatCurrency(calc.taxas)}</span>
-            </div>
-            
-            <!-- Valor Final -->
-            <div class="flex justify-between items-center py-3 bg-vendas-100 rounded-lg px-3">
-              <span class="font-semibold text-vendas-900">Valor Final</span>
-              <span class="font-bold text-xl text-vendas-700">{formatCurrency(valorFinal)}</span>
-            </div>
-            
-            <!-- Comissão -->
-            <div class="flex justify-between items-center py-2 border-b border-slate-200">
-              <span class="text-slate-600">Comissão ({calc.comissaoPercentual}%)</span>
-              <span class="font-medium text-slate-900">{formatCurrency(comissaoValor)}</span>
-            </div>
-            
-            <!-- Parcelas -->
-            {#if calc.parcelas > 1}
-              <div class="vtur-modal-notice bg-blue-50 rounded-lg p-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-blue-700">{calc.parcelas}x de</span>
-                  <span class="font-bold text-blue-800">{formatCurrency(valorParcela)}</span>
-                </div>
-                <p class="text-xs text-blue-600 mt-1">sem juros</p>
+
+            {#if calcError}
+              <div class="mt-2 rounded-md bg-[#b94f45] px-3 py-2 text-[clamp(0.75rem,2.5vw,0.8rem)] text-red-200">
+                {calcError}
               </div>
             {/if}
-            
-            <!-- Lucro/Receita -->
-            <div class="flex justify-between items-center py-2 pt-4 border-t-2 border-slate-200">
-              <span class="font-semibold text-slate-900">Receita Líquida</span>
-              <span class="font-bold text-lg text-green-600">{formatCurrency(valorFinal - comissaoValor)}</span>
+
+            <div class="mt-3 rounded-lg bg-[#8e8e8e] p-1.5">
+              <div
+                class="grid gap-1.5 bg-transparent"
+                style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(40px, 10vw, 52px));"
+              >
+                {#each calculatorKeys as key}
+                  {@const background =
+                    key.variant === 'operator'
+                      ? 'linear-gradient(180deg, #f4b564, #f08a2f)'
+                      : key.variant === 'danger'
+                        ? 'linear-gradient(180deg, #e58376, #cc5a4f)'
+                        : key.variant === 'function'
+                          ? 'linear-gradient(180deg, #cfd3da, #aeb4bf)'
+                          : 'linear-gradient(180deg, #d7d5cc, #bdbbb2)'}
+                  <button
+                    type="button"
+                    on:click={() => handleCalculatorAction(key)}
+                    class="flex items-center justify-center rounded-md border border-black/35 font-semibold text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_0_rgba(0,0,0,0.2)]"
+                    style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; background: ${background}; font-size: ${key.label.length > 2 ? 'clamp(0.8rem, 2.6vw, 0.9rem)' : 'clamp(1rem, 3.2vw, 1.1rem)'};`}
+                  >
+                    {key.label}
+                  </button>
+                {/each}
+              </div>
             </div>
+            <p class="mt-3 text-center text-xs text-slate-500">
+              Use teclado, Enter para calcular, Backspace para apagar e F9 para inverter o sinal.
+            </p>
           </div>
         </div>
         {/if}
@@ -323,15 +526,15 @@
       <!-- Footer -->
       <div class="vtur-modal-footer vtur-modal-footer--between">
         {#if abaAtiva === 'calculadora'}
-          <Button variant="ghost" on:click={limpar}>
+          <Button variant="ghost" on:click={clearCalc}>
             Limpar
           </Button>
           <div class="vtur-modal-footer__actions">
             <Button variant="secondary" on:click={onClose}>
-              Cancelar
+              Fechar
             </Button>
-            <Button variant="primary" color="vendas" on:click={handleConfirm}>
-              Aplicar Valores
+            <Button variant="primary" color="vendas" on:click={evaluateCalc}>
+              Calcular
             </Button>
           </div>
         {:else}
