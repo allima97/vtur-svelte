@@ -344,7 +344,7 @@
   <svelte:fragment slot="actions" let:row>
     <div class="flex items-center gap-2">
       <Button
-        variant="ghost"
+        variant="secondary"
         size="sm"
         on:click={() => abrirForm(row)}
       >

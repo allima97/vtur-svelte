@@ -222,7 +222,7 @@
             <FileText size={18} class="mr-2" />
             Visualizar
           </Button>
-          <Button variant="primary" on:click={() => showEditor = true}>
+          <Button variant="secondary" on:click={() => showEditor = true}>
             <Edit size={18} class="mr-2" />
             Editar
           </Button>
@@ -570,7 +570,7 @@
           <h3 class="font-semibold text-slate-900 mb-4">Ações</h3>
           
           <div class="space-y-3">
-            <Button variant="primary" class="w-full justify-center" on:click={() => showEditor = true}>
+            <Button variant="secondary" class="w-full justify-center" on:click={() => showEditor = true}>
               <Edit size={18} class="mr-2" />
               Editar Voucher
             </Button>

@@ -430,7 +430,7 @@
           <div>
             <h3 class="text-lg font-semibold text-slate-900">{viagem.cliente?.nome || 'Cliente não informado'}</h3>
             <Button
-              variant="ghost"
+              variant="secondary"
               size="xs"
               color="clientes"
               on:click={() => goto(`/clientes/${viagem.cliente?.id}`)}

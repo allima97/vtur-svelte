@@ -744,19 +744,19 @@
 
             <div class="flex justify-center">
               <div class="inline-flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2">
-                <Button type="button" variant="outline" color="clientes" size="xs" title="Editar texto" on:click={focarEdicaoMensagem}>
+                <Button type="button" variant="secondary" color="clientes" size="xs" title="Editar texto" on:click={focarEdicaoMensagem}>
                   <Pencil size={14} />
                 </Button>
-                <Button type="button" variant="outline" color="clientes" size="xs" title="Abrir cartão" disabled={!previewCardUrl} on:click={openPreviewSvg}>
+                <Button type="button" variant="secondary" color="clientes" size="xs" title="Abrir cartão" disabled={!previewCardUrl} on:click={openPreviewSvg}>
                   <ExternalLink size={14} />
                 </Button>
-                <Button type="button" variant="outline" color="clientes" size="xs" title="Baixar PNG" disabled={!previewCardUrl} on:click={downloadPreviewPng}>
+                <Button type="button" variant="secondary" color="clientes" size="xs" title="Baixar PNG" disabled={!previewCardUrl} on:click={downloadPreviewPng}>
                   <Download size={14} />
                 </Button>
-                <Button type="button" variant="outline" color="clientes" size="xs" title="Compartilhar no WhatsApp" disabled={!previewCardUrl} on:click={sharePreviewOnWhatsApp}>
+                <Button type="button" variant="secondary" color="clientes" size="xs" title="Compartilhar no WhatsApp" disabled={!previewCardUrl} on:click={sharePreviewOnWhatsApp}>
                   <MessageCircle size={14} />
                 </Button>
-                <Button type="button" variant="outline" color="clientes" size="xs" title="Limpar ajustes" on:click={clearPreviewActions}>
+                <Button type="button" variant="secondary" color="clientes" size="xs" title="Limpar ajustes" on:click={clearPreviewActions}>
                   <X size={14} />
                 </Button>
               </div>

@@ -333,7 +333,7 @@
       ? []
       : [
           { label: 'Atualizar', onClick: loadDetail, variant: 'secondary', icon: RefreshCw },
-          { label: 'Permissoes', href: `/admin/permissoes/${currentId}`, variant: 'outline', icon: ShieldCheck }
+          { label: 'Permissoes', href: `/admin/permissoes/${currentId}`, variant: 'secondary', icon: ShieldCheck }
         ]
   }
 />
@@ -468,7 +468,7 @@
             <p class="text-sm text-slate-500">Nenhuma permissao ativa encontrada.</p>
           {/if}
 
-          <Button variant="outline" href={`/admin/permissoes/${currentId}`}>Abrir editor completo</Button>
+          <Button variant="secondary" href={`/admin/permissoes/${currentId}`}>Abrir editor completo</Button>
         </div>
       </Card>
 

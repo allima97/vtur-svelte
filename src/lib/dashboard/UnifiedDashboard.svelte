@@ -719,7 +719,7 @@
   breadcrumbs={[{ label: 'Dashboard' }]}
   actions={[
     { label: 'Personalizar', onClick: () => (showCustomize = true), variant: 'secondary', icon: SlidersHorizontal },
-    { label: 'Ranking', onClick: goToRanking, variant: 'outline', icon: BarChart2 }
+    { label: 'Ranking', onClick: goToRanking, variant: 'secondary', icon: BarChart2 }
   ]}
 />
 

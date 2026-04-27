@@ -873,11 +873,11 @@
             <Pencil size={15} />
           </Button>
 
-          <Button variant="outline" color="crm" size="xs" title="Abrir SVG" disabled={!previewUrl} on:click={openPreviewSvg}>
+          <Button variant="secondary" color="crm" size="xs" title="Abrir SVG" disabled={!previewUrl} on:click={openPreviewSvg}>
             <ExternalLink size={15} />
           </Button>
 
-          <Button variant="outline" color="crm" size="xs" title="Baixar PNG" disabled={!previewUrl || previewLoading} on:click={openPreviewPng}>
+          <Button variant="secondary" color="crm" size="xs" title="Baixar PNG" disabled={!previewUrl || previewLoading} on:click={openPreviewPng}>
             <Download size={15} />
           </Button>
 
@@ -1310,7 +1310,7 @@
             Editar
           </Button>
           <Button
-            variant="primary"
+            variant="secondary"
             color="crm"
             disabled={palavrasExcedido || linhasExcedido || !selectedTheme}
             on:click={() => {

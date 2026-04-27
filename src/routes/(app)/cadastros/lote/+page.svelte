@@ -145,7 +145,7 @@
         <Download size={16} class="mr-2" />
         Baixar template
       </Button>
-      <Button variant="primary" loading={saving} on:click={importarLote}>
+      <Button variant="secondary" loading={saving} on:click={importarLote}>
         <Upload size={16} class="mr-2" />
         Importar produtos
       </Button>

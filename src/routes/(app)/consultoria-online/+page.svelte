@@ -290,12 +290,12 @@
               {/if}
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <Button size="sm" variant="outline" on:click={() => openEdit(c)}>
+              <Button size="sm" variant="secondary" on:click={() => openEdit(c)}>
                 Editar
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 color={c.fechada ? 'green' : 'orange'}
                 on:click={() => toggleFechada(c)}
               >

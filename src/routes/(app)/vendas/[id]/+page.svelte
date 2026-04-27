@@ -453,7 +453,7 @@
       }, {
         label: 'Mesclar',
         onClick: () => (showMesclar = true),
-        variant: 'outline' as const,
+        variant: 'secondary' as const,
         icon: Merge
       }] : []),
       {
@@ -745,7 +745,7 @@
                 Salvar
               </Button>
             {:else}
-              <Button variant="primary" color="vendas" on:click={() => (isEditingReciboDetails = true)}>
+              <Button variant="secondary" color="vendas" on:click={() => (isEditingReciboDetails = true)}>
                 Editar
               </Button>
             {/if}

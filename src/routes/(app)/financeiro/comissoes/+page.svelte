@@ -480,7 +480,7 @@
 
   <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
-      <div class="flex items-center gap-1"><Button variant="ghost" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
+      <div class="flex items-center gap-1"><Button variant="secondary" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
     </svelte:fragment>
   </DataTable>
 {/if}
