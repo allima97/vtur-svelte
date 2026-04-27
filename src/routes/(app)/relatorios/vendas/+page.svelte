@@ -259,8 +259,7 @@
     diaria: []
   };
 
-  const columns = [
-    { key: 'codigo', label: 'Código', sortable: true, width: '120px' },
+  const columnsBase = [
     { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
     {
       key: 'data_venda',
@@ -270,10 +269,8 @@
       formatter: (value: string | null) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
     },
     { key: 'cliente_nome', label: 'Cliente', sortable: true },
-    { key: 'cliente_cpf', label: 'CPF', sortable: true, width: '140px' },
     { key: 'vendedor_nome', label: 'Vendedor', sortable: true, width: '160px' },
     { key: 'destino_nome', label: 'Destino', sortable: true },
-    { key: 'cidade_nome', label: 'Cidade', sortable: true },
     { key: 'produto_nome', label: 'Produto', sortable: true },
     {
       key: 'valor_total',
@@ -302,16 +299,10 @@
       sortable: true,
       align: 'right' as const,
       formatter: (value: number) => `${value.toFixed(2).replace('.', ',')}%`
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      sortable: true,
-      width: '120px',
-      formatter: (value: string) => getStatusBadge(value)
-    },
-    { key: 'forma_pagamento', label: 'Pagamento', sortable: true, width: '140px' }
+    }
   ];
+
+  let columns = columnsBase;
 
   async function loadBase() {
     try {
@@ -469,23 +460,30 @@
       return;
     }
 
-    const headers = ['Código', 'Recibo', 'Data', 'Cliente', 'CPF', 'Vendedor', 'Destino', 'Cidade', 'Produto', 'Valor', 'Taxas', 'Comissão', '% Comissão', 'Status', 'Pagamento'];
+    const hideVendedorColumn = $permissoes.ready && ($permissoes.isVendedor || $permissoes.usoIndividual);
+    const headers = [
+      'Recibo',
+      'Data',
+      'Cliente',
+      ...(hideVendedorColumn ? [] : ['Vendedor']),
+      'Destino',
+      'Produto',
+      'Valor',
+      'Taxas',
+      'Comissão',
+      '% Comissão'
+    ];
     const rows = recibosFiltrados.map((recibo) => [
-      recibo.codigo,
       recibo.numero_recibo || '',
       recibo.data_venda ? new Date(recibo.data_venda).toLocaleDateString('pt-BR') : '',
       recibo.cliente_nome,
-      recibo.cliente_cpf || '',
-      recibo.vendedor_nome,
+      ...(hideVendedorColumn ? [] : [recibo.vendedor_nome]),
       recibo.destino_nome,
-      recibo.cidade_nome || '',
       recibo.produto_nome,
       recibo.valor_total.toFixed(2).replace('.', ','),
       recibo.valor_taxas.toFixed(2).replace('.', ','),
       recibo.comissao.toFixed(2).replace('.', ','),
-      recibo.percentual_comissao.toFixed(2).replace('.', ','),
-      recibo.status,
-      recibo.forma_pagamento
+      recibo.percentual_comissao.toFixed(2).replace('.', ',')
     ]);
 
     const csv = ['\uFEFF' + headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
@@ -516,6 +514,10 @@
   // Regra fiel de escopo: vendedor/uso individual não deve escolher empresa ou vendedor global.
   $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
   $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+  $: hideVendedorColumn = $permissoes.ready && ($permissoes.isVendedor || $permissoes.usoIndividual);
+  $: columns = hideVendedorColumn
+    ? columnsBase.filter((column) => column.key !== 'vendedor_nome')
+    : columnsBase;
 
   $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) {
     empresaSelecionada = '';

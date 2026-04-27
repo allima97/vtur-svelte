@@ -330,6 +330,9 @@
 	"/api/v1/dashboard/widgets": [
 		"src/routes/api/v1/dashboard/widgets/+server.ts"
 	],
+	"/api/v1/debug-comissao": [
+		"src/routes/api/v1/debug-comissao/+server.ts"
+	],
 	"/api/v1/debug/permissions": [
 		"src/routes/api/v1/debug/permissions/+server.ts"
 	],

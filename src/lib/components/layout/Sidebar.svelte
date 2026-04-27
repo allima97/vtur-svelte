@@ -9,6 +9,7 @@
   import {
     AlertCircle,
     Banknote,
+    BarChart2,
     Building2,
     Calendar,
     ChevronDown,
@@ -40,7 +41,6 @@
     Video,
     Wallet
   } from 'lucide-svelte';
-  import { FilePenSolid } from 'flowbite-svelte-icons';
   import { slide } from 'svelte/transition';
   import Button from '$lib/components/ui/Button.svelte';
 
@@ -114,7 +114,7 @@
         { key: 'campanhas', name: 'Campanhas', href: '/operacao/campanhas', icon: Megaphone },
         { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
         { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video },
-        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: FilePenSolid as unknown as typeof LayoutDashboard },
+        { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: BarChart2 },
         { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: FileSpreadsheet }
       ]
     },
@@ -288,16 +288,25 @@
   ].filter((item): item is MenuItem & { href: string } => Boolean(item.href));
 
   $: activeHref = (() => {
+    // Ordena por href mais longo primeiro (mais específico vence)
     const sorted = [...allMenuItems].sort(
       (a, b) => (b.href?.length || 0) - (a.href?.length || 0)
     );
     if (currentPath === '/') {
       return sorted.find((item) => item.href === '/')?.href ?? null;
     }
-    const match = sorted.find(
-      (item) => item.href !== '/' && currentPath.startsWith(item.href)
-    );
-    return match?.href ?? null;
+    // Primeiro tenta match exato
+    const exact = sorted.find((item) => item.href !== '/' && item.href === currentPath);
+    if (exact) return exact.href;
+    // Depois tenta startsWith — mas exige que o próximo char seja '/' ou fim de string
+    // para evitar que /relatorios bata com /relatorios/vendas sendo o ativo
+    const prefix = sorted.find((item) => {
+      if (item.href === '/') return false;
+      if (!currentPath.startsWith(item.href)) return false;
+      const nextChar = currentPath[item.href.length];
+      return nextChar === undefined || nextChar === '/';
+    });
+    return prefix?.href ?? null;
   })();
 
   function isActive(href?: string): boolean {
@@ -335,7 +344,7 @@
     { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
     { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
     { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
-    { name: 'Relatórios',     href: '/relatorios',             icon: FilePenSolid as unknown as typeof LayoutDashboard },
+    { name: 'Relatórios',     href: '/relatorios',             icon: BarChart2 },
     { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
     $permissoes.isMaster
       ? { name: 'Master',     href: '/master',                 icon: Shield }
@@ -349,11 +358,20 @@
 
   // Encontra a entrada mais específica que bate com a rota atual
   $: currentNavEntry = (() => {
-    // Ordena por href mais longo primeiro (mais específico)
     const candidates = visibleMobileNavEntries.length > 0 ? visibleMobileNavEntries : mobileNavEntries;
     const sorted = [...candidates].sort((a, b) => b.href.length - a.href.length);
     if (currentPath === '/') return candidates.find((entry) => entry.href === '/') ?? candidates[0];
-    return sorted.find((entry) => entry.href !== '/' && currentPath.startsWith(entry.href))
+    // Exato primeiro
+    const exact = sorted.find((entry) => entry.href === currentPath);
+    if (exact) return exact;
+    // Prefix com boundary de '/'
+    const prefix = sorted.find((entry) => {
+      if (entry.href === '/') return false;
+      if (!currentPath.startsWith(entry.href)) return false;
+      const nextChar = currentPath[entry.href.length];
+      return nextChar === undefined || nextChar === '/';
+    });
+    return prefix
       ?? candidates.find((entry) => entry.href === '/perfil')
       ?? candidates[0];
   })();

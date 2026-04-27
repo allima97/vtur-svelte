@@ -75,6 +75,12 @@
   let items: AgendaItem[] = [];
   let visibleRange = { inicio: todayIso, fim: todayIso };
   let searchQuery = '';
+  let currentView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' = 'timeGridDay';
+
+  function changeView(view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') {
+    currentView = view;
+    calendar?.changeView(view);
+  }
 
   let eventModalOpen = false;
   let eventLoading = false;
@@ -172,15 +178,24 @@
   function initializeCalendar() {
     if (!calendarEl) return;
 
+    const isMobile = window.innerWidth < 640;
+
     calendar = new Calendar(calendarEl, {
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
       locale: ptBrLocale,
-      initialView: 'dayGridMonth',
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay'
-      },
+      initialView: isMobile ? 'timeGridDay' : 'dayGridMonth',
+      headerToolbar: isMobile
+        ? {
+            left: 'prev',
+            center: 'title',
+            right: 'next'
+          }
+        : {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          },
+      footerToolbar: false,
       height: 'auto',
       editable: true,
       selectable: true,
@@ -199,6 +214,16 @@
           allDay: info.allDay,
           startTime: info.allDay ? '09:00' : info.startStr.split('T')[1]?.slice(0, 5) || '09:00',
           endTime: info.allDay ? '10:00' : info.endStr?.split('T')[1]?.slice(0, 5) || '10:00'
+        });
+      },
+      // dateClick: abre modal no mobile com toque simples em qualquer célula do dia
+      dateClick: (info) => {
+        openCreateModal({
+          startDate: info.dateStr.split('T')[0],
+          endDate: info.dateStr.split('T')[0],
+          allDay: info.allDay,
+          startTime: '09:00',
+          endTime: '10:00'
         });
       },
       eventClick: (info) => {
@@ -455,6 +480,24 @@
       {/if}
       <Badge color="operacao" size="sm">Eventos pessoais</Badge>
       <Badge color="yellow" size="sm">Aniversarios</Badge>
+    </div>
+  </div>
+
+  <!-- Seletor de visão customizado — só mobile, aparece ABAIXO do header do FC -->
+  <div class="fc-mobile-view-switcher sm:hidden px-4 pb-4 pt-1">
+    <div class="view-switcher-bar">
+      <button
+        class="view-btn {currentView === 'dayGridMonth' ? 'active' : ''}"
+        on:click={() => changeView('dayGridMonth')}
+      >Mês</button>
+      <button
+        class="view-btn {currentView === 'timeGridWeek' ? 'active' : ''}"
+        on:click={() => changeView('timeGridWeek')}
+      >Semana</button>
+      <button
+        class="view-btn {currentView === 'timeGridDay' ? 'active' : ''}"
+        on:click={() => changeView('timeGridDay')}
+      >Dia</button>
     </div>
   </div>
 

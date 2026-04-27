@@ -1438,34 +1438,43 @@ thead.bg-slate-50 td {
     max-width: 100vw !important;
   }
 
-  /* KPI cards: compactos no mobile */
+  /* KPI cards: tamanho confortável no mobile — 1 por linha */
   .vtur-kpi-card {
-    min-height: 76px !important;
-    padding: 0.75rem !important;
-    gap: 0.6rem !important;
+    min-height: 88px !important;
+    padding: 1rem 1.1rem !important;
+    gap: 0.85rem !important;
+    border-radius: 14px !important;
+  }
+
+  /* Ícone do KPI no mobile */
+  .vtur-kpi-card .h-11,
+  .vtur-kpi-card > div > div:first-child {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    min-width: 2.75rem !important;
     border-radius: 12px !important;
   }
 
-  /* Ícone do KPI menor no mobile */
-  .vtur-kpi-card .h-11 {
-    width: 2.25rem !important;
-    height: 2.25rem !important;
-    min-width: 2.25rem !important;
-    border-radius: 10px !important;
+  /* Título do KPI: maior e mais legível */
+  .vtur-kpi-card p:first-child {
+    font-size: 0.75rem !important;
   }
 
-  /* Texto do KPI no mobile: valor menor para caber em 2 colunas */
-  .vtur-kpi-card p.text-\[1\.75rem\] {
-    font-size: 1.35rem !important;
+  /* Valor do KPI: bem maior no mobile */
+  .vtur-kpi-card p.text-lg,
+  .vtur-kpi-card p.text-\[1\.75rem\],
+  .vtur-kpi-card p.text-\[1\.6rem\] {
+    font-size: 1.55rem !important;
+    line-height: 1.15 !important;
   }
 
-  /* Grid de KPIs: sempre 2 colunas no mobile, independente da variante */
+  /* Grid de KPIs: 1 coluna no mobile para KPIs maiores e legíveis */
   .vtur-kpi-grid,
   .vtur-kpi-grid-3,
   .vtur-kpi-grid-5,
   .vtur-kpi-grid-6 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0.625rem !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
   }
 
   /* Todas as tabelas que NÃO são mobile-cards: wrapper com scroll horizontal */
@@ -1532,11 +1541,11 @@ thead.bg-slate-50 td {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    margin-bottom: 14px !important;
+    margin-bottom: 16px !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 16px !important;
     background: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(15,23,42,0.08) !important;
+    box-shadow: 0 4px 16px rgba(15,23,42,0.10) !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
   }
@@ -1547,12 +1556,12 @@ thead.bg-slate-50 td {
 
   .table-mobile-cards tbody > tr > td {
     display: grid !important;
-    grid-template-columns: minmax(68px, 86px) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(76px, 96px) minmax(0, 1fr) !important;
     align-items: start !important;
     gap: 12px !important;
     width: 100% !important;
     min-width: 0 !important;
-    padding: 14px 18px !important;
+    padding: 16px 20px !important;
     border: 0 !important;
     border-bottom: 1px solid #f1f5f9 !important;
     background: #ffffff !important;
@@ -1560,7 +1569,10 @@ thead.bg-slate-50 td {
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     word-break: break-word !important;
-    font-size: 0.95rem !important;
+    font-size: 1.05rem !important;
+    font-weight: 500 !important;
+    color: #0f172a !important;
+    line-height: 1.5 !important;
     box-sizing: border-box !important;
   }
 
@@ -1574,9 +1586,10 @@ thead.bg-slate-50 td {
     font-size: 0.68rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em !important;
+    text-transform: lowercase !important;
     color: #94a3b8 !important;
     line-height: 1.4 !important;
-    padding-top: 1px !important;
+    padding-top: 3px !important;
     white-space: nowrap !important;
   }
 
@@ -1588,6 +1601,59 @@ thead.bg-slate-50 td {
   .table-mobile-cards tbody > tr > td:not([data-label])::before,
   .table-mobile-cards tbody > tr > td[data-label=""]::before {
     display: none !important;
+  }
+
+  /* Primeiro campo do card — destaque maior (ex: código, nome) */
+  .table-mobile-cards tbody > tr > td:first-child {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    padding-top: 18px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 2px solid #f1f5f9 !important;
+  }
+
+  /*
+   * Dentro de células mobile, elementos com flex-col / flex / div
+   * devem quebrar em linhas — garante que "Cliente" e "Destino"
+   * fiquem cada um na sua própria linha mesmo com flex inline.
+   */
+  .table-mobile-cards tbody > tr > td > div,
+  .table-mobile-cards tbody > tr > td > span {
+    display: block !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Estilos específicos para o sub-conteúdo das células */
+  .table-mobile-cards tbody > tr > td > div > span,
+  .table-mobile-cards tbody > tr > td > div > div {
+    display: block !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Primeiro span/div dentro da célula = valor principal — tamanho maior */
+  .table-mobile-cards tbody > tr > td > div > span:first-child,
+  .table-mobile-cards tbody > tr > td > div > div:first-child {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Segundo span/div = sub-info (ex: destino, tipo) — tamanho menor mas legível */
+  .table-mobile-cards tbody > tr > td > div > span:not(:first-child),
+  .table-mobile-cards tbody > tr > td > div > div:not(:first-child) {
+    font-size: 0.9rem !important;
+    color: #475569 !important;
+    font-weight: 400 !important;
+    margin-top: 2px !important;
+  }
+
+  /* Badge inline (status, dot) — não virar block */
+  .table-mobile-cards tbody > tr > td span.inline-flex,
+  .table-mobile-cards tbody > tr > td span[class*="rounded-full"],
+  .table-mobile-cards tbody > tr > td span[class*="w-2"] {
+    display: inline-flex !important;
   }
 
   .table-mobile-cards tbody > tr > td.td-actions {
@@ -1615,6 +1681,122 @@ thead.bg-slate-50 td {
   /* Tabelas sem mobile-cards: scroll horizontal */
   .vtur-table-shell table:not(.table-mobile-cards) {
     min-width: 580px !important;
+  }
+
+  /* -------------------------------------------------------
+     FullCalendar — header toolbar mobile (linha 1: < DATA >)
+  ------------------------------------------------------- */
+
+  .fc .fc-toolbar.fc-header-toolbar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 4px !important;
+    padding: 0 !important;
+  }
+
+  .fc .fc-toolbar-chunk {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* Título — data do dia em destaque */
+  .fc .fc-toolbar-title {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  /* Setas < > — grandes, fáceis de tocar */
+  .fc .fc-prev-button,
+  .fc .fc-next-button {
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    background: #f1f5f9 !important;
+    border: none !important;
+    color: #334155 !important;
+    box-shadow: none !important;
+  }
+
+  /* Células do calendário */
+  .fc .fc-daygrid-day { min-height: 52px !important; }
+  .fc .fc-daygrid-day-number {
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    padding: 5px 7px !important;
+  }
+
+  /* Nomes dos dias da semana */
+  .fc .fc-col-header-cell-cushion {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #64748b !important;
+    padding: 8px 2px !important;
+  }
+
+  /* Eventos */
+  .fc .fc-event { border-radius: 6px !important; }
+  .fc .fc-event-title {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Vista de dia — slots legíveis */
+  .fc .fc-timegrid-slot { height: 48px !important; }
+  .fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.78rem !important;
+    color: #94a3b8 !important;
+    padding: 0 8px !important;
+  }
+
+  /* -------------------------------------------------------
+     Toolbar customizado: Mês | Semana | Dia  (linha 2)
+  ------------------------------------------------------- */
+  .fc-mobile-view-switcher {
+    width: 100% !important;
+  }
+
+  .view-switcher-bar {
+    display: flex !important;
+    width: 100% !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+  }
+
+  .view-btn {
+    flex: 1 !important;
+    padding: 14px 0 !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    border: none !important;
+    background: transparent !important;
+    color: #64748b !important;
+    cursor: pointer !important;
+    transition: background 0.15s, color 0.15s !important;
+    border-right: 1.5px solid #e2e8f0 !important;
+  }
+
+  .view-btn:last-child {
+    border-right: none !important;
+  }
+
+  .view-btn.active {
+    background: #0f172a !important;
+    color: #ffffff !important;
   }
 
 }
@@ -2139,5 +2321,104 @@ thead.bg-slate-50 td {
 
   .mural-chat-header-left {
     width: 100%;
+  }
+}
+
+/* =========================================================
+   NEUTRALIZAR DARK MODE DO FLOWBITE / SISTEMA OPERACIONAL
+   Força fundo branco e texto escuro em todos os inputs,
+   selects e cards — independente do modo do SO/browser.
+   ========================================================= */
+@media (prefers-color-scheme: dark) {
+  /* Inputs, selects, textareas — sempre fundo branco */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    color-scheme: light !important;
+  }
+
+  /* Cards e containers de conteúdo — sempre fundo branco */
+  .vtur-card,
+  .vtur-kpi-card,
+  .vtur-table-shell,
+  .vtur-page-wrap,
+  .bg-white,
+  [class*="bg-white"] {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Flowbite específico — neutraliza dark: classes */
+  [class*="dark:bg-gray"],
+  [class*="dark:bg-slate"],
+  [class*="dark:text-white"],
+  [class*="dark:border-gray"] {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Modal e overlays */
+  .vtur-modal,
+  [role="dialog"],
+  [role="dialog"] > div {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Textos auxiliares */
+  label,
+  p,
+  span,
+  h1, h2, h3, h4, h5, h6 {
+    color: inherit;
+  }
+
+  /* Body e html — fundo claro forçado */
+  html, body {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    color-scheme: light !important;
+  }
+}
+
+/* =========================================================
+   SIDEBAR — correções de itens ativos e cor de fundo
+   ========================================================= */
+
+/* Garante que só o item exatamente ativo tenha destaque */
+.vtur-sidebar__item--active {
+  background: var(--vtur-sidebar-active) !important;
+  color: #ffffff !important;
+}
+
+/* Remove destaque de itens não-ativos que possam herdar estilos */
+.vtur-sidebar__item:not(.vtur-sidebar__item--active) {
+  background: transparent !important;
+  color: var(--vtur-sidebar-text) !important;
+}
+
+/* Mobile: sidebar com fundo levemente mais claro para melhor leitura */
+@media (max-width: 640px) {
+  :root {
+    --vtur-sidebar-bg: #1a1744;
+  }
+
+  .vtur-sidebar__item,
+  .vtur-sidebar__item.vtur-button {
+    border-radius: 14px !important;
+  }
+
+  .vtur-sidebar__section-title {
+    font-size: 0.7rem !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  /* Item de texto (label) maior no mobile */
+  .vtur-sidebar__item-label {
+    font-size: 1.45rem !important;
+    font-weight: 600 !important;
   }
 }

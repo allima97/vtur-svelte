@@ -38,32 +38,38 @@ export async function GET(event) {
     const { data: usersData } = await usersQuery;
     const commissionContext = await fetchCommissionContext(client, { companyIds });
 
-    const regras = commissionContext.rules.map((rule) => ({
-      id: rule.id,
-      nome: rule.nome || 'Regra',
+    // regrasMap é Record<id, Regra> — converte para array para compatibilidade
+    const regrasArray = Object.entries(commissionContext.regrasMap).map(([id, rule]) => ({
+      id,
+      nome: (rule as any).nome || 'Regra',
       tipo: rule.tipo || 'GERAL',
       meta_atingida: Number(rule.meta_atingida || 0),
-      ativo: rule.ativo !== false
+      ativo: true
+    }));
+
+    const regras = regrasArray.map((rule) => ({
+      id: rule.id,
+      nome: rule.nome,
+      tipo: rule.tipo,
+      meta_atingida: rule.meta_atingida,
+      ativo: rule.ativo
     }));
 
     const items = (usersData || []).map((u: any) => {
-      const regrasEmpresa = commissionContext.rules.filter(
-        (rule) => !rule.company_id || String(rule.company_id) === String(u.company_id || '')
-      );
-      const regraBase = regrasEmpresa[0] || null;
+      const regraBase = regrasArray[0] || null;
 
       return {
-      id: u.id,
-      vendedor_id: u.id,
-      vendedor_nome: u.nome_completo || u.email || 'Vendedor',
-      regra_id: regraId && regrasEmpresa.some((item) => item.id === regraId) ? regraId : regraBase?.id || null,
-      regra_nome:
-        regraId && regrasEmpresa.some((item) => item.id === regraId)
-          ? regrasEmpresa.find((item) => item.id === regraId)?.nome || 'Regra selecionada'
-          : regraBase?.nome || 'Calculada por produto/pacote/meta',
-      percentual_base: Number(regraBase?.meta_atingida || 0),
-      ativo: true,
-      vigente: true
+        id: u.id,
+        vendedor_id: u.id,
+        vendedor_nome: u.nome_completo || u.email || 'Vendedor',
+        regra_id: regraId && commissionContext.regrasMap[regraId] ? regraId : regraBase?.id || null,
+        regra_nome:
+          regraId && commissionContext.regrasMap[regraId]
+            ? (commissionContext.regrasMap[regraId] as any).nome || 'Regra selecionada'
+            : regraBase?.nome || 'Calculada por produto/pacote/meta',
+        percentual_base: Number(regraBase?.meta_atingida || 0),
+        ativo: true,
+        vigente: true
       };
     });
 

@@ -631,10 +631,70 @@ export async function GET(event) {
       rowsView.map((row) => toStr(row?.id)).filter(Boolean)
     );
 
+    // Determina o período para busca de metas (primeiro dia do mês de dataInicio)
+    const periodoMeta = dataInicio ? dataInicio.slice(0, 7) + '-01' : '';
+
     const commissionContext = await fetchCommissionContext(client, {
       companyIds,
+      vendedorIds,
+      periodo: periodoMeta,
       rows: rowsView
     });
+
+    // --- DIAGNÓSTICO TEMPORÁRIO ---
+    {
+      const diagRecibos = rowsView
+        .flatMap((row: any) =>
+          (row.recibos || []).map((recibo: any) => ({ row, recibo }))
+        )
+        .filter(({ recibo }: any) => {
+          const numeroRecibo = String(recibo?.numero_recibo || '').toLowerCase().trim();
+          const tipoPacote = String(recibo?.tipo_pacote || '').toLowerCase().trim();
+          const nomeTipoProduto = String(recibo?.tipo_produtos?.nome || '').toLowerCase().trim();
+          return (
+            numeroRecibo === 'rextur' ||
+            tipoPacote.includes('passagem facial') ||
+            tipoPacote === 'vbi' ||
+            nomeTipoProduto.includes('passagem facial') ||
+            nomeTipoProduto === 'vbi'
+          );
+        })
+        .slice(0, 10);
+
+      if (diagRecibos.length > 0) {
+        console.log('[DIAG-COMISSAO] matches:', diagRecibos.length);
+        for (const { row, recibo } of diagRecibos) {
+          const tipoPacoteKey = recibo?.tipo_pacote
+            ? String(recibo.tipo_pacote).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
+            : null;
+          const prodId = String(recibo?.tipo_produtos?.id || recibo?.produto_resolvido?.tipo_produto || recibo?.produto_id || '').trim();
+          console.log('[DIAG-COMISSAO] recibo:', JSON.stringify({
+            venda_id: row?.id,
+            id: recibo?.id,
+            numero_recibo: recibo?.numero_recibo,
+            produto_id: recibo?.produto_id,
+            tipo_pacote: recibo?.tipo_pacote,
+            tipo_pacote_key: tipoPacoteKey,
+            tipo_produtos_id: recibo?.tipo_produtos?.id,
+            tipo_produtos_nome: recibo?.tipo_produtos?.nome,
+            produto_resolvido_id: recibo?.produto_resolvido?.id,
+            produto_resolvido_tipo_produto: recibo?.produto_resolvido?.tipo_produto,
+            prod_id_resolved: prodId,
+            regra_tipo_pacote: tipoPacoteKey ? commissionContext.regraTipoPacoteMap[tipoPacoteKey] || null : null,
+            regra_produto: prodId ? commissionContext.regraProdutoMap[prodId] || null : null,
+            regra_produto_pacote: prodId && tipoPacoteKey ? commissionContext.regraProdutoPacoteMap[prodId]?.[tipoPacoteKey] || null : null,
+            tipo_produto_row: prodId ? commissionContext.tipoProdutoMap[prodId] || null : null,
+            params_conciliacao_regra_ativa: commissionContext.params.conciliacao_regra_ativa,
+            valor_bruto_override: recibo?.valor_bruto_override,
+            valor_liquido_override: recibo?.valor_liquido_override,
+            valor_meta_override: recibo?.valor_meta_override,
+            percentual_comissao_loja: recibo?.percentual_comissao_loja,
+            faixa_comissao: recibo?.faixa_comissao
+          }));
+        }
+      }
+    }
+    // --- FIM DIAGNÓSTICO ---
 
     const paymentForms = await fetchLatestPaymentForms(
       client,
@@ -681,6 +741,34 @@ export async function GET(event) {
           commissionContext
         );
 
+        {
+          const numeroRecibo = String(recibo?.numero_recibo || '').toLowerCase().trim();
+          const tipoPacote = String(recibo?.tipo_pacote || '').toLowerCase().trim();
+          const nomeTipoProduto = String(recibo?.tipo_produtos?.nome || '').toLowerCase().trim();
+          const shouldLog =
+            numeroRecibo === 'rextur' ||
+            tipoPacote.includes('passagem facial') ||
+            tipoPacote === 'vbi' ||
+            nomeTipoProduto.includes('passagem facial') ||
+            nomeTipoProduto === 'vbi';
+
+          if (shouldLog) {
+            console.log(
+              '[DIAG-COMISSAO-RESULT]',
+              JSON.stringify({
+                venda_id: row?.id,
+                recibo_id: recibo?.id,
+                numero_recibo: recibo?.numero_recibo,
+                produto_nome: recibo?.tipo_produtos?.nome,
+                tipo_pacote: recibo?.tipo_pacote,
+                valor_total: brutoBase,
+                valor_comissionavel: valorComissionavel,
+                resultado: commissionByReceipt
+              })
+            );
+          }
+        }
+
         return {
           id: recibo?.id || null,
           numero_recibo: recibo?.numero_recibo || null,
@@ -703,8 +791,20 @@ export async function GET(event) {
           valor_liquido_override: recibo?.valor_liquido_override ?? null,
           valor_meta_override: recibo?.valor_meta_override ?? null,
           valor_comissionavel: valorComissionavel,
-          valor_comissao_calculada: commissionByReceipt.valorComissao,
-          percentual_comissao_calculado: commissionByReceipt.percentual
+          // Quando o motor de regras não encontra regra aplicável (valor = 0),
+          // usa valor_comissao_loja da conciliação como fallback — espelha o
+          // comportamento do vtur-app que usa o valor real informado pela operadora.
+          valor_comissao_calculada:
+            commissionByReceipt.valorComissao > 0
+              ? commissionByReceipt.valorComissao
+              : Number(recibo?.valor_comissao_loja || 0),
+          // Quando o motor de regras não encontra regra aplicável (percentual = 0),
+          // usa percentual_comissao_loja da conciliação como fallback — espelha o
+          // comportamento do vtur-app que exibe o percentual real informado pela operadora.
+          percentual_comissao_calculado:
+            commissionByReceipt.percentual > 0
+              ? commissionByReceipt.percentual
+              : Number(recibo?.percentual_comissao_loja || 0)
         };
       });
       const commission = {

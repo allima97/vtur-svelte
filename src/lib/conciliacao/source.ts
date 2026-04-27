@@ -5,6 +5,7 @@ export type EffectiveConciliacaoReceipt = {
   conciliacao_ids: string[];
   documento: string;
   data_venda: string;
+  company_id: string | null;
   vendedor_id: string | null;
   produto_id: string | null;
   linked_venda_id: string | null;
@@ -179,7 +180,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       let query = client
         .from('conciliacao_recibos')
         .select(
-          'id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_nao_comissionavel, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
+          'id, company_id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_nao_comissionavel, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
         )
         .neq('is_baixa_rac', true)
         .in('documento', batch)
@@ -197,7 +198,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         let fallbackQuery = client
           .from('conciliacao_recibos')
           .select(
-            'id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
+            'id, company_id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
           )
           .neq('is_baixa_rac', true)
           .in('documento', batch)
@@ -450,11 +451,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
       const effectiveSaleDate = linkedReciboMeta?.data_venda || effectiveDate;
 
+      const companyIdFromRows = sortedRows.map((row) => toStr(row?.company_id)).find(Boolean) || null;
+
       return {
         id: preferredConciliacaoId,
         conciliacao_ids: groupedConcIds,
         documento,
         data_venda: effectiveSaleDate,
+        company_id: companyIdFromRows,
         vendedor_id: vendedorId,
         produto_id: produtoId,
         linked_venda_id: linkedVendaId,
@@ -480,6 +484,7 @@ export function buildConciliacaoSyntheticVendas(items: EffectiveConciliacaoRecei
   return items.map((item) => ({
     id: item.id,
     data_venda: item.data_venda,
+    company_id: item.company_id,
     vendedor_id: item.vendedor_id,
     cancelada: false,
     valor_nao_comissionado: item.valor_nao_comissionavel,
