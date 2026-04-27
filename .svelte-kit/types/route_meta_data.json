@@ -453,6 +453,9 @@
 	"/api/v1/orcamentos/delete": [
 		"src/routes/api/v1/orcamentos/delete/+server.ts"
 	],
+	"/api/v1/orcamentos/importar": [
+		"src/routes/api/v1/orcamentos/importar/+server.ts"
+	],
 	"/api/v1/orcamentos/interacao": [
 		"src/routes/api/v1/orcamentos/interacao/+server.ts"
 	],
@@ -1093,6 +1096,10 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/orcamentos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/orcamentos/importar": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

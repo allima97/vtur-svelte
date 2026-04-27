@@ -23,13 +23,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     // Em modo mock/local sem credenciais reais, o cliente pode não expor auth.setSession.
     // Nesses casos, não quebra a navegação e retorna sucesso lógico.
-    const setSessionFn = (supabase as any)?.auth?.setSession;
-    if (typeof setSessionFn !== 'function') {
+    if (typeof supabase?.auth?.setSession !== 'function') {
       console.warn('[set-session] auth.setSession indisponivel (mock mode ativo).');
       return json({ ok: true, mock: true, storageKey: getSupabaseAuthStorageKey() });
     }
 
-    const { error } = await setSessionFn({
+    // Chama diretamente em supabase.auth para preservar o contexto 'this' do GoTrueClient
+    const { error } = await supabase.auth.setSession({
       access_token,
       refresh_token
     });

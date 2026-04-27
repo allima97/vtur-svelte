@@ -4,7 +4,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { Plus, FileText, Send, ShoppingCart, AlertCircle } from 'lucide-svelte';
+  import { Plus, FileText, Send, ShoppingCart, AlertCircle, FileSpreadsheet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Orcamento {
@@ -344,12 +344,20 @@
   subtitle="Acompanhe o pipeline de propostas com uma leitura mais limpa, profissional e orientada à decisão."
   color="orcamentos"
   breadcrumbs={[{ label: 'Orçamentos' }]}
-  actions={[{
-    label: 'Novo Orçamento',
-    href: '/orcamentos/novo',
-    variant: 'primary',
-    icon: Plus
-  }]}
+  actions={[
+    {
+      label: 'Importar',
+      href: '/orcamentos/importar',
+      variant: 'secondary',
+      icon: FileSpreadsheet
+    },
+    {
+      label: 'Novo Orçamento',
+      href: '/orcamentos/novo',
+      variant: 'primary',
+      icon: Plus
+    }
+  ]}
 />
 
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
