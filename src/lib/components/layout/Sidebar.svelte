@@ -70,6 +70,7 @@
 
   const MENU_PREFS_KEY = 'vtur:menu-prefs';
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
+  const REFRESH_PERMS_AFTER_RELOAD_KEY = 'vtur:refresh-perms-after-reload';
 
   $: hiddenMenuSet = new Set(menuPrefsHidden);
 
@@ -252,6 +253,27 @@
   onMount(() => {
     loadMenuPrefs();
 
+    const runPendingPermissionsRefresh = async () => {
+      if (typeof window === 'undefined') return;
+      if (sessionStorage.getItem(REFRESH_PERMS_AFTER_RELOAD_KEY) !== '1') return;
+
+      sessionStorage.removeItem(REFRESH_PERMS_AFTER_RELOAD_KEY);
+
+      try {
+        refreshingPerms = true;
+        const supabase = createSupabaseBrowserClient();
+        await permissoes.refresh(supabase);
+        toast.success('Permissões atualizadas após recarregar a página.');
+      } catch (error) {
+        console.error('Erro ao atualizar permissoes apos reload:', error);
+        toast.error('A página foi recarregada, mas não foi possível atualizar as permissões.');
+      } finally {
+        refreshingPerms = false;
+      }
+    };
+
+    void runPendingPermissionsRefresh();
+
     const onStorage = (event: StorageEvent) => {
       if (event.key === MENU_PREFS_KEY) loadMenuPrefs();
     };
@@ -383,9 +405,8 @@
   async function handleRefreshPermissions() {
     try {
       refreshingPerms = true;
-      const supabase = createSupabaseBrowserClient();
-      await permissoes.refresh(supabase);
-      toast.success('Permissões atualizadas. Recarregando tela...');
+      sessionStorage.setItem(REFRESH_PERMS_AFTER_RELOAD_KEY, '1');
+      toast.success('Recarregando a página para atualizar os dados antes das permissões...');
       window.location.reload();
     } catch (error) {
       console.error('Erro ao atualizar permissoes:', error);
