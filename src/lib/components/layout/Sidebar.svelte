@@ -342,11 +342,13 @@
     { name: 'Documentos',     href: '/operacao/documentos-viagens', icon: FileText },
     { name: 'Consultoria',    href: '/consultoria-online',     icon: Video },
     { name: 'Aniversariantes',href: '/aniversariantes',        icon: Gift },
+    { name: 'Preferências',   href: '/operacao/minhas-preferencias', icon: Star },
     { name: 'Caixa',          href: '/financeiro/caixa',       icon: TrendingUp },
     { name: 'Conciliação',    href: '/financeiro/conciliacao', icon: FileSpreadsheet },
     { name: 'Comissões',      href: '/financeiro/comissoes',   icon: Wallet },
     { name: 'Fechamento',     href: '/comissoes/fechamento',   icon: Wallet },
     { name: 'Relatórios',     href: '/relatorios',             icon: FileChartColumn },
+    { name: 'Ranking',        href: '/relatorios/ranking',     icon: Trophy },
     { name: 'Parâmetros',     href: '/parametros',             icon: Settings },
     $permissoes.isMaster
       ? { name: 'Master',     href: '/master',                 icon: Shield }
