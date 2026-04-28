@@ -1,4 +1,4 @@
-export type VoucherProvider = "special_tours" | "europamundo";
+export type VoucherProvider = "special_tours" | "europamundo" | "sato_tours";
 
 export type VoucherAssetProvider = "cvc" | VoucherProvider | "generic";
 

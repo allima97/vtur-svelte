@@ -39,7 +39,7 @@ function normalizeOrder(value: FormDataEntryValue | string | null | undefined) {
 }
 
 function validateProvider(provider: string) {
-  if (!['cvc', 'special_tours', 'europamundo', 'generic'].includes(provider)) {
+  if (!['cvc', 'special_tours', 'europamundo', 'sato_tours', 'generic'].includes(provider)) {
     throw new Error('Provider inválido para voucher asset.');
   }
   return provider;

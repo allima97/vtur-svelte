@@ -29,6 +29,7 @@
     { value: 'cvc', label: 'CVC' },
     { value: 'special_tours', label: 'Special Tours' },
     { value: 'europamundo', label: 'Europamundo' },
+    { value: 'sato_tours', label: 'Sato Tours' },
     { value: 'generic', label: 'Genérico' }
   ];
 

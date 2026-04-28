@@ -417,7 +417,7 @@ export async function extractVoucherImportFromFile(file: File, provider: Voucher
   
   if (ext === "txt") {
     const text = await file.text();
-    return provider === "special_tours" 
+    return provider === "special_tours" || provider === "sato_tours"
       ? parseSpecialToursCircuitPasteText(text)
       : parseVoucherImportText(text, provider);
   }

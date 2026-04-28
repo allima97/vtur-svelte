@@ -82,7 +82,7 @@
       <div class="voucher-preview__meta min-w-0">
         <h2 class="voucher-preview__title truncate">{voucher.nome}</h2>
         <p class="voucher-preview__subtitle">
-          {voucher.provider === 'special_tours' ? 'Special Tours' : 'Europamundo'}
+          {voucher.provider === 'special_tours' ? 'Special Tours' : voucher.provider === 'europamundo' ? 'Europamundo' : 'Sato Tours'}
           {#if voucher.codigo_fornecedor}
             <span class="hidden sm:inline"> • Código: {voucher.codigo_fornecedor}</span>
           {/if}

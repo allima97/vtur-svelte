@@ -14,9 +14,25 @@
     FieldTextarea
   } from '../ui';
   import { toast } from '../../stores/ui';
-  import { createEmptyVoucherImport, parseSpecialToursCircuitPasteText, parseSpecialToursHotelPaste } from '../../vouchers/import';
+  import {
+    createEmptyVoucherImport,
+    extractVoucherImportFromFile,
+    parseSpecialToursCircuitPasteText,
+    parseSpecialToursHotelPaste,
+    parseVoucherImportText
+  } from '../../vouchers/import';
   import { normalizeVoucherExtraData, createBlankPassengerDetail, buildPassengerSummary, createBlankAppInfo } from '../../vouchers/extraData';
-  import type { VoucherProvider, VoucherDia, VoucherHotel, VoucherRecord, VoucherAssetRecord, VoucherExtraData, VoucherTransferInfo, VoucherAppInfo } from '../../vouchers/types';
+  import type {
+    VoucherProvider,
+    VoucherDia,
+    VoucherHotel,
+    VoucherRecord,
+    VoucherAssetRecord,
+    VoucherExtraData,
+    VoucherTransferInfo,
+    VoucherAppInfo,
+    VoucherImportResult
+  } from '../../vouchers/types';
 
   type VoucherDiaForm = Omit<VoucherDia, 'cidade'> & {
     cidade: string;
@@ -65,8 +81,16 @@
   let currentStep = 0;
   let saving = false;
   let savingAsDraft = false;
+  let travelPasteText = '';
   let circuitPasteText = '';
   let hotelPasteText = '';
+  let importingTravel = false;
+  let importingCircuit = false;
+  let importingHotels = false;
+  let importingFile = false;
+  let importedFileName = '';
+  let importFileInput: HTMLInputElement | null = null;
+  let importAccordion: string[] = [];
   let activeDayIndexes: number[] = [];
   let activeHotelIndexes: number[] = [];
   let validationErrors: Record<string, string> = {};
@@ -80,7 +104,8 @@
 
   const providers: { value: VoucherProvider; label: string }[] = [
     { value: 'special_tours', label: 'Special Tours' },
-    { value: 'europamundo', label: 'Europamundo' }
+    { value: 'europamundo', label: 'Europamundo' },
+    { value: 'sato_tours', label: 'Sato Tours' }
   ];
 
   const acomodacaoOptions = [
@@ -155,8 +180,15 @@
   $: if (open) {
     form = voucher ? formFromVoucher(voucher) : initForm();
     currentStep = 0;
+    travelPasteText = '';
     circuitPasteText = '';
     hotelPasteText = '';
+    importingTravel = false;
+    importingCircuit = false;
+    importingHotels = false;
+    importingFile = false;
+    importedFileName = '';
+    importAccordion = [];
     activeDayIndexes = [];
     activeHotelIndexes = [];
     validationErrors = {};
@@ -291,35 +323,109 @@
     form.hoteis = [...form.hoteis];
   }
 
-  function importCircuitFromPaste() {
+  function applyImportedResult(imported: VoucherImportResult, options: { replaceDays?: boolean; replaceHotels?: boolean } = {}) {
+    const replaceDays = options.replaceDays ?? false;
+    const replaceHotels = options.replaceHotels ?? false;
+    const nextDays = replaceDays ? imported.dias || [] : form.dias;
+    const nextHotels = replaceHotels ? imported.hoteis || [] : form.hoteis;
+
+    form = {
+      ...form,
+      provider: imported.provider || form.provider,
+      nome: imported.nome || form.nome,
+      codigo_systur: imported.codigo_systur || form.codigo_systur,
+      codigo_fornecedor: imported.codigo_fornecedor || form.codigo_fornecedor,
+      reserva_online: imported.reserva_online || form.reserva_online,
+      passageiros: imported.passageiros || form.passageiros,
+      tipo_acomodacao: imported.tipo_acomodacao || form.tipo_acomodacao,
+      operador: imported.operador || form.operador,
+      resumo: imported.resumo || form.resumo,
+      data_inicio: imported.data_inicio || form.data_inicio,
+      data_fim: imported.data_fim || form.data_fim,
+      extra_data: normalizeVoucherExtraData(imported.extra_data || form.extra_data, imported.provider || form.provider),
+      dias: nextDays.map((d, i) => normalizeDiaForForm({ ...d, ordem: i }, i)),
+      hoteis: nextHotels.map((h, i) => normalizeHotelForForm({ ...h, ordem: i }, i))
+    };
+
+    syncDaysWithStartDate();
+  }
+
+  async function importTravelFromPaste() {
+    if (!travelPasteText.trim()) {
+      toast.error('Cole os dados da viagem antes de importar');
+      return;
+    }
+    try {
+      importingTravel = true;
+      const imported = parseVoucherImportText(travelPasteText, form.provider);
+      applyImportedResult(imported, { replaceDays: false, replaceHotels: false });
+      toast.success('Dados da viagem importados com sucesso');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar dados da viagem');
+    } finally {
+      importingTravel = false;
+    }
+  }
+
+  async function importItineraryFromPaste() {
     if (!circuitPasteText.trim()) {
       toast.error('Cole o itinerário antes de importar');
       return;
     }
     try {
-      const imported = parseSpecialToursCircuitPasteText(circuitPasteText);
-      form.dias = imported.dias.map((d, i) => normalizeDiaForForm({ ...d, ordem: i }, i));
-      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => normalizeHotelForForm({ ...h, ordem: form.hoteis.length + i }, form.hoteis.length + i))];
-      syncDaysWithStartDate();
-      circuitPasteText = '';
-      toast.success('Itinerário importado com sucesso!');
+      importingCircuit = true;
+      const imported =
+        form.provider === 'special_tours' || form.provider === 'sato_tours'
+          ? parseSpecialToursCircuitPasteText(circuitPasteText)
+          : parseVoucherImportText(circuitPasteText, form.provider);
+      applyImportedResult(imported, { replaceDays: true, replaceHotels: false });
+      toast.success('Itinerário importado com sucesso');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao importar itinerário');
+    } finally {
+      importingCircuit = false;
     }
   }
 
-  function importHotelsFromPaste() {
+  async function importHotelsFromPasteUnified() {
     if (!hotelPasteText.trim()) {
       toast.error('Cole a lista de hotéis antes de importar');
       return;
     }
     try {
-      const imported = parseSpecialToursHotelPaste(hotelPasteText);
-      form.hoteis = [...form.hoteis, ...imported.hoteis.map((h, i) => normalizeHotelForForm({ ...h, ordem: form.hoteis.length + i }, form.hoteis.length + i))];
-      hotelPasteText = '';
-      toast.success('Hotéis importados com sucesso!');
+      importingHotels = true;
+      const imported =
+        form.provider === 'special_tours' || form.provider === 'sato_tours'
+          ? parseSpecialToursHotelPaste(hotelPasteText)
+          : parseVoucherImportText(hotelPasteText, form.provider);
+      applyImportedResult(imported, { replaceDays: false, replaceHotels: true });
+      toast.success('Hotéis importados com sucesso');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao importar hotéis');
+    } finally {
+      importingHotels = false;
+    }
+  }
+
+  async function importFromFile(file: File) {
+    try {
+      importingFile = true;
+      importedFileName = file.name;
+      const imported = await extractVoucherImportFromFile(file, form.provider);
+      applyImportedResult(imported, { replaceDays: true, replaceHotels: true });
+      toast.success('Arquivo importado com sucesso');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar arquivo');
+    } finally {
+      importingFile = false;
+    }
+  }
+
+  function toggleImportAccordion(key: string) {
+    if (importAccordion.includes(key)) {
+      importAccordion = importAccordion.filter((item) => item !== key);
+    } else {
+      importAccordion = [...importAccordion, key];
     }
   }
 
@@ -562,6 +668,96 @@
         <!-- ETAPA 1: Dados da Viagem -->
         {#if currentStep === 0}
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
+            <div class="vtur-modal-section-compact bg-slate-50 rounded-xl p-5 border border-slate-200">
+              <h3 class="font-semibold text-slate-900 mb-2">Importar dados do voucher</h3>
+              <p class="text-sm text-slate-600 mb-4">
+                Cole cada parte do voucher na caixa correspondente ou importe por arquivo.
+              </p>
+
+              <input
+                bind:this={importFileInput}
+                type="file"
+                class="hidden"
+                accept=".docx,.pdf,.txt"
+                on:change={async (event) => {
+                  const file = (event.currentTarget as HTMLInputElement).files?.[0];
+                  (event.currentTarget as HTMLInputElement).value = '';
+                  if (!file) return;
+                  await importFromFile(file);
+                }}
+              />
+
+              <div class="space-y-2">
+                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('viagem')}>
+                    <span>Colar dados da viagem</span>
+                    <ChevronDown size={16} class={importAccordion.includes('viagem') ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                  </Button>
+                  {#if importAccordion.includes('viagem')}
+                    <div class="p-4 border-t border-slate-100 space-y-3">
+                      <FieldTextarea bind:value={travelPasteText} rows={8} placeholder="Cole os dados da viagem, passageiros e informações principais..." />
+                      <div class="flex gap-2 flex-wrap">
+                        <Button variant="secondary" size="sm" on:click={importTravelFromPaste} disabled={importingTravel}>
+                          {importingTravel ? 'Importando...' : 'Importar dados da viagem'}
+                        </Button>
+                        {#if travelPasteText}
+                          <Button variant="ghost" size="sm" on:click={() => (travelPasteText = '')}>Limpar</Button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+
+                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('itinerario')}>
+                    <span>Colar itinerário</span>
+                    <ChevronDown size={16} class={importAccordion.includes('itinerario') ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                  </Button>
+                  {#if importAccordion.includes('itinerario')}
+                    <div class="p-4 border-t border-slate-100 space-y-3">
+                      <FieldTextarea bind:value={circuitPasteText} rows={8} placeholder="Cole o itinerário dia a dia..." />
+                      <div class="flex gap-2 flex-wrap">
+                        <Button variant="secondary" size="sm" on:click={importItineraryFromPaste} disabled={importingCircuit}>
+                          {importingCircuit ? 'Importando...' : 'Importar itinerário'}
+                        </Button>
+                        {#if circuitPasteText}
+                          <Button variant="ghost" size="sm" on:click={() => (circuitPasteText = '')}>Limpar</Button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+
+                <div class="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                  <Button type="button" variant="ghost" class_name="w-full !justify-between !rounded-none !px-4 !py-4" on:click={() => toggleImportAccordion('hoteis')}>
+                    <span>Colar lista de hotéis</span>
+                    <ChevronDown size={16} class={importAccordion.includes('hoteis') ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                  </Button>
+                  {#if importAccordion.includes('hoteis')}
+                    <div class="p-4 border-t border-slate-100 space-y-3">
+                      <FieldTextarea bind:value={hotelPasteText} rows={8} placeholder="Cole a lista de hotéis..." />
+                      <div class="flex gap-2 flex-wrap">
+                        <Button variant="secondary" size="sm" on:click={importHotelsFromPasteUnified} disabled={importingHotels}>
+                          {importingHotels ? 'Importando...' : 'Importar hotéis'}
+                        </Button>
+                        {#if hotelPasteText}
+                          <Button variant="ghost" size="sm" on:click={() => (hotelPasteText = '')}>Limpar</Button>
+                        {/if}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 mt-4">
+                <Button variant="primary" on:click={() => importFileInput?.click()} disabled={importingFile}>
+                  {importingFile ? 'Importando arquivo...' : 'Importar arquivo'}
+                </Button>
+                <span class="text-sm text-slate-600">{importedFileName || 'Nenhum arquivo selecionado'}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Escolha o arquivo Word (.docx), PDF ou texto (.txt) e importe tudo de uma vez.</p>
+            </div>
+
             <!-- Provider -->
             <fieldset class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <legend class="block text-sm font-medium text-slate-700 mb-3">Fornecedor</legend>
@@ -778,30 +974,6 @@
         <!-- ETAPA 2: Dia a Dia Circuito -->
         {:else if currentStep === 1}
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
-            <!-- Import from paste -->
-            <div class="vtur-modal-section-compact bg-blue-50 p-5 rounded-xl border border-blue-200">
-              <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
-                <FileText size={16} />
-                Importar do Special Tours (colar texto)
-              </p>
-              <FieldTextarea
-                bind:value={circuitPasteText}
-                rows={4}
-                placeholder="Cole aqui o itinerário do Special Tours..."
-              />
-              <div class="vtur-modal-grid-compact flex gap-2 mt-3">
-                <Button variant="secondary" size="sm" on:click={importCircuitFromPaste}>
-                  <FileText size={14} class="mr-1" />
-                  Importar Itinerário
-                </Button>
-                {#if circuitPasteText}
-                  <Button variant="ghost" size="sm" on:click={() => circuitPasteText = ''}>
-                    Limpar
-                  </Button>
-                {/if}
-              </div>
-            </div>
-
             <!-- Days List -->
             <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="flex items-center justify-between mb-4">
@@ -923,30 +1095,6 @@
         <!-- ETAPA 3: Hotéis Confirmados -->
         {:else if currentStep === 2}
           <div class="space-y-4 md:space-y-6" in:fade={{ duration: 200 }}>
-            <!-- Import from paste -->
-            <div class="vtur-modal-section-compact bg-blue-50 p-5 rounded-xl border border-blue-200">
-              <p class="block text-sm font-medium text-blue-900 mb-2 flex items-center gap-2">
-                <FileText size={16} />
-                Importar Hotéis do Special Tours (colar texto)
-              </p>
-              <FieldTextarea
-                bind:value={hotelPasteText}
-                rows={4}
-                placeholder="Cole aqui a lista de hotéis..."
-              />
-              <div class="vtur-modal-grid-compact flex gap-2 mt-3">
-                <Button variant="secondary" size="sm" on:click={importHotelsFromPaste}>
-                  <FileText size={14} class="mr-1" />
-                  Importar Hotéis
-                </Button>
-                {#if hotelPasteText}
-                  <Button variant="ghost" size="sm" on:click={() => hotelPasteText = ''}>
-                    Limpar
-                  </Button>
-                {/if}
-              </div>
-            </div>
-
             <!-- Hotels List -->
             <div class="vtur-modal-section-compact bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div class="flex items-center justify-between mb-4">

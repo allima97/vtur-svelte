@@ -43,6 +43,7 @@ function formatDateBR(value?: string | null) {
 function providerLabel(provider?: string | null) {
   if (provider === "special_tours") return "Special Tours";
   if (provider === "europamundo") return "Europamundo";
+  if (provider === "sato_tours") return "Sato Tours";
   return "Voucher";
 }
 
@@ -748,10 +749,16 @@ function buildInfoRow(label: string, content: string) {
     </div>`;
 }
 
-function buildSpecialToursPreviewDocument(voucher: VoucherRecord, assets: VoucherAssetRecord[]) {
+function buildSpecialToursPreviewDocument(
+  voucher: VoucherRecord,
+  assets: VoucherAssetRecord[],
+  options?: { providerAsset?: "special_tours" | "sato_tours"; providerName?: string }
+) {
+  const providerAsset = options?.providerAsset || "special_tours";
+  const providerName = options?.providerName || "Special Tours";
   const cvcLogo = pickAssetUrl(assets, "cvc", "logo");
-  const providerLogo = pickAssetUrl(assets, "special_tours", "logo");
-  const providerImages = pickAssetUrls(assets, "special_tours", "image");
+  const providerLogo = pickAssetUrl(assets, providerAsset, "logo");
+  const providerImages = pickAssetUrls(assets, providerAsset, "image");
   const routeTitle = buildRouteTitle(voucher);
   const passengerLines = splitPassengerLines(voucher.passageiros);
   const dias = normalizePreviewDays((voucher.voucher_dias || []) as VoucherDia[], voucher.data_inicio);
@@ -783,7 +790,7 @@ function buildSpecialToursPreviewDocument(voucher: VoucherRecord, assets: Vouche
     </div>`;
 
   const programSection = renderProgramSections({
-    providerName: "Special Tours",
+    providerName,
     cvcLogo,
     providerLogo,
     routeTitle,
@@ -1920,6 +1927,12 @@ function buildGenericVoucherPreviewDocument(voucher: VoucherRecord, assets: Vouc
 export function buildVoucherPreviewDocument(voucher: VoucherRecord, assets: VoucherAssetRecord[] = []) {
   if (voucher.provider === "special_tours") {
     return buildSpecialToursPreviewDocument(voucher, assets);
+  }
+  if (voucher.provider === "sato_tours") {
+    return buildSpecialToursPreviewDocument(voucher, assets, {
+      providerAsset: "sato_tours",
+      providerName: "Sato Tours",
+    });
   }
   if (voucher.provider === "europamundo") {
     return buildEuropamundoPreviewDocument(voucher, assets);

@@ -29,8 +29,16 @@
       sortable: true,
       width: '140px',
       formatter: (v: VoucherProvider) => {
-        const labels = { special_tours: 'Special Tours', europamundo: 'Europamundo' };
-        const colors = { special_tours: 'bg-blue-100 text-blue-700', europamundo: 'bg-orange-100 text-orange-700' };
+        const labels: Record<VoucherProvider, string> = {
+          special_tours: 'Special Tours',
+          europamundo: 'Europamundo',
+          sato_tours: 'Sato Tours'
+        };
+        const colors: Record<VoucherProvider, string> = {
+          special_tours: 'bg-blue-100 text-blue-700',
+          europamundo: 'bg-orange-100 text-orange-700',
+          sato_tours: 'bg-emerald-100 text-emerald-700'
+        };
         return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${colors[v]}">${labels[v] || v}</span>`;
       }
     },
@@ -148,7 +156,7 @@
 
 <PageHeader 
   title="Vouchers"
-  subtitle="Gerenciamento de vouchers Special Tours e Europamundo"
+  subtitle="Gerenciamento de vouchers Special Tours, Europamundo e Sato Tours"
   color="clientes"
   breadcrumbs={[
     { label: 'Operação', href: '/operacao' },
@@ -160,7 +168,7 @@
 />
 
 <!-- Resumo -->
-<div class="vtur-kpi-grid mb-6">
+<div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-5">
   <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <Ticket size={20} />
@@ -191,6 +199,18 @@
       <p class="text-sm font-medium text-slate-500">Europamundo</p>
       <p class="text-2xl font-bold text-slate-900">
         {vouchers.filter(v => v.provider === 'europamundo').length}
+      </p>
+    </div>
+  </div>
+
+  <div class="vtur-kpi-card border-t-[3px] border-t-emerald-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
+      <Ticket size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Sato Tours</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {vouchers.filter(v => v.provider === 'sato_tours').length}
       </p>
     </div>
   </div>

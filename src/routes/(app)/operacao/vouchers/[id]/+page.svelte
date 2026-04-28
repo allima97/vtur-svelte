@@ -37,6 +37,12 @@
       color: 'text-orange-700', 
       bg: 'bg-orange-50',
       border: 'border-orange-200'
+    },
+    sato_tours: {
+      label: 'Sato Tours',
+      color: 'text-emerald-700',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-200'
     }
   };
 
