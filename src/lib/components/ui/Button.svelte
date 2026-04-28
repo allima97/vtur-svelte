@@ -82,6 +82,12 @@
   };
 
   $: resolvedColor = colorAlias[color] || 'blue';
+
+  // Variantes que controlam 100% das cores via variantClasses — não devem
+  // receber a cor Flowbite (que injeta background azul sobrescrevendo bg-transparent)
+  const neutralVariants = new Set(['secondary', 'outline', 'ghost', 'unstyled', 'selected']);
+  $: flowbiteColor = neutralVariants.has(variant) ? 'none' : (resolvedColor as any);
+
   $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
 </script>
 
@@ -90,7 +96,7 @@
     {href}
     id={id ?? undefined}
     {size}
-    color={resolvedColor as any}
+    color={flowbiteColor}
     title={title ?? undefined}
     aria-label={ariaLabel ?? undefined}
     aria-haspopup={ariaHaspopup ?? undefined}
@@ -114,7 +120,7 @@
     {type}
     id={id ?? undefined}
     {size}
-    color={resolvedColor as any}
+    color={flowbiteColor}
     title={title ?? undefined}
     aria-label={ariaLabel ?? undefined}
     aria-haspopup={ariaHaspopup ?? undefined}

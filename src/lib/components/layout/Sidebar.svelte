@@ -649,12 +649,12 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent px-2 py-2 text-white transition-all duration-200 hover:bg-transparent hover:text-white ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open text-white' : ''}`}
+      class_name={`vtur-mobile-nav__menu flex flex-col items-center justify-center gap-1 ${$sidebar.isOpen ? 'vtur-mobile-nav__menu--open' : ''}`}
       on:click={() => sidebar.toggle()}
       ariaLabel="Abrir menu"
     >
-      <Menu size={28} />
-      <span class="text-xs font-medium leading-none">Menu</span>
+      <Menu size={22} />
+      <span class="text-[0.65rem] font-medium leading-none">Menu</span>
     </Button>
 
     <!-- Coluna 2: Módulo/Página atual — ícone + nome em destaque -->
@@ -664,7 +664,7 @@
       on:click={() => sidebar.close()}
       aria-label={currentNavEntry.name}
     >
-      <svelte:component this={currentNavEntry.icon} size={28} />
+      <svelte:component this={currentNavEntry.icon} size={22} />
       <span class="vtur-mobile-nav__label">{currentNavEntry.name}</span>
     </a>
 
