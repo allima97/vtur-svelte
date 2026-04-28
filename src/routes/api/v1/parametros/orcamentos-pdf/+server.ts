@@ -73,7 +73,7 @@ export async function POST(event) {
     const body = await event.request.json();
     const { settings } = body;
 
-    const payload = {
+    const payload: Record<string, string | null> = {
       owner_user_id: user.id,
       company_id: scope.companyId,
       consultor_nome: String(settings?.consultor_nome || '').trim() || null,
@@ -87,6 +87,12 @@ export async function POST(event) {
       email: String(settings?.email || '').trim() || null,
       rodape_texto: String(settings?.rodape_texto || DEFAULT_FOOTER).trim() || DEFAULT_FOOTER
     };
+
+    // Inclui campos de imagem apenas quando presentes no body (para não sobrescrever com null)
+    if ('logo_url' in (settings || {})) payload.logo_url = String(settings.logo_url || '').trim() || null;
+    if ('logo_path' in (settings || {})) payload.logo_path = String(settings.logo_path || '').trim() || null;
+    if ('imagem_complementar_url' in (settings || {})) payload.imagem_complementar_url = String(settings.imagem_complementar_url || '').trim() || null;
+    if ('imagem_complementar_path' in (settings || {})) payload.imagem_complementar_path = String(settings.imagem_complementar_path || '').trim() || null;
 
     const { data: existing } = await client.from('quote_print_settings').select('id').eq('owner_user_id', user.id).maybeSingle();
 

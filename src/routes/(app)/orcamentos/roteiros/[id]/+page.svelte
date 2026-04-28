@@ -4,6 +4,7 @@
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import { supabase } from '$lib/db/supabase';
+  import { construirLinkWhatsApp } from '$lib/whatsapp';
   import { mergeImportedRoteiroAereo, parseImportedRoteiroAereo } from '$lib/roteiroAereoImport';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -112,9 +113,19 @@
     endereco_linha3?: string;
     telefone?: string;
     whatsapp?: string;
+    whatsapp_codigo_pais?: string;
     email?: string;
     rodape_texto?: string;
     logo_url?: string;
+    logo_path?: string;
+    imagem_complementar_url?: string;
+    imagem_complementar_path?: string;
+  };
+
+  type PreviewPdfAssets = {
+    logoUrl: string | null;
+    qrUrl: string | null;
+    complementUrl: string | null;
   };
 
   // ─── Constants ─────────────────────────────────────────────────────────────
@@ -934,7 +945,78 @@
     return `${buildPreviewTable(['Cia', 'Origem', 'Saída', 'Destino', 'Chegada', 'Horários'], rows, 'flight-preview-table')}${legendHtml}`;
   }
 
-  function buildRoteiroPreviewHtml() {
+  function extractStoragePath(url?: string | null): string | null {
+    if (!url) return null;
+    const marker = '/quotes/';
+    const idx = url.indexOf(marker);
+    return idx === -1 ? null : url.slice(idx + marker.length);
+  }
+
+  function blobToDataUrl(blob: Blob, fallbackMime?: string): Promise<string> {
+    return new Promise((resolve) => {
+      let finalBlob = blob;
+      if (fallbackMime && (!blob.type || blob.type === 'application/octet-stream')) {
+        finalBlob = new Blob([blob], { type: fallbackMime });
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(finalBlob);
+    });
+  }
+
+  function guessMimeFromPath(path: string): string {
+    const lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.svg')) return 'image/svg+xml';
+    return 'image/png';
+  }
+
+  async function storageImageToDataUrl(path?: string | null, url?: string | null): Promise<string | null> {
+    const storagePath = path || extractStoragePath(url);
+    if (!storagePath) return null;
+
+    try {
+      const { data: blob, error } = await supabase.storage.from('quotes').download(storagePath);
+      if (error || !blob) return null;
+      const dataUrl = await blobToDataUrl(blob, guessMimeFromPath(storagePath));
+      return dataUrl || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function externalImageToDataUrl(url: string): Promise<string | null> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      const dataUrl = await blobToDataUrl(blob, 'image/png');
+      return dataUrl || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function resolvePreviewPdfAssets(): Promise<PreviewPdfAssets> {
+    const whatsappLink = construirLinkWhatsApp(pdfSettings.whatsapp, pdfSettings.whatsapp_codigo_pais);
+    const qrSource = whatsappLink
+      ? `https://quickchart.io/qr?size=200&margin=1&text=${encodeURIComponent(whatsappLink)}`
+      : null;
+
+    const [logoUrl, complementUrl, qrUrl] = await Promise.all([
+      storageImageToDataUrl(pdfSettings.logo_path, pdfSettings.logo_url),
+      storageImageToDataUrl(pdfSettings.imagem_complementar_path, pdfSettings.imagem_complementar_url),
+      qrSource ? externalImageToDataUrl(qrSource) : Promise.resolve(null),
+    ]);
+
+    return { logoUrl, complementUrl, qrUrl };
+  }
+
+  function buildRoteiroPreviewHtml(assets: PreviewPdfAssets = { logoUrl: null, qrUrl: null, complementUrl: null }) {
     const diasItems = dias.filter((dia) => dia.cidade || dia.percurso || dia.data || dia.descricao);
     const diasHtml = diasItems.length > 0
       ? buildPreviewCards(
@@ -1052,7 +1134,7 @@
           <tbody>
             <tr>
               <td class="preview-header-left">
-                ${pdfSettings.logo_url ? `<img src="${escapePreviewHtml(pdfSettings.logo_url)}" class="preview-logo" />` : ''}
+                ${assets.logoUrl ? `<img src="${escapePreviewHtml(assets.logoUrl)}" class="preview-logo" alt="Logo" />` : ''}
                 <div class="preview-header-copy">
                   ${pdfSettings.filial_nome ? `<div>${escapePreviewHtml(`Filial: ${pdfSettings.filial_nome}`)}</div>` : ''}
                   ${pdfSettings.endereco_linha1 ? `<div>${escapePreviewHtml(pdfSettings.endereco_linha1)}</div>` : ''}
@@ -1061,7 +1143,17 @@
                 </div>
               </td>
               <td class="preview-header-right">
-                ${rightLines.map((line) => `<div>${escapePreviewHtml(line)}</div>`).join('')}
+                <table class="preview-header-right-inner">
+                  <tbody>
+                    <tr>
+                      <td class="preview-right-lines">
+                        ${assets.qrUrl ? '<div class="preview-qr-label">Aponte para o QR Code abaixo e chame o consultor:</div>' : ''}
+                        ${rightLines.map((line) => `<div>${escapePreviewHtml(line)}</div>`).join('')}
+                      </td>
+                      ${assets.qrUrl ? `<td class="preview-qr-cell"><img src="${escapePreviewHtml(assets.qrUrl)}" class="preview-qr" alt="QR Code WhatsApp" /></td>` : ''}
+                    </tr>
+                  </tbody>
+                </table>
               </td>
             </tr>
           </tbody>
@@ -1078,7 +1170,7 @@
       </section>`;
 
     const footerHtml = footerLines.length > 0
-      ? `<section class="preview-footer-card"><div>${footerLines.map((line) => escapePreviewHtml(line)).join('<br/>')}</div></section>`
+      ? `<section class="preview-footer-card"><div>${footerLines.map((line) => escapePreviewHtml(line)).join('<br/>')}</div>${assets.complementUrl ? `<div class="preview-complement-img"><img src="${escapePreviewHtml(assets.complementUrl)}" alt="Imagem complementar" /></div>` : ''}</section>`
       : '';
 
     return `<!doctype html>
@@ -1098,8 +1190,13 @@
             .preview-header-left, .preview-header-right { vertical-align: top; }
             .preview-header-left { width: 52%; }
             .preview-header-right { width: 48%; font-size: 11px; color: #334155; }
+            .preview-header-right-inner { width: 100%; border-collapse: separate; border-spacing: 0; }
             .preview-logo { max-width: 120px; max-height: 56px; width: auto; height: auto; object-fit: contain; }
             .preview-header-copy { font-size: 11px; color: #0f172a; margin: 8px 0 0 0; }
+            .preview-right-lines { vertical-align: top; }
+            .preview-qr-label { font-size: 9px; color: #475569; margin: 0 0 5px 0; }
+            .preview-qr-cell { vertical-align: top; text-align: right; width: 76px; }
+            .preview-qr { width: 66px; height: 66px; }
             .preview-header-divider { height: 1px; background: #dbe3f0; margin: 10px 0 0 0; }
             .preview-title-card { padding: 14px 16px; margin: 0 0 14px 0; }
             .preview-title-kicker { font-size: 18px; font-weight: 700; color: #1a2cc8; }
@@ -1122,6 +1219,8 @@
             .preview-legend { margin-top: 10px; font-size: 11px; color: #334155; }
             .preview-legend div + div { margin-top: 4px; }
             .preview-footer-card { padding: 12px 14px; margin: 0 0 12px 0; font-size: 10px; color: #64748b; }
+            .preview-complement-img { margin: 12px 0 0 0; text-align: center; }
+            .preview-complement-img img { max-height: 170px; max-width: 100%; }
             .hotel-preview-table.preview-table { font-size: 13px; }
             .hotel-preview-table.preview-table thead th { font-size: 12px; }
             .hotel-preview-table.preview-table tbody td { font-size: 13px; }
@@ -1140,6 +1239,20 @@
               .preview-header-card, .preview-title-card, .preview-footer-card, .section { box-shadow: none; border-radius: 0; }
               .preview-title-card, .section { padding: 12px 14px 18px; }
               .preview-table-wrap { border-radius: 0; }
+              .section { break-inside: auto; page-break-inside: auto; }
+              .section h2 { break-after: avoid; page-break-after: avoid; }
+              .preview-header-card,
+              .preview-title-card,
+              .preview-footer-card,
+              .card,
+              .preview-group-block,
+              .preview-table-wrap,
+              .preview-complement-img,
+              .preview-header-table,
+              .preview-header-right-inner {
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
             }
           </style>
         </head>
@@ -1163,11 +1276,12 @@
       </html>`;
   }
 
-  function handlePreviewPdf() {
+  async function handlePreviewPdf() {
     if (!browser) return;
     previewingPdf = true;
     try {
-      const html = buildRoteiroPreviewHtml();
+      const assets = await resolvePreviewPdfAssets();
+      const html = buildRoteiroPreviewHtml(assets);
       const previewUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
       const previewWindow = window.open(previewUrl, '_blank');
       if (!previewWindow) {

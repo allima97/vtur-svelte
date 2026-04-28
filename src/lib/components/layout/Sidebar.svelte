@@ -233,7 +233,13 @@
     // mas respeitando a preferência de ocultar do usuário.
     if (item.href.startsWith('/perfil')) return !isHiddenByUserPreference(item);
 
-    // Rotas master seguem gate exclusivo do papel MASTER.
+    // /master/permissoes é visível para Master E para quem tem permissão MasterPermissoes
+    // (ex: Gestores com essa permissão atribuída) — igual ao vtur-app
+    if (item.href === '/master/permissoes' || item.href.startsWith('/master/permissoes/')) {
+      return $permissoes.isMaster || permissoes.can('MasterPermissoes', 'view');
+    }
+
+    // Demais rotas /master/* seguem gate exclusivo do papel MASTER
     if (item.href.startsWith('/master')) return $permissoes.isMaster;
 
     const modulo = descobrirModulo(item.href);
@@ -280,11 +286,12 @@
     };
   });
 
-  // hiddenMenuSet é referenciado explicitamente para garantir que o Svelte
-  // rastreie esta dependência e recompute os blocos visíveis quando as
-  // preferências de ocultação do usuário mudarem.
+  // hiddenMenuSet e $permissoes são referenciados explicitamente para garantir
+  // que o Svelte rastreie estas dependências e recompute os blocos visíveis
+  // quando as preferências do usuário OU as permissões mudarem.
   $: {
     hiddenMenuSet;
+    $permissoes; // força reatividade quando o store de permissões atualiza
     visibleMenuSections = menuSections
       .map((section) => ({
         ...section,
@@ -379,6 +386,7 @@
 
   $: {
     hiddenMenuSet;
+    $permissoes; // força reatividade quando o store de permissões atualiza
     visibleMobileNavEntries = mobileNavEntries.filter((entry) =>
       canSeeItem({ key: entry.key, name: entry.name, href: entry.href, icon: entry.icon })
     );

@@ -1,9 +1,22 @@
-import { error } from '@sveltejs/kit';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestEvent } from '@sveltejs/kit';
 import { listarModulosComHeranca, MAPA_MODULOS, MODULO_ALIASES } from '$lib/config/modulos';
+
+// Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
+class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
+function error(status: number, message: string): never {
+  throw new ApiError(status, message);
+}
 
 export type Papel = 'ADMIN' | 'MASTER' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
 export type PermissaoNivel = 'none' | 'view' | 'create' | 'edit' | 'delete' | 'admin';
@@ -272,12 +285,20 @@ export async function resolveUserScope(client: SupabaseClient, userId: string): 
   const papel = resolvePapel(tipoNome, usoIndividual);
   const permissoes = await fetchPermissions(client, userId);
   const companyId = isUuid(profile.company_id) ? String(profile.company_id) : null;
-  const companyIds =
-    papel === 'MASTER'
-      ? await fetchMasterEmpresas(client, userId)
+
+  let companyIds: string[];
+  if (papel === 'MASTER') {
+    const masterEmpresas = await fetchMasterEmpresas(client, userId);
+    // Fallback para Master sem master_empresas: usa o próprio company_id do perfil
+    // (igual ao comportamento do vtur-app)
+    companyIds = masterEmpresas.length > 0
+      ? masterEmpresas
       : companyId
         ? [companyId]
         : [];
+  } else {
+    companyIds = companyId ? [companyId] : [];
+  }
 
   return {
     userId,

@@ -14,7 +14,8 @@ export const load = async () => {
 
     if (session?.user) {
       auth.setAuth(session.user, session);
-      await permissoes.init(supabase);
+      // Permissões são inicializadas pelo (app)/+layout.svelte após sessionSynced
+      // mas garantimos que o auth store esteja pronto para o listener abaixo
     } else {
       auth.setLoading(false);
       permissoes.reset();
@@ -26,7 +27,12 @@ export const load = async () => {
       supabase.auth.onAuthStateChange(async (event: string, session: Session | null) => {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
           auth.setAuth(session.user, session);
-          await permissoes.init(supabase);
+          // Reinicializa permissões quando auth muda
+          try {
+            await permissoes.init(supabase);
+          } catch (err) {
+            console.error('[layout.ts] Erro ao reinicializar permissoes:', err);
+          }
           return;
         }
 
@@ -37,6 +43,6 @@ export const load = async () => {
       });
     }
   }
-  
+
   return {};
 };

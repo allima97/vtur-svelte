@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
-  ensureCanManagePermissions,
   listManagedUsers,
   loadSystemModuleSettings,
-  loadUserPermissions,
   saveSystemModuleSettings,
   saveUserPermissions
 } from '$lib/server/admin';
@@ -16,18 +15,21 @@ import {
 } from '$lib/admin/modules';
 import {
   getAdminClient,
-  requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 
-export async function GET(event) {
+export async function GET(event: RequestEvent) {
   try {
+    const { session, user } = await event.locals.safeGetSession();
+    if (!session || !user) return new Response('Sessao invalida.', { status: 401 });
+
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureCanManagePermissions(scope);
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+      return new Response('Sem permissao.', { status: 403 });
+    }
 
     const users = await listManagedUsers(client, scope);
     const userIds = users.map((row) => row.id);
@@ -61,11 +63,11 @@ export async function GET(event) {
           email: row.email || null,
           tipo: Array.isArray(row.user_types)
             ? row.user_types[0]?.name || 'OUTRO'
-            : row.user_types?.name || 'OUTRO',
+            : (row.user_types as any)?.name || 'OUTRO',
           empresa:
             (Array.isArray(row.companies)
-              ? row.companies[0]?.nome_fantasia || row.companies[0]?.nome_empresa
-              : row.companies?.nome_fantasia || row.companies?.nome_empresa) || 'Sem empresa',
+              ? (row.companies[0] as any)?.nome_fantasia || (row.companies[0] as any)?.nome_empresa
+              : (row.companies as any)?.nome_fantasia || (row.companies as any)?.nome_empresa) || 'Sem empresa',
           ativos: userPermissions.filter(
             (item: any) => item.ativo !== false && item.permissao !== 'none'
           ).length
@@ -78,19 +80,24 @@ export async function GET(event) {
       )
     });
   } catch (err) {
+    console.error('[permissoes GET]', err);
     return toErrorResponse(err, 'Erro ao carregar painel de permissoes.');
   }
 }
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
+    const { session, user } = await event.locals.safeGetSession();
+    if (!session || !user) return new Response('Sessao invalida.', { status: 401 });
+
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+      return new Response('Sem permissao.', { status: 403 });
+    }
+
     const body = await event.request.json().catch(() => ({}));
-
-    ensureCanManagePermissions(scope);
-
     const action = String(body.action || 'user').trim().toLowerCase();
 
     if (action === 'global') {
@@ -109,7 +116,6 @@ export async function POST(event) {
       return new Response('Usuario alvo nao informado.', { status: 400 });
     }
 
-    // ✅ Valida que o userId alvo pertence ao escopo do solicitante
     const managedUsers = await listManagedUsers(client, scope);
     const isManagedUser = managedUsers.some((row) => row.id === userId);
     if (!isManagedUser) {
@@ -124,6 +130,7 @@ export async function POST(event) {
 
     return json({ ok: true });
   } catch (err) {
+    console.error('[permissoes POST]', err);
     return toErrorResponse(err, 'Erro ao salvar permissoes.');
   }
 }

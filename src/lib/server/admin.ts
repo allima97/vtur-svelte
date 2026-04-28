@@ -1,5 +1,18 @@
-import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
+function error(status: number, message: string): never {
+  throw new ApiError(status, message);
+}
 import {
   MODULOS_ADMIN_PERMISSOES,
   listSystemModuleCatalog,
@@ -172,7 +185,13 @@ export function isUserInScope(scope: UserScope, row: Pick<ManagedUserRow, 'id' |
 
   const roleName = extractUserTypeName({ user_types: row.user_types });
   const companyId = String(row.company_id || '').trim();
-  const accessibleCompanies = new Set(getAccessibleCompanyIds(scope));
+
+  // Fallback para Master sem empresas em master_empresas: usa o company_id do perfil
+  let rawCompanies = getAccessibleCompanyIds(scope);
+  if (scope.isMaster && rawCompanies.length === 0 && scope.companyId) {
+    rawCompanies = [scope.companyId];
+  }
+  const accessibleCompanies = new Set(rawCompanies);
 
   if (scope.isMaster) {
     return accessibleCompanies.has(companyId);
@@ -190,7 +209,13 @@ export function ensureTargetUserScope(scope: UserScope, row: Pick<ManagedUserRow
 
   const roleName = extractUserTypeName({ user_types: row.user_types });
   const companyId = String(row.company_id || '').trim();
-  const accessibleCompanies = new Set(getAccessibleCompanyIds(scope));
+
+  // Fallback para Master sem empresas em master_empresas: usa o company_id do perfil
+  let rawCompanies = getAccessibleCompanyIds(scope);
+  if (scope.isMaster && rawCompanies.length === 0 && scope.companyId) {
+    rawCompanies = [scope.companyId];
+  }
+  const accessibleCompanies = new Set(rawCompanies);
 
   if (scope.isMaster) {
     if (!accessibleCompanies.has(companyId) || isRestrictedUserTypeName(roleName)) {
@@ -260,7 +285,6 @@ export async function listManagedUsers(client: SupabaseClient, scope: UserScope)
         cidade,
         estado,
         active,
-        ativo,
         user_type_id,
         company_id,
         uso_individual,
@@ -276,7 +300,14 @@ export async function listManagedUsers(client: SupabaseClient, scope: UserScope)
     .limit(2000);
 
   if (!scope.isAdmin) {
-    const accessibleCompanies = getAccessibleCompanyIds(scope);
+    let accessibleCompanies = getAccessibleCompanyIds(scope);
+
+    // Fallback para Master sem empresas em master_empresas:
+    // usa o company_id do próprio perfil (igual ao vtur-app)
+    if (scope.isMaster && accessibleCompanies.length === 0 && scope.companyId) {
+      accessibleCompanies = [scope.companyId];
+    }
+
     if (scope.isMaster && accessibleCompanies.length > 0) {
       query = query.in('company_id', accessibleCompanies);
     } else if (scope.companyId) {
@@ -304,7 +335,6 @@ export async function loadManagedUser(client: SupabaseClient, scope: UserScope, 
         cidade,
         estado,
         active,
-        ativo,
         user_type_id,
         company_id,
         uso_individual,

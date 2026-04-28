@@ -15,8 +15,11 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import ModalInteracaoQuote from '$lib/components/modais/ModalInteracaoQuote.svelte';
-  
+  import { openQuotePreview } from '$lib/quote/exportQuotePdfClient';
+  import { createSupabaseBrowserClient } from '$lib/db/supabase';
+
   const orcamentoId = $page.params.id;
+  let previewingPdf = false;
   
   let orcamento: any = null;
   let interacoes: any[] = [];
@@ -148,9 +151,25 @@
     atualizarStatus('enviado');
   }
   
-  function handleImprimir() {
-    toast.success('Preparando impressão...');
-    window.print();
+  async function handleImprimir() {
+    if (!browser) return;
+    if (!orcamentoId) {
+      toast.error('Orçamento inválido para gerar a prévia do PDF.');
+      return;
+    }
+    previewingPdf = true;
+    try {
+      const supabaseBrowser = createSupabaseBrowserClient();
+      await openQuotePreview({
+        quoteId: orcamentoId,
+        supabase: supabaseBrowser as any,
+        showItemValues: true,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao gerar prévia do PDF.');
+    } finally {
+      previewingPdf = false;
+    }
   }
   
   async function handleExcluir() {
@@ -660,10 +679,11 @@
             <Button
               variant="secondary"
               on:click={handleImprimir}
+              loading={previewingPdf}
               class_name="w-full justify-center"
             >
               <Printer size={16} class="mr-2" />
-              Imprimir
+              {previewingPdf ? 'Gerando...' : 'Visualizar PDF'}
             </Button>
           </div>
           

@@ -108,16 +108,21 @@ function resolveIsSystemAdmin(tipoNome: string, usoIndividual: boolean): boolean
 function pickBestPermissao(
   entries: Array<{ permissao: string; ativo: boolean }>,
 ): PermissaoNivel {
-  const sorted = [...entries].sort((a, b) => {
-    // Ativo primeiro
-    if (a.ativo !== b.ativo) return a.ativo ? -1 : 1;
-    // Maior nível depois
-    return (
-      permLevel(b.permissao as PermissaoNivel) -
-      permLevel(a.permissao as PermissaoNivel)
-    );
-  });
-  return (sorted[0]?.permissao as PermissaoNivel) || 'none';
+  // Prioriza entradas ativas; entre as ativas, pega a de maior nível
+  const ativas = entries.filter((e) => e.ativo);
+  const fonte = ativas.length > 0 ? ativas : entries;
+
+  const sorted = [...fonte].sort((a, b) =>
+    permLevel(b.permissao as PermissaoNivel) -
+    permLevel(a.permissao as PermissaoNivel)
+  );
+
+  const best = sorted[0]?.permissao as PermissaoNivel | undefined;
+
+  // Se não há entradas ativas com permissão real, retorna 'none'
+  if (!best || ativas.length === 0) return 'none';
+
+  return best || 'none';
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +192,7 @@ function createPermissoesStore() {
 
       // 2. Permissões por módulo (modulo_acesso)
       // Carrega TODOS os registros (ativo ou não) para pickBestPermissao
-      const { data: acessosRaw } = await supabase
+      const { data: acessosRaw, error: acessosErr } = await supabase
         .from('modulo_acesso')
         .select('modulo, permissao, ativo')
         .eq('usuario_id', user.id);
@@ -281,11 +286,17 @@ function createPermissoesStore() {
 
     const key = String(moduloDb || '').toLowerCase().trim();
 
-    // Módulo desabilitado globalmente
-    if (state.disabledModules.includes(key)) return false;
-
+    // Verifica permissão individual do usuário primeiro
     const perm = state.acessos[key] ?? 'none';
-    return permLevel(perm) >= permLevel(nivel);
+    const hasIndividualPerm = permLevel(perm) >= permLevel(nivel);
+
+    // Módulo desabilitado globalmente — NÃO bloqueia se o usuário tem permissão individual ativa
+    // (igual ao comportamento do vtur-app: permissão individual prevalece sobre disable global)
+    if (state.disabledModules.includes(key) && !hasIndividualPerm) {
+      return false;
+    }
+
+    return hasIndividualPerm;
   }
 
   // ------------------------------------------------------------------

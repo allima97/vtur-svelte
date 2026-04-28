@@ -298,8 +298,20 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	}
 
 	// Rotas master: exclusivas do papel MASTER
+	// Exceção: /master/permissoes também é acessível para quem tem permissão MasterPermissoes
+	// (ex: Gestores com essa permissão atribuída) — igual ao vtur-app
 	if (pathname.startsWith('/master')) {
-		if (!isMasterRole(userType)) throw redirect(303, '/negado');
+		const isMaster = isMasterRole(userType);
+		if (!isMaster) {
+			const isMasterPermissoesRoute =
+				pathname === '/master/permissoes' || pathname.startsWith('/master/permissoes/');
+			const temPermissao =
+				isMasterPermissoesRoute &&
+				['view', 'create', 'edit', 'delete', 'admin'].includes(
+					String(acessos['master_permissoes'] || '')
+				);
+			if (!temPermissao) throw redirect(303, '/negado');
+		}
 		return resolve(event);
 	}
 
@@ -318,8 +330,34 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			const disabledModules = (disabledRows || [])
 				.map((row: any) => String(row?.module_key || ''))
 				.filter(Boolean);
+
 			if (isSystemModuleDisabled(modulo, disabledModules, false)) {
-				throw redirect(303, '/negado');
+				// Módulo globalmente desabilitado — mas permissão individual ativa prevalece
+				// (igual ao comportamento do store de permissões no cliente)
+				const modulosConsultaDisabled = Array.from(
+					new Set(
+						listarModulosComHeranca(modulo).flatMap((label) => {
+							const key = MAPA_MODULOS[label];
+							return key ? [label, key] : [label];
+						})
+					)
+				);
+				const modulosPermitidosDisabled = new Set<string>();
+				modulosConsultaDisabled.forEach((entry) => {
+					const normalized = normalizeModuloKey(entry);
+					if (normalized) modulosPermitidosDisabled.add(normalized);
+				});
+
+				const temPermissaoIndividual = (accRowsRes.data || []).some((row: any) => {
+					if (!row?.ativo) return false;
+					const moduloKey = normalizeModuloKey(row?.modulo);
+					if (!moduloKey || !modulosPermitidosDisabled.has(moduloKey)) return false;
+					return permLevel(row?.permissao) >= 1;
+				});
+
+				if (!temPermissaoIndividual) {
+					throw redirect(303, '/negado');
+				}
 			}
 		}
 	} catch (disabledCheckErr) {

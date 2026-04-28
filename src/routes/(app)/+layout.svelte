@@ -5,32 +5,66 @@
   import Topbar from '$lib/components/layout/Topbar.svelte';
   import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
   import { sidebar, isMobile } from '$lib/stores/ui';
-  import { sessionSynced } from '$lib/stores/auth';
+  import { sessionSynced, auth } from '$lib/stores/auth';
+  import { permissoes } from '$lib/stores/permissoes';
+  import { createSupabaseBrowserClient } from '$lib/db/supabase';
 
   let appReady = false;
+  let permsInitialized = false;
 
   function handleResize() {
     sidebar.setMobile(window.innerWidth < 1024);
   }
 
+  async function initPermissoes() {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await permissoes.init(supabase);
+    } catch (err) {
+      console.error('[AppLayout] Erro ao inicializar permissoes:', err);
+    }
+  }
+
   onMount(() => {
     handleResize();
 
-    if (get(sessionSynced)) {
+    const startApp = async () => {
+      // Aguarda a sessão estar sincronizada antes de inicializar permissões
+      const currentState = get(auth);
+      if (currentState.user && !permsInitialized) {
+        permsInitialized = true;
+        await initPermissoes();
+      }
       appReady = true;
+    };
+
+    if (get(sessionSynced)) {
+      void startApp();
       return;
     }
 
-    const timeout = setTimeout(() => { appReady = true; }, 5000);
-    const unsub = sessionSynced.subscribe((ready) => {
+    const timeout = setTimeout(() => {
+      appReady = true;
+    }, 5000);
+
+    const unsub = sessionSynced.subscribe(async (ready) => {
       if (ready) {
         clearTimeout(timeout);
         unsub();
-        appReady = true;
+        await startApp();
       }
     });
-    return () => { clearTimeout(timeout); unsub(); };
+
+    return () => {
+      clearTimeout(timeout);
+      unsub();
+    };
   });
+
+  // Reinicializa permissões quando o usuário muda (ex: após troca de conta)
+  $: if ($auth.user && $auth.user.id && appReady && !$permissoes.ready && !$permissoes.loading) {
+    void initPermissoes();
+  }
 </script>
 
 <svelte:window on:resize={handleResize} />
