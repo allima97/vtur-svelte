@@ -24,12 +24,28 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const inicio = String(searchParams.get('inicio') || '').trim();
     const fim = String(searchParams.get('fim') || '').trim();
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id') || searchParams.get('company_id'));
-    const vendedorIds = await resolveScopedVendedorIds(
-      client,
-      scope,
-      searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
-    );
+    const requestedCompanyId = searchParams.get('empresa_id') || searchParams.get('company_id');
+    const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isAdminByType = tipoNome.includes('ADMIN');
+    const isGestorByType = tipoNome.includes('GESTOR');
+    const isMasterByType = tipoNome.includes('MASTER');
+
+    let companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    let vendedorIds: string[] = [];
+
+    if (isAdminByType) {
+      vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
+    } else if (isGestorByType) {
+      companyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
+      vendedorIds = await resolveScopedVendedorIds(client, { ...scope, isGestor: true, isVendedor: false }, requestedVendedorRaw);
+    } else if (isMasterByType) {
+      const requestedIds = await resolveScopedVendedorIds(client, { ...scope, isAdmin: true, isMaster: true }, requestedVendedorRaw);
+      vendedorIds = requestedIds;
+    } else {
+      vendedorIds = [scope.userId];
+    }
+
     const accessibleClientIds = !scope.isAdmin
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];

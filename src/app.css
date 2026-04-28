@@ -68,6 +68,10 @@
   --vtur-topbar-height: 4.6rem;
   --vtur-desktop-shell-top: 5.6rem;
   --vtur-desktop-content-top: var(--vtur-desktop-shell-top);
+  --vtur-copy-base: 1.05rem;
+  --vtur-copy-sm: 1.02rem;
+  --vtur-copy-xs: 0.9rem;
+  --vtur-copy-line-height: 1.6;
 }
 
 /* ========== BASE ========== */
@@ -93,6 +97,81 @@
     color: var(--vtur-text);
     overflow-x: hidden;
     max-width: 100vw;
+  }
+
+  .vtur-page-wrap {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .vtur-layout :where(label) {
+    font-size: 0.82rem !important;
+    line-height: 1.22 !important;
+  }
+
+  .vtur-layout :where(.vtur-input, input.vtur-input, select.vtur-input, textarea.vtur-input) {
+    font-size: 0.92rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .vtur-layout :where(option) {
+    font-size: 0.88rem;
+  }
+
+  .vtur-layout :where(p.text-sm, div.text-sm, span.text-sm, a.text-sm, td.text-sm, li.text-sm) {
+    font-size: var(--vtur-copy-sm) !important;
+    line-height: var(--vtur-copy-line-height) !important;
+  }
+
+  .vtur-layout :where(p.text-xs, div.text-xs, span.text-xs, a.text-xs, td.text-xs, li.text-xs) {
+    font-size: var(--vtur-copy-xs) !important;
+    line-height: 1.5 !important;
+  }
+
+  .vtur-layout :where(p.text-base, div.text-base, span.text-base, a.text-base, td.text-base, li.text-base) {
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+  }
+
+  .vtur-layout :where(
+    p.uppercase,
+    div.uppercase,
+    span.uppercase,
+    p.text-sm.font-medium.text-slate-500,
+    div.text-sm.font-medium.text-slate-500,
+    span.text-sm.font-medium.text-slate-500,
+    p.text-xs.font-medium.text-slate-500,
+    div.text-xs.font-medium.text-slate-500,
+    span.text-xs.font-medium.text-slate-500
+  ) {
+    line-height: 1.4;
+  }
+
+  .vtur-layout :where(
+    p.uppercase.text-xs,
+    div.uppercase.text-xs,
+    span.uppercase.text-xs
+  ) {
+    font-size: 0.75rem;
+  }
+
+  .vtur-layout :where(
+    p.uppercase.text-sm,
+    div.uppercase.text-sm,
+    span.uppercase.text-sm,
+    p.text-sm.font-medium.text-slate-500,
+    div.text-sm.font-medium.text-slate-500,
+    span.text-sm.font-medium.text-slate-500
+  ) {
+    font-size: 0.875rem;
+  }
+
+  .vtur-layout :where(button, input, select, textarea) {
+    line-height: 1.5;
+  }
+
+  .vtur-layout :where(label.text-sm, label.text-xs, .sr-only) {
+    font-size: 0.82rem !important;
   }
 
   /* Previne zoom automático no iOS em inputs */

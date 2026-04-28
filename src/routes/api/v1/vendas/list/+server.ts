@@ -237,6 +237,116 @@ function computeKpisFromRows(rows: VendaRow[]) {
   };
 }
 
+async function fetchVendaRowsWithFallback(
+  client: ReturnType<typeof getAdminClient>,
+  params: {
+    openId: string;
+    inicio: string;
+    fim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    clienteId: string;
+    scopeIsAdmin: boolean;
+    accessibleClientIds: string[];
+  }
+) {
+  const buildBaseQuery = (selectClause: string) => {
+    let query = client
+      .from('vendas')
+      .select(selectClause)
+      .order('data_venda', { ascending: false })
+      .limit(5000);
+
+    if (params.openId) query = query.eq('id', params.openId);
+    if (params.inicio) query = query.gte('data_venda', params.inicio);
+    if (params.fim) query = query.lte('data_venda', params.fim);
+    if (params.companyIds.length > 0) query = query.in('company_id', params.companyIds);
+    if (params.vendedorIds.length > 0) query = query.in('vendedor_id', params.vendedorIds);
+    if (params.clienteId) query = query.eq('cliente_id', params.clienteId);
+    else if (!params.scopeIsAdmin && params.accessibleClientIds.length > 0) {
+      query = query.in('cliente_id', params.accessibleClientIds);
+    }
+
+    return query;
+  };
+
+  const enrichedSelect = `
+    id,
+    numero_venda,
+    vendedor_id,
+    cliente_id,
+    company_id,
+    data_venda,
+    data_embarque,
+    data_final,
+    valor_total,
+    valor_total_bruto,
+    valor_taxas,
+    cancelada,
+    clientes (nome, whatsapp),
+    vendedor:users!vendedor_id (nome_completo),
+    destino_cidade:cidades!destino_cidade_id (id, nome),
+    destinos:produtos!destino_id (nome, cidade_id),
+    recibos:vendas_recibos (
+      id,
+      numero_recibo,
+      numero_reserva,
+      destino_cidade:cidades!destino_cidade_id (id, nome),
+      tipo_pacote,
+      valor_total,
+      valor_taxas,
+      valor_du,
+      valor_rav,
+      data_inicio,
+      data_fim,
+      tipo_produtos (id, nome, tipo),
+      produto_resolvido:produtos!produto_resolvido_id (id, nome)
+    )
+  `;
+
+  const enrichedResult = await buildBaseQuery(enrichedSelect);
+  if (!enrichedResult.error) {
+    return Array.isArray(enrichedResult.data) ? (enrichedResult.data as unknown as VendaRow[]) : [];
+  }
+
+  console.warn('[vendas/list] enriched select failed, falling back to minimal select', enrichedResult.error);
+
+  const fallbackSelect = `
+    id,
+    numero_venda,
+    vendedor_id,
+    cliente_id,
+    company_id,
+    data_venda,
+    data_embarque,
+    data_final,
+    valor_total,
+    valor_taxas,
+    cancelada,
+    clientes (nome),
+    recibos:vendas_recibos (
+      id,
+      numero_recibo,
+      numero_reserva,
+      tipo_pacote,
+      valor_total,
+      valor_taxas,
+      valor_du,
+      valor_rav,
+      data_inicio,
+      data_fim
+    )
+  `;
+
+  const fallbackResult = await buildBaseQuery(fallbackSelect);
+  if (fallbackResult.error) {
+    console.error('[vendas/list] fallback select failed, returning empty list', fallbackResult.error);
+    return [];
+  }
+
+  return Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [];
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -261,60 +371,25 @@ export async function GET(event) {
     const statusQuery = String(searchParams.get('status') || '').trim().toLowerCase();
     const tipoQuery = String(searchParams.get('tipo') || '').trim().toLowerCase();
     const clienteId = String(searchParams.get('cliente_id') || '').trim();
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id') || searchParams.get('empresa_id'));
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids') || searchParams.get('vendedor_id'));
+    const requestedCompanyId = searchParams.get('company_id') || searchParams.get('empresa_id');
+    const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
+    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
+
     const accessibleClientIds = !scope.isAdmin ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds }) : [];
 
-    let query = client
-      .from('vendas')
-      .select(`
-        id,
-        numero_venda,
-        vendedor_id,
-        cliente_id,
-        company_id,
-        data_venda,
-        data_embarque,
-        data_final,
-        valor_total,
-        valor_total_bruto,
-        valor_taxas,
-        cancelada,
-        clientes (nome, whatsapp),
-        vendedor:users!vendedor_id (nome_completo),
-        destino_cidade:cidades!destino_cidade_id (id, nome),
-        destinos:produtos!destino_id (nome, cidade_id),
-        recibos:vendas_recibos (
-          id,
-          numero_recibo,
-          numero_reserva,
-          destino_cidade:cidades!destino_cidade_id (id, nome),
-          tipo_pacote,
-          valor_total,
-          valor_taxas,
-          valor_du,
-          valor_rav,
-          data_inicio,
-          data_fim,
-          tipo_produtos (id, nome, tipo),
-          produto_resolvido:produtos!produto_resolvido_id (id, nome)
-        )
-      `)
-      .order('data_venda', { ascending: false })
-      .limit(5000);
+    const data = await fetchVendaRowsWithFallback(client, {
+      openId,
+      inicio,
+      fim,
+      companyIds,
+      vendedorIds,
+      clienteId,
+      scopeIsAdmin: scope.isAdmin,
+      accessibleClientIds
+    });
 
-    if (openId) query = query.eq('id', openId);
-    if (inicio) query = query.gte('data_venda', inicio);
-    if (fim) query = query.lte('data_venda', fim);
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
-    if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
-    if (clienteId) query = query.eq('cliente_id', clienteId);
-    else if (!scope.isAdmin && accessibleClientIds.length > 0) query = query.in('cliente_id', accessibleClientIds);
-
-    const { data, error: queryError } = await query;
-    if (queryError) throw queryError;
-
-    const items = ((data || []) as VendaRow[])
+    const items = (data as VendaRow[])
       .map((row) => formatVendaItem(row))
       .filter((item) => (statusQuery ? item.status === statusQuery : true))
       .filter((item) => (tipoQuery ? item.tipo === tipoQuery : true))
@@ -354,7 +429,7 @@ export async function GET(event) {
       pageSize,
       total: items.length,
       items: payloadItems,
-      ...(includeKpis ? { kpis: computeKpisFromRows((data || []) as VendaRow[]) } : {}),
+      ...(includeKpis ? { kpis: computeKpisFromRows(data as VendaRow[]) } : {}),
       ...(includeVendedores ? { vendedores } : {})
     });
   } catch (err) {
