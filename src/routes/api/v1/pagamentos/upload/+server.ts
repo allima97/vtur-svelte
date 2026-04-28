@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -22,6 +23,10 @@ export async function POST(event) {
 
     if (!file || !pagamentoId) {
       return json({ success: false, error: 'Arquivo e ID do pagamento são obrigatórios.' }, { status: 400 });
+    }
+
+    if (!isUuid(String(pagamentoId || '').trim())) {
+      return json({ success: false, error: 'ID do pagamento inválido.' }, { status: 400 });
     }
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -46,6 +51,26 @@ export async function POST(event) {
 
     const { data: urlData } = client.storage.from('viagens-documentos').getPublicUrl(fileName);
     const comprovanteUrl = urlData?.publicUrl || null;
+
+    const { data: pagamentoAtual, error: pagamentoAtualError } = await client
+      .from('vendas_pagamentos')
+      .select('id, company_id')
+      .eq('id', pagamentoId)
+      .maybeSingle();
+    if (pagamentoAtualError) throw pagamentoAtualError;
+    if (!pagamentoAtual) {
+      return json({ success: false, error: 'Pagamento não encontrado.' }, { status: 404 });
+    }
+
+    if (!scope.isAdmin) {
+      const allowedCompanyIds = new Set(
+        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
+      );
+      const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
+      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
+        return json({ success: false, error: 'Pagamento fora do escopo da empresa.' }, { status: 403 });
+      }
+    }
 
     // Atualiza observações do pagamento com a URL do comprovante
     const { data: pagamento, error: updateError } = await client

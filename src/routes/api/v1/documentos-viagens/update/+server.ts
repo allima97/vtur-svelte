@@ -24,6 +24,24 @@ export async function POST(event: RequestEvent) {
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400 });
     if (!displayName) return json({ error: 'display_name obrigatorio.' }, { status: 400 });
 
+    const { data: currentDoc, error: currentDocError } = await client
+      .from('documentos_viagens')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (currentDocError) throw currentDocError;
+    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+
+    if (!scope.isAdmin) {
+      const allowedCompanyIds = new Set(
+        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
+      );
+      const targetCompanyId = String((currentDoc as { company_id?: string | null })?.company_id || '').trim();
+      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+      }
+    }
+
     const { data, error } = await client
       .from('documentos_viagens')
       .update({ display_name: displayName, updated_at: new Date().toISOString(), updated_by: user.id })

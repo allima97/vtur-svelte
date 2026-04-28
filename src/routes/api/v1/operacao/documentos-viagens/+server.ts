@@ -63,7 +63,23 @@ export async function DELETE(event) {
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
 
     // Busca o documento para deletar do storage também
-    const { data: doc } = await client.from('documentos_viagens').select('storage_bucket, storage_path').eq('id', id).maybeSingle();
+    const { data: doc, error: fetchErr } = await client
+      .from('documentos_viagens')
+      .select('company_id, storage_bucket, storage_path')
+      .eq('id', id)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (!doc) return json({ error: 'Documento não encontrado.' }, { status: 404 });
+
+    if (!scope.isAdmin) {
+      const allowedCompanyIds = new Set(
+        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
+      );
+      const targetCompanyId = String((doc as { company_id?: string | null })?.company_id || '').trim();
+      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+      }
+    }
 
     if (doc?.storage_bucket && doc?.storage_path) {
       await client.storage.from(doc.storage_bucket).remove([doc.storage_path]);

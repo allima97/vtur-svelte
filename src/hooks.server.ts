@@ -134,7 +134,6 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/auth/convite',
 		'/auth/update-password',
 		'/manutencao',
-		'/test-env',
 		'/favicon',
 		'/favicon.ico',
 		'/icons',

@@ -56,6 +56,24 @@ export async function POST(event: RequestEvent) {
     const id = String(body?.id || '').trim();
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400 });
 
+    const { data: currentDoc, error: currentDocError } = await client
+      .from('documentos_viagens')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (currentDocError) throw currentDocError;
+    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+
+    if (!scope.isAdmin) {
+      const allowedCompanyIds = new Set(
+        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
+      );
+      const targetCompanyId = String((currentDoc as { company_id?: string | null })?.company_id || '').trim();
+      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+      }
+    }
+
     const title = normalizeTitle(body?.title);
     const templateText = clampText(body?.template_text, 200_000);
     const templateFields = normalizeFields(body?.template_fields);

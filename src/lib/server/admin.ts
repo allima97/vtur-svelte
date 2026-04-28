@@ -19,7 +19,7 @@ import {
   normalizeModuloKey,
   toModuloDbKey
 } from '$lib/admin/modules';
-import { getAdminClient, isUuid, type UserScope } from '$lib/server/v1';
+import { getAdminClient, isUuid, permLevel, type UserScope } from '$lib/server/v1';
 
 export type ManagedUserRow = {
   id: string;
@@ -144,21 +144,26 @@ export function getAccessibleCompanyIds(scope: UserScope) {
 }
 
 export function canManageUsers(scope: UserScope) {
+  const adminPerm = permLevel(scope.permissoes.admin);
+  const usersPerm = permLevel(scope.permissoes.admin_users);
   return (
     scope.isAdmin ||
     scope.isMaster ||
     scope.isGestor ||
-    Boolean(scope.permissoes.admin) ||
-    Boolean(scope.permissoes.admin_users)
+    adminPerm >= 5 ||
+    usersPerm >= 3
   );
 }
 
 export function canManagePermissions(scope: UserScope) {
-  return scope.isAdmin || scope.isMaster || Boolean(scope.permissoes.admin) || Boolean(scope.permissoes.master_permissoes);
+  const adminPerm = permLevel(scope.permissoes.admin);
+  const permissionsPerm = permLevel(scope.permissoes.master_permissoes);
+  return scope.isAdmin || scope.isMaster || adminPerm >= 5 || permissionsPerm >= 3;
 }
 
 export function canManageCompanies(scope: UserScope) {
-  return scope.isAdmin || scope.isMaster || Boolean(scope.permissoes.admin_empresas);
+  const companiesPerm = permLevel(scope.permissoes.admin_empresas);
+  return scope.isAdmin || scope.isMaster || companiesPerm >= 3;
 }
 
 export function ensureCanManageUsers(scope: UserScope) {
@@ -198,7 +203,7 @@ export function isUserInScope(scope: UserScope, row: Pick<ManagedUserRow, 'id' |
   }
 
   if (scope.isGestor) {
-    return companyId === scope.companyId || isSellerRole(roleName);
+    return companyId === scope.companyId && isSellerRole(roleName);
   }
 
   return false;
