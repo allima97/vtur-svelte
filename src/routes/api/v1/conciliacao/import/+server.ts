@@ -227,7 +227,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      ensureModuloAccess(scope, ['conciliacao'], 3, 'Sem permissão para importar conciliação.');
+      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão para importar conciliação.');
     }
 
     const body = await event.request.json();

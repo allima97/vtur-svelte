@@ -86,7 +86,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
+      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
     }
 
     const { id } = event.params;
@@ -235,7 +235,7 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['viagens', 'operacao'], 2, 'Sem permissão para editar viagens.');
+      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 2, 'Sem permissão para editar viagens.');
     }
 
     const { id } = event.params;
@@ -295,7 +295,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['viagens', 'operacao'], 3, 'Sem permissão para excluir viagens.');
+      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 3, 'Sem permissão para excluir viagens.');
     }
 
     const { id } = event.params;

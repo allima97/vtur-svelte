@@ -145,7 +145,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['relatorios', 'ranking'], 1, 'Sem acesso ao relatório de ranking.');
+      ensureModuloAccess(scope, ['relatorios_ranking_vendas', 'relatorios', 'ranking'], 1, 'Sem acesso ao relatório de ranking.');
     }
 
     const { searchParams } = event.url;

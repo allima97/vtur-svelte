@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['admin', 'parametros'], 1, 'Sem acesso ao CRM Admin.');
+      ensureModuloAccess(scope, ['admin', 'parametros_avisos', 'avisos', 'parametros'], 1, 'Sem acesso ao CRM Admin.');
     }
 
     // Categorias
@@ -56,7 +56,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['admin'], 3, 'Sem permissão para editar CRM Admin.');
+      ensureModuloAccess(scope, ['admin', 'parametros_avisos', 'avisos', 'parametros'], 3, 'Sem permissão para editar CRM Admin.');
     }
 
     const body = await event.request.json();

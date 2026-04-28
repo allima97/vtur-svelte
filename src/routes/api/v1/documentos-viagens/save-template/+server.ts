@@ -49,7 +49,7 @@ export async function POST(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['documentos_viagens', 'operacao'], 3, 'Sem permissao para editar documentos.');
+      ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 3, 'Sem permissao para editar documentos.');
     }
 
     const body = await event.request.json();

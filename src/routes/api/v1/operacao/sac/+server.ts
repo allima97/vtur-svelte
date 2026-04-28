@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['controle_sac', 'operacao'], 1, 'Sem acesso ao Controle SAC.');
+      ensureModuloAccess(scope, ['operacao_controle_sac', 'controle_sac', 'operacao'], 1, 'Sem acesso ao Controle SAC.');
     }
 
     const { searchParams } = event.url;
@@ -60,7 +60,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['controle_sac', 'operacao'], 2, 'Sem permissão para salvar SAC.');
+      ensureModuloAccess(scope, ['operacao_controle_sac', 'controle_sac', 'operacao'], 2, 'Sem permissão para salvar SAC.');
     }
 
     const body = await event.request.json();
@@ -103,7 +103,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['controle_sac', 'operacao'], 4, 'Sem permissão para excluir SAC.');
+      ensureModuloAccess(scope, ['operacao_controle_sac', 'controle_sac', 'operacao'], 4, 'Sem permissão para excluir SAC.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

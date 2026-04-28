@@ -16,7 +16,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['equipe', 'parametros'], 1, 'Sem acesso a Equipe.');
+      ensureModuloAccess(scope, ['parametros_equipe', 'equipe', 'parametros'], 1, 'Sem acesso a Equipe.');
     }
 
     // Busca usuários da empresa
@@ -81,7 +81,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['equipe', 'parametros'], 2, 'Sem permissão para gerenciar equipe.');
+      ensureModuloAccess(scope, ['parametros_equipe', 'equipe', 'parametros'], 2, 'Sem permissão para gerenciar equipe.');
     }
 
     const body = await event.request.json();

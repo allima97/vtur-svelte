@@ -14,7 +14,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['tarefas', 'operacao'], 1, 'Sem acesso a Tarefas.');
+      ensureModuloAccess(scope, ['operacao_todo', 'tarefas', 'operacao'], 1, 'Sem acesso a Tarefas.');
     }
 
     const companyIds = event.url.searchParams.get('empresa_id');

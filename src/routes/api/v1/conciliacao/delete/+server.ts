@@ -16,7 +16,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      ensureModuloAccess(scope, ['conciliacao'], 4, 'Sem permissão para excluir registros de conciliação.');
+      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 4, 'Sem permissão para excluir registros de conciliação.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

@@ -16,7 +16,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['metas', 'parametros'], 1, 'Sem acesso a Metas.');
+      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 1, 'Sem acesso a Metas.');
     }
 
     const { searchParams } = event.url;
@@ -78,7 +78,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['metas', 'parametros'], 2, 'Sem permissão para salvar metas.');
+      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 2, 'Sem permissão para salvar metas.');
     }
 
     const body = await event.request.json();
@@ -136,7 +136,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['metas', 'parametros'], 3, 'Sem permissão para excluir metas.');
+      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 3, 'Sem permissão para excluir metas.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

@@ -31,7 +31,7 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
+      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
     }
 
     if (!(scope.isAdmin || scope.papel === "MASTER" || scope.papel === "GESTOR")) {

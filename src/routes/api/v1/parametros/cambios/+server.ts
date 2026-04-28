@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cambios', 'parametros'], 1, 'Sem acesso a Câmbios.');
+      ensureModuloAccess(scope, ['parametros_cambios', 'cambios', 'parametros'], 1, 'Sem acesso a Câmbios.');
     }
 
     let query = client
@@ -44,7 +44,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cambios', 'parametros'], 2, 'Sem permissão para salvar câmbios.');
+      ensureModuloAccess(scope, ['parametros_cambios', 'cambios', 'parametros'], 2, 'Sem permissão para salvar câmbios.');
     }
 
     const body = await event.request.json();
@@ -87,7 +87,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['cambios', 'parametros'], 3, 'Sem permissão para excluir câmbios.');
+      ensureModuloAccess(scope, ['parametros_cambios', 'cambios', 'parametros'], 3, 'Sem permissão para excluir câmbios.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

@@ -44,8 +44,11 @@
       if (filtroPeriodo) params.set('periodo', filtroPeriodo);
 
       const response = await fetch(`/api/v1/viagens?${params.toString()}`);
-      if (!response.ok) throw new Error('Erro ao carregar viagens');
-      
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`HTTP ${response.status}: ${body}`);
+      }
+
       const data = await response.json();
       viagens = (data.items || []).map((v: any) => ({
         id: v.id,
@@ -67,7 +70,7 @@
       
       aplicarFiltrosBusca();
     } catch (err) {
-      errorMessage = 'Erro ao carregar viagens';
+      errorMessage = `Erro ao carregar viagens: ${err instanceof Error ? err.message : String(err)}`;
       toast.error(errorMessage);
       viagens = [];
       viagensFiltradas = [];
@@ -292,7 +295,7 @@
     }
   ];
 
-  function getResumo() {
+  $: resumo = (() => {
     const lista = viagensFiltradas.length > 0 ? viagensFiltradas : viagens;
     const programadas = lista.filter(v => v.status === 'programada').length;
     const emAndamento = lista.filter(v => v.status === 'em_andamento').length;
@@ -300,19 +303,8 @@
     const canceladas = lista.filter(v => v.status === 'cancelada').length;
     const totalViajantes = lista.reduce((acc, v) => acc + v.numero_pessoas, 0);
     const valorTotal = lista.reduce((acc, v) => acc + (v.valor_total || 0), 0);
-    
-    return { 
-      total: lista.length,
-      programadas, 
-      emAndamento, 
-      concluidas, 
-      canceladas,
-      totalViajantes,
-      valorTotal
-    };
-  }
-
-  $: resumo = getResumo();
+    return { total: lista.length, programadas, emAndamento, concluidas, canceladas, totalViajantes, valorTotal };
+  })();
 </script>
 
 <svelte:head>

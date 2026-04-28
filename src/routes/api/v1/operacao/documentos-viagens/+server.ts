@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['documentos_viagens', 'operacao'], 1, 'Sem acesso a Documentos de Viagens.');
+      ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 1, 'Sem acesso a Documentos de Viagens.');
     }
 
     const { searchParams } = event.url;
@@ -56,7 +56,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['documentos_viagens', 'operacao'], 4, 'Sem permissão para excluir documentos.');
+      ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 4, 'Sem permissão para excluir documentos.');
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();

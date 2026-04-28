@@ -15,7 +15,7 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
+      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
     }
 
     const vendedorIds = scope.usoIndividual ? [user.id] : [];

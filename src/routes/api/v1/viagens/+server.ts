@@ -4,7 +4,6 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse,
   getMonthRange,
@@ -49,87 +48,17 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
+      ensureModuloAccess(scope, ['operacao_viagens', 'Viagens', 'viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
     }
 
     const { searchParams } = event.url;
     const status = searchParams.get('status');
     const periodo = searchParams.get('periodo');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
-    const requestedResponsavelRaw =
-      searchParams.get('responsavel_ids') ||
-      searchParams.get('responsavel_id') ||
-      searchParams.get('vendedor_ids') ||
-      searchParams.get('vendedor_id');
-    const scopedResponsavelIds = await resolveScopedVendedorIds(client, scope, requestedResponsavelRaw);
 
-    // ✅ Guard: gestor/master sem empresa identificada não lista nada
-    if (!scope.isAdmin && (scope.isGestor || scope.isMaster) && companyIds.length === 0) {
+    // Guard: sem empresa identificada, retorna vazio (exceto admin)
+    if (!scope.isAdmin && companyIds.length === 0) {
       return json({ items: [], total: 0 });
-    }
-
-    const effectiveResponsavelIds = !scope.isAdmin
-      ? scope.isGestor || scope.isMaster
-        ? scopedResponsavelIds
-        : [user.id]
-      : scopedResponsavelIds;
-
-    let vendaIdsByResponsavel: string[] = [];
-    if (effectiveResponsavelIds.length > 0) {
-      let vendasQuery = client
-        .from('vendas')
-        .select('id')
-        .in('vendedor_id', effectiveResponsavelIds)
-        .limit(5000);
-
-      if (companyIds.length > 0) {
-        vendasQuery = vendasQuery.in('company_id', companyIds);
-      }
-
-      const { data: vendasByResponsavel } = await vendasQuery;
-      vendaIdsByResponsavel = (vendasByResponsavel || [])
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean);
-    }
-
-    let clienteIdsByResponsavel: string[] = [];
-    if (effectiveResponsavelIds.length > 0) {
-      const clienteIds = new Set<string>();
-
-      // Clientes relacionados a vendas do vendedor/equipe
-      let clientesViaVendasQuery = client
-        .from('vendas')
-        .select('cliente_id')
-        .in('vendedor_id', effectiveResponsavelIds)
-        .not('cliente_id', 'is', null)
-        .limit(5000);
-      if (companyIds.length > 0) {
-        clientesViaVendasQuery = clientesViaVendasQuery.in('company_id', companyIds);
-      }
-      const { data: clientesViaVendas } = await clientesViaVendasQuery;
-      (clientesViaVendas || []).forEach((row: any) => {
-        const id = String(row?.cliente_id || '').trim();
-        if (id) clienteIds.add(id);
-      });
-
-      // Clientes criados pelo vendedor/equipe (fallback para viagens sem venda vinculada)
-      let clientesCriadosQuery = client
-        .from('clientes')
-        .select('id')
-        .in('created_by', effectiveResponsavelIds)
-        .limit(5000);
-      if (companyIds.length > 0) {
-        clientesCriadosQuery = clientesCriadosQuery.in('company_id', companyIds);
-      }
-      const { data: clientesCriados, error: clientesCriadosError } = await clientesCriadosQuery;
-      if (!clientesCriadosError) {
-        (clientesCriados || []).forEach((row: any) => {
-          const id = String(row?.id || '').trim();
-          if (id) clienteIds.add(id);
-        });
-      }
-
-      clienteIdsByResponsavel = Array.from(clienteIds);
     }
 
     let query = client
@@ -156,6 +85,17 @@ export async function GET(event) {
       .order('data_inicio', { ascending: true })
       .limit(1000);
 
+    // Filtro por empresa — igual ao vtur-app
+    if (companyIds.length > 0) {
+      query = query.in('company_id', companyIds);
+    }
+
+    // Uso individual (vendedor que só vê as próprias viagens) — igual ao vtur-app
+    // Gestor/Master veem todas da empresa; apenas uso_individual restringe por responsável
+    if (!scope.isAdmin && scope.usoIndividual) {
+      query = query.eq('responsavel_user_id', user.id);
+    }
+
     const normalizedStatus = String(status || '').trim().toLowerCase();
     if (normalizedStatus && normalizedStatus !== 'todas') {
       if (normalizedStatus === 'programada') {
@@ -167,10 +107,6 @@ export async function GET(event) {
       }
     }
 
-    if (companyIds.length > 0) {
-      query = query.in('company_id', companyIds);
-    }
-
     const periodoFilter = getPeriodoFilter(periodo);
     if (periodoFilter?.from && periodoFilter?.to) {
       query = query
@@ -180,24 +116,7 @@ export async function GET(event) {
 
     const { data, error } = await query;
     if (error) throw error;
-
-    const shouldApplyScopeFilter = !scope.isAdmin || effectiveResponsavelIds.length > 0;
-    const responsavelSet = new Set(effectiveResponsavelIds);
-    const vendaSet = new Set(vendaIdsByResponsavel);
-    const clienteSet = new Set(clienteIdsByResponsavel);
-
-    const scopedData = shouldApplyScopeFilter
-      ? (data || []).filter((row: any) => {
-          const responsavelId = String(row?.responsavel_user_id || '').trim();
-          const vendaId = String(row?.venda_id || '').trim();
-          const clienteId = String(row?.cliente_id || '').trim();
-          return (
-            (responsavelId && responsavelSet.has(responsavelId)) ||
-            (vendaId && vendaSet.has(vendaId)) ||
-            (clienteId && clienteSet.has(clienteId))
-          );
-        })
-      : (data || []);
+    const scopedData = data || [];
 
     const clienteIds = [...new Set((scopedData || []).map((v: any) => v.cliente_id).filter(Boolean))];
     const clientesMap = new Map<string, string>();

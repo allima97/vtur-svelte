@@ -237,6 +237,104 @@ function computeKpisFromRows(rows: VendaRow[]) {
   };
 }
 
+async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminClient>, rows: VendaRow[]) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+
+  const vendaIds = Array.from(new Set(rows.map((row) => String(row?.id || '').trim()).filter(Boolean)));
+  if (vendaIds.length === 0) return;
+
+  try {
+    const { data: vendaDestinos, error: vendaDestinosError } = await client
+      .from('vendas')
+      .select('id, destino_id, destino_cidade_id')
+      .in('id', vendaIds)
+      .limit(Math.max(500, vendaIds.length));
+
+    if (vendaDestinosError) {
+      console.warn('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
+      return;
+    }
+
+    const destinoByVendaId = new Map<string, { destino_id: string; destino_cidade_id: string }>();
+    for (const row of (vendaDestinos || []) as any[]) {
+      const id = String(row?.id || '').trim();
+      if (!id) continue;
+      destinoByVendaId.set(id, {
+        destino_id: String(row?.destino_id || '').trim(),
+        destino_cidade_id: String(row?.destino_cidade_id || '').trim()
+      });
+    }
+
+    const produtoIds = Array.from(new Set(Array.from(destinoByVendaId.values()).map((row) => row.destino_id).filter(Boolean)));
+    const cidadeIds = Array.from(
+      new Set(
+        Array.from(destinoByVendaId.values())
+          .flatMap((row) => [row.destino_cidade_id])
+          .filter(Boolean)
+      )
+    );
+
+    const [produtosResult, cidadesResult] = await Promise.all([
+      produtoIds.length > 0
+        ? client.from('produtos').select('id, nome, cidade_id').in('id', produtoIds).limit(Math.max(500, produtoIds.length))
+        : Promise.resolve({ data: [], error: null } as any),
+      cidadeIds.length > 0
+        ? client.from('cidades').select('id, nome').in('id', cidadeIds).limit(Math.max(500, cidadeIds.length))
+        : Promise.resolve({ data: [], error: null } as any)
+    ]);
+
+    if (produtosResult.error) {
+      console.warn('[vendas/list] could not load produtos for destino hydration', produtosResult.error);
+    }
+    if (cidadesResult.error) {
+      console.warn('[vendas/list] could not load cidades for destino hydration', cidadesResult.error);
+    }
+
+    const produtosById = new Map<string, { nome: string; cidade_id: string }>();
+    for (const row of (produtosResult.data || []) as any[]) {
+      const id = String(row?.id || '').trim();
+      if (!id) continue;
+      produtosById.set(id, {
+        nome: String(row?.nome || '').trim(),
+        cidade_id: String(row?.cidade_id || '').trim()
+      });
+    }
+
+    const cidadesById = new Map<string, string>();
+    for (const row of (cidadesResult.data || []) as any[]) {
+      const id = String(row?.id || '').trim();
+      if (!id) continue;
+      cidadesById.set(id, String(row?.nome || '').trim());
+    }
+
+    rows.forEach((row) => {
+      if (row.destinos?.nome && row.destino_cidade?.nome) return;
+
+      const destino = destinoByVendaId.get(String(row.id || '').trim());
+      if (!destino) return;
+
+      const produto = destino.destino_id ? produtosById.get(destino.destino_id) : null;
+      if (!row.destinos?.nome && produto?.nome) {
+        row.destinos = {
+          nome: produto.nome,
+          cidade_id: produto.cidade_id || null
+        };
+      }
+
+      const cidadeId = destino.destino_cidade_id || produto?.cidade_id || '';
+      const cidadeNome = cidadeId ? cidadesById.get(cidadeId) : '';
+      if (!row.destino_cidade?.nome && cidadeNome) {
+        row.destino_cidade = {
+          id: cidadeId,
+          nome: cidadeNome
+        };
+      }
+    });
+  } catch (err) {
+    console.warn('[vendas/list] destino hydration skipped due to runtime error', err);
+  }
+}
+
 async function fetchVendaRowsWithFallback(
   client: ReturnType<typeof getAdminClient>,
   params: {
@@ -324,6 +422,8 @@ async function fetchVendaRowsWithFallback(
     valor_taxas,
     cancelada,
     clientes (nome),
+    destino_cidade:cidades!vendas_destino_cidade_id_fkey (id, nome),
+    destinos:produtos!vendas_destino_id_fkey (nome, cidade_id),
     recibos:vendas_recibos (
       id,
       numero_recibo,
@@ -339,12 +439,46 @@ async function fetchVendaRowsWithFallback(
   `;
 
   const fallbackResult = await buildBaseQuery(fallbackSelect);
-  if (fallbackResult.error) {
-    console.error('[vendas/list] fallback select failed, returning empty list', fallbackResult.error);
+  if (!fallbackResult.error) {
+    return Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [];
+  }
+
+  console.warn('[vendas/list] FK fallback failed, trying legacy fallback select', fallbackResult.error);
+
+  const legacyFallbackSelect = `
+    id,
+    numero_venda,
+    vendedor_id,
+    cliente_id,
+    company_id,
+    data_venda,
+    data_embarque,
+    data_final,
+    valor_total,
+    valor_taxas,
+    cancelada,
+    clientes (nome),
+    recibos:vendas_recibos (
+      id,
+      numero_recibo,
+      numero_reserva,
+      tipo_pacote,
+      valor_total,
+      valor_taxas,
+      valor_du,
+      valor_rav,
+      data_inicio,
+      data_fim
+    )
+  `;
+
+  const legacyFallbackResult = await buildBaseQuery(legacyFallbackSelect);
+  if (legacyFallbackResult.error) {
+    console.error('[vendas/list] legacy fallback failed, returning empty list', legacyFallbackResult.error);
     return [];
   }
 
-  return Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [];
+  return Array.isArray(legacyFallbackResult.data) ? (legacyFallbackResult.data as unknown as VendaRow[]) : [];
 }
 
 export async function GET(event) {
@@ -388,6 +522,8 @@ export async function GET(event) {
       scopeIsAdmin: scope.isAdmin,
       accessibleClientIds
     });
+
+    await hydrateDestinosFromVendaIds(client, data as VendaRow[]);
 
     const items = (data as VendaRow[])
       .map((row) => formatVendaItem(row))

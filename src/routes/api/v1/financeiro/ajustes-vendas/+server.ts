@@ -17,7 +17,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
+      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
     }
 
     const requestedCompanyId = String(event.url.searchParams.get('company_id') || '').trim();
@@ -156,7 +156,7 @@ export async function POST(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(
         scope,
-        ['conciliacao', 'vendas_consulta', 'vendas'],
+        ['operacao_conciliacao', 'conciliacao', 'vendas_consulta', 'vendas'],
         3,
         'Sem permissão para editar Ajustes de Vendas.'
       );

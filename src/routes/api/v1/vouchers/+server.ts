@@ -16,7 +16,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['vouchers', 'operacao'], 1, 'Sem acesso a Vouchers.');
+      ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 1, 'Sem acesso a Vouchers.');
     }
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
@@ -51,7 +51,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['vouchers', 'operacao'], 2, 'Sem permissão para criar vouchers.');
+      ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 2, 'Sem permissão para criar vouchers.');
     }
 
     const body = await event.request.json();

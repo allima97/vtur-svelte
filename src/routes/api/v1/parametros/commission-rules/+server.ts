@@ -66,7 +66,7 @@ async function requireAccess(event: RequestEvent, minLevel: number) {
   if (!scope.isAdmin) {
     ensureModuloAccess(
       scope,
-      ['parametros', 'regrascomissao', 'regras_comissao'],
+      ['parametros_regras_comissao', 'regras_comissao', 'parametros'],
       minLevel,
       'Sem acesso às regras de comissão.'
     );

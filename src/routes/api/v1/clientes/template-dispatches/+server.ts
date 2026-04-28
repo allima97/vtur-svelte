@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['crm', 'clientes'], 1, 'Sem acesso a envios de templates.');
+      ensureModuloAccess(scope, ['parametros_crm', 'crm', 'clientes'], 1, 'Sem acesso a envios de templates.');
     }
 
     const clienteId = String(url.searchParams.get('cliente_id') || '').trim();
@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['crm', 'clientes'], 2, 'Sem acesso a enviar templates.');
+      ensureModuloAccess(scope, ['parametros_crm', 'crm', 'clientes'], 2, 'Sem acesso a enviar templates.');
     }
 
     const body = await request.json();

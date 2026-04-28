@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['tarefas', 'operacao', 'clientes'], 1, 'Sem acesso a Tarefas.');
+      ensureModuloAccess(scope, ['operacao_todo', 'tarefas', 'operacao', 'clientes'], 1, 'Sem acesso a Tarefas.');
     }
 
     const search = String(event.url.searchParams.get('search') || '').trim().toLowerCase();

@@ -15,8 +15,10 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['escalas', 'parametros'], 1, 'Sem acesso a Escalas.');
+    // Vendedor pode visualizar escala (incluindo equipe) em modo leitura.
+    // Edicao continua bloqueada no POST.
+    if (!scope.isAdmin && !scope.isVendedor) {
+      ensureModuloAccess(scope, ['parametros_escalas', 'escalas', 'parametros'], 1, 'Sem acesso a Escalas.');
     }
 
     const { searchParams } = event.url;
@@ -28,12 +30,18 @@ export async function GET(event) {
     if (scope.isGestor) {
       equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
     } else {
-      const { data: usersData } = await client
+      let usersQuery = client
         .from('users')
         .select('id')
         .eq('active', true)
-        .eq('company_id', scope.companyId || '')
-        .limit(200);
+        .limit(500);
+
+      if (!scope.isAdmin) {
+        if (scope.companyIds.length > 0) usersQuery = usersQuery.in('company_id', scope.companyIds);
+        else if (scope.companyId) usersQuery = usersQuery.eq('company_id', scope.companyId);
+      }
+
+      const { data: usersData } = await usersQuery;
       equipeIds = (usersData || []).map((u: any) => u.id);
     }
 
@@ -44,7 +52,10 @@ export async function GET(event) {
       .order('periodo', { ascending: false })
       .limit(24);
 
-    if (scope.companyId && !scope.isAdmin) mesQuery = mesQuery.eq('company_id', scope.companyId);
+    if (!scope.isAdmin) {
+      if (scope.companyIds.length > 0) mesQuery = mesQuery.in('company_id', scope.companyIds);
+      else if (scope.companyId) mesQuery = mesQuery.eq('company_id', scope.companyId);
+    }
     if (periodo) mesQuery = mesQuery.eq('periodo', periodo + '-01');
 
     const { data: meses, error: mesError } = await mesQuery;
@@ -90,7 +101,10 @@ export async function GET(event) {
       .select('id, data, nome, tipo')
       .order('data')
       .limit(100);
-    if (scope.companyId && !scope.isAdmin) feriadosQuery = feriadosQuery.eq('company_id', scope.companyId);
+    if (!scope.isAdmin) {
+      if (scope.companyIds.length > 0) feriadosQuery = feriadosQuery.in('company_id', scope.companyIds);
+      else if (scope.companyId) feriadosQuery = feriadosQuery.eq('company_id', scope.companyId);
+    }
     const { data: feriados } = await feriadosQuery;
 
     // Busca horarios do usuario logado
@@ -123,7 +137,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['escalas', 'parametros'], 2, 'Sem permissão para salvar escalas.');
+      ensureModuloAccess(scope, ['parametros_escalas', 'escalas', 'parametros'], 2, 'Sem permissão para salvar escalas.');
     }
 
     const body = await event.request.json();
