@@ -7,6 +7,7 @@
   import FileDropzone from '$lib/components/ui/FileDropzone.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
@@ -163,6 +164,11 @@
   let saving = false;
   let importing = false;
   let reverting = false;
+  let optionsLoading = false;
+  let registrosLoading = false;
+  let changesLoading = false;
+  let executionsLoading = false;
+  let operationMessage = '';
 
   let summary: ConciliacaoSummary = {
     total: 0,
@@ -498,14 +504,42 @@
     await loadAll();
   });
 
+  $: busyTitle = running
+    ? 'Executando conciliação'
+    : importing
+      ? 'Importando conciliação'
+      : importLookupLoading
+        ? 'Buscando usuários nas vendas'
+        : loading
+          ? 'Carregando conciliação'
+          : operationMessage
+            ? 'Processando'
+            : '';
+
+  $: busyMessage = running
+    ? 'O sistema está comparando recibos, vendas e taxas para marcar vínculos automaticamente.'
+    : importing
+      ? 'O arquivo está sendo gravado e os registros existentes serão atualizados quando necessário.'
+      : importLookupLoading
+        ? 'Estamos procurando vendedores e recibos correspondentes no sistema para preencher o ranking automaticamente.'
+        : loading
+          ? optionsLoading
+            ? 'Buscando registros, resumo, histórico e opções de vendedores/produtos.'
+            : 'Buscando registros, resumo, histórico e execuções da conciliação.'
+          : operationMessage;
+
+  $: showBusyNotice = Boolean(busyTitle && (loading || running || importing || importLookupLoading || operationMessage));
+
   async function loadAll() {
     loading = true;
+    operationMessage = 'Atualizando dados da conciliação financeira.';
     try {
       await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions()]);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao atualizar dados da conciliação.');
     } finally {
       loading = false;
+      operationMessage = '';
     }
   }
 
@@ -526,37 +560,57 @@
   }
 
   async function loadRegistros() {
+    registrosLoading = true;
     const params = new URLSearchParams();
-    if (monthFilter) params.set('month', monthFilter);
-    if (dayFilter) params.set('day', dayFilter);
-    if (showPendingOnly) params.set('pending', '1');
-    if (showBaixaRac) params.set('baixa_rac', '1');
-    if (rankingStatus !== 'all') params.set('ranking_status', rankingStatus);
+    try {
+      if (monthFilter) params.set('month', monthFilter);
+      if (dayFilter) params.set('day', dayFilter);
+      if (showPendingOnly) params.set('pending', '1');
+      if (showBaixaRac) params.set('baixa_rac', '1');
+      if (rankingStatus !== 'all') params.set('ranking_status', rankingStatus);
 
-    const response = await fetch(`/api/v1/conciliacao/list?${params.toString()}`);
-    const data = await parseJson(response, 'Erro ao carregar registros de conciliação.');
-    registros = Array.isArray(data) ? data : [];
+      const response = await fetch(`/api/v1/conciliacao/list?${params.toString()}`);
+      const data = await parseJson(response, 'Erro ao carregar registros de conciliação.');
+      registros = Array.isArray(data) ? data : [];
+    } finally {
+      registrosLoading = false;
+    }
   }
 
   async function loadOptions() {
-    const response = await fetch('/api/v1/conciliacao/options');
-    const data = await parseJson(response, 'Erro ao carregar opções da conciliação.');
-    vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
-    produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
+    optionsLoading = true;
+    try {
+      const response = await fetch('/api/v1/conciliacao/options');
+      const data = await parseJson(response, 'Erro ao carregar opções da conciliação.');
+      vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
+      produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
+    } finally {
+      optionsLoading = false;
+    }
   }
 
   async function loadChanges() {
+    changesLoading = true;
     const params = new URLSearchParams();
-    if (monthFilter) params.set('month', monthFilter);
-    const response = await fetch(`/api/v1/conciliacao/changes?${params.toString()}`);
-    const data = await parseJson(response, 'Erro ao carregar alterações da conciliação.');
-    changes = Array.isArray(data) ? data : [];
+    try {
+      if (monthFilter) params.set('month', monthFilter);
+      const response = await fetch(`/api/v1/conciliacao/changes?${params.toString()}`);
+      const data = await parseJson(response, 'Erro ao carregar alterações da conciliação.');
+      changes = Array.isArray(data) ? data : [];
+    } finally {
+      changesLoading = false;
+    }
   }
 
   async function loadExecutions() {
-    const response = await fetch('/api/v1/conciliacao/executions?limit=20');
-    const data = await parseJson(response, 'Erro ao carregar execuções da conciliação.');
-    executions = Array.isArray(data) ? data : [];
+    executionsLoading = true;
+    try {
+      const response = await fetch('/api/v1/conciliacao/executions?limit=20');
+      const data = await parseJson(response, 'Erro ao carregar execuções da conciliação.');
+      executions = Array.isArray(data) ? data : [];
+    } finally {
+      executionsLoading = false;
+    }
   }
 
   async function abrirImportacao() {
@@ -565,29 +619,37 @@
 
   async function aplicarKpiView(mode: 'visao_geral' | 'conciliados' | 'pendentes' | 'pendentes_ranking' | 'baixa_rac' | 'execucoes') {
     activeKpiView = mode;
+    operationMessage =
+      mode === 'execucoes'
+        ? 'Carregando execuções recentes da conciliação.'
+        : 'Atualizando o recorte de registros da conciliação.';
 
-    if (mode === 'execucoes') {
-      activeTab = 'execucoes';
-      await loadExecutions();
-      return;
-    }
+    try {
+      if (mode === 'execucoes') {
+        activeTab = 'execucoes';
+        await loadExecutions();
+        return;
+      }
 
-    if (mode === 'visao_geral') {
-      activeTab = 'visao_geral';
-      showOnlyConciliated = false;
-      showPendingOnly = false;
-      showBaixaRac = false;
-      rankingStatus = 'all';
+      if (mode === 'visao_geral') {
+        activeTab = 'visao_geral';
+        showOnlyConciliated = false;
+        showPendingOnly = false;
+        showBaixaRac = false;
+        rankingStatus = 'all';
+        await loadRegistros();
+        return;
+      }
+
+      activeTab = 'registros';
+      showOnlyConciliated = mode === 'conciliados';
+      showPendingOnly = mode === 'pendentes';
+      showBaixaRac = mode === 'baixa_rac';
+      rankingStatus = mode === 'pendentes_ranking' ? 'pending' : 'all';
       await loadRegistros();
-      return;
+    } finally {
+      operationMessage = '';
     }
-
-    activeTab = 'registros';
-    showOnlyConciliated = mode === 'conciliados';
-    showPendingOnly = mode === 'pendentes';
-    showBaixaRac = mode === 'baixa_rac';
-    rankingStatus = mode === 'pendentes_ranking' ? 'pending' : 'all';
-    await loadRegistros();
   }
 
   function onTabClick(key: string) {
@@ -718,6 +780,9 @@
 
   async function runAutoConciliacao(reciboId?: string) {
     running = true;
+    operationMessage = reciboId
+      ? 'Tentando vincular automaticamente o recibo selecionado.'
+      : 'Executando conciliação automática dos recibos pendentes.';
     try {
       const response = await fetch('/api/v1/conciliacao/run', {
         method: 'POST',
@@ -734,11 +799,13 @@
       toast.error(error.message || 'Erro ao executar conciliação.');
     } finally {
       running = false;
+      operationMessage = '';
     }
   }
 
   async function revertPendingChanges() {
     reverting = true;
+    operationMessage = 'Revertendo alterações pendentes da conciliação.';
     try {
       const response = await fetch('/api/v1/conciliacao/revert', {
         method: 'POST',
@@ -752,6 +819,7 @@
       toast.error(error.message || 'Erro ao reverter alterações.');
     } finally {
       reverting = false;
+      operationMessage = '';
     }
   }
 
@@ -762,6 +830,7 @@
     }
 
     importing = true;
+    operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
     try {
       const response = await fetch('/api/v1/conciliacao/import', {
         method: 'POST',
@@ -807,6 +876,7 @@
       toast.error(error.message || 'Erro ao importar conciliação.');
     } finally {
       importing = false;
+      operationMessage = '';
     }
   }
 
@@ -1189,6 +1259,11 @@
   </div>
 </Card>
 
+{#if showBusyNotice}
+  <Card color="financeiro" class="mb-4">
+    <LoadingState title={busyTitle} message={busyMessage} compact={true} />
+  </Card>
+{/if}
 
 {#if activeTab === 'importacao'}
   <Card title="Importar arquivo da conciliação" color="financeiro" class="mb-6">
@@ -1211,9 +1286,11 @@
       </div>
 
       {#if importLookupLoading}
-        <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          Buscando vendedores automaticamente nas vendas registradas...
-        </div>
+        <LoadingState
+          title="Buscando usuários nas vendas"
+          message="Estamos procurando vendedores e recibos correspondentes para preencher o ranking automaticamente."
+          compact={true}
+        />
       {/if}
 
       <FieldTextarea id="conciliacao-paste" label="Conteúdo do extrato (opcional)" bind:value={importText} rows={5} class_name="w-full" />
@@ -1328,6 +1405,12 @@
       </Button>
     </div>
 
+    {#if registrosLoading || loading}
+      <LoadingState
+        title="Carregando visão geral"
+        message="Buscando recibos, vendedores, vínculos de venda e situação de conciliação."
+      />
+    {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[2050px] w-full text-sm">
         <thead class="bg-slate-50 text-slate-700">
@@ -1382,10 +1465,17 @@
         </tbody>
       </table>
     </div>
+    {/if}
   </Card>
 {:else if activeTab === 'registros'}
   <Card title="Registros" color="financeiro" class="mb-6">
     <div class="mb-3 text-sm text-slate-600">{filteredRecords.length} registro(s) no recorte atual.</div>
+    {#if registrosLoading || loading}
+      <LoadingState
+        title="Carregando registros"
+        message="Buscando os recibos do recorte selecionado e recalculando os indicadores da tela."
+      />
+    {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[2050px] w-full text-sm">
         <thead class="bg-slate-50 text-slate-700">
@@ -1440,6 +1530,7 @@
         </tbody>
       </table>
     </div>
+    {/if}
   </Card>
 {:else if activeTab === 'alteracoes'}
   <Card title="Histórico de alterações" color="financeiro" class="mb-6">
@@ -1449,6 +1540,12 @@
         <RefreshCcw size={16} class="mr-2" />Reverter pendentes
       </Button>
     </div>
+    {#if changesLoading}
+      <LoadingState
+        title="Carregando histórico"
+        message="Buscando alterações manuais e reversões registradas para este período."
+      />
+    {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[980px] w-full text-sm">
         <thead class="bg-slate-50 text-slate-700">
@@ -1479,6 +1576,7 @@
         </tbody>
       </table>
     </div>
+    {/if}
   </Card>
 {:else if activeTab === 'execucoes'}
   <Card title="Execuções" color="financeiro" class="mb-6">
@@ -1488,6 +1586,12 @@
         Atualizar execuções
       </Button>
     </div>
+    {#if executionsLoading}
+      <LoadingState
+        title="Carregando execuções"
+        message="Buscando as últimas rodadas de conciliação automática e seus resultados."
+      />
+    {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[980px] w-full text-sm">
         <thead class="bg-slate-50 text-slate-700">
@@ -1516,6 +1620,7 @@
         </tbody>
       </table>
     </div>
+    {/if}
   </Card>
 {/if}
 

@@ -236,6 +236,8 @@
     title="Usuarios administrados"
     color="financeiro"
     {loading}
+    loadingTitle="Buscando usuários"
+    loadingMessage="Estamos carregando usuários, empresas, perfis e status do escopo master."
     {columns}
     data={filteredUsuarios}
     emptyMessage="Nenhum usuario encontrado para o escopo atual."

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Download, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-svelte';
+  import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Filter, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-svelte';
   import Button from './Button.svelte';
   import Checkbox from './Checkbox.svelte';
   import FieldInput from './form/FieldInput.svelte';
   import FieldSelect from './form/FieldSelect.svelte';
+  import LoadingState from './LoadingState.svelte';
   import type { ModuleColor } from '$lib/theme/colors';
   import type { ComponentType } from 'svelte';
 
@@ -52,6 +53,8 @@
   export let color: ModuleColor = 'clientes';
   $: color;
   export let loading: boolean = false;
+  export let loadingTitle: string = 'Carregando registros';
+  export let loadingMessage: string = 'Aguarde enquanto o sistema busca os dados da tabela.';
   export let selectable: boolean = false;
   export let searchable: boolean = true;
   export let filterable: boolean = true;
@@ -359,8 +362,7 @@
           {#if loading}
             <tr>
               <td colspan={columns.length + (selectable ? 1 : 0) + ($$slots['row-actions'] || $$slots.actions ? 1 : 0)} class="px-6 py-12 text-center">
-                <Loader2 size={32} class="mx-auto animate-spin text-slate-400" />
-                <p class="mt-2 text-slate-500">Carregando...</p>
+                <LoadingState title={loadingTitle} message={loadingMessage} compact={true} />
               </td>
             </tr>
           {:else if paginatedData.length === 0}

@@ -20,6 +20,7 @@ export { default as FieldToggle } from './form/FieldToggle.svelte';
 export { default as FormPanel } from './form/FormPanel.svelte';
 export { default as FormActions } from './form/FormActions.svelte';
 export { default as Input } from './Input.svelte';
+export { default as LoadingState } from './LoadingState.svelte';
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as PaginationControls } from './PaginationControls.svelte';
 export { default as SimpleTable } from './SimpleTable.svelte';
