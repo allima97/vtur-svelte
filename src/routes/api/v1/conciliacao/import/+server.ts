@@ -248,27 +248,21 @@ export async function POST(event) {
       return json({ ok: true, importados: 0, ignorados: linhas.length, message: 'Nenhuma linha com status importável (BAIXA/OPFAX/ESTORNO).' });
     }
 
-    // Busca registros existentes para deduplicação
-    const chaves = importaveis.map((l) => buildImportKey(companyId, l.movimento_data, l.documento, l.descricao));
     const { data: existentes } = await client
       .from('conciliacao_recibos')
-      .select('id, documento, movimento_data, descricao')
+      .select('id, documento, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')
       .eq('company_id', companyId)
       .in('documento', importaveis.map((l) => l.documento))
       .limit(5000);
 
-    const existentesKeys = new Set(
-      (existentes || []).map((row: any) => buildImportKey(companyId, row.movimento_data, row.documento, row.descricao))
+    const existentesByKey = new Map(
+      (existentes || []).map((row: any) => [
+        buildImportKey(companyId, row.movimento_data, row.documento, row.descricao),
+        row
+      ])
     );
 
-    const novas = importaveis.filter((l) => !existentesKeys.has(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)));
-
-    if (novas.length === 0) {
-      return json({ ok: true, importados: 0, ignorados: linhas.length, duplicados: importaveis.length, message: 'Todos os registros já existem.' });
-    }
-
-    const rows = [];
-    for (const l of novas) {
+    const buildRow = async (l: ConciliacaoLinhaInput) => {
       // Resolve status + compute all metrics via shared business logic
       const statusResolvido = resolveConciliacaoStatus({
         status: l.status,
@@ -310,7 +304,7 @@ export async function POST(event) {
         }
       }
 
-      rows.push({
+      return {
         company_id: companyId,
         documento: String(l.documento || '').trim(),
         movimento_data: String(l.movimento_data || '').trim(),
@@ -338,13 +332,56 @@ export async function POST(event) {
         venda_recibo_id: vendaReciboId,
         origem: String(l.origem || 'manual').trim(),
         conciliado: false,
-      });
+      };
+    };
+
+    const rowsToInsert = [];
+    const rowsToUpdate: Array<{ id: string; values: Record<string, any> }> = [];
+    for (const l of importaveis) {
+      const row = await buildRow(l);
+      const existing = existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao));
+
+      if (existing?.id) {
+        const values = { ...row };
+        delete (values as any).company_id;
+        rowsToUpdate.push({
+          id: String(existing.id),
+          values: {
+            ...values,
+            ranking_vendedor_id: values.ranking_vendedor_id ?? existing.ranking_vendedor_id ?? null,
+            ranking_produto_id: values.ranking_produto_id ?? existing.ranking_produto_id ?? null,
+            venda_id: values.venda_id ?? existing.venda_id ?? null,
+            venda_recibo_id: values.venda_recibo_id ?? existing.venda_recibo_id ?? null,
+            match_total: null,
+            match_taxas: null,
+            sistema_valor_total: null,
+            sistema_valor_taxas: null,
+            diff_total: null,
+            diff_taxas: null,
+            last_checked_at: null,
+            conciliado_em: null
+          }
+        });
+      } else {
+        rowsToInsert.push(row);
+      }
+    }
+
+    let atualizados = 0;
+    for (const item of rowsToUpdate) {
+      const { error: updateError } = await client
+        .from('conciliacao_recibos')
+        .update(item.values)
+        .eq('id', item.id)
+        .eq('company_id', companyId);
+      if (updateError) throw updateError;
+      atualizados += 1;
     }
 
     const BATCH = 100;
     let importados = 0;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
+    for (let i = 0; i < rowsToInsert.length; i += BATCH) {
+      const batch = rowsToInsert.slice(i, i + BATCH);
       const { error: insertError } = await client.from('conciliacao_recibos').insert(batch);
       if (insertError) throw insertError;
       importados += batch.length;
@@ -353,8 +390,9 @@ export async function POST(event) {
     return json({
       ok: true,
       importados,
+      atualizados,
       ignorados: linhas.length - importaveis.length,
-      duplicados: importaveis.length - novas.length
+      duplicados: atualizados
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao importar conciliação.');
