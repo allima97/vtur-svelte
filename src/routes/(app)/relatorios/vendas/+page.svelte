@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
@@ -245,6 +246,7 @@
     ticket_medio: 0
   };
   let loading = true;
+  let loadingBase = true;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
   let vendedorSelecionado = '';
@@ -305,6 +307,7 @@
   let columns = columnsBase;
 
   async function loadBase() {
+    loadingBase = true;
     try {
       const response = await fetch('/api/v1/relatorios/base');
       if (!response.ok) {
@@ -321,6 +324,8 @@
       const msg = err instanceof Error ? err.message : 'Erro ao carregar filtros analíticos';
       console.error('[loadBase] Erro:', msg);
       toast.error(msg);
+    } finally {
+      loadingBase = false;
     }
   }
 
@@ -684,7 +689,7 @@
         class_name="w-full"
       />
       <div class="flex items-end">
-        <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRelatorio}>
+        <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRelatorio} loading={loading}>
           <Filter size={16} class="mr-2" />
           Aplicar
         </Button>
@@ -715,45 +720,75 @@
   </div>
 </Card>
 
-<KPIGrid className="mb-6" columns={5}>
-  <KPICard 
-    title="Total vendido" 
-    value={formatCurrency(totalVendas)} 
-    color="financeiro" 
-    icon={DollarSign} 
+{#if loadingBase}
+  <LoadingState
+    title="Carregando filtros do relatório"
+    message="Buscando empresas e vendedores disponíveis para o seu escopo."
+    className="mb-6"
   />
-  <KPICard 
-    title="Total de vendas" 
-    value={resumo.total_vendas} 
-    color="financeiro" 
-    icon={ShoppingCart} 
+{/if}
+
+{#if loading}
+  <LoadingState
+    title="Calculando resumo de vendas"
+    message="Buscando vendas, recibos, taxas, comissões e ticket médio para o período selecionado."
+    className="mb-6"
   />
-  <KPICard 
-    title="Total de recibos" 
-    value={totalRecibos} 
-    color="financeiro" 
-    icon={Users} 
-  />
-  <KPICard 
-    title="Comissões" 
-    value={formatCurrency(totalComissoes)} 
-    color="financeiro" 
-    icon={TrendingUp} 
-  />
-  <KPICard 
-    title="Ticket médio" 
-    value={formatCurrency(ticketMedio)} 
-    color="financeiro" 
-    icon={TrendingUp} 
-  />
-</KPIGrid>
+{:else}
+  <KPIGrid className="mb-6" columns={5}>
+    <KPICard 
+      title="Total vendido" 
+      value={formatCurrency(totalVendas)} 
+      color="financeiro" 
+      icon={DollarSign} 
+    />
+    <KPICard 
+      title="Total de vendas" 
+      value={resumo.total_vendas} 
+      color="financeiro" 
+      icon={ShoppingCart} 
+    />
+    <KPICard 
+      title="Total de recibos" 
+      value={totalRecibos} 
+      color="financeiro" 
+      icon={Users} 
+    />
+    <KPICard 
+      title="Comissões" 
+      value={formatCurrency(totalComissoes)} 
+      color="financeiro" 
+      icon={TrendingUp} 
+    />
+    <KPICard 
+      title="Ticket médio" 
+      value={formatCurrency(ticketMedio)} 
+      color="financeiro" 
+      icon={TrendingUp} 
+    />
+  </KPIGrid>
+{/if}
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
   <Card header="Vendas por mês (últimos 6 meses)" color="financeiro">
-    <ChartJS type="bar" data={vendasPorMesData} height={280} />
+    {#if loading}
+      <LoadingState
+        title="Carregando vendas por mês"
+        message="Agrupando o volume vendido nos últimos 6 meses."
+      />
+    {:else}
+      <ChartJS type="bar" data={vendasPorMesData} height={280} />
+    {/if}
   </Card>
   <Card header="Venda por dia do mês selecionado" color="financeiro">
-    <ChartJS type="line" data={vendasPorDiaMesData} height={280} />
+    {#if loading}
+      <LoadingState
+        title="Carregando vendas por dia"
+        message="Distribuindo as entradas diárias dentro do mês selecionado."
+      />
+    {:else}
+      <ChartJS type="line" data={vendasPorDiaMesData} height={280} />
+    {/if}
   </Card>
 </div>
 
@@ -762,6 +797,8 @@
   data={recibosFiltrados}
   color="financeiro"
   {loading}
+  loadingTitle="Carregando detalhamento de vendas"
+  loadingMessage="Buscando recibos, clientes, vendedores, produtos, taxas e comissões do relatório."
   title="Detalhamento de vendas"
   searchable={true}
   exportable={true}

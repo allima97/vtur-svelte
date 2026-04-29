@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
@@ -38,6 +39,7 @@
 
   let vendas: Venda[] = [];
   let loading = true;
+  let loadingKpis = true;
   let errorMessage: string | null = null;
   let kpisMesCorrente: VendasKpis = {
     totalVendas: 0,
@@ -171,6 +173,7 @@
   }
 
   async function loadKpisMesCorrente() {
+    loadingKpis = true;
     try {
       const range = getCurrentMonthRange();
       const payload: any = await apiGet('/api/v1/vendas/kpis', {
@@ -196,6 +199,8 @@
       };
       const msg = err instanceof Error ? err.message : 'Erro ao carregar KPIs do mês corrente.';
       toast.error(msg);
+    } finally {
+      loadingKpis = false;
     }
   }
 
@@ -300,18 +305,28 @@
   </div>
 {/if}
 
-<KPIGrid className="mb-6" columns={4}>
-  <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
-  <KPICard title="Valor total (mês corrente)" value={formatCurrency(kpisMesCorrente.totalVendas)} color="vendas" icon={DollarSign} />
-  <KPICard title="Taxas (mês corrente)" value={formatCurrency(kpisMesCorrente.totalTaxas)} color="clientes" icon={Calendar} />
-  <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
-</KPIGrid>
+{#if loadingKpis}
+  <LoadingState
+    title="Carregando indicadores de vendas"
+    message="Buscando totais do mês corrente, taxas, líquido e quantidade de vendas ativas."
+    className="mb-6"
+  />
+{:else}
+  <KPIGrid className="mb-6" columns={4}>
+    <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
+    <KPICard title="Valor total (mês corrente)" value={formatCurrency(kpisMesCorrente.totalVendas)} color="vendas" icon={DollarSign} />
+    <KPICard title="Taxas (mês corrente)" value={formatCurrency(kpisMesCorrente.totalTaxas)} color="clientes" icon={Calendar} />
+    <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
+  </KPIGrid>
+{/if}
 
 <DataTable
   {columns}
   data={vendas}
   color="vendas"
   {loading}
+  loadingTitle="Carregando vendas"
+  loadingMessage="Buscando vendas, recibos, clientes, destinos e status no banco compartilhado."
   title="Lista de Vendas"
   {filters}
   searchable={true}

@@ -6,6 +6,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
@@ -861,7 +862,10 @@
         </Button>
       </div>
       {#if loading}
-        <div class="h-52 animate-pulse rounded-xl bg-slate-100"></div>
+        <LoadingState
+          title="Carregando evolução das vendas"
+          message="Buscando a linha do tempo de receita no período selecionado."
+        />
       {:else if vendasAgg.timeline.length === 0}
         <p class="py-12 text-center text-sm text-slate-400">Nenhuma venda no período.</p>
       {:else}
@@ -882,11 +886,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="space-y-3">
-              {#each [1, 2, 3, 4, 5] as _}
-                <div class="h-10 animate-pulse rounded-lg bg-slate-100"></div>
-              {/each}
-            </div>
+            <LoadingState
+              title="Carregando destinos"
+              message="Somando vendas por destino para montar o ranking do período."
+            />
           {:else if vendasAgg.topDestinos.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum destino no período.</p>
           {:else}
@@ -915,7 +918,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="h-48 animate-pulse rounded-xl bg-slate-100"></div>
+            <LoadingState
+              title="Carregando produtos"
+              message="Agrupando a receita por produto para montar o gráfico."
+            />
           {:else if vendasAgg.porProduto.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum produto no período.</p>
           {:else}
@@ -948,11 +954,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="space-y-3">
-              {#each [1, 2, 3] as _}
-                <div class="h-16 animate-pulse rounded-xl bg-slate-100"></div>
-              {/each}
-            </div>
+            <LoadingState
+              title="Carregando viagens"
+              message="Buscando próximas viagens confirmadas e seus status operacionais."
+            />
           {:else if viagens.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhuma viagem próxima.</p>
           {:else}
@@ -998,17 +1003,10 @@
       </div>
       <div class="border-t border-slate-100 pt-4">
         {#if loading}
-          <div class="space-y-4">
-            {#each [1, 2, 3, 4] as _}
-              <div class="flex items-center gap-4">
-                <div class="h-10 w-10 animate-pulse rounded-full bg-slate-100"></div>
-                <div class="flex-1 space-y-1">
-                  <div class="h-4 w-40 animate-pulse rounded bg-slate-100"></div>
-                  <div class="h-3 w-24 animate-pulse rounded bg-slate-100"></div>
-                </div>
-              </div>
-            {/each}
-          </div>
+          <LoadingState
+            title="Carregando atividades"
+            message="Buscando follow-ups, orçamentos, viagens e eventos recentes."
+          />
         {:else if activityFeed.length === 0}
           <p class="py-6 text-center text-sm text-slate-400">Nenhuma atividade recente.</p>
         {:else}
@@ -1052,11 +1050,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="space-y-3">
-              {#each [1, 2, 3] as _}
-                <div class="h-12 animate-pulse rounded-xl bg-slate-100"></div>
-              {/each}
-            </div>
+            <LoadingState
+              title="Carregando aniversariantes"
+              message="Buscando aniversários próximos para apoiar o relacionamento com clientes."
+            />
           {:else if aniversariantes.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum aniversariante este mês.</p>
           {:else}
@@ -1110,11 +1107,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="space-y-3">
-              {#each [1, 2, 3] as _}
-                <div class="h-16 animate-pulse rounded-xl bg-slate-100"></div>
-              {/each}
-            </div>
+            <LoadingState
+              title="Carregando tarefas pendentes"
+              message="Buscando follow-ups e ações prioritárias do período."
+            />
           {:else if followUps.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum follow-up pendente.</p>
           {:else}
@@ -1159,11 +1155,10 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <div class="space-y-3">
-              {#each [1, 2, 3] as _}
-                <div class="h-14 animate-pulse rounded-xl bg-slate-100"></div>
-              {/each}
-            </div>
+            <LoadingState
+              title="Carregando orçamentos"
+              message="Buscando propostas recentes e seus valores para o painel."
+            />
           {:else if orcamentos.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum orçamento no período.</p>
           {:else}
@@ -1215,11 +1210,10 @@
     </div>
     <div class="border-t border-slate-100 pt-4">
       {#if loading}
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {#each [1,2,3] as _}
-            <div class="h-16 animate-pulse rounded-xl bg-slate-100"></div>
-          {/each}
-        </div>
+        <LoadingState
+          title="Carregando consultorias"
+          message="Buscando próximas sessões de consultoria agendadas."
+        />
       {:else if consultorias.length === 0}
         <p class="py-6 text-center text-sm text-slate-400">Nenhuma consultoria agendada.</p>
       {:else}
@@ -1265,4 +1259,3 @@
     onEnviar={() => toast.success('Aviso preparado com sucesso.')}
   />
 {/if}
-
