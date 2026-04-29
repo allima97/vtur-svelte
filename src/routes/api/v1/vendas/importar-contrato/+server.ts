@@ -295,6 +295,8 @@ export async function POST(event) {
     const vendedorId = String(body?.vendedorId || '').trim() || user.id;
     const destinoCidadeId = String(body?.destinoCidadeId || '').trim() || null;
     const destinoProdutoId = String(body?.destinoProdutoId || '').trim() || null;
+    const tipoImportacao = String(body?.tipoImportacao || '').trim();
+    const isFacialRextur = tipoImportacao === 'facial_rextur';
     const clienteTelefone = sanitizeOptionalContact(body?.clienteTelefone);
     const clienteWhatsapp = sanitizeOptionalContact(body?.clienteWhatsapp);
     const clienteEmail = sanitizeOptionalContact(body?.clienteEmail);
@@ -401,22 +403,24 @@ export async function POST(event) {
       await client.from('clientes').update(contatos).eq('id', clientePrincipal.id);
     }
 
-    try {
-      await ensureReciboReservaUnicos({
-        client,
-        companyId,
-        clienteId: clientePrincipal.id,
-        recibos: contratos.map((contrato) => ({
-          numero_recibo: contrato.contrato_numero || null,
-          numero_reserva: contrato.reserva_numero || null
-        }))
-      });
-    } catch (err) {
-      const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
-      if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA') {
-        return new Response(code, { status: 409 });
+    if (!isFacialRextur) {
+      try {
+        await ensureReciboReservaUnicos({
+          client,
+          companyId,
+          clienteId: clientePrincipal.id,
+          recibos: contratos.map((contrato) => ({
+            numero_recibo: contrato.contrato_numero || null,
+            numero_reserva: contrato.reserva_numero || null
+          }))
+        });
+      } catch (err) {
+        const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
+        if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA') {
+          return new Response(code, { status: 409 });
+        }
+        throw err;
       }
-      throw err;
     }
 
     const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);

@@ -642,6 +642,7 @@
         vendedorId: canAssignVendedor ? vendedorId : currentUserId,
         destinoCidadeId: cidadeId,
         dataVenda,
+        tipoImportacao,
         clienteTelefone: skipContato ? null : contatoTelefone || null,
         clienteWhatsapp: skipContato ? null : contatoWhatsapp || null,
         clienteEmail: skipContato ? null : contatoEmail || null
