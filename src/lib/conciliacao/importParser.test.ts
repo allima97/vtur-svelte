@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as XLSX from 'xlsx';
 import { parseConciliacaoImportFile } from './importParser';
 
 describe('parseConciliacaoImportFile', () => {
@@ -46,5 +47,40 @@ describe('parseConciliacaoImportFile', () => {
     expect(row.valor_lancamentos).toBe(22356);
     expect(row.valor_taxas).toBe(2700);
     expect(row.valor_calculada_loja).toBe(1867.32);
+  });
+
+  it('reads movimento date when an Excel export puts the date in the next cell', async () => {
+    const rows = [
+      ['Movimentação do Dia:', '18/02/2026'],
+      [],
+      [
+        'DOCUMENTO',
+        'DESCRICAO',
+        'LANCAMENTOS',
+        'TAXAS',
+        'DESCONTOS',
+        'ABATIMENTOS',
+        'CALCULADA LOJA',
+        'REPASSADA',
+        'VISAO MASTER',
+        '',
+        '',
+        'OPFAX',
+        'SALDO'
+      ],
+      ['5630-0000084046', 'BAIXA DE RECIBO', 22356, 2700, 0, 0, 1867.32, 0, 1867.32, 0, 0, 0, 1867.32]
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimento');
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const file = new File([buffer], 'extrato_movimento.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+
+    const parsed = await parseConciliacaoImportFile(file);
+
+    expect(parsed.movimentoData).toBe('2026-02-18');
+    expect(parsed.linhas[0].movimento_data).toBe('2026-02-18');
   });
 });

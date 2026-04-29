@@ -227,7 +227,7 @@
   let detalheFaixaComissao = '';
 
   let importText = '';
-  let importFallbackDate = new Date().toISOString().slice(0, 10);
+  let importFallbackDate = '';
   let importFileName = '';
   let importFiles: FileList | undefined = undefined;
   let importIgnored = 0;
@@ -462,7 +462,7 @@
     // Keep this dependency explicit so the preview recomputes when lookup matches arrive.
     const _lookupMatches = importLookupMatches;
 
-    const parsed = parseConciliacaoImportText(importText, importFallbackDate);
+    const parsed = parseConciliacaoImportText(importText, null);
     importIgnored = parsed.ignored;
 
     const signature = parsed.linhas
@@ -473,7 +473,7 @@
       // Text changed — full rebuild from scratch (discards manual edits, as expected for a new file)
       importLookupSignature = signature;
       void loadImportLookup(parsed.linhas);
-      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate);
+      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate || null);
     } else if (importPreparedRows.length > 0) {
       // Same text, lookup data updated — merge lookup results WITHOUT overwriting manual vendedor assignments
       importPreparedRows = importPreparedRows.map((row) => {
@@ -492,7 +492,7 @@
         return row;
       });
     } else {
-      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate);
+      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate || null);
     }
 
     importRowsTotal = importPreparedRows.length;
@@ -828,6 +828,11 @@
       toast.error('Nenhuma linha válida para importar.');
       return;
     }
+    const missingMovimentoData = importPreparedRows.some((row) => !String(row.movimento_data || '').trim());
+    if (missingMovimentoData) {
+      toast.error('Informe a data do movimento antes de importar.');
+      return;
+    }
 
     importing = true;
     operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
@@ -865,6 +870,7 @@
       importFiles = undefined;
       importText = '';
       importFileName = '';
+      importFallbackDate = '';
       importIgnored = 0;
       importRowsTotal = 0;
       importAutoLinked = 0;
@@ -885,10 +891,11 @@
     if (!file) return;
     importFileName = file.name;
     try {
-      const parsed = await parseConciliacaoImportFile(file, importFallbackDate);
+      const parsed = await parseConciliacaoImportFile(file, null);
       importText = parsed.text;
-      if (parsed.movimentoData) {
-        importFallbackDate = parsed.movimentoData;
+      importFallbackDate = parsed.movimentoData || '';
+      if (importFallbackDate) {
+        applyImportMovimentoDate(importFallbackDate);
       }
       if (!parsed.linhas.length) {
         toast.error('Arquivo lido, mas nenhuma linha operacional foi identificada.');
@@ -941,7 +948,7 @@
     }
   }
 
-  function buildImportPreviewRows(rows: ConciliacaoLinhaInput[], fallbackDate: string): ImportPreviewRow[] {
+  function buildImportPreviewRows(rows: ConciliacaoLinhaInput[], fallbackDate: string | null): ImportPreviewRow[] {
     return rows.map((row) => {
       const metrics = buildConciliacaoMetrics({
         descricao: row.descricao,
@@ -966,7 +973,7 @@
 
       return {
         documento,
-        movimento_data: row.movimento_data || fallbackDate,
+        movimento_data: fallbackDate || row.movimento_data || null,
         status: row.status || null,
         descricao: row.descricao || null,
         vendedor_ranking: resolveImportVendedorLabel(rankingVendedorId, row.status),
@@ -987,6 +994,19 @@
         venda_recibo_id: vendaReciboId
       };
     });
+  }
+
+  function applyImportMovimentoDate(value: string) {
+    const movimentoData = String(value || '').trim() || null;
+    importPreparedRows = importPreparedRows.map((row) => ({
+      ...row,
+      movimento_data: movimentoData
+    }));
+    importPreview = importPreparedRows;
+  }
+
+  function handleImportMovimentoDateChange() {
+    applyImportMovimentoDate(importFallbackDate);
   }
 
   function resolveImportVendedorLabel(rankingVendedorId: string | null, status?: string | null) {
@@ -1275,6 +1295,22 @@
         bind:files={importFiles}
         on:change={() => void handleFileChange()}
       />
+      <div class="grid gap-3 md:grid-cols-[minmax(220px,280px)_1fr]">
+        <FieldInput
+          id="conciliacao-import-movimento-date"
+          label="Data do movimento"
+          type="date"
+          bind:value={importFallbackDate}
+          helper="Se o arquivo não trouxer a data, informe aqui antes de importar."
+          class_name="w-full"
+          on:change={handleImportMovimentoDateChange}
+        />
+        {#if importPreparedRows.length > 0 && !importFallbackDate}
+          <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            A data do movimento não foi reconhecida no arquivo. Informe a data acima para aplicar em todas as linhas do preview.
+          </div>
+        {/if}
+      </div>
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">Linhas reconhecidas</p><p class="text-base font-semibold">{importRowsTotal}</p></div>
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">Importáveis</p><p class="text-base font-semibold">{importPreparedRows.length}</p></div>
@@ -1368,7 +1404,7 @@
 
       <div class="flex flex-wrap gap-2">
         <Button color="financeiro" on:click={importPreviewRows} disabled={importPreparedRows.length === 0} loading={importing}><Upload size={16} class="mr-2" />Importar</Button>
-        <Button variant="secondary" on:click={() => { importFiles = undefined; importText = ''; importFileName = ''; importIgnored = 0; importRowsTotal = 0; importAutoLinked = 0; importLookupMatches = {}; importLookupSignature = ''; }}>Limpar</Button>
+        <Button variant="secondary" on:click={() => { importFiles = undefined; importText = ''; importFileName = ''; importFallbackDate = ''; importIgnored = 0; importRowsTotal = 0; importAutoLinked = 0; importLookupMatches = {}; importLookupSignature = ''; }}>Limpar</Button>
       </div>
     </div>
   </Card>

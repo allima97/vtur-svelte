@@ -248,6 +248,17 @@ export async function POST(event) {
       return json({ ok: true, importados: 0, ignorados: linhas.length, message: 'Nenhuma linha com status importável (BAIXA/OPFAX/ESTORNO).' });
     }
 
+    const semDataMovimento = importaveis.filter((linha) => !String(linha.movimento_data || '').trim());
+    if (semDataMovimento.length > 0) {
+      return json(
+        {
+          error: 'Data do movimento não identificada no arquivo. A importação não grava a data atual como fallback.',
+          sem_data_movimento: semDataMovimento.length
+        },
+        { status: 400 }
+      );
+    }
+
     const { data: existentes } = await client
       .from('conciliacao_recibos')
       .select('id, documento, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')

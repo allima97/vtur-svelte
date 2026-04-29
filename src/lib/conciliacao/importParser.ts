@@ -163,9 +163,22 @@ function inferStatus(value: unknown): ConciliacaoLinhaInput['status'] {
 }
 
 function parseMovimentoDateFromTxt(text: string): string | null {
-  const match = text.match(/Movimenta[cç][aã]o\s+do\s+Dia:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-  if (!match) return null;
-  return `${match[3]}-${match[2]}-${match[1]}`;
+  const raw = String(text || '');
+  const br = raw.match(
+    /(?:Movimenta[cç][aã]o|Movimento|Data\s+Movimento)\s*(?:(?:do\s+)?Dia)?\s*:?\s*(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/i
+  );
+  if (br) {
+    const day = br[1].padStart(2, '0');
+    const month = br[2].padStart(2, '0');
+    const year = br[3].length === 2 ? `20${br[3]}` : br[3];
+    return `${year}-${month}-${day}`;
+  }
+
+  const iso = raw.match(
+    /(?:Movimenta[cç][aã]o|Movimento|Data\s+Movimento)\s*(?:(?:do\s+)?Dia)?\s*:?\s*(\d{4})-(\d{2})-(\d{2})/i
+  );
+  if (!iso) return null;
+  return `${iso[1]}-${iso[2]}-${iso[3]}`;
 }
 
 const MONTH_PT: Record<string, string> = {
@@ -427,13 +440,18 @@ async function parseConciliacaoXlsLayout(
     };
   }
 
-  const movimentoDateCell = sheets
+  const flatWorkbookText = sheets
     .flatMap((sheet: { rows: unknown[][] }) => sheet.rows)
     .flat()
     .map((cell: unknown) => String(cell || '').trim())
-    .find((cell: string) => /Movimenta[cç][aã]o\s+do\s+Dia:/i.test(cell));
+    .join('\n');
+
+  const movimentoDateCell = flatWorkbookText
+    .split('\n')
+    .find((cell: string) => /(?:Movimenta[cç][aã]o|Movimento|Data\s+Movimento)/i.test(cell));
 
   const movimentoData =
+    parseMovimentoDateFromTxt(flatWorkbookText) ||
     (movimentoDateCell ? parseMovimentoDateFromTxt(movimentoDateCell) : null) ||
     parseMovimentoDateFromFileName(file.name) ||
     fallbackDate ||
