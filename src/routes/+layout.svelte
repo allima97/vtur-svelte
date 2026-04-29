@@ -1,18 +1,37 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { get } from 'svelte/store';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
   import { supabase } from '$lib/db/supabase';
   import { auth, sessionSynced } from '$lib/stores/auth';
+  import { toast } from '$lib/stores/ui';
   import type { LayoutData } from './$types';
   import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-  
+
   type RootLayoutData = LayoutData & {
     session?: Session | null;
     user?: User | null;
   };
 
   export let data: RootLayoutData;
+
+  let isRedirecting = false;
+
+  function isPublicRoute(path: string): boolean {
+    return path.startsWith('/auth/') || path === '/negado';
+  }
+
+  function redirectToLogin(reason: string) {
+    if (isRedirecting) return;
+    if (browser && !isPublicRoute(window.location.pathname)) {
+      isRedirecting = true;
+      console.warn(`[Auth] ${reason}. Redirecionando para login.`);
+      toast.warning('Sua sessão expirou. Você será redirecionado para o login.', 6000);
+      goto('/auth/login?session_expired=1');
+    }
+  }
 
   async function syncServerSession(session: { access_token: string; refresh_token: string } | null, source: string) {
     if (!session) {
@@ -72,6 +91,7 @@
           } else if (event === 'SIGNED_OUT') {
             auth.clear();
             sessionSynced.set(true);
+            redirectToLogin('Sessão encerrada pelo servidor (SIGNED_OUT)');
           }
         }
       );
@@ -92,12 +112,38 @@
         }
       } else {
         sessionSynced.set(true);
+        // Se o servidor tinha sessão mas o browser não, pode ser inconsistência
+        if (hasServerSession && !isPublicRoute(window.location.pathname)) {
+          redirectToLogin('Sessão inconsistente entre servidor e navegador');
+        }
       }
     })();
+
+    // Verifica sessão quando a aba volta ao primeiro plano
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && !isRedirecting) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session && get(auth).user) {
+          redirectToLogin('Sessão expirada enquanto a aba estava inativa');
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Heartbeat leve a cada 5 minutos
+    const heartbeatInterval = setInterval(async () => {
+      if (isRedirecting) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && get(auth).user) {
+        redirectToLogin('Sessão expirada (heartbeat)');
+      }
+    }, 300_000); // 5 minutos
 
     return () => {
       cancelled = true;
       unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(heartbeatInterval);
     };
   });
 </script>

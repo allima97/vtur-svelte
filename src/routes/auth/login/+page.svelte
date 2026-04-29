@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldCheckbox, FieldInput } from '$lib/components/ui';
-  import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube } from 'lucide-svelte';
+  import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock } from 'lucide-svelte';
   
   let email = '';
   let password = '';
@@ -14,6 +14,7 @@
   let loading = false;
   let error: string | null = null;
   let mockMode = false;
+  let sessionExpired = false;
   
   onMount(() => {
     mockMode = isMockMode();
@@ -21,6 +22,16 @@
     if (mockMode) {
       email = 'admin@vtur.com';
       password = 'admin123';
+    }
+
+    // Verifica se foi redirecionado por expiração de sessão
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('session_expired') === '1') {
+      sessionExpired = true;
+      // Limpa a query string para não ficar persistindo no histórico
+      if (window.history.replaceState) {
+        window.history.replaceState({}, '', '/auth/login');
+      }
     }
   });
   
@@ -100,7 +111,14 @@
           <span><strong>Modo de Teste:</strong> Qualquer email/senha funcionam</span>
         </div>
       {/if}
-      
+
+      {#if sessionExpired}
+        <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-amber-700 text-sm">
+          <Clock size={18} class="shrink-0 mt-0.5" />
+          <span><strong>Sessão expirada:</strong> Por segurança, sua sessão foi encerrada. Faça login novamente para continuar.</span>
+        </div>
+      {/if}
+
       <h2 class="text-xl font-bold text-slate-900 mb-6 text-center">
         Acesse sua conta
       </h2>

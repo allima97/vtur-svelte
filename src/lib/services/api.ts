@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import { toast } from '$lib/stores/ui';
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -24,7 +25,8 @@ function buildQueryString(query?: Record<string, string | number | boolean | und
 
 function handleUnauthorized() {
   if (browser) {
-    goto('/auth/login');
+    toast.warning('Sua sessão expirou. Faça login novamente.', 6000);
+    goto('/auth/login?session_expired=1');
   }
 }
 

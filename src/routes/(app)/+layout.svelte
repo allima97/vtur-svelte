@@ -37,7 +37,7 @@
           // noop
         }
         const next = `${window.location.pathname}${window.location.search || ''}`;
-        window.location.assign(`/auth/login?next=${encodeURIComponent(next)}`);
+        window.location.assign(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
       }
     }
   }

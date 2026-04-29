@@ -108,7 +108,7 @@
         if (response.status === 401) {
           toast.error('Sessão expirada. Faça login novamente para continuar.');
           const next = `${$page.url.pathname}${$page.url.search}`;
-          await goto(`/auth/login?next=${encodeURIComponent(next)}`);
+          await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
           return;
         }
         if (response.status === 403) {

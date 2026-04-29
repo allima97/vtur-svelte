@@ -13,6 +13,12 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - `@supabase/ssr` agora usa o storage key correto (`sb-<project-ref>-auth-token`)
 - `/api/auth/set-session` passou a usar `supabase.auth.setSession()` no servidor, eliminando o cookie manual incompatível
 - O layout principal agora re-sincroniza a sessão também em `TOKEN_REFRESHED`, `USER_UPDATED`, `PASSWORD_RECOVERY` e `MFA_CHALLENGE_VERIFIED`
+- **UX de sessão expirada**: quando a sessão expira (SIGNED_OUT, token inválido ou aba inativa), o sistema agora:
+  - detecta proativamente via `visibilitychange` e heartbeat a cada 5 min
+  - exibe toast amigável (`Sua sessão expirou. Você será redirecionado para o login.`)
+  - redireciona para `/auth/login?session_expired=1`
+  - a tela de login mostra banner explicativo (`Sessão expirada: Por segurança, sua sessão foi encerrada...`)
+  - chamadas de API (`api.ts`) que recebem 401 também disparam toast antes de redirecionar
 
 ### Relatórios ✅
 - `relatorios/vendas`: Campos `cliente_cpf`, `cidade`, `valor_taxas`, `recibos[]` adicionados
