@@ -280,16 +280,16 @@
   breadcrumbs={[{ label: 'Vendas' }]}
   actions={[
     {
-      label: 'Nova Venda',
-      href: '/vendas/nova',
-      variant: 'primary',
-      icon: Plus
-    },
-    {
       label: 'Importar',
       href: '/vendas/importar',
       variant: 'secondary',
       icon: FileSpreadsheet
+    },
+    {
+      label: 'Nova Venda',
+      href: '/vendas/nova',
+      variant: 'primary',
+      icon: Plus
     }
   ]}
 />

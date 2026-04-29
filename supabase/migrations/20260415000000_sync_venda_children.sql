@@ -78,8 +78,8 @@ begin
       coalesce((r->>'valor_taxas')::numeric, 0),
       coalesce((r->>'valor_du')::numeric,    0),
       coalesce((r->>'valor_rav')::numeric,   0),
-      nullif(trim(coalesce(r->>'data_inicio', '')), ''),
-      nullif(trim(coalesce(r->>'data_fim', '')),    ''),
+      nullif(trim(coalesce(r->>'data_inicio', '')), '')::date,
+      nullif(trim(coalesce(r->>'data_fim', '')),    '')::date,
       nullif(trim(coalesce(r->>'contrato_path', '')), ''),
       nullif(trim(coalesce(r->>'contrato_url', '')),  '')
     )
@@ -155,7 +155,7 @@ begin
       case when pg->'parcelas' is not null and jsonb_array_length(pg->'parcelas') > 0 then pg->'parcelas' end,
       nullif((pg->>'parcelas_qtd'), null)::integer,
       nullif((pg->>'parcelas_valor'), null)::numeric,
-      nullif(trim(coalesce(pg->>'vencimento_primeira', '')), ''),
+      nullif(trim(coalesce(pg->>'vencimento_primeira', '')), '')::date,
       case when (pg->>'paga_comissao') is not null then (pg->>'paga_comissao')::boolean end
     );
   end loop;
