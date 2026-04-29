@@ -14,21 +14,11 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - `/api/auth/set-session` passou a usar `supabase.auth.setSession()` no servidor, eliminando o cookie manual incompatível
 - O layout principal agora re-sincroniza a sessão também em `TOKEN_REFRESHED`, `USER_UPDATED`, `PASSWORD_RECOVERY` e `MFA_CHALLENGE_VERIFIED`
 - **UX de sessão expirada**: quando a sessão expira (SIGNED_OUT, token inválido ou aba inativa), o sistema agora:
-  - detecta proativamente via `visibilitychange` e heartbeat a cada 5 min
+  - detecta proativamente via `visibilitychange`
   - exibe toast amigável (`Sua sessão expirou. Você será redirecionado para o login.`)
   - redireciona para `/auth/login?session_expired=1`
   - a tela de login mostra banner explicativo (`Sessão expirada: Por segurança, sua sessão foi encerrada...`)
   - chamadas de API (`api.ts`) que recebem 401 também disparam toast antes de redirecionar
-
-### Segurança — Cloudflare Turnstile ✅
-- **Componente**: `src/lib/components/auth/Turnstile.svelte` — widget reutilizável com carregamento dinâmico do script, suporte a `action`, `theme`, `size`, e eventos (`success`, `error`, `expired`, `timeout`).
-- **Validação server-side**: `src/lib/server/turnstile.ts` + endpoint `POST /api/auth/verify-turnstile` fazem verificação via `https://challenges.cloudflare.com/turnstile/v0/siteverify`.
-- **Telas protegidas**: login (`action="login"`), registro (`action="register"`), convite (`action="invite"`), recuperar senha (`action="recover"`).
-- **Comportamento no mock mode**: quando `shouldUseMock()` é true (dev local sem Supabase real), o componente emite `success` imediatamente e o servidor bypassa a validação.
-- **Variáveis de ambiente**:
-  - `PUBLIC_TURNSTILE_SITE_KEY` (cliente)
-  - `TURNSTILE_SECRET_KEY` (servidor — configurar via `wrangler secret put` no Cloudflare)
-- **Dependências**: nenhuma biblioteca extra; carrega script oficial do Cloudflare via CDN.
 
 ### Relatórios ✅
 - `relatorios/vendas`: Campos `cliente_cpf`, `cidade`, `valor_taxas`, `recibos[]` adicionados

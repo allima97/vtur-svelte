@@ -3,7 +3,6 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldInput } from '$lib/components/ui';
-  import Turnstile from '$lib/components/auth/Turnstile.svelte';
   import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
 
   let nome = '';
@@ -15,19 +14,6 @@
   let loading = false;
   let error: string | null = null;
   let success = false;
-  let turnstileToken = '';
-  let turnstileReady = false;
-
-  function handleTurnstileSuccess(e: CustomEvent<string>) {
-    turnstileToken = e.detail;
-    turnstileReady = true;
-    error = null;
-  }
-
-  function handleTurnstileExpired() {
-    turnstileToken = '';
-    turnstileReady = false;
-  }
 
   async function handleSubmit() {
     if (!nome.trim() || !email.trim() || !password) {
@@ -36,30 +22,11 @@
     }
     if (password.length < 6) { error = 'A senha deve ter pelo menos 6 caracteres.'; return; }
     if (password !== confirmPassword) { error = 'As senhas não conferem.'; return; }
-    if (!turnstileReady) {
-      error = 'Complete a verificação de segurança.';
-      return;
-    }
 
     loading = true;
     error = null;
 
     try {
-      // Valida Turnstile
-      const verifyRes = await fetch('/api/auth/verify-turnstile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: turnstileToken })
-      });
-      const verifyData = await verifyRes.json().catch(() => ({ success: false }));
-      if (!verifyData.success) {
-        error = verifyData.error || 'Verificação de segurança falhou. Tente novamente.';
-        turnstileReady = false;
-        turnstileToken = '';
-        loading = false;
-        return;
-      }
-
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -171,13 +138,7 @@
             class_name="w-full"
           />
 
-          <Turnstile
-            action="register"
-            on:success={handleTurnstileSuccess}
-            on:expired={handleTurnstileExpired}
-          />
-
-          <Button type="submit" variant="primary" size="lg" loading={loading} disabled={!turnstileReady} class_name="w-full justify-center">
+          <Button type="submit" variant="primary" size="lg" loading={loading} class_name="w-full justify-center">
             Criar conta
           </Button>
         </form>

@@ -3,7 +3,6 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
-  import Turnstile from '$lib/components/auth/Turnstile.svelte';
   import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-svelte';
 
   let email = '';
@@ -12,8 +11,6 @@
   let success = false;
   let cooldown = 0;
   let cooldownTimer: ReturnType<typeof setInterval> | null = null;
-  let turnstileToken = '';
-  let turnstileReady = false;
 
   function startCooldown(seconds: number) {
     cooldown = seconds;
@@ -28,44 +25,14 @@
     }, 1000);
   }
 
-  function handleTurnstileSuccess(e: CustomEvent<string>) {
-    turnstileToken = e.detail;
-    turnstileReady = true;
-    error = null;
-  }
-
-  function handleTurnstileExpired() {
-    turnstileToken = '';
-    turnstileReady = false;
-  }
-
   async function handleSubmit() {
     if (!email.trim()) { error = 'Informe seu e-mail.'; return; }
     if (cooldown > 0) return;
-    if (!turnstileReady) {
-      error = 'Complete a verificação de segurança.';
-      return;
-    }
 
     loading = true;
     error = null;
 
     try {
-      // Valida Turnstile
-      const verifyRes = await fetch('/api/auth/verify-turnstile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: turnstileToken })
-      });
-      const verifyData = await verifyRes.json().catch(() => ({ success: false }));
-      if (!verifyData.success) {
-        error = verifyData.error || 'Verificação de segurança falhou. Tente novamente.';
-        turnstileReady = false;
-        turnstileToken = '';
-        loading = false;
-        return;
-      }
-
       const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/auth/nova-senha`
       });
@@ -139,13 +106,7 @@
             icon={Mail}
           />
 
-          <Turnstile
-            action="recover"
-            on:success={handleTurnstileSuccess}
-            on:expired={handleTurnstileExpired}
-          />
-
-          <Button type="submit" variant="primary" size="lg" loading={loading || cooldown > 0} disabled={!turnstileReady} class_name="w-full justify-center">
+          <Button type="submit" variant="primary" size="lg" loading={loading || cooldown > 0} class_name="w-full justify-center">
             {cooldown > 0 ? `Aguarde ${cooldown}s...` : 'Enviar link de recuperação'}
           </Button>
         </form>

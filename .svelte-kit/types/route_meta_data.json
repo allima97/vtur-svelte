@@ -84,9 +84,6 @@
 	"/api/auth/set-session": [
 		"src/routes/api/auth/set-session/+server.ts"
 	],
-	"/api/auth/verify-turnstile": [
-		"src/routes/api/auth/verify-turnstile/+server.ts"
-	],
 	"/api/v1/admin/auth/mfa-status": [
 		"src/routes/api/v1/admin/auth/mfa-status/+server.ts"
 	],
