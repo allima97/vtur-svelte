@@ -43,6 +43,13 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
   - Edição de valores financeiros (Gestor/Master)
 - **Correção aplicada**: Dashboard financeiro (`financeiro/+page.svelte`) agora consome `/api/v1/conciliacao/summary` em vez de `/api/v1/pagamentos`, refletindo dados reais de conciliação nos KPIs
 
+#### 2.5. Relatório de Vendas (`relatorios/vendas`) ✅
+- **Problema**: Usuário GESTOR só visualizava suas próprias vendas em vez de todas as vendas de sua empresa.
+- **Causa**: `resolveScopedVendedorIds` em `src/lib/server/v1.ts` usava `fetchGestorEquipeIdsComGestor`, que retorna apenas a equipe vinculada ao gestor na tabela `gestor_vendedor`.
+- **Correção aplicada**:
+  - `resolveScopedVendedorIds`: para GESTOR, agora usa `fetchVendedorIdsByCompanyIds(scope.companyIds)`, retornando TODOS os vendedores e gestores ativos da empresa (exceto ADMIN/MASTER e uso_individual).
+  - `/api/v1/relatorios/base`: mesma lógica aplicada ao filtro de vendedores no carregamento da base analítica, garantindo que o dropdown de vendedor mostre todos os colaboradores da empresa.
+
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
 - **Diagnóstico atualizado**: o motor em `src/lib/server/comissoes.ts` já implementa muito mais do que o diagnóstico antigo indicava
 - **Já cobre**:

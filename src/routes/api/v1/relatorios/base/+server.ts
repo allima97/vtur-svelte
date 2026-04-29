@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
+  fetchVendedorIdsByCompanyIds,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -43,32 +43,7 @@ export async function GET(event) {
       companyIdsForUsers = requestedCompanyId ? [requestedCompanyId] : [];
     } else if (isGestorByType) {
       companyIdsForUsers = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
-      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      let gestoresIds: string[] = [];
-
-      if (companyIdsForUsers.length > 0) {
-        let gestoresQuery = client
-          .from('users')
-          .select('id, user_types(name)')
-          .eq('uso_individual', false)
-          .eq('active', true)
-          .limit(500);
-
-        gestoresQuery = companyIdsForUsers.length === 1
-          ? gestoresQuery.eq('company_id', companyIdsForUsers[0])
-          : gestoresQuery.in('company_id', companyIdsForUsers);
-
-        const { data: gestoresData } = await gestoresQuery;
-        gestoresIds = (gestoresData || [])
-          .filter((row: any) => {
-            const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
-            return isRankingUserType(role);
-          })
-          .map((row: any) => String(row?.id || '').trim())
-          .filter(Boolean);
-      }
-
-      scopedTeamIds = Array.from(new Set([...equipeIds, ...gestoresIds]));
+      scopedTeamIds = await fetchVendedorIdsByCompanyIds(client, companyIdsForUsers);
     } else if (isMasterByType) {
       companyIdsForUsers = resolveScopedCompanyIds(scope, requestedCompanyId);
       enforceCorporateOnly = true;

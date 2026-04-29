@@ -105,6 +105,44 @@ function parseLegacyXlsNumber(value: unknown): number | null {
   return (sign * parsed) / 100;
 }
 
+function decodeHtmlEntities(value: string) {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
+function htmlCellText(value: string) {
+  return decodeHtmlEntities(
+    String(value || '')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractHtmlTableRows(text: string) {
+  if (!/<table[\s>]|<tr[\s>]/i.test(text)) return [];
+
+  const rows: string[][] = [];
+  const rowMatches = String(text || '').matchAll(/<tr\b[\s\S]*?<\/tr>/gi);
+  for (const rowMatch of rowMatches) {
+    const rowHtml = rowMatch[0];
+    const cells = Array.from(rowHtml.matchAll(/<t[dh]\b[\s\S]*?<\/t[dh]>/gi)).map((cellMatch) =>
+      htmlCellText(cellMatch[0])
+    );
+    if (cells.some((cell) => cell.trim())) rows.push(cells);
+  }
+
+  return rows;
+}
+
 function parseDate(value: unknown, fallbackDate?: string | null) {
   const raw = String(value ?? '').trim();
   if (!raw) return fallbackDate || null;
@@ -273,6 +311,85 @@ function toDelimitedText(linhas: ConciliacaoLinhaInput[]) {
   );
 
   return [header.join(';'), ...rows].join('\n');
+}
+
+function parseConciliacaoRowsLayout(
+  rows: unknown[][],
+  origem: string,
+  fallbackDate?: string | null
+): ParsedImportFileResult | null {
+  const headerIndex = rows.findIndex((row) =>
+    row.some((cell) => normalizeHeader(String(cell || '')).includes('documento'))
+  );
+
+  if (headerIndex < 0) return null;
+
+  const flatText = rows
+    .flat()
+    .map((cell) => String(cell || '').trim())
+    .join('\n');
+  const movimentoData =
+    parseMovimentoDateFromTxt(flatText) || parseMovimentoDateFromFileName(origem) || fallbackDate || null;
+
+  const headerRow = (rows[headerIndex] || []).map((cell: unknown) => String(cell || '').trim());
+
+  const colIndex = (needles: string[], fallback = -1) => {
+    const wanted = needles.map((value: string) => normalizeHeader(value));
+    const normalizedHeader = headerRow.map((value: string) => normalizeHeader(value));
+    const index = normalizedHeader.findIndex((head: string) => wanted.some((needle) => head.includes(needle)));
+    return index >= 0 ? index : fallback;
+  };
+
+  const cDocumento = colIndex(['documento'], 0);
+  const cDescricao = colIndex(['descricao', 'descri'], 1);
+  const cLancamentos = colIndex(['lancamentos', 'lanc'], 2);
+  const cTaxas = colIndex(['taxas'], 3);
+  const cDescontos = colIndex(['descontos', 'descont'], 4);
+  const cAbatimentos = colIndex(['abatimentos', 'abat'], 5);
+  const cCalculadaLoja = colIndex(['calculada loja', 'calcul'], 6);
+  const cVisaoMaster = colIndex(['visao master', 'visao', 'vis'], 8);
+  const cOpfax = colIndex(['opfax'], 11);
+  const cSaldo = colIndex(['saldo'], 12);
+
+  let ignored = 0;
+  const linhas: ConciliacaoLinhaInput[] = [];
+
+  for (let i = headerIndex + 1; i < rows.length; i += 1) {
+    const row = rows[i] || [];
+    const documento = String(row[cDocumento] || '').trim();
+    const descricao = cDescricao >= 0 ? String(row[cDescricao] || '').trim() : '';
+    if (resolveFooterLabel(documento, descricao)) continue;
+    if (!documento) {
+      ignored += 1;
+      continue;
+    }
+
+    const pick = (index: number) => (index >= 0 ? parseMoney(row[index]) : null);
+
+    linhas.push({
+      documento,
+      movimento_data: movimentoData,
+      status: inferStatus(descricao),
+      descricao: descricao || null,
+      valor_lancamentos: pick(cLancamentos),
+      valor_taxas: pick(cTaxas),
+      valor_descontos: pick(cDescontos),
+      valor_abatimentos: pick(cAbatimentos),
+      valor_nao_comissionavel: null,
+      valor_calculada_loja: pick(cCalculadaLoja),
+      valor_visao_master: pick(cVisaoMaster),
+      valor_opfax: pick(cOpfax),
+      valor_saldo: pick(cSaldo),
+      origem: `arquivo:${origem}`
+    });
+  }
+
+  return {
+    linhas,
+    ignored,
+    text: toDelimitedText(linhas),
+    movimentoData
+  };
 }
 
 async function parseConciliacaoXlsLayout(
@@ -466,6 +583,18 @@ export async function parseConciliacaoImportFile(
   const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.xlxs');
 
   if (isExcel) {
+    if (fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
+      const buffer = await file.arrayBuffer();
+      const utf8Text = new TextDecoder('utf-8').decode(buffer);
+      const latin1Text = new TextDecoder('iso-8859-1').decode(buffer);
+      const htmlCandidates = [utf8Text, latin1Text]
+        .map((text) => parseConciliacaoRowsLayout(extractHtmlTableRows(text), file.name, fallbackDate))
+        .filter((item): item is ParsedImportFileResult => Boolean(item));
+
+      const parsedHtml = htmlCandidates.sort((a, b) => b.linhas.length - a.linhas.length)[0];
+      if (parsedHtml?.linhas.length) return parsedHtml;
+    }
+
     const parsedXls = await parseConciliacaoXlsLayout(file, fallbackDate);
     if (parsedXls.linhas.length > 0) return parsedXls;
 

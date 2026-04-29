@@ -419,11 +419,11 @@ export async function resolveScopedVendedorIds(
   }
 
   if (scope.isGestor) {
-    const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+    const companyVendedorIds = await fetchVendedorIdsByCompanyIds(client, scope.companyIds);
 
     return requestedIds.length > 0
-      ? requestedIds.filter((id) => equipeIds.includes(id))
-      : equipeIds;
+      ? requestedIds.filter((id) => companyVendedorIds.includes(id))
+      : companyVendedorIds;
   }
 
   if (scope.isMaster) {
