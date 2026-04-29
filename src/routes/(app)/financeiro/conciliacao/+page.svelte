@@ -781,7 +781,7 @@
   async function runAutoConciliacao(reciboId?: string) {
     running = true;
     operationMessage = reciboId
-      ? 'Tentando vincular automaticamente o recibo selecionado.'
+      ? 'Reprocessando vínculo e valores do recibo selecionado.'
       : 'Executando conciliação automática dos recibos pendentes.';
     try {
       const response = await fetch('/api/v1/conciliacao/run', {
@@ -793,10 +793,53 @@
         })
       });
       const data = await parseJson(response, 'Erro ao executar a conciliação automática.');
-      toast.success(`Conciliação executada: ${Number(data.reconciliados || 0)} registros conciliados.`);
-      await Promise.all([loadRegistros(), loadSummary(), loadExecutions()]);
+      const erros = Number(data.updateErrors || 0);
+      const reconciled = Number(data.reconciled || data.reconciliados || 0);
+      const recalculated = Number(data.recalculated || 0);
+      const updatedTaxes = Number(data.updatedTaxes || 0);
+      toast[erros > 0 ? 'error' : 'success'](
+        erros > 0
+          ? `Conciliação concluída com falhas: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas, ${erros} falhas.`
+          : `Conciliação executada: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas.`
+      );
+      await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao executar conciliação.');
+    } finally {
+      running = false;
+      operationMessage = '';
+    }
+  }
+
+  async function forceRecalculateMonth() {
+    if (!monthFilter) {
+      toast.error('Selecione um mês para recalcular.');
+      return;
+    }
+
+    running = true;
+    operationMessage = 'Forçando recálculo dos recibos da conciliação no mês selecionado.';
+    try {
+      const response = await fetch('/api/v1/conciliacao/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recalculateAllMonth: true,
+          recalculateMonth: monthFilter
+        })
+      });
+      const data = await parseJson(response, 'Erro ao forçar recálculo da conciliação.');
+      const recalculated = Number(data.recalculated || 0);
+      const scanned = Number(data.recalculatedChecked || 0);
+      const erros = Number(data.updateErrors || 0);
+      toast[erros > 0 ? 'error' : 'success'](
+        erros > 0
+          ? `Recálculo concluído com falhas: ${scanned} verificados, ${recalculated} recalculados, ${erros} falhas.`
+          : `Recálculo concluído: ${scanned} verificados, ${recalculated} recalculados.`
+      );
+      await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao forçar recálculo.');
     } finally {
       running = false;
       operationMessage = '';
@@ -1271,6 +1314,10 @@
     </Button>
     <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
       <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
+    </Button>
+    <Button variant="secondary" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
+      <RefreshCcw size={16} class="mr-2" />
+      Recalcular mês
     </Button>
     <Button variant="secondary" on:click={loadAll} disabled={loading} loading={loading}>
       <RefreshCcw size={16} class="mr-2" />
@@ -1802,7 +1849,7 @@
 
       <div class="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
         <Button variant="secondary" on:click={() => selectedRow && runAutoConciliacao(selectedRow.id)} disabled={running} loading={running}>
-          Tentar vínculo automático
+          Forçar recálculo do recibo
         </Button>
         <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Última checagem: {formatDateTime(selectedRow.last_checked_at)}
