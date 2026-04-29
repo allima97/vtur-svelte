@@ -133,7 +133,8 @@ export const nodes = [
 	() => import('./nodes/129'),
 	() => import('./nodes/130'),
 	() => import('./nodes/131'),
-	() => import('./nodes/132')
+	() => import('./nodes/132'),
+	() => import('./nodes/133')
 ];
 
 export const server_loads = [0];
@@ -181,6 +182,7 @@ export const dictionary = {
 		"/(app)/cadastros/produtos": [36,[2]],
 		"/(app)/cadastros/produtos/novo": [38,[2]],
 		"/(app)/cadastros/produtos/[id]/editar": [37,[2]],
+		"/calculadora": [132],
 		"/(app)/clientes": [39,[2]],
 		"/(app)/clientes/novo": [42,[2]],
 		"/(app)/clientes/[id]": [40,[2]],
@@ -215,7 +217,7 @@ export const dictionary = {
 		"/(app)/master/usuarios": [70,[2]],
 		"/(app)/master/usuarios/[id]": [71,[2]],
 		"/(app)/metas/vendedor": [72,[2]],
-		"/negado": [132],
+		"/negado": [133],
 		"/(app)/operacao/acompanhamento": [73,[2]],
 		"/(app)/operacao/agenda": [74,[2]],
 		"/(app)/operacao/campanhas": [75,[2]],

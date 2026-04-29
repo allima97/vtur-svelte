@@ -146,11 +146,14 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/icons',
 		'/brand',
 		'/manifest.webmanifest',
+		'/manifest-calculadora.webmanifest',
+		'/sw-calculadora.js',
 		'/_app',
 		'/assets',
 		'/public',
 		'/pdfs',
-		'/api/v1/cards'
+		'/api/v1/cards',
+		'/calculadora'
 	];
 
 	const isPublic = rotasPublicas.some((r) => pathname.startsWith(r));

@@ -890,6 +890,10 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/calculadora": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/clientes": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
