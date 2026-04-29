@@ -6,7 +6,7 @@ import {
   toErrorResponse,
   isUuid
 } from '$lib/server/v1';
-import { normalizeText } from '$lib/normalizeText';
+import { normalizeText, titleCaseNome } from '$lib/normalizeText';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas/contratoCvcExtractor';
 import { ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
 
@@ -263,7 +263,7 @@ async function resolveClienteImport(client: any, scope: any, params: {
     .from('clientes')
     .insert({
       cpf: formatCpf(cpf),
-      nome: nome || 'Cliente sem nome',
+      nome: titleCaseNome(nome) || 'Cliente sem nome',
       nascimento,
       endereco: params.endereco || null,
       numero: params.numero || null,
@@ -587,7 +587,7 @@ export async function POST(event) {
             .from('clientes')
             .insert({
               cpf: formatCpf(cpf),
-              nome: String(p.nome || '').trim() || 'Passageiro',
+              nome: titleCaseNome(String(p.nome || '').trim()) || 'Passageiro',
               nascimento: isISODate(p.nascimento) ? p.nascimento : null,
               company_id: companyId,
               created_by: user.id,

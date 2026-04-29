@@ -32,6 +32,12 @@
     Users
   } from 'lucide-svelte';
 
+  function resolveMetaDifLabel(percentualComissaoLoja: number | null | undefined, fallback?: string | null): string {
+    const pct = Number(percentualComissaoLoja || 0);
+    if (pct >= 31) return 'Seguro Viagem';
+    return fallback || 'Não';
+  }
+
   type ConciliacaoItem = {
     id: string;
     company_id?: string;
@@ -894,7 +900,7 @@
         status: row.status || null,
         descricao: row.descricao || null,
         vendedor_ranking: resolveImportVendedorLabel(rankingVendedorId, row.status),
-        meta_dif: row.ranking_produto_id ? 'Sim' : 'Não',
+        meta_dif: resolveMetaDifLabel(metrics.percentualComissaoLoja, row.ranking_produto_id ? 'Sim' : 'Não'),
         valor_lancamentos: row.valor_lancamentos ?? null,
         valor_taxas: row.valor_taxas ?? null,
         valor_descontos: row.valor_descontos ?? null,
@@ -1030,7 +1036,9 @@
   function handleImportProdutoChange(index: number, event: Event) {
     const target = event.currentTarget as HTMLSelectElement | null;
     const value = String(target?.value || '').trim();
-    updateImportRow(index, { ranking_produto_id: value || null, meta_dif: value ? 'Sim' : 'Não' });
+    const row = importPreparedRows[index];
+    const pct = row?.percentual_comissao_loja ?? 0;
+    updateImportRow(index, { ranking_produto_id: value || null, meta_dif: resolveMetaDifLabel(pct, value ? 'Sim' : 'Não') });
   }
 
   function handleImportMoneyChange(index: number, field: keyof ImportPreviewRow, event: Event) {
@@ -1355,7 +1363,7 @@
               <td class="px-3 py-2">{row.venda_recibo_id ? 'Sim' : 'Não'}</td>
               <td class="px-3 py-2">{row.ranking_vendedor?.nome_completo || 'Não atribuído'}</td>
               <td class="px-3 py-2">{exigeRanking(row.status) ? (row.ranking_vendedor_id ? 'OK' : 'Pendente') : '-'}</td>
-              <td class="px-3 py-2">{row.ranking_produto?.nome || '-'}</td>
+              <td class="px-3 py-2">{resolveMetaDifLabel(row.percentual_comissao_loja, row.ranking_produto?.nome)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_lancamentos)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_taxas)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_descontos)}</td>
@@ -1413,7 +1421,7 @@
               <td class="px-3 py-2">{row.venda_recibo_id ? 'Sim' : 'Não'}</td>
               <td class="px-3 py-2">{row.ranking_vendedor?.nome_completo || 'Não atribuído'}</td>
               <td class="px-3 py-2">{exigeRanking(row.status) ? (row.ranking_vendedor_id ? 'OK' : 'Pendente') : '-'}</td>
-              <td class="px-3 py-2">{row.ranking_produto?.nome || '-'}</td>
+              <td class="px-3 py-2">{resolveMetaDifLabel(row.percentual_comissao_loja, row.ranking_produto?.nome)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_lancamentos)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_taxas)}</td>
               <td class="px-3 py-2 text-right">{formatMoney(row.valor_descontos)}</td>

@@ -1,5 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, getAdminClient } from '$lib/server/v1';
+import { titleCaseNome } from '$lib/normalizeText';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -10,7 +11,7 @@ export async function POST(event: RequestEvent) {
     ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para criar Orcamentos.');
 
     const body = await event.request.json().catch(() => null);
-    const nome = String(body?.nome || '').trim();
+    const nome = titleCaseNome(String(body?.nome || '').trim());
     const telefone = String(body?.telefone || '').trim();
     if (!nome || !telefone) return new Response('Nome e telefone obrigatorios.', { status: 400 });
 

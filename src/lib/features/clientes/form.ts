@@ -95,14 +95,7 @@ export function onlyDigits(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
 }
 
-export function titleCaseAllWords(value: string) {
-  return String(value || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ');
-}
+import { titleCaseNome } from '$lib/normalizeText';
 
 export function sanitizeImportedClienteNome(value?: string | null) {
   const raw = String(value || '').trim();
@@ -188,7 +181,7 @@ export function buildClientePayload(form: ClienteFormData) {
   const nome = sanitizeImportedClienteNome(form.nome);
 
   return {
-    nome: titleCaseAllWords(nome),
+    nome: titleCaseNome(nome),
     nascimento: form.nascimento || null,
     cpf: documento || null,
     tipo_pessoa: tipoPessoa,

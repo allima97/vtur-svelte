@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
+import { titleCaseNome } from '$lib/normalizeText';
 
 function normalizeCpf(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
@@ -20,7 +21,7 @@ export async function POST(event) {
 
     const body = await event.request.json().catch(() => ({}));
     const cpf = normalizeCpf(body.cpf);
-    const nome = sanitizeImportedClienteNome(body.nome) || null;
+    const nome = titleCaseNome(sanitizeImportedClienteNome(body.nome)) || null;
     const nascimento = String(body.nascimento || '').trim() || null;
     const endereco = String(body.endereco || '').trim() || null;
     const numero = String(body.numero || '').trim() || null;
