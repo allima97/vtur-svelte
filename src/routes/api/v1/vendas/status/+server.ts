@@ -16,7 +16,7 @@ export async function PATCH(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 
@@ -37,11 +37,12 @@ export async function PATCH(event) {
       scope,
       event.url.searchParams.get('vendedor_id')
     );
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     // ✅ Confirma ownership antes de atualizar
     let checkQuery = client.from('vendas').select('id').eq('id', id);
     if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) checkQuery = checkQuery.in('vendedor_id', vendedorIds);
     const { data: sale } = await checkQuery.maybeSingle();
     if (!sale) {
       return json({ success: false, error: 'Venda nao encontrada.' }, { status: 404 });
@@ -52,7 +53,7 @@ export async function PATCH(event) {
       .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', id);
     if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) updateQuery = updateQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) updateQuery = updateQuery.in('vendedor_id', vendedorIds);
 
     const { data, error } = await updateQuery.select().single();
     if (error) throw error;

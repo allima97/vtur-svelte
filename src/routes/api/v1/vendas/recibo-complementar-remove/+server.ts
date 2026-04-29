@@ -21,7 +21,7 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 

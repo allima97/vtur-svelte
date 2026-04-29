@@ -24,7 +24,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 4, 'Sem permissao para cancelar vendas.');
     }
 
@@ -45,10 +45,11 @@ export async function POST(event) {
       scope,
       event.url.searchParams.get('vendedor_id') || event.url.searchParams.get('vendedor_ids')
     );
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
     if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
 
     const { data: sale, error: saleError } = await saleQuery.maybeSingle();
     if (saleError) throw saleError;
@@ -59,7 +60,7 @@ export async function POST(event) {
     // Soft-delete: vendas.cancelada boolean NOT NULL DEFAULT false
     let cancelQuery = client.from('vendas').update({ cancelada: true }).eq('id', vendaId);
     if (companyIds.length > 0) cancelQuery = cancelQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) cancelQuery = cancelQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) cancelQuery = cancelQuery.in('vendedor_id', vendedorIds);
 
     const { error: cancelError } = await cancelQuery;
     if (cancelError) throw cancelError;

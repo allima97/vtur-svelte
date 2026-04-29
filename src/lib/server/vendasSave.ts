@@ -94,17 +94,19 @@ export async function ensureAssignableActiveSeller(client: any, scope: UserScope
 
   if (scope.isAdmin) return null;
   if (scope.usoIndividual && vendedorId !== scope.userId) return 'Uso individual: vendedor invalido.';
-  if (!scope.companyId || vendedorCompanyId !== scope.companyId) return 'Vendedor fora do escopo da empresa atual.';
 
   if (scope.isMaster) {
     if (Boolean(vendedor?.uso_individual)) return 'Master so pode atribuir vendas para usuarios corporativos ativos.';
+    if (!vendedorCompanyId || !scope.companyIds.includes(vendedorCompanyId)) {
+      return 'Vendedor fora do escopo das empresas do master.';
+    }
     return null;
   }
 
+  if (!scope.companyId || vendedorCompanyId !== scope.companyId) return 'Vendedor fora do escopo da empresa atual.';
+
   if (scope.isGestor) {
     if (Boolean(vendedor?.uso_individual)) return 'Gestor so pode atribuir vendas para equipe corporativa ativa.';
-    const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-    if (!equipeIds.includes(vendedorId)) return 'Gestor so pode atribuir vendas para sua equipe ativa.';
     return null;
   }
 
@@ -222,6 +224,38 @@ export function buildVendaPayload(venda: any, vendedorId: string, clienteId: str
   };
 }
 
+function normalizeReciboPayload(item: any) {
+  return {
+    ...item,
+    numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
+    cidade_nome: sanitizeLabel(item?.cidade_nome) || null,
+    produto_nome: sanitizeLabel(item?.produto_nome || item?.tipo_nome) || null,
+    valor_total: toNullableNumber(item?.valor_total) ?? 0,
+    valor_taxas: toNullableNumber(item?.valor_taxas) ?? 0,
+    valor_du: toNullableNumber(item?.valor_du) ?? 0,
+    valor_rav: toNullableNumber(item?.valor_rav) ?? 0
+  };
+}
+
+function normalizePagamentoPayload(item: any) {
+  const parcelas = Array.isArray(item?.parcelas)
+    ? item.parcelas.map((p: any) => ({
+        ...p,
+        valor: toNullableNumber(p?.valor) ?? 0
+      }))
+    : [];
+
+  return {
+    ...item,
+    valor_bruto: toNullableNumber(item?.valor_bruto) ?? 0,
+    desconto_valor: toNullableNumber(item?.desconto_valor) ?? 0,
+    valor_total: toNullableNumber(item?.valor_total) ?? 0,
+    parcelas_qtd: toNullableNumber(item?.parcelas_qtd) ?? null,
+    parcelas_valor: toNullableNumber(item?.parcelas_valor) ?? 0,
+    parcelas
+  };
+}
+
 export async function syncVendaChildren(params: {
   client: any;
   vendaId: string;
@@ -234,12 +268,8 @@ export async function syncVendaChildren(params: {
 }) {
   const { client, vendaId, companyId, clienteId, vendedorId, userId, recibos, pagamentos } = params;
 
-  const recibosNormalizados = recibos.map((item) => ({
-    ...item,
-    numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
-    cidade_nome: sanitizeLabel(item?.cidade_nome) || null,
-    produto_nome: sanitizeLabel(item?.produto_nome || item?.tipo_nome) || null
-  }));
+  const recibosNormalizados = recibos.map(normalizeReciboPayload);
+  const pagamentosNormalizados = pagamentos.map(normalizePagamentoPayload);
 
   const { error } = await client.rpc('sync_venda_children', {
     p_venda_id:    vendaId,
@@ -248,7 +278,7 @@ export async function syncVendaChildren(params: {
     p_vendedor_id: vendedorId,
     p_user_id:     userId,
     p_recibos:     recibosNormalizados,
-    p_pagamentos:  pagamentos ?? []
+    p_pagamentos:  pagamentosNormalizados
   });
 
   if (error) {

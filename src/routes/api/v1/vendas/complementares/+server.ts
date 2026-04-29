@@ -48,7 +48,7 @@ export async function GET(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -67,13 +67,14 @@ export async function GET(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     let saleQuery = client
       .from('vendas')
       .select('id, cliente_id, vendedor_id, company_id')
       .eq('id', vendaId);
     if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
 
     const { data: currentSale, error: currentSaleError } = await saleQuery.maybeSingle();
     if (currentSaleError) throw currentSaleError;
@@ -245,7 +246,7 @@ export async function GET(event: RequestEvent) {
         .limit(400);
 
       if (companyIds.length > 0) receiptsQuery = receiptsQuery.in('vendas.company_id', companyIds);
-      if (vendedorIds.length > 0) receiptsQuery = receiptsQuery.in('vendas.vendedor_id', vendedorIds);
+      if (shouldApplySellerScope && vendedorIds.length > 0) receiptsQuery = receiptsQuery.in('vendas.vendedor_id', vendedorIds);
 
       const { data: scopedReceiptsData, error: scopedReceiptsError } = await receiptsQuery;
       if (scopedReceiptsError) throw scopedReceiptsError;

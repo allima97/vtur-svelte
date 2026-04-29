@@ -70,7 +70,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(
         scope,
         ['vendas_consulta', 'vendas', 'vendas_cadastro', 'vendas_importar'],

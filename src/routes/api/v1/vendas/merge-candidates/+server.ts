@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -17,7 +16,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem permissao para ver vendas.');
     }
 
@@ -35,13 +34,14 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     let currentSaleQuery = client
       .from('vendas')
       .select('id, cliente_id, vendedor_id, company_id')
       .eq('id', vendaId);
     if (companyIds.length > 0) currentSaleQuery = currentSaleQuery.in('company_id', companyIds);
-    if (requestedVendedorIds.length > 0) currentSaleQuery = currentSaleQuery.in('vendedor_id', requestedVendedorIds);
+    if (shouldApplySellerScope && requestedVendedorIds.length > 0) currentSaleQuery = currentSaleQuery.in('vendedor_id', requestedVendedorIds);
 
     const { data: currentSale, error: currentSaleError } = await currentSaleQuery.maybeSingle();
     if (currentSaleError) throw currentSaleError;
@@ -75,13 +75,7 @@ export async function GET(event) {
 
     if (companyIds.length > 0) query = query.in('company_id', companyIds);
 
-    if (!scope.isAdmin && scope.isGestor) {
-      const teamIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      if (teamIds.length === 0) {
-        return json({ items: [] });
-      }
-      query = query.in('vendedor_id', teamIds);
-    } else if (scope.isMaster && requestedVendedorIds.length > 0) {
+    if (scope.isMaster && requestedVendedorIds.length > 0) {
       query = query.in('vendedor_id', requestedVendedorIds);
     }
 

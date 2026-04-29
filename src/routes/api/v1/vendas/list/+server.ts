@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchMasterEmpresas,
   getAdminClient,
   normalizeText,
   parseIntSafe,
@@ -487,7 +488,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -507,17 +508,35 @@ export async function GET(event) {
     const clienteId = String(searchParams.get('cliente_id') || '').trim();
     const requestedCompanyId = searchParams.get('company_id') || searchParams.get('empresa_id');
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
-    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const isMasterByType = tipoNome.includes('MASTER');
+    const isGestorByType = tipoNome.includes('GESTOR');
 
-    const accessibleClientIds = !scope.isAdmin ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds }) : [];
+    let companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    if (isMasterByType && !scope.isMaster) {
+      const masterCompanies = await fetchMasterEmpresas(client, scope.userId);
+      if (masterCompanies.length > 0) {
+        const requested = String(requestedCompanyId || '').trim();
+        companyIds = requested
+          ? (masterCompanies.includes(requested) ? [requested] : [])
+          : masterCompanies;
+      }
+    }
+
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
+    const effectiveVendedorIds = (isMasterByType || isGestorByType) ? [] : vendedorIds;
+
+    const accessibleClientIds =
+      !scope.isAdmin && !isMasterByType && !isGestorByType
+        ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds: effectiveVendedorIds })
+        : [];
 
     const data = await fetchVendaRowsWithFallback(client, {
       openId,
       inicio,
       fim,
       companyIds,
-      vendedorIds,
+      vendedorIds: effectiveVendedorIds,
       clienteId,
       scopeIsAdmin: scope.isAdmin,
       accessibleClientIds

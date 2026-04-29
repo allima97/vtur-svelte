@@ -49,7 +49,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -57,7 +57,11 @@ export async function GET(event) {
     const clienteId = String(searchParams.get('cliente_id') || '').trim();
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id') || searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids') || searchParams.get('vendedor_id'));
-    const accessibleClientIds = !scope.isAdmin ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds }) : [];
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const accessibleClientIds =
+      !scope.isAdmin && !scope.isMaster && !scope.isGestor
+        ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
+        : [];
 
     let query = client
       .from('vendas')
@@ -79,7 +83,7 @@ export async function GET(event) {
       .limit(5000);
 
     if (companyIds.length > 0) query = query.in('company_id', companyIds);
-    if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
     if (clienteId) query = query.eq('cliente_id', clienteId);
     else if (!scope.isAdmin && accessibleClientIds.length > 0) query = query.in('cliente_id', accessibleClientIds);
 

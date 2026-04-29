@@ -4,7 +4,6 @@ import {
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse,
-  fetchGestorEquipeIdsComGestor,
   isUuid
 } from '$lib/server/v1';
 import { normalizeText } from '$lib/normalizeText';
@@ -117,6 +116,11 @@ function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
   if (normalized.includes('cartao') && normalized.includes('credito')) return false;
   const base = termos && termos.length > 0 ? termos : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
   return base.some((termo) => termo && normalized.includes(termo));
+}
+
+function isAllowedSellerTipo(tipoNome?: string | null) {
+  const tipo = String(tipoNome || '').toUpperCase();
+  return tipo.includes('VENDEDOR') || tipo.includes('GESTOR') || tipo.includes('MASTER');
 }
 
 function guessPagaComissaoDefault(forma: string, termosNaoComissionaveis?: string[]) {
@@ -315,9 +319,28 @@ export async function POST(event) {
 
     if (vendedorId !== user.id && !scope.isAdmin && !scope.isMaster) {
       if (scope.isGestor) {
-        const equipeIds = await fetchGestorEquipeIdsComGestor(client, user.id);
-        if (!equipeIds.includes(vendedorId)) {
-          return new Response('Vendedor fora da equipe do gestor.', { status: 403 });
+        const { data: targetSeller, error: targetSellerError } = await client
+          .from('users')
+          .select('id, company_id, active, uso_individual, user_types(name)')
+          .eq('id', vendedorId)
+          .maybeSingle();
+        if (targetSellerError) throw targetSellerError;
+
+        if (!targetSeller?.id) {
+          return new Response('Vendedor informado nao encontrado.', { status: 404 });
+        }
+
+        const targetCompanyId = String((targetSeller as any)?.company_id || '').trim() || null;
+        if (!scope.companyId || targetCompanyId !== scope.companyId) {
+          return new Response('Vendedor fora da empresa do gestor.', { status: 403 });
+        }
+
+        if (!Boolean((targetSeller as any)?.active) || Boolean((targetSeller as any)?.uso_individual)) {
+          return new Response('Vendedor informado nao pode receber venda.', { status: 403 });
+        }
+
+        if (!isAllowedSellerTipo((targetSeller as any)?.user_types?.name)) {
+          return new Response('Usuario informado nao pode receber venda.', { status: 403 });
         }
       } else {
         return new Response('Sem permissão para atribuir venda a outro vendedor.', { status: 403 });

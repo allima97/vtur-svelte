@@ -1,7 +1,6 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -41,7 +40,7 @@ export async function GET(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas', 'vendas_cadastro'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -58,19 +57,7 @@ export async function GET(event: RequestEvent) {
     let tiposPacote: any[] = [];
     let formasPagamento: any[] = [];
 
-    if (scope.isGestor && scope.companyId) {
-      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      if (equipeIds.length > 0) {
-        const { data } = await client
-          .from('users')
-          .select('id, nome_completo, uso_individual, user_types(name)')
-          .in('id', equipeIds)
-          .eq('active', true)
-          .eq('uso_individual', false)
-          .order('nome_completo');
-        vendedoresEquipe = (data || []).filter((row: any) => isAllowedSellerTipo(row?.user_types?.name));
-      }
-    } else if (scope.isMaster && activeCompanyIds.length > 0) {
+    if ((scope.isGestor || scope.isMaster) && activeCompanyIds.length > 0) {
       const { data } = await client
         .from('users')
         .select('id, nome_completo, uso_individual, user_types(name)')

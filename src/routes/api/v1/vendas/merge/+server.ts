@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -157,7 +156,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 
@@ -190,6 +189,7 @@ export async function POST(event) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     const bodyVendedorIds = parseBodyIds(body?.vendedor_ids);
     if (scope.isMaster && bodyVendedorIds.length > 0) {
@@ -205,13 +205,7 @@ export async function POST(event) {
 
     if (companyIds.length > 0) salesQuery = salesQuery.in('company_id', companyIds);
 
-    if (!scope.isAdmin && scope.isGestor) {
-      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      if (equipeIds.length === 0) {
-        return new Response('Sem vendas para mesclar.', { status: 403 });
-      }
-      salesQuery = salesQuery.in('vendedor_id', equipeIds);
-    } else if (vendedorIds.length > 0) {
+    if (shouldApplySellerScope && vendedorIds.length > 0) {
       salesQuery = salesQuery.in('vendedor_id', vendedorIds);
     }
 
@@ -278,7 +272,7 @@ export async function POST(event) {
 
       let deleteMergedSalesQuery = client.from('vendas').delete().in('id', mergeIds);
       if (companyIds.length > 0) deleteMergedSalesQuery = deleteMergedSalesQuery.in('company_id', companyIds);
-      if (vendedorIds.length > 0) deleteMergedSalesQuery = deleteMergedSalesQuery.in('vendedor_id', vendedorIds);
+      if (shouldApplySellerScope && vendedorIds.length > 0) deleteMergedSalesQuery = deleteMergedSalesQuery.in('vendedor_id', vendedorIds);
       const { error: deleteMergedSalesError } = await deleteMergedSalesQuery;
       if (deleteMergedSalesError) throw deleteMergedSalesError;
     }
@@ -330,7 +324,7 @@ export async function POST(event) {
       .eq('id', vendaId);
 
     if (companyIds.length > 0) updateSaleQuery = updateSaleQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) updateSaleQuery = updateSaleQuery.in('vendedor_id', vendedorIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) updateSaleQuery = updateSaleQuery.in('vendedor_id', vendedorIds);
 
     const { error: updateSaleError } = await updateSaleQuery;
     if (updateSaleError) throw updateSaleError;

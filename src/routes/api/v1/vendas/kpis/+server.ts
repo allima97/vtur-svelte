@@ -19,7 +19,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!scope.isAdmin && !scope.isMaster) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -40,20 +40,20 @@ export async function GET(event) {
       vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     } else if (isGestorByType) {
       companyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
-      vendedorIds = await resolveScopedVendedorIds(client, { ...scope, isGestor: true, isVendedor: false }, requestedVendedorRaw);
+      vendedorIds = [];
     } else if (isMasterByType) {
-      // MASTER: usa todos os vendedores/gestores ativos das empresas sob sua gestão
-      // (espelhado do vtur-app fetchMasterScopeVendedorIds + fetchGestorCompanyScopeIds)
       const requestedIds = parseUuidList(requestedVendedorRaw);
-      const allMasterVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
-      vendedorIds = requestedIds.length > 0
-        ? requestedIds.filter((id) => allMasterVendedores.includes(id))
-        : allMasterVendedores;
+      if (requestedIds.length > 0) {
+        const allMasterVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
+        vendedorIds = requestedIds.filter((id) => allMasterVendedores.includes(id));
+      } else {
+        vendedorIds = [];
+      }
     } else {
       vendedorIds = [scope.userId];
     }
 
-    const accessibleClientIds = !scope.isAdmin
+    const accessibleClientIds = !scope.isAdmin && !isMasterByType && !isGestorByType
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 

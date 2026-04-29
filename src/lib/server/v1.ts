@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
-import type { RequestEvent } from '@sveltejs/kit';
+import { json, type RequestEvent } from '@sveltejs/kit';
 import { listarModulosComHeranca, MAPA_MODULOS, MODULO_ALIASES } from '$lib/config/modulos';
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
@@ -303,7 +303,10 @@ export async function fetchMasterEmpresas(client: SupabaseClient, masterId: stri
   }
 
   return (data || [])
-    .filter((row: { status?: string | null }) => row?.status === 'approved')
+    .filter((row: { status?: string | null }) => {
+      const status = String(row?.status || '').trim().toLowerCase();
+      return status !== 'rejected';
+    })
     .map((row: { company_id?: string | null }) => String(row?.company_id || '').trim())
     .filter(Boolean);
 }
@@ -529,9 +532,7 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
   
   if (isHttpErrorLike(err)) {
     console.error('[toErrorResponse] Erro HTTP detectado:', err.status);
-    return new Response(err.body?.message || fallbackMessage, {
-      status: err.status
-    });
+    return json({ error: err.body?.message || fallbackMessage }, { status: err.status });
   }
 
   // Verifica se é um erro do SvelteKit (pode ter status em outra propriedade)
@@ -540,15 +541,21 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
     if (typeof errObj.status === 'number') {
       console.error('[toErrorResponse] Erro com status detectado:', errObj.status);
       const body = errObj.body as { message?: string } | undefined;
-      return new Response(String(body?.message || errObj.message || fallbackMessage), {
-        status: errObj.status
-      });
+      return json({ error: String(body?.message || errObj.message || fallbackMessage) }, { status: errObj.status });
     }
   }
 
   console.error(fallbackMessage, err);
 
-  return new Response(fallbackMessage, {
-    status: 500
-  });
+  const errDetails = err && typeof err === 'object'
+    ? {
+        message: String((err as any).message || fallbackMessage),
+        code: String((err as any).code || ''),
+        details: String((err as any).details || ''),
+        hint: String((err as any).hint || ''),
+        stack: typeof (err as any).stack === 'string' ? (err as any).stack : undefined
+      }
+    : { message: fallbackMessage };
+
+  return json({ error: fallbackMessage, ...errDetails }, { status: 500 });
 }

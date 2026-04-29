@@ -169,6 +169,15 @@ function createPermissoesStore() {
     );
   };
 
+  const isTransientNetworkError = (error: any) => {
+    const message = String(error?.message || '').toLowerCase();
+    return (
+      message.includes('failed to fetch') ||
+      message.includes('err_connection_closed') ||
+      message.includes('networkerror')
+    );
+  };
+
   // ------------------------------------------------------------------
   // INIT — carrega tudo do Supabase
   // ------------------------------------------------------------------
@@ -176,9 +185,22 @@ function createPermissoesStore() {
     update((s) => ({ ...s, loading: true, error: null }));
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let user: any = null;
+      try {
+        const {
+          data: { user: directUser },
+        } = await supabase.auth.getUser();
+        user = directUser;
+      } catch (getUserError) {
+        if (!isTransientNetworkError(getUserError)) {
+          throw getUserError;
+        }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        user = session?.user ?? null;
+      }
 
       if (!user) {
         set(initialState);

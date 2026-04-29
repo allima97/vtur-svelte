@@ -8,6 +8,34 @@ import { mockSupabaseClient, shouldUseMock } from './supabase-mock';
 let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 let usingMock = false;
 
+const RETRYABLE_NETWORK_ERRORS = ['failed to fetch', 'err_connection_closed', 'networkerror'];
+
+function isRetryableNetworkError(error: unknown) {
+  const message = String((error as any)?.message || '').toLowerCase();
+  if (!message) return false;
+  return RETRYABLE_NETWORK_ERRORS.some((needle) => message.includes(needle));
+}
+
+function createResilientFetch(baseUrl: string) {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const runFetch = () => fetch(input as any, init);
+
+    try {
+      return await runFetch();
+    } catch (err) {
+      const requestUrl = String(input instanceof URL ? input.toString() : input || '');
+      const isSupabaseRequest = requestUrl.startsWith(baseUrl);
+      if (!isSupabaseRequest || !isRetryableNetworkError(err)) {
+        throw err;
+      }
+
+      // Retry unico para oscilações transitórias de rede no browser.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      return runFetch();
+    }
+  };
+}
+
 function getSupabasePublicConfig() {
   return {
     url: publicEnv.PUBLIC_SUPABASE_URL,
@@ -50,6 +78,9 @@ export function createSupabaseBrowserClient() {
     browserClient = createBrowserClient(url, anonKey, {
       cookieOptions: {
         name: getSupabaseAuthStorageKey()
+      },
+      global: {
+        fetch: createResilientFetch(url)
       }
     });
   }
