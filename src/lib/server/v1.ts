@@ -252,6 +252,46 @@ export async function fetchGestorEquipeIdsComGestor(client: SupabaseClient, gest
   }
 }
 
+/**
+ * Retorna IDs de vendedores/gestores ativos de um conjunto de empresas.
+ * Exclui ADMINs, MASTERs e usuários com uso_individual=true
+ * (uso_individual = vendedores isolados que nunca aparecem no escopo de outros).
+ */
+export async function fetchVendedorIdsByCompanyIds(
+  client: SupabaseClient,
+  companyIds: string[]
+): Promise<string[]> {
+  if (companyIds.length === 0) return [];
+
+  try {
+    let query = client
+      .from('users')
+      .select('id, active, uso_individual, user_types(name), company_id')
+      .eq('active', true)
+      .eq('uso_individual', false)
+      .limit(1000);
+
+    query = companyIds.length === 1
+      ? query.eq('company_id', companyIds[0])
+      : query.in('company_id', companyIds);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data || [])
+      .filter((row: any) => {
+        if (!row?.id) return false;
+        const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
+        if (role.includes('ADMIN') || role.includes('MASTER')) return false;
+        return true;
+      })
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchMasterEmpresas(client: SupabaseClient, masterId: string) {
   const { data, error: companiesError } = await client
     .from('master_empresas')

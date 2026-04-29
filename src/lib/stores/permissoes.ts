@@ -154,6 +154,21 @@ const initialState: PermissoesState = {
 function createPermissoesStore() {
   const { subscribe, set, update } = writable<PermissoesState>(initialState);
 
+  const isPermissionOrSessionError = (error: any) => {
+    const code = String(error?.code || '').toUpperCase();
+    const status = Number(error?.status || error?.statusCode || 0);
+    const message = String(error?.message || '').toLowerCase();
+    return (
+      code === '42501' ||
+      code === 'PGRST301' ||
+      status === 401 ||
+      status === 403 ||
+      message.includes('permission denied') ||
+      message.includes('row-level security') ||
+      message.includes('jwt')
+    );
+  };
+
   // ------------------------------------------------------------------
   // INIT — carrega tudo do Supabase
   // ------------------------------------------------------------------
@@ -171,11 +186,15 @@ function createPermissoesStore() {
       }
 
       // 1. Perfil do usuário
-      const { data: profile } = await supabase
+      const { data: profile, error: profileErr } = await supabase
         .from('users')
         .select('id, email, uso_individual, user_types(name)')
         .eq('id', user.id)
         .single();
+
+      if (profileErr) {
+        throw profileErr;
+      }
 
       const userTypeData = profile?.user_types as
         | { name: string }[]
@@ -196,6 +215,10 @@ function createPermissoesStore() {
         .from('modulo_acesso')
         .select('modulo, permissao, ativo')
         .eq('usuario_id', user.id);
+
+      if (acessosErr) {
+        throw acessosErr;
+      }
 
       // Agrupa por módulo para escolher o melhor quando houver duplicatas
       const grouped: Record<string, Array<{ permissao: string; ativo: boolean }>> = {};
@@ -266,12 +289,21 @@ function createPermissoesStore() {
         error: null,
       });
     } catch (err) {
+      const normalizedError =
+        err instanceof Error ? err : new Error('Erro ao carregar permissões');
+
+      const finalMessage = isPermissionOrSessionError(err)
+        ? 'Sessao invalida ou sem permissao para carregar contexto. Faca login novamente.'
+        : normalizedError.message;
+
       update((s) => ({
         ...s,
         loading: false,
         ready: true,
-        error: err instanceof Error ? err.message : 'Erro ao carregar permissões',
+        error: finalMessage,
       }));
+
+      throw new Error(finalMessage);
     }
   }
 

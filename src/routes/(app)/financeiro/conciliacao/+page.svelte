@@ -458,11 +458,31 @@
       .join('|');
 
     if (signature && signature !== importLookupSignature) {
+      // Text changed — full rebuild from scratch (discards manual edits, as expected for a new file)
       importLookupSignature = signature;
       void loadImportLookup(parsed.linhas);
+      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate);
+    } else if (importPreparedRows.length > 0) {
+      // Same text, lookup data updated — merge lookup results WITHOUT overwriting manual vendedor assignments
+      importPreparedRows = importPreparedRows.map((row) => {
+        const documento = String(row.documento || '').trim();
+        const lookup = documento ? importLookupMatches[documento] : null;
+        // Only apply lookup if no manual assignment exists yet
+        if (!row.ranking_vendedor_id && lookup?.vendedor_id) {
+          return {
+            ...row,
+            ranking_vendedor_id: lookup.vendedor_id,
+            venda_id: row.venda_id || lookup.venda_id || null,
+            venda_recibo_id: row.venda_recibo_id || lookup.venda_recibo_id || null,
+            vendedor_ranking: resolveImportVendedorLabel(lookup.vendedor_id, row.status)
+          };
+        }
+        return row;
+      });
+    } else {
+      importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate);
     }
 
-    importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate);
     importRowsTotal = importPreparedRows.length;
     importAutoLinked = importPreparedRows.filter((row) => Boolean(row.ranking_vendedor_id)).length;
     importPreview = importPreparedRows;

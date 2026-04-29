@@ -125,6 +125,13 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	const { url } = event;
 	const pathname = url.pathname;
 	const isApiRequest = pathname.startsWith('/api/');
+	const apiPublicRoutes = [
+		'/api/auth/set-session',
+		'/api/v1/cards',
+		'/api/v1/client-error',
+		'/api/v1/health',
+		'/api/v1/cron/'
+	];
 
 	const rotasPublicas = [
 		'/auth/login',
@@ -147,7 +154,27 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	];
 
 	const isPublic = rotasPublicas.some((r) => pathname.startsWith(r));
-	if (isPublic || isApiRequest) {
+	if (isPublic) {
+		return resolve(event);
+	}
+
+	if (isApiRequest) {
+		const isApiPublic = apiPublicRoutes.some((route) => pathname.startsWith(route));
+		if (isApiPublic) {
+			return resolve(event);
+		}
+
+		const { session, user } = await event.locals.safeGetSession();
+		event.locals.session = session;
+		event.locals.user = user;
+
+		if (!session || !user) {
+			return new Response(JSON.stringify({ error: 'Sessao invalida.' }), {
+				status: 401,
+				headers: { 'content-type': 'application/json; charset=utf-8' }
+			});
+		}
+
 		return resolve(event);
 	}
 

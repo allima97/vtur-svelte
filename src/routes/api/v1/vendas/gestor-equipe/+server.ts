@@ -24,8 +24,9 @@ export async function GET(event) {
 
     const { data, error: queryError } = await client
       .from('users')
-      .select('id, nome_completo')
+      .select('id, nome_completo, uso_individual')
       .in('id', equipeIds)
+      .eq('uso_individual', false)
       .order('nome_completo', { ascending: true });
 
     if (queryError) throw queryError;

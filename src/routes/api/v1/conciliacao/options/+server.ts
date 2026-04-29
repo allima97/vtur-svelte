@@ -59,9 +59,10 @@ export async function GET(event) {
 
     let usersQuery = client
       .from('users')
-      .select('id, nome_completo, user_types(name)')
+      .select('id, nome_completo, uso_individual, user_types(name)')
       .eq('company_id', companyId)
       .eq('active', true)
+      .eq('uso_individual', false)
       .order('nome_completo')
       .limit(500);
 
@@ -84,9 +85,10 @@ export async function GET(event) {
     if (scope.isGestor && vendedoresFinal.length === 0) {
       const { data: fallbackUsers } = await client
         .from('users')
-        .select('id, nome_completo, user_types(name)')
+        .select('id, nome_completo, uso_individual, user_types(name)')
         .eq('company_id', companyId)
         .eq('active', true)
+        .eq('uso_individual', false)
         .order('nome_completo')
         .limit(500);
 

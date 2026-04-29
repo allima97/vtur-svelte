@@ -22,6 +22,23 @@
       await permissoes.init(supabase);
     } catch (err) {
       console.error('[AppLayout] Erro ao inicializar permissoes:', err);
+      const message = String((err as any)?.message || '').toLowerCase();
+      if (
+        message.includes('sessao invalida') ||
+        message.includes('login novamente') ||
+        message.includes('permission denied') ||
+        message.includes('row-level security') ||
+        message.includes('jwt')
+      ) {
+        try {
+          const supabase = createSupabaseBrowserClient();
+          await supabase.auth.signOut();
+        } catch {
+          // noop
+        }
+        const next = `${window.location.pathname}${window.location.search || ''}`;
+        window.location.assign(`/auth/login?next=${encodeURIComponent(next)}`);
+      }
     }
   }
 

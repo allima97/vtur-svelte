@@ -63,18 +63,20 @@ export async function GET(event: RequestEvent) {
       if (equipeIds.length > 0) {
         const { data } = await client
           .from('users')
-          .select('id, nome_completo, user_types(name)')
+          .select('id, nome_completo, uso_individual, user_types(name)')
           .in('id', equipeIds)
           .eq('active', true)
+          .eq('uso_individual', false)
           .order('nome_completo');
         vendedoresEquipe = (data || []).filter((row: any) => isAllowedSellerTipo(row?.user_types?.name));
       }
     } else if (scope.isMaster && activeCompanyIds.length > 0) {
       const { data } = await client
         .from('users')
-        .select('id, nome_completo, user_types(name)')
+        .select('id, nome_completo, uso_individual, user_types(name)')
         .in('company_id', activeCompanyIds)
         .eq('active', true)
+        .eq('uso_individual', false)
         .order('nome_completo');
       vendedoresEquipe = (data || []).filter((row: any) => isAllowedSellerTipo(row?.user_types?.name));
     }

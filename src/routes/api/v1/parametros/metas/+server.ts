@@ -58,11 +58,11 @@ export async function GET(event) {
     let vendedores: any[] = [];
     if (scope.isAdmin || scope.isGestor) {
       const ids = scope.isGestor ? await fetchGestorEquipeIdsComGestor(client, scope.userId) : [];
-      let vQuery = client.from('users').select('id, nome_completo, uso_individual').eq('active', true);
+      let vQuery = client.from('users').select('id, nome_completo').eq('active', true).eq('uso_individual', false);
       if (ids.length > 0 && !scope.isAdmin) vQuery = vQuery.in('id', ids);
       if (scope.companyId && !scope.isAdmin) vQuery = vQuery.eq('company_id', scope.companyId);
       const { data: vData } = await vQuery.order('nome_completo').limit(200);
-      vendedores = (vData || []).filter((v: any) => v.uso_individual !== false);
+      vendedores = vData || [];
     }
 
     return json({ items: data || [], vendedores });

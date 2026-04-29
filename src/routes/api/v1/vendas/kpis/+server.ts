@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchVendedorIdsByCompanyIds,
   getAdminClient,
+  parseUuidList,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -40,8 +42,13 @@ export async function GET(event) {
       companyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
       vendedorIds = await resolveScopedVendedorIds(client, { ...scope, isGestor: true, isVendedor: false }, requestedVendedorRaw);
     } else if (isMasterByType) {
-      const requestedIds = await resolveScopedVendedorIds(client, { ...scope, isAdmin: true, isMaster: true }, requestedVendedorRaw);
-      vendedorIds = requestedIds;
+      // MASTER: usa todos os vendedores/gestores ativos das empresas sob sua gestão
+      // (espelhado do vtur-app fetchMasterScopeVendedorIds + fetchGestorCompanyScopeIds)
+      const requestedIds = parseUuidList(requestedVendedorRaw);
+      const allMasterVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
+      vendedorIds = requestedIds.length > 0
+        ? requestedIds.filter((id) => allMasterVendedores.includes(id))
+        : allMasterVendedores;
     } else {
       vendedorIds = [scope.userId];
     }
