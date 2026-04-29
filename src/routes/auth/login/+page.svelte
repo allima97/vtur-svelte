@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldCheckbox, FieldInput } from '$lib/components/ui';
+  import Turnstile from '$lib/components/auth/Turnstile.svelte';
   import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock } from 'lucide-svelte';
   
   let email = '';
@@ -15,6 +16,8 @@
   let error: string | null = null;
   let mockMode = false;
   let sessionExpired = false;
+  let turnstileToken = '';
+  let turnstileReady = false;
   
   onMount(() => {
     mockMode = isMockMode();
@@ -35,28 +38,61 @@
     }
   });
   
+  function handleTurnstileSuccess(e: CustomEvent<string>) {
+    turnstileToken = e.detail;
+    turnstileReady = true;
+    error = null;
+  }
+
+  function handleTurnstileExpired() {
+    turnstileToken = '';
+    turnstileReady = false;
+  }
+
   async function handleLogin() {
     if (!email || !password) {
       error = 'Preencha email e senha';
       return;
     }
-    
+
+    if (!turnstileReady && !mockMode) {
+      error = 'Complete a verificação de segurança.';
+      return;
+    }
+
     loading = true;
     error = null;
-    
+
     try {
+      // Valida Turnstile no servidor (exceto em mock)
+      if (!mockMode && turnstileToken) {
+        const verifyRes = await fetch('/api/auth/verify-turnstile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken })
+        });
+        const verifyData = await verifyRes.json().catch(() => ({ success: false }));
+        if (!verifyData.success) {
+          error = verifyData.error || 'Verificação de segurança falhou. Tente novamente.';
+          turnstileReady = false;
+          turnstileToken = '';
+          loading = false;
+          return;
+        }
+      }
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-      
+
       if (authError) {
         throw authError;
       }
-      
+
       if (data.session) {
         auth.setAuth(data.user, data.session);
-        
+
         // Salva session nos cookies via endpoint server-side
         await fetch('/api/auth/set-session', {
           method: 'POST',
@@ -66,7 +102,7 @@
             refresh_token: data.session.refresh_token
           })
         });
-        
+
         goto('/');
       }
     } catch (err: any) {
@@ -170,12 +206,22 @@
           </a>
         </div>
         
+        <!-- Verificação de segurança -->
+        {#if !mockMode}
+          <Turnstile
+            action="login"
+            on:success={handleTurnstileSuccess}
+            on:expired={handleTurnstileExpired}
+          />
+        {/if}
+
         <!-- Botão Login -->
         <Button
           type="submit"
           variant="primary"
           size="lg"
           loading={loading}
+          disabled={!turnstileReady && !mockMode}
           class_name="w-full"
         >
           Entrar

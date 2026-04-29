@@ -18,6 +18,9 @@
   export let data: RootLayoutData;
 
   let isRedirecting = false;
+  let lastRedirectAt = 0;
+  let lastSessionAt = 0;
+  let checkingSession = false;
 
   function isPublicRoute(path: string): boolean {
     return path.startsWith('/auth/') || path === '/negado';
@@ -25,15 +28,25 @@
 
   function redirectToLogin(reason: string) {
     if (isRedirecting) return;
+    const now = Date.now();
+    // Evita redirecionamentos em menos de 8s (protege contra loops)
+    if (now - lastRedirectAt < 8000) return;
+    // Se uma sessão foi estabelecida nos últimos 5s, não redireciona
+    if (now - lastSessionAt < 5000) return;
+
     if (browser && !isPublicRoute(window.location.pathname)) {
       isRedirecting = true;
+      lastRedirectAt = now;
       console.warn(`[Auth] ${reason}. Redirecionando para login.`);
       toast.warning('Sua sessão expirou. Você será redirecionado para o login.', 6000);
-      goto('/auth/login?session_expired=1');
+      goto('/auth/login?session_expired=1', { replaceState: true });
     }
   }
 
-  async function syncServerSession(session: { access_token: string; refresh_token: string } | null, source: string) {
+  async function syncServerSession(
+    session: { access_token: string; refresh_token: string } | null,
+    source: string
+  ) {
     if (!session) {
       sessionSynced.set(true);
       return;
@@ -59,14 +72,13 @@
       sessionSynced.set(true);
     }
   }
-  
+
   // Inicializa auth store com dados do servidor
-  // Se o servidor já tem sessão (via cookie SSR), marca sessionSynced imediatamente
   $: if (data.session) {
     auth.setAuth(data.user ?? data.session.user ?? null, data.session);
     sessionSynced.set(true);
   }
-  
+
   onMount(() => {
     if (!browser) return;
 
@@ -75,7 +87,9 @@
     const hasServerSession = Boolean(data.session);
 
     (async () => {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      const {
+        data: { subscription }
+      } = supabase.auth.onAuthStateChange(
         async (event: AuthChangeEvent, session: Session | null) => {
           console.log('[AuthStateChange]', event, session ? 'com sessao' : 'sem sessao');
           if (
@@ -86,12 +100,24 @@
               event === 'MFA_CHALLENGE_VERIFIED') &&
             session
           ) {
+            lastSessionAt = Date.now();
+            isRedirecting = false; // cancela redirecionamento pendente
             auth.setAuth(session.user, session);
             await syncServerSession(session, event);
           } else if (event === 'SIGNED_OUT') {
             auth.clear();
             sessionSynced.set(true);
-            redirectToLogin('Sessão encerrada pelo servidor (SIGNED_OUT)');
+            // Aguarda um momento para verificar se realmente não há sessão
+            // (pode ser uma race condition durante refresh automático)
+            setTimeout(async () => {
+              if (cancelled) return;
+              const {
+                data: { session: currentSession }
+              } = await supabase.auth.getSession();
+              if (!currentSession && get(auth).user) {
+                redirectToLogin('Sessão encerrada pelo servidor (SIGNED_OUT)');
+              }
+            }, 500);
           }
         }
       );
@@ -103,6 +129,7 @@
 
       console.log('[Layout] Session no mount:', session ? 'existe' : 'nao existe');
       if (session) {
+        lastSessionAt = Date.now();
         if (hasServerSession) {
           console.log('[Layout] Sessao SSR ja existe; pulando sincronizacao redundante no mount.');
           sessionSynced.set(true);
@@ -121,29 +148,29 @@
 
     // Verifica sessão quando a aba volta ao primeiro plano
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && !isRedirecting) {
+      if (document.visibilityState !== 'visible' || isRedirecting || checkingSession) return;
+      checkingSession = true;
+      try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session && get(auth).user) {
           redirectToLogin('Sessão expirada enquanto a aba estava inativa');
+        } else if (session) {
+          lastSessionAt = Date.now();
+          isRedirecting = false;
         }
+      } finally {
+        // Delay antes de permitir nova checagem para evitar lock contention
+        setTimeout(() => {
+          checkingSession = false;
+        }, 2000);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Heartbeat leve a cada 5 minutos
-    const heartbeatInterval = setInterval(async () => {
-      if (isRedirecting) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && get(auth).user) {
-        redirectToLogin('Sessão expirada (heartbeat)');
-      }
-    }, 300_000); // 5 minutos
 
     return () => {
       cancelled = true;
       unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(heartbeatInterval);
     };
   });
 </script>

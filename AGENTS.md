@@ -20,6 +20,16 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
   - a tela de login mostra banner explicativo (`Sessão expirada: Por segurança, sua sessão foi encerrada...`)
   - chamadas de API (`api.ts`) que recebem 401 também disparam toast antes de redirecionar
 
+### Segurança — Cloudflare Turnstile ✅
+- **Componente**: `src/lib/components/auth/Turnstile.svelte` — widget reutilizável com carregamento dinâmico do script, suporte a `action`, `theme`, `size`, e eventos (`success`, `error`, `expired`, `timeout`).
+- **Validação server-side**: `src/lib/server/turnstile.ts` + endpoint `POST /api/auth/verify-turnstile` fazem verificação via `https://challenges.cloudflare.com/turnstile/v0/siteverify`.
+- **Telas protegidas**: login (`action="login"`), registro (`action="register"`), convite (`action="invite"`), recuperar senha (`action="recover"`).
+- **Comportamento no mock mode**: quando `shouldUseMock()` é true (dev local sem Supabase real), o componente emite `success` imediatamente e o servidor bypassa a validação.
+- **Variáveis de ambiente**:
+  - `PUBLIC_TURNSTILE_SITE_KEY` (cliente)
+  - `TURNSTILE_SECRET_KEY` (servidor — configurar via `wrangler secret put` no Cloudflare)
+- **Dependências**: nenhuma biblioteca extra; carrega script oficial do Cloudflare via CDN.
+
 ### Relatórios ✅
 - `relatorios/vendas`: Campos `cliente_cpf`, `cidade`, `valor_taxas`, `recibos[]` adicionados
 - `relatorios/clientes`: Campo `cpf` adicionado

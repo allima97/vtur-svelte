@@ -39,6 +39,7 @@
  */
 declare module '$env/static/private' {
 	export const SUPABASE_SERVICE_ROLE_KEY: string;
+	export const TURNSTILE_SECRET_KEY: string;
 	export const TERM_PROGRAM: string;
 	export const NODE: string;
 	export const INIT_CWD: string;
@@ -135,6 +136,7 @@ declare module '$env/static/public' {
 	export const PUBLIC_SUPABASE_URL: string;
 	export const PUBLIC_SUPABASE_ANON_KEY: string;
 	export const PUBLIC_ENVIRONMENT: string;
+	export const PUBLIC_TURNSTILE_SITE_KEY: string;
 }
 
 /**
@@ -185,6 +187,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		SUPABASE_SERVICE_ROLE_KEY: string;
+		TURNSTILE_SECRET_KEY: string;
 		TERM_PROGRAM: string;
 		NODE: string;
 		INIT_CWD: string;
@@ -300,6 +303,7 @@ declare module '$env/dynamic/public' {
 		PUBLIC_SUPABASE_URL: string;
 		PUBLIC_SUPABASE_ANON_KEY: string;
 		PUBLIC_ENVIRONMENT: string;
+		PUBLIC_TURNSTILE_SITE_KEY: string;
 		[key: `PUBLIC_${string}`]: string | undefined;
 	}
 }

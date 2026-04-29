@@ -439,4 +439,18 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(supabaseHook, authGuard);
+const cacheControlHook: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+
+	// Apenas para paginas HTML — nao afeta assets estaticos
+	const contentType = response.headers.get('content-type') || '';
+	if (contentType.includes('text/html')) {
+		response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+		response.headers.set('Pragma', 'no-cache');
+		response.headers.set('Expires', '0');
+	}
+
+	return response;
+};
+
+export const handle = sequence(supabaseHook, authGuard, cacheControlHook);

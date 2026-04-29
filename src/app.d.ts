@@ -1,6 +1,15 @@
 /// <reference types="@sveltejs/kit" />
 
 declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement | string, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+      getResponse: (widgetId: string) => string | undefined;
+    };
+  }
+
   namespace App {
     interface Error {
       message: string;

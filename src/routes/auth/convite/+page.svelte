@@ -4,6 +4,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldInput } from '$lib/components/ui';
+  import Turnstile from '$lib/components/auth/Turnstile.svelte';
   import { Mail, Lock, User, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
   
   let email = '';
@@ -16,27 +17,60 @@
   let success = false;
   let showPassword = false;
   let showConfirmPassword = false;
+  let turnstileToken = '';
+  let turnstileReady = false;
   
+  function handleTurnstileSuccess(e: CustomEvent<string>) {
+    turnstileToken = e.detail;
+    turnstileReady = true;
+    error = null;
+  }
+
+  function handleTurnstileExpired() {
+    turnstileToken = '';
+    turnstileReady = false;
+  }
+
   async function handleSubmit() {
     if (!email || !password || !nome || !token) {
       error = 'Preencha todos os campos';
       return;
     }
-    
+
     if (password !== confirmPassword) {
       error = 'As senhas não conferem';
       return;
     }
-    
+
     if (password.length < 6) {
       error = 'A senha deve ter pelo menos 6 caracteres';
       return;
     }
-    
+
+    if (!turnstileReady) {
+      error = 'Complete a verificação de segurança.';
+      return;
+    }
+
     loading = true;
     error = null;
-    
+
     try {
+      // Valida Turnstile
+      const verifyRes = await fetch('/api/auth/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: turnstileToken })
+      });
+      const verifyData = await verifyRes.json().catch(() => ({ success: false }));
+      if (!verifyData.success) {
+        error = verifyData.error || 'Verificação de segurança falhou. Tente novamente.';
+        turnstileReady = false;
+        turnstileToken = '';
+        loading = false;
+        return;
+      }
+
       // Verificar convite e criar conta
       const { error: signUpError } = await supabase.auth.signUp({
         email,
@@ -48,16 +82,16 @@
           }
         }
       });
-      
+
       if (signUpError) throw signUpError;
-      
+
       success = true;
-      
+
       // Redirecionar após 2 segundos
       setTimeout(() => {
         goto('/auth/login');
       }, 2000);
-      
+
     } catch (err: any) {
       error = err.message || 'Erro ao ativar conta';
     } finally {
@@ -174,12 +208,20 @@
             class_name="w-full"
           />
           
+          <!-- Verificação de segurança -->
+          <Turnstile
+            action="invite"
+            on:success={handleTurnstileSuccess}
+            on:expired={handleTurnstileExpired}
+          />
+
           <!-- Botão -->
           <Button
             type="submit"
             variant="primary"
             size="lg"
             loading={loading}
+            disabled={!turnstileReady}
             class_name="w-full justify-center"
           >
             Ativar Conta
