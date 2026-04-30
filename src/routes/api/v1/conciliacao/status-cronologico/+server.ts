@@ -63,6 +63,7 @@ export async function GET(event) {
       dias_importados: diagnostico.diasImportados,
       dias_faltantes: diagnostico.diasFaltantes,
       dias_bloqueados: diagnostico.diasBloqueados,
+      dias_sem_movimento: diagnostico.diasSemMovimento,
       registros_bloqueados: diagnostico.registrosBloqueados,
       aviso
     });

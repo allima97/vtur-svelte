@@ -291,6 +291,29 @@ export async function POST(event) {
       );
     }
 
+    // ── Validação: datas marcadas como "sem movimento" não podem receber importação ──
+    const datasImportaveis = Array.from(new Set(importaveis.map((l) => String(l.movimento_data || '').trim()))).filter(Boolean);
+    const { data: diasSemMovimento } = await client
+      .from('conciliacao_dias_sem_movimento')
+      .select('data')
+      .eq('company_id', companyId)
+      .in('data', datasImportaveis);
+
+    const datasBloqueadas = (diasSemMovimento || []).map((r: any) => String(r?.data || '')).filter(Boolean);
+    if (datasBloqueadas.length > 0) {
+      const fmt = (d: string) => {
+        const [y, m, dia] = d.split('-');
+        return `${dia}/${m}/${y}`;
+      };
+      return json(
+        {
+          error: `Não é possível importar arquivo(s) para data(s) já marcada(s) como "sem movimento": ${datasBloqueadas.map(fmt).join(', ')}.`,
+          datas_bloqueadas: datasBloqueadas
+        },
+        { status: 409 }
+      );
+    }
+
     // ── Busca registros já existentes (exactMap + fallbackMap) ────────────
     const { data: existentes } = await client
       .from('conciliacao_recibos')
@@ -392,9 +415,28 @@ export async function POST(event) {
     const usedExistingIds = new Set<string>();
     const rowsToInsert: any[] = [];
     const rowsToUpdate: Array<{ id: string; values: Record<string, any> }> = [];
+    const diferencas: Array<{
+      documento: string;
+      movimento_data: string;
+      valor_importacao: number;
+      valor_sistema: number;
+      taxas_importacao: number;
+      taxas_sistema: number;
+      diff_total: number;
+      diff_taxas: number;
+    }> = [];
 
     for (const l of importaveis) {
       const row = await buildRow(l);
+
+      // Detecta diferenças entre importação e venda existente
+      const vendaReciboIdLinked = String(row.venda_recibo_id || '').trim();
+      if (vendaReciboIdLinked) {
+        const importTotal = Number(l.valor_lancamentos || 0);
+        const importTaxas = Number(l.valor_taxas || 0);
+        // Tenta obter valores do recibo encontrado em buildRow (via findReciboByNumero)
+        // Como não temos acesso direto, buscamos do cache ou fazemos uma busca em batch depois
+      }
 
       // 1ª tentativa: chave exata (inclui descrição normalizada)
       let existing: any =
@@ -438,6 +480,52 @@ export async function POST(event) {
         });
       } else {
         rowsToInsert.push(row);
+      }
+    }
+
+    // ── Detecção de diferenças: busca valores do sistema para recibos linkados ──
+    const allRows = [...rowsToInsert, ...rowsToUpdate.map((u) => u.values)];
+    const reciboIdsToCheck = Array.from(
+      new Set(allRows.map((r) => String(r.venda_recibo_id || '').trim()).filter(Boolean))
+    );
+    if (reciboIdsToCheck.length > 0) {
+      const { data: recibosSistema } = await client
+        .from('vendas_recibos')
+        .select('id, valor_total, valor_taxas')
+        .in('id', reciboIdsToCheck);
+
+      const reciboValorMap = new Map<string, { valor_total: number; valor_taxas: number }>();
+      for (const r of recibosSistema || []) {
+        const id = String(r?.id || '').trim();
+        if (id) {
+          reciboValorMap.set(id, {
+            valor_total: Number(r?.valor_total || 0),
+            valor_taxas: Number(r?.valor_taxas || 0)
+          });
+        }
+      }
+
+      for (const l of importaveis) {
+        const reciboId = allRows.find((r) => r.documento === String(l.documento || '').trim())?.venda_recibo_id;
+        if (!reciboId) continue;
+        const sistema = reciboValorMap.get(String(reciboId).trim());
+        if (!sistema) continue;
+        const importTotal = Number(l.valor_lancamentos || 0);
+        const importTaxas = Number(l.valor_taxas || 0);
+        const diffTotal = Math.round((importTotal - sistema.valor_total) * 100) / 100;
+        const diffTaxas = Math.round((importTaxas - sistema.valor_taxas) * 100) / 100;
+        if (Math.abs(diffTotal) > 0.01 || Math.abs(diffTaxas) > 0.01) {
+          diferencas.push({
+            documento: String(l.documento || '').trim(),
+            movimento_data: String(l.movimento_data || '').trim(),
+            valor_importacao: importTotal,
+            valor_sistema: sistema.valor_total,
+            taxas_importacao: importTaxas,
+            taxas_sistema: sistema.valor_taxas,
+            diff_total: diffTotal,
+            diff_taxas: diffTaxas
+          });
+        }
       }
     }
 
@@ -502,7 +590,9 @@ export async function POST(event) {
       atualizados,
       ignorados: linhas.length - importaveis.length,
       duplicados: atualizados,
-      status_cronologico: statusCronologico
+      status_cronologico: statusCronologico,
+      diferencas: diferencas.length > 0 ? diferencas : undefined,
+      tem_diferenca: diferencas.length > 0
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao importar conciliação.');

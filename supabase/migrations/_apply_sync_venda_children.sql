@@ -1,15 +1,13 @@
 -- ============================================================
--- MIGRATION: sync_venda_children atualizada para calcular
--- valor_nao_comissionado automaticamente apos inserir pagamentos.
--- Isso garante que formas nao-comissionaveis (ex: Credito Diversos)
--- nunca entrem na composicao da meta.
+-- SCRIPT CONSOLIDADO: Aplicar sync_venda_children atualizada
+-- Execute isto no SQL Editor do Supabase Dashboard
 -- ============================================================
 
+-- 1. Garantir que a funcao auxiliar existe (criada originalmente em 20260407)
 create or replace function public.is_forma_pagamento_nao_comissionavel(forma_nome text)
 returns boolean
 language sql
 stable
-set search_path = public
 as $$
   select coalesce(
     exists(
@@ -17,8 +15,8 @@ as $$
       from public.parametros_pagamentos_nao_comissionaveis
       where ativo = true
         and (
-          normalize(coalesce(forma_nome, '')) ilike '%' || termo_normalizado || '%'
-          or coalesce(forma_nome, '') ilike '%' || termo || '%'
+          normalize(forma_nome) ilike '%' || termo_normalizado || '%'
+          or forma_nome ilike '%' || termo || '%'
         )
       limit 1
     ),
@@ -26,6 +24,7 @@ as $$
   );
 $$;
 
+-- 2. Criar/Atualizar sync_venda_children com calculo automatico de valor_nao_comissionado
 create or replace function public.sync_venda_children(
   p_venda_id       uuid,
   p_company_id     uuid,
@@ -74,7 +73,6 @@ begin
   -- 3. Inserir recibos e viagens
   for r in select * from jsonb_array_elements(p_recibos)
   loop
-    -- Validar UUIDs obrigatorios
     if not ((r->>'produto_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$') then
       raise exception 'RECIBO_INVALIDO';
     end if;
@@ -108,13 +106,11 @@ begin
     returning id, data_inicio::date, data_fim::date
       into v_recibo_id, v_data_inicio, v_data_fim;
 
-    -- Registrar mapeamento recibo_ref -> recibo_id
     v_recibo_ref := coalesce(trim(r->>'recibo_ref'), '');
     if v_recibo_ref <> '' then
       v_recibo_map := jsonb_set(v_recibo_map, array[v_recibo_ref], to_jsonb(v_recibo_id::text));
     end if;
 
-    -- Calcular status da viagem
     v_status := case
       when v_data_fim   is not null and v_data_fim   <  v_hoje then 'concluida'
       when v_data_inicio is not null and v_data_inicio > v_hoje then 'confirmada'
@@ -138,7 +134,6 @@ begin
     )
     returning id into v_viagem_id;
 
-    -- Inserir passageiro principal
     insert into viagem_passageiros (viagem_id, cliente_id, company_id, papel, created_by)
     values (v_viagem_id, p_cliente_id, p_company_id, 'passageiro', p_user_id);
   end loop;
@@ -189,7 +184,7 @@ begin
   ) into v_valor_nao_comissionado
   from public.vendas_pagamentos vp
   where vp.venda_id = p_venda_id
-    and public.is_forma_pagamento_nao_comissionavel(coalesce(vp.forma_nome, ''));
+    and is_forma_pagamento_nao_comissionavel(coalesce(vp.forma_nome, ''));
 
   update public.vendas
   set valor_nao_comissionado = v_valor_nao_comissionado,
@@ -199,11 +194,10 @@ begin
 end;
 $$;
 
--- Permissao para a service role chamar a funcao
-grant execute on function public.is_forma_pagamento_nao_comissionavel(text) to authenticated, service_role;
-
+-- 3. Permissao para a service role chamar a funcao
 grant execute on function public.sync_venda_children(
   uuid, uuid, uuid, uuid, uuid, jsonb, jsonb
 ) to service_role;
 
-notify pgrst, 'reload schema';
+-- 4. Verificacao rapida
+select 'sync_venda_children instalada' as status;

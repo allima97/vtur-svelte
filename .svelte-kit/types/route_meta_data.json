@@ -279,6 +279,12 @@
 	"/api/v1/conciliacao/run": [
 		"src/routes/api/v1/conciliacao/run/+server.ts"
 	],
+	"/api/v1/conciliacao/sem-movimento": [
+		"src/routes/api/v1/conciliacao/sem-movimento/+server.ts"
+	],
+	"/api/v1/conciliacao/status-cronologico": [
+		"src/routes/api/v1/conciliacao/status-cronologico/+server.ts"
+	],
 	"/api/v1/conciliacao/summary": [
 		"src/routes/api/v1/conciliacao/summary/+server.ts"
 	],

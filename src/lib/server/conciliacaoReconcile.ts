@@ -21,6 +21,8 @@ export type ReconcileResult = {
   updatedTaxes: number;
   stillPending: number;
   updateErrors: number;
+  duplicatesRemoved?: number;
+  duplicateGroups?: number;
   recalculated?: number;
   recalculatedChecked?: number;
 };
@@ -106,6 +108,92 @@ function matches(a: number, b: number) {
 
 function diff(a: number, b: number) {
   return round2(a - b);
+}
+
+function normalizeConciliacaoStatus(value?: string | null) {
+  return String(value || '').trim().toUpperCase() || 'OUTRO';
+}
+
+function duplicateGroupKey(row: any) {
+  return [
+    String(row?.company_id || '').trim(),
+    String(row?.movimento_data || '').trim(),
+    String(row?.documento || '').trim(),
+    normalizeConciliacaoStatus(row?.status),
+    Boolean(row?.is_baixa_rac) ? 'BAIXA_RAC' : 'NORMAL'
+  ].join('::');
+}
+
+function rankDuplicateRow(row: any) {
+  const metrics = buildConciliacaoMetrics({
+    descricao: row?.descricao,
+    valorLancamentos: row?.valor_lancamentos,
+    valorTaxas: row?.valor_taxas,
+    valorDescontos: row?.valor_descontos,
+    valorAbatimentos: row?.valor_abatimentos,
+    valorNaoComissionavel: row?.valor_nao_comissionavel,
+    valorSaldo: row?.valor_saldo,
+    valorOpfax: row?.valor_opfax,
+    valorCalculadaLoja: row?.valor_calculada_loja,
+    valorVisaoMaster: row?.valor_visao_master,
+    valorComissaoLoja: row?.valor_comissao_loja,
+    percentualComissaoLoja: row?.percentual_comissao_loja
+  });
+  const percentual = Number(metrics.percentualComissaoLoja ?? 0);
+  const comissao = Number(metrics.valorComissaoLoja ?? 0);
+  const updatedAt = Date.parse(String(row?.updated_at || row?.created_at || ''));
+
+  let score = 0;
+  if (Number.isFinite(percentual) && percentual > 0) score += 4;
+  if (Number.isFinite(comissao) && Math.abs(comissao) > 0.009) score += 3;
+  if (row?.conciliado) score += 2;
+  if (row?.venda_id || row?.venda_recibo_id) score += 1;
+
+  return {
+    score,
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0
+  };
+}
+
+function pickDuplicateWinner(rows: any[]) {
+  return [...rows].sort((left, right) => {
+    const leftRank = rankDuplicateRow(left);
+    const rightRank = rankDuplicateRow(right);
+    if (rightRank.score !== leftRank.score) return rightRank.score - leftRank.score;
+    return rightRank.updatedAt - leftRank.updatedAt;
+  })[0];
+}
+
+function firstPresent(rows: any[], field: string) {
+  for (const row of rows) {
+    const value = row?.[field];
+    if (value !== null && value !== undefined && String(value).trim() !== '') return value;
+  }
+  return undefined;
+}
+
+function buildDuplicateWinnerPatch(winner: any, losers: any[]) {
+  const payload: Record<string, any> = {};
+  for (const field of [
+    'ranking_vendedor_id',
+    'ranking_produto_id',
+    'venda_id',
+    'venda_recibo_id',
+    'ranking_assigned_at',
+    'conciliado_em'
+  ]) {
+    const winnerValue = winner?.[field];
+    if (winnerValue !== null && winnerValue !== undefined && String(winnerValue).trim() !== '') continue;
+    const loserValue = firstPresent(losers, field);
+    if (loserValue !== undefined) payload[field] = loserValue;
+  }
+
+  if (!Boolean(winner?.conciliado) && losers.some((row) => Boolean(row?.conciliado))) {
+    payload.conciliado = true;
+  }
+
+  if (Object.keys(payload).length > 0) payload.last_checked_at = new Date().toISOString();
+  return payload;
 }
 
 function resolveMonthDateRange(month?: string | null) {
@@ -200,6 +288,129 @@ async function persistExecutionLog(params: {
       company_id: params.companyId
     });
   }
+}
+
+async function moveDuplicateRateioToWinner(params: {
+  client: any;
+  winnerId: string;
+  loserIds: string[];
+}) {
+  if (params.loserIds.length === 0) return;
+
+  try {
+    const { data: rateios, error } = await params.client
+      .from('vendas_recibos_rateio')
+      .select('id, conciliacao_recibo_id')
+      .in('conciliacao_recibo_id', [params.winnerId, ...params.loserIds]);
+    if (error) throw error;
+
+    const rows = Array.isArray(rateios) ? rateios : [];
+    const winnerHasRateio = rows.some((row: any) => String(row?.conciliacao_recibo_id || '') === params.winnerId);
+    const loserRateios = rows.filter((row: any) => params.loserIds.includes(String(row?.conciliacao_recibo_id || '')));
+    const [firstLoserRateio, ...extraLoserRateios] = loserRateios;
+
+    if (!winnerHasRateio && firstLoserRateio?.id) {
+      await params.client
+        .from('vendas_recibos_rateio')
+        .update({ conciliacao_recibo_id: params.winnerId })
+        .eq('id', firstLoserRateio.id);
+    }
+
+    const rateiosToDelete = winnerHasRateio ? loserRateios : extraLoserRateios;
+    const idsToDelete = rateiosToDelete.map((row: any) => String(row?.id || '').trim()).filter(Boolean);
+    if (idsToDelete.length > 0) {
+      await params.client.from('vendas_recibos_rateio').delete().in('id', idsToDelete);
+    }
+  } catch (error) {
+    const code = String((error as any)?.code || '').trim();
+    const message = String((error as any)?.message || error || '').toLowerCase();
+    if (code === '42P01' || message.includes('vendas_recibos_rateio')) return;
+    throw error;
+  }
+}
+
+async function cleanupDuplicateConciliacaoRowsCompany(params: {
+  client: any;
+  companyId: string;
+  onlyCurrentMonth?: boolean;
+  month?: string | null;
+  conciliacaoReciboId?: string | null;
+}): Promise<{ removed: number; groups: number }> {
+  const client = params.client;
+  let query = client
+    .from('conciliacao_recibos')
+    .select(
+      'id, company_id, documento, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_opfax, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, ranking_vendedor_id, ranking_produto_id, ranking_assigned_at, conciliado, conciliado_em, venda_id, venda_recibo_id, is_baixa_rac, created_at, updated_at'
+    )
+    .eq('company_id', params.companyId)
+    .order('movimento_data', { ascending: false, nullsFirst: false });
+
+  if (params.conciliacaoReciboId) {
+    const { data: target, error } = await client
+      .from('conciliacao_recibos')
+      .select('documento, movimento_data, status')
+      .eq('company_id', params.companyId)
+      .eq('id', params.conciliacaoReciboId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!target?.documento) return { removed: 0, groups: 0 };
+    query = query.eq('documento', String(target.documento || '').trim()).eq('status', target.status || '');
+    query =
+      target.movimento_data == null
+        ? query.is('movimento_data', null)
+        : query.eq('movimento_data', target.movimento_data);
+  } else {
+    const monthRange = resolveMonthDateRange(params.month);
+    if (monthRange) {
+      query = query.gte('movimento_data', monthRange.start).lt('movimento_data', monthRange.endExclusive);
+    } else if (params.onlyCurrentMonth) {
+      const { start, end } = getCurrentMonthRange();
+      query = query.gte('movimento_data', start).lte('movimento_data', end);
+    }
+  }
+
+  const { data, error } = await query.limit(5000);
+  if (error) throw error;
+
+  const grouped = new Map<string, any[]>();
+  for (const row of data || []) {
+    const key = duplicateGroupKey(row);
+    const bucket = grouped.get(key) || [];
+    bucket.push(row);
+    grouped.set(key, bucket);
+  }
+
+  let removed = 0;
+  let groups = 0;
+
+  for (const bucket of grouped.values()) {
+    if (bucket.length <= 1) continue;
+    groups += 1;
+    const winner = pickDuplicateWinner(bucket);
+    if (!winner?.id) continue;
+    const losers = bucket.filter((row) => String(row?.id || '') !== String(winner.id || ''));
+    const loserIds = losers.map((row) => String(row?.id || '').trim()).filter(Boolean);
+    if (loserIds.length === 0) continue;
+
+    const winnerPatch = buildDuplicateWinnerPatch(winner, losers);
+    if (Object.keys(winnerPatch).length > 0) {
+      const { error: patchError } = await client.from('conciliacao_recibos').update(winnerPatch).eq('id', winner.id);
+      if (patchError) throw patchError;
+    }
+
+    await moveDuplicateRateioToWinner({ client, winnerId: String(winner.id), loserIds });
+
+    await client
+      .from('conciliacao_recibo_changes')
+      .update({ conciliacao_recibo_id: winner.id })
+      .in('conciliacao_recibo_id', loserIds);
+
+    const { error: deleteError } = await client.from('conciliacao_recibos').delete().in('id', loserIds);
+    if (deleteError) throw deleteError;
+    removed += loserIds.length;
+  }
+
+  return { removed, groups };
 }
 
 async function fetchReciboCandidates(params: {
@@ -346,6 +557,8 @@ export type DiagnosticoCronologico = {
   diasImportados: string[];
   /** Dias importados após a fronteira que estão bloqueados para conciliação. */
   diasBloqueados: string[];
+  /** Dias marcados explicitamente como "sem movimento". */
+  diasSemMovimento: string[];
   /** Quantidade de registros pendentes de conciliação que estão bloqueados (além da fronteira). */
   registrosBloqueados: number;
 };
@@ -358,7 +571,7 @@ export type DiagnosticoCronologico = {
  * datas já importadas (distintas, ordenadas), encontra a maior data D tal que
  * TODOS os dias de D_min até D existam no banco (sem lacunas). Qualquer dia
  * posterior a essa fronteira fica bloqueado para conciliação até que os dias
- * intermediários sejam importados.
+ * intermediários sejam importados ou marcados como "sem movimento".
  */
 export async function diagnosticarLacunasCronologicas(params: {
   client: any;
@@ -366,54 +579,79 @@ export async function diagnosticarLacunasCronologicas(params: {
 }): Promise<DiagnosticoCronologico> {
   const { client, companyId } = params;
 
-  // Busca todos os movimento_data distintos da empresa, ordem crescente
+  // Janela de análise: últimos 60 dias até hoje.
+  const hoje = new Date();
+  const inicio60d = new Date(hoje);
+  inicio60d.setUTCDate(hoje.getUTCDate() - 60);
+  const inicio60dStr = inicio60d.toISOString().slice(0, 10);
+
+  // Busca os movimento_data distintos da empresa nos últimos 60 dias
   const { data, error } = await client
     .from('conciliacao_recibos')
     .select('movimento_data')
     .eq('company_id', companyId)
+    .gte('movimento_data', inicio60dStr)
     .order('movimento_data', { ascending: true });
 
   if (error) throw error;
+
+  // Busca dias marcados como sem movimento no mesmo período
+  const { data: semMovimentoRows, error: semMovimentoErr } = await client
+    .from('conciliacao_dias_sem_movimento')
+    .select('data')
+    .eq('company_id', companyId)
+    .gte('data', inicio60dStr);
+
+  if (semMovimentoErr && !String(semMovimentoErr.message || '').toLowerCase().includes('does not exist')) {
+    throw semMovimentoErr;
+  }
+
+  const diasSemMovimento = Array.from(
+    new Set((semMovimentoRows || []).map((r: any) => String(r?.data || '').trim()).filter(Boolean))
+  ).sort() as string[];
 
   const diasImportados = Array.from(
     new Set((data || []).map((r: any) => String(r?.movimento_data || '').trim()).filter(Boolean))
   ).sort() as string[];
 
   if (diasImportados.length === 0) {
-    return { fronteira: null, diasFaltantes: [], diasImportados: [], diasBloqueados: [], registrosBloqueados: 0 };
+    return { fronteira: null, diasFaltantes: [], diasImportados: [], diasBloqueados: [], diasSemMovimento, registrosBloqueados: 0 };
   }
 
+  // Une importados + sem movimento para verificar sequência contínua
+  const diasPreenchidos = Array.from(new Set([...diasImportados, ...diasSemMovimento])).sort();
+
   // Percorre a sequência e para onde houver um salto > 1 dia
-  let frontier = diasImportados[0];
+  let frontier = diasPreenchidos[0];
   let gapIndex = -1;
-  for (let i = 1; i < diasImportados.length; i++) {
-    const prev = new Date(`${diasImportados[i - 1]}T12:00:00Z`);
-    const curr = new Date(`${diasImportados[i]}T12:00:00Z`);
+  for (let i = 1; i < diasPreenchidos.length; i++) {
+    const prev = new Date(`${diasPreenchidos[i - 1]}T12:00:00Z`);
+    const curr = new Date(`${diasPreenchidos[i]}T12:00:00Z`);
     const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86_400_000);
     if (diffDays > 1) {
       gapIndex = i;
       break;
     }
-    frontier = diasImportados[i];
+    frontier = diasPreenchidos[i];
   }
 
   // Se não há lacuna, tudo está ok
   if (gapIndex === -1) {
-    return { fronteira: frontier, diasFaltantes: [], diasImportados, diasBloqueados: [], registrosBloqueados: 0 };
+    return { fronteira: frontier, diasFaltantes: [], diasImportados, diasBloqueados: [], diasSemMovimento, registrosBloqueados: 0 };
   }
 
-  // Calcula os dias faltantes entre a fronteira e o próximo dia importado
+  // Calcula os dias faltantes entre a fronteira e o próximo dia preenchido
   const diasFaltantes: string[] = [];
   const cursor = new Date(`${frontier}T12:00:00Z`);
-  const nextImported = new Date(`${diasImportados[gapIndex]}T12:00:00Z`);
+  const nextFilled = new Date(`${diasPreenchidos[gapIndex]}T12:00:00Z`);
   cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while (cursor < nextImported) {
+  while (cursor < nextFilled) {
     diasFaltantes.push(cursor.toISOString().slice(0, 10));
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  // Dias bloqueados = todos os dias importados após a fronteira
-  const diasBloqueados = diasImportados.slice(gapIndex);
+  // Dias bloqueados = dias IMPORTADOS após a fronteira (sem movimento não bloqueia)
+  const diasBloqueados = diasImportados.filter((d) => d > frontier);
 
   // Conta registros pendentes de conciliação nesses dias bloqueados
   let registrosBloqueados = 0;
@@ -427,7 +665,7 @@ export async function diagnosticarLacunasCronologicas(params: {
     registrosBloqueados = Number(count || 0);
   }
 
-  return { fronteira: frontier, diasFaltantes, diasImportados, diasBloqueados, registrosBloqueados };
+  return { fronteira: frontier, diasFaltantes, diasImportados, diasBloqueados, diasSemMovimento, registrosBloqueados };
 }
 
 /** Versão interna sem diagnóstico completo — usada no filtro da query de reconciliação. */
@@ -479,10 +717,14 @@ async function reconcilePendentesCompany(params: {
     query = query.eq('id', params.conciliacaoReciboId);
   } else {
     query = query.eq('conciliado', false).limit(limit);
-    // Aplica a fronteira cronológica: só concilia até o último dia contíguo
-    if (fronteiraCronologica) {
-      query = query.lte('movimento_data', fronteiraCronologica);
-    }
+    // Aplica a fronteira cronológica APENAS para registros sem vendedor atribuído.
+    // Registros com ranking_vendedor_id preenchido (vendedores que só lançam via
+    // conciliação, sem venda no sistema) devem ser conciliados independente de lacunas —
+    // sua conciliação é puramente por atribuição manual e não depende de sequência.
+    // A fronteira bloqueia apenas registros sem vendedor que aguardam matching automático.
+    // Como não dá para filtrar "sem vendedor E além da fronteira" em uma única query
+    // Supabase de forma limpa, buscamos todos os pendentes e aplicamos a fronteira
+    // no loop (ver filtro abaixo após o fetch).
   }
 
   if (params.onlyCurrentMonth && !params.conciliacaoReciboId) {
@@ -493,9 +735,23 @@ async function reconcilePendentesCompany(params: {
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data || []).filter((item: any) =>
-    isConciliacaoEfetivada({ status: item?.status, descricao: item?.descricao })
-  );
+  const rows = (data || []).filter((item: any) => {
+    if (!isConciliacaoEfetivada({ status: item?.status, descricao: item?.descricao })) return false;
+
+    // Aplica fronteira cronológica somente para registros sem ranking_vendedor_id:
+    // quem já tem vendedor atribuído está "conciliado manualmente" e não depende
+    // da sequência de dias — processa sempre.
+    const temVendedorAtribuido = Boolean(String(item?.ranking_vendedor_id || '').trim());
+    if (temVendedorAtribuido) return true;
+
+    // Sem vendedor atribuído: respeita a fronteira — só processa até o último dia contíguo
+    if (fronteiraCronologica) {
+      const movData = String(item?.movimento_data || '').trim();
+      if (movData && movData > fronteiraCronologica) return false;
+    }
+
+    return true;
+  });
 
   let checked = 0;
   let reconciled = 0;
@@ -570,7 +826,26 @@ async function reconcilePendentesCompany(params: {
     }
 
     if (!recibo) {
-      await client.from('conciliacao_recibos').update({ last_checked_at: new Date().toISOString() }).eq('id', id);
+      // Registros sem correspondência em vendas_recibos mas com ranking_vendedor_id
+      // já atribuído manualmente devem ser marcados como conciliados — eles são
+      // dos vendedores que só lançam via conciliação (sem venda no sistema).
+      // Sem isso, ficam presos em conciliado=false para sempre e nunca saem do lote.
+      const rankingVendedorManual = String(row.ranking_vendedor_id || '').trim() || null;
+      if (rankingVendedorManual) {
+        await client.from('conciliacao_recibos').update({
+          conciliado: true,
+          conciliado_em: new Date().toISOString(),
+          last_checked_at: new Date().toISOString(),
+          valor_venda_real: metrics.valorVendaReal,
+          valor_comissao_loja: metrics.valorComissaoLoja,
+          percentual_comissao_loja: metrics.percentualComissaoLoja,
+          faixa_comissao: metrics.faixaComissao,
+          is_seguro_viagem: metrics.isSeguroViagem
+        }).eq('id', id);
+        reconciled += 1;
+      } else {
+        await client.from('conciliacao_recibos').update({ last_checked_at: new Date().toISOString() }).eq('id', id);
+      }
       continue;
     }
 
@@ -910,6 +1185,7 @@ export async function reconcilePendentes(params: {
   onlyCurrentMonth?: boolean;
   recalculateMonth?: string | null;
   recalculateAllMonth?: boolean;
+  cleanupDuplicatesOnly?: boolean;
   actor?: Actor;
   actorUserId?: string | null;
   client: any;
@@ -918,7 +1194,33 @@ export async function reconcilePendentes(params: {
   const actorUserId = params.actorUserId || null;
 
   try {
+    if (params.cleanupDuplicatesOnly) {
+      const duplicateCleanup = await cleanupDuplicateConciliacaoRowsCompany({
+        client: params.client,
+        companyId: params.companyId,
+        onlyCurrentMonth: params.onlyCurrentMonth,
+        month: params.recalculateMonth,
+        conciliacaoReciboId: params.conciliacaoReciboId
+      });
+      return {
+        checked: 0,
+        reconciled: 0,
+        updatedTaxes: 0,
+        stillPending: 0,
+        updateErrors: 0,
+        duplicatesRemoved: duplicateCleanup.removed,
+        duplicateGroups: duplicateCleanup.groups,
+        recalculated: 0,
+        recalculatedChecked: 0
+      };
+    }
+
     if (params.recalculateAllMonth) {
+      const duplicateCleanup = await cleanupDuplicateConciliacaoRowsCompany({
+        client: params.client,
+        companyId: params.companyId,
+        month: params.recalculateMonth
+      });
       const mass = await recalculateConciliacaoMetricsCompany({
         month: params.recalculateMonth,
         onlyConciliados: false,
@@ -934,10 +1236,20 @@ export async function reconcilePendentes(params: {
         updatedTaxes: 0,
         stillPending: 0,
         updateErrors: mass.updateErrors,
+        duplicatesRemoved: duplicateCleanup.removed,
+        duplicateGroups: duplicateCleanup.groups,
         recalculated: mass.recalculated,
         recalculatedChecked: mass.scanned
       };
     }
+
+    const duplicateCleanup = await cleanupDuplicateConciliacaoRowsCompany({
+      client: params.client,
+      companyId: params.companyId,
+      onlyCurrentMonth: params.onlyCurrentMonth,
+      month: params.recalculateMonth,
+      conciliacaoReciboId: params.conciliacaoReciboId
+    });
 
     const result = await reconcilePendentesCompany({
       companyId: params.companyId,
@@ -949,6 +1261,8 @@ export async function reconcilePendentes(params: {
       client: params.client
     });
 
+    result.duplicatesRemoved = duplicateCleanup.removed;
+    result.duplicateGroups = duplicateCleanup.groups;
     result.recalculated = params.conciliacaoReciboId
       ? 0
       : await recalculateConciliadosCompany({

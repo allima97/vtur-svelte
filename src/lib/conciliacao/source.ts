@@ -393,7 +393,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const linkedVendaId = linkedVendaIdFromConc || fallbackRecibo?.venda_id || null;
       const linkedVendedorId = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
       const rankingVendedorId = sortedRows.map((row) => toStr(row?.ranking_vendedor_id)).find(Boolean) || null;
-      const vendedorId = linkedVendedorId || rankingVendedorId || null;
+      const vendedorId = rankingVendedorId || linkedVendedorId || null;
 
       if (excludedVendedores && vendedorId && excludedVendedores.has(vendedorId)) {
         return null;
@@ -449,7 +449,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         groupedConcIds[0] ||
         `conc:${documento}`;
 
-      const effectiveSaleDate = linkedReciboMeta?.data_venda || effectiveDate;
+      const effectiveSaleDate = effectiveDate;
 
       const companyIdFromRows = sortedRows.map((row) => toStr(row?.company_id)).find(Boolean) || null;
 

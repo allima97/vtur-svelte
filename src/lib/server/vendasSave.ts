@@ -122,11 +122,10 @@ export async function ensureReciboReservaUnicos(params: {
   recibos: any[];
 }) {
   const { client, companyId, clienteId, ignoreVendaId, recibos } = params;
+  const rawReceiptKeys = recibos.map((item) => normalizeReceiptKey(item?.numero_recibo)).filter(Boolean);
   const receiptKeys = Array.from(
     new Set(
-      recibos
-        .map((item) => normalizeReceiptKey(item?.numero_recibo))
-        .filter(Boolean)
+      rawReceiptKeys
     )
   );
   const reservaKeys = Array.from(
@@ -136,6 +135,10 @@ export async function ensureReciboReservaUnicos(params: {
         .filter(Boolean)
     )
   );
+
+  if (rawReceiptKeys.length !== receiptKeys.length) {
+    throw new Error('RECIBO_DUPLICADO');
+  }
 
   if (receiptKeys.length > 0) {
     let query = client

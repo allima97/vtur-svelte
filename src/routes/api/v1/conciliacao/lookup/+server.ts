@@ -212,7 +212,18 @@ export async function POST(event) {
     const documentos = Array.isArray(body?.documentos) ? body.documentos : [];
     if (documentos.length === 0) return json({ matches: {} });
 
-    const matches: Record<string, { vendedor_id: string; venda_id: string; venda_recibo_id: string } | null> = {};
+    const matches: Record<
+      string,
+      {
+        vendedor_id: string;
+        venda_id: string;
+        venda_recibo_id: string;
+        sistema_valor_total: number | null;
+        sistema_valor_taxas: number | null;
+        diff_total: number | null;
+        diff_taxas: number | null;
+      } | null
+    > = {};
 
     for (const item of documentos) {
       const documento = String(item?.documento || '').trim();
@@ -231,10 +242,19 @@ export async function POST(event) {
         continue;
       }
 
+      const sistemaTotal = Number(found.recibo.valor_total || 0);
+      const sistemaTaxas = Number(found.recibo.valor_taxas || 0);
+      const importTotal = Number(item.valor_lancamentos || 0);
+      const importTaxas = Number(item.valor_taxas || 0);
+
       matches[documento] = {
         vendedor_id: found.recibo.vendedor_id,
         venda_id: found.recibo.venda_id,
-        venda_recibo_id: found.recibo.id
+        venda_recibo_id: found.recibo.id,
+        sistema_valor_total: found.recibo.valor_total,
+        sistema_valor_taxas: found.recibo.valor_taxas,
+        diff_total: Math.abs(importTotal - sistemaTotal) > 0.01 ? Math.round((importTotal - sistemaTotal) * 100) / 100 : null,
+        diff_taxas: Math.abs(importTaxas - sistemaTaxas) > 0.01 ? Math.round((importTaxas - sistemaTaxas) * 100) / 100 : null
       };
     }
 

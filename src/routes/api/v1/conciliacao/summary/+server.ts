@@ -101,6 +101,7 @@ export async function GET(event) {
           fronteira: diagnostico.fronteira,
           dias_faltantes: diagnostico.diasFaltantes,
           dias_bloqueados: diagnostico.diasBloqueados,
+          dias_sem_movimento: diagnostico.diasSemMovimento,
           registros_bloqueados: diagnostico.registrosBloqueados,
           aviso: `A conciliação está bloqueada a partir de ${diagnostico.fronteira}. ` +
             `Importe os arquivos dos dias: ${diagnostico.diasFaltantes.map(d => {

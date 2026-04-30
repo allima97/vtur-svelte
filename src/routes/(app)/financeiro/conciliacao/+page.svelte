@@ -95,6 +95,13 @@
     baixaRac: number;
     totalValor: number;
     timeline: Array<{ date: string; value: number }>;
+    lacunaCronologica?: {
+      fronteira: string | null;
+      dias_faltantes: string[];
+      dias_bloqueados: string[];
+      registros_bloqueados: number;
+      aviso: string;
+    } | null;
   };
 
   type ConciliacaoChange = {
@@ -120,6 +127,23 @@
     error_message: string | null;
     created_at: string;
     actor_user?: { nome_completo?: string | null; email?: string | null } | null;
+  };
+
+  type ConciliacaoOperationLog = {
+    id: string;
+    created_at: string;
+    action: string;
+    status: 'success' | 'error';
+    message: string;
+    month: string;
+    checked: number;
+    reconciled: number;
+    recalculated: number;
+    recalculatedChecked: number;
+    updatedTaxes: number;
+    duplicateGroups: number;
+    duplicatesRemoved: number;
+    updateErrors: number;
   };
 
   type VendedorOption = { id: string; nome_completo: string };
@@ -149,12 +173,19 @@
     ranking_produto_id?: string | null;
     venda_id?: string | null;
     venda_recibo_id?: string | null;
+    tem_diferenca?: boolean;
+    diff_total?: number | null;
+    diff_taxas?: number | null;
   };
 
   type ImportLookupMatch = {
     vendedor_id: string;
     venda_id: string;
     venda_recibo_id: string;
+    sistema_valor_total: number | null;
+    sistema_valor_taxas: number | null;
+    diff_total: number | null;
+    diff_taxas: number | null;
   };
 
   let activeTab = 'visao_geral';
@@ -169,6 +200,7 @@
   let changesLoading = false;
   let executionsLoading = false;
   let operationMessage = '';
+  let operationLogs: ConciliacaoOperationLog[] = [];
 
   let summary: ConciliacaoSummary = {
     total: 0,
@@ -177,7 +209,8 @@
     semRanking: 0,
     baixaRac: 0,
     totalValor: 0,
-    timeline: []
+    timeline: [],
+    lacunaCronologica: null
   };
   let registros: ConciliacaoItem[] = [];
   let changes: ConciliacaoChange[] = [];
@@ -238,6 +271,16 @@
   let importPreview: ImportPreviewRow[] = [];
   let importLookupSignature = '';
   let importLookupLoading = false;
+  let importDiferencasModalOpen = false;
+  let importDiferencas: Array<{ documento: string; movimento_data: string; valor_importacao: number; valor_sistema: number; taxas_importacao: number; taxas_sistema: number; diff_total: number; diff_taxas: number }> = [];
+  let importDiferencasConfirmadas = false;
+
+  // Dias sem movimento
+  let diasSemMovimento: string[] = [];
+  let semMovimentoModalOpen = false;
+  let semMovimentoData = '';
+  let semMovimentoObservacao = '';
+  let semMovimentoLoading = false;
 
   $: rankingStatusOptions = [
     { value: 'all', label: 'Todos' },
@@ -501,6 +544,7 @@
   }
 
   onMount(async () => {
+    loadOperationLogs();
     await loadAll();
   });
 
@@ -534,7 +578,7 @@
     loading = true;
     operationMessage = 'Atualizando dados da conciliação financeira.';
     try {
-      await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions()]);
+      await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao atualizar dados da conciliação.');
     } finally {
@@ -555,7 +599,8 @@
       semRanking: Number(data.semRanking || 0),
       baixaRac: Number(data.baixaRac || 0),
       totalValor: Number(data.totalValor || 0),
-      timeline: Array.isArray(data.timeline) ? data.timeline : []
+      timeline: Array.isArray(data.timeline) ? data.timeline : [],
+      lacunaCronologica: data.lacuna_cronologica || null
     };
   }
 
@@ -611,6 +656,57 @@
     } finally {
       executionsLoading = false;
     }
+  }
+
+  function loadOperationLogs() {
+    try {
+      const raw = localStorage.getItem('vtur.conciliacao.operationLogs');
+      const parsed = raw ? JSON.parse(raw) : [];
+      operationLogs = Array.isArray(parsed) ? parsed.slice(0, 20) : [];
+    } catch {
+      operationLogs = [];
+    }
+  }
+
+  function persistOperationLogs(nextLogs: ConciliacaoOperationLog[]) {
+    operationLogs = nextLogs.slice(0, 20);
+    try {
+      localStorage.setItem('vtur.conciliacao.operationLogs', JSON.stringify(operationLogs));
+    } catch {
+      // localStorage pode estar indisponível em navegação privada; o log continua na sessão atual.
+    }
+  }
+
+  function clearOperationLogs() {
+    persistOperationLogs([]);
+  }
+
+  function addOperationLog(params: {
+    action: string;
+    status: 'success' | 'error';
+    message: string;
+    data?: any;
+  }) {
+    const data = params.data || {};
+    persistOperationLogs([
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        created_at: new Date().toISOString(),
+        action: params.action,
+        status: params.status,
+        message: params.message,
+        month: monthFilter || '-',
+        checked: Number(data.checked || data.total || 0),
+        reconciled: Number(data.reconciled || data.reconciliados || 0),
+        recalculated: Number(data.recalculated || 0),
+        recalculatedChecked: Number(data.recalculatedChecked || 0),
+        updatedTaxes: Number(data.updatedTaxes || 0),
+        duplicateGroups: Number(data.duplicateGroups || 0),
+        duplicatesRemoved: Number(data.duplicatesRemoved || 0),
+        updateErrors: Number(data.updateErrors || 0)
+      },
+      ...operationLogs
+    ]);
   }
 
   async function abrirImportacao() {
@@ -780,6 +876,7 @@
 
   async function runAutoConciliacao(reciboId?: string) {
     running = true;
+    const actionLabel = reciboId ? 'Forçar recálculo do recibo' : 'Conciliar pendentes';
     operationMessage = reciboId
       ? 'Reprocessando vínculo e valores do recibo selecionado.'
       : 'Executando conciliação automática dos recibos pendentes.';
@@ -797,13 +894,29 @@
       const reconciled = Number(data.reconciled || data.reconciliados || 0);
       const recalculated = Number(data.recalculated || 0);
       const updatedTaxes = Number(data.updatedTaxes || 0);
+      const duplicatesRemoved = Number(data.duplicatesRemoved || 0);
+      const duplicateText = duplicatesRemoved > 0 ? `, ${duplicatesRemoved} duplicados removidos` : '';
+      addOperationLog({
+        action: actionLabel,
+        status: erros > 0 ? 'error' : 'success',
+        message:
+          erros > 0
+            ? `Concluído com falhas: ${erros} falha(s).`
+            : 'Executado com sucesso.',
+        data
+      });
       toast[erros > 0 ? 'error' : 'success'](
         erros > 0
-          ? `Conciliação concluída com falhas: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas, ${erros} falhas.`
-          : `Conciliação executada: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas.`
+          ? `Conciliação concluída com falhas: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas${duplicateText}, ${erros} falhas.`
+          : `Conciliação executada: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas${duplicateText}.`
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
     } catch (error: any) {
+      addOperationLog({
+        action: actionLabel,
+        status: 'error',
+        message: error.message || 'Erro ao executar conciliação.'
+      });
       toast.error(error.message || 'Erro ao executar conciliação.');
     } finally {
       running = false;
@@ -832,14 +945,71 @@
       const recalculated = Number(data.recalculated || 0);
       const scanned = Number(data.recalculatedChecked || 0);
       const erros = Number(data.updateErrors || 0);
+      const duplicatesRemoved = Number(data.duplicatesRemoved || 0);
+      const duplicateText = duplicatesRemoved > 0 ? `, ${duplicatesRemoved} duplicados removidos` : '';
+      addOperationLog({
+        action: 'Recalcular mês',
+        status: erros > 0 ? 'error' : 'success',
+        message:
+          erros > 0
+            ? `Concluído com falhas: ${erros} falha(s).`
+            : 'Executado com sucesso.',
+        data
+      });
       toast[erros > 0 ? 'error' : 'success'](
         erros > 0
-          ? `Recálculo concluído com falhas: ${scanned} verificados, ${recalculated} recalculados, ${erros} falhas.`
-          : `Recálculo concluído: ${scanned} verificados, ${recalculated} recalculados.`
+          ? `Recálculo concluído com falhas: ${scanned} verificados, ${recalculated} recalculados${duplicateText}, ${erros} falhas.`
+          : `Recálculo concluído: ${scanned} verificados, ${recalculated} recalculados${duplicateText}.`
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
     } catch (error: any) {
+      addOperationLog({
+        action: 'Recalcular mês',
+        status: 'error',
+        message: error.message || 'Erro ao forçar recálculo.'
+      });
       toast.error(error.message || 'Erro ao forçar recálculo.');
+    } finally {
+      running = false;
+      operationMessage = '';
+    }
+  }
+
+  async function cleanupDuplicateRows() {
+    if (!monthFilter) {
+      toast.error('Selecione um mês para sanear duplicados.');
+      return;
+    }
+
+    running = true;
+    operationMessage = 'Saneando recibos duplicados da conciliação no mês selecionado.';
+    try {
+      const response = await fetch('/api/v1/conciliacao/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cleanupDuplicatesOnly: true,
+          recalculateMonth: monthFilter
+        })
+      });
+      const data = await parseJson(response, 'Erro ao sanear duplicados da conciliação.');
+      const duplicatesRemoved = Number(data.duplicatesRemoved || 0);
+      const duplicateGroups = Number(data.duplicateGroups || 0);
+      addOperationLog({
+        action: 'Sanear duplicados',
+        status: 'success',
+        message: `Saneamento concluído: ${duplicateGroups} grupo(s), ${duplicatesRemoved} duplicado(s) removido(s).`,
+        data
+      });
+      toast.success(`Saneamento concluído: ${duplicateGroups} grupo(s), ${duplicatesRemoved} duplicado(s) removido(s).`);
+      await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
+    } catch (error: any) {
+      addOperationLog({
+        action: 'Sanear duplicados',
+        status: 'error',
+        message: error.message || 'Erro ao sanear duplicados.'
+      });
+      toast.error(error.message || 'Erro ao sanear duplicados.');
     } finally {
       running = false;
       operationMessage = '';
@@ -877,6 +1047,23 @@
       return;
     }
 
+    // Se há diferenças e o usuário ainda não confirmou, abre o modal
+    const diferencasPreview = importPreparedRows.filter((row) => row.tem_diferenca);
+    if (diferencasPreview.length > 0 && !importDiferencasConfirmadas) {
+      importDiferencas = diferencasPreview.map((row) => ({
+        documento: row.documento,
+        movimento_data: String(row.movimento_data || ''),
+        valor_importacao: Number(row.valor_lancamentos || 0),
+        valor_sistema: Number(row.valor_lancamentos || 0) - (row.diff_total || 0),
+        taxas_importacao: Number(row.valor_taxas || 0),
+        taxas_sistema: Number(row.valor_taxas || 0) - (row.diff_taxas || 0),
+        diff_total: row.diff_total || 0,
+        diff_taxas: row.diff_taxas || 0
+      }));
+      importDiferencasModalOpen = true;
+      return;
+    }
+
     importing = true;
     operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
     try {
@@ -907,6 +1094,24 @@
         })
       });
       const data = await parseJson(response, 'Erro ao importar arquivo de conciliação.');
+      const statusCronologico = data.status_cronologico || null;
+      if (statusCronologico?.aviso) {
+        if (statusCronologico.ok === false) {
+          toast.error(statusCronologico.aviso);
+        } else {
+          toast.success(statusCronologico.aviso);
+        }
+      }
+
+      // Se o backend retornou diferenças adicionais (não detectadas no preview)
+      if (data.tem_diferenca && data.diferencas?.length > 0 && !importDiferencasConfirmadas) {
+        importDiferencas = data.diferencas;
+        importDiferencasModalOpen = true;
+        importing = false;
+        operationMessage = '';
+        return;
+      }
+
       toast.success(
         `Importação concluída: ${Number(data.importados || 0)} importados, ${Number(data.duplicados || 0)} duplicados.`
       );
@@ -919,6 +1124,8 @@
       importAutoLinked = 0;
       importLookupMatches = {};
       importLookupSignature = '';
+      importDiferencasConfirmadas = false;
+      importDiferencas = [];
       await Promise.all([loadRegistros(), loadSummary()]);
       activeTab = 'registros';
     } catch (error: any) {
@@ -958,6 +1165,44 @@
     const target = event.currentTarget as HTMLInputElement | null;
     importFiles = target?.files ?? undefined;
     void handleFileChange();
+  }
+
+  async function loadDiasSemMovimento() {
+    try {
+      const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
+      const response = await fetch(`/api/v1/conciliacao/sem-movimento?companyId=${companyId || ''}`);
+      const data = await parseJson(response, 'Erro ao carregar dias sem movimento.');
+      diasSemMovimento = (data.dias || []).map((d: any) => String(d.data || '')).filter(Boolean);
+    } catch {
+      diasSemMovimento = [];
+    }
+  }
+
+  async function marcarSemMovimento() {
+    if (!semMovimentoData) {
+      toast.error('Informe a data.');
+      return;
+    }
+    semMovimentoLoading = true;
+    try {
+      const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
+      const response = await fetch('/api/v1/conciliacao/sem-movimento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, data: semMovimentoData, observacao: semMovimentoObservacao })
+      });
+      await parseJson(response, 'Erro ao marcar dia sem movimento.');
+      toast.success(`Dia ${formatDate(semMovimentoData)} marcado como sem movimento.`);
+      semMovimentoModalOpen = false;
+      semMovimentoData = '';
+      semMovimentoObservacao = '';
+      await loadDiasSemMovimento();
+      await loadSummary();
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao marcar dia sem movimento.');
+    } finally {
+      semMovimentoLoading = false;
+    }
   }
 
   async function loadImportLookup(rows: ConciliacaoLinhaInput[]) {
@@ -1013,6 +1258,7 @@
       const rankingVendedorId = String(row.ranking_vendedor_id || lookup?.vendedor_id || '').trim() || null;
       const vendaId = String((row as any).venda_id || lookup?.venda_id || '').trim() || null;
       const vendaReciboId = String((row as any).venda_recibo_id || lookup?.venda_recibo_id || '').trim() || null;
+      const temDiferenca = Boolean(lookup?.diff_total != null || lookup?.diff_taxas != null);
 
       return {
         documento,
@@ -1034,7 +1280,10 @@
         ranking_vendedor_id: rankingVendedorId,
         ranking_produto_id: String(row.ranking_produto_id || '').trim() || null,
         venda_id: vendaId,
-        venda_recibo_id: vendaReciboId
+        venda_recibo_id: vendaReciboId,
+        tem_diferenca: temDiferenca,
+        diff_total: lookup?.diff_total ?? null,
+        diff_taxas: lookup?.diff_taxas ?? null
       };
     });
   }
@@ -1315,6 +1564,10 @@
     <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
       <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
     </Button>
+    <Button variant="secondary" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
+      <Database size={16} class="mr-2" />
+      Sanear duplicados
+    </Button>
     <Button variant="secondary" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
       <RefreshCcw size={16} class="mr-2" />
       Recalcular mês
@@ -1331,6 +1584,98 @@
     <LoadingState title={busyTitle} message={busyMessage} compact={true} />
   </Card>
 {/if}
+
+{#if summary.lacunaCronologica}
+  <Card color="financeiro" class="mb-4">
+    <div class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 md:flex-row md:items-start md:justify-between">
+      <div class="flex-1">
+        <div class="flex items-center gap-2 text-sm font-semibold">
+          <ShieldAlert size={18} />
+          Conciliação bloqueada por dias faltantes
+        </div>
+        <p class="mt-1 text-sm">{summary.lacunaCronologica.aviso}</p>
+        {#if summary.lacunaCronologica.dias_faltantes?.length}
+          <p class="mt-2 text-xs font-semibold">
+            Dias faltantes: {summary.lacunaCronologica.dias_faltantes.map((dia) => formatDate(dia)).join(', ')}
+          </p>
+        {/if}
+        {#if diasSemMovimento.length > 0}
+          <p class="mt-1 text-xs text-amber-700">
+            Dias sem movimento: {diasSemMovimento.map((dia) => formatDate(dia)).join(', ')}
+          </p>
+        {/if}
+      </div>
+      <div class="flex flex-col gap-2">
+        <Button variant="secondary" size="xs" on:click={abrirImportacao}>
+          <Upload size={14} class="mr-2" />
+          Importar dias faltantes
+        </Button>
+        <Button variant="outline" size="xs" color="orange" on:click={() => { semMovimentoModalOpen = true; }}>
+          <Calendar size={14} class="mr-2" />
+          Marcar sem movimento
+        </Button>
+      </div>
+    </div>
+  </Card>
+{/if}
+
+<Card title="Log da conciliação" color="financeiro" class="mb-4">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-sm text-slate-600">
+      Registro local das ações executadas nesta tela. Use para conferir se o saneamento de duplicados rodou.
+    </p>
+    <Button variant="secondary" size="xs" on:click={clearOperationLogs} disabled={operationLogs.length === 0}>
+      Limpar log
+    </Button>
+  </div>
+
+  {#if operationLogs.length === 0}
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      Nenhuma ação de conciliação registrada nesta tela ainda.
+    </div>
+  {:else}
+    <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+      <table class="table-mobile-cards min-w-[1120px] w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700">
+          <tr>
+            <th class="px-3 py-2 text-center">Quando</th>
+            <th class="px-3 py-2 text-center">Ação</th>
+            <th class="px-3 py-2 text-center">Mês</th>
+            <th class="px-3 py-2 text-right">Grupos duplicados</th>
+            <th class="px-3 py-2 text-right">Duplicados removidos</th>
+            <th class="px-3 py-2 text-right">Checados</th>
+            <th class="px-3 py-2 text-right">Conciliados</th>
+            <th class="px-3 py-2 text-right">Recalculados</th>
+            <th class="px-3 py-2 text-right">Taxas atualizadas</th>
+            <th class="px-3 py-2 text-center">Status</th>
+            <th class="px-3 py-2 text-left">Mensagem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each operationLogs as item}
+            <tr class="border-t border-slate-100">
+              <td class="px-3 py-2">{formatDateTime(item.created_at)}</td>
+              <td class="px-3 py-2">{item.action}</td>
+              <td class="px-3 py-2">{item.month}</td>
+              <td class="px-3 py-2 text-right">{item.duplicateGroups}</td>
+              <td class="px-3 py-2 text-right font-semibold {item.duplicatesRemoved > 0 ? 'text-orange-700' : 'text-slate-700'}">{item.duplicatesRemoved}</td>
+              <td class="px-3 py-2 text-right">{item.checked || item.recalculatedChecked}</td>
+              <td class="px-3 py-2 text-right">{item.reconciled}</td>
+              <td class="px-3 py-2 text-right">{item.recalculated}</td>
+              <td class="px-3 py-2 text-right">{item.updatedTaxes}</td>
+              <td class="px-3 py-2">
+                <span class="rounded-full px-2 py-1 text-xs font-semibold {item.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                  {item.status === 'success' ? 'OK' : 'Erro'}
+                </span>
+              </td>
+              <td class="px-3 py-2">{item.message}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</Card>
 
 {#if activeTab === 'importacao'}
   <Card title="Importar arquivo da conciliação" color="financeiro" class="mb-6">
@@ -1405,9 +1750,14 @@
             </thead>
             <tbody>
               {#each importPreparedRows as row, index}
-                <tr class="border-t border-slate-100">
+                <tr class="border-t border-slate-100 {row.tem_diferenca ? 'bg-orange-50' : ''}">
                   <td class="px-3 py-2">{formatDate(row.movimento_data)}</td>
-                  <td class="px-3 py-2">{row.documento}</td>
+                  <td class="px-3 py-2">
+                    {row.documento}
+                    {#if row.tem_diferenca}
+                      <span class="ml-1 inline-flex items-center rounded bg-orange-200 px-1.5 py-0.5 text-xs font-semibold text-orange-800" title="Diferença de valores entre importação e venda cadastrada">!</span>
+                    {/if}
+                  </td>
                   <td class="px-3 py-2">{statusImportLabel(row.status)}</td>
                   <td class="px-3 py-2">{row.descricao || '-'}</td>
                   <td class="px-3 py-2">
@@ -1865,5 +2215,88 @@
         Editar
       </Button>
     {/if}
+  </svelte:fragment>
+</Dialog>
+
+<!-- Modal: Confirmação de diferenças na importação -->
+<Dialog bind:open={importDiferencasModalOpen} title="Diferenças detectadas na importação" maxWidth="lg">
+  <div class="space-y-4">
+    <p class="text-sm text-slate-600">
+      Foram detectadas diferenças entre os valores do arquivo importado e as vendas já cadastradas no sistema.
+      Isso pode indicar erro na leitura do arquivo ou divergência real. Confira abaixo:
+    </p>
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-700">
+          <tr>
+            <th class="px-3 py-2 text-left">Documento</th>
+            <th class="px-3 py-2 text-right">Valor importação</th>
+            <th class="px-3 py-2 text-right">Valor sistema</th>
+            <th class="px-3 py-2 text-right">Diferença</th>
+            <th class="px-3 py-2 text-right">Taxas importação</th>
+            <th class="px-3 py-2 text-right">Taxas sistema</th>
+            <th class="px-3 py-2 text-right">Diferença</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each importDiferencas as diff}
+            <tr class="border-t border-slate-100 {Math.abs(diff.diff_total) > 0.01 || Math.abs(diff.diff_taxas) > 0.01 ? 'bg-orange-50' : ''}">
+              <td class="px-3 py-2 font-medium">{diff.documento}</td>
+              <td class="px-3 py-2 text-right">{formatCurrency(diff.valor_importacao)}</td>
+              <td class="px-3 py-2 text-right">{formatCurrency(diff.valor_sistema)}</td>
+              <td class="px-3 py-2 text-right font-semibold {diff.diff_total > 0 ? 'text-green-700' : diff.diff_total < 0 ? 'text-red-700' : ''}">{diff.diff_total > 0 ? '+' : ''}{formatCurrency(diff.diff_total)}</td>
+              <td class="px-3 py-2 text-right">{formatCurrency(diff.taxas_importacao)}</td>
+              <td class="px-3 py-2 text-right">{formatCurrency(diff.taxas_sistema)}</td>
+              <td class="px-3 py-2 text-right font-semibold {diff.diff_taxas > 0 ? 'text-green-700' : diff.diff_taxas < 0 ? 'text-red-700' : ''}">{diff.diff_taxas > 0 ? '+' : ''}{formatCurrency(diff.diff_taxas)}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-500">
+      Se confirmar, o sistema usará os valores do arquivo importado e sobrescreverá os valores da venda cadastrada.
+    </p>
+  </div>
+  <svelte:fragment slot="actions">
+    <Button variant="secondary" on:click={() => { importDiferencasModalOpen = false; importDiferencasConfirmadas = false; }}>Corrigir / Cancelar</Button>
+    <Button color="financeiro" on:click={() => { importDiferencasModalOpen = false; importDiferencasConfirmadas = true; importPreviewRows(); }}>
+      Confirmar importação
+    </Button>
+  </svelte:fragment>
+</Dialog>
+
+<!-- Modal: Marcar dia sem movimento -->
+<Dialog bind:open={semMovimentoModalOpen} title="Marcar dia sem movimento" maxWidth="sm">
+  <div class="space-y-4">
+    <p class="text-sm text-slate-600">
+      Use esta opção quando não houve movimento de caixa em um dia específico.
+      Uma vez marcado, não será possível importar arquivo para esta data.
+    </p>
+    <FieldInput
+      id="sem-movimento-data"
+      label="Data"
+      type="date"
+      bind:value={semMovimentoData}
+      class_name="w-full"
+    />
+    <FieldTextarea
+      id="sem-movimento-obs"
+      label="Observação (opcional)"
+      bind:value={semMovimentoObservacao}
+      rows={2}
+      class_name="w-full"
+    />
+    {#if diasSemMovimento.length > 0}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <p class="text-xs font-semibold text-slate-600 mb-1">Dias já marcados:</p>
+        <p class="text-xs text-slate-500">{diasSemMovimento.map((d) => formatDate(d)).join(', ')}</p>
+      </div>
+    {/if}
+  </div>
+  <svelte:fragment slot="actions">
+    <Button variant="secondary" on:click={() => { semMovimentoModalOpen = false; semMovimentoData = ''; semMovimentoObservacao = ''; }}>Cancelar</Button>
+    <Button color="financeiro" on:click={marcarSemMovimento} disabled={semMovimentoLoading} loading={semMovimentoLoading}>
+      Marcar sem movimento
+    </Button>
   </svelte:fragment>
 </Dialog>

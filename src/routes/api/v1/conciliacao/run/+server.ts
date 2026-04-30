@@ -29,11 +29,10 @@ export async function POST(event) {
     const conciliacaoReciboId = String(body?.conciliacaoReciboId || '').trim() || null;
     const recalculateMonth = String(body?.recalculateMonth || '').trim() || null;
     const recalculateAllMonth = Boolean(body?.recalculateAllMonth);
-    const isTargeted = Boolean(conciliacaoReciboId || recalculateAllMonth);
+    const cleanupDuplicatesOnly = Boolean(body?.cleanupDuplicatesOnly);
+    const isTargeted = Boolean(conciliacaoReciboId || recalculateAllMonth || cleanupDuplicatesOnly);
 
-    // Executa a reconciliação e o diagnóstico cronológico em paralelo
-    const [result, diagnostico] = await Promise.all([
-      reconcilePendentes({
+    const result = await reconcilePendentes({
         client,
         companyId,
         limit,
@@ -41,14 +40,17 @@ export async function POST(event) {
         onlyCurrentMonth: !isTargeted,
         recalculateMonth,
         recalculateAllMonth,
+        cleanupDuplicatesOnly,
         actor: 'user',
         actorUserId: user.id
-      }),
-      // Só inclui diagnóstico quando não é reconciliação por ID específico
-      !conciliacaoReciboId
-        ? diagnosticarLacunasCronologicas({ client, companyId })
-        : Promise.resolve(null)
-    ]);
+      });
+
+    // O diagnóstico cronológico é útil para a conciliação normal, mas é pesado.
+    // Não roda junto com recálculo/saneamento para evitar timeout no Worker.
+    const diagnostico =
+      !conciliacaoReciboId && !recalculateAllMonth && !cleanupDuplicatesOnly
+        ? await diagnosticarLacunasCronologicas({ client, companyId })
+        : null;
 
     // Inclui alerta de bloqueio cronológico na resposta quando há lacunas
     const bloqueio = diagnostico && diagnostico.diasFaltantes.length > 0
@@ -56,6 +58,7 @@ export async function POST(event) {
           fronteira_cronologica: diagnostico.fronteira,
           dias_faltantes: diagnostico.diasFaltantes,
           dias_bloqueados: diagnostico.diasBloqueados,
+          dias_sem_movimento: diagnostico.diasSemMovimento,
           registros_bloqueados: diagnostico.registrosBloqueados,
           aviso: `Conciliação bloqueada a partir de ${diagnostico.fronteira}. ` +
             `Faltam os arquivos dos dias: ${diagnostico.diasFaltantes.map(d => {

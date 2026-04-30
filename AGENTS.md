@@ -35,7 +35,7 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - **Próximo passo**: validar em browser se o 401 em `orcamentos/roteiros/[id]` desapareceu
 
 #### 2. Conciliação (`financeiro/conciliacao`) ✅
-- **Status**: Implementação completa com paridade funcional ao vtur-app
+- **Status**: Implementação completa com paridade funcional ao vtur-app + melhorias
 - **UI**: `financeiro/conciliacao/+page.svelte` já utiliza APIs `/api/v1/conciliacao/*`
 - **Funcionalidades implementadas**:
   - Importação de extratos (CSV/TXT/TSV) com parser inteligente e deduplicação
@@ -47,6 +47,9 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
   - Cálculo de faixas de comissão (SEGURO_32_35, MAIOR_OU_IGUAL_10, MENOR_10)
   - Flag de Baixa RAC e não-comissionável
   - Edição de valores financeiros (Gestor/Master)
+  - **Detecção de diferenças na importação**: linhas com valores divergentes entre arquivo e venda cadastrada ficam em laranja no preview; modal de confirmação antes de importar
+  - **Bloqueio cronológico com "sem movimento"**: `diagnosticarLacunasCronologicas` detecta buracos de data; usuário pode marcar explicitamente dias como "sem movimento" (`conciliacao_dias_sem_movimento`); uma vez marcado, não é possível importar arquivo para essa data
+  - **Conciliação pura não aparece em vendas/relatórios**: `conciliacao_recibos` sem `venda_id` vão apenas para o ranking; relatório de vendas (`relatorios/vendas`) filtra synthetic vendas puras de conciliação
 - **Correção aplicada**: Dashboard financeiro (`financeiro/+page.svelte`) agora consome `/api/v1/conciliacao/summary` em vez de `/api/v1/pagamentos`, refletindo dados reais de conciliação nos KPIs
 
 #### 2.5. Relatório de Vendas (`relatorios/vendas`) ✅
@@ -98,10 +101,12 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - `/api/v1/conciliacao` - Listagem principal
 - `/api/v1/conciliacao/list` - Listagem alternativa com dedupe
 - `/api/v1/conciliacao/run` - Execução de reconciliação
-- `/api/v1/conciliacao/import` - Importação de extratos
+- `/api/v1/conciliacao/import` - Importação de extratos (com detecção de diferenças e validação de dias sem movimento)
 - `/api/v1/conciliacao/assign` - Atribuição de ranking
 - `/api/v1/conciliacao/changes` - Histórico de alterações
 - `/api/v1/conciliacao/executions` - Execuções anteriores
+- `/api/v1/conciliacao/sem-movimento` - CRUD de dias sem movimento (GET/POST/DELETE)
+- `/api/v1/conciliacao/status-cronologico` - Diagnóstico de lacunas cronológicas (inclui dias sem movimento)
 
 ### Comissões
 - `/api/v1/financeiro/comissoes` - Lista comissionável
@@ -228,5 +233,10 @@ Não introduzir imports diretos de `flowbite-svelte` em páginas de negócio; se
 
 1. **Validar `orcamentos/roteiros/[id]` em browser**: confirmar que o 401 histórico desapareceu após a correção de auth sync
 2. **Validar fluxo real de comissões**: pagar, editar, cancelar e recarregar para confirmar persistência ponta a ponta
-3. **Decidir modelo contábil de comissão**: confirmar se a tabela `comissoes` já é o ledger canônico ou se ainda falta um extrato separado
-4. **Verificar viagens**: Comparar CRUD de viagens entre sistemas
+3. **Validar conciliação em browser**:
+   - Testar importação com diferença de valores: linha deve ficar laranja, modal deve aparecer
+   - Testar bloqueio cronológico: subir arquivo com buraco de data, verificar se alerta aparece
+   - Testar "sem movimento": marcar dia faltante, verificar se conciliação é liberada e importação para essa data é bloqueada
+   - Verificar que conciliações puras (sem venda no sistema) vão para ranking mas NÃO aparecem em `relatorios/vendas`
+4. **Decidir modelo contábil de comissão**: confirmar se a tabela `comissoes` já é o ledger canônico ou se ainda falta um extrato separado
+5. **Verificar viagens**: Comparar CRUD de viagens entre sistemas
