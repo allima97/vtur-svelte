@@ -78,6 +78,16 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
   - Ordenação do ranking ajustada: gestores são sempre ordenados **após** vendedores comuns.
   - Log de diagnóstico no console: `[ranking] buildRankingSimple` mostra quantidade de recibos de conciliação, vendas manuais e contributions geradas.
 
+#### 2.7. Recibo REXTUR — validação de duplicidade ✅
+- **Problema**: Ao salvar/editar venda com recibo da operadora REXTUR, o sistema retornava erro 409 "Recibo já utilizado em outra venda da empresa."
+- **Causa**: A função `ensureReciboReservaUnicos` em `src/lib/server/vendasSave.ts` validava duplicidade de recibo para TODOS os recibos, sem exceção para operadoras que permitem recibos repetidos.
+- **Correção aplicada**: Adicionada função `isRexturRecibo()` que detecta recibos da operadora REXTUR (`numero_recibo` normalizado contém "REXTUR"). A validação de duplicidade agora filtra recibos REXTUR antes de verificar duplicatas. Recibos REXTUR podem se repetir livremente entre vendas.
+
+#### 2.8. Erro UUID sintético em relatórios/conciliação ✅
+- **Problema**: Erro 500 `invalid input syntax for type uuid: "...::rateio:..."` ao carregar relatório de vendas e outras telas que usam conciliação.
+- **Causa**: IDs sintéticos de rateio (`uuid::rateio:vendedorId`) estavam persistidos na coluna `conciliacao_recibos.venda_recibo_id` (provavelmente gravados por algum fluxo de matching/importação). A função `fetchEffectiveConciliacaoReceipts` em `source.ts` extrai esses IDs e os passava para queries SQL (`.in('id', reciboIds)`) usando apenas `.filter(Boolean)`, que não remove strings malformadas.
+- **Correção aplicada**: `src/lib/conciliacao/source.ts` — trocado `.filter(Boolean)` por `.filter(isUuid)` nas linhas que montam `vendaIds`, `reciboIds` e `vendaIdsBatch` antes de enviar para queries SQL. Isso garante que apenas UUIDs válidos cheguem ao Postgres.
+
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
 - **Diagnóstico atualizado**: o motor em `src/lib/server/comissoes.ts` já implementa muito mais do que o diagnóstico antigo indicava
 - **Já cobre**:

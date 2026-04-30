@@ -19,6 +19,7 @@ import {
   fetchSalesReportRows
 } from '$lib/server/relatorios';
 import { normalizeReceiptNumber } from '$lib/conciliacao/receiptNumber';
+import { isUuid as isUuidCheck } from '$lib/vendas/rateio';
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const start = new Date(`${dataInicio}T00:00:00`);
@@ -74,6 +75,18 @@ function isSeguroRecibo(recibo: any) {
   return tipo.includes('seguro') || nome.includes('seguro');
 }
 
+function getRowRecibos(row: any) {
+  if (Array.isArray(row?.vendas_recibos)) return row.vendas_recibos;
+  if (Array.isArray(row?.recibos)) return row.recibos;
+  return [];
+}
+
+function isDataNoPeriodo(dataStr: string | null | undefined, inicio: string, fim: string): boolean {
+  const d = String(dataStr || '').slice(0, 10);
+  if (!d) return false;
+  return d >= inicio && d <= fim;
+}
+
 /**
  * Montagem SIMPLIFICADA do ranking — espelha dados da conciliação + vendas manuais.
  * Prioridade: conciliação (já possui valor bruto, taxas, vendedor atribuído).
@@ -126,29 +139,86 @@ async function buildRankingSimple(
 
   const contributions: Contribution[] = [];
 
-  // 3a. Adicionar recibos da conciliação
+  // Set de recibos e vendas já linkados à conciliação — usado para dedup mais precisa
+  const concLinkedReciboIds = new Set<string>();
+  const concLinkedVendaIds = new Set<string>();
+  // Set de números de recibo (sem data) da conciliação — dedup independente de data
+  const concReciboNumeros = new Set<string>();
   for (const receipt of concReceipts) {
+    if (receipt.linked_recibo_id) concLinkedReciboIds.add(String(receipt.linked_recibo_id));
+    if (receipt.linked_venda_id) concLinkedVendaIds.add(String(receipt.linked_venda_id));
+    const num = normalizeReceiptNumber(receipt.documento);
+    if (num) concReciboNumeros.add(num);
+  }
+
+  // Contadores para diagnóstico
+  let concContributionCount = 0;
+  let manualContributionCount = 0;
+  let skippedByDate = 0;
+  let skippedByCancelamento = 0;
+  let skippedByLinkedRecibo = 0;
+  let skippedByLinkedVenda = 0;
+  let skippedByNumero = 0;
+  let skippedByKey = 0;
+
+  // 3a. Adicionar recibos da conciliação
+  let rateioConcCount = 0;
+  let rateioConcApplied = 0;
+  for (const receipt of concReceipts) {
+    const numero = normalizeReceiptNumber(receipt.documento);
+    const data = String(receipt.data_venda || '').slice(0, 10);
+    const baseKey = numero && data ? `${numero}::${data}` : `conc:${receipt.id}`;
+
+    // Quando o recibo tem rateio cadastrado, gera duas contribuições proporcionais
+    // (uma para origem, uma para destino) em vez de uma única contribuição com valor total.
+    const rateio = (receipt as any).rateio_split ?? null;
+    if (
+      rateio &&
+      rateio.vendedor_origem_id &&
+      rateio.vendedor_destino_id &&
+      rateio.percentual_origem > 0 &&
+      rateio.percentual_destino > 0
+    ) {
+      rateioConcCount++;
+      // Marca a chave base para evitar que a venda manual entre duplicada na seção 3b
+      seenReciboKeys.add(baseKey);
+
+      const brutoTotal = Math.max(0, Number(receipt.valor_bruto || 0));
+      const taxasTotal = Math.max(0, Number(receipt.valor_taxas || 0));
+      const allocs = [
+        { vid: String(rateio.vendedor_origem_id), pct: rateio.percentual_origem },
+        { vid: String(rateio.vendedor_destino_id), pct: rateio.percentual_destino },
+      ];
+      for (const { vid, pct } of allocs) {
+        if (!vid) continue;
+        if (vendedorIds.length > 0 && !vendedorIds.includes(vid)) continue;
+        const fator = Math.min(1, pct / 100);
+        const scale = (v: number) => Math.round(v * fator * 100) / 100;
+        const rateioKey = `${baseKey}::rateio:${vid}`;
+        if (seenReciboKeys.has(rateioKey)) continue;
+        seenReciboKeys.add(rateioKey);
+        contributions.push({
+          vendaKey: `conc:${receipt.id}::rateio:${vid}`,
+          reciboId: `${receipt.id}::rateio:${vid}`,
+          reciboNumero: receipt.documento,
+          vendedorId: vid,
+          bruto: scale(brutoTotal),
+          taxas: scale(taxasTotal),
+          isSeguro: Boolean(receipt.is_seguro_viagem)
+        });
+        concContributionCount++;
+        rateioConcApplied++;
+      }
+      continue;
+    }
+
+    // Sem rateio: comportamento original — uma contribuição com valor total
     const vendedorId = String(receipt.vendedor_id || '').trim();
     if (!vendedorId) continue;
     if (vendedorIds.length > 0 && !vendedorIds.includes(vendedorId)) continue;
 
-    const numero = normalizeReceiptNumber(receipt.documento);
-    const data = String(receipt.data_venda || '').slice(0, 10);
-    // Recibos com rateio têm id no formato "<concId>::rateio:<vendedorId>".
-    // Nesse caso a chave de dedup inclui o vendedorId para permitir que
-    // Márcio e Tatiana (por exemplo) entrem separadamente com seus valores
-    // proporcionais, sem que a segunda entrada seja barrada pelo seenReciboKeys.
-    const isRateioEntry = String(receipt.id || '').includes('::rateio:');
-    const key = isRateioEntry
-      ? `${numero}::${data}::${vendedorId}`
-      : numero && data
-        ? `${numero}::${data}`
-        : `conc:${receipt.id}`;
-    if (seenReciboKeys.has(key)) continue;
-    seenReciboKeys.add(key);
-    // Para recibos de rateio, também marca a chave simples (numero::data) para
-    // impedir que a venda manual correspondente entre duplicada na seção 3b.
-    if (isRateioEntry && numero && data) seenReciboKeys.add(`${numero}::${data}`);
+    if (seenReciboKeys.has(baseKey)) continue;
+    seenReciboKeys.add(baseKey);
 
     const bruto = Math.max(0, Number(receipt.valor_bruto || 0));
     const taxas = Math.max(0, Number(receipt.valor_taxas || 0));
@@ -162,37 +232,131 @@ async function buildRankingSimple(
       taxas,
       isSeguro: Boolean(receipt.is_seguro_viagem)
     });
+    concContributionCount++;
   }
 
-  // 3b. Adicionar recibos manuais que NÃO estão na conciliação
+  // 3b. Coletar IDs dos recibos manuais para buscar rateio (apenas recibos dentro do período)
+  const manualReciboIds: string[] = [];
   for (const row of salesRows) {
-    const vendedorId = String(row?.vendedor_id || '').trim();
-    if (!vendedorId) continue;
-    if (vendedorIds.length > 0 && !vendedorIds.includes(vendedorId)) continue;
-
-    const recibos = Array.isArray((row as any)?.vendas_recibos) ? (row as any).vendas_recibos : [];
+    const recibos = getRowRecibos(row);
     for (const recibo of recibos) {
+      if (!isDataNoPeriodo(recibo?.data_venda, dataInicio, dataFim)) continue;
+      // Pula recibos cancelados por conciliação
+      if (recibo?.cancelado_por_conciliacao_em) continue;
+      const id = String(recibo?.id || '').trim();
+      if (isUuidCheck(id)) manualReciboIds.push(id);
+    }
+  }
+
+  // 3b-rateio. Buscar rateio dos recibos manuais
+  const manualRateioMap = new Map<string, { origem_id: string; destino_id: string; pct_origem: number; pct_destino: number }>();
+  if (manualReciboIds.length > 0) {
+    try {
+      for (let i = 0; i < manualReciboIds.length; i += 50) {
+        const batch = manualReciboIds.slice(i, i + 50);
+        const { data: rateioRows, error: rateioErr } = await client
+          .from('vendas_recibos_rateio')
+          .select('venda_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
+          .eq('ativo', true)
+          .in('venda_recibo_id', batch);
+        if (rateioErr) {
+          console.warn('[ranking] rateio manual query falhou:', rateioErr?.message);
+          break;
+        }
+        (rateioRows || []).forEach((r: any) => {
+          const id = String(r?.venda_recibo_id || '').trim();
+          if (!id || !isUuidCheck(r?.vendedor_origem_id) || !isUuidCheck(r?.vendedor_destino_id)) return;
+          if (Number(r?.percentual_origem) <= 0 || Number(r?.percentual_destino) <= 0) return;
+          manualRateioMap.set(id, {
+            origem_id: String(r.vendedor_origem_id),
+            destino_id: String(r.vendedor_destino_id),
+            pct_origem: Number(r.percentual_origem),
+            pct_destino: Number(r.percentual_destino),
+          });
+        });
+      }
+    } catch (err: any) {
+      console.warn('[ranking] rateio manual fetch falhou:', err?.message || err);
+    }
+  }
+
+  // 3c. Adicionar recibos manuais que NÃO estão na conciliação (com suporte a rateio)
+  let rateioManualCount = 0;
+  let rateioManualApplied = 0;
+  for (const row of salesRows) {
+    const vendedorIdOrigem = String((row as any)?.vendedor_id || '').trim();
+    if (!vendedorIdOrigem) continue;
+
+    const recibos = getRowRecibos(row);
+    for (const recibo of recibos) {
+      // Ignora recibos fora do período (o Supabase !inner filtra a venda, mas retorna todos os recibos)
+      if (!isDataNoPeriodo(recibo?.data_venda, dataInicio, dataFim)) { skippedByDate++; continue; }
+      // Ignora recibos cancelados por conciliação
+      if (recibo?.cancelado_por_conciliacao_em) { skippedByCancelamento++; continue; }
+      // Ignora recibos que já estão linkados diretamente à conciliação (mesmo que data/número diferem)
+      const reciboId = String(recibo?.id || '').trim();
+      if (reciboId && concLinkedReciboIds.has(reciboId)) { skippedByLinkedRecibo++; continue; }
+      // Ignora vendas inteiras que já estão linkadas à conciliação (evita duplicação parcial)
+      const vendaId = String((row as any)?.id || '').trim();
+      if (vendaId && concLinkedVendaIds.has(vendaId)) { skippedByLinkedVenda++; continue; }
+
       const numero = normalizeReceiptNumber(recibo?.numero_recibo);
+      // Ignora recibos cujo número já existe na conciliação (independente de data — conciliação é primária)
+      if (numero && concReciboNumeros.has(numero)) { skippedByNumero++; continue; }
       const data = String(recibo?.data_venda || '').slice(0, 10);
-      const key = numero && data ? `${numero}::${data}` : `venda:${row.id}:${recibo.id}`;
+      const key = numero && data ? `${numero}::${data}` : `venda:${(row as any).id}:${recibo.id}`;
 
       // Se este recibo já foi contado pela conciliação, pula (não duplica)
-      if (seenReciboKeys.has(key)) continue;
+      if (seenReciboKeys.has(key)) { skippedByKey++; continue; }
       seenReciboKeys.add(key);
 
-      const bruto = Math.max(0, Number(recibo?.valor_total || 0));
-      const taxas = Math.max(0, Number(recibo?.valor_taxas || 0));
+      const brutoTotal = Math.max(0, Number(recibo?.valor_total || 0));
+      const taxasTotal = Math.max(0, Number(recibo?.valor_taxas || 0));
       const isSeguro = isSeguroRecibo(recibo);
+      // reciboId já declarado acima para dedup por concLinkedReciboIds
+      const rateio = isUuidCheck(reciboId) ? manualRateioMap.get(reciboId) || null : null;
 
-      contributions.push({
-        vendaKey: `venda:${row.id}`,
-        reciboId: recibo.id,
-        reciboNumero: recibo.numero_recibo,
-        vendedorId,
-        bruto,
-        taxas,
-        isSeguro
-      });
+      if (rateio) {
+        rateioManualCount++;
+        // Recibo manual com rateio: gera duas contribuições proporcionais
+        const allocs = [
+          { vid: rateio.origem_id, pct: rateio.pct_origem },
+          { vid: rateio.destino_id, pct: rateio.pct_destino },
+        ];
+        for (const { vid, pct } of allocs) {
+          if (!vid) continue;
+          if (vendedorIds.length > 0 && !vendedorIds.includes(vid)) continue;
+          const fator = Math.min(1, pct / 100);
+          const scale = (v: number) => Math.round(v * fator * 100) / 100;
+          const rateioKey = `${key}::rateio:${vid}`;
+          if (seenReciboKeys.has(rateioKey)) continue;
+          seenReciboKeys.add(rateioKey);
+          contributions.push({
+            vendaKey: `venda:${(row as any).id}::rateio:${vid}`,
+            reciboId: `${reciboId}::rateio:${vid}`,
+            reciboNumero: recibo.numero_recibo,
+            vendedorId: vid,
+            bruto: scale(brutoTotal),
+            taxas: scale(taxasTotal),
+            isSeguro
+          });
+          manualContributionCount++;
+          rateioManualApplied++;
+        }
+      } else {
+        // Sem rateio: comportamento original
+        if (vendedorIds.length > 0 && !vendedorIds.includes(vendedorIdOrigem)) continue;
+        contributions.push({
+          vendaKey: `venda:${(row as any).id}`,
+          reciboId,
+          reciboNumero: recibo.numero_recibo,
+          vendedorId: vendedorIdOrigem,
+          bruto: brutoTotal,
+          taxas: taxasTotal,
+          isSeguro
+        });
+        manualContributionCount++;
+      }
     }
   }
 
@@ -202,6 +366,18 @@ async function buildRankingSimple(
     vendedoresNoEscopo: vendedorIds.length,
     conciliacaoRecibos: concReceipts.length,
     vendasManuais: salesRows.length,
+    concContributionCount,
+    manualContributionCount,
+    rateioConcCount,
+    rateioConcApplied,
+    rateioManualCount,
+    rateioManualApplied,
+    skippedByDate,
+    skippedByCancelamento,
+    skippedByLinkedRecibo,
+    skippedByLinkedVenda,
+    skippedByNumero,
+    skippedByKey,
     contributionsGeradas: contributions.length
   });
 

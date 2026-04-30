@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Helper, Label } from 'flowbite-svelte';
   import { createEventDispatcher } from 'svelte';
+  import { uniqueFieldId } from './form/fieldId';
 
   export let label: string | null = null;
   export let title = 'Clique para escolher um arquivo';
@@ -19,7 +20,7 @@
 
   const dispatch = createEventDispatcher();
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: fileNames = files ? Array.from(files).map((file) => file.name) : [];
 
   function handleChange(event: Event) {

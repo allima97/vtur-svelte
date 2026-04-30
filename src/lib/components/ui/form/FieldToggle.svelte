@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Helper, Toggle } from 'flowbite-svelte';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let checked = false;
@@ -43,7 +44,7 @@
     comissoes: 'orange'
   };
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: resolvedColor = colorAlias[color] || 'blue';
 </script>
 

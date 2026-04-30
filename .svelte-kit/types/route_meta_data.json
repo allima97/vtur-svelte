@@ -13,6 +13,10 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/(app)/admin/admin/fix-recibos": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/(app)/admin/aniversariantes": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
@@ -38,6 +42,10 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/admin/financeiro": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/admin/fix-recibos": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -602,6 +610,9 @@
 	],
 	"/api/v1/relatorios/produtos": [
 		"src/routes/api/v1/relatorios/produtos/+server.ts"
+	],
+	"/api/v1/relatorios/ranking-debug": [
+		"src/routes/api/v1/relatorios/ranking-debug/+server.ts"
 	],
 	"/api/v1/relatorios/ranking-vendas": [
 		"src/routes/api/v1/relatorios/ranking-vendas/+server.ts"

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Helper, Label, Textarea } from 'flowbite-svelte';
   import { buildVturInputClasses } from '../inputContract';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let value = '';
@@ -23,7 +24,7 @@
     both: 'resize'
   };
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: textareaClasses = buildVturInputClasses(
     'text-sm',
     resizeClasses[resize],

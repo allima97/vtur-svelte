@@ -114,6 +114,11 @@ export async function ensureAssignableActiveSeller(client: any, scope: UserScope
   return null;
 }
 
+function isRexturRecibo(numeroRecibo?: string | null): boolean {
+  const key = normalizeReceiptKey(numeroRecibo);
+  return key === 'REXTUR' || key.includes('REXTUR');
+}
+
 export async function ensureReciboReservaUnicos(params: {
   client: any;
   companyId?: string | null;
@@ -122,7 +127,11 @@ export async function ensureReciboReservaUnicos(params: {
   recibos: any[];
 }) {
   const { client, companyId, clienteId, ignoreVendaId, recibos } = params;
-  const rawReceiptKeys = recibos.map((item) => normalizeReceiptKey(item?.numero_recibo)).filter(Boolean);
+
+  // REXTUR: recibos dessa operadora podem se repetir entre vendas
+  const recibosParaValidar = recibos.filter((item) => !isRexturRecibo(item?.numero_recibo));
+
+  const rawReceiptKeys = recibosParaValidar.map((item) => normalizeReceiptKey(item?.numero_recibo)).filter(Boolean);
   const receiptKeys = Array.from(
     new Set(
       rawReceiptKeys
@@ -130,7 +139,7 @@ export async function ensureReciboReservaUnicos(params: {
   );
   const reservaKeys = Array.from(
     new Set(
-      recibos
+      recibosParaValidar
         .map((item) => normalizeReservaKey(item?.numero_reserva))
         .filter(Boolean)
     )
@@ -160,14 +169,14 @@ export async function ensureReciboReservaUnicos(params: {
       .select('id, numero_recibo, numero_reserva, venda_id, vendas!inner(cliente_id, company_id)')
       .in(
         'numero_reserva',
-        recibos.map((item) => toNullableString(item?.numero_reserva)).filter(Boolean)
+        recibosParaValidar.map((item) => toNullableString(item?.numero_reserva)).filter(Boolean)
       );
     if (companyId) query = query.eq('vendas.company_id', companyId);
     if (ignoreVendaId) query = query.neq('venda_id', ignoreVendaId);
     const { data, error } = await query;
     if (error) throw error;
 
-    for (const recibo of recibos) {
+    for (const recibo of recibosParaValidar) {
       const reservaKey = normalizeReservaKey(recibo?.numero_reserva);
       if (!reservaKey) continue;
       const reciboKey = normalizeReceiptKey(recibo?.numero_recibo);

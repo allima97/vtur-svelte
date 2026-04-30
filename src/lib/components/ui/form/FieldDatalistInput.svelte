@@ -1,5 +1,6 @@
 <script lang="ts">
   import FieldInput from './FieldInput.svelte';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let value = '';
@@ -21,7 +22,7 @@
   export let class_name = '';
   export let listId: string | null = null;
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: resolvedListId = listId || (fieldId ? `${fieldId}-list` : undefined);
   $: normalizedOptions = Array.from(new Set(options.map((option) => option.trim()).filter(Boolean)));
 </script>

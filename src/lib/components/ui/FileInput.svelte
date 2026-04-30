@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Fileupload, Helper, Label } from 'flowbite-svelte';
+  import { uniqueFieldId } from './form/fieldId';
 
   export let label: string | null = null;
   export let files: FileList | undefined = undefined;
@@ -15,7 +16,7 @@
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let class_name = '';
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: fileNames = files ? Array.from(files).map((file) => file.name) : [];
 </script>
 

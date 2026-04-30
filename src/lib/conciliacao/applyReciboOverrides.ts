@@ -147,11 +147,13 @@ export async function fetchReciboOverrideMap(
       0,
       toNumber(sourceRow?.valor_lancamentos) - valorDescontos - valorAbatimentos
     );
+    // valorMetaBase já inclui taxas (calcularValorVendaReal não subtrai taxas),
+    // então não somamos taxas novamente no fallback.
     const valorBrutoBase =
       valorBrutoCalculado > 0
         ? valorBrutoCalculado
         : valorMetaBase > 0
-          ? valorMetaBase + valorTaxas
+          ? valorMetaBase
           : 0;
     const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
     const valorMeta = Math.max(0, valorMetaBase - valorNaoComissionavel);

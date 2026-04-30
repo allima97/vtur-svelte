@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Helper, Label, Radio } from 'flowbite-svelte';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let value = '';
@@ -13,7 +14,7 @@
   export let orientation: 'row' | 'column' = 'row';
   export let class_name = '';
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
 </script>
 
 <div class={class_name}>

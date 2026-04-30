@@ -22,6 +22,14 @@ export type EffectiveConciliacaoReceipt = {
   cancelado_por_conciliacao_em: string | null;
   cancelado_por_conciliacao_observacao: string | null;
   produto: { id: string; nome: string | null } | null;
+  /** Rateio cadastrado para este recibo — presente apenas quando há divisão entre vendedores.
+   *  Usado pelo ranking para exibir valores proporcionais por vendedor. */
+  rateio_split?: {
+    vendedor_origem_id: string;
+    vendedor_destino_id: string;
+    percentual_origem: number;
+    percentual_destino: number;
+  } | null;
 };
 
 function toStr(value: unknown) {
@@ -239,42 +247,106 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   if (concRows.length === 0) return [] as EffectiveConciliacaoReceipt[];
 
   const concRowIds = Array.from(new Set(concRows.map((row) => toStr(row?.id)).filter(isUuid)));
-  // Map: conciliacao_recibo_id → rateio row completo (origem, destino, percentuais)
+  const concLinkedReciboIds = Array.from(
+    new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(isUuid))
+  );
+  // Maps de rateio: ajustes podem estar vinculados ao registro de conciliação
+  // ou diretamente ao recibo da venda que a conciliação substitui.
   const concRateioMap = new Map<string, {
     vendedor_origem_id: string | null;
     vendedor_destino_id: string | null;
     percentual_origem: number;
     percentual_destino: number;
   }>();
+  const reciboRateioMap = new Map<string, {
+    vendedor_origem_id: string | null;
+    vendedor_destino_id: string | null;
+    percentual_origem: number;
+    percentual_destino: number;
+  }>();
   const concRowIdsWithRateio = new Set<string>();
-  if (concRowIds.length > 0) {
-    for (let i = 0; i < concRowIds.length; i += 500) {
-      const batch = concRowIds.slice(i, i + 500);
-      const { data: rateioRows, error: rateioError } = await client
-        .from('vendas_recibos_rateio')
-        .select('conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
-        .eq('ativo', true)
-        .in('conciliacao_recibo_id', batch);
-      if (rateioError) {
-        if (!isRateioTableMissingError(rateioError)) throw rateioError;
+  const setRateioRow = (
+    map: typeof concRateioMap,
+    id: string,
+    row: {
+      vendedor_origem_id?: unknown;
+      vendedor_destino_id?: unknown;
+      percentual_origem?: unknown;
+      percentual_destino?: unknown;
+    }
+  ) => {
+    if (!id) return;
+    map.set(id, {
+      vendedor_origem_id: toStr(row?.vendedor_origem_id) || null,
+      vendedor_destino_id: toStr(row?.vendedor_destino_id) || null,
+      percentual_origem: toNumber(row?.percentual_origem),
+      percentual_destino: toNumber(row?.percentual_destino)
+    });
+  };
+
+  if (concRowIds.length > 0 || concLinkedReciboIds.length > 0) {
+    let rateioQueryFailed = false;
+    for (let i = 0; i < concRowIds.length; i += 50) {
+      if (rateioQueryFailed) break;
+      const batch = concRowIds.slice(i, i + 50);
+      try {
+        const { data: rateioRows, error: rateioError } = await client
+          .from('vendas_recibos_rateio')
+          .select('conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
+          .eq('ativo', true)
+          .in('conciliacao_recibo_id', batch);
+        if (rateioError) {
+          // Tabela ou coluna ausente → segue sem rateio
+          const code = String(rateioError?.code || '').trim();
+          const isMissing = code === '42P01' || code === '42703' || isRateioTableMissingError(rateioError);
+          if (!isMissing) throw rateioError;
+          rateioQueryFailed = true;
+          break;
+        }
+        (rateioRows || []).forEach((row: any) => {
+          const id = toStr(row?.conciliacao_recibo_id);
+          if (!id) return;
+          concRowIdsWithRateio.add(id);
+          setRateioRow(concRateioMap, id, row);
+        });
+      } catch (err: any) {
+        // Qualquer erro inesperado na query de rateio → segue sem aplicar rateio,
+        // não derruba a busca principal de conciliação.
+        console.warn('[source] rateio query falhou, seguindo sem rateio:', err?.message || err);
+        rateioQueryFailed = true;
         break;
       }
-      (rateioRows || []).forEach((row: any) => {
-        const id = toStr(row?.conciliacao_recibo_id);
-        if (!id) return;
-        concRowIdsWithRateio.add(id);
-        concRateioMap.set(id, {
-          vendedor_origem_id: toStr(row?.vendedor_origem_id) || null,
-          vendedor_destino_id: toStr(row?.vendedor_destino_id) || null,
-          percentual_origem: toNumber(row?.percentual_origem),
-          percentual_destino: toNumber(row?.percentual_destino),
+    }
+
+    for (let i = 0; i < concLinkedReciboIds.length; i += 50) {
+      if (rateioQueryFailed) break;
+      const batch = concLinkedReciboIds.slice(i, i + 50);
+      try {
+        const { data: rateioRows, error: rateioError } = await client
+          .from('vendas_recibos_rateio')
+          .select('venda_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
+          .eq('ativo', true)
+          .in('venda_recibo_id', batch);
+        if (rateioError) {
+          const code = String(rateioError?.code || '').trim();
+          const isMissing = code === '42P01' || code === '42703' || isRateioTableMissingError(rateioError);
+          if (!isMissing) throw rateioError;
+          rateioQueryFailed = true;
+          break;
+        }
+        (rateioRows || []).forEach((row: any) => {
+          setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
         });
-      });
+      } catch (err: any) {
+        console.warn('[source] rateio por recibo falhou, seguindo sem rateio:', err?.message || err);
+        rateioQueryFailed = true;
+        break;
+      }
     }
   }
 
-  const vendaIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_id)).filter(Boolean)));
-  const reciboIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(Boolean)));
+  const vendaIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_id)).filter(isUuid)));
+  const reciboIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(isUuid)));
 
   const vendasMap = new Map<string, { vendedor_id: string | null }>();
   if (vendaIds.length > 0) {
@@ -316,7 +388,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         .in('numero_recibo', batch);
       if (error) throw error;
 
-      const vendaIdsBatch = Array.from(new Set((data || []).map((row: any) => toStr(row?.venda_id)).filter(Boolean)));
+      const vendaIdsBatch = Array.from(new Set((data || []).map((row: any) => toStr(row?.venda_id)).filter(isUuid)));
       const allowedVendaIds = new Set<string>();
       if (vendaIdsBatch.length > 0) {
         let vendasBatchQuery = client.from('vendas').select('id, company_id').in('id', vendaIdsBatch);
@@ -348,6 +420,39 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           });
         }
       });
+    }
+  }
+
+  const fallbackReciboIds = Array.from(
+    new Set(
+      Array.from(reciboByNumeroMap.values())
+        .map((row: any) => toStr(row?.id))
+        .filter(isUuid)
+        .filter((id: string) => !reciboRateioMap.has(id))
+    )
+  );
+  if (fallbackReciboIds.length > 0) {
+    for (let i = 0; i < fallbackReciboIds.length; i += 50) {
+      const batch = fallbackReciboIds.slice(i, i + 50);
+      try {
+        const { data: rateioRows, error: rateioError } = await client
+          .from('vendas_recibos_rateio')
+          .select('venda_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
+          .eq('ativo', true)
+          .in('venda_recibo_id', batch);
+        if (rateioError) {
+          const code = String(rateioError?.code || '').trim();
+          const isMissing = code === '42P01' || code === '42703' || isRateioTableMissingError(rateioError);
+          if (!isMissing) throw rateioError;
+          break;
+        }
+        (rateioRows || []).forEach((row: any) => {
+          setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
+        });
+      } catch (err: any) {
+        console.warn('[source] rateio por recibo fallback falhou, seguindo sem rateio:', err?.message || err);
+        break;
+      }
     }
   }
 
@@ -465,69 +570,44 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         0,
         toNumber(sourceRow?.valor_lancamentos) - valorDescontos - valorAbatimentos
       );
+      // valorMetaBase já inclui taxas (calcularValorVendaReal não subtrai taxas),
+      // então não somamos taxas novamente no fallback.
       const valorBrutoBase =
-        valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase + valorTaxas : 0;
+        valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase : 0;
       const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
       const valorLiquido = Math.max(0, valorBruto - valorTaxas);
 
       // Verifica se algum dos IDs do grupo tem rateio cadastrado
       const rateioId = groupedConcIds.find((id) => concRowIdsWithRateio.has(id)) || null;
-      const rateio = rateioId ? concRateioMap.get(rateioId) || null : null;
+      const rateio =
+        (rateioId ? concRateioMap.get(rateioId) || null : null) ||
+        (linkedReciboId ? reciboRateioMap.get(linkedReciboId) || null : null);
       const preferredConciliacaoId = rateioId || toStr(sourceRow?.id) || groupedConcIds[0] || `conc:${documento}`;
 
       const effectiveSaleDate = effectiveDate;
       const companyIdFromRows = sortedRows.map((row) => toStr(row?.company_id)).find(Boolean) || null;
 
-      // ── Rateio: quando há divisão cadastrada, gera uma entrada por vendedor ──
-      // Exemplo: recibo 083933 = 50% Márcio + 50% Tatiana → duas entradas, cada uma com valor proporcional.
-      if (
+      // Filtros de escopo (vendedor excluído ou fora do escopo permitido)
+      if (excludedVendedores && vendedorId && excludedVendedores.has(vendedorId)) return [];
+      if (allowedVendedores && (!vendedorId || !allowedVendedores.has(vendedorId))) return [];
+
+      // Inclui dados de rateio como campo extra quando existir.
+      // O ranking usa esse campo para dividir o valor entre os dois vendedores.
+      // Os demais consumidores (vendas-kpis, mergeEffectiveRecibos) ignoram o campo
+      // e continuam recebendo um único recibo com o valor total — comportamento inalterado.
+      const rateioSplit =
         rateio &&
         isUuid(rateio.vendedor_origem_id) &&
         isUuid(rateio.vendedor_destino_id) &&
         rateio.percentual_origem > 0 &&
         rateio.percentual_destino > 0
-      ) {
-        const allocations = [
-          { vendedorId: rateio.vendedor_origem_id!, fator: Math.min(1, rateio.percentual_origem / 100) },
-          { vendedorId: rateio.vendedor_destino_id!, fator: Math.min(1, rateio.percentual_destino / 100) },
-        ];
-
-        const results: EffectiveConciliacaoReceipt[] = [];
-        for (const { vendedorId: allocVendedorId, fator } of allocations) {
-          if (excludedVendedores && excludedVendedores.has(allocVendedorId)) continue;
-          if (allowedVendedores && !allowedVendedores.has(allocVendedorId)) continue;
-
-          const scale = (v: number) => Math.round(v * fator * 100) / 100;
-          results.push({
-            id: `${preferredConciliacaoId}::rateio:${allocVendedorId}`,
-            conciliacao_ids: groupedConcIds,
-            documento,
-            data_venda: effectiveSaleDate,
-            company_id: companyIdFromRows,
-            vendedor_id: allocVendedorId,
-            produto_id: produtoId,
-            linked_venda_id: linkedVendaId,
-            linked_recibo_id: linkedReciboId,
-            valor_bruto: scale(valorBruto) || null,
-            valor_taxas: scale(valorTaxas) || null,
-            valor_meta_override: scale(valorMeta) || null,
-            valor_liquido_override: scale(valorLiquido) || null,
-            valor_comissao_loja: sourceRow?.valor_comissao_loja != null ? scale(toNumber(sourceRow.valor_comissao_loja)) : null,
-            percentual_comissao_loja: sourceRow?.percentual_comissao_loja ?? null,
-            faixa_comissao: toStr(sourceRow?.faixa_comissao) || null,
-            is_seguro_viagem: isSeguro,
-            valor_nao_comissionavel: scale(valorNaoComissionavel),
-            cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null,
-            cancelado_por_conciliacao_observacao: linkedReciboMeta?.cancelado_por_conciliacao_observacao || null,
-            produto
-          });
-        }
-        return results;
-      }
-
-      // ── Sem rateio: comportamento original — um único recibo com vendedor atribuído ──
-      if (excludedVendedores && vendedorId && excludedVendedores.has(vendedorId)) return [];
-      if (allowedVendedores && (!vendedorId || !allowedVendedores.has(vendedorId))) return [];
+          ? {
+              vendedor_origem_id: rateio.vendedor_origem_id!,
+              vendedor_destino_id: rateio.vendedor_destino_id!,
+              percentual_origem: rateio.percentual_origem,
+              percentual_destino: rateio.percentual_destino,
+            }
+          : null;
 
       return [{
         id: preferredConciliacaoId,
@@ -550,10 +630,11 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         valor_nao_comissionavel: valorNaoComissionavel,
         cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null,
         cancelado_por_conciliacao_observacao: linkedReciboMeta?.cancelado_por_conciliacao_observacao || null,
-        produto
+        produto,
+        rateio_split: rateioSplit
       } satisfies EffectiveConciliacaoReceipt];
     })
-    .filter((row): row is EffectiveConciliacaoReceipt => Boolean(row));
+    .filter(Boolean) as EffectiveConciliacaoReceipt[];
 }
 
 export function buildConciliacaoSyntheticVendas(items: EffectiveConciliacaoReceipt[]) {

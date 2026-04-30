@@ -3,6 +3,7 @@
   import Button from '../Button.svelte';
   import { buildVturInputClasses } from '../inputContract';
   import { inputMask, type MaskType } from '$lib/actions/inputMask';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let value: string | number = '';
@@ -36,7 +37,7 @@
    */
   export let mask: MaskType | undefined = undefined;
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: inputClasses = buildVturInputClasses(
     'text-sm',
     icon || prefix ? 'pl-10' : '',

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Checkbox, Helper } from 'flowbite-svelte';
+  import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
   export let checked = false;
@@ -45,7 +46,7 @@
     comissoes: 'orange'
   };
 
-  $: fieldId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  $: fieldId = id || uniqueFieldId(label);
   $: resolvedColor = colorAlias[color] || 'blue';
   $: containerAlignClass = align === 'center' ? 'items-center' : 'items-start';
   $: labelWrapperClass = align === 'center' ? 'min-w-0' : 'min-w-0 pt-0.5';
