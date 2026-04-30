@@ -134,9 +134,21 @@ async function buildRankingSimple(
 
     const numero = normalizeReceiptNumber(receipt.documento);
     const data = String(receipt.data_venda || '').slice(0, 10);
-    const key = numero && data ? `${numero}::${data}` : `conc:${receipt.id}`;
+    // Recibos com rateio têm id no formato "<concId>::rateio:<vendedorId>".
+    // Nesse caso a chave de dedup inclui o vendedorId para permitir que
+    // Márcio e Tatiana (por exemplo) entrem separadamente com seus valores
+    // proporcionais, sem que a segunda entrada seja barrada pelo seenReciboKeys.
+    const isRateioEntry = String(receipt.id || '').includes('::rateio:');
+    const key = isRateioEntry
+      ? `${numero}::${data}::${vendedorId}`
+      : numero && data
+        ? `${numero}::${data}`
+        : `conc:${receipt.id}`;
     if (seenReciboKeys.has(key)) continue;
     seenReciboKeys.add(key);
+    // Para recibos de rateio, também marca a chave simples (numero::data) para
+    // impedir que a venda manual correspondente entre duplicada na seção 3b.
+    if (isRateioEntry && numero && data) seenReciboKeys.add(`${numero}::${data}`);
 
     const bruto = Math.max(0, Number(receipt.valor_bruto || 0));
     const taxas = Math.max(0, Number(receipt.valor_taxas || 0));

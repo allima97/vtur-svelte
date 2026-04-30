@@ -1,4 +1,4 @@
-import { calcularValorVendaReal, isConciliacaoEfetivada } from '$lib/conciliacao/business';
+import { calcularValorVendaReal, isConciliacaoEfetivada, resolveConciliacaoStatus } from '$lib/conciliacao/business';
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -62,15 +62,28 @@ export function pickConciliacaoSourceRow(rows: any[]) {
   const valuedBaixa = baixaRows.find(
     (row) => isPositive(row?.valor_venda_real) || isPositive(row?.valor_lancamentos)
   );
+  // Use resolveConciliacaoStatus (checks both status and descricao) instead of
+  // a raw string comparison against status, so rows stored as "Pendente" or
+  // similar are still correctly identified as OPFAX.
   const valuedOpfax = sortedRows.find(
     (row) =>
       !isConciliacaoEfetivada({ status: row?.status, descricao: row?.descricao }) &&
-      toStr(row?.status).toUpperCase() === 'OPFAX' &&
+      resolveConciliacaoStatus({ status: row?.status, descricao: row?.descricao }) === 'OPFAX' &&
       (isPositive(row?.valor_venda_real) || isPositive(row?.valor_lancamentos))
   );
 
+  // Priority: BAIXA with value > OPFAX with value (when BAIXA exists but is R$0) > first BAIXA
+  // We deliberately prefer valuedOpfax over a zero-value BAIXA row, since CVC sometimes
+  // sends BAIXA confirmation files with R$0 monetary values for receipts that were correctly
+  // valued in the prior OPFAX entry. The ranking should still use that valued OPFAX entry
+  // as the financial source when the BAIXA provides no useful value.
+  // Note: if confirmed=false (OPFAX-only, no BAIXA), we return null so that pending receipts
+  // are NOT included in the ranking — only confirmed (BAIXA) receipts count.
   const sourceRow =
-    valuedBaixa || (confirmed ? valuedOpfax : null) || (confirmed ? baixaRows[0] : null) || null;
+    valuedBaixa ||
+    (confirmed ? valuedOpfax : null) ||
+    (confirmed ? baixaRows[0] : null) ||
+    null;
 
   return {
     sortedRows,
@@ -226,13 +239,20 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   if (concRows.length === 0) return [] as EffectiveConciliacaoReceipt[];
 
   const concRowIds = Array.from(new Set(concRows.map((row) => toStr(row?.id)).filter(isUuid)));
+  // Map: conciliacao_recibo_id → rateio row completo (origem, destino, percentuais)
+  const concRateioMap = new Map<string, {
+    vendedor_origem_id: string | null;
+    vendedor_destino_id: string | null;
+    percentual_origem: number;
+    percentual_destino: number;
+  }>();
   const concRowIdsWithRateio = new Set<string>();
   if (concRowIds.length > 0) {
     for (let i = 0; i < concRowIds.length; i += 500) {
       const batch = concRowIds.slice(i, i + 500);
       const { data: rateioRows, error: rateioError } = await client
         .from('vendas_recibos_rateio')
-        .select('conciliacao_recibo_id')
+        .select('conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
         .eq('ativo', true)
         .in('conciliacao_recibo_id', batch);
       if (rateioError) {
@@ -241,7 +261,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       }
       (rateioRows || []).forEach((row: any) => {
         const id = toStr(row?.conciliacao_recibo_id);
-        if (id) concRowIdsWithRateio.add(id);
+        if (!id) return;
+        concRowIdsWithRateio.add(id);
+        concRateioMap.set(id, {
+          vendedor_origem_id: toStr(row?.vendedor_origem_id) || null,
+          vendedor_destino_id: toStr(row?.vendedor_destino_id) || null,
+          percentual_origem: toNumber(row?.percentual_origem),
+          percentual_destino: toNumber(row?.percentual_destino),
+        });
       });
     }
   }
@@ -376,15 +403,15 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   });
 
   return Array.from(concRowsByDocumento.entries())
-    .map(([documento, rows]) => {
+    .flatMap(([documento, rows]) => {
       const { sortedRows, sourceRow } = pickConciliacaoSourceRow(rows);
       const estornoRows = sortedRows.filter((row) => toStr(row?.status).toUpperCase() === 'ESTORNO');
       const groupedConcIds = Array.from(new Set(sortedRows.map((row) => toStr(row?.id)).filter(isUuid)));
 
-      if (!sourceRow) return null;
+      if (!sourceRow) return [];
 
       const effectiveDate = toStr(sourceRow?.movimento_data);
-      if (!effectiveDate || effectiveDate < inicio || effectiveDate > fim) return null;
+      if (!effectiveDate || effectiveDate < inicio || effectiveDate > fim) return [];
 
       const linkedVendaIdFromConc = sortedRows.map((row) => toStr(row?.venda_id)).find(Boolean) || null;
       const linkedReciboIdFromConc = sortedRows.map((row) => toStr(row?.venda_recibo_id)).find(Boolean) || null;
@@ -392,15 +419,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const linkedReciboId = linkedReciboIdFromConc || fallbackRecibo?.id || null;
       const linkedVendaId = linkedVendaIdFromConc || fallbackRecibo?.venda_id || null;
       const linkedVendedorId = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
-      const rankingVendedorId = sortedRows.map((row) => toStr(row?.ranking_vendedor_id)).find(Boolean) || null;
+      // Prefer the ranking_vendedor_id from the sourceRow first (it is the "effective" row),
+      // then fall back to any other row in the group (e.g. a manual override on a different
+      // date entry for the same document).
+      const rankingVendedorId =
+        toStr(sourceRow?.ranking_vendedor_id) ||
+        sortedRows.map((row) => toStr(row?.ranking_vendedor_id)).find(Boolean) ||
+        null;
       const vendedorId = rankingVendedorId || linkedVendedorId || null;
-
-      if (excludedVendedores && vendedorId && excludedVendedores.has(vendedorId)) {
-        return null;
-      }
-      if (allowedVendedores && (!vendedorId || !allowedVendedores.has(vendedorId))) {
-        return null;
-      }
 
       const linkedProdutoId = linkedReciboId
         ? recibosMap.get(linkedReciboId)?.produto_id || fallbackRecibo?.produto_id || null
@@ -414,7 +440,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           data_venda: linkedReciboMeta?.data_venda || effectiveDate,
           cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null
         });
-      if (canceladoMesmoMes) return null;
+      if (canceladoMesmoMes) return [];
 
       const manualProdutoId = sortedRows.map((row) => toStr(row?.ranking_produto_id)).find(Boolean) || null;
       const isSeguro = sortedRows.some((row) => Boolean(row?.is_seguro_viagem));
@@ -443,17 +469,67 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase + valorTaxas : 0;
       const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
       const valorLiquido = Math.max(0, valorBruto - valorTaxas);
-      const preferredConciliacaoId =
-        groupedConcIds.find((id) => concRowIdsWithRateio.has(id)) ||
-        toStr(sourceRow?.id) ||
-        groupedConcIds[0] ||
-        `conc:${documento}`;
+
+      // Verifica se algum dos IDs do grupo tem rateio cadastrado
+      const rateioId = groupedConcIds.find((id) => concRowIdsWithRateio.has(id)) || null;
+      const rateio = rateioId ? concRateioMap.get(rateioId) || null : null;
+      const preferredConciliacaoId = rateioId || toStr(sourceRow?.id) || groupedConcIds[0] || `conc:${documento}`;
 
       const effectiveSaleDate = effectiveDate;
-
       const companyIdFromRows = sortedRows.map((row) => toStr(row?.company_id)).find(Boolean) || null;
 
-      return {
+      // ── Rateio: quando há divisão cadastrada, gera uma entrada por vendedor ──
+      // Exemplo: recibo 083933 = 50% Márcio + 50% Tatiana → duas entradas, cada uma com valor proporcional.
+      if (
+        rateio &&
+        isUuid(rateio.vendedor_origem_id) &&
+        isUuid(rateio.vendedor_destino_id) &&
+        rateio.percentual_origem > 0 &&
+        rateio.percentual_destino > 0
+      ) {
+        const allocations = [
+          { vendedorId: rateio.vendedor_origem_id!, fator: Math.min(1, rateio.percentual_origem / 100) },
+          { vendedorId: rateio.vendedor_destino_id!, fator: Math.min(1, rateio.percentual_destino / 100) },
+        ];
+
+        const results: EffectiveConciliacaoReceipt[] = [];
+        for (const { vendedorId: allocVendedorId, fator } of allocations) {
+          if (excludedVendedores && excludedVendedores.has(allocVendedorId)) continue;
+          if (allowedVendedores && !allowedVendedores.has(allocVendedorId)) continue;
+
+          const scale = (v: number) => Math.round(v * fator * 100) / 100;
+          results.push({
+            id: `${preferredConciliacaoId}::rateio:${allocVendedorId}`,
+            conciliacao_ids: groupedConcIds,
+            documento,
+            data_venda: effectiveSaleDate,
+            company_id: companyIdFromRows,
+            vendedor_id: allocVendedorId,
+            produto_id: produtoId,
+            linked_venda_id: linkedVendaId,
+            linked_recibo_id: linkedReciboId,
+            valor_bruto: scale(valorBruto) || null,
+            valor_taxas: scale(valorTaxas) || null,
+            valor_meta_override: scale(valorMeta) || null,
+            valor_liquido_override: scale(valorLiquido) || null,
+            valor_comissao_loja: sourceRow?.valor_comissao_loja != null ? scale(toNumber(sourceRow.valor_comissao_loja)) : null,
+            percentual_comissao_loja: sourceRow?.percentual_comissao_loja ?? null,
+            faixa_comissao: toStr(sourceRow?.faixa_comissao) || null,
+            is_seguro_viagem: isSeguro,
+            valor_nao_comissionavel: scale(valorNaoComissionavel),
+            cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null,
+            cancelado_por_conciliacao_observacao: linkedReciboMeta?.cancelado_por_conciliacao_observacao || null,
+            produto
+          });
+        }
+        return results;
+      }
+
+      // ── Sem rateio: comportamento original — um único recibo com vendedor atribuído ──
+      if (excludedVendedores && vendedorId && excludedVendedores.has(vendedorId)) return [];
+      if (allowedVendedores && (!vendedorId || !allowedVendedores.has(vendedorId))) return [];
+
+      return [{
         id: preferredConciliacaoId,
         conciliacao_ids: groupedConcIds,
         documento,
@@ -475,7 +551,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null,
         cancelado_por_conciliacao_observacao: linkedReciboMeta?.cancelado_por_conciliacao_observacao || null,
         produto
-      } satisfies EffectiveConciliacaoReceipt;
+      } satisfies EffectiveConciliacaoReceipt];
     })
     .filter((row): row is EffectiveConciliacaoReceipt => Boolean(row));
 }
