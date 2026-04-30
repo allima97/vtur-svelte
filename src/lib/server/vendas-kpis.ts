@@ -364,7 +364,10 @@ async function fetchResolvedRows(
   const rawRows = await fetchSalesReportRows(client, {
     companyIds: normalizedCompanyIds,
     vendedorIds: params.vendedorIds,
-    includeCancelled: false
+    includeCancelled: false,
+    dataInicio: params.dataInicio,
+    dataFim: params.dataFim,
+    filterByReceiptDate: true
   });
   let rows = toRateioShape(rawRows).filter((row) => !baixaRacSet.has(toStr(row?.vendedor_id)));
 
@@ -390,7 +393,10 @@ async function fetchResolvedRows(
         await fetchSalesReportRows(client, {
           companyIds: normalizedCompanyIds,
           vendaIds: splitSaleIds,
-          includeCancelled: false
+          includeCancelled: false,
+          dataInicio: params.dataInicio,
+          dataFim: params.dataFim,
+          filterByReceiptDate: true
         })
       ).filter((row) => !baixaRacSet.has(toStr(row?.vendedor_id)));
 
@@ -398,15 +404,25 @@ async function fetchResolvedRows(
     }
   }
 
-  const conciliacaoCompanyIds = await fetchConciliacaoCompanyIds(client, normalizedCompanyIds).catch(() => [] as string[]);
-  let concReceipts: any[] = [];
+  // Busca quais empresas têm conciliacao_sobrepoe_vendas ativo (para controle de override)
+  let conciliacaoCompanyIds: string[] = [];
+  try {
+    conciliacaoCompanyIds = await fetchConciliacaoCompanyIds(client, normalizedCompanyIds);
+  } catch {
+    conciliacaoCompanyIds = [];
+  }
 
-  if (conciliacaoCompanyIds.length > 0) {
+  // Busca recibos de conciliacao para TODAS as empresas do escopo,
+  // nao apenas para as que tem conciliacao_sobrepoe_vendas=true.
+  // Vendedores que so tem recibos de conciliacao (sem venda manual)
+  // tambem devem aparecer no ranking.
+  let concReceipts: any[] = [];
+  if (normalizedCompanyIds.length > 0) {
     try {
       concReceipts = await fetchEffectiveConciliacaoReceipts({
         client,
-        companyId: conciliacaoCompanyIds[0] || null,
-        companyIds: conciliacaoCompanyIds,
+        companyId: normalizedCompanyIds[0] || null,
+        companyIds: normalizedCompanyIds,
         inicio: params.dataInicio,
         fim: params.dataFim,
         vendedorIds: params.vendedorIds,
@@ -418,7 +434,7 @@ async function fetchResolvedRows(
     }
   }
 
-  if (params.vendedorIds.length > 0 && conciliacaoCompanyIds.length > 0) {
+  if (params.vendedorIds.length > 0 && normalizedCompanyIds.length > 0) {
     let splitConcQuery = client
       .from('vendas_recibos_rateio')
       .select('conciliacao_recibo_id')
@@ -446,8 +462,8 @@ async function fetchResolvedRows(
       try {
         concAll = await fetchEffectiveConciliacaoReceipts({
           client,
-          companyId: conciliacaoCompanyIds[0] || null,
-          companyIds: conciliacaoCompanyIds,
+          companyId: normalizedCompanyIds[0] || null,
+          companyIds: normalizedCompanyIds,
           inicio: params.dataInicio,
           fim: params.dataFim,
           vendedorIds: null,

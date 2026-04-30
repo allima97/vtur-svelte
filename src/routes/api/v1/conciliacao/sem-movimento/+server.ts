@@ -8,6 +8,17 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function isTableMissingError(error: any, tableName: string) {
+  const msg = String(error?.message || error || '').toLowerCase();
+  const code = String(error?.code || '').trim();
+  return (
+    code === '42P01' ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find') ||
+    msg.includes(tableName.toLowerCase())
+  );
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -31,7 +42,12 @@ export async function GET(event) {
       .order('data', { ascending: false })
       .limit(100);
 
-    if (error) throw error;
+    if (error) {
+      if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
+        return json({ ok: true, dias: [], tabela_nao_existe: true });
+      }
+      throw error;
+    }
 
     return json({ ok: true, dias: data || [] });
   } catch (err) {
@@ -87,7 +103,12 @@ export async function POST(event) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
+        return json({ error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente. Execute a migração 20260430_conciliacao_dias_sem_movimento.sql no Supabase.' }, { status: 503 });
+      }
+      throw error;
+    }
 
     return json({ ok: true, dia: data });
   } catch (err) {
@@ -121,7 +142,12 @@ export async function DELETE(event) {
       .eq('company_id', companyId)
       .eq('data', dataStr);
 
-    if (error) throw error;
+    if (error) {
+      if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
+        return json({ error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente.' }, { status: 503 });
+      }
+      throw error;
+    }
 
     return json({ ok: true });
   } catch (err) {

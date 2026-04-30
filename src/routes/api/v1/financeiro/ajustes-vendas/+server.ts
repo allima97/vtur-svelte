@@ -170,13 +170,13 @@ export async function POST(event) {
     }
 
     const body = await event.request.json();
-    const { ajuste_id, venda_recibo_id, vendedor_destino_id, percentual_destino, observacao } =
-      body;
+    const { ajuste_id, vendedor_destino_id, percentual_destino, observacao } = body;
 
-    const rawId = String(ajuste_id || venda_recibo_id || '')
-      .replace(/^vr:/, '')
-      .replace(/^cr:/, '')
-      .trim();
+    const ajusteIdRaw = String(ajuste_id || '').trim();
+    const isConciliacao = ajusteIdRaw.startsWith('cr:');
+    const isVendaRecibo = ajusteIdRaw.startsWith('vr:');
+    const rawId = ajusteIdRaw.replace(/^vr:/, '').replace(/^cr:/, '').trim();
+
     if (!isUuid(rawId)) return json({ error: 'ID do recibo inválido.' }, { status: 400 });
 
     const pct = Number(percentual_destino);
@@ -193,25 +193,43 @@ export async function POST(event) {
       return json({ error: 'Empresa não identificada.' }, { status: 400 });
     }
 
-    // Confirma que o recibo pertence à empresa do scope via join e obtém vendedor_origem_id
-    const { data: reciboRow, error: reciboErr } = await client
-      .from('vendas_recibos')
-      .select('id, vendas!inner(company_id, vendedor_id, cancelada)')
-      .eq('id', rawId)
-      .eq('vendas.cancelada', false)
-      .maybeSingle();
+    // Busca o recibo na tabela correta (vendas_recibos ou conciliacao_recibos)
+    let reciboCompany: string | null = null;
+    let vendedorOrigemId = '';
+    let conciliacaoReciboId: string | null = null;
+    let vendaReciboId: string | null = null;
 
-    if (reciboErr) throw reciboErr;
-    if (!reciboRow) return json({ error: 'Recibo não encontrado.' }, { status: 404 });
+    if (isConciliacao) {
+      const { data: concRow, error: concErr } = await client
+        .from('conciliacao_recibos')
+        .select('id, company_id, ranking_vendedor_id')
+        .eq('id', rawId)
+        .maybeSingle();
+      if (concErr) throw concErr;
+      if (!concRow) return json({ error: 'Recibo de conciliação não encontrado.' }, { status: 404 });
+      reciboCompany = String((concRow as any)?.company_id || '');
+      vendedorOrigemId = String((concRow as any)?.ranking_vendedor_id || '').trim();
+      conciliacaoReciboId = rawId;
+    } else {
+      const { data: reciboRow, error: reciboErr } = await client
+        .from('vendas_recibos')
+        .select('id, vendas!inner(company_id, vendedor_id, cancelada)')
+        .eq('id', rawId)
+        .eq('vendas.cancelada', false)
+        .maybeSingle();
+      if (reciboErr) throw reciboErr;
+      if (!reciboRow) return json({ error: 'Recibo não encontrado.' }, { status: 404 });
+      reciboCompany = (reciboRow as any)?.vendas?.company_id;
+      vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
+      vendaReciboId = rawId;
+    }
 
-    const reciboCompany = (reciboRow as any)?.vendas?.company_id;
     if (!scope.isAdmin && reciboCompany !== companyId) {
       return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403 });
     }
 
-    const vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
     if (!isUuid(vendedorOrigemId)) {
-      return json({ error: 'Venda sem vendedor válido para rateio.' }, { status: 400 });
+      return json({ error: 'Recibo sem vendedor válido para rateio.' }, { status: 400 });
     }
 
     if (vendedor_destino_id === vendedorOrigemId) {
@@ -253,8 +271,8 @@ export async function POST(event) {
     }
 
     const payload = {
-      venda_recibo_id: rawId,
-      conciliacao_recibo_id: null,
+      venda_recibo_id: vendaReciboId,
+      conciliacao_recibo_id: conciliacaoReciboId,
       company_id: reciboCompany ?? companyId,
       vendedor_origem_id: vendedorOrigemId,
       vendedor_destino_id,
@@ -266,11 +284,13 @@ export async function POST(event) {
       created_by: user.id
     };
 
-    const { data: existing } = await client
-      .from('vendas_recibos_rateio')
-      .select('id')
-      .eq('venda_recibo_id', rawId)
-      .maybeSingle();
+    let existingQuery = client.from('vendas_recibos_rateio').select('id');
+    if (vendaReciboId) {
+      existingQuery = existingQuery.eq('venda_recibo_id', vendaReciboId);
+    } else if (conciliacaoReciboId) {
+      existingQuery = existingQuery.eq('conciliacao_recibo_id', conciliacaoReciboId);
+    }
+    const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing?.id) {
       const { error: updateError } = await client

@@ -12,6 +12,7 @@
 
   type AjusteItem = {
     id: string;
+    recibo_tipo?: string;
     recibo_origem_id: string;
     venda_id: string;
     numero_recibo: string;
@@ -21,11 +22,12 @@
     vendedor_origem_id: string;
     vendedor_origem_nome: string;
     cliente_nome: string;
-    produto_nome: string;
+    produto_nome?: string;
     rateio: {
       id: string;
       ativo: boolean;
       vendedor_destino_id: string;
+      vendedor_destino_nome?: string;
       percentual_origem: number;
       percentual_destino: number;
       observacao: string | null;
@@ -96,7 +98,7 @@
       sortable: false,
       formatter: (_: any, row: AjusteItem) => {
         if (!row.rateio || !row.rateio.ativo) return '<span class="text-slate-400 text-xs">Sem rateio</span>';
-        const nome = row.rateio.vendedor_destino?.nome_completo || 'Vendedor';
+        const nome = row.rateio.vendedor_destino_nome || row.rateio.vendedor_destino?.nome_completo || 'Vendedor';
         return `<span class="text-xs">${nome} · ${row.rateio.percentual_destino}%</span>`;
       }
     }
@@ -109,7 +111,7 @@
       if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
       if (busca.trim()) params.set('q', busca.trim());
 
-      const response = await fetch(`/api/v1/financeiro/ajustes-vendas?${params.toString()}`);
+      const response = await fetch(`/api/v1/financeiro/ajustes-vendas/list?${params.toString()}`);
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       items = payload.items || [];

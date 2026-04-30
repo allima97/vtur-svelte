@@ -293,13 +293,22 @@ export async function POST(event) {
 
     // ── Validação: datas marcadas como "sem movimento" não podem receber importação ──
     const datasImportaveis = Array.from(new Set(importaveis.map((l) => String(l.movimento_data || '').trim()))).filter(Boolean);
-    const { data: diasSemMovimento } = await client
-      .from('conciliacao_dias_sem_movimento')
-      .select('data')
-      .eq('company_id', companyId)
-      .in('data', datasImportaveis);
+    let diasSemMovimento: any[] = [];
+    try {
+      const { data } = await client
+        .from('conciliacao_dias_sem_movimento')
+        .select('data')
+        .eq('company_id', companyId)
+        .in('data', datasImportaveis);
+      diasSemMovimento = data || [];
+    } catch (err: any) {
+      const msg = String(err?.message || err || '').toLowerCase();
+      const code = String(err?.code || '').trim();
+      const isMissing = code === '42P01' || msg.includes('does not exist') || msg.includes('could not find') || msg.includes('conciliacao_dias_sem_movimento');
+      if (!isMissing) throw err;
+    }
 
-    const datasBloqueadas = (diasSemMovimento || []).map((r: any) => String(r?.data || '')).filter(Boolean);
+    const datasBloqueadas = diasSemMovimento.map((r: any) => String(r?.data || '')).filter(Boolean);
     if (datasBloqueadas.length > 0) {
       const fmt = (d: string) => {
         const [y, m, dia] = d.split('-');

@@ -50,6 +50,7 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
   - **Detecção de diferenças na importação**: linhas com valores divergentes entre arquivo e venda cadastrada ficam em laranja no preview; modal de confirmação antes de importar
   - **Bloqueio cronológico com "sem movimento"**: `diagnosticarLacunasCronologicas` detecta buracos de data; usuário pode marcar explicitamente dias como "sem movimento" (`conciliacao_dias_sem_movimento`); uma vez marcado, não é possível importar arquivo para essa data
   - **Conciliação pura não aparece em vendas/relatórios**: `conciliacao_recibos` sem `venda_id` vão apenas para o ranking; relatório de vendas (`relatorios/vendas`) filtra synthetic vendas puras de conciliação
+  - **Ranking inclui conciliação independente de `conciliacao_sobrepoe_vendas`**: `fetchResolvedRows` em `vendas-kpis.ts` agora busca conciliação para TODAS as empresas do escopo, nao apenas para as com flag `conciliacao_sobrepoe_vendas = true`. A flag continua controlando apenas se conciliacao sobrescreve recibos manuais no merge, nao se e incluida no ranking
 - **Correção aplicada**: Dashboard financeiro (`financeiro/+page.svelte`) agora consome `/api/v1/conciliacao/summary` em vez de `/api/v1/pagamentos`, refletindo dados reais de conciliação nos KPIs
 
 #### 2.5. Relatório de Vendas (`relatorios/vendas`) ✅
@@ -58,6 +59,24 @@ Projeto: Migração completa do **vtur-app (Astro/React)** para **vtur-svelte (S
 - **Correção aplicada**:
   - `resolveScopedVendedorIds`: para GESTOR, agora usa `fetchVendedorIdsByCompanyIds(scope.companyIds)`, retornando TODOS os vendedores e gestores ativos da empresa (exceto ADMIN/MASTER e uso_individual).
   - `/api/v1/relatorios/base`: mesma lógica aplicada ao filtro de vendedores no carregamento da base analítica, garantindo que o dropdown de vendedor mostre todos os colaboradores da empresa.
+
+#### 2.6. Ranking (`relatorios/ranking`) ✅
+- **Problema**: Ranking com valores divergentes, performance degradada e escopo de vendedores incorreto.
+- **Causas identificadas**:
+  1. **Escopo de vendedores errado**: GESTOR via apenas a "equipe vinculada" (tabela `gestor_vendedor`) em vez de TODOS os vendedores da empresa. Vendedor comum via o ranking de TODOS os colegas em vez de apenas o próprio.
+  2. `fetchResolvedRows` em `vendas-kpis.ts` carregava **TODAS as vendas históricas** no escopo sem filtro de data no SQL.
+  3. Pipeline complexa com código morto (`buildPeriodRows` nunca era chamada) e múltiplas camadas de merge/dedup difíceis de auditar.
+- **Correções aplicadas**:
+  - **Escopo de vendedores corrigido**: GESTOR agora vê todos os vendedores/gestores elegíveis da(s) empresa(s). VENDEDOR comum vê apenas seu próprio ranking.
+  - **Montagem SIMPLIFICADA do ranking** (`buildRankingSimple` no próprio endpoint): abordagem direta e transparente:
+    1. Busca conciliação efetiva do período para as empresas do escopo.
+    2. Busca vendas manuais do período (filtro por data do recibo no SQL).
+    3. **Dedup por número de recibo + data**: recibos da conciliação têm prioridade; vendas manuais com mesmo número+data são ignoradas (não duplicam).
+    4. Soma bruto, taxas e seguro por vendedor (`ranking_vendedor_id` > `vendedor_id` da venda vinculada).
+  - `fetchResolvedRows` (vendas-kpis.ts): `fetchSalesReportRows` agora recebe `dataInicio`, `dataFim` e `filterByReceiptDate: true` (afeta também dashboard e relatórios).
+  - Endpoint `/api/v1/relatorios/ranking`: busca `parametros_comissao` (`usar_taxas_na_meta`, `foco_valor`) e calcula `base_meta` corretamente.
+  - Ordenação do ranking ajustada: gestores são sempre ordenados **após** vendedores comuns.
+  - Log de diagnóstico no console: `[ranking] buildRankingSimple` mostra quantidade de recibos de conciliação, vendas manuais e contributions geradas.
 
 #### 3. Comissões (`financeiro/comissoes`) ⚠️
 - **Diagnóstico atualizado**: o motor em `src/lib/server/comissoes.ts` já implementa muito mais do que o diagnóstico antigo indicava

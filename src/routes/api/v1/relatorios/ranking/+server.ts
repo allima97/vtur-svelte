@@ -10,21 +10,15 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+
 import {
-  fetchSalesReportRows,
-  getVendaVendedorNome
-} from '$lib/server/relatorios';
-import {
-  buildConciliacaoSyntheticVendas,
-  fetchEffectiveConciliacaoReceipts,
-  filterRecibosCanceladosMesmoMes
+  fetchEffectiveConciliacaoReceipts
 } from '$lib/conciliacao/source';
 import {
-  applyRateioToSalesForScopedVendedores,
-  fetchRateioByReciboIds,
-  fetchSplitSaleIdsForDestinationVendedores
-} from '$lib/vendas/rateio';
-import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
+  fetchSalesReportRows
+} from '$lib/server/relatorios';
+import { normalizeReceiptNumber } from '$lib/conciliacao/receiptNumber';
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const start = new Date(`${dataInicio}T00:00:00`);
@@ -78,6 +72,128 @@ function isSeguroRecibo(recibo: any) {
   const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
   const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
   return tipo.includes('seguro') || nome.includes('seguro');
+}
+
+/**
+ * Montagem SIMPLIFICADA do ranking — espelha dados da conciliação + vendas manuais.
+ * Prioridade: conciliação (já possui valor bruto, taxas, vendedor atribuído).
+ * Vendas manuais entram apenas para recibos que NÃO estão na conciliação (dedup por número+data).
+ */
+async function buildRankingSimple(
+  client: any,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+  }
+) {
+  const { dataInicio, dataFim, companyIds, vendedorIds } = params;
+
+  // 1. Buscar conciliação efetiva para o período e empresas do escopo
+  const concReceipts = await fetchEffectiveConciliacaoReceipts({
+    client,
+    companyId: companyIds[0] || null,
+    companyIds,
+    inicio: dataInicio,
+    fim: dataFim,
+    vendedorIds: vendedorIds.length > 0 ? vendedorIds : null,
+    excludeVendedorIds: undefined
+  });
+
+  // 2. Buscar vendas manuais do período (filtrando por data do recibo)
+  const salesRows = await fetchSalesReportRows(client, {
+    companyIds,
+    vendedorIds: vendedorIds.length > 0 ? vendedorIds : undefined,
+    includeCancelled: false,
+    dataInicio,
+    dataFim,
+    filterByReceiptDate: true
+  });
+
+  // 3. Dedup: recibos já contados pela conciliação (chave = número normalizado + data)
+  const seenReciboKeys = new Set<string>();
+
+  type Contribution = {
+    vendaKey: string;
+    reciboId?: string;
+    reciboNumero?: string;
+    vendedorId: string;
+    bruto: number;
+    taxas: number;
+    isSeguro: boolean;
+  };
+
+  const contributions: Contribution[] = [];
+
+  // 3a. Adicionar recibos da conciliação
+  for (const receipt of concReceipts) {
+    const vendedorId = String(receipt.vendedor_id || '').trim();
+    if (!vendedorId) continue;
+    if (vendedorIds.length > 0 && !vendedorIds.includes(vendedorId)) continue;
+
+    const numero = normalizeReceiptNumber(receipt.documento);
+    const data = String(receipt.data_venda || '').slice(0, 10);
+    const key = numero && data ? `${numero}::${data}` : `conc:${receipt.id}`;
+    if (seenReciboKeys.has(key)) continue;
+    seenReciboKeys.add(key);
+
+    const bruto = Math.max(0, Number(receipt.valor_bruto || 0));
+    const taxas = Math.max(0, Number(receipt.valor_taxas || 0));
+
+    contributions.push({
+      vendaKey: `conc:${receipt.id}`,
+      reciboId: receipt.id,
+      reciboNumero: receipt.documento,
+      vendedorId,
+      bruto,
+      taxas,
+      isSeguro: Boolean(receipt.is_seguro_viagem)
+    });
+  }
+
+  // 3b. Adicionar recibos manuais que NÃO estão na conciliação
+  for (const row of salesRows) {
+    const vendedorId = String(row?.vendedor_id || '').trim();
+    if (!vendedorId) continue;
+    if (vendedorIds.length > 0 && !vendedorIds.includes(vendedorId)) continue;
+
+    const recibos = Array.isArray((row as any)?.vendas_recibos) ? (row as any).vendas_recibos : [];
+    for (const recibo of recibos) {
+      const numero = normalizeReceiptNumber(recibo?.numero_recibo);
+      const data = String(recibo?.data_venda || '').slice(0, 10);
+      const key = numero && data ? `${numero}::${data}` : `venda:${row.id}:${recibo.id}`;
+
+      // Se este recibo já foi contado pela conciliação, pula (não duplica)
+      if (seenReciboKeys.has(key)) continue;
+      seenReciboKeys.add(key);
+
+      const bruto = Math.max(0, Number(recibo?.valor_total || 0));
+      const taxas = Math.max(0, Number(recibo?.valor_taxas || 0));
+      const isSeguro = isSeguroRecibo(recibo);
+
+      contributions.push({
+        vendaKey: `venda:${row.id}`,
+        reciboId: recibo.id,
+        reciboNumero: recibo.numero_recibo,
+        vendedorId,
+        bruto,
+        taxas,
+        isSeguro
+      });
+    }
+  }
+
+  console.log('[ranking] buildRankingSimple:', {
+    periodo: `${dataInicio} - ${dataFim}`,
+    empresas: companyIds.length,
+    vendedoresNoEscopo: vendedorIds.length,
+    conciliacaoRecibos: concReceipts.length,
+    vendasManuais: salesRows.length,
+    contributionsGeradas: contributions.length
+  });
+
+  return contributions;
 }
 
 async function fetchGestorEquipeVendedorIds(client: any, gestorId: string) {
@@ -172,7 +288,7 @@ export async function GET(event) {
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
     if (isGestorByType) {
-      const vendedorEquipeIds = await fetchGestorEquipeVendedorIds(client, scope.userId);
+      // Gestor vê TODOS os vendedores e gestores elegíveis da(s) empresa(s) do escopo
       const companyRankingUsers = companyIds.length > 0
         ? await (async () => {
             let companyUsersQuery = client
@@ -196,65 +312,19 @@ export async function GET(event) {
         .map((row: any) => String(row?.id || '').trim())
         .filter(Boolean);
 
-      const companyGestorIds = companyRankingUsers
-        .filter((row: any) => {
-          const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
-          const roleName = String(userType?.name || '').toUpperCase();
-          return roleName.includes('GESTOR');
-        })
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean);
-
-      const teamSellerIds = companyRankingUsers
-        .map((row: any) => String(row?.id || '').trim())
-        .filter((id) => vendedorEquipeIds.includes(id));
-
-      const scopedRankingIds = teamSellerIds.length > 0
-        ? Array.from(new Set([...teamSellerIds, ...companyGestorIds]))
-        : companyEligibleIds;
-
-      if (scopedRankingIds.length > 0) {
-        const { data: equipeData, error: equipeError } = await client
-          .from('users')
-          .select('id, active, uso_individual, participa_ranking, user_types(name)')
-          .in('id', scopedRankingIds)
-          .eq('active', true)
-          .limit(5000);
-
-        if (equipeError) throw equipeError;
-
-        const equipePermitidaIds = (equipeData || [])
-          .filter((row: any) => isRankingAllowedUser(row))
-          .map((row: any) => String(row?.id || '').trim())
-          .filter(Boolean);
-
-        if (explicitRequestedVendedorIds.length > 0) {
-          const permitidos = new Set(equipePermitidaIds);
-          vendedorIds = explicitRequestedVendedorIds.filter((id) => permitidos.has(id));
-        } else {
-          vendedorIds = equipePermitidaIds;
-        }
-      }
-    } else if (!isAdminByType && !isMasterByType && companyIds.length > 0) {
-      const { data: equipeData, error: equipeError } = await client
-        .from('users')
-        .select('id, active, uso_individual, participa_ranking, user_types(name)')
-        .in('company_id', companyIds)
-        .eq('active', true)
-        .limit(5000);
-
-      if (equipeError) throw equipeError;
-
-      const equipeIds = (equipeData || [])
-        .filter((row: any) => isRankingAllowedUser(row))
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean);
-
       if (explicitRequestedVendedorIds.length > 0) {
-        const permitidos = new Set(equipeIds);
+        const permitidos = new Set(companyEligibleIds);
         vendedorIds = explicitRequestedVendedorIds.filter((id) => permitidos.has(id));
       } else {
-        vendedorIds = equipeIds;
+        vendedorIds = companyEligibleIds;
+      }
+    } else if (!isAdminByType && !isMasterByType && companyIds.length > 0) {
+      // Vendedor comum vê apenas o próprio ranking
+      const selfId = String(scope.userId || '').trim();
+      if (explicitRequestedVendedorIds.length > 0) {
+        vendedorIds = explicitRequestedVendedorIds.filter((id) => id === selfId);
+      } else {
+        vendedorIds = selfId ? [selfId] : [];
       }
     }
 
@@ -275,6 +345,7 @@ export async function GET(event) {
     }
 
     const rankingTeamMap = new Map<string, { id: string; nome: string }>();
+    const gestorIdsSet = new Set<string>();
     if (vendedorIds.length > 0) {
       const { data: teamUsers, error: teamUsersError } = await client
         .from('users')
@@ -297,6 +368,11 @@ export async function GET(event) {
           id,
           nome
         });
+        const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
+        const roleName = String(userType?.name || '').toUpperCase();
+        if (roleName.includes('GESTOR')) {
+          gestorIdsSet.add(id);
+        }
       });
       vendedorIds = scopedIds;
     }
@@ -333,10 +409,12 @@ export async function GET(event) {
       : [];
 
     let conciliacaoSobrepoeVendas = false;
+    let usarTaxasNaMeta = true;
+    let focoValor: 'bruto' | 'liquido' = 'bruto';
     if (companyIds.length > 0) {
       const { data: parametrosRows, error: parametrosError } = await client
         .from('parametros_comissao')
-        .select('company_id, conciliacao_sobrepoe_vendas')
+        .select('company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor')
         .in('company_id', companyIds)
         .limit(1000);
 
@@ -345,171 +423,28 @@ export async function GET(event) {
       conciliacaoSobrepoeVendas = (parametrosRows || []).some((row: any) =>
         Boolean(row?.conciliacao_sobrepoe_vendas)
       );
+      usarTaxasNaMeta = (parametrosRows || []).some((row: any) =>
+        Boolean(row?.usar_taxas_na_meta)
+      );
+      const temFocoLiquido = (parametrosRows || []).some((row: any) =>
+        String(row?.foco_valor || '').toLowerCase() === 'liquido'
+      );
+      if (temFocoLiquido) focoValor = 'liquido';
     }
 
-    const mergeSalesRowsById = (baseRows: any[], extraRows: any[]) => {
-      const map = new Map<string, any>();
-      [...baseRows, ...extraRows].forEach((row) => {
-        const id = String(row?.id || '').trim();
-        if (!id) return;
-        if (!map.has(id)) map.set(id, row);
-      });
-      return Array.from(map.values());
-    };
-
-    const toRateioShape = (rows: any[]) =>
-      rows.map((row) => ({
-        ...row,
-        vendas_recibos: Array.isArray(row?.recibos)
-          ? row.recibos
-          : Array.isArray(row?.vendas_recibos)
-            ? row.vendas_recibos
-            : []
-      }));
-
-    const getConciliacaoIds = (item: any) => {
-      const ids = Array.isArray(item?.conciliacao_ids)
-        ? item.conciliacao_ids.map((value: any) => String(value || '').trim()).filter(Boolean)
-        : [];
-      if (ids.length > 0) return ids;
-      const id = String(item?.id || '').trim();
-      return id ? [id] : [];
-    };
-
-    const buildPeriodRows = async (periodStart: string, periodEnd: string) => {
-      let salesRows = toRateioShape(
-        await fetchSalesReportRows(client, {
-          dataInicio: periodStart,
-          dataFim: periodEnd,
-          companyIds,
-          vendedorIds
-        })
-      );
-
-      if (vendedorIds.length > 0) {
-        const splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(client, {
-          companyId: companyIds[0] || null,
-          companyIds,
-          vendedorIds
-        });
-
-        if (splitSaleIds.length > 0) {
-          const splitRows = toRateioShape(
-            await fetchSalesReportRows(client, {
-              dataInicio: periodStart,
-              dataFim: periodEnd,
-              companyIds,
-              vendaIds: splitSaleIds
-            })
-          );
-          salesRows = mergeSalesRowsById(salesRows, splitRows);
-        }
-      }
-
-      const concReceipts = await fetchEffectiveConciliacaoReceipts({
-        client,
-        companyId: companyIds[0] || null,
-        companyIds,
-        inicio: periodStart,
-        fim: periodEnd,
-        vendedorIds,
-        excludeVendedorIds: undefined
-      });
-
-      if (vendedorIds.length > 0) {
-        let splitConcQuery = client
-          .from('vendas_recibos_rateio')
-          .select('conciliacao_recibo_id')
-          .eq('ativo', true)
-          .in('vendedor_destino_id', vendedorIds)
-          .not('conciliacao_recibo_id', 'is', null);
-
-        if (companyIds.length > 0) {
-          splitConcQuery = splitConcQuery.in('company_id', companyIds);
-        }
-
-        const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
-        if (splitConcErr) throw splitConcErr;
-
-        const splitConcIdSet = new Set(
-          (splitConcRows || [])
-            .map((row: any) => String(row?.conciliacao_recibo_id || '').trim())
-            .filter(Boolean)
-        );
-
-        if (splitConcIdSet.size > 0) {
-          const concAll = await fetchEffectiveConciliacaoReceipts({
-            client,
-            companyId: companyIds[0] || null,
-            companyIds,
-            inicio: periodStart,
-            fim: periodEnd,
-            vendedorIds: null,
-            excludeVendedorIds: undefined
-          });
-
-          const seenConcIds = new Set((concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)));
-          concAll.forEach((item: any) => {
-            const candidateIds = getConciliacaoIds(item);
-            if (candidateIds.length === 0) return;
-            if (!candidateIds.some((id: string) => splitConcIdSet.has(id))) return;
-            if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
-            candidateIds.forEach((id: string) => seenConcIds.add(id));
-            concReceipts.push(item);
-          });
-        }
-      }
-
-      const overriddenReceiptIds = new Set(
-        concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
-      );
-
-      const baseSales = salesRows
-        .map((sale: any) => {
-          const recibos = Array.isArray(sale?.vendas_recibos) ? sale.vendas_recibos : [];
-          const withoutOverridden = conciliacaoSobrepoeVendas
-            ? recibos.filter(
-                (recibo: any) => !overriddenReceiptIds.has(String(recibo?.id || '').trim())
-              )
-            : recibos;
-
-          return {
-            ...sale,
-            vendas_recibos: filterRecibosCanceladosMesmoMes(withoutOverridden)
-          };
-        })
-        .filter((sale: any) => Array.isArray(sale?.vendas_recibos) && sale.vendas_recibos.length > 0);
-
-      const mergedSales =
-        concReceipts.length > 0
-          ? [...baseSales, ...buildConciliacaoSyntheticVendas(concReceipts)]
-          : baseSales;
-
-      if (mergedSales.length === 0) return mergedSales;
-
-      const reciboIds = mergedSales
-        .flatMap((sale: any) => (Array.isArray(sale?.vendas_recibos) ? sale.vendas_recibos : []))
-        .map((recibo: any) => String(recibo?.id || '').trim())
-        .filter(Boolean);
-
-      const rateioMap = await fetchRateioByReciboIds(client, reciboIds);
-      return applyRateioToSalesForScopedVendedores(mergedSales, rateioMap, vendedorIds);
-    };
-
-    const [currentKpiPayload, previousKpiPayload, quotesRes, metasRes] = await Promise.all([
-      fetchVendasKpiReciboContributions(client, {
+    // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
+    const [currentContributions, previousContributions, quotesRes, metasRes] = await Promise.all([
+      buildRankingSimple(client, {
         dataInicio,
         dataFim,
         companyIds,
-        vendedorIds,
-        accessibleClientIds
+        vendedorIds
       }),
-      fetchVendasKpiReciboContributions(client, {
+      buildRankingSimple(client, {
         dataInicio: previousPeriod.dataInicio,
         dataFim: previousPeriod.dataFim,
         companyIds,
-        vendedorIds,
-        accessibleClientIds
+        vendedorIds
       }),
       (async () => {
         let query = client
@@ -563,6 +498,7 @@ export async function GET(event) {
         meta: number;
         meta_seguro: number;
         total_seguro: number;
+        base_meta: number;
       }
     >();
     const previousRevenueMap = new Map<string, number>();
@@ -581,11 +517,12 @@ export async function GET(event) {
         total_orcamentos: 0,
         meta: 0,
         meta_seguro: 0,
-        total_seguro: 0
+        total_seguro: 0,
+        base_meta: 0
       });
     });
 
-    currentKpiPayload.contributions.forEach((contribution) => {
+    currentContributions.forEach((contribution) => {
       const vendedorId = String(contribution.vendedorId || '').trim();
       if (!vendedorId) return;
       const vendedorNomeFallback = rankingTeamMap.get(vendedorId)?.nome || vendedorId;
@@ -601,7 +538,8 @@ export async function GET(event) {
         total_orcamentos: 0,
         meta: 0,
         meta_seguro: 0,
-        total_seguro: 0
+        total_seguro: 0,
+        base_meta: 0
       };
 
       const saleKey = String(contribution.vendaKey || '').trim() || `sale:${vendedorId}`;
@@ -627,7 +565,7 @@ export async function GET(event) {
       current.total_recibos = receiptCountMap.get(vendedorId)?.size || 0;
     });
 
-    previousKpiPayload.contributions.forEach((contribution) => {
+    previousContributions.forEach((contribution) => {
       const vendedorId = String(contribution.vendedorId || '').trim();
       if (!vendedorId) return;
       previousRevenueMap.set(
@@ -651,7 +589,8 @@ export async function GET(event) {
         total_orcamentos: 0,
         meta: 0,
         meta_seguro: 0,
-        total_seguro: 0
+        total_seguro: 0,
+        base_meta: 0
       };
 
       current.total_orcamentos += 1;
@@ -673,7 +612,8 @@ export async function GET(event) {
         total_orcamentos: 0,
         meta: 0,
         meta_seguro: 0,
-        total_seguro: 0
+        total_seguro: 0,
+        base_meta: 0
       };
 
       current.meta += Number(meta?.meta_geral || 0);
@@ -707,12 +647,20 @@ export async function GET(event) {
         const ticketMedio = item.total_vendas > 0 ? item.total_receita / item.total_vendas : 0;
         const taxaConversao =
           item.total_orcamentos > 0 ? (item.total_vendas / item.total_orcamentos) * 100 : 0;
-        const alcanceMeta = item.meta > 0 ? (item.total_receita / item.meta) * 100 : 0;
+        // Paridade vtur-app: base da meta respeita foco_valor e usar_taxas_na_meta
+        const baseMeta =
+          focoValor === 'liquido'
+            ? totalLiquido
+            : usarTaxasNaMeta
+              ? item.total_receita
+              : totalLiquido;
+        const alcanceMeta = item.meta > 0 ? (baseMeta / item.meta) * 100 : 0;
         const alcanceMetaSeguro = item.meta_seguro > 0 ? (item.total_seguro / item.meta_seguro) * 100 : 0;
         const previousRevenue = previousRevenueMap.get(item.vendedor_id) || 0;
 
         return {
           ...item,
+          base_meta: baseMeta,
           total_liquido: totalLiquido,
           ticket_medio: ticketMedio,
           taxa_conversao: taxaConversao,
@@ -721,7 +669,13 @@ export async function GET(event) {
           tendencia: normalizeTendencia(item.total_receita, previousRevenue)
         };
       })
-      .sort((left, right) => right.total_receita - left.total_receita)
+      .sort((left, right) => {
+        // Paridade vtur-app: gestores sempre ficam depois dos vendedores
+        const leftGestor = gestorIdsSet.has(left.vendedor_id);
+        const rightGestor = gestorIdsSet.has(right.vendedor_id);
+        if (leftGestor !== rightGestor) return leftGestor ? 1 : -1;
+        return right.total_receita - left.total_receita;
+      })
       .map((item, index) => ({
         ...item,
         posicao: index + 1,

@@ -602,8 +602,11 @@ export async function diagnosticarLacunasCronologicas(params: {
     .eq('company_id', companyId)
     .gte('data', inicio60dStr);
 
-  if (semMovimentoErr && !String(semMovimentoErr.message || '').toLowerCase().includes('does not exist')) {
-    throw semMovimentoErr;
+  if (semMovimentoErr) {
+    const msg = String(semMovimentoErr.message || semMovimentoErr || '').toLowerCase();
+    const code = String((semMovimentoErr as any)?.code || '').trim();
+    const isMissing = code === '42P01' || msg.includes('does not exist') || msg.includes('could not find') || msg.includes('conciliacao_dias_sem_movimento');
+    if (!isMissing) throw semMovimentoErr;
   }
 
   const diasSemMovimento = Array.from(
