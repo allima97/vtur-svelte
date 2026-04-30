@@ -383,11 +383,9 @@
 
 <svelte:window on:keydown={handleWindowKeydown} />
 
-<div class="mx-auto flex w-full max-w-2xl flex-col gap-6">
-  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-
-    <!-- Display do resultado -->
-    <div class="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+<div class="mx-auto flex w-full max-w-md flex-col gap-3">
+  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
+    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <input
         bind:this={calcInput}
         type="text"
@@ -399,37 +397,36 @@
             evaluateCalc();
           }
         }}
-        class="w-full border-0 bg-transparent text-right text-[clamp(2.8rem,10vw,4rem)] font-semibold tracking-tight text-slate-900 outline-none"
+        class="w-full border-0 bg-transparent text-right text-[clamp(1.6rem,6vw,2.1rem)] font-semibold tracking-tight text-slate-900 outline-none"
         aria-label="Calculadora"
       />
     </div>
 
     {#if calcError}
-      <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-lg text-red-700">
+      <div class="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
         {calcError}
       </div>
     {/if}
 
-    <!-- Teclado numérico -->
-    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="mt-3 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">
       <div
-        class="grid gap-3 bg-transparent"
-        style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(72px, 14vw, 96px));"
+        class="grid gap-2 bg-transparent"
+        style="grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, clamp(42px, 8vw, 52px));"
       >
         {#each calculatorKeys as key}
           {@const buttonClass =
             key.variant === 'operator'
-              ? 'border-vendas-200 bg-vendas-50 text-vendas-700 hover:bg-vendas-100 active:bg-vendas-200'
+              ? 'border-vendas-200 bg-vendas-50 text-vendas-700 hover:bg-vendas-100'
               : key.variant === 'danger'
-                ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 active:bg-red-200'
+                ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
                 : key.variant === 'function'
-                  ? 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300'
-                  : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50 active:bg-slate-100'}
+                  ? 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'}
           <button
             type="button"
             on:click={() => handleCalculatorAction(key)}
             class={`flex items-center justify-center rounded-xl border font-semibold shadow-sm transition-colors ${buttonClass}`}
-            style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; font-size: ${key.label.length > 2 ? 'clamp(1.3rem,4vw,1.6rem)' : 'clamp(1.6rem,5vw,2rem)'};`}
+            style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; font-size: ${key.label.length > 2 ? 'clamp(0.76rem, 2.2vw, 0.88rem)' : 'clamp(0.95rem, 2.8vw, 1.05rem)'};`}
           >
             {key.label}
           </button>
@@ -437,18 +434,13 @@
       </div>
     </div>
 
-    <!-- Dica de teclado -->
-    <div class="mt-4 rounded-xl border border-slate-200 bg-white px-5 py-4 text-base text-slate-600 shadow-sm">
-      Use o teclado ou os botões. <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono">Enter</code> calcula,
-      <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono">Backspace</code> apaga,
-      <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono">Delete</code> limpa e
-      <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm font-mono">F9</code> inverte o sinal.
+    <div class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+      Use o teclado ou os botões. <code>Enter</code> calcula, <code>Backspace</code> apaga, <code>Delete</code> limpa e <code>F9</code> inverte o sinal.
     </div>
   </div>
 
-  <!-- Botões de ação -->
-  <div class="flex justify-between gap-4">
-    <Button variant="ghost" size="lg" on:click={clearCalc}>Limpar</Button>
-    <Button variant="primary" color="vendas" size="lg" on:click={evaluateCalc}>Calcular</Button>
+  <div class="flex justify-between">
+    <Button variant="ghost" on:click={clearCalc}>Limpar</Button>
+    <Button variant="primary" color="vendas" on:click={evaluateCalc}>Calcular</Button>
   </div>
 </div>

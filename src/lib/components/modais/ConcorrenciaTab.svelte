@@ -257,42 +257,38 @@
   }
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- CONTEÚDO DA ABA CONCORRÊNCIA                                            -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-
-<div class="space-y-6">
+<div class="space-y-4">
 
   <!-- ── Cabeçalho da seção ────────────────────────────────────────────── -->
   <div class="flex items-center justify-between">
     <div>
-      <h4 class="text-base font-semibold text-slate-800">Análise de Concorrência</h4>
-      <p class="text-xs text-slate-500 mt-0.5">Compare valores e calcule o melhor preço final para o cliente</p>
+      <h4 class="text-lg font-semibold text-slate-800">Análise de Concorrência</h4>
+      <p class="text-sm text-slate-500 mt-0.5">Compare valores e calcule o melhor preço final para o cliente</p>
     </div>
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      class_name="gap-1.5 text-slate-500 hover:text-indigo-600"
+      class_name="gap-2 text-slate-500 hover:text-indigo-600"
       on:click={() => mostrarConfig = !mostrarConfig}
     >
-      <Settings size={15} />
-      <span class="text-xs font-medium">Formas de Pagamento</span>
+      <Settings size={17} />
+      <span class="text-sm font-medium">Formas de Pagamento</span>
     </Button>
   </div>
 
   <!-- ── Painel de Configuração de Formas ─────────────────────────────── -->
   {#if mostrarConfig}
-    <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h5 class="text-sm font-semibold text-indigo-800">⚙️ Configurar Formas de Pagamento</h5>
+    <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 p-5 space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <h5 class="text-base font-semibold text-indigo-800">⚙️ Configurar Formas de Pagamento</h5>
         <div class="flex gap-2">
-          <Button type="button" variant="ghost" size="xs"
+          <Button type="button" variant="ghost" size="sm"
             class_name={abaConfig === 'padrao' ? 'bg-white border border-indigo-200 text-indigo-700' : 'text-slate-500'}
             on:click={() => abaConfig = 'padrao'}>
             Pacotes / Hotel / Aéreo / Seguro
           </Button>
-          <Button type="button" variant="ghost" size="xs"
+          <Button type="button" variant="ghost" size="sm"
             class_name={abaConfig === 'ingressos' ? 'bg-white border border-indigo-200 text-indigo-700' : 'text-slate-500'}
             on:click={() => abaConfig = 'ingressos'}>
             Ingressos (Disney / Universal)
@@ -300,43 +296,40 @@
         </div>
       </div>
 
-      <!-- Lista de formas existentes -->
       <div class="space-y-2">
         {#each (abaConfig === 'padrao' ? config.padrao : config.ingressos) as forma (forma.id)}
           <div class="bg-white rounded-lg border border-slate-100 p-3">
             <div class="flex items-center justify-between gap-3">
-              <span class="text-sm font-medium text-slate-700 flex-1">{forma.label}</span>
+              <span class="text-base font-medium text-slate-700 flex-1">{forma.label}</span>
               {#if forma.tipo === 'simples'}
                 <div class="flex items-center gap-2">
-                  <span class="text-xs text-slate-500">Desconto:</span>
+                  <span class="text-sm text-slate-500">Desconto:</span>
                   <input
-                    type="number"
-                    min="0" max="100" step="0.5"
+                    type="number" min="0" max="100" step="0.5"
                     value={forma.desconto}
                     on:change={(e) => atualizarDesconto(forma.id, abaConfig, Number((e.target as HTMLInputElement).value))}
-                    class="w-16 text-sm text-center border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    class="w-20 text-base text-center border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                   />
-                  <span class="text-xs text-slate-500">%</span>
+                  <span class="text-sm text-slate-500">%</span>
                 </div>
               {:else}
-                <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Crédito (faixas)</span>
+                <span class="text-sm bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Crédito (faixas)</span>
               {/if}
-              <Button type="button" variant="ghost" size="xs" class_name="text-red-400 hover:text-red-600 p-1"
+              <Button type="button" variant="ghost" size="sm" class_name="text-red-400 hover:text-red-600 p-1"
                 on:click={() => removerForma(forma.id, abaConfig)}>
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </Button>
             </div>
-            <!-- Faixas de crédito -->
             {#if forma.tipo === 'credito' && forma.faixas}
-              <div class="mt-2 grid grid-cols-2 gap-2">
+              <div class="mt-2 grid grid-cols-3 gap-2">
                 {#each forma.faixas as faixa, fi}
-                  <div class="flex items-center gap-2 text-xs text-slate-600">
-                    <span class="w-28">{faixa.de === faixa.ate ? `${faixa.de}x` : `${faixa.de} a ${faixa.ate}x`}:</span>
+                  <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="w-24">{faixa.de === faixa.ate ? `${faixa.de}x` : `${faixa.de}–${faixa.ate}x`}:</span>
                     <input
                       type="number" min="0" max="100" step="0.5"
                       value={faixa.desconto}
                       on:change={(e) => atualizarFaixa(forma.id, abaConfig, fi, Number((e.target as HTMLInputElement).value))}
-                      class="w-14 text-center border border-slate-200 rounded-md px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      class="w-16 text-center border border-slate-200 rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
                     />
                     <span>%</span>
                   </div>
@@ -347,21 +340,20 @@
         {/each}
       </div>
 
-      <!-- Adicionar nova forma -->
       <div class="border-t border-indigo-100 pt-3 space-y-2">
-        <p class="text-xs font-semibold text-indigo-700">Adicionar nova forma de pagamento:</p>
-        <div class="flex gap-2 items-end">
-          <div class="flex-1">
+        <p class="text-sm font-semibold text-indigo-700">Adicionar nova forma de pagamento:</p>
+        <div class="flex gap-2 items-end flex-wrap">
+          <div class="flex-1 min-w-40">
             <input
               type="text"
               bind:value={novaForma.label}
               placeholder="Nome da forma (ex: Transferência)"
-              class="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              class="w-full text-base border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
           <select
             bind:value={novaForma.tipo}
-            class="text-sm border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            class="text-base border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
           >
             <option value="simples">Desconto fixo</option>
             <option value="credito">Crédito (faixas)</option>
@@ -371,19 +363,19 @@
               <input
                 type="number" min="0" max="100" step="0.5"
                 bind:value={novaForma.desconto}
-                class="w-16 text-sm text-center border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                class="w-20 text-base text-center border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
-              <span class="text-xs text-slate-500">%</span>
+              <span class="text-sm text-slate-500">%</span>
             </div>
           {/if}
           <Button type="button" variant="primary" color="vendas" size="sm" on:click={adicionarForma}>
-            <Plus size={14} />
+            <Plus size={16} />
           </Button>
         </div>
       </div>
 
       <div class="flex justify-end">
-        <Button type="button" variant="ghost" size="xs" class_name="text-slate-500 text-xs"
+        <Button type="button" variant="ghost" size="sm" class_name="text-slate-500"
           on:click={restaurarPadrao}>
           Restaurar padrão
         </Button>
@@ -391,13 +383,13 @@
     </div>
   {/if}
 
-  <!-- ── Grid principal ────────────────────────────────────────────────── -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- ── Grid principal 3 colunas: Entradas | Forma de Pagamento | Resultados ── -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
 
-    <!-- ════ Coluna esquerda — Entradas ════ -->
-    <div class="space-y-4">
+    <!-- ════ Coluna 1 — Entradas ════ -->
+    <div class="space-y-3">
 
-      <!-- Valores CVC e Concorrente -->
+      <!-- Valores CVC e Concorrente lado a lado -->
       <div class="grid grid-cols-2 gap-3">
         <FieldInput
           id="conc-valor-cvc"
@@ -411,7 +403,7 @@
         />
         <FieldInput
           id="conc-valor-concorrente"
-          label="Valor Concorrente (R$)"
+          label="Concorrente (R$)"
           type="number"
           bind:value={calc.valorConcorrente}
           min="0"
@@ -421,7 +413,6 @@
         />
       </div>
 
-      <!-- Desconto Autorizado CVC — entrada manual -->
       <FieldInput
         id="conc-desconto-autorizado"
         label="Desconto Autorizado CVC (%)"
@@ -434,7 +425,6 @@
         icon={Percent}
       />
 
-      <!-- Tipo de Pacote -->
       <FieldSelect
         id="conc-tipo-pacote"
         label="Tipo de Pacote"
@@ -443,7 +433,6 @@
         placeholder={null}
       />
 
-      <!-- Taxas — sempre visível, padrão 0 -->
       <FieldInput
         id="conc-taxas"
         label="Taxas (R$)"
@@ -453,40 +442,39 @@
         step="0.01"
         placeholder="0,00"
         icon={DollarSign}
-        helper={temTaxas ? `Desconto aplicado sobre ${fmt(baseDesconto)} (sem taxas). Taxas somadas ao final.` : 'Deixe 0 se não houver taxas'}
+        helper={temTaxas ? `Desconto sobre ${fmt(baseDesconto)} (sem taxas)` : 'Deixe 0 se não houver taxas'}
       />
+    </div>
 
-      <!-- Forma de Pagamento — dropdown -->
+    <!-- ════ Coluna 2 — Forma de Pagamento ════ -->
+    <div class="space-y-3">
       {#if calc.tipoPacote}
         <FieldSelect
           id="conc-forma-pagamento"
           label="Forma de Pagamento"
           bind:value={calc.formaPagamentoId}
-          placeholder="Selecione a forma de pagamento"
+          placeholder="Selecione a forma"
           options={formasDisponiveis.map(f => ({ value: f.id, label: f.label }))}
           on:change={() => { calc.parcelas = 1; }}
         />
 
-        <!-- Painel visual: desconto(s) da forma selecionada -->
         {#if formaSelecionada}
           <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
 
             {#if formaSelecionada.tipo === 'simples'}
-              <!-- Forma simples: um único card de desconto -->
-              <div class="flex items-center justify-between rounded-lg bg-white border border-indigo-200 px-3 py-2.5">
+              <div class="flex items-center justify-between rounded-lg bg-white border border-indigo-200 px-4 py-3">
                 <div>
-                  <p class="text-xs text-slate-500">Desconto</p>
-                  <p class="text-sm font-bold text-indigo-700">{fmtPct(formaSelecionada.desconto ?? 0)}</p>
+                  <p class="text-sm text-slate-500">Desconto</p>
+                  <p class="text-lg font-bold text-indigo-700">{fmtPct(formaSelecionada.desconto ?? 0)}</p>
                 </div>
                 <div class="text-right">
-                  <p class="text-xs text-slate-500">Total a pagar</p>
-                  <p class="text-sm font-bold text-green-700">{fmt(totalAPagar)}</p>
+                  <p class="text-sm text-slate-500">Total a pagar</p>
+                  <p class="text-lg font-bold text-green-700">{fmt(totalAPagar)}</p>
                 </div>
               </div>
 
             {:else if formaSelecionada.faixas}
-              <!-- Cartão de crédito: um card por faixa, clicável para selecionar parcelas -->
-              <p class="text-xs font-semibold text-slate-500 mb-1">Escolha o número de parcelas:</p>
+              <p class="text-sm font-semibold text-slate-500">Escolha o número de parcelas:</p>
               <div class="grid grid-cols-2 gap-2">
                 {#each formaSelecionada.faixas as faixa}
                   {#each Array.from({ length: faixa.ate - faixa.de + 1 }, (_, i) => faixa.de + i) as p}
@@ -501,17 +489,15 @@
                       type="button"
                       on:click={() => calc.parcelas = p}
                       class="rounded-lg border px-3 py-2 text-left transition-all
-                        {ativo
-                          ? 'border-indigo-400 bg-indigo-50 shadow-sm'
-                          : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'}"
+                        {ativo ? 'border-indigo-400 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'}"
                     >
-                      <p class="text-xs font-semibold {ativo ? 'text-indigo-700' : 'text-slate-600'}">
+                      <p class="text-sm font-semibold {ativo ? 'text-indigo-700' : 'text-slate-600'}">
                         {p === 1 ? 'À vista' : `${p}x`}
                       </p>
                       <p class="text-xs {ativo ? 'text-indigo-500' : 'text-slate-400'}">
-                        Desconto {descontoP > 0 ? fmtPct(descontoP) : '—'}
+                        {descontoP > 0 ? fmtPct(descontoP) : '—'}
                       </p>
-                      <p class="text-xs font-bold {ativo ? 'text-green-700' : 'text-slate-500'} mt-0.5">
+                      <p class="text-sm font-bold {ativo ? 'text-green-700' : 'text-slate-500'} mt-0.5">
                         {p > 1 ? `${p}x ${fmt(parcelaP)}` : fmt(totalP)}
                       </p>
                     </button>
@@ -522,96 +508,93 @@
 
           </div>
         {/if}
+      {:else}
+        <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 flex items-center justify-center">
+          <p class="text-sm text-slate-400 text-center">Selecione o tipo de pacote para ver as formas de pagamento</p>
+        </div>
       {/if}
-
     </div>
 
-    <!-- ════ Coluna direita — Resultados ════ -->
+    <!-- ════ Coluna 3 — Resultados ════ -->
     <div class="space-y-3">
 
-      <!-- Bloco: Comparativo -->
+      <!-- Resumo comparativo -->
       <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Resumo</h5>
+        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Resumo</h5>
 
-        <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-          <span class="text-sm text-slate-600">Valor CVC</span>
-          <span class="font-semibold text-slate-800">{fmt(calc.valorCVC)}</span>
+        <div class="flex justify-between items-center py-2 border-b border-slate-100">
+          <span class="text-base text-slate-600">Valor CVC</span>
+          <span class="text-base font-semibold text-slate-800">{fmt(calc.valorCVC)}</span>
         </div>
-        <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-          <span class="text-sm text-slate-600">Valor Concorrente</span>
-          <span class="font-semibold text-slate-800">{fmt(calc.valorConcorrente)}</span>
+        <div class="flex justify-between items-center py-2 border-b border-slate-100">
+          <span class="text-base text-slate-600">Concorrente</span>
+          <span class="text-base font-semibold text-slate-800">{fmt(calc.valorConcorrente)}</span>
         </div>
 
         {#if calc.valorCVC > 0 && calc.valorConcorrente > 0}
-          <!-- Diferença -->
-          <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <span class="text-sm text-red-600">Diferença ({fmtPct(diferencaPct)})</span>
-            <span class="font-semibold text-red-600">{fmt(diferencaReais)}</span>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-base text-red-600">Diferença ({fmtPct(diferencaPct)})</span>
+            <span class="text-base font-semibold text-red-600">{fmt(diferencaReais)}</span>
           </div>
-
-          <!-- Desconto Autorizado -->
-          <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <span class="text-sm text-amber-700">Desconto Autorizado CVC ({fmtPct(calc.descontoAutorizadoPct)})</span>
-            <span class="font-semibold text-amber-700">{fmt(descontoAutorizadoReais)}</span>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-base text-amber-700">Desconto Aut. ({fmtPct(calc.descontoAutorizadoPct)})</span>
+            <span class="text-base font-semibold text-amber-700">{fmt(descontoAutorizadoReais)}</span>
           </div>
-
-          <!-- Valor Final após Concorrência -->
-          <div class="rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-2.5 flex justify-between items-center mt-1">
-            <span class="text-sm font-bold text-indigo-800">Valor Final após Concorrência</span>
-            <span class="font-bold text-lg text-indigo-700">{fmt(valorFinalConcorrencia)}</span>
+          <div class="rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 flex justify-between items-center mt-1">
+            <span class="text-base font-bold text-indigo-800">Após Concorrência</span>
+            <span class="font-bold text-xl text-indigo-700">{fmt(valorFinalConcorrencia)}</span>
           </div>
         {:else}
           <div class="rounded-lg bg-slate-100 px-3 py-3 flex items-center gap-2 text-slate-400">
             <AlertTriangle size={16} />
-            <span class="text-xs">Informe os valores CVC e Concorrente</span>
+            <span class="text-sm">Informe os valores CVC e Concorrente</span>
           </div>
         {/if}
       </div>
 
-      <!-- Bloco: Total a Pagar — aparece assim que forma selecionada -->
+      <!-- Total a Pagar -->
       {#if calc.formaPagamentoId && calc.valorCVC > 0 && calc.valorConcorrente > 0}
         <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-          <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Pagamento — {formaSelecionada?.label}{ehCredito && calc.parcelas > 1 ? ` (${calc.parcelas}x)` : ''}</h5>
+          <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            {formaSelecionada?.label}{ehCredito && calc.parcelas > 1 ? ` · ${calc.parcelas}x` : ''}
+          </h5>
 
-          <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-            <span class="text-sm text-slate-600">Valor após Concorrência</span>
-            <span class="font-semibold text-slate-800">{fmt(valorFinalConcorrencia)}</span>
+          <div class="flex justify-between items-center py-2 border-b border-slate-100">
+            <span class="text-base text-slate-600">Após Concorrência</span>
+            <span class="text-base font-semibold text-slate-800">{fmt(valorFinalConcorrencia)}</span>
           </div>
 
           {#if temTaxas}
-            <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-              <span class="text-sm text-slate-500">(-) Taxas (excluídas da base)</span>
-              <span class="font-medium text-orange-600">-{fmt(calc.valorTaxas)}</span>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+              <span class="text-base text-slate-500">(-) Taxas</span>
+              <span class="text-base font-medium text-orange-600">-{fmt(calc.valorTaxas)}</span>
             </div>
-            <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-              <span class="text-sm text-slate-500">Base de desconto</span>
-              <span class="font-medium text-slate-700">{fmt(baseDesconto)}</span>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+              <span class="text-base text-slate-500">Base desconto</span>
+              <span class="text-base font-medium text-slate-700">{fmt(baseDesconto)}</span>
             </div>
           {/if}
 
-          <div class="flex justify-between items-start py-1.5 border-b border-slate-100 gap-2">
+          <div class="flex justify-between items-start py-2 border-b border-slate-100 gap-2">
             <div class="flex flex-col">
-              <span class="text-sm text-slate-600">
-                Desconto {formaSelecionada?.label}{ehCredito && calc.parcelas > 1 ? ` ${calc.parcelas}x` : ''}
-              </span>
-              <span class="text-xs text-slate-400">({fmtPct(descontoFormaPct)} sobre o valor após concorrência)</span>
+              <span class="text-base text-slate-600">Desconto {formaSelecionada?.label}{ehCredito && calc.parcelas > 1 ? ` ${calc.parcelas}x` : ''}</span>
+              <span class="text-xs text-slate-400">{fmtPct(descontoFormaPct)}</span>
             </div>
-            <span class="font-semibold text-green-600 whitespace-nowrap">-{fmt(valorDescontoForma)}</span>
+            <span class="text-base font-semibold text-green-600 whitespace-nowrap">-{fmt(valorDescontoForma)}</span>
           </div>
 
           {#if temTaxas}
-            <div class="flex justify-between items-center py-1.5 border-b border-slate-100">
-              <span class="text-sm text-slate-500">(+) Taxas somadas ao total</span>
-              <span class="font-medium text-orange-600">+{fmt(calc.valorTaxas)}</span>
+            <div class="flex justify-between items-center py-2 border-b border-slate-100">
+              <span class="text-base text-slate-500">(+) Taxas</span>
+              <span class="text-base font-medium text-orange-600">+{fmt(calc.valorTaxas)}</span>
             </div>
           {/if}
 
-          <!-- Total a Pagar -->
-          <div class="rounded-lg bg-green-100 border border-green-200 px-3 py-3 mt-1">
+          <div class="rounded-lg bg-green-100 border border-green-200 px-4 py-3 mt-1">
             <div class="flex justify-between items-center">
               <div>
-                <p class="text-sm font-bold text-green-800">Total a Pagar</p>
-                <p class="text-xs text-green-600">
+                <p class="text-base font-bold text-green-800">Total a Pagar</p>
+                <p class="text-sm text-green-600">
                   {#if ehCredito && calc.parcelas > 1}
                     {calc.parcelas}x de {fmt(valorParcela)}
                   {:else}
@@ -623,14 +606,13 @@
             </div>
           </div>
 
-          <!-- Economia do cliente -->
           {#if calc.valorCVC > totalAPagar}
-            <div class="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
-              <CheckCircle size={15} class="text-emerald-600 flex-shrink-0" />
+            <div class="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2.5">
+              <CheckCircle size={17} class="text-emerald-600 flex-shrink-0" />
               <div>
-                <p class="text-xs font-semibold text-emerald-700">Economia do cliente</p>
-                <p class="text-xs text-emerald-600">{fmt(calc.valorCVC - totalAPagar)}</p>
-                <p class="text-xs text-emerald-500">{fmtPct((calc.valorCVC - totalAPagar) / calc.valorCVC * 100)} sobre o preço original CVC</p>
+                <p class="text-sm font-semibold text-emerald-700">Economia do cliente</p>
+                <p class="text-base font-bold text-emerald-600">{fmt(calc.valorCVC - totalAPagar)}</p>
+                <p class="text-xs text-emerald-500">{fmtPct((calc.valorCVC - totalAPagar) / calc.valorCVC * 100)} sobre o preço CVC</p>
               </div>
             </div>
           {/if}
@@ -641,7 +623,7 @@
   </div>
 
   <!-- Botão Limpar -->
-  <div class="flex justify-start pt-2">
+  <div class="flex justify-start">
     <Button type="button" variant="ghost" size="sm" on:click={limpar} class_name="text-slate-500">
       Limpar campos
     </Button>
