@@ -17,8 +17,9 @@ import { json } from '@sveltejs/kit';
 import {
   getAdminClient,
   requireAuthenticatedUser,
-  toErrorResponse
+  toErrorResponse,
 } from '$lib/server/v1';
+import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 
 export async function GET(event) {
   try {
@@ -222,6 +223,18 @@ export async function POST(event) {
     if (action === 'fix_vendor') {
       const { vendedor_id } = body;
       if (!vendedor_id) return json({ error: 'vendedor_id é obrigatório' }, { status: 400 });
+
+      // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
+      const { data: registroRec } = await client
+        .from('conciliacao_recibos')
+        .select('company_id')
+        .eq('id', id)
+        .maybeSingle();
+      const companyIdRec = String(registroRec?.company_id || '').trim() || null;
+      const equipeVturVendedor = await findEquipeVturVendedor(client, companyIdRec);
+      if (equipeVturVendedor?.id && vendedor_id === equipeVturVendedor.id) {
+        return json({ error: 'Não é permitido atribuir "Equipe vtur" como vendedor de um recibo.' }, { status: 422 });
+      }
 
       const { data, error } = await client
         .from('conciliacao_recibos')

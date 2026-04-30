@@ -10,6 +10,7 @@ import {
 } from '$lib/server/v1';
 import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
 import { resolveResendApiKey, resolveFromEmails } from '$lib/server/emailSettings';
+import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
@@ -199,7 +200,12 @@ export async function POST(event) {
     const conciliacaoId = String(body?.conciliacaoId || '').trim();
     if (!isUuid(conciliacaoId)) return json({ error: 'ID de conciliação inválido.' }, { status: 400 });
 
-    const rankingVendedorId = String(body?.rankingVendedorId || '').trim() || null;
+    const rankingVendedorIdRaw = String(body?.rankingVendedorId || '').trim() || null;
+    // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
+    const equipeVturVendedor = rankingVendedorIdRaw ? await findEquipeVturVendedor(client, companyId) : null;
+    const rankingVendedorId = (equipeVturVendedor?.id && rankingVendedorIdRaw === equipeVturVendedor.id)
+      ? null
+      : rankingVendedorIdRaw;
     const rankingProdutoId = String(body?.rankingProdutoId || '').trim() || null;
     const vendaId = String(body?.vendaId || '').trim() || null;
     const vendaReciboId = String(body?.vendaReciboId || '').trim() || null;

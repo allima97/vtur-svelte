@@ -1,5 +1,6 @@
 import { buildConciliacaoMetrics, isConciliacaoEfetivada } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
+import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 
 const EPS = 0.01;
 
@@ -756,6 +757,10 @@ async function reconcilePendentesCompany(params: {
     return true;
   });
 
+  // Carrega o ID do vendedor "Equipe vtur" para proteger atribuição automática
+  const equipeVturVendedor = await findEquipeVturVendedor(client, params.companyId);
+  const equipeVturId = equipeVturVendedor?.id ?? null;
+
   let checked = 0;
   let reconciled = 0;
   let updatedTaxes = 0;
@@ -902,7 +907,10 @@ async function reconcilePendentesCompany(params: {
     }
 
     const rankingVendedorAtual = String(row.ranking_vendedor_id || '').trim() || null;
-    const rankingVendedorResolvido = rankingVendedorAtual || recibo.vendedor_id || null;
+    const vendedorIdDaVenda = String(recibo.vendedor_id || '').trim() || null;
+    // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
+    const vendedorIdDaVendaValido = (equipeVturId && vendedorIdDaVenda === equipeVturId) ? null : vendedorIdDaVenda;
+    const rankingVendedorResolvido = rankingVendedorAtual || vendedorIdDaVendaValido || null;
     const updatePayload: Record<string, any> = {
       venda_id: recibo.venda_id,
       venda_recibo_id: recibo.id,

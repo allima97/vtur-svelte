@@ -15,6 +15,7 @@ import {
   resolveConciliacaoStatus,
 } from '$lib/conciliacao/business';
 import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
+import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 
 // ---------------------------------------------------------------------------
 // Helpers de número de recibo
@@ -349,6 +350,10 @@ export async function POST(event) {
       existentesByFallbackKey.set(fk, bucket);
     }
 
+    // ── Carrega o ID do vendedor "Equipe vtur" para proteger atribuição ──
+    const equipeVturVendedor = await findEquipeVturVendedor(client, companyId);
+    const equipeVturId = equipeVturVendedor?.id ?? null;
+
     // ── Build de cada linha a inserir/atualizar ───────────────────────────
     const buildRow = async (l: ConciliacaoLinhaInput) => {
       const statusResolvido = resolveConciliacaoStatus({
@@ -385,7 +390,10 @@ export async function POST(event) {
         });
 
         if (found?.recibo) {
-          rankingVendedorId = rankingVendedorId || String(found.recibo.vendedor_id || '').trim() || null;
+          const vendedorIdCandidato = String(found.recibo.vendedor_id || '').trim() || null;
+          // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
+          const vendedorIdValido = (equipeVturId && vendedorIdCandidato === equipeVturId) ? null : vendedorIdCandidato;
+          rankingVendedorId = rankingVendedorId || vendedorIdValido;
           vendaId = vendaId || String(found.recibo.venda_id || '').trim() || null;
           vendaReciboId = vendaReciboId || String(found.recibo.id || '').trim() || null;
         }

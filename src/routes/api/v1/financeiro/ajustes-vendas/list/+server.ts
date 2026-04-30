@@ -305,7 +305,7 @@ export async function GET(event: RequestEvent) {
 
     const vendedores = (vendedoresData || []).map((row: any) => ({
       id: String(row?.id || ""),
-      nome: String(row?.nome_completo || "Sem nome"),
+      nome_completo: String(row?.nome_completo || "Sem nome"),
     }));
 
     return json({ items, vendedores }, {

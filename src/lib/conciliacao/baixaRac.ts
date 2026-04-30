@@ -1,6 +1,33 @@
 export const BAIXA_RAC_USER_NAME = "Baixa RAC";
 export const BAIXA_RAC_DESCRICAO = "BAIXA DE RAC";
 
+export const EQUIPE_VTUR_USER_NAME = "Equipe vtur";
+
+export function isEquipeVturNome(value?: string | null) {
+  return String(value || "").trim().toLowerCase() === EQUIPE_VTUR_USER_NAME.toLowerCase();
+}
+
+export async function findEquipeVturVendedor(client: any, companyId: string | null) {
+  if (!companyId) return null;
+
+  const { data, error } = await client
+    .from("users")
+    .select("id, nome_completo")
+    .eq("company_id", companyId)
+    .eq("active", true)
+    .ilike("nome_completo", EQUIPE_VTUR_USER_NAME)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data || !data.id) return null;
+
+  return {
+    id: String(data.id).trim(),
+    nome_completo: String(data.nome_completo || EQUIPE_VTUR_USER_NAME).trim(),
+  };
+}
+
 export function normalizeBaixaRacText(value?: string | null) {
   return String(value || "")
     .normalize("NFD")
