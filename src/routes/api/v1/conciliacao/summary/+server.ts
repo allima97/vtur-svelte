@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
 
 function isConciliacaoEfetivada(row: any) {
   const raw = String(row?.descricao || row?.status || '')
@@ -53,18 +54,27 @@ export async function GET(event) {
         })()
       : new Date().toISOString().slice(0, 10);
 
-    const { data, error: queryError } = await client
-      .from('conciliacao_recibos')
-      .select(
-        'id, movimento_data, status, descricao, conciliado, venda_id, ranking_vendedor_id, valor_calculada_loja, valor_lancamentos, is_baixa_rac'
-      )
-      .in('company_id', companyIds)
-      .gte('movimento_data', inicio)
-      .lte('movimento_data', fim)
-      .limit(5000);
-    if (queryError) throw queryError;
+    // companyId primário para diagnóstico cronológico (usa o primeiro do escopo)
+    const companyIdDiag = companyIds[0];
 
-    const rows = data || [];
+    const [queryResult, diagnostico] = await Promise.all([
+      client
+        .from('conciliacao_recibos')
+        .select(
+          'id, movimento_data, status, descricao, conciliado, venda_id, ranking_vendedor_id, valor_calculada_loja, valor_lancamentos, is_baixa_rac'
+        )
+        .in('company_id', companyIds)
+        .gte('movimento_data', inicio)
+        .lte('movimento_data', fim)
+        .limit(5000),
+      companyIdDiag
+        ? diagnosticarLacunasCronologicas({ client, companyId: companyIdDiag })
+        : Promise.resolve(null)
+    ]);
+
+    if (queryResult.error) throw queryResult.error;
+
+    const rows = queryResult.data || [];
     const efetivados = rows.filter((row: any) => isConciliacaoEfetivada(row));
     const pendentes = efetivados.filter((row: any) => !row.conciliado);
     const semRanking = efetivados.filter((row: any) => !row.venda_id && !row.ranking_vendedor_id);
@@ -85,6 +95,22 @@ export async function GET(event) {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, value]) => ({ date, value }));
 
+    // Monta alerta de bloqueio cronológico (apenas se houver lacunas)
+    const lacunaCronologica = diagnostico && diagnostico.diasFaltantes.length > 0
+      ? {
+          fronteira: diagnostico.fronteira,
+          dias_faltantes: diagnostico.diasFaltantes,
+          dias_bloqueados: diagnostico.diasBloqueados,
+          registros_bloqueados: diagnostico.registrosBloqueados,
+          aviso: `A conciliação está bloqueada a partir de ${diagnostico.fronteira}. ` +
+            `Importe os arquivos dos dias: ${diagnostico.diasFaltantes.map(d => {
+              const [y, m, dia] = d.split('-');
+              return `${dia}/${m}/${y}`;
+            }).join(', ')} ` +
+            `para liberar ${diagnostico.registrosBloqueados} registro(s) bloqueado(s).`
+        }
+      : null;
+
     return json({
       periodo: { inicio, fim },
       total: rows.length,
@@ -93,7 +119,8 @@ export async function GET(event) {
       semRanking: semRanking.length,
       baixaRac: baixaRac.length,
       totalValor,
-      timeline
+      timeline,
+      ...(lacunaCronologica ? { lacuna_cronologica: lacunaCronologica } : {})
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar resumo da conciliação.');

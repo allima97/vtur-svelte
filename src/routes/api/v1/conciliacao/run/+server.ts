@@ -7,7 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { reconcilePendentes } from '$lib/server/conciliacaoReconcile';
+import { reconcilePendentes, diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
 
 export async function POST(event) {
   try {
@@ -31,19 +31,42 @@ export async function POST(event) {
     const recalculateAllMonth = Boolean(body?.recalculateAllMonth);
     const isTargeted = Boolean(conciliacaoReciboId || recalculateAllMonth);
 
-    const result = await reconcilePendentes({
-      client,
-      companyId,
-      limit,
-      conciliacaoReciboId,
-      onlyCurrentMonth: !isTargeted,
-      recalculateMonth,
-      recalculateAllMonth,
-      actor: 'user',
-      actorUserId: user.id
-    });
+    // Executa a reconciliação e o diagnóstico cronológico em paralelo
+    const [result, diagnostico] = await Promise.all([
+      reconcilePendentes({
+        client,
+        companyId,
+        limit,
+        conciliacaoReciboId,
+        onlyCurrentMonth: !isTargeted,
+        recalculateMonth,
+        recalculateAllMonth,
+        actor: 'user',
+        actorUserId: user.id
+      }),
+      // Só inclui diagnóstico quando não é reconciliação por ID específico
+      !conciliacaoReciboId
+        ? diagnosticarLacunasCronologicas({ client, companyId })
+        : Promise.resolve(null)
+    ]);
 
-    return json({ ok: true, ...result });
+    // Inclui alerta de bloqueio cronológico na resposta quando há lacunas
+    const bloqueio = diagnostico && diagnostico.diasFaltantes.length > 0
+      ? {
+          fronteira_cronologica: diagnostico.fronteira,
+          dias_faltantes: diagnostico.diasFaltantes,
+          dias_bloqueados: diagnostico.diasBloqueados,
+          registros_bloqueados: diagnostico.registrosBloqueados,
+          aviso: `Conciliação bloqueada a partir de ${diagnostico.fronteira}. ` +
+            `Faltam os arquivos dos dias: ${diagnostico.diasFaltantes.map(d => {
+              const [y, m, dia] = d.split('-');
+              return `${dia}/${m}/${y}`;
+            }).join(', ')}. ` +
+            `Importe esses arquivos para liberar ${diagnostico.registrosBloqueados} registro(s) bloqueado(s).`
+        }
+      : null;
+
+    return json({ ok: true, ...result, ...(bloqueio ? { bloqueio } : {}) });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao executar conciliação.');
   }

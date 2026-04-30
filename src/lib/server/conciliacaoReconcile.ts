@@ -84,13 +84,16 @@ function buildReciboSearchPatterns(value?: string | null) {
   const prefix = extractReciboPrefix(value);
   const patterns = new Set<string>();
 
-  if (core) patterns.add(core);
-  if (significantCore && significantCore !== core) patterns.add(significantCore);
+  // Bug 3 fix: use %…% wildcards so ilike searches actually find partial matches.
+  // Without them, e.g. core="0000084046" would only match the exact string "0000084046"
+  // instead of "5630-0000084046" or similar vendor receipt numbers.
+  if (core) patterns.add(`%${core}%`);
+  if (significantCore && significantCore !== core) patterns.add(`%${significantCore}%`);
   if (prefix && core) patterns.add(`${prefix}%${core}`);
   if (prefix && significantCore) patterns.add(`${prefix}%${significantCore}`);
-  if (digits && digits !== core && digits !== significantCore) patterns.add(digits);
+  if (digits && digits !== core && digits !== significantCore) patterns.add(`%${digits}%`);
 
-  return Array.from(patterns).filter((item) => item.length >= 5);
+  return Array.from(patterns).filter((item) => item.replace(/%/g, '').length >= 5);
 }
 
 function round2(value: number) {
@@ -334,6 +337,108 @@ async function findReciboByNumero(params: {
   });
 }
 
+export type DiagnosticoCronologico = {
+  /** Último dia que forma uma sequência contínua sem lacunas. null = nenhum registro. */
+  fronteira: string | null;
+  /** Dias faltantes entre a fronteira e o dia máximo importado. */
+  diasFaltantes: string[];
+  /** Todos os dias importados (distintos). */
+  diasImportados: string[];
+  /** Dias importados após a fronteira que estão bloqueados para conciliação. */
+  diasBloqueados: string[];
+  /** Quantidade de registros pendentes de conciliação que estão bloqueados (além da fronteira). */
+  registrosBloqueados: number;
+};
+
+/**
+ * Determina a "fronteira cronológica" de conciliação para uma empresa e
+ * diagnostica quais dias estão faltando / bloqueados.
+ *
+ * Regra: a conciliação só pode avançar de forma contínua. Dado o conjunto de
+ * datas já importadas (distintas, ordenadas), encontra a maior data D tal que
+ * TODOS os dias de D_min até D existam no banco (sem lacunas). Qualquer dia
+ * posterior a essa fronteira fica bloqueado para conciliação até que os dias
+ * intermediários sejam importados.
+ */
+export async function diagnosticarLacunasCronologicas(params: {
+  client: any;
+  companyId: string;
+}): Promise<DiagnosticoCronologico> {
+  const { client, companyId } = params;
+
+  // Busca todos os movimento_data distintos da empresa, ordem crescente
+  const { data, error } = await client
+    .from('conciliacao_recibos')
+    .select('movimento_data')
+    .eq('company_id', companyId)
+    .order('movimento_data', { ascending: true });
+
+  if (error) throw error;
+
+  const diasImportados = Array.from(
+    new Set((data || []).map((r: any) => String(r?.movimento_data || '').trim()).filter(Boolean))
+  ).sort() as string[];
+
+  if (diasImportados.length === 0) {
+    return { fronteira: null, diasFaltantes: [], diasImportados: [], diasBloqueados: [], registrosBloqueados: 0 };
+  }
+
+  // Percorre a sequência e para onde houver um salto > 1 dia
+  let frontier = diasImportados[0];
+  let gapIndex = -1;
+  for (let i = 1; i < diasImportados.length; i++) {
+    const prev = new Date(`${diasImportados[i - 1]}T12:00:00Z`);
+    const curr = new Date(`${diasImportados[i]}T12:00:00Z`);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86_400_000);
+    if (diffDays > 1) {
+      gapIndex = i;
+      break;
+    }
+    frontier = diasImportados[i];
+  }
+
+  // Se não há lacuna, tudo está ok
+  if (gapIndex === -1) {
+    return { fronteira: frontier, diasFaltantes: [], diasImportados, diasBloqueados: [], registrosBloqueados: 0 };
+  }
+
+  // Calcula os dias faltantes entre a fronteira e o próximo dia importado
+  const diasFaltantes: string[] = [];
+  const cursor = new Date(`${frontier}T12:00:00Z`);
+  const nextImported = new Date(`${diasImportados[gapIndex]}T12:00:00Z`);
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (cursor < nextImported) {
+    diasFaltantes.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  // Dias bloqueados = todos os dias importados após a fronteira
+  const diasBloqueados = diasImportados.slice(gapIndex);
+
+  // Conta registros pendentes de conciliação nesses dias bloqueados
+  let registrosBloqueados = 0;
+  if (diasBloqueados.length > 0) {
+    const { count } = await client
+      .from('conciliacao_recibos')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('conciliado', false)
+      .gt('movimento_data', frontier);
+    registrosBloqueados = Number(count || 0);
+  }
+
+  return { fronteira: frontier, diasFaltantes, diasImportados, diasBloqueados, registrosBloqueados };
+}
+
+/** Versão interna sem diagnóstico completo — usada no filtro da query de reconciliação. */
+async function resolverFronteiraCronologica(params: {
+  client: any;
+  companyId: string;
+}): Promise<string | null> {
+  const result = await diagnosticarLacunasCronologicas(params);
+  return result.fronteira;
+}
+
 async function reconcilePendentesCompany(params: {
   limit?: number;
   companyId: string;
@@ -348,18 +453,36 @@ async function reconcilePendentesCompany(params: {
   const actorUserId = params.actorUserId || null;
   const client = params.client;
 
+  // Determina a fronteira cronológica para a empresa.
+  // Ao reconciliar por lote (sem ID específico), só processa registros cujo
+  // movimento_data não ultrapasse a fronteira — garantindo que a conciliação
+  // avance de forma contínua e sem lacunas de dias.
+  let fronteiraCronologica: string | null = null;
+  if (!params.conciliacaoReciboId) {
+    fronteiraCronologica = await resolverFronteiraCronologica({
+      client,
+      companyId: params.companyId
+    });
+  }
+
   let query = client
     .from('conciliacao_recibos')
     .select(
       'id, company_id, documento, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, ranking_vendedor_id, conciliado, venda_recibo_id, venda_id'
     )
     .eq('company_id', params.companyId)
-    .order('movimento_data', { ascending: false });
+    // Ordem cronológica: processa do dia mais antigo para o mais recente,
+    // garantindo que a conciliação avance sequencialmente no tempo.
+    .order('movimento_data', { ascending: true });
 
   if (params.conciliacaoReciboId) {
     query = query.eq('id', params.conciliacaoReciboId);
   } else {
     query = query.eq('conciliado', false).limit(limit);
+    // Aplica a fronteira cronológica: só concilia até o último dia contíguo
+    if (fronteiraCronologica) {
+      query = query.lte('movimento_data', fronteiraCronologica);
+    }
   }
 
   if (params.onlyCurrentMonth && !params.conciliacaoReciboId) {

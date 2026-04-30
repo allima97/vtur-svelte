@@ -14,6 +14,11 @@ import {
   buildConciliacaoMetrics,
   resolveConciliacaoStatus,
 } from '$lib/conciliacao/business';
+import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
+
+// ---------------------------------------------------------------------------
+// Helpers de número de recibo
+// ---------------------------------------------------------------------------
 
 function normalizeNumeroRecibo(value: string) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -72,6 +77,10 @@ function numeroReciboMatches(left?: string | null, right?: string | null) {
 function matches(a: number, b: number) {
   return Math.abs(a - b) <= 0.01;
 }
+
+// ---------------------------------------------------------------------------
+// Busca de recibos no sistema (para auto-link de vendedor)
+// ---------------------------------------------------------------------------
 
 type ReciboCandidate = {
   id: string;
@@ -206,6 +215,10 @@ async function findReciboByNumero(params: {
   return escolhido ? { recibo: escolhido } : null;
 }
 
+// ---------------------------------------------------------------------------
+// Chaves de deduplicação de importação
+// ---------------------------------------------------------------------------
+
 function buildImportKey(
   companyId: string,
   movimentoData?: string | null,
@@ -219,6 +232,24 @@ function buildImportKey(
     normalizeConciliacaoDescricaoKey(descricao)
   ].join('::');
 }
+
+/** Chave sem descrição — usada no fallbackMap para capturar o mesmo recibo
+ *  que veio com descrição levemente diferente em importações subsequentes. */
+function buildImportFallbackKey(
+  companyId: string,
+  movimentoData?: string | null,
+  documento?: string | null
+) {
+  return [
+    companyId,
+    String(movimentoData || '').trim(),
+    String(documento || '').trim()
+  ].join('::');
+}
+
+// ---------------------------------------------------------------------------
+// Handler principal
+// ---------------------------------------------------------------------------
 
 export async function POST(event) {
   try {
@@ -239,7 +270,7 @@ export async function POST(event) {
     const linhas: ConciliacaoLinhaInput[] = Array.isArray(body?.linhas) ? body.linhas : [];
     if (linhas.length === 0) return json({ error: 'Nenhuma linha para importar.' }, { status: 400 });
 
-    // Filtra apenas linhas importáveis
+    // Filtra apenas linhas importáveis (BAIXA / OPFAX / ESTORNO)
     const importaveis = linhas.filter((linha) =>
       isConciliacaoImportavel({ status: linha.status, descricao: linha.descricao })
     );
@@ -248,6 +279,7 @@ export async function POST(event) {
       return json({ ok: true, importados: 0, ignorados: linhas.length, message: 'Nenhuma linha com status importável (BAIXA/OPFAX/ESTORNO).' });
     }
 
+    // ── Validação: todas as linhas precisam ter data de movimento ─────────
     const semDataMovimento = importaveis.filter((linha) => !String(linha.movimento_data || '').trim());
     if (semDataMovimento.length > 0) {
       return json(
@@ -259,6 +291,7 @@ export async function POST(event) {
       );
     }
 
+    // ── Busca registros já existentes (exactMap + fallbackMap) ────────────
     const { data: existentes } = await client
       .from('conciliacao_recibos')
       .select('id, documento, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')
@@ -266,15 +299,26 @@ export async function POST(event) {
       .in('documento', importaveis.map((l) => l.documento))
       .limit(5000);
 
-    const existentesByKey = new Map(
+    // Mapa exato: chave = companyId::data::documento::descricao
+    const existentesByKey = new Map<string, any>(
       (existentes || []).map((row: any) => [
         buildImportKey(companyId, row.movimento_data, row.documento, row.descricao),
         row
       ])
     );
 
+    // Mapa fallback: chave = companyId::data::documento (sem descrição)
+    // Usado quando a descrição mudou levemente entre importações (evita duplicatas)
+    const existentesByFallbackKey = new Map<string, any[]>();
+    for (const row of existentes || []) {
+      const fk = buildImportFallbackKey(companyId, (row as any).movimento_data, (row as any).documento);
+      const bucket = existentesByFallbackKey.get(fk) || [];
+      bucket.push(row);
+      existentesByFallbackKey.set(fk, bucket);
+    }
+
+    // ── Build de cada linha a inserir/atualizar ───────────────────────────
     const buildRow = async (l: ConciliacaoLinhaInput) => {
-      // Resolve status + compute all metrics via shared business logic
       const statusResolvido = resolveConciliacaoStatus({
         status: l.status,
         descricao: l.descricao,
@@ -331,7 +375,6 @@ export async function POST(event) {
         valor_visao_master: l.valor_visao_master ?? null,
         valor_opfax: l.valor_opfax ?? null,
         valor_saldo: l.valor_saldo ?? null,
-        // Computed metrics (authoritative — overrides whatever was sent)
         valor_venda_real: metrics.valorVendaReal,
         valor_comissao_loja: metrics.valorComissaoLoja,
         percentual_comissao_loja: metrics.percentualComissaoLoja,
@@ -346,23 +389,43 @@ export async function POST(event) {
       };
     };
 
-    const rowsToInsert = [];
+    const usedExistingIds = new Set<string>();
+    const rowsToInsert: any[] = [];
     const rowsToUpdate: Array<{ id: string; values: Record<string, any> }> = [];
+
     for (const l of importaveis) {
       const row = await buildRow(l);
-      const existing = existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao));
+
+      // 1ª tentativa: chave exata (inclui descrição normalizada)
+      let existing: any =
+        existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)) || null;
+
+      // 2ª tentativa: chave fallback (sem descrição) — evita duplicatas por variação de descrição
+      if (!existing) {
+        const fk = buildImportFallbackKey(companyId, l.movimento_data, l.documento);
+        const candidates = (existentesByFallbackKey.get(fk) || []).filter(
+          (c: any) => !usedExistingIds.has(String(c.id))
+        );
+        if (candidates.length > 0) {
+          // Prefere o registro com mesmos valores financeiros; fallback: o mais recente (primeiro)
+          existing = candidates[0];
+        }
+      }
 
       if (existing?.id) {
+        usedExistingIds.add(String(existing.id));
         const values = { ...row };
         delete (values as any).company_id;
         rowsToUpdate.push({
           id: String(existing.id),
           values: {
             ...values,
+            // Preserva atribuições manuais de vendedor/produto/venda já existentes
             ranking_vendedor_id: values.ranking_vendedor_id ?? existing.ranking_vendedor_id ?? null,
             ranking_produto_id: values.ranking_produto_id ?? existing.ranking_produto_id ?? null,
             venda_id: values.venda_id ?? existing.venda_id ?? null,
             venda_recibo_id: values.venda_recibo_id ?? existing.venda_recibo_id ?? null,
+            // Reseta estado de conciliação para reprocessamento
             match_total: null,
             match_taxas: null,
             sistema_valor_total: null,
@@ -378,6 +441,7 @@ export async function POST(event) {
       }
     }
 
+    // ── Persist ───────────────────────────────────────────────────────────
     let atualizados = 0;
     for (const item of rowsToUpdate) {
       const { error: updateError } = await client
@@ -398,12 +462,47 @@ export async function POST(event) {
       importados += batch.length;
     }
 
+    // ── Diagnóstico cronológico pós-importação ────────────────────────────
+    // Informa imediatamente ao usuário se ainda há lacunas após o upload,
+    // ou seja, se a conciliação ficará bloqueada por dias faltantes.
+    const diagnostico = await diagnosticarLacunasCronologicas({ client, companyId });
+
+    const fmt = (d: string) => {
+      const [y, m, dia] = d.split('-');
+      return `${dia}/${m}/${y}`;
+    };
+
+    const temLacuna = diagnostico.diasFaltantes.length > 0;
+    const statusCronologico = temLacuna
+      ? {
+          ok: false,
+          fronteira: diagnostico.fronteira,
+          dias_faltantes: diagnostico.diasFaltantes,
+          dias_bloqueados: diagnostico.diasBloqueados,
+          registros_bloqueados: diagnostico.registrosBloqueados,
+          aviso:
+            `Arquivo salvo com sucesso, mas a conciliação está bloqueada a partir de ${fmt(diagnostico.fronteira!)}. ` +
+            `Ainda faltam os arquivos dos dias: ${diagnostico.diasFaltantes.map(fmt).join(', ')}. ` +
+            `Importe esses arquivos para liberar ${diagnostico.registrosBloqueados} registro(s) bloqueado(s).`
+        }
+      : {
+          ok: true,
+          fronteira: diagnostico.fronteira,
+          dias_faltantes: [],
+          dias_bloqueados: [],
+          registros_bloqueados: 0,
+          aviso: diagnostico.fronteira
+            ? `Sequência OK até ${fmt(diagnostico.fronteira)}. Conciliação liberada.`
+            : 'Primeiro arquivo importado.'
+        };
+
     return json({
       ok: true,
       importados,
       atualizados,
       ignorados: linhas.length - importaveis.length,
-      duplicados: atualizados
+      duplicados: atualizados,
+      status_cronologico: statusCronologico
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao importar conciliação.');
