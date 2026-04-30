@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 
 export type ReportReceiptRow = {
   id?: string | null;
@@ -334,7 +335,9 @@ export function getVendaClienteEmail(row: Pick<ReportVendaRow, 'clientes'>) {
 }
 
 export function getVendaVendedorNome(row: Pick<ReportVendaRow, 'vendedor'>) {
-  return String(row.vendedor?.nome_completo || row.vendedor?.email || 'Equipe VTUR');
+  const nome = String(row.vendedor?.nome_completo || '').trim();
+  if (nome && !isEquipeVturNome(nome)) return nome;
+  return String(row.vendedor?.email || 'Vendedor nao informado');
 }
 
 export function getVendaDestino(row: Pick<ReportVendaRow, 'destinos' | 'destino_cidade' | 'recibos'>) {

@@ -838,7 +838,9 @@ async function reconcilePendentesCompany(params: {
       // já atribuído manualmente devem ser marcados como conciliados — eles são
       // dos vendedores que só lançam via conciliação (sem venda no sistema).
       // Sem isso, ficam presos em conciliado=false para sempre e nunca saem do lote.
-      const rankingVendedorManual = String(row.ranking_vendedor_id || '').trim() || null;
+      const rankingVendedorManualRaw = String(row.ranking_vendedor_id || '').trim() || null;
+      const rankingVendedorManual =
+        equipeVturId && rankingVendedorManualRaw === equipeVturId ? null : rankingVendedorManualRaw;
       if (rankingVendedorManual) {
         await client.from('conciliacao_recibos').update({
           conciliado: true,
@@ -906,7 +908,9 @@ async function reconcilePendentesCompany(params: {
       }
     }
 
-    const rankingVendedorAtual = String(row.ranking_vendedor_id || '').trim() || null;
+    const rankingVendedorAtualRaw = String(row.ranking_vendedor_id || '').trim() || null;
+    const rankingVendedorAtual =
+      equipeVturId && rankingVendedorAtualRaw === equipeVturId ? null : rankingVendedorAtualRaw;
     const vendedorIdDaVenda = String(recibo.vendedor_id || '').trim() || null;
     // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
     const vendedorIdDaVendaValido = (equipeVturId && vendedorIdDaVenda === equipeVturId) ? null : vendedorIdDaVenda;

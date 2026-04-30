@@ -8,7 +8,7 @@ import {
 } from '$lib/server/v1';
 import { normalizeText, titleCaseNome } from '$lib/normalizeText';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas/contratoCvcExtractor';
-import { ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
+import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -317,6 +317,11 @@ export async function POST(event) {
 
     if (!isUuid(vendedorId)) {
       return new Response('Vendedor inválido.', { status: 400 });
+    }
+
+    const deniedSeller = await ensureAssignableActiveSeller(client, scope, vendedorId);
+    if (deniedSeller) {
+      return new Response(deniedSeller, { status: 403 });
     }
 
     if (vendedorId !== user.id && !scope.isAdmin && !scope.isMaster) {

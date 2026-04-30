@@ -1,4 +1,5 @@
 import { calcularValorVendaReal, isConciliacaoEfetivada, resolveConciliacaoStatus } from '$lib/conciliacao/business';
+import { EQUIPE_VTUR_USER_NAME } from '$lib/conciliacao/baixaRac';
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -156,6 +157,26 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     new Set([companyId, ...(companyIds || [])].map((value) => toStr(value)).filter(Boolean))
   );
   if (normalizedCompanyIds.length === 0) return [] as EffectiveConciliacaoReceipt[];
+
+  const equipeVturIds = new Set<string>();
+  try {
+    let equipeQuery = client
+      .from('users')
+      .select('id')
+      .ilike('nome_completo', EQUIPE_VTUR_USER_NAME);
+    equipeQuery =
+      normalizedCompanyIds.length === 1
+        ? equipeQuery.eq('company_id', normalizedCompanyIds[0])
+        : equipeQuery.in('company_id', normalizedCompanyIds);
+    const { data: equipeRows, error: equipeError } = await equipeQuery;
+    if (equipeError) throw equipeError;
+    (equipeRows || []).forEach((row: any) => {
+      const id = toStr(row?.id);
+      if (id) equipeVturIds.add(id);
+    });
+  } catch (error) {
+    console.warn('[source] falha ao carregar Equipe vtur, seguindo sem filtro:', error);
+  }
 
   const pageSize = 1000;
   const relevantDocs = new Set<string>();
@@ -523,13 +544,16 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const fallbackRecibo = !linkedReciboIdFromConc ? reciboByNumeroMap.get(documento) || null : null;
       const linkedReciboId = linkedReciboIdFromConc || fallbackRecibo?.id || null;
       const linkedVendaId = linkedVendaIdFromConc || fallbackRecibo?.venda_id || null;
-      const linkedVendedorId = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
+      const linkedVendedorIdRaw = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
+      const linkedVendedorId =
+        linkedVendedorIdRaw && !equipeVturIds.has(linkedVendedorIdRaw) ? linkedVendedorIdRaw : null;
       // Prefer the ranking_vendedor_id from the sourceRow first (it is the "effective" row),
       // then fall back to any other row in the group (e.g. a manual override on a different
       // date entry for the same document).
       const rankingVendedorId =
-        toStr(sourceRow?.ranking_vendedor_id) ||
-        sortedRows.map((row) => toStr(row?.ranking_vendedor_id)).find(Boolean) ||
+        [toStr(sourceRow?.ranking_vendedor_id), ...sortedRows.map((row) => toStr(row?.ranking_vendedor_id))]
+          .filter(Boolean)
+          .find((id) => !equipeVturIds.has(id)) ||
         null;
       const vendedorId = rankingVendedorId || linkedVendedorId || null;
 

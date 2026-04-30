@@ -34,6 +34,7 @@ import {
 } from '$lib/vendas/rateio';
 import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
 import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
+import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -130,6 +131,43 @@ function calcularValorPagamento(pagamento: PagamentoNaoComissionavelInput) {
 function addToMap(map: Map<string, number>, key: string, value: number) {
   if (!key || value <= 0) return;
   map.set(key, (map.get(key) || 0) + value);
+}
+
+async function hydrateMissingVendedores(client: any, rows: any[]) {
+  const missingIds = Array.from(
+    new Set(
+      rows
+        .filter((row) => row?.vendedor_id && !row?.vendedor)
+        .map((row) => toStr(row.vendedor_id))
+        .filter(Boolean)
+    )
+  );
+
+  if (missingIds.length === 0) return rows;
+
+  const vendedorMap = new Map<string, { nome_completo?: string | null; email?: string | null }>();
+  for (let index = 0; index < missingIds.length; index += 200) {
+    const batch = missingIds.slice(index, index + 200);
+    const { data, error } = await client
+      .from('users')
+      .select('id, nome_completo, email')
+      .in('id', batch);
+    if (error) throw error;
+    (data || []).forEach((row: any) => {
+      const id = toStr(row?.id);
+      if (!id) return;
+      vendedorMap.set(id, {
+        nome_completo: row?.nome_completo ?? null,
+        email: row?.email ?? null
+      });
+    });
+  }
+
+  return rows.map((row) => {
+    if (row?.vendedor || !row?.vendedor_id) return row;
+    const vendedor = vendedorMap.get(toStr(row.vendedor_id));
+    return vendedor ? { ...row, vendedor } : row;
+  });
 }
 
 function calcularNaoComissionavelResumo(
@@ -475,6 +513,14 @@ export async function GET(event) {
       const overriddenReceiptIds = new Set(
         concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
       );
+      const vendedorByConcReceiptId = new Map<string, string>(
+        concReceipts
+          .map((item) => [
+            String(item.linked_recibo_id || '').trim(),
+            String(item.vendedor_id || '').trim()
+          ])
+          .filter(([reciboId, vendedorId]) => Boolean(reciboId && vendedorId)) as [string, string][]
+      );
 
       const baseRows = rows
         .map((row: any) => {
@@ -484,9 +530,19 @@ export async function GET(event) {
                 (recibo: any) => !overriddenReceiptIds.has(String(recibo?.id || '').trim())
               )
             : recibos;
+          const vendedorAtual = String(row?.vendedor?.nome_completo || '').trim();
+          const vendedorEfetivo =
+            !vendedorAtual || isEquipeVturNome(vendedorAtual)
+              ? withoutOverridden
+                  .map((recibo: any) => vendedorByConcReceiptId.get(String(recibo?.id || '').trim()))
+                  .find(Boolean)
+              : null;
 
           return {
             ...row,
+            ...(vendedorEfetivo
+              ? { vendedor_id: vendedorEfetivo, vendedor: null }
+              : {}),
             vendas_recibos: filterRecibosCanceladosMesmoMes(withoutOverridden)
           };
         })
@@ -624,7 +680,10 @@ export async function GET(event) {
       return Number(total.toFixed(2));
     };
 
-    const rowsView = await loadRowsViewForPeriod(dataInicio, dataFim);
+    const rowsView = await hydrateMissingVendedores(
+      client,
+      await loadRowsViewForPeriod(dataInicio, dataFim)
+    );
 
     const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
       client,

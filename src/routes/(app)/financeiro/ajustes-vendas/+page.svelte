@@ -50,6 +50,7 @@
   })();
   let fim = new Date().toISOString().slice(0, 10);
   let filtroVendedor = '';
+  let filtroApenasRateados = false;
   let busca = '';
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
@@ -109,6 +110,7 @@
     try {
       const params = new URLSearchParams({ inicio, fim });
       if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
+      if (filtroApenasRateados) params.set('apenas_rateados', 'true');
       if (busca.trim()) params.set('q', busca.trim());
 
       const response = await fetch(`/api/v1/financeiro/ajustes-vendas/list?${params.toString()}`);
@@ -204,6 +206,14 @@
       options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome_completo || 'Vendedor' }))]}
       placeholder={null}
       class_name="min-w-[200px]"
+    />
+    <FieldSelect
+      id="aj-rateados"
+      label="Rateio"
+      bind:value={filtroApenasRateados}
+      options={[{ value: false, label: 'Todos' }, { value: true, label: 'Apenas rateados' }]}
+      placeholder={null}
+      class_name="min-w-[180px]"
     />
     <FieldInput
       bind:value={busca}

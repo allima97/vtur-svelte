@@ -353,6 +353,11 @@ export async function POST(event) {
     // ── Carrega o ID do vendedor "Equipe vtur" para proteger atribuição ──
     const equipeVturVendedor = await findEquipeVturVendedor(client, companyId);
     const equipeVturId = equipeVturVendedor?.id ?? null;
+    const sanitizeRankingVendedorId = (value?: unknown) => {
+      const id = String(value || '').trim() || null;
+      if (!id) return null;
+      return equipeVturId && id === equipeVturId ? null : id;
+    };
 
     // ── Build de cada linha a inserir/atualizar ───────────────────────────
     const buildRow = async (l: ConciliacaoLinhaInput) => {
@@ -376,7 +381,7 @@ export async function POST(event) {
         percentualComissaoLoja: l.percentual_comissao_loja,
       });
 
-      let rankingVendedorId = String(l.ranking_vendedor_id || '').trim() || null;
+      let rankingVendedorId = sanitizeRankingVendedorId(l.ranking_vendedor_id);
       let vendaId = String((l as any).venda_id || '').trim() || null;
       let vendaReciboId = String((l as any).venda_recibo_id || '').trim() || null;
 
@@ -480,7 +485,7 @@ export async function POST(event) {
           values: {
             ...values,
             // Preserva atribuições manuais de vendedor/produto/venda já existentes
-            ranking_vendedor_id: values.ranking_vendedor_id ?? existing.ranking_vendedor_id ?? null,
+            ranking_vendedor_id: sanitizeRankingVendedorId(values.ranking_vendedor_id ?? existing.ranking_vendedor_id),
             ranking_produto_id: values.ranking_produto_id ?? existing.ranking_produto_id ?? null,
             venda_id: values.venda_id ?? existing.venda_id ?? null,
             venda_recibo_id: values.venda_recibo_id ?? existing.venda_recibo_id ?? null,

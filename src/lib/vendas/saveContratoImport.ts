@@ -2,6 +2,7 @@ import { supabase as supabaseBrowser } from '$lib/db/supabase';
 import { normalizeText } from '$lib/normalizeText';
 import { titleCaseWithExceptions } from '$lib/titleCase';
 import { carregarTermosNaoComissionaveis, isFormaNaoComissionavel } from '$lib/pagamentoUtils';
+import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from './contratoCvcExtractor';
 import { ensureReciboReservaUnicos } from './reciboReservaValidator';
 import { criarVinculosViajaComAutomaticos } from './viagaComManager';
@@ -604,7 +605,7 @@ export async function saveContratoImport(params: {
   if (vendedorId !== userId) {
     const { data: vendedorData, error: vendedorError } = await supabaseBrowser
       .from("users")
-      .select("id, company_id, user_types(name)")
+      .select("id, company_id, nome_completo, active, uso_individual, user_types(name)")
       .eq("id", vendedorId)
       .maybeSingle();
     if (vendedorError) throw vendedorError;
@@ -612,7 +613,14 @@ export async function saveContratoImport(params: {
     const vendedorCompanyId = String((vendedorData as any)?.company_id || "").trim();
     const tipoPermitido =
       tipoNome.includes("VENDEDOR") || tipoNome.includes("GESTOR") || tipoNome.includes("MASTER");
-    if (!vendedorData?.id || vendedorCompanyId !== companyId || !tipoPermitido) {
+    if (
+      !vendedorData?.id ||
+      vendedorCompanyId !== companyId ||
+      !Boolean((vendedorData as any)?.active) ||
+      Boolean((vendedorData as any)?.uso_individual) ||
+      isEquipeVturNome((vendedorData as any)?.nome_completo) ||
+      !tipoPermitido
+    ) {
       throw new Error("O vendedor selecionado não pertence à empresa ativa.");
     }
   }

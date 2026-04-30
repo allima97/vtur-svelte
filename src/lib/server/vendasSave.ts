@@ -1,5 +1,6 @@
 import { normalizeText } from '$lib/normalizeText';
 import { fetchGestorEquipeIdsComGestor, isUuid, type UserScope } from '$lib/server/v1';
+import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 
 function collapseSpaces(value?: string | null) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -80,7 +81,7 @@ function isAllowedSellerTipo(tipoNome?: string | null) {
 export async function ensureAssignableActiveSeller(client: any, scope: UserScope, vendedorId: string) {
   const { data, error } = await client
     .from('users')
-    .select('id, company_id, active, uso_individual, user_types(name)')
+    .select('id, company_id, nome_completo, active, uso_individual, user_types(name)')
     .eq('id', vendedorId)
     .maybeSingle();
   if (error) throw error;
@@ -88,6 +89,7 @@ export async function ensureAssignableActiveSeller(client: any, scope: UserScope
   const vendedor = data as any;
   if (!vendedor?.id) return 'Vendedor informado nao encontrado.';
   if (!Boolean(vendedor?.active)) return 'Vendedor informado esta inativo.';
+  if (isEquipeVturNome(vendedor?.nome_completo)) return 'Equipe vtur nao pode receber vendas ou recibos.';
   if (!isAllowedSellerTipo(vendedor?.user_types?.name)) return 'Usuario informado nao pode receber venda.';
 
   const vendedorCompanyId = String(vendedor?.company_id || '').trim() || null;

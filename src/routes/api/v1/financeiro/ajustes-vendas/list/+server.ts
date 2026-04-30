@@ -44,6 +44,7 @@ export async function GET(event: RequestEvent) {
     const fim = String(url.searchParams.get("fim") || "").trim();
     const vendedorId = String(url.searchParams.get("vendedor_id") || "").trim();
     const termo = String(url.searchParams.get("q") || "").trim();
+    const apenasRateados = url.searchParams.get("apenas_rateados") === "true";
     const limitRaw = Number(url.searchParams.get("limit") || 80);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 80;
 
@@ -285,9 +286,13 @@ export async function GET(event: RequestEvent) {
       };
     });
 
-    const items = [...itensVendas, ...itensConciliacao]
-      .sort((a, b) => String(b?.data_venda || "").localeCompare(String(a?.data_venda || "")))
-      .slice(0, limit);
+    const itensUnificados = [...itensVendas, ...itensConciliacao]
+      .sort((a, b) => String(b?.data_venda || "").localeCompare(String(a?.data_venda || "")));
+
+    const items = (apenasRateados
+      ? itensUnificados.filter((item) => item.rateio && item.rateio.ativo)
+      : itensUnificados
+    ).slice(0, limit);
 
     let vendedoresQuery = client
       .from("users")
