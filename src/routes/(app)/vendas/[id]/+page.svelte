@@ -13,7 +13,7 @@
   import {
     ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
-    AlertCircle, Clock, CheckCircle, Shield
+    AlertCircle, Clock, CheckCircle, Shield, BarChart2, AlertTriangle, Info
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -33,6 +33,11 @@
   let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
   let cidadesBase: Array<{ id: string; label?: string | null; nome?: string | null }> = [];
   let tiposPacoteBase: Array<{ id: string; nome: string }> = [];
+
+  // Ranking e Conciliação por recibo
+  let rankingRecibos: any[] = [];
+  let rankingTotais: any = null;
+  let rankingLoading = false;
 
   // Edição por modal de recibo
   let showEditReciboDialog = false;
@@ -207,10 +212,27 @@
     }
   }
 
+  async function carregarRankingRecibos() {
+    if (!vendaId) return;
+    rankingLoading = true;
+    try {
+      const res = await fetch(`/api/v1/vendas/${vendaId}/ranking-recibos`);
+      if (!res.ok) return;
+      const data = await res.json();
+      rankingRecibos = data.recibos || [];
+      rankingTotais = data.totais || null;
+    } catch {
+      // Não bloqueia a tela principal
+    } finally {
+      rankingLoading = false;
+    }
+  }
+
   onMount(async () => {
     await ensureServerSessionCookie();
     await carregarVenda();
     await loadReciboBaseData();
+    await carregarRankingRecibos();
   });
 
   async function ensureProduto(produtoId: string) {
@@ -877,6 +899,141 @@
             <span class="font-semibold text-slate-900">{formatCurrency(venda.valor_nao_comissionado)}</span>
           </div>
         </div>
+      </Card>
+
+      <!-- Card: Ranking e Conciliação por Recibo -->
+      <Card header="Ranking e Conciliação" color="vendas">
+
+        {#if rankingTotais?.algum_provisorio}
+          <div class="mb-3 flex items-center gap-1">
+            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <Clock size={11} /> Provisório — conciliação pendente
+            </span>
+          </div>
+        {/if}
+
+        {#if rankingLoading}
+          <div class="flex items-center justify-center py-6 text-slate-400">
+            <Loader2 size={18} class="animate-spin mr-2" />
+            <span class="text-sm">Carregando...</span>
+          </div>
+        {:else if rankingRecibos.length === 0}
+          <p class="text-sm text-slate-400 py-4 text-center">Nenhum recibo encontrado.</p>
+        {:else}
+          <!-- Alerta de divergência geral -->
+          {#if rankingTotais?.algum_diverge}
+            <div class="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertTriangle size={15} class="mt-0.5 shrink-0 text-amber-600" />
+              <p class="text-xs text-amber-800">
+                Um ou mais recibos possuem divergência entre os valores da venda e os valores conciliados.
+                O ranking usa o valor conciliado quando disponível.
+              </p>
+            </div>
+          {/if}
+
+          <!-- Lista de recibos -->
+          <div class="space-y-3">
+            {#each rankingRecibos as rec (rec.recibo_id)}
+              <div class="rounded-lg border {rec.diverge ? 'border-amber-200 bg-amber-50/40' : rec.provisorio ? 'border-slate-200 bg-slate-50/40' : 'border-green-100 bg-green-50/20'} p-3">
+                <!-- Cabeçalho do recibo -->
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <Receipt size={13} class="text-slate-400 shrink-0" />
+                    <span class="text-sm font-semibold text-slate-800">{rec.numero_recibo || '-'}</span>
+                    {#if rec.provisorio}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        <Clock size={10} /> Prov.
+                      </span>
+                    {:else if rec.conciliacao_status === 'confirmada'}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                        <CheckCircle size={10} /> Conciliado
+                      </span>
+                    {:else}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        <Info size={10} /> {rec.conciliacao_status || 'Em aberto'}
+                      </span>
+                    {/if}
+                  </div>
+                  <span class="text-sm font-bold {rec.provisorio ? 'text-slate-600' : 'text-slate-900'}">
+                    {formatCurrency(rec.valor_ranking_efetivo)}
+                  </span>
+                </div>
+
+                <!-- Linha: valor da venda vs conciliação -->
+                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                  <div>
+                    <span class="block text-slate-400 mb-0.5">Venda (entrada)</span>
+                    <span class="font-medium text-slate-700">{formatCurrency(rec.venda_valor_total)}</span>
+                  </div>
+                  {#if !rec.provisorio}
+                    <div>
+                      <span class="block text-slate-400 mb-0.5">Conciliação</span>
+                      <span class="font-medium {rec.diverge ? 'text-amber-700' : 'text-green-700'}">
+                        {formatCurrency(rec.conc_valor_ranking ?? 0)}
+                      </span>
+                    </div>
+                  {/if}
+                </div>
+
+                <!-- Divergência -->
+                {#if rec.diverge && rec.divergencia_valor !== null}
+                  <div class="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                    <AlertTriangle size={11} />
+                    Diferença: {formatCurrency(Math.abs(rec.divergencia_valor))}
+                    {rec.divergencia_valor > 0 ? '(conciliação maior)' : '(conciliação menor)'}
+                  </div>
+                {/if}
+
+                <!-- Rateio -->
+                {#if rec.rateio}
+                  <div class="mt-2 flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-700 border border-indigo-100">
+                    <TrendingUp size={11} />
+                    Rateio: {rec.rateio.percentual_origem}% origem / {rec.rateio.percentual_destino}% para {rec.rateio.vendedor_destino?.nome_completo || rec.rateio.vendedor_destino_id}
+                  </div>
+                {/if}
+
+                <!-- Detalhes conciliação (lançamentos, descontos, abatimentos) -->
+                {#if rec.conc_meta && (rec.conc_meta.valor_lancamentos > 0 || rec.conc_meta.valor_descontos > 0 || rec.conc_meta.valor_abatimentos > 0)}
+                  <div class="mt-2 grid grid-cols-3 gap-1 text-xs text-slate-400">
+                    <div>
+                      <span class="block">Lançamentos</span>
+                      <span class="font-medium text-slate-600">{formatCurrency(rec.conc_meta.valor_lancamentos)}</span>
+                    </div>
+                    <div>
+                      <span class="block">Descontos</span>
+                      <span class="font-medium text-slate-600">{formatCurrency(rec.conc_meta.valor_descontos)}</span>
+                    </div>
+                    <div>
+                      <span class="block">Abatimentos</span>
+                      <span class="font-medium text-slate-600">{formatCurrency(rec.conc_meta.valor_abatimentos)}</span>
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+
+          <!-- Total -->
+          {#if rankingTotais}
+            <div class="mt-4 pt-3 border-t border-slate-200">
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-semibold text-slate-700">Total Ranking</span>
+                <span class="text-base font-bold text-slate-900">{formatCurrency(rankingTotais.valor_ranking_efetivo)}</span>
+              </div>
+              {#if Math.abs(rankingTotais.divergencia_total) > 0.5}
+                <div class="mt-1 flex justify-between items-center text-xs text-amber-600">
+                  <span>Divergência total venda vs conciliação</span>
+                  <span class="font-semibold">{formatCurrency(Math.abs(rankingTotais.divergencia_total))}</span>
+                </div>
+              {/if}
+              <p class="mt-2 text-xs text-slate-400">
+                {rankingTotais.algum_provisorio
+                  ? 'Valores provisórios até a conciliação ser concluída. O ranking usa esses valores enquanto não há conciliação.'
+                  : 'Valores conciliados. O ranking usa os dados da conciliação.'}
+              </p>
+            </div>
+          {/if}
+        {/if}
       </Card>
     </div>
   </div>

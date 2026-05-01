@@ -764,6 +764,9 @@
 	"/api/v1/vendas/[id]": [
 		"src/routes/api/v1/vendas/[id]/+server.ts"
 	],
+	"/api/v1/vendas/[id]/ranking-recibos": [
+		"src/routes/api/v1/vendas/[id]/ranking-recibos/+server.ts"
+	],
 	"/api/v1/viagens": [
 		"src/routes/api/v1/viagens/+server.ts"
 	],

@@ -668,7 +668,6 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       );
       // No fallback (valor_lancamentos ausente), valorMetaBase não inclui taxas,
       // então somamos valorTaxas para reconstituir o bruto — alinhado com vtur-app.
-      console.log('[source] VERSAO_NOVA valorBrutoCalculado=', valorBrutoCalculado, 'valorMetaBase=', valorMetaBase, 'valorTaxas=', valorTaxas);
       const valorBrutoBase =
         valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase + valorTaxas : 0;
       const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
