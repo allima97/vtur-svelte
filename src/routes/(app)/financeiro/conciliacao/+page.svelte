@@ -173,6 +173,8 @@
     ranking_produto_id?: string | null;
     venda_id?: string | null;
     venda_recibo_id?: string | null;
+    sistema_valor_total?: number | null;
+    sistema_valor_taxas?: number | null;
     tem_diferenca?: boolean;
     diff_total?: number | null;
     diff_taxas?: number | null;
@@ -272,7 +274,7 @@
   let importLookupSignature = '';
   let importLookupLoading = false;
   let importDiferencasModalOpen = false;
-  let importDiferencas: Array<{ documento: string; movimento_data: string; valor_importacao: number; valor_sistema: number; taxas_importacao: number; taxas_sistema: number; diff_total: number; diff_taxas: number }> = [];
+  let importDiferencas: Array<{ documento: string; movimento_data: string; valor_importacao: number; valor_sistema: number; taxas_importacao: number; taxas_sistema: number; diff_total: number; diff_taxas: number; severidade: 'warning' | 'critical' }> = [];
   let importDiferencasConfirmadas = false;
 
   // Dias sem movimento
@@ -501,6 +503,39 @@
     return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  function getDiffRatio(diff: number | null | undefined, sistemaValue: number | null | undefined) {
+    const diffAbs = Math.abs(Number(diff || 0));
+    if (diffAbs <= 0.01) return 0;
+
+    const base = Math.abs(Number(sistemaValue || 0));
+    if (base <= 0.01) return Number.POSITIVE_INFINITY;
+
+    return diffAbs / base;
+  }
+
+  function isCriticalDiff(diff: number | null | undefined, sistemaValue: number | null | undefined) {
+    return getDiffRatio(diff, sistemaValue) >= 0.1;
+  }
+
+  function getImportDiffSeverity(row: ImportPreviewRow): 'none' | 'warning' | 'critical' {
+    if (!row.tem_diferenca) return 'none';
+
+    if (
+      isCriticalDiff(row.diff_total, row.sistema_valor_total) ||
+      isCriticalDiff(row.diff_taxas, row.sistema_valor_taxas)
+    ) {
+      return 'critical';
+    }
+
+    return 'warning';
+  }
+
+  function getDiffModalSeverity(diff: { diff_total: number; diff_taxas: number; valor_sistema: number; taxas_sistema: number }) {
+    return isCriticalDiff(diff.diff_total, diff.valor_sistema) || isCriticalDiff(diff.diff_taxas, diff.taxas_sistema)
+      ? 'critical'
+      : 'warning';
+  }
+
   $: {
     // Keep this dependency explicit so the preview recomputes when lookup matches arrive.
     const _lookupMatches = importLookupMatches;
@@ -522,17 +557,23 @@
       importPreparedRows = importPreparedRows.map((row) => {
         const documento = String(row.documento || '').trim();
         const lookup = documento ? importLookupMatches[documento] : null;
-        // Only apply lookup if no manual assignment exists yet
-        if (!row.ranking_vendedor_id && lookup?.vendedor_id) {
-          return {
-            ...row,
-            ranking_vendedor_id: lookup.vendedor_id,
-            venda_id: row.venda_id || lookup.venda_id || null,
-            venda_recibo_id: row.venda_recibo_id || lookup.venda_recibo_id || null,
-            vendedor_ranking: resolveImportVendedorLabel(lookup.vendedor_id, row.status)
-          };
-        }
-        return row;
+        if (!lookup) return row;
+
+        const rankingVendedorId = row.ranking_vendedor_id || lookup.vendedor_id || null;
+        const temDiferenca = Boolean(lookup.diff_total != null || lookup.diff_taxas != null);
+
+        return {
+          ...row,
+          ranking_vendedor_id: rankingVendedorId,
+          venda_id: row.venda_id || lookup.venda_id || null,
+          venda_recibo_id: row.venda_recibo_id || lookup.venda_recibo_id || null,
+          sistema_valor_total: lookup.sistema_valor_total ?? null,
+          sistema_valor_taxas: lookup.sistema_valor_taxas ?? null,
+          tem_diferenca: temDiferenca,
+          diff_total: lookup.diff_total ?? null,
+          diff_taxas: lookup.diff_taxas ?? null,
+          vendedor_ranking: resolveImportVendedorLabel(rankingVendedorId, row.status)
+        };
       });
     } else {
       importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate || null);
@@ -1050,16 +1091,22 @@
     // Se há diferenças e o usuário ainda não confirmou, abre o modal
     const diferencasPreview = importPreparedRows.filter((row) => row.tem_diferenca);
     if (diferencasPreview.length > 0 && !importDiferencasConfirmadas) {
-      importDiferencas = diferencasPreview.map((row) => ({
-        documento: row.documento,
-        movimento_data: String(row.movimento_data || ''),
-        valor_importacao: Number(row.valor_lancamentos || 0),
-        valor_sistema: Number(row.valor_lancamentos || 0) - (row.diff_total || 0),
-        taxas_importacao: Number(row.valor_taxas || 0),
-        taxas_sistema: Number(row.valor_taxas || 0) - (row.diff_taxas || 0),
-        diff_total: row.diff_total || 0,
-        diff_taxas: row.diff_taxas || 0
-      }));
+      importDiferencas = diferencasPreview.map((row) => {
+        const valorSistema = row.sistema_valor_total ?? Number(row.valor_lancamentos || 0) - (row.diff_total || 0);
+        const taxasSistema = row.sistema_valor_taxas ?? Number(row.valor_taxas || 0) - (row.diff_taxas || 0);
+
+        return {
+          documento: row.documento,
+          movimento_data: String(row.movimento_data || ''),
+          valor_importacao: Number(row.valor_lancamentos || 0),
+          valor_sistema: valorSistema,
+          taxas_importacao: Number(row.valor_taxas || 0),
+          taxas_sistema: taxasSistema,
+          diff_total: row.diff_total || 0,
+          diff_taxas: row.diff_taxas || 0,
+          severidade: getImportDiffSeverity(row) === 'critical' ? 'critical' : 'warning'
+        };
+      });
       importDiferencasModalOpen = true;
       return;
     }
@@ -1105,7 +1152,10 @@
 
       // Se o backend retornou diferenças adicionais (não detectadas no preview)
       if (data.tem_diferenca && data.diferencas?.length > 0 && !importDiferencasConfirmadas) {
-        importDiferencas = data.diferencas;
+        importDiferencas = data.diferencas.map((diff: any) => ({
+          ...diff,
+          severidade: getDiffModalSeverity(diff) === 'critical' ? 'critical' : 'warning'
+        }));
         importDiferencasModalOpen = true;
         importing = false;
         operationMessage = '';
@@ -1281,6 +1331,8 @@
         ranking_produto_id: String(row.ranking_produto_id || '').trim() || null,
         venda_id: vendaId,
         venda_recibo_id: vendaReciboId,
+        sistema_valor_total: lookup?.sistema_valor_total ?? null,
+        sistema_valor_taxas: lookup?.sistema_valor_taxas ?? null,
         tem_diferenca: temDiferenca,
         diff_total: lookup?.diff_total ?? null,
         diff_taxas: lookup?.diff_taxas ?? null
@@ -1564,6 +1616,15 @@
     <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
       <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
     </Button>
+    <div class="flex items-center gap-1">
+      <label for="month-filter-input" class="text-xs text-slate-500 whitespace-nowrap">Mês:</label>
+      <input
+        id="month-filter-input"
+        type="month"
+        bind:value={monthFilter}
+        class="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300"
+      />
+    </div>
     <Button variant="secondary" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
       <Database size={16} class="mr-2" />
       Sanear duplicados
@@ -1750,12 +1811,16 @@
             </thead>
             <tbody>
               {#each importPreparedRows as row, index}
-                <tr class="border-t border-slate-100 {row.tem_diferenca ? 'bg-orange-50' : ''}">
+                {@const diffSeverity = getImportDiffSeverity(row)}
+                <tr class="border-t border-slate-100 {diffSeverity === 'critical' ? 'bg-red-50' : diffSeverity === 'warning' ? 'bg-orange-50' : ''}">
                   <td class="px-3 py-2">{formatDate(row.movimento_data)}</td>
                   <td class="px-3 py-2">
                     {row.documento}
                     {#if row.tem_diferenca}
-                      <span class="ml-1 inline-flex items-center rounded bg-orange-200 px-1.5 py-0.5 text-xs font-semibold text-orange-800" title="Diferença de valores entre importação e venda cadastrada">!</span>
+                      <span
+                        class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold {diffSeverity === 'critical' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}"
+                        title={diffSeverity === 'critical' ? 'Diferença de 10% ou mais entre importação e venda cadastrada' : 'Diferença menor que 10% entre importação e venda cadastrada'}
+                      >!</span>
                     {/if}
                   </td>
                   <td class="px-3 py-2">{statusImportLabel(row.status)}</td>
@@ -2240,7 +2305,8 @@
         </thead>
         <tbody>
           {#each importDiferencas as diff}
-            <tr class="border-t border-slate-100 {Math.abs(diff.diff_total) > 0.01 || Math.abs(diff.diff_taxas) > 0.01 ? 'bg-orange-50' : ''}">
+            {@const diffSeverity = diff.severidade || getDiffModalSeverity(diff)}
+            <tr class="border-t border-slate-100 {diffSeverity === 'critical' ? 'bg-red-50' : 'bg-orange-50'}">
               <td class="px-3 py-2 font-medium">{diff.documento}</td>
               <td class="px-3 py-2 text-right">{formatCurrency(diff.valor_importacao)}</td>
               <td class="px-3 py-2 text-right">{formatCurrency(diff.valor_sistema)}</td>

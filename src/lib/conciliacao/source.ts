@@ -94,11 +94,58 @@ export function pickConciliacaoSourceRow(rows: any[]) {
     (confirmed ? baixaRows[0] : null) ||
     null;
 
+  // mergedRow: when we have both an OPFAX (with valor_lancamentos) and a BAIXA (with
+  // taxas/descontos/abatimentos/comissão/seguro), merge the best fields from each.
+  // OPFAX carries the gross sale value; BAIXA carries the financial breakdown and metadata.
+  // This ensures the ranking correctly accounts for the full value + correct deductions.
+  let mergedRow = sourceRow;
+  if (sourceRow && valuedOpfax && baixaRows.length > 0) {
+    const baixaForMeta = baixaRows[baixaRows.length - 1]; // most recent BAIXA
+    const opfaxLancamentos = toNumber(valuedOpfax?.valor_lancamentos);
+    const opfaxVendaReal = toNumber(valuedOpfax?.valor_venda_real);
+    const baixaLancamentos = toNumber(baixaForMeta?.valor_lancamentos);
+    const baixaVendaReal = toNumber(baixaForMeta?.valor_venda_real);
+
+    // Only merge if OPFAX has the value and BAIXA does not (or BAIXA value is much smaller)
+    const opfaxHasValue = opfaxLancamentos > 0 || opfaxVendaReal > 0;
+    const baixaLacksValue = baixaLancamentos <= 0 && baixaVendaReal <= 0;
+    const baixaHasMeta = isPositive(baixaForMeta?.valor_taxas) ||
+      isPositive(baixaForMeta?.valor_descontos) ||
+      isPositive(baixaForMeta?.valor_abatimentos) ||
+      isPositive(baixaForMeta?.valor_nao_comissionavel) ||
+      isPositive(baixaForMeta?.valor_comissao_loja) ||
+      Boolean(baixaForMeta?.is_seguro_viagem) ||
+      Boolean(baixaForMeta?.faixa_comissao);
+
+    if (opfaxHasValue && (baixaLacksValue || baixaHasMeta)) {
+      mergedRow = {
+        // Base: OPFAX financial values (gross sale amount)
+        ...valuedOpfax,
+        // Override with BAIXA metadata (taxas, descontos, comissão, seguro)
+        valor_taxas: isPositive(baixaForMeta?.valor_taxas) ? baixaForMeta.valor_taxas : valuedOpfax?.valor_taxas,
+        valor_descontos: isPositive(baixaForMeta?.valor_descontos) ? baixaForMeta.valor_descontos : valuedOpfax?.valor_descontos,
+        valor_abatimentos: isPositive(baixaForMeta?.valor_abatimentos) ? baixaForMeta.valor_abatimentos : valuedOpfax?.valor_abatimentos,
+        valor_nao_comissionavel: isPositive(baixaForMeta?.valor_nao_comissionavel) ? baixaForMeta.valor_nao_comissionavel : valuedOpfax?.valor_nao_comissionavel,
+        valor_comissao_loja: baixaForMeta?.valor_comissao_loja ?? valuedOpfax?.valor_comissao_loja,
+        percentual_comissao_loja: baixaForMeta?.percentual_comissao_loja ?? valuedOpfax?.percentual_comissao_loja,
+        faixa_comissao: baixaForMeta?.faixa_comissao || valuedOpfax?.faixa_comissao,
+        is_seguro_viagem: baixaForMeta?.is_seguro_viagem ?? valuedOpfax?.is_seguro_viagem,
+        ranking_vendedor_id: baixaForMeta?.ranking_vendedor_id || valuedOpfax?.ranking_vendedor_id,
+        // Keep OPFAX's movimento_data as the effective date: the sale was registered in the
+        // OPFAX period. Using the BAIXA date would exclude April OPFAX receipts whose payment
+        // confirmation (BAIXA) only arrived in May.
+        movimento_data: valuedOpfax?.movimento_data || baixaForMeta?.movimento_data,
+        // Keep BAIXA's id as the primary record id
+        id: baixaForMeta?.id || valuedOpfax?.id,
+      };
+    }
+  }
+
   return {
     sortedRows,
     baixaRows,
     confirmed,
-    sourceRow
+    sourceRow: mergedRow
   };
 }
 
@@ -368,6 +415,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   const vendaIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_id)).filter(isUuid)));
   const reciboIds = Array.from(new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(isUuid)));
+  const rankingVendedorIds = Array.from(
+    new Set(concRows.map((row) => toStr(row?.ranking_vendedor_id)).filter(isUuid))
+  );
 
   const vendasMap = new Map<string, { vendedor_id: string | null }>();
   if (vendaIds.length > 0) {
@@ -392,12 +442,33 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const id = toStr(row?.id);
       if (!id) return;
       recibosMap.set(id, {
+        venda_id: toStr(row?.venda_id) || null,
         produto_id: toStr(row?.produto_id) || null,
         data_venda: toStr(row?.data_venda) || null,
         cancelado_por_conciliacao_em: toStr(row?.cancelado_por_conciliacao_em) || null,
         cancelado_por_conciliacao_observacao: toStr(row?.cancelado_por_conciliacao_observacao) || null
       });
     });
+  }
+
+  const validRankingVendedorIds = new Set<string>();
+  if (rankingVendedorIds.length > 0) {
+    for (let i = 0; i < rankingVendedorIds.length; i += 200) {
+      const batch = rankingVendedorIds.slice(i, i + 200);
+      const { data, error } = await client
+        .from('users')
+        .select('id, company_id, active, uso_individual')
+        .in('id', batch);
+      if (error) throw error;
+
+      (data || []).forEach((row: any) => {
+        const id = toStr(row?.id);
+        const companyId = toStr(row?.company_id);
+        if (!id || row?.active === false || row?.uso_individual === true) return;
+        if (!normalizedCompanyIds.includes(companyId)) return;
+        validRankingVendedorIds.add(id);
+      });
+    }
   }
 
   if (relevantDocs.size > 0) {
@@ -543,7 +614,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const linkedReciboIdFromConc = sortedRows.map((row) => toStr(row?.venda_recibo_id)).find(Boolean) || null;
       const fallbackRecibo = !linkedReciboIdFromConc ? reciboByNumeroMap.get(documento) || null : null;
       const linkedReciboId = linkedReciboIdFromConc || fallbackRecibo?.id || null;
-      const linkedVendaId = linkedVendaIdFromConc || fallbackRecibo?.venda_id || null;
+      const linkedReciboMeta = linkedReciboId
+        ? recibosMap.get(linkedReciboId) || fallbackRecibo || null
+        : null;
+      const linkedVendaId = linkedVendaIdFromConc || linkedReciboMeta?.venda_id || fallbackRecibo?.venda_id || null;
       const linkedVendedorIdRaw = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
       const linkedVendedorId =
         linkedVendedorIdRaw && !equipeVturIds.has(linkedVendedorIdRaw) ? linkedVendedorIdRaw : null;
@@ -553,15 +627,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const rankingVendedorId =
         [toStr(sourceRow?.ranking_vendedor_id), ...sortedRows.map((row) => toStr(row?.ranking_vendedor_id))]
           .filter(Boolean)
+          .filter((id) => validRankingVendedorIds.has(id))
           .find((id) => !equipeVturIds.has(id)) ||
         null;
       const vendedorId = rankingVendedorId || linkedVendedorId || null;
 
       const linkedProdutoId = linkedReciboId
         ? recibosMap.get(linkedReciboId)?.produto_id || fallbackRecibo?.produto_id || null
-        : null;
-      const linkedReciboMeta = linkedReciboId
-        ? recibosMap.get(linkedReciboId) || fallbackRecibo || null
         : null;
       const canceladoMesmoMes =
         estornoRows.some((row) => toMonthKey(row?.movimento_data) === toMonthKey(effectiveDate)) ||
@@ -594,10 +666,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         0,
         toNumber(sourceRow?.valor_lancamentos) - valorDescontos - valorAbatimentos
       );
-      // valorMetaBase já inclui taxas (calcularValorVendaReal não subtrai taxas),
-      // então não somamos taxas novamente no fallback.
+      // No fallback (valor_lancamentos ausente), valorMetaBase não inclui taxas,
+      // então somamos valorTaxas para reconstituir o bruto — alinhado com vtur-app.
       const valorBrutoBase =
-        valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase : 0;
+        valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase + valorTaxas : 0;
       const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
       const valorLiquido = Math.max(0, valorBruto - valorTaxas);
 

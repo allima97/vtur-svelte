@@ -36,7 +36,7 @@ export async function GET(event) {
 
     let query = client
       .from('metas_vendedor')
-      .select('id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, vendedor:users!vendedor_id(nome_completo)')
+      .select('id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope')
       .order('periodo', { ascending: false });
 
     if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
@@ -54,6 +54,35 @@ export async function GET(event) {
       throw queryError;
     }
 
+    const metas = data || [];
+    const metaVendedorIds = Array.from(
+      new Set(
+        metas
+          .map((row: any) => String(row?.vendedor_id || '').trim())
+          .filter((id) => isUuid(id))
+      )
+    );
+
+    const vendedorMap = new Map<string, { nome_completo: string | null }>();
+    if (metaVendedorIds.length > 0) {
+      const { data: vendedoresData, error: vendedoresError } = await client
+        .from('users')
+        .select('id, nome_completo')
+        .in('id', metaVendedorIds);
+
+      if (vendedoresError) throw vendedoresError;
+
+      (vendedoresData || []).forEach((row: any) => {
+        const id = String(row?.id || '').trim();
+        if (id) vendedorMap.set(id, { nome_completo: row?.nome_completo || null });
+      });
+    }
+
+    const items = metas.map((row: any) => ({
+      ...row,
+      vendedor: vendedorMap.get(String(row?.vendedor_id || '').trim()) || null
+    }));
+
     // Busca vendedores da equipe para o formulário
     let vendedores: any[] = [];
     if (scope.isAdmin || scope.isGestor) {
@@ -65,7 +94,7 @@ export async function GET(event) {
       vendedores = vData || [];
     }
 
-    return json({ items: data || [], vendedores });
+    return json({ items, vendedores });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar metas.');
   }

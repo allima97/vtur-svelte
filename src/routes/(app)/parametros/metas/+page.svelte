@@ -56,6 +56,15 @@
     return formatYearMonthLabel(value);
   }
 
+  async function readError(response: Response, fallback: string) {
+    try {
+      const payload = await response.json();
+      return String(payload?.error || payload?.message || fallback);
+    } catch {
+      return (await response.text()) || fallback;
+    }
+  }
+
   const columns = [
     {
       key: 'vendedor',
@@ -99,7 +108,7 @@
     loading = true;
     try {
       const response = await fetch('/api/v1/parametros/metas');
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await readError(response, 'Erro ao carregar metas.'));
       const payload = await response.json();
       metas = payload.items || [];
       vendedores = payload.vendedores || [];
@@ -148,7 +157,7 @@
           ativo: form.ativo
         })
       });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await readError(response, 'Erro ao salvar meta.'));
       toast.success(editingId ? 'Meta atualizada.' : 'Meta criada.');
       modalOpen = false;
       await load();
@@ -164,7 +173,7 @@
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/parametros/metas?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await readError(response, 'Erro ao excluir meta.'));
       toast.success('Meta excluída.');
       await load();
     } catch (err) {

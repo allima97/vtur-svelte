@@ -139,14 +139,12 @@ async function buildRankingSimple(
 
   const contributions: Contribution[] = [];
 
-  // Set de recibos e vendas já linkados à conciliação — usado para dedup mais precisa
+  // Set de recibos já linkados à conciliação — usado para dedup mais precisa
   const concLinkedReciboIds = new Set<string>();
-  const concLinkedVendaIds = new Set<string>();
   // Set de números de recibo (sem data) da conciliação — dedup independente de data
   const concReciboNumeros = new Set<string>();
   for (const receipt of concReceipts) {
     if (receipt.linked_recibo_id) concLinkedReciboIds.add(String(receipt.linked_recibo_id));
-    if (receipt.linked_venda_id) concLinkedVendaIds.add(String(receipt.linked_venda_id));
     const num = normalizeReceiptNumber(receipt.documento);
     if (num) concReciboNumeros.add(num);
   }
@@ -157,9 +155,52 @@ async function buildRankingSimple(
   let skippedByDate = 0;
   let skippedByCancelamento = 0;
   let skippedByLinkedRecibo = 0;
-  let skippedByLinkedVenda = 0;
   let skippedByNumero = 0;
   let skippedByKey = 0;
+
+  // 3a-pre. Buscar rateio diretamente pelo conciliacao_id como garantia extra,
+  // pois fetchEffectiveConciliacaoReceipts pode falhar silenciosamente ao popular rateio_split.
+  // Usamos todos os conciliacao_ids retornados pelos receipts para cobrir casos onde
+  // o ID do sourceRow difere do ID gravado no rateio (ex: merge OPFAX+BAIXA).
+  const directRateioMap = new Map<string, {
+    vendedor_origem_id: string;
+    vendedor_destino_id: string;
+    percentual_origem: number;
+    percentual_destino: number;
+  }>();
+  {
+    const allConcIds = Array.from(new Set(
+      concReceipts.flatMap(r => (r.conciliacao_ids || [r.id]).filter(Boolean))
+    ));
+    for (let i = 0; i < allConcIds.length; i += 50) {
+      const batch = allConcIds.slice(i, i + 50);
+      try {
+        const { data: rateioRows, error: rateioErr } = await client
+          .from('vendas_recibos_rateio')
+          .select('conciliacao_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino')
+          .eq('ativo', true)
+          .in('conciliacao_recibo_id', batch);
+        if (rateioErr) {
+          const code = String(rateioErr?.code || '').trim();
+          if (code === '42P01' || code === '42703') break; // coluna/tabela ausente
+          throw rateioErr;
+        }
+        (rateioRows || []).forEach((row: any) => {
+          const id = String(row?.conciliacao_recibo_id || '').trim();
+          if (!id) return;
+          directRateioMap.set(id, {
+            vendedor_origem_id: String(row.vendedor_origem_id || ''),
+            vendedor_destino_id: String(row.vendedor_destino_id || ''),
+            percentual_origem: Number(row.percentual_origem || 0),
+            percentual_destino: Number(row.percentual_destino || 0),
+          });
+        });
+      } catch (err: any) {
+        console.warn('[ranking] directRateioMap fetch falhou:', err?.message || err);
+        break;
+      }
+    }
+  }
 
   // 3a. Adicionar recibos da conciliação
   let rateioConcCount = 0;
@@ -171,7 +212,11 @@ async function buildRankingSimple(
 
     // Quando o recibo tem rateio cadastrado, gera duas contribuições proporcionais
     // (uma para origem, uma para destino) em vez de uma única contribuição com valor total.
-    const rateio = (receipt as any).rateio_split ?? null;
+    // Prioriza rateio_split do fetchEffectiveConciliacaoReceipts; usa directRateioMap como fallback.
+    const directRateio = (receipt.conciliacao_ids || [receipt.id])
+      .map((id: string) => directRateioMap.get(id))
+      .find(Boolean) || null;
+    const rateio = (receipt as any).rateio_split ?? directRateio ?? null;
     if (
       rateio &&
       rateio.vendedor_origem_id &&
@@ -296,9 +341,6 @@ async function buildRankingSimple(
       // Ignora recibos que já estão linkados diretamente à conciliação (mesmo que data/número diferem)
       const reciboId = String(recibo?.id || '').trim();
       if (reciboId && concLinkedReciboIds.has(reciboId)) { skippedByLinkedRecibo++; continue; }
-      // Ignora vendas inteiras que já estão linkadas à conciliação (evita duplicação parcial)
-      const vendaId = String((row as any)?.id || '').trim();
-      if (vendaId && concLinkedVendaIds.has(vendaId)) { skippedByLinkedVenda++; continue; }
 
       const numero = normalizeReceiptNumber(recibo?.numero_recibo);
       // Ignora recibos cujo número já existe na conciliação (independente de data — conciliação é primária)
@@ -375,7 +417,6 @@ async function buildRankingSimple(
     skippedByDate,
     skippedByCancelamento,
     skippedByLinkedRecibo,
-    skippedByLinkedVenda,
     skippedByNumero,
     skippedByKey,
     contributionsGeradas: contributions.length
@@ -535,12 +576,21 @@ export async function GET(event) {
     const rankingTeamMap = new Map<string, { id: string; nome: string }>();
     const gestorIdsSet = new Set<string>();
     if (vendedorIds.length > 0) {
-      const { data: teamUsers, error: teamUsersError } = await client
+      let teamUsersQuery = client
         .from('users')
-        .select('id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name)')
+        .select('id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)')
         .in('id', vendedorIds)
         .eq('active', true)
         .limit(5000);
+
+      // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
+      if (companyIds.length === 1) {
+        teamUsersQuery = teamUsersQuery.eq('company_id', companyIds[0]);
+      } else if (companyIds.length > 1) {
+        teamUsersQuery = teamUsersQuery.in('company_id', companyIds);
+      }
+
+      const { data: teamUsers, error: teamUsersError } = await teamUsersQuery;
 
       if (teamUsersError) throw teamUsersError;
 
@@ -550,6 +600,7 @@ export async function GET(event) {
         const id = String(row?.id || '').trim();
         const nome = String(row?.nome_completo || row?.email || 'Equipe VTUR');
         if (nome.toLowerCase().includes('baixa rac')) return;
+        if (nome.toLowerCase().includes('equipe vtur')) return;
         if (!id) return;
         scopedIds.push(id);
         rankingTeamMap.set(id, {

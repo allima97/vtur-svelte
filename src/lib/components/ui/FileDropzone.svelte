@@ -64,7 +64,7 @@
     </div>
 
     <input
-      {id}
+      id={fieldId}
       {name}
       type="file"
       {accept}
