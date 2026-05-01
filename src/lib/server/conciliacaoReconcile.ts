@@ -859,54 +859,12 @@ async function reconcilePendentesCompany(params: {
       continue;
     }
 
+    // Registra as diferenças informativamente — NÃO altera vendas_recibos.
+    // Os valores originais do recibo são preservados; o ranking lê de conciliacao_recibos.
     const sistemaTotal = Number(recibo.valor_total || 0);
     const sistemaTaxas = Number(recibo.valor_taxas || 0);
-    const sistemaDataVenda = String(recibo.data_venda || '').trim() || null;
     const matchTotal = matches(valorComparacao, sistemaTotal);
     const matchTaxas = matches(valorTaxas, sistemaTaxas);
-    const shouldUpdateDataVenda = Boolean(movimentoData && movimentoData !== sistemaDataVenda);
-
-    const reciboUpdate: Record<string, any> = {};
-    if (!matchTotal) reciboUpdate.valor_total = valorComparacao;
-    if (!matchTaxas) reciboUpdate.valor_taxas = valorTaxas;
-    if (shouldUpdateDataVenda) reciboUpdate.data_venda = movimentoData;
-
-    if (Object.keys(reciboUpdate).length > 0) {
-      const { error: upErr } = await client.from('vendas_recibos').update(reciboUpdate).eq('id', recibo.id);
-      if (upErr) {
-        updateErrors += 1;
-      } else {
-        if (!matchTaxas) updatedTaxes += 1;
-        await Promise.all([
-          insertConciliacaoNumericAudit({
-            client,
-            companyId: params.companyId,
-            conciliacaoReciboId: id,
-            vendaId: recibo.venda_id,
-            vendaReciboId: recibo.id,
-            numeroRecibo: documento,
-            field: 'valor_total',
-            oldValue: sistemaTotal,
-            newValue: valorComparacao,
-            actor,
-            actorUserId
-          }),
-          insertConciliacaoNumericAudit({
-            client,
-            companyId: params.companyId,
-            conciliacaoReciboId: id,
-            vendaId: recibo.venda_id,
-            vendaReciboId: recibo.id,
-            numeroRecibo: documento,
-            field: 'valor_taxas',
-            oldValue: sistemaTaxas,
-            newValue: valorTaxas,
-            actor,
-            actorUserId
-          })
-        ]);
-      }
-    }
 
     const rankingVendedorAtualRaw = String(row.ranking_vendedor_id || '').trim() || null;
     const rankingVendedorAtual =

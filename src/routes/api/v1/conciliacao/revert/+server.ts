@@ -80,10 +80,10 @@ export async function POST(event) {
       return json({ ok: true, attempted: 0, reverted: 0, errored: 0, total: 0 });
     }
 
-    // Busca detalhes das alterações
+    // Busca detalhes das alterações para agrupar os changeIds por recibo
     const { data: pendingChanges, error: pendingErr } = await client
       .from('conciliacao_recibo_changes')
-      .select('id, venda_recibo_id, conciliacao_recibo_id, old_value, changed_at')
+      .select('id, venda_recibo_id, changed_at')
       .eq('company_id', companyId)
       .in('id', changeIdsParaReverter)
       .is('reverted_at', null)
@@ -91,26 +91,12 @@ export async function POST(event) {
       .limit(2000);
     if (pendingErr) throw pendingErr;
 
-    // Verifica ownership dos vendas_recibos antes de qualquer update
-    if (targetReciboIds.length > 0) {
-      const { data: reciboRows, error: reciboErr } = await client
-        .from('vendas_recibos')
-        .select('id, vendas!inner(company_id)')
-        .in('id', targetReciboIds)
-        .eq('vendas.company_id', companyId);
-      if (reciboErr) throw reciboErr;
-      const reciboIdsValidos = new Set((reciboRows || []).map((r: any) => String(r?.id || '')).filter(Boolean));
-      // Remove recibos que não pertencem à empresa
-      targetReciboIds = targetReciboIds.filter((id) => reciboIdsValidos.has(id));
-    }
-
-    const changesByRecibo = new Map<string, { earliestOld: any; latestConciliacaoId: string | null; changeIds: string[] }>();
+    // Agrupa changeIds por recibo (apenas para contagem e agrupamento do audit trail)
+    const changesByRecibo = new Map<string, { changeIds: string[] }>();
     (pendingChanges || []).forEach((row: any) => {
       const reciboId = String(row?.venda_recibo_id || '').trim();
-      if (!reciboId || !targetReciboIds.includes(reciboId)) return;
-      const bucket = changesByRecibo.get(reciboId) || { earliestOld: undefined, latestConciliacaoId: null, changeIds: [] };
-      if (bucket.earliestOld === undefined) bucket.earliestOld = row.old_value ?? null;
-      bucket.latestConciliacaoId = row?.conciliacao_recibo_id ? String(row.conciliacao_recibo_id) : bucket.latestConciliacaoId;
+      if (!reciboId) return;
+      const bucket = changesByRecibo.get(reciboId) || { changeIds: [] };
       bucket.changeIds.push(String(row.id));
       changesByRecibo.set(reciboId, bucket);
     });
@@ -120,43 +106,13 @@ export async function POST(event) {
     let errored = 0;
     const nowIso = new Date().toISOString();
 
-    for (const [reciboId, meta] of changesByRecibo.entries()) {
+    // Os recibos originais (vendas_recibos) NÃO são mais alterados pela conciliação.
+    // O revert apenas marca o audit trail como revertido — o estado do recibo original
+    // nunca foi modificado, portanto nada precisa ser restaurado nele.
+    for (const [, meta] of changesByRecibo.entries()) {
       attempted += 1;
-      const oldValue = meta.earliestOld ?? null;
 
-      const { error: upErr } = await client
-        .from('vendas_recibos')
-        .update({ valor_taxas: oldValue })
-        .eq('id', reciboId);
-      if (upErr) {
-        errored += 1;
-        continue;
-      }
-
-      if (meta.latestConciliacaoId) {
-        const { data: conc, error: concErr } = await client
-          .from('conciliacao_recibos')
-          .select('id, valor_taxas')
-          .eq('id', meta.latestConciliacaoId)
-          .eq('company_id', companyId)
-          .maybeSingle();
-        if (!concErr && conc) {
-          const fileTaxas = Number((conc as any).valor_taxas || 0);
-          const sysTaxas = Number(oldValue || 0);
-          await client
-            .from('conciliacao_recibos')
-            .update({
-              sistema_valor_taxas: oldValue,
-              match_taxas: matches(fileTaxas, sysTaxas),
-              diff_taxas: diff(fileTaxas, sysTaxas),
-              last_checked_at: nowIso
-            })
-            .eq('id', meta.latestConciliacaoId)
-            .eq('company_id', companyId);
-        }
-      }
-
-      // Marca como revertido SOMENTE os IDs confirmados neste lote
+      // Marca como revertido os registros de audit desta série
       const { error: revErr } = await client
         .from('conciliacao_recibo_changes')
         .update({
