@@ -1008,6 +1008,13 @@
                       <span class="font-medium text-slate-600">{formatCurrency(rec.conc_meta.valor_abatimentos)}</span>
                     </div>
                   </div>
+                  {#if rec.conc_meta.valor_nao_comissionavel > 0}
+                    <div class="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                      <span>Não comissionável:</span>
+                      <span class="font-medium text-slate-600">{formatCurrency(rec.conc_meta.valor_nao_comissionavel)}</span>
+                      <span class="text-slate-300">— deduzido do valor de ranking</span>
+                    </div>
+                  {/if}
                 {/if}
               </div>
             {/each}

@@ -114,14 +114,17 @@ async function buildRankingSimple(
     excludeVendedorIds: undefined
   });
 
-  // 2. Buscar vendas manuais do período (filtrando por data do recibo)
+  // 2. Buscar vendas manuais do período.
+  // Filtramos por data_venda da venda (não do recibo) no Supabase para não excluir
+  // recibos com data_venda=null (backfill incompleto). O filtro exato por recibo
+  // é feito em TypeScript na seção 3c usando coalesce(recibo.data_venda, venda.data_venda).
   const salesRows = await fetchSalesReportRows(client, {
     companyIds,
     vendedorIds: vendedorIds.length > 0 ? vendedorIds : undefined,
     includeCancelled: false,
     dataInicio,
     dataFim,
-    filterByReceiptDate: true
+    filterByReceiptDate: false
   });
 
   // 3. Dedup: recibos já contados pela conciliação (chave = número normalizado + data)
@@ -283,9 +286,11 @@ async function buildRankingSimple(
   // 3b. Coletar IDs dos recibos manuais para buscar rateio (apenas recibos dentro do período)
   const manualReciboIds: string[] = [];
   for (const row of salesRows) {
+    const vendaDataVendaB = String((row as any)?.data_venda || '').slice(0, 10);
     const recibos = getRowRecibos(row);
     for (const recibo of recibos) {
-      if (!isDataNoPeriodo(recibo?.data_venda, dataInicio, dataFim)) continue;
+      const reciboDataVendaB = String(recibo?.data_venda || '').slice(0, 10) || vendaDataVendaB;
+      if (!isDataNoPeriodo(reciboDataVendaB, dataInicio, dataFim)) continue;
       // Pula recibos cancelados por conciliação
       if (recibo?.cancelado_por_conciliacao_em) continue;
       const id = String(recibo?.id || '').trim();
@@ -331,11 +336,14 @@ async function buildRankingSimple(
   for (const row of salesRows) {
     const vendedorIdOrigem = String((row as any)?.vendedor_id || '').trim();
     if (!vendedorIdOrigem) continue;
+    // data_venda da venda como fallback (igual ao coalesce(r.data_venda, v.data_venda) da RPC)
+    const vendaDataVenda = String((row as any)?.data_venda || '').slice(0, 10);
 
     const recibos = getRowRecibos(row);
     for (const recibo of recibos) {
-      // Ignora recibos fora do período (o Supabase !inner filtra a venda, mas retorna todos os recibos)
-      if (!isDataNoPeriodo(recibo?.data_venda, dataInicio, dataFim)) { skippedByDate++; continue; }
+      // Ignora recibos fora do período — usa data do recibo, com fallback na data da venda
+      const reciboDataVenda = String(recibo?.data_venda || '').slice(0, 10) || vendaDataVenda;
+      if (!isDataNoPeriodo(reciboDataVenda, dataInicio, dataFim)) { skippedByDate++; continue; }
       // Ignora recibos cancelados por conciliação
       if (recibo?.cancelado_por_conciliacao_em) { skippedByCancelamento++; continue; }
       // Ignora recibos que já estão linkados diretamente à conciliação (mesmo que data/número diferem)
@@ -402,6 +410,11 @@ async function buildRankingSimple(
     }
   }
 
+  // Log com top-5 contribuições para diagnóstico de valores
+  const topContribs = [...contributions]
+    .sort((a, b) => b.bruto - a.bruto)
+    .slice(0, 5)
+    .map(c => `${c.vendedorId?.slice(0,8)} ${c.reciboNumero} bruto=${c.bruto}`);
   console.log('[ranking] buildRankingSimple:', {
     periodo: `${dataInicio} - ${dataFim}`,
     empresas: companyIds.length,
@@ -419,7 +432,8 @@ async function buildRankingSimple(
     skippedByLinkedRecibo,
     skippedByNumero,
     skippedByKey,
-    contributionsGeradas: contributions.length
+    contributionsGeradas: contributions.length,
+    top5: topContribs
   });
 
   return contributions;

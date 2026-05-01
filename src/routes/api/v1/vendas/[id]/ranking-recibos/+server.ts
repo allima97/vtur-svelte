@@ -47,27 +47,29 @@ export async function GET(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
 
-    // Busca a venda com seus recibos
-    let vendaQuery = client
+    // Busca a venda (só para checar escopo e pegar company_id)
+    let vendaBaseQuery = client
       .from('vendas')
-      .select(
-        'id, vendedor_id, company_id, cancelada, vendas_recibos(id, numero_recibo, numero_recibo_normalizado, valor_total, valor_taxas)'
-      )
-      .eq('id', id)
-      .eq('cancelada', false)
-      .maybeSingle();
+      .select('id, vendedor_id, company_id, cancelada')
+      .eq('id', id);
 
     if (companyIds.length > 0) {
-      vendaQuery = vendaQuery.in('company_id', companyIds);
+      vendaBaseQuery = vendaBaseQuery.in('company_id', companyIds);
     }
 
-    const { data: venda, error: vendaErr } = await vendaQuery;
+    const { data: venda, error: vendaErr } = await vendaBaseQuery.maybeSingle();
     if (vendaErr) throw vendaErr;
-    if (!venda) return json({ recibos: [] });
+    if (!venda || (venda as any).cancelada) return json({ recibos: [] });
 
-    const recibos: any[] = Array.isArray((venda as any).vendas_recibos)
-      ? (venda as any).vendas_recibos
-      : [];
+    // Busca os recibos da venda separadamente
+    const { data: recibosData, error: recibosErr } = await client
+      .from('vendas_recibos')
+      .select('id, numero_recibo, numero_recibo_normalizado, valor_total, valor_taxas')
+      .eq('venda_id', id);
+
+    if (recibosErr) throw recibosErr;
+
+    const recibos: any[] = recibosData || [];
 
     if (recibos.length === 0) return json({ recibos: [] });
 
@@ -76,27 +78,47 @@ export async function GET(event) {
       .map((r: any) => normalizeRecibo(r.numero_recibo_normalizado || r.numero_recibo))
       .filter(Boolean);
 
-    const reciboIds = recibos.map((r: any) => String(r.id));
+    const reciboIds = recibos.map((r: any) => String(r.id)).filter(Boolean);
 
     // Busca conciliacao_recibos pelo número do documento (normalizado)
-    const { data: concRows, error: concErr } = await client
-      .from('conciliacao_recibos')
-      .select(
-        'id, documento, company_id, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, movimento_data, ranking_vendedor_id, linked_recibo_id'
-      )
-      .in('documento', numerosNormalizados)
-      .eq('company_id', venda.company_id);
+    let concRows: any[] = [];
+    if (numerosNormalizados.length > 0 && venda.company_id) {
+      try {
+        const { data: concData, error: concErr } = await client
+          .from('conciliacao_recibos')
+          .select(
+            'id, documento, company_id, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, movimento_data, ranking_vendedor_id, linked_recibo_id'
+          )
+          .in('documento', numerosNormalizados)
+          .eq('company_id', venda.company_id);
 
-    if (concErr && !String(concErr.code || '').includes('42P01')) throw concErr;
+        if (concErr) {
+          console.error('[ranking-recibos] conciliacao_recibos fetch error:', concErr);
+        } else {
+          concRows = concData || [];
+        }
+      } catch (e) {
+        console.error('[ranking-recibos] conciliacao_recibos exception:', e);
+      }
+    }
 
     // Busca rateios para os recibos da venda (via venda_recibo_id)
-    const { data: rateioVendaData } = await client
-      .from('vendas_recibos_rateio')
-      .select('id, venda_recibo_id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
-      .in('venda_recibo_id', reciboIds);
+    let rateioVendaData: any[] = [];
+    if (reciboIds.length > 0) {
+      try {
+        const { data, error: rErr } = await client
+          .from('vendas_recibos_rateio')
+          .select('id, venda_recibo_id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
+          .in('venda_recibo_id', reciboIds);
+        if (rErr) console.error('[ranking-recibos] rateio venda fetch error:', rErr);
+        else rateioVendaData = data || [];
+      } catch (e) {
+        console.error('[ranking-recibos] rateio venda exception:', e);
+      }
+    }
 
     const rateioByVendaRecibo = new Map<string, any>();
-    (rateioVendaData || []).forEach((r: any) => {
+    rateioVendaData.forEach((r: any) => {
       if (r.venda_recibo_id) rateioByVendaRecibo.set(r.venda_recibo_id, r);
     });
 
@@ -109,16 +131,21 @@ export async function GET(event) {
     }
 
     // Busca rateios ligados às conciliações encontradas
-    const allConcIds = (concRows || []).map((r: any) => String(r.id));
-    let ratioByConciliacao = new Map<string, any>();
+    const allConcIds = concRows.map((r: any) => String(r.id)).filter(Boolean);
+    const ratioByConciliacao = new Map<string, any>();
     if (allConcIds.length > 0) {
-      const { data: rateioConcData } = await client
-        .from('vendas_recibos_rateio')
-        .select('id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
-        .in('conciliacao_recibo_id', allConcIds);
-      (rateioConcData || []).forEach((r: any) => {
-        if (r.conciliacao_recibo_id) ratioByConciliacao.set(r.conciliacao_recibo_id, r);
-      });
+      try {
+        const { data: rateioConcData, error: rConcErr } = await client
+          .from('vendas_recibos_rateio')
+          .select('id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
+          .in('conciliacao_recibo_id', allConcIds);
+        if (rConcErr) console.error('[ranking-recibos] rateio conc fetch error:', rConcErr);
+        (rateioConcData || []).forEach((r: any) => {
+          if (r.conciliacao_recibo_id) ratioByConciliacao.set(r.conciliacao_recibo_id, r);
+        });
+      } catch (e) {
+        console.error('[ranking-recibos] rateio conc exception:', e);
+      }
     }
 
     /**
@@ -174,15 +201,24 @@ export async function GET(event) {
         const taxas = toNumber(sourceRow.valor_taxas);
         const naoComissionavel = toNumber(sourceRow.valor_nao_comissionavel);
 
-        // Fórmula: valor_lancamentos - descontos - abatimentos
-        const calculado = lancamentos > 0 ? Math.max(0, lancamentos - descontos - abatimentos) : null;
+        // Fórmula idêntica a source.ts:
+        // valorBrutoBase = lancamentos - descontos - abatimentos
+        // valorBruto = valorBrutoBase - naoComissionavel
+        const brutoBase = lancamentos > 0 ? Math.max(0, lancamentos - descontos - abatimentos) : null;
+        const calculado = brutoBase !== null ? Math.max(0, brutoBase - naoComissionavel) : null;
         concValorRanking = calculado;
         concValorTaxas = taxas;
         concStatus = isConciliacaoEfetivada({ status: sourceRow.status, descricao: sourceRow.descricao })
           ? 'confirmada'
           : resolveConciliacaoStatus({ status: sourceRow.status, descricao: sourceRow.descricao });
 
-        concMeta = { valor_lancamentos: lancamentos, valor_descontos: descontos, valor_abatimentos: abatimentos, valor_nao_comissionavel: naoComissionavel };
+        concMeta = {
+          valor_lancamentos: lancamentos,
+          valor_descontos: descontos,
+          valor_abatimentos: abatimentos,
+          valor_nao_comissionavel: naoComissionavel,
+          valor_bruto_base: brutoBase ?? 0
+        };
       }
 
       // Valor de ranking provisório (da venda)
@@ -260,7 +296,7 @@ export async function GET(event) {
       }
     });
   } catch (err: any) {
-    console.error('[ranking-recibos] GET error:', err);
+    console.error('[ranking-recibos] GET error:', JSON.stringify(err), err?.message, err?.stack);
     return toErrorResponse(err, 'Erro ao carregar ranking de recibos.');
   }
 }
