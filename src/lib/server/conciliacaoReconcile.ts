@@ -19,6 +19,7 @@ type ReciboMatchRow = {
   venda_id: string;
   vendedor_id: string | null;
   numero_recibo: string | null;
+  numero_reserva?: string | null;
   valor_total: number | null;
   valor_taxas: number | null;
   data_venda: string | null;
@@ -123,11 +124,29 @@ function normalizeConciliacaoStatus(value?: string | null) {
   return String(value || '').trim().toUpperCase() || 'OUTRO';
 }
 
+function normalizeRexturLocalizador(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .replace(/^REXTUR[\s-]*/i, '')
+    .toUpperCase();
+}
+
+function isRexturDocumento(value?: string | null) {
+  return String(value || '').trim().toUpperCase() === 'REXTUR';
+}
+
+function rexturReservaMatches(left?: string | null, right?: string | null) {
+  const leftNorm = normalizeRexturLocalizador(left);
+  const rightNorm = normalizeRexturLocalizador(right);
+  return Boolean(leftNorm && rightNorm && leftNorm === rightNorm);
+}
+
 function duplicateGroupKey(row: any) {
   return [
     String(row?.company_id || '').trim(),
     String(row?.movimento_data || '').trim(),
     String(row?.documento || '').trim(),
+    normalizeRexturLocalizador(row?.numero_reserva),
     normalizeConciliacaoStatus(row?.status),
     Boolean(row?.is_baixa_rac) ? 'BAIXA_RAC' : 'NORMAL'
   ].join('::');
@@ -338,7 +357,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
   let query = client
     .from('conciliacao_recibos')
     .select(
-      'id, company_id, documento, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_opfax, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, ranking_vendedor_id, ranking_produto_id, ranking_assigned_at, conciliado, conciliado_em, venda_id, venda_recibo_id, is_baixa_rac, created_at, updated_at'
+      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_opfax, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, ranking_vendedor_id, ranking_produto_id, ranking_assigned_at, conciliado, conciliado_em, venda_id, venda_recibo_id, is_baixa_rac, created_at, updated_at'
     )
     .eq('company_id', params.companyId)
     .order('movimento_data', { ascending: false, nullsFirst: false });
@@ -346,7 +365,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
   if (params.conciliacaoReciboId) {
     const { data: target, error } = await client
       .from('conciliacao_recibos')
-      .select('documento, movimento_data, status')
+      .select('documento, numero_reserva, movimento_data, status')
       .eq('company_id', params.companyId)
       .eq('id', params.conciliacaoReciboId)
       .maybeSingle();
@@ -430,6 +449,7 @@ async function fetchReciboCandidates(params: {
         venda_id: vendaId,
         vendedor_id: null,
         numero_recibo: row?.numero_recibo ?? null,
+        numero_reserva: row?.numero_reserva ?? null,
         valor_total: row?.valor_total ?? null,
         valor_taxas: row?.valor_taxas ?? null,
         data_venda: row?.data_venda ?? null
@@ -440,7 +460,7 @@ async function fetchReciboCandidates(params: {
   if (normalizedKey) {
     const { data, error } = await client
       .from('vendas_recibos')
-      .select('id, venda_id, numero_recibo, valor_total, valor_taxas, data_venda')
+      .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
       .eq('numero_recibo_normalizado', normalizedKey)
       .limit(30);
     if (error) throw error;
@@ -450,7 +470,7 @@ async function fetchReciboCandidates(params: {
   if (numero) {
     const { data, error } = await client
       .from('vendas_recibos')
-      .select('id, venda_id, numero_recibo, valor_total, valor_taxas, data_venda')
+      .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
       .eq('numero_recibo', numero)
       .limit(30);
     if (error) throw error;
@@ -464,7 +484,7 @@ async function fetchReciboCandidates(params: {
     for (const token of buildReciboSearchPatterns(numero).slice(0, 2)) {
       const { data, error } = await client
         .from('vendas_recibos')
-        .select('id, venda_id, numero_recibo, valor_total, valor_taxas, data_venda')
+        .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
         .ilike('numero_recibo', token)
         .limit(20);
       if (error) throw error;
@@ -472,6 +492,83 @@ async function fetchReciboCandidates(params: {
       // Se o fuzzy já encontrou candidatos, não tenta mais tokens para limitar falsos positivos
       if (candidatesById.size > 0) break;
     }
+  }
+
+  const candidates = Array.from(candidatesById.values()).filter((row) => row.venda_id);
+  if (candidates.length === 0) return [];
+
+  const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
+  const { data: vendas, error: vendasErr } = await client
+    .from('vendas')
+    .select('id, company_id, vendedor_id')
+    .in('id', vendaIds);
+  if (vendasErr) throw vendasErr;
+
+  const vendasMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
+  for (const row of vendas || []) {
+    const id = String(row?.id || '').trim();
+    if (!id) continue;
+    vendasMap.set(id, {
+      company_id: String(row?.company_id || '').trim() || null,
+      vendedor_id: String(row?.vendedor_id || '').trim() || null
+    });
+  }
+
+  return candidates
+    .filter((row) => vendasMap.get(row.venda_id)?.company_id === companyId)
+    .map((row) => ({
+      ...row,
+      vendedor_id: vendasMap.get(row.venda_id)?.vendedor_id || null
+    }));
+}
+
+async function fetchRexturReciboCandidatesByReserva(params: {
+  client: any;
+  reserva: string;
+  companyId: string;
+}): Promise<ReciboMatchRow[]> {
+  const { client, companyId } = params;
+  const localizador = normalizeRexturLocalizador(params.reserva);
+  if (!localizador) return [];
+
+  const candidatesById = new Map<string, ReciboMatchRow>();
+  const collect = (rows: any[]) => {
+    for (const row of rows || []) {
+      const id = String(row?.id || '').trim();
+      const vendaId = String(row?.venda_id || '').trim();
+      if (!id || !vendaId || !isRexturDocumento(row?.numero_recibo)) continue;
+      if (!rexturReservaMatches(localizador, row?.numero_reserva)) continue;
+      candidatesById.set(id, {
+        id,
+        venda_id: vendaId,
+        vendedor_id: null,
+        numero_recibo: row?.numero_recibo ?? null,
+        numero_reserva: row?.numero_reserva ?? null,
+        valor_total: row?.valor_total ?? null,
+        valor_taxas: row?.valor_taxas ?? null,
+        data_venda: row?.data_venda ?? null
+      });
+    }
+  };
+
+  const { data: exactRows, error: exactError } = await client
+    .from('vendas_recibos')
+    .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
+    .eq('numero_recibo', 'REXTUR')
+    .in('numero_reserva', [localizador, `REXTUR-${localizador}`])
+    .limit(30);
+  if (exactError) throw exactError;
+  collect(exactRows || []);
+
+  if (candidatesById.size === 0) {
+    const { data: fuzzyRows, error: fuzzyError } = await client
+      .from('vendas_recibos')
+      .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
+      .eq('numero_recibo', 'REXTUR')
+      .ilike('numero_reserva', `%${localizador}%`)
+      .limit(30);
+    if (fuzzyError) throw fuzzyError;
+    collect(fuzzyRows || []);
   }
 
   const candidates = Array.from(candidatesById.values()).filter((row) => row.venda_id);
@@ -556,6 +653,42 @@ async function findReciboByNumero(params: {
     valorLancamento: params.valorLancamento ?? null,
     valorTaxas: params.valorTaxas ?? null
   });
+}
+
+async function findRexturReciboByReserva(params: {
+  client: any;
+  reserva: string;
+  companyId: string;
+  valorLancamento?: number | null;
+  valorTaxas?: number | null;
+}) {
+  const candidates = await fetchRexturReciboCandidatesByReserva({
+    client: params.client,
+    reserva: params.reserva,
+    companyId: params.companyId
+  });
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const valorLancamento = params.valorLancamento ?? null;
+  const valorTaxas = params.valorTaxas ?? null;
+  const porValor =
+    valorLancamento != null
+      ? candidates.filter((item) => matches(Number(item.valor_total || 0), Number(valorLancamento || 0)))
+      : candidates;
+  const porTaxa =
+    valorTaxas != null
+      ? porValor.filter((item) => matches(Number(item.valor_taxas || 0), Number(valorTaxas || 0)))
+      : porValor;
+
+  if (porTaxa.length === 1) return porTaxa[0];
+  if (porValor.length === 1) return porValor[0];
+
+  console.warn('[conciliacaoReconcile] REXTUR com localizador ambíguo — nenhum recibo selecionado', {
+    reserva: normalizeRexturLocalizador(params.reserva),
+    candidates: candidates.length
+  });
+  return null;
 }
 
 export type DiagnosticoCronologico = {
@@ -714,7 +847,7 @@ async function reconcilePendentesCompany(params: {
   let query = client
     .from('conciliacao_recibos')
     .select(
-      'id, company_id, documento, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, ranking_vendedor_id, conciliado, venda_recibo_id, venda_id'
+      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, ranking_vendedor_id, conciliado, venda_recibo_id, venda_id'
     )
     .eq('company_id', params.companyId)
     // Ordem cronológica: processa do dia mais antigo para o mais recente,
@@ -785,6 +918,8 @@ async function reconcilePendentesCompany(params: {
     checked += 1;
     const id = String(row.id);
     const documento = String(row.documento || '').trim();
+    const numeroReserva = normalizeRexturLocalizador(row.numero_reserva) || null;
+    const documentoIsRextur = isRexturDocumento(documento);
     const movimentoData = String(row.movimento_data || '').trim() || null;
     const valorTaxas = Number(row.valor_taxas || 0);
     const metrics = buildConciliacaoMetrics({
@@ -813,18 +948,20 @@ async function reconcilePendentesCompany(params: {
     if (existingReciboId) {
       const { data: reciboRow } = await client
         .from('vendas_recibos')
-        .select('id, venda_id, numero_recibo, valor_total, valor_taxas, data_venda')
+        .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas, data_venda')
         .eq('id', existingReciboId)
         .maybeSingle();
 
       if (reciboRow) {
         // Valida que o número do recibo gravado realmente bate com o documento.
         // Se não bater, o vínculo foi feito por match errado — ignora e refaz a busca.
-        const numeroConfere = numeroReciboMatches(documento, reciboRow.numero_recibo);
+        const numeroConfere = documentoIsRextur
+          ? isRexturDocumento(reciboRow.numero_recibo) && (!numeroReserva || rexturReservaMatches(numeroReserva, reciboRow.numero_reserva))
+          : numeroReciboMatches(documento, reciboRow.numero_recibo);
         if (!numeroConfere) {
           console.warn(
             '[conciliacaoReconcile] venda_recibo_id gravado não confere com documento — descartando vínculo.',
-            { id, documento, reciboNumero: reciboRow.numero_recibo, existingReciboId }
+            { id, documento, numeroReserva, reciboNumero: reciboRow.numero_recibo, reciboReserva: reciboRow.numero_reserva, existingReciboId }
           );
           // Limpa o vínculo incorreto para que o reconcile refaça o match corretamente
           await client
@@ -844,6 +981,7 @@ async function reconcilePendentesCompany(params: {
               venda_id: String(reciboRow.venda_id || ''),
               vendedor_id: String(vendaRow?.vendedor_id || '').trim() || null,
               numero_recibo: reciboRow.numero_recibo ?? null,
+              numero_reserva: reciboRow.numero_reserva ?? null,
               valor_total: reciboRow.valor_total ?? null,
               valor_taxas: reciboRow.valor_taxas ?? null,
               data_venda: reciboRow.data_venda ?? null
@@ -854,13 +992,24 @@ async function reconcilePendentesCompany(params: {
     }
 
     if (!recibo) {
-      recibo = await findReciboByNumero({
-        client,
-        numero: documento,
-        companyId: params.companyId,
-        valorLancamento: valorComparacao,
-        valorTaxas
-      });
+      recibo =
+        documentoIsRextur && numeroReserva
+          ? await findRexturReciboByReserva({
+              client,
+              reserva: numeroReserva,
+              companyId: params.companyId,
+              valorLancamento: valorComparacao,
+              valorTaxas
+            })
+          : documentoIsRextur
+            ? null
+            : await findReciboByNumero({
+                client,
+                numero: documento,
+                companyId: params.companyId,
+                valorLancamento: valorComparacao,
+                valorTaxas
+              });
     }
 
     if (!recibo) {
@@ -1009,7 +1158,7 @@ async function recalculateConciliacaoMetricsCompany(params: {
     let query = client
       .from('conciliacao_recibos')
       .select(
-        'id, documento, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, valor_venda_real, venda_id, venda_recibo_id, sistema_valor_total, sistema_valor_taxas, match_total, match_taxas, diff_total, diff_taxas, conciliado, movimento_data'
+        'id, documento, numero_reserva, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, valor_venda_real, venda_id, venda_recibo_id, sistema_valor_total, sistema_valor_taxas, match_total, match_taxas, diff_total, diff_taxas, conciliado, movimento_data'
       )
       .eq('company_id', params.companyId)
       .order('movimento_data', { ascending: false, nullsFirst: false })

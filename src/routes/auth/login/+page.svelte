@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { env as publicEnv } from '$env/dynamic/public';
   import { supabase, isMockMode } from '$lib/db/supabase';
   import { auth } from '$lib/stores/auth';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock } from 'lucide-svelte';
   
@@ -15,6 +17,10 @@
   let error: string | null = null;
   let mockMode = false;
   let sessionExpired = false;
+  let turnstileToken = '';
+  let turnstileWidget: { reset?: () => void } | null = null;
+
+  $: turnstileEnabled = !mockMode && Boolean(String(publicEnv.PUBLIC_TURNSTILE_SITE_KEY || '').trim());
   
   onMount(() => {
     mockMode = isMockMode();
@@ -40,39 +46,72 @@
       error = 'Preencha email e senha';
       return;
     }
+    if (turnstileEnabled && !turnstileToken) {
+      error = 'Confirme a verificação de segurança para continuar.';
+      return;
+    }
 
     loading = true;
     error = null;
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
-      if (data.session) {
-        auth.setAuth(data.user, data.session);
-
-        // Salva session nos cookies via endpoint server-side
-        await fetch('/api/auth/set-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token
-          })
+      if (mockMode) {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
         });
 
-        goto('/');
+        if (authError) throw authError;
+
+        if (data.session) {
+          auth.setAuth(data.user, data.session);
+
+          await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token
+            })
+          });
+
+          goto('/');
+        }
+        return;
       }
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          turnstile_token: turnstileToken
+        })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Erro ao fazer login');
+
+      const session = payload.session;
+      if (!session?.access_token || !session?.refresh_token) {
+        throw new Error('Sessão não retornada pelo servidor.');
+      }
+
+      const { data, error: setSessionError } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      });
+      if (setSessionError) throw setSessionError;
+
+      auth.setAuth(data.user ?? payload.user ?? null, data.session ?? session);
+      goto('/');
     } catch (err: any) {
       error = err.message || 'Erro ao fazer login';
       if (err.message?.includes('Invalid login')) {
         error = 'Email ou senha incorretos';
+      }
+      if (turnstileEnabled) {
+        turnstileWidget?.reset?.();
       }
     } finally {
       loading = false;
@@ -169,6 +208,13 @@
             Esqueceu a senha?
           </a>
         </div>
+
+        <TurnstileWidget
+          bind:this={turnstileWidget}
+          bind:token={turnstileToken}
+          disabled={loading}
+          action="login"
+        />
 
         <!-- Botão Login -->
         <Button

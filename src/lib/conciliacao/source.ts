@@ -11,6 +11,7 @@ export type EffectiveConciliacaoReceipt = {
   id: string;
   conciliacao_ids: string[];
   documento: string;
+  numero_reserva?: string | null;
   data_venda: string;
   company_id: string | null;
   vendedor_id: string | null;
@@ -42,12 +43,27 @@ export type EffectiveConciliacaoReceipt = {
 
 export type SuppressedConciliacaoReceipt = {
   documento: string;
+  numero_reserva?: string | null;
   linked_venda_id: string | null;
   linked_recibo_id: string | null;
 };
 
 function toStr(value: unknown) {
   return String(value || '').trim();
+}
+
+function normalizeConciliacaoReserva(value?: unknown) {
+  return toStr(value).replace(/^REXTUR[\s-]*/i, '').toUpperCase();
+}
+
+function getConciliacaoReceiptKey(row: { documento?: unknown; numero_reserva?: unknown }) {
+  const documento = toStr(row?.documento);
+  const reserva = normalizeConciliacaoReserva(row?.numero_reserva);
+  return reserva ? `${documento}::${reserva}` : documento;
+}
+
+function isRexturDocumento(value?: unknown) {
+  return toStr(value).toUpperCase() === 'REXTUR';
 }
 
 function toNumber(value: unknown) {
@@ -289,7 +305,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
   for (let offset = 0; offset < 10000; offset += pageSize) {
     let query = client
       .from('conciliacao_recibos')
-      .select('id, company_id, documento, descricao, movimento_data, status, valor_lancamentos, valor_venda_real, venda_id, venda_recibo_id')
+      .select('id, company_id, documento, numero_reserva, descricao, movimento_data, status, valor_lancamentos, valor_venda_real, venda_id, venda_recibo_id')
       .neq('is_baixa_rac', true)
       .gte('movimento_data', inicio)
       .lte('movimento_data', fim)
@@ -310,17 +326,18 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
 
   const byDocumento = new Map<string, any[]>();
   rows.forEach((row) => {
-    const documento = toStr(row?.documento);
-    if (!documento) return;
-    const bucket = byDocumento.get(documento) || [];
+    const key = getConciliacaoReceiptKey(row);
+    if (!key) return;
+    const bucket = byDocumento.get(key) || [];
     bucket.push(row);
-    byDocumento.set(documento, bucket);
+    byDocumento.set(key, bucket);
   });
 
   return Array.from(byDocumento.entries())
-    .map(([documento, group]) => {
+    .map(([, group]) => {
       const { sortedRows, sourceRow } = pickConciliacaoSourceRow(group);
       if (!sourceRow) return null;
+      const documento = toStr(sourceRow?.documento);
       const effectiveDate = toStr(sourceRow?.movimento_data);
       if (!effectiveDate || effectiveDate < inicio || effectiveDate > fim) return null;
       const hasEstornoMesmoMes = sortedRows.some(
@@ -331,6 +348,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
       if (!hasEstornoMesmoMes) return null;
       return {
         documento,
+        numero_reserva: normalizeConciliacaoReserva(sourceRow?.numero_reserva) || null,
         linked_venda_id: sortedRows.map((row) => toStr(row?.venda_id)).find(Boolean) || null,
         linked_recibo_id: sortedRows.map((row) => toStr(row?.venda_recibo_id)).find(Boolean) || null
       } satisfies SuppressedConciliacaoReceipt;
@@ -379,7 +397,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   for (let offset = 0; offset < 10000; offset += pageSize) {
     let query = client
       .from('conciliacao_recibos')
-      .select('documento, valor_lancamentos, valor_venda_real, status, descricao')
+      .select('documento, numero_reserva, valor_lancamentos, valor_venda_real, status, descricao')
       .neq('is_baixa_rac', true)
       .gte('movimento_data', inicio)
       .lte('movimento_data', fim)
@@ -417,7 +435,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       let query = client
         .from('conciliacao_recibos')
         .select(
-          'id, company_id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_nao_comissionavel, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
+          'id, company_id, documento, numero_reserva, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_nao_comissionavel, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
         )
         .neq('is_baixa_rac', true)
         .in('documento', batch)
@@ -435,7 +453,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         let fallbackQuery = client
           .from('conciliacao_recibos')
           .select(
-            'id, company_id, documento, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
+            'id, company_id, documento, numero_reserva, descricao, movimento_data, status, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id'
           )
           .neq('is_baixa_rac', true)
           .in('documento', batch)
@@ -573,7 +591,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   const vendaDocumentoSets = new Map<string, Set<string>>();
   concRows.forEach((row) => {
     const vendaId = toStr(row?.venda_id);
-    const documento = toStr(row?.documento);
+    const documento = getConciliacaoReceiptKey(row);
     if (!vendaId || !documento) return;
     if (!vendaDocumentoSets.has(vendaId)) vendaDocumentoSets.set(vendaId, new Set());
     vendaDocumentoSets.get(vendaId)?.add(documento);
@@ -805,27 +823,32 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   const concRowsByDocumento = new Map<string, any[]>();
   concRows.forEach((row: any) => {
-    const documento = toStr(row?.documento);
-    if (!documento) return;
-    const bucket = concRowsByDocumento.get(documento) || [];
+    const key = getConciliacaoReceiptKey(row);
+    if (!key) return;
+    const bucket = concRowsByDocumento.get(key) || [];
     bucket.push(row);
-    concRowsByDocumento.set(documento, bucket);
+    concRowsByDocumento.set(key, bucket);
   });
 
   return Array.from(concRowsByDocumento.entries())
-    .flatMap(([documento, rows]) => {
+    .flatMap(([documentoKey, rows]) => {
       const { sortedRows, sourceRow } = pickConciliacaoSourceRow(rows);
       const estornoRows = sortedRows.filter((row) => toStr(row?.status).toUpperCase() === 'ESTORNO');
       const groupedConcIds = Array.from(new Set(sortedRows.map((row) => toStr(row?.id)).filter(isUuid)));
 
       if (!sourceRow) return [];
+      const documento = toStr(sourceRow?.documento);
+      const numeroReserva = normalizeConciliacaoReserva(sourceRow?.numero_reserva) || null;
 
       const effectiveDate = toStr(sourceRow?.movimento_data);
       if (!effectiveDate || effectiveDate < inicio || effectiveDate > fim) return [];
 
       const linkedVendaIdFromConc = sortedRows.map((row) => toStr(row?.venda_id)).find(Boolean) || null;
       const linkedReciboIdFromConc = sortedRows.map((row) => toStr(row?.venda_recibo_id)).find(Boolean) || null;
-      const fallbackRecibo = !linkedReciboIdFromConc ? reciboByNumeroMap.get(documento) || null : null;
+      const fallbackRecibo =
+        !linkedReciboIdFromConc && !numeroReserva && !isRexturDocumento(documento)
+          ? reciboByNumeroMap.get(documento) || null
+          : null;
       const linkedReciboId = linkedReciboIdFromConc || fallbackRecibo?.id || null;
       const linkedReciboMeta = linkedReciboId
         ? recibosMap.get(linkedReciboId) || fallbackRecibo || null
@@ -962,7 +985,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const rateioVendaRecibo = linkedReciboId ? reciboRateioMap.get(linkedReciboId) || null : null;
       const rateio = rateioConciliacao || rateioVendaRecibo;
       const rateioOrigem = rateioConciliacao ? 'conciliacao' : rateioVendaRecibo ? 'venda_recibo' : null;
-      const preferredConciliacaoId = rateioId || toStr(sourceRow?.id) || groupedConcIds[0] || `conc:${documento}`;
+      const preferredConciliacaoId = rateioId || toStr(sourceRow?.id) || groupedConcIds[0] || `conc:${documentoKey}`;
 
       const effectiveSaleDate = effectiveDate;
       const companyIdFromRows = sortedRows.map((row) => toStr(row?.company_id)).find(Boolean) || null;
@@ -993,6 +1016,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         id: preferredConciliacaoId,
         conciliacao_ids: groupedConcIds,
         documento,
+        numero_reserva: numeroReserva,
         data_venda: effectiveSaleDate,
         company_id: companyIdFromRows,
         vendedor_id: vendedorId,
@@ -1034,6 +1058,7 @@ export function buildConciliacaoSyntheticVendas(items: EffectiveConciliacaoRecei
       {
         id: item.linked_recibo_id || item.id,
         numero_recibo: item.documento,
+        numero_reserva: item.numero_reserva || null,
         data_venda: item.data_venda,
         valor_total: item.valor_bruto,
         valor_taxas: item.valor_taxas,

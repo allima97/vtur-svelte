@@ -63,7 +63,7 @@ export async function GET(event) {
     let query = client
       .from('conciliacao_recibos')
       .select(`
-        id, company_id, documento, movimento_data, status, descricao,
+        id, company_id, documento, numero_reserva, movimento_data, status, descricao,
         valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos,
         valor_nao_comissionavel, valor_calculada_loja, valor_visao_master,
         valor_opfax, valor_saldo, valor_venda_real, valor_comissao_loja,
@@ -109,7 +109,7 @@ export async function GET(event) {
     if (q) {
       const qLower = q.toLowerCase();
       items = items.filter((row: any) =>
-        [row.documento, row.descricao, row.status].join(' ').toLowerCase().includes(qLower)
+        [row.documento, row.numero_reserva, row.descricao, row.status].join(' ').toLowerCase().includes(qLower)
       );
     }
 

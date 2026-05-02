@@ -57,6 +57,7 @@ export type ConciliacaoItem = {
   id: string;
   company_id: string;
   documento: string;
+  numero_reserva?: string | null;
   movimento_data: string | null;
   status: ConciliacaoStatus;
   descricao: string | null;

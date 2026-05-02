@@ -45,6 +45,12 @@ export type QuoteItemForPdf = {
   end_date?: string | null;
   currency?: string | null;
   order_index?: number | null;
+  raw?: Record<string, unknown> | null;
+  segments?: Array<{
+    segment_type?: string | null;
+    data?: Record<string, unknown> | null;
+    order_index?: number | null;
+  }>;
 };
 
 export type QuoteForPdf = {
@@ -72,9 +78,11 @@ function textVal(value?: string | null): string {
   return String(value ?? '').trim();
 }
 
-function formatCurrency(value: number): string {
-  if (!Number.isFinite(value)) return 'R$ 0,00';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function formatCurrency(value: number, currency = 'BRL'): string {
+  if (!Number.isFinite(value)) {
+    return (0).toLocaleString('pt-BR', { style: 'currency', currency });
+  }
+  return value.toLocaleString('pt-BR', { style: 'currency', currency });
 }
 
 function formatDateBR(value?: string | null): string {
@@ -86,6 +94,144 @@ function formatDateBR(value?: string | null): string {
   } catch {
     return '';
   }
+}
+
+function normalizeText(value?: string | null): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function splitTrechoCities(value?: string | null) {
+  const parts = String(value || '')
+    .split(/\s+-\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    origem: parts[0] || '',
+    destino: parts[1] || ''
+  };
+}
+
+function resolveAirlineIata(value?: string | null) {
+  const normalized = normalizeText(value);
+  if (!normalized) return '';
+  if (normalized.includes('lufthansa')) return 'LH';
+  if (normalized.includes('latam')) return 'LA';
+  if (normalized.includes('gol')) return 'G3';
+  if (normalized.includes('azul')) return 'AD';
+  if (normalized.includes('sky')) return 'H2';
+  if (normalized.includes('tap')) return 'TP';
+  if (normalized.includes('iberia')) return 'IB';
+  if (normalized.includes('ita airways') || normalized.includes('ita')) return 'AZ';
+  if (normalized.includes('air dolomiti')) return 'EN';
+  if (normalized.includes('air france')) return 'AF';
+  if (normalized.includes('klm')) return 'KL';
+  if (normalized.includes('emirates')) return 'EK';
+  if (normalized.includes('qatar')) return 'QR';
+  if (normalized.includes('turkish')) return 'TK';
+  const raw = String(value || '').trim();
+  return /^[A-Z0-9]{2,3}$/i.test(raw) ? raw.toUpperCase() : raw.slice(0, 3).toUpperCase();
+}
+
+function formatFlightCity(value?: string | null) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw
+    .split(/\s*-\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)[0] || raw;
+}
+
+function formatFlightPlace(city?: string | null, airport?: string | null) {
+  const cityLabel = formatFlightCity(city);
+  const airportLabel = String(airport || '').trim();
+  if (airportLabel && (airportLabel.includes('(') || airportLabel.includes(' - ') || airportLabel.length > 3)) {
+    return airportLabel;
+  }
+  const code = airportLabel.toUpperCase();
+  if (cityLabel && /^[A-Z]{3}$/.test(code)) return `${cityLabel} (${code})`;
+  if (cityLabel) return cityLabel;
+  if (code) return code;
+  return '-';
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getFlightDataList(item: QuoteItemForPdf): Record<string, unknown>[] {
+  const segmentRows = (item.segments || [])
+    .filter((segment) => segment.segment_type === 'flight')
+    .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
+    .map((segment) => asRecord(segment.data))
+    .filter((data) => Object.keys(data).length > 0);
+
+  if (segmentRows.length > 0) return segmentRows;
+
+  const raw = asRecord(item.raw);
+  const aereoImport = asRecord(raw.aereo_import);
+  const segmentos = Array.isArray(aereoImport.segmentos)
+    ? aereoImport.segmentos.map((segment) => ({
+        ...asRecord(segment),
+        cia_aerea: asRecord(segment).cia_aerea || aereoImport.cia_aerea,
+        classe_reserva: asRecord(segment).classe_reserva || aereoImport.classe_reserva,
+        trecho: asRecord(segment).trecho || aereoImport.trecho,
+        data_inicio: asRecord(segment).data_inicio || asRecord(segment).data_voo || aereoImport.data_inicio,
+        data_fim: asRecord(segment).data_fim || asRecord(segment).data_voo || aereoImport.data_fim
+      }))
+    : [];
+
+  if (segmentos.length > 0) return segmentos;
+  if (aereoImport.data_voo || aereoImport.hora_saida || aereoImport.aeroporto_saida) return [aereoImport];
+  return [];
+}
+
+function buildFlightRows(item: QuoteItemForPdf) {
+  const airlineLegend = new Map<string, string>();
+  const rows = getFlightDataList(item).map((data) => {
+    const trecho = splitTrechoCities(String(data.trecho || ''));
+    const ciaCompleta = String(data.cia_aerea || '').trim();
+    const cia = resolveAirlineIata(ciaCompleta) || ciaCompleta || 'AÉREO';
+    if (ciaCompleta && cia && cia !== ciaCompleta.toUpperCase()) {
+      airlineLegend.set(cia, ciaCompleta);
+    }
+
+    const origem = formatFlightPlace(
+      String(data.cidade_saida || trecho.origem || ''),
+      String(data.aeroporto_saida || '')
+    );
+    const destino = formatFlightPlace(
+      String(data.cidade_chegada || trecho.destino || ''),
+      String(data.aeroporto_chegada || '')
+    );
+    const horarios = [data.hora_saida, data.hora_chegada]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' / ') || '-';
+
+    return [
+      cia,
+      origem,
+      formatDateBR(String(data.data_voo || data.data_inicio || '')),
+      destino,
+      formatDateBR(String(data.data_fim || data.data_voo || data.data_inicio || '')),
+      horarios
+    ];
+  });
+
+  return { rows, airlineLegend };
+}
+
+function isFlightQuoteItem(item: QuoteItemForPdf) {
+  if (getFlightDataList(item).length > 0) return true;
+  const normalized = normalizeText(`${item.item_type || ''} ${item.title || ''} ${item.product_name || ''}`);
+  return normalized.includes('passagem') || normalized.includes('aereo') || normalized.includes('voo');
 }
 
 function extractStoragePath(url?: string | null): string | null {
@@ -193,6 +339,62 @@ async function externalImageToDataUrl(url: string): Promise<string | null> {
   }
 }
 
+function renderGenericItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
+  const label = textVal(item.title || item.product_name || item.item_type || 'Item');
+  const city = textVal(item.city_name);
+  const start = formatDateBR(item.start_date);
+  const end = formatDateBR(item.end_date);
+  const period = start && end && start !== end ? `${start} – ${end}` : (start || '');
+  const meta = [city, period].filter(Boolean).join(' · ');
+  const amount = Number(item.total_amount ?? 0);
+  const currency = item.currency || 'BRL';
+
+  return `<div class="orc-section-card">
+    <div class="orc-section-title orc-section-title--blue">${escHtml(label)}</div>
+    <div class="orc-section-divider"></div>
+    ${meta ? `<div class="orc-item-meta">${escHtml(meta)}</div>` : ''}
+    ${showItemValues ? `<div class="orc-item-value">${escHtml(formatCurrency(amount, currency))}</div>` : ''}
+  </div>`;
+}
+
+function renderFlightItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
+  const { rows, airlineLegend } = buildFlightRows(item);
+  if (rows.length === 0) return renderGenericItemHtml(item, showItemValues);
+
+  const amount = Number(item.total_amount ?? 0);
+  const taxes = Number(item.taxes_amount ?? 0);
+  const currency = item.currency || 'BRL';
+  const legendHtml = airlineLegend.size > 0
+    ? `<div class="orc-flight-legend">${Array.from(airlineLegend.entries()).map(([code, name]) => `<div><b>${escHtml(code)}</b> = ${escHtml(name)}</div>`).join('')}</div>`
+    : '';
+
+  return `<div class="orc-section-card orc-flight-card">
+    <div class="orc-section-title orc-flight-title">Passagem Aérea</div>
+    <div class="orc-flight-table-wrap">
+      <table class="orc-flight-table">
+        <thead>
+          <tr>
+            <th>Cia</th>
+            <th>Origem</th>
+            <th>Saída</th>
+            <th>Destino</th>
+            <th>Chegada</th>
+            <th>Horários</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `<tr>${row.map((cell) => `<td>${escHtml(cell || '-')}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${legendHtml}
+    ${showItemValues ? `<div class="orc-flight-values">
+      <span>Valor: ${escHtml(formatCurrency(amount, currency))}</span>
+      ${taxes > 0 ? `<span>Taxas: ${escHtml(formatCurrency(taxes, currency))}</span>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
 // ---------------------------------------------------------------------------
 // BUILDER DO HTML
 // ---------------------------------------------------------------------------
@@ -215,6 +417,7 @@ function buildQuotePreviewHtmlSync(params: {
   const safeDiscount = Math.max(Number.isFinite(discount) ? discount : 0, 0);
   const total = Math.max(valorSemTaxas + taxesTotal - safeDiscount, 0);
   const itemCount = items.length;
+  const currency = quote.currency || 'BRL';
 
   const dateLabel = formatDateBR(quote.created_at);
   const clientName = textVal(quote.client_name) || 'Cliente';
@@ -280,10 +483,10 @@ function buildQuotePreviewHtmlSync(params: {
       <div class="orc-summary-box">
         <table class="orc-summary-table">
           <tbody>
-            <tr><td>Valor (${itemCount} produto${itemCount === 1 ? '' : 's'})</td><td class="text-right">${escHtml(formatCurrency(valorSemTaxas))}</td></tr>
-            <tr><td>Taxas e impostos</td><td class="text-right">${escHtml(formatCurrency(taxesTotal))}</td></tr>
-            ${safeDiscount > 0 ? `<tr><td>Desconto</td><td class="text-right">${escHtml(formatCurrency(-safeDiscount))}</td></tr>` : ''}
-            <tr class="orc-total-row"><td><b>Total de</b></td><td class="text-right"><b>${escHtml(formatCurrency(total))}</b></td></tr>
+            <tr><td>Valor (${itemCount} produto${itemCount === 1 ? '' : 's'})</td><td class="text-right">${escHtml(formatCurrency(valorSemTaxas, currency))}</td></tr>
+            <tr><td>Taxas e impostos</td><td class="text-right">${escHtml(formatCurrency(taxesTotal, currency))}</td></tr>
+            ${safeDiscount > 0 ? `<tr><td>Desconto</td><td class="text-right">${escHtml(formatCurrency(-safeDiscount, currency))}</td></tr>` : ''}
+            <tr class="orc-total-row"><td><b>Total de</b></td><td class="text-right"><b>${escHtml(formatCurrency(total, currency))}</b></td></tr>
           </tbody>
         </table>
       </div>
@@ -292,24 +495,10 @@ function buildQuotePreviewHtmlSync(params: {
   // Itens
   const itensHtml = items.length === 0
     ? '<div class="orc-empty">Sem itens neste orçamento.</div>'
-    : `<div class="orc-section-card">
-        <div class="orc-section-title orc-section-title--blue">Itens do Orçamento</div>
-        <div class="orc-section-divider"></div>
-        ${items.map((item) => {
-          const label = textVal(item.title || item.product_name || item.item_type || 'Item');
-          const city = textVal(item.city_name);
-          const start = formatDateBR(item.start_date);
-          const end = formatDateBR(item.end_date);
-          const period = start && end && start !== end ? `${start} – ${end}` : (start || '');
-          const meta = [city, period].filter(Boolean).join(' · ');
-          const amount = Number(item.total_amount ?? 0);
-          return `<div class="orc-item-row">
-            <div class="orc-item-label">${escHtml(label)}</div>
-            ${meta ? `<div class="orc-item-meta">${escHtml(meta)}</div>` : ''}
-            ${showItemValues ? `<div class="orc-item-value">${escHtml(formatCurrency(amount))}</div>` : ''}
-          </div>`;
-        }).join('<div class="orc-item-divider"></div>')}
-      </div>`;
+    : items.map((item) => isFlightQuoteItem(item)
+        ? renderFlightItemHtml(item, showItemValues)
+        : renderGenericItemHtml(item, showItemValues)
+      ).join('');
 
   // Rodapé
   const footerHtml = `
@@ -372,6 +561,17 @@ function buildQuotePreviewHtmlSync(params: {
     .orc-item-value { font-size: 11px; color: #0f172a; margin: 2px 0 0 0; text-align: right; }
     .orc-item-divider { height: 1px; background: #f1f5f9; margin: 2px 0; }
     .orc-empty { font-size: 12px; color: #94a3b8; padding: 8px 0; }
+
+    /* Passagem aérea */
+    .orc-flight-card { padding: 18px 20px 20px 20px; }
+    .orc-flight-title { color: #0f172a; font-size: 18px; margin: 0 0 14px 0; }
+    .orc-flight-table-wrap { border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; }
+    .orc-flight-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .orc-flight-table thead th { background: #e8eefb; color: #1e3a8a; padding: 8px 8px; text-align: left; font-weight: 700; border-bottom: 1px solid #cbd5e1; }
+    .orc-flight-table tbody td { padding: 8px 8px; border-bottom: 1px solid #dbe3f0; color: #334155; }
+    .orc-flight-table tbody tr:last-child td { border-bottom: 0; }
+    .orc-flight-legend { margin: 10px 0 0 0; font-size: 10px; color: #0f172a; }
+    .orc-flight-values { display: flex; justify-content: flex-end; gap: 16px; margin: 10px 0 0 0; font-size: 10px; font-weight: 700; color: #0f172a; }
 
     /* Rodapé */
     .orc-footer-list { margin: 0 0 0 14px; padding: 0; font-size: 9px; color: #334155; }
@@ -441,10 +641,40 @@ export async function openQuotePreview(params: {
   // 3. Itens
   const { data: items, error: itemsError } = await supabase
     .from('quote_item')
-    .select('id, item_type, title, product_name, city_name, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, order_index')
+    .select('id, item_type, title, product_name, city_name, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, order_index, raw')
     .eq('quote_id', quoteId)
     .order('order_index', { ascending: true });
   if (itemsError) throw new Error('Erro ao carregar itens do orçamento.');
+
+  const itemRows: QuoteItemForPdf[] = ((items ?? []) as QuoteItemForPdf[]).map((item) => ({
+    ...item,
+    segments: []
+  }));
+  const itemIds = itemRows.map((item) => item.id).filter(Boolean) as string[];
+  if (itemIds.length > 0) {
+    const { data: segments } = await supabase
+      .from('quote_item_segment')
+      .select('quote_item_id, segment_type, data, order_index')
+      .in('quote_item_id', itemIds)
+      .order('order_index', { ascending: true });
+
+    const segmentsByItem = new Map<string, NonNullable<QuoteItemForPdf['segments']>>();
+    for (const segment of segments ?? []) {
+      const itemId = String(segment.quote_item_id || '');
+      if (!itemId) continue;
+      const current = segmentsByItem.get(itemId) || [];
+      current.push({
+        segment_type: segment.segment_type ?? null,
+        data: segment.data ?? {},
+        order_index: segment.order_index ?? 0
+      });
+      segmentsByItem.set(itemId, current);
+    }
+
+    for (const item of itemRows) {
+      if (item.id && segmentsByItem.has(item.id)) item.segments = segmentsByItem.get(item.id) || [];
+    }
+  }
 
   // 4. Parâmetros PDF
   const { data: settings } = await supabase
@@ -484,7 +714,7 @@ export async function openQuotePreview(params: {
       currency: quote.currency ?? 'BRL',
       client_name: clientName || null,
     },
-    items: (items ?? []) as QuoteItemForPdf[],
+    items: itemRows,
     settings: pdfSettings,
     logoUrl,
     qrUrl,

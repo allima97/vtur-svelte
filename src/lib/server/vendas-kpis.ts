@@ -522,7 +522,7 @@ async function fetchResolvedRows(
   const overriddenReceiptIds = new Set(
     concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
   );
-  let suppressedConcReceipts: Array<{ documento: string; linked_recibo_id: string | null }> = [];
+  let suppressedConcReceipts: Array<{ documento: string; numero_reserva?: string | null; linked_recibo_id: string | null }> = [];
   try {
     suppressedConcReceipts = await fetchSuppressedConciliacaoReceipts({
       client,
@@ -539,7 +539,10 @@ async function fetchResolvedRows(
     suppressedConcReceipts.map((item) => toStr(item.linked_recibo_id)).filter(Boolean)
   );
   const suppressedReceiptNumbers = new Set(
-    suppressedConcReceipts.map((item) => normalizeReceiptNumber(item.documento)).filter(Boolean)
+    suppressedConcReceipts
+      .filter((item) => !(toStr(item.documento).toUpperCase() === 'REXTUR' && toStr(item.numero_reserva)))
+      .map((item) => normalizeReceiptNumber(item.documento))
+      .filter(Boolean)
   );
   const overrideCompanySet = new Set(conciliacaoCompanyIds);
 

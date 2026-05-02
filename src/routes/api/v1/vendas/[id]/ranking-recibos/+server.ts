@@ -47,7 +47,7 @@ export async function GET(event) {
 
     const { data: recibosData, error: recibosErr } = await client
       .from('vendas_recibos')
-      .select('id, numero_recibo, numero_recibo_normalizado, valor_total, valor_taxas')
+      .select('id, numero_recibo, numero_recibo_normalizado, numero_reserva, valor_total, valor_taxas')
       .eq('venda_id', id);
 
     if (recibosErr) throw recibosErr;
@@ -63,6 +63,7 @@ export async function GET(event) {
         id: String(recibo.id),
         numero_recibo: recibo.numero_recibo ?? null,
         numero_recibo_normalizado: recibo.numero_recibo_normalizado ?? null,
+        numero_reserva: recibo.numero_reserva ?? null,
         valor_total: recibo.valor_total ?? null,
         valor_taxas: recibo.valor_taxas ?? null
       }))

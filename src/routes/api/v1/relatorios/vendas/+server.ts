@@ -537,7 +537,7 @@ export async function GET(event) {
       const overriddenReceiptIds = new Set(
         concReceiptsForOverrides.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
       );
-      let suppressedConcReceipts: Array<{ documento: string; linked_recibo_id: string | null }> = [];
+      let suppressedConcReceipts: Array<{ documento: string; numero_reserva?: string | null; linked_recibo_id: string | null }> = [];
       try {
         suppressedConcReceipts = await fetchSuppressedConciliacaoReceipts({
           client,
@@ -554,7 +554,10 @@ export async function GET(event) {
         suppressedConcReceipts.map((item) => toStr(item.linked_recibo_id)).filter(Boolean)
       );
       const suppressedReceiptNumbers = new Set(
-        suppressedConcReceipts.map((item) => normalizeReceiptNumber(item.documento)).filter(Boolean)
+        suppressedConcReceipts
+          .filter((item) => !(toStr(item.documento).toUpperCase() === 'REXTUR' && toStr(item.numero_reserva)))
+          .map((item) => normalizeReceiptNumber(item.documento))
+          .filter(Boolean)
       );
       const vendedorByConcReceiptId = new Map<string, string>(
         concReceiptsForOverrides

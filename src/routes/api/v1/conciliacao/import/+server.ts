@@ -284,19 +284,22 @@ async function findRexturReciboByReserva(params: {
     .map((row: any) => ({ ...row, vendedor_id: vendaMap.get(row.venda_id) || null }));
 
   if (candidatos.length === 0) return null;
+  if (candidatos.length === 1) return { recibo: candidatos[0] };
 
   const targetTotal = Number(params.valorLancamento || 0);
   const targetTaxas = Number(params.valorTaxas || 0);
-  const ranked = [...candidatos].sort((a: any, b: any) => {
-    const aTotalDiff = Math.abs(Number(a?.valor_total || 0) - targetTotal);
-    const bTotalDiff = Math.abs(Number(b?.valor_total || 0) - targetTotal);
-    if (aTotalDiff !== bTotalDiff) return aTotalDiff - bTotalDiff;
-    const aTaxDiff = Math.abs(Number(a?.valor_taxas || 0) - targetTaxas);
-    const bTaxDiff = Math.abs(Number(b?.valor_taxas || 0) - targetTaxas);
-    return aTaxDiff - bTaxDiff;
-  });
+  const porValor = candidatos.filter((item: any) =>
+    params.valorLancamento == null ? true : matches(Number(item?.valor_total || 0), targetTotal)
+  );
+  const porTaxas = porValor.filter((item: any) =>
+    params.valorTaxas == null ? true : matches(Number(item?.valor_taxas || 0), targetTaxas)
+  );
 
-  return ranked[0] ? { recibo: ranked[0] } : null;
+  const escolhido =
+    (porTaxas.length === 1 ? porTaxas[0] : null) ||
+    (porValor.length === 1 ? porValor[0] : null);
+
+  return escolhido ? { recibo: escolhido } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +317,20 @@ function buildImportKey(
     String(movimentoData || '').trim(),
     String(documento || '').trim(),
     normalizeConciliacaoDescricaoKey(descricao)
+  ].join('::');
+}
+
+function buildRexturImportKey(
+  companyId: string,
+  movimentoData?: string | null,
+  documento?: string | null,
+  numeroReserva?: string | null
+) {
+  return [
+    companyId,
+    String(movimentoData || '').trim(),
+    String(documento || '').trim(),
+    normalizeRexturLocalizador(numeroReserva)
   ].join('::');
 }
 
@@ -410,7 +427,7 @@ export async function POST(event) {
     // ── Busca registros já existentes (exactMap + fallbackMap) ────────────
     const { data: existentes } = await client
       .from('conciliacao_recibos')
-      .select('id, documento, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')
+      .select('id, documento, numero_reserva, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')
       .eq('company_id', companyId)
       .in('documento', importaveis.map((l) => l.documento))
       .limit(5000);
@@ -422,6 +439,16 @@ export async function POST(event) {
         row
       ])
     );
+
+    const existentesRexturByKey = new Map<string, any>();
+    for (const row of existentes || []) {
+      const reserva = normalizeRexturLocalizador((row as any)?.numero_reserva);
+      if (!reserva) continue;
+      existentesRexturByKey.set(
+        buildRexturImportKey(companyId, (row as any).movimento_data, (row as any).documento, reserva),
+        row
+      );
+    }
 
     // Mapa fallback: chave = companyId::data::documento (sem descrição)
     // Usado quando a descrição mudou levemente entre importações (evita duplicatas)
@@ -526,6 +553,7 @@ export async function POST(event) {
         ranking_produto_id: String(l.ranking_produto_id || '').trim() || null,
         venda_id: vendaId,
         venda_recibo_id: vendaReciboId,
+        numero_reserva: normalizeRexturLocalizador(l.numero_reserva) || null,
         origem: String(l.origem || 'manual').trim(),
         conciliado: false,
       };
@@ -558,8 +586,13 @@ export async function POST(event) {
       }
 
       // 1ª tentativa: chave exata (inclui descrição normalizada)
+      const rexturKey = isRexturImportLine(l)
+        ? buildRexturImportKey(companyId, l.movimento_data, l.documento, l.numero_reserva)
+        : '';
       let existing: any =
-        existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)) || null;
+        (rexturKey ? existentesRexturByKey.get(rexturKey) : null) ||
+        existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)) ||
+        null;
 
       // 2ª tentativa: chave fallback (sem descrição) — evita duplicatas por variação de descrição
       if (!existing && shouldUseFallbackDedup(l)) {
@@ -625,7 +658,15 @@ export async function POST(event) {
       }
 
       for (const l of importaveis) {
-        const reciboId = allRows.find((r) => r.documento === String(l.documento || '').trim())?.venda_recibo_id;
+        const documento = String(l.documento || '').trim();
+        const reserva = normalizeRexturLocalizador(l.numero_reserva);
+        const movimentoData = String(l.movimento_data || '').trim();
+        const reciboId = allRows.find((r) => {
+          if (String(r.documento || '').trim() !== documento) return false;
+          if (String(r.movimento_data || '').trim() !== movimentoData) return false;
+          if (reserva) return normalizeRexturLocalizador(r.numero_reserva) === reserva;
+          return true;
+        })?.venda_recibo_id;
         if (!reciboId) continue;
         const sistema = reciboValorMap.get(String(reciboId).trim());
         if (!sistema) continue;

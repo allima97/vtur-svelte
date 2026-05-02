@@ -130,6 +130,14 @@ function isManualRepeatingDoc(value?: string | null) {
   return normalized.includes('REXTUR') || /[A-Z]/.test(normalized);
 }
 
+function isRexturDocumento(value?: string | null) {
+  return normalizeReceiptKey(value) === 'REXTUR';
+}
+
+function normalizeRexturLocalizador(value?: string | null) {
+  return toStr(value).replace(/^REXTUR[\s-]*/i, '').toUpperCase();
+}
+
 function moneyMatches(left: number, right: number) {
   return Math.abs(left - right) <= MONEY_TOLERANCE;
 }
@@ -150,6 +158,12 @@ function hasAutoFixIssue(issues: AuditIssue[]) {
 }
 
 function receiptMatchesDocument(row: any, recibo: any) {
+  if (isRexturDocumento(row?.documento)) {
+    const rowReserva = normalizeRexturLocalizador(row?.numero_reserva);
+    const reciboReserva = normalizeRexturLocalizador(recibo?.numero_reserva);
+    return isRexturDocumento(recibo?.numero_recibo) && (!rowReserva || rowReserva === reciboReserva);
+  }
+
   return (
     numeroReciboMatches(row?.documento, recibo?.numero_recibo) ||
     numeroReciboMatches(row?.documento, recibo?.numero_recibo_normalizado)
@@ -157,7 +171,9 @@ function receiptMatchesDocument(row: any, recibo: any) {
 }
 
 function receiptLabel(recibo: any) {
-  return toStr(recibo?.numero_recibo) || toStr(recibo?.numero_recibo_normalizado) || '-';
+  const numero = toStr(recibo?.numero_recibo) || toStr(recibo?.numero_recibo_normalizado) || '-';
+  const reserva = toStr(recibo?.numero_reserva);
+  return reserva ? `${numero} / ${reserva}` : numero;
 }
 
 async function fetchUsersMap(client: any, ids: string[]) {
@@ -183,6 +199,7 @@ const CONCILIACAO_SELECT = `
   id,
   company_id,
   documento,
+  numero_reserva,
   movimento_data,
   status,
   descricao,

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { supabase } from '$lib/db/supabase';
+  import { env as publicEnv } from '$env/dynamic/public';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-svelte';
 
@@ -11,6 +13,10 @@
   let success = false;
   let cooldown = 0;
   let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+  let turnstileToken = '';
+  let turnstileWidget: { reset?: () => void } | null = null;
+
+  $: turnstileEnabled = Boolean(String(publicEnv.PUBLIC_TURNSTILE_SITE_KEY || '').trim());
 
   function startCooldown(seconds: number) {
     cooldown = seconds;
@@ -28,11 +34,27 @@
   async function handleSubmit() {
     if (!email.trim()) { error = 'Informe seu e-mail.'; return; }
     if (cooldown > 0) return;
+    if (turnstileEnabled && !turnstileToken) {
+      error = 'Confirme a verificação de segurança para continuar.';
+      return;
+    }
 
     loading = true;
     error = null;
 
     try {
+      if (turnstileEnabled) {
+        const verifyRes = await fetch('/api/auth/turnstile/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ turnstile_token: turnstileToken })
+        });
+        const verifyPayload = await verifyRes.json().catch(() => ({}));
+        if (!verifyRes.ok) {
+          throw new Error(verifyPayload.error || 'Não foi possível validar o desafio de segurança.');
+        }
+      }
+
       const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/auth/nova-senha`
       });
@@ -46,12 +68,18 @@
         } else {
           error = 'Erro ao enviar e-mail. Verifique o endereço e tente novamente.';
         }
+        if (turnstileEnabled) {
+          turnstileWidget?.reset?.();
+        }
         return;
       }
 
       success = true;
-    } catch {
-      error = 'Erro inesperado. Tente novamente.';
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.';
+      if (turnstileEnabled) {
+        turnstileWidget?.reset?.();
+      }
     } finally {
       loading = false;
     }
@@ -104,6 +132,13 @@
             disabled={loading}
             autocomplete="email"
             icon={Mail}
+          />
+
+          <TurnstileWidget
+            bind:this={turnstileWidget}
+            bind:token={turnstileToken}
+            disabled={loading || cooldown > 0}
+            action="password_reset"
           />
 
           <Button type="submit" variant="primary" size="lg" loading={loading || cooldown > 0} class_name="w-full justify-center">

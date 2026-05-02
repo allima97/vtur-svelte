@@ -46,6 +46,7 @@
     id: string;
     company_id?: string;
     documento: string;
+    numero_reserva?: string | null;
     movimento_data: string | null;
     status: string;
     descricao: string | null;
@@ -454,7 +455,7 @@
     if (showPendingOnly && row.conciliado) return false;
     if (showBaixaRac && !row.is_baixa_rac) return false;
     if (searchQuery) {
-      const haystack = [row.documento, row.descricao, row.status, row.ranking_vendedor?.nome_completo, row.ranking_produto?.nome]
+      const haystack = [row.documento, row.numero_reserva, row.descricao, row.status, row.ranking_vendedor?.nome_completo, row.ranking_produto?.nome]
         .join(' ')
         .toLowerCase();
       if (!haystack.includes(searchQuery.toLowerCase())) return false;
@@ -530,7 +531,7 @@
 
   $: visaoGeralFiltrados = visaoGeralRows.filter((row) => {
     const docSearch = vgFiltroDocumento.trim().toLowerCase();
-    if (docSearch && !String(row.documento || '').toLowerCase().includes(docSearch)) return false;
+    if (docSearch && ![row.documento, row.numero_reserva].join(' ').toLowerCase().includes(docSearch)) return false;
     if (vgFiltroVendedor !== 'all' && row._vendedor_nome !== vgFiltroVendedor) return false;
     if (vgFiltroStatus !== 'all' && row._status_label !== vgFiltroStatus) return false;
     if (vgFiltroMes !== 'all' && row._mes !== vgFiltroMes) return false;
@@ -560,6 +561,12 @@
     if (value === 'OPFAX') return 'Pendente em OPFAX';
     if (value === 'ESTORNO') return 'Estorno';
     return value || 'OUTRO';
+  }
+
+  function formatDocumentoConciliacao(row: { documento?: string | null; numero_reserva?: string | null }) {
+    const documento = String(row.documento || '').trim();
+    const reserva = String(row.numero_reserva || '').trim();
+    return reserva ? `${documento} / ${reserva}` : documento || '-';
   }
 
   function exigeRanking(status?: string | null) {
@@ -2109,7 +2116,7 @@
                 <tr class="border-t border-slate-100 {diffSeverity === 'critical' ? 'bg-red-50' : diffSeverity === 'warning' ? 'bg-orange-50' : ''}">
                   <td class="px-3 py-2">{formatDate(row.movimento_data)}</td>
                   <td class="px-3 py-2">
-                    {row.documento}
+                    {formatDocumentoConciliacao(row)}
                     {#if row.tem_diferenca}
                       <span
                         class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold {diffSeverity === 'critical' ? 'bg-red-200 text-red-800' : 'bg-orange-200 text-orange-800'}"
@@ -2230,7 +2237,7 @@
           {#each visaoGeralFiltrados as row}
             <tr class="cursor-pointer border-t border-slate-100 hover:bg-slate-50" on:click={() => openDetails(row)}>
               <td class="px-3 py-2">{formatDate(row.movimento_data)}</td>
-              <td class="px-3 py-2">{row.documento}</td>
+              <td class="px-3 py-2">{formatDocumentoConciliacao(row)}</td>
               <td class="px-3 py-2">{statusImportLabel(row.status)}</td>
               <td class="px-3 py-2">{row.venda_recibo_id ? 'Sim' : 'Não'}</td>
               <td class="px-3 py-2">{row.ranking_vendedor?.nome_completo || 'Não atribuído'}</td>
@@ -2292,7 +2299,7 @@
           {#each filteredRecords as row}
             <tr class="cursor-pointer border-t border-slate-100 hover:bg-slate-50" on:click={() => openDetails(row)}>
               <td class="px-3 py-2">{formatDate(row.movimento_data)}</td>
-              <td class="px-3 py-2">{row.documento}</td>
+              <td class="px-3 py-2">{formatDocumentoConciliacao(row)}</td>
               <td class="px-3 py-2">{statusImportLabel(row.status)}</td>
               <td class="px-3 py-2">{row.venda_recibo_id ? 'Sim' : 'Não'}</td>
               <td class="px-3 py-2">{row.ranking_vendedor?.nome_completo || 'Não atribuído'}</td>
@@ -2419,6 +2426,10 @@
       <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
         <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Resumo da conciliação</p>
         <div class="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
+          <div>
+            <p class="text-slate-500">Documento</p>
+            <p class="font-medium text-slate-900">{formatDocumentoConciliacao(selectedRow)}</p>
+          </div>
           <div>
             <p class="text-slate-500">Recibo vinculado</p>
             <p class="font-medium text-slate-900">{selectedRow.recibo_numero || '-'}</p>

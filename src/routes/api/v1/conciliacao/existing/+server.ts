@@ -25,7 +25,7 @@ export async function POST(event) {
     const { data, error } = await client
       .from('conciliacao_recibos')
       .select(
-        'id, documento, movimento_data, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_calculada_loja, valor_visao_master, valor_opfax, valor_saldo'
+        'id, documento, numero_reserva, movimento_data, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id, conciliado, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_calculada_loja, valor_visao_master, valor_opfax, valor_saldo'
       )
       .eq('company_id', companyId)
       .in('documento', documentos)
@@ -56,6 +56,7 @@ export async function POST(event) {
       records[doc] = {
         ranking_vendedor_id: row?.ranking_vendedor_id ?? null,
         ranking_produto_id: row?.ranking_produto_id ?? null,
+        numero_reserva: row?.numero_reserva ?? null,
         venda_id: row?.venda_id ?? null,
         venda_recibo_id: row?.venda_recibo_id ?? null,
         conciliado: Boolean(row?.conciliado),
@@ -76,4 +77,3 @@ export async function POST(event) {
     return toErrorResponse(err, 'Erro ao buscar registros existentes.');
   }
 }
-

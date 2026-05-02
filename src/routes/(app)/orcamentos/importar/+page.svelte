@@ -6,9 +6,12 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { permissoes } from '$lib/stores/permissoes';
   import { extractCvcQuoteFromText } from '$lib/quote/cvcPdfExtractor';
-  import type { QuoteDraft, QuoteItemDraft } from '$lib/quote/types';
+  import {
+    buildPassagemAereaQuoteDraftFromText,
+    type PassagemAereaFonte
+  } from '$lib/quote/passagemAereaQuoteImport';
+  import type { QuoteDraft, QuoteItemDraft, QuoteSegmentDraft } from '$lib/quote/types';
   import {
     ArrowLeft,
     FileText,
@@ -20,7 +23,8 @@
     AlertCircle,
     CheckCircle,
     Search,
-    Plus
+    Plus,
+    Plane
   } from 'lucide-svelte';
 
   // ── Tipos locais ─────────────────────────────────────────────────────────
@@ -41,6 +45,7 @@
   };
 
   type ImportMode = 'produtos' | 'circuitos' | 'circuitos_produtos';
+  type ImportKind = 'orcamento' | 'passagem_aerea';
 
   const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
     { value: 'produtos', label: 'Produtos' },
@@ -48,10 +53,18 @@
     { value: 'circuitos_produtos', label: 'Circuitos + Produtos' }
   ];
 
+  const PASSAGEM_FONTE_OPTIONS: { value: PassagemAereaFonte; label: string }[] = [
+    { value: 'auto', label: 'Detectar automaticamente' },
+    { value: 'rextur', label: 'REXTUR' },
+    { value: 'cvc', label: 'Orçamento CVC' }
+  ];
+
   // ── Estado principal ──────────────────────────────────────────────────────
 
   let textInput = '';
+  let importKind: ImportKind = 'orcamento';
   let importMode: ImportMode = 'produtos';
+  let passagemFonte: PassagemAereaFonte = 'auto';
   let draft: QuoteDraft | null = null;
   let extracting = false;
   let saving = false;
@@ -104,8 +117,8 @@
     return items;
   }
 
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  function formatCurrency(value: number, currency = 'BRL') {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
   }
 
   function formatDate(iso: string | null | undefined) {
@@ -118,14 +131,66 @@
     return Boolean(item.item_type && item.quantity > 0 && item.start_date && item.title && item.total_amount > 0);
   }
 
+  function modoLabel() {
+    if (importKind === 'passagem_aerea') return 'Passagem Aérea';
+    return IMPORT_MODE_OPTIONS.find((m) => m.value === importMode)?.label ?? '—';
+  }
+
+  function getFlightSegments(item: QuoteItemDraft): QuoteSegmentDraft[] {
+    return (item.segments || [])
+      .filter((seg) => seg.segment_type === 'flight')
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  }
+
+  function flightData(seg: QuoteSegmentDraft) {
+    return (seg.data || {}) as Record<string, unknown>;
+  }
+
+  function splitTrechoCities(value: unknown) {
+    const parts = String(value || '')
+      .split(/\s+-\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return {
+      origem: parts[0] || '',
+      destino: parts[1] || ''
+    };
+  }
+
+  function formatFlightAirport(city: string, airport: unknown) {
+    const code = String(airport || '').trim();
+    if (!city) return code || '-';
+    if (!code) return city;
+    return /^[A-Z]{3}$/.test(code) ? `${city} (${code})` : code;
+  }
+
+  function flightOrigem(data: Record<string, unknown>) {
+    const trecho = splitTrechoCities(data.trecho);
+    return formatFlightAirport(trecho.origem, data.aeroporto_saida);
+  }
+
+  function flightDestino(data: Record<string, unknown>) {
+    const trecho = splitTrechoCities(data.trecho);
+    return formatFlightAirport(trecho.destino, data.aeroporto_chegada);
+  }
+
+  function flightHorarios(data: Record<string, unknown>) {
+    return [data.hora_saida, data.hora_chegada]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' / ') || '-';
+  }
+
   // Itens filtrados com o índice real dentro de draft.items preservado
   $: itensFiltrados = draft
-    ? filtrarItens(draft.items, importMode).map((item) => ({
+    ? (importKind === 'passagem_aerea' ? draft.items : filtrarItens(draft.items, importMode)).map((item) => ({
         item,
         realIdx: draft!.items.indexOf(item)
       }))
     : [];
   $: totalGeral = itensFiltrados.reduce((s, e) => s + (e.item.total_amount || 0), 0);
+  $: taxasGeral = itensFiltrados.reduce((s, e) => s + (e.item.taxes_amount || 0), 0);
+  $: totalComTaxas = totalGeral + taxasGeral;
   $: itensPendentes = itensFiltrados.filter((e) => !itemValido(e.item)).length;
   $: canExtract = textInput.trim().length > 0;
   $: canSave = draft !== null && clienteId !== '' && itensFiltrados.length > 0;
@@ -189,6 +254,17 @@
     draft = null;
 
     try {
+      if (importKind === 'passagem_aerea') {
+        const result = buildPassagemAereaQuoteDraftFromText(textInput.trim(), { fonte: passagemFonte });
+        draft = result.draft;
+        if (!dataEmbarque && result.dataInicio) dataEmbarque = result.dataInicio;
+        if (!dataFinal && result.dataFim) dataFinal = result.dataFim;
+        if (!cidadeBusca && result.destino) cidadeBusca = result.destino;
+        statusMessage = `${result.trechos.length} trecho(s) aéreo(s) extraído(s) como Passagem Aérea.`;
+        toast.success(`${result.trechos.length} trecho(s) aéreo(s) identificado(s).`);
+        return;
+      }
+
       const result = await extractCvcQuoteFromText(textInput.trim(), {
         onProgress: (msg) => { statusMessage = msg; }
       });
@@ -330,6 +406,7 @@
     draft = null;
     statusMessage = '';
     errorMessage = '';
+    passagemFonte = 'auto';
     clienteId = '';
     clienteSelecionado = null;
     clienteBusca = '';
@@ -387,7 +464,7 @@
 
 <PageHeader
   title="Importar Orçamento"
-  subtitle="Cole o texto do orçamento CVC, revise os itens extraídos e confirme antes de salvar."
+  subtitle="Cole o texto do orçamento CVC ou de passagem aérea, revise os itens extraídos e confirme antes de salvar."
   color="orcamentos"
   breadcrumbs={[
     { label: 'Orçamentos', href: '/orcamentos' },
@@ -410,7 +487,7 @@
         </div>
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Modo</p>
-          <p class="font-medium text-slate-800">{IMPORT_MODE_OPTIONS.find(m => m.value === importMode)?.label ?? '—'}</p>
+          <p class="font-medium text-slate-800">{modoLabel()}</p>
         </div>
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Itens</p>
@@ -456,20 +533,63 @@
   <!-- ── Texto + configurações ── -->
   <Card title="Fonte da importação">
     <div class="space-y-4">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Button
+          type="button"
+          variant={importKind === 'orcamento' ? 'selected' : 'secondary'}
+          class_name="justify-start"
+          on:click={() => {
+            importKind = 'orcamento';
+            draft = null;
+            statusMessage = '';
+            errorMessage = '';
+          }}
+        >
+          <FileText size={16} class="mr-2" />
+          Orçamento completo
+        </Button>
+        <Button
+          type="button"
+          variant={importKind === 'passagem_aerea' ? 'selected' : 'secondary'}
+          class_name="justify-start"
+          on:click={() => {
+            importKind = 'passagem_aerea';
+            draft = null;
+            statusMessage = '';
+            errorMessage = '';
+          }}
+        >
+          <Plane size={16} class="mr-2" />
+          Passagem Aérea
+        </Button>
+      </div>
+
       <FieldTextarea
-        label="Texto do orçamento *"
-        placeholder="Cole aqui o texto copiado do orçamento CVC..."
+        label={importKind === 'passagem_aerea' ? 'Texto da passagem aérea *' : 'Texto do orçamento *'}
+        placeholder={importKind === 'passagem_aerea'
+          ? 'Cole aqui o texto copiado da REXTUR ou do orçamento CVC de aéreo...'
+          : 'Cole aqui o texto copiado do orçamento CVC...'}
         bind:value={textInput}
         rows={10}
-        helper="Cole o texto completo do orçamento. O sistema identificará automaticamente hotéis, pacotes, aéreos e serviços."
+        helper={importKind === 'passagem_aerea'
+          ? 'Aceita o formato tabulado da REXTUR e os formatos de Orçamento CVC com trechos, horários, companhias, taxas e total.'
+          : 'Cole o texto completo do orçamento. O sistema identificará automaticamente hotéis, pacotes, aéreos e serviços.'}
       />
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FieldSelect
-          label="Tipo de importação"
-          bind:value={importMode}
-          options={IMPORT_MODE_OPTIONS.map(m => ({ value: m.value, label: m.label }))}
-        />
+        {#if importKind === 'passagem_aerea'}
+          <FieldSelect
+            label="Fonte da passagem"
+            bind:value={passagemFonte}
+            options={PASSAGEM_FONTE_OPTIONS.map(m => ({ value: m.value, label: m.label }))}
+          />
+        {:else}
+          <FieldSelect
+            label="Tipo de importação"
+            bind:value={importMode}
+            options={IMPORT_MODE_OPTIONS.map(m => ({ value: m.value, label: m.label }))}
+          />
+        {/if}
       </div>
     </div>
   </Card>
@@ -588,7 +708,7 @@
 
   <!-- ── Itens extraídos ── -->
   {#if draft && itensFiltrados.length > 0}
-    <Card title="Itens extraídos — {itensFiltrados.length} item(s) · Total: {formatCurrency(totalGeral)}">
+    <Card title="Itens extraídos — {itensFiltrados.length} item(s) · Total: {formatCurrency(totalComTaxas, draft.currency || 'BRL')}">
       <div class="space-y-3">
         {#each itensFiltrados as { item, realIdx }, displayIdx}
           {@const valido = itemValido(item)}
@@ -691,7 +811,7 @@
                 />
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Total (R$) *</label>
+                <label class="mb-1 block text-xs font-medium text-slate-500">Valor sem taxas (R$) *</label>
                 <input
                   type="number"
                   min="0"
@@ -701,10 +821,51 @@
                   on:change={(e) => updateItem(realIdx, { total_amount: Number(e.currentTarget.value) })}
                 />
               </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium text-slate-500">Taxas (R$)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                  value={item.taxes_amount || 0}
+                  on:change={(e) => updateItem(realIdx, { taxes_amount: Number(e.currentTarget.value) })}
+                />
+              </div>
               <div class="flex items-end">
-                <span class="text-sm font-semibold text-slate-700">{formatCurrency(item.total_amount || 0)}</span>
+                <span class="text-sm font-semibold text-slate-700">{formatCurrency((item.total_amount || 0) + (item.taxes_amount || 0), item.currency || draft.currency || 'BRL')}</span>
               </div>
             </div>
+
+            {#if getFlightSegments(item).length > 0}
+              <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead class="bg-blue-50 text-xs font-semibold uppercase tracking-wide text-blue-900">
+                    <tr>
+                      <th class="px-3 py-2 text-left">Cia</th>
+                      <th class="px-3 py-2 text-left">Origem</th>
+                      <th class="px-3 py-2 text-left">Saída</th>
+                      <th class="px-3 py-2 text-left">Destino</th>
+                      <th class="px-3 py-2 text-left">Chegada</th>
+                      <th class="px-3 py-2 text-left">Horários</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 text-slate-700">
+                    {#each getFlightSegments(item) as seg}
+                      {@const data = flightData(seg)}
+                      <tr>
+                        <td class="px-3 py-2 font-medium">{String(data.cia_aerea || 'AÉREO')}</td>
+                        <td class="px-3 py-2">{flightOrigem(data)}</td>
+                        <td class="px-3 py-2">{formatDate(String(data.data_voo || data.data_inicio || ''))}</td>
+                        <td class="px-3 py-2">{flightDestino(data)}</td>
+                        <td class="px-3 py-2">{formatDate(String(data.data_fim || data.data_voo || data.data_inicio || ''))}</td>
+                        <td class="px-3 py-2">{flightHorarios(data)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
 
             {#if item.start_date && item.end_date && item.end_date !== item.start_date}
               <p class="mt-2 text-xs text-slate-400">
@@ -855,7 +1016,12 @@
       <div class="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4">
         <div>
           <p class="text-sm text-slate-500">Total geral</p>
-          <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGeral)}</p>
+          <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalComTaxas, draft.currency || 'BRL')}</p>
+          {#if taxasGeral > 0}
+            <p class="mt-1 text-xs text-slate-500">
+              Valor {formatCurrency(totalGeral, draft.currency || 'BRL')} + taxas {formatCurrency(taxasGeral, draft.currency || 'BRL')}
+            </p>
+          {/if}
           {#if itensPendentes > 0}
             <p class="mt-1 text-xs text-amber-600">
               ⚠ {itensPendentes} item(s) com campos obrigatórios em branco — revise antes de salvar.
@@ -876,7 +1042,7 @@
   {:else if draft && itensFiltrados.length === 0}
     <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-8 text-center text-sm text-amber-700">
       <FileText size={32} class="mx-auto mb-2 opacity-50" />
-      Nenhum item compatível com o modo "<strong>{IMPORT_MODE_OPTIONS.find(m => m.value === importMode)?.label}</strong>" foi encontrado.
+      Nenhum item compatível com o modo "<strong>{modoLabel()}</strong>" foi encontrado.
       Tente mudar o tipo de importação ou revise o texto colado.
     </div>
   {/if}

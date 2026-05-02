@@ -6,6 +6,7 @@ type VendaRankingReciboInput = {
   id: string;
   numero_recibo?: string | null;
   numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
   valor_total?: number | null;
   valor_taxas?: number | null;
 };
@@ -90,15 +91,29 @@ function reciboDocumentVariants(recibo: VendaRankingReciboInput) {
   return Array.from(new Set(values.map(toStr).filter(Boolean)));
 }
 
+function normalizeRexturReserva(value?: string | null) {
+  return toStr(value).replace(/^REXTUR[\s-]*/i, '').toUpperCase();
+}
+
+function isRexturRecibo(recibo: VendaRankingReciboInput) {
+  return normalizeReceiptKey(recibo.numero_recibo) === 'REXTUR' ||
+    normalizeReceiptKey(recibo.numero_recibo_normalizado) === 'REXTUR';
+}
+
 function matchesRecibo(row: any, recibo: VendaRankingReciboInput) {
   const linkedReciboId = toStr(row?.venda_recibo_id);
   if (linkedReciboId && linkedReciboId === toStr(recibo.id)) return true;
+  if (isRexturRecibo(recibo)) {
+    return normalizeReceiptKey(row?.documento) === 'REXTUR' &&
+      Boolean(normalizeRexturReserva(row?.numero_reserva)) &&
+      normalizeRexturReserva(row?.numero_reserva) === normalizeRexturReserva(recibo.numero_reserva);
+  }
   return numeroReciboMatches(row?.documento, recibo.numero_recibo) ||
     numeroReciboMatches(row?.documento, recibo.numero_recibo_normalizado);
 }
 
 function concSelect() {
-  return 'id, documento, company_id, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, movimento_data, ranking_vendedor_id, ranking_produto_id, is_seguro_viagem, conciliado, venda_id, venda_recibo_id, ranking_produto:tipo_produtos!ranking_produto_id(id, nome)';
+  return 'id, documento, numero_reserva, company_id, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, movimento_data, ranking_vendedor_id, ranking_produto_id, is_seguro_viagem, conciliado, venda_id, venda_recibo_id, ranking_produto:tipo_produtos!ranking_produto_id(id, nome)';
 }
 
 function addRows(target: Map<string, any>, rows?: any[] | null) {
