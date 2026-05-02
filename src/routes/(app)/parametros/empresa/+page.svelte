@@ -3,8 +3,8 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { Building2, Save, Loader2 } from 'lucide-svelte';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { Building2, Save } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   type Empresa = {
@@ -119,10 +119,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={28} class="animate-spin text-slate-400" />
-    <span class="ml-3 text-slate-600">Carregando...</span>
-  </div>
+  <LoadingState />
 {:else}
   <form on:submit|preventDefault={handleSubmit} class="space-y-6">
     <!-- Identidade Visual -->

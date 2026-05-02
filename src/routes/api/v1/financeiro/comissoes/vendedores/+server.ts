@@ -26,7 +26,16 @@ export async function GET(event) {
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
     const usersCompanyIds = companyIds.length > 0 ? companyIds : scope.companyId ? [scope.companyId] : [];
-    const usersData = await fetchRankingVendedoresByCompanyIds(client, usersCompanyIds);
+    const usersData =
+      scope.isAdmin || scope.isMaster || scope.isGestor
+        ? await fetchRankingVendedoresByCompanyIds(client, usersCompanyIds)
+        : [
+            {
+              id: scope.userId,
+              nome_completo: scope.nome,
+              email: scope.email
+            }
+          ];
     const commissionContext = await fetchCommissionContext(client, { companyIds });
 
     // regrasMap é Record<id, Regra> — converte para array para compatibilidade

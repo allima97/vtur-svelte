@@ -733,19 +733,11 @@
 </Card>
 
 {#if loadingBase}
-  <LoadingState
-    title="Carregando filtros do relatório"
-    message="Buscando empresas e vendedores disponíveis para o seu escopo."
-    className="mb-6"
-  />
+  <LoadingState className="mb-6" />
 {/if}
 
 {#if loading}
-  <LoadingState
-    title="Calculando resumo de vendas"
-    message="Buscando vendas, recibos, taxas, comissões e ticket médio para o período selecionado."
-    className="mb-6"
-  />
+  <LoadingState className="mb-6" />
 {:else}
   <KPIGrid className="mb-6" columns={5}>
     <KPICard 
@@ -784,20 +776,14 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
   <Card header="Vendas por mês (últimos 6 meses)" color="financeiro">
     {#if loading}
-      <LoadingState
-        title="Carregando vendas por mês"
-        message="Agrupando o volume vendido nos últimos 6 meses."
-      />
+      <LoadingState />
     {:else}
       <ChartJS type="bar" data={vendasPorMesData} height={280} />
     {/if}
   </Card>
   <Card header="Venda por dia do mês selecionado" color="financeiro">
     {#if loading}
-      <LoadingState
-        title="Carregando vendas por dia"
-        message="Distribuindo as entradas diárias dentro do mês selecionado."
-      />
+      <LoadingState />
     {:else}
       <ChartJS type="line" data={vendasPorDiaMesData} height={280} />
     {/if}
@@ -809,8 +795,6 @@
   data={recibosFiltrados}
   color="financeiro"
   {loading}
-  loadingTitle="Carregando detalhamento de vendas"
-  loadingMessage="Buscando recibos, clientes, vendedores, produtos, taxas e comissões do relatório."
   title="Detalhamento de vendas"
   searchable={true}
   exportable={true}

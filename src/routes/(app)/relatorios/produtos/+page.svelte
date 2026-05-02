@@ -12,7 +12,7 @@
   import { ArrowLeft, Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { todayISODateLocal } from '$lib/date';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface ProdutoRelatorio {
     produto: string;
@@ -34,20 +34,26 @@
     nome: string;
   }
 
+  type PeriodoModo = 'mes' | 'periodo';
+
   function getDefaultRange() {
     const today = todayISODateLocal();
+    const monthRange = monthRangeFromKey(today.slice(0, 7));
     return {
-      start: `${today.slice(0, 4)}-01-01`,
-      end: today
+      start: monthRange?.inicio || `${today.slice(0, 7)}-01`,
+      end: monthRange?.fim || today
     };
   }
 
   const defaultRange = getDefaultRange();
+  const defaultMonth = todayISODateLocal().slice(0, 7);
 
   let produtos: ProdutoRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
   let vendedores: VendedorFiltro[] = [];
   let loading = true;
+  let filtroPeriodoModo: PeriodoModo = 'mes';
+  let mesSelecionado = defaultMonth;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
   let empresaSelecionada = '';
@@ -217,6 +223,14 @@
   $: margemMedia = totalReceita > 0 ? (totalLucro / totalReceita) * 100 : 0;
   $: produtoTop = produtosFiltrados.length > 0 ? produtosFiltrados[0] : null;
 
+  $: if (filtroPeriodoModo === 'mes') {
+    const range = monthRangeFromKey(mesSelecionado) || defaultRange;
+    const inicio = 'inicio' in range ? range.inicio : range.start;
+    const fim = 'fim' in range ? range.fim : range.end;
+    if (dataInicio !== inicio) dataInicio = inicio;
+    if (dataFim !== fim) dataFim = fim;
+  }
+
   $: receitaPorProdutoData = {
     labels: produtosFiltrados.slice(0, 8).map((produto) => produto.produto),
     datasets: [
@@ -278,21 +292,42 @@
 />
 
 <FilterPanel color="financeiro">
-  <FieldInput
-    id="rel-produtos-data-inicio"
-    label="Data Inicio"
-    type="date"
-    bind:value={dataInicio}
+  <FieldSelect
+    id="rel-produtos-periodo-modo"
+    label="Período"
+    bind:value={filtroPeriodoModo}
+    options={[
+      { value: 'mes', label: 'Mês completo' },
+      { value: 'periodo', label: 'Data específica' }
+    ]}
+    placeholder={null}
     class_name="w-full"
   />
-  <FieldInput
-    id="rel-produtos-data-fim"
-    label="Data Fim"
-    type="date"
-    bind:value={dataFim}
-    min={dataInicio || null}
-    class_name="w-full"
-  />
+  {#if filtroPeriodoModo === 'mes'}
+    <FieldInput
+      id="rel-produtos-mes"
+      label="Mês"
+      type="month"
+      bind:value={mesSelecionado}
+      class_name="w-full"
+    />
+  {:else}
+    <FieldInput
+      id="rel-produtos-data-inicio"
+      label="Data Início"
+      type="date"
+      bind:value={dataInicio}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="rel-produtos-data-fim"
+      label="Data Fim"
+      type="date"
+      bind:value={dataFim}
+      min={dataInicio || null}
+      class_name="w-full"
+    />
+  {/if}
   {#if showEmpresaFiltro}
     <FieldSelect
       id="rel-produtos-empresa"

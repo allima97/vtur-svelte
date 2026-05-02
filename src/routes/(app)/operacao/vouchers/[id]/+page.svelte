@@ -5,10 +5,11 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import VoucherEditorModal from '$lib/components/modais/VoucherEditorModal.svelte';
   import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
   import { 
-    ArrowLeft, Edit, Trash2, Ticket, Download, Printer, Loader2, 
+    ArrowLeft, Edit, Trash2, Ticket, Download, Printer, 
     CheckCircle, MapPin, Calendar, Hotel, Users, Info, Plane, 
     Phone, Smartphone, AlertCircle, FileText, ChevronRight
   } from 'lucide-svelte';
@@ -195,10 +196,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={48} class="animate-spin text-clientes-600" />
-    <span class="ml-3 text-slate-600">Carregando voucher...</span>
-  </div>
+  <LoadingState />
 {:else if voucher}
   <div class="w-full space-y-6 pb-10" in:fade>
     

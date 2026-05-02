@@ -60,7 +60,7 @@ function sanitizeLabel(value?: string | null) {
 }
 
 export function calcularStatusPeriodo(inicio?: string | null, fim?: string | null) {
-  if (!inicio) return 'planejada';
+  if (!inicio) return 'pendente';
   const hoje = todayISODateLocal();
 
   if (fim && compareISODate(fim, hoje) < 0) return 'concluida';

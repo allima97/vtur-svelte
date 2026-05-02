@@ -80,6 +80,24 @@ function matches(a: number, b: number) {
   return Math.abs(a - b) <= 0.01;
 }
 
+function isRexturImportLine(linha: ConciliacaoLinhaInput) {
+  return (
+    normalizeNumeroRecibo(linha.documento) === 'REXTUR' ||
+    String(linha.origem || '').toLowerCase().includes('rextur')
+  );
+}
+
+function normalizeRexturLocalizador(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .replace(/^REXTUR[\s-]*/i, '')
+    .toUpperCase();
+}
+
+function shouldUseFallbackDedup(linha: ConciliacaoLinhaInput) {
+  return !isRexturImportLine(linha);
+}
+
 // ---------------------------------------------------------------------------
 // Busca de recibos no sistema (para auto-link de vendedor)
 // ---------------------------------------------------------------------------
@@ -215,6 +233,70 @@ async function findReciboByNumero(params: {
     (ranked.length === 1 ? ranked[0] : null);
 
   return escolhido ? { recibo: escolhido } : null;
+}
+
+async function findRexturReciboByReserva(params: {
+  client: any;
+  companyId: string;
+  reserva?: string | null;
+  valorLancamento?: number | null;
+  valorTaxas?: number | null;
+}) {
+  const localizador = normalizeRexturLocalizador(params.reserva);
+  if (!localizador) return null;
+
+  const { data: rows } = await params.client
+    .from('vendas_recibos')
+    .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas')
+    .eq('numero_recibo', 'REXTUR')
+    .or(`numero_reserva.eq.${localizador},numero_reserva.eq.REXTUR-${localizador},numero_reserva.ilike.${localizador},numero_reserva.ilike.REXTUR-${localizador}`)
+    .limit(20);
+
+  const recibos = (rows || [])
+    .map((row: any) => ({
+      id: String(row?.id || '').trim(),
+      venda_id: String(row?.venda_id || '').trim(),
+      numero_recibo: row?.numero_recibo ?? null,
+      numero_reserva: row?.numero_reserva ?? null,
+      valor_total: row?.valor_total ?? null,
+      valor_taxas: row?.valor_taxas ?? null,
+      vendedor_id: null as string | null
+    }))
+    .filter((row: any) => row.id && row.venda_id);
+
+  if (recibos.length === 0) return null;
+
+  const vendaIds = Array.from(new Set(recibos.map((row: any) => row.venda_id)));
+  const { data: vendas } = await params.client
+    .from('vendas')
+    .select('id, company_id, vendedor_id')
+    .in('id', vendaIds)
+    .eq('company_id', params.companyId);
+
+  const vendaMap = new Map<string, string | null>();
+  for (const venda of vendas || []) {
+    const id = String((venda as any)?.id || '').trim();
+    if (id) vendaMap.set(id, String((venda as any)?.vendedor_id || '').trim() || null);
+  }
+
+  const candidatos = recibos
+    .filter((row: any) => vendaMap.has(row.venda_id))
+    .map((row: any) => ({ ...row, vendedor_id: vendaMap.get(row.venda_id) || null }));
+
+  if (candidatos.length === 0) return null;
+
+  const targetTotal = Number(params.valorLancamento || 0);
+  const targetTaxas = Number(params.valorTaxas || 0);
+  const ranked = [...candidatos].sort((a: any, b: any) => {
+    const aTotalDiff = Math.abs(Number(a?.valor_total || 0) - targetTotal);
+    const bTotalDiff = Math.abs(Number(b?.valor_total || 0) - targetTotal);
+    if (aTotalDiff !== bTotalDiff) return aTotalDiff - bTotalDiff;
+    const aTaxDiff = Math.abs(Number(a?.valor_taxas || 0) - targetTaxas);
+    const bTaxDiff = Math.abs(Number(b?.valor_taxas || 0) - targetTaxas);
+    return aTaxDiff - bTaxDiff;
+  });
+
+  return ranked[0] ? { recibo: ranked[0] } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,13 +475,21 @@ export async function POST(event) {
       let vendaReciboId = String((l as any).venda_recibo_id || '').trim() || null;
 
       if (!rankingVendedorId || !vendaReciboId || !vendaId) {
-        const found = await findReciboByNumero({
-          numero: l.documento,
-          companyId,
-          valorLancamento: l.valor_lancamentos ?? null,
-          valorTaxas: l.valor_taxas ?? null,
-          client
-        });
+        const found = isRexturImportLine(l)
+          ? await findRexturReciboByReserva({
+              reserva: l.numero_reserva,
+              companyId,
+              valorLancamento: l.valor_lancamentos ?? null,
+              valorTaxas: l.valor_taxas ?? null,
+              client
+            })
+          : await findReciboByNumero({
+              numero: l.documento,
+              companyId,
+              valorLancamento: l.valor_lancamentos ?? null,
+              valorTaxas: l.valor_taxas ?? null,
+              client
+            });
 
         if (found?.recibo) {
           const vendedorIdCandidato = String(found.recibo.vendedor_id || '').trim() || null;
@@ -472,7 +562,7 @@ export async function POST(event) {
         existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)) || null;
 
       // 2ª tentativa: chave fallback (sem descrição) — evita duplicatas por variação de descrição
-      if (!existing) {
+      if (!existing && shouldUseFallbackDedup(l)) {
         const fk = buildImportFallbackKey(companyId, l.movimento_data, l.documento);
         const candidates = (existentesByFallbackKey.get(fk) || []).filter(
           (c: any) => !usedExistingIds.has(String(c.id))

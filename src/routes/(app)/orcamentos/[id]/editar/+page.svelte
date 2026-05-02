@@ -7,8 +7,8 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
-  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User, Loader2 } from 'lucide-svelte';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
 
@@ -346,10 +346,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center h-64">
-    <Loader2 size={32} class="animate-spin text-orcamentos-600" />
-    <span class="ml-2 text-slate-600">Carregando orçamento...</span>
-  </div>
+  <LoadingState />
 {:else}
   <PageHeader
     title="Editar Orçamento"

@@ -5,6 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import AcompanhantesManager from '$lib/components/clientes/AcompanhantesManager.svelte';
@@ -13,7 +14,6 @@
     Calendar,
     Edit,
     FileText,
-    Loader2,
     Mail,
     MapPin,
     MessageCircle,
@@ -201,10 +201,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={36} class="animate-spin text-clientes-600" />
-    <span class="ml-3 text-slate-600">Carregando cliente...</span>
-  </div>
+  <LoadingState />
 {:else if errorMessage}
   <div class="text-center py-12">
     <p class="mb-4 text-red-600">{errorMessage}</p>

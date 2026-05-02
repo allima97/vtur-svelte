@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PageHeader, Card, Button, Dialog, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { PageHeader, Card, Button, Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import {
@@ -792,12 +792,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">
-    <div class="flex items-center gap-3">
-      <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
-      Carregando biblioteca CRM...
-    </div>
-  </div>
+  <LoadingState />
 {:else}
   <!-- STEP 0: Selecionar tema de arte -->
   {#if wizardStep === 0}

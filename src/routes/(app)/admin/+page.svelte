@@ -5,12 +5,19 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import {
+    BookOpen,
     Building2,
+    CreditCard,
+    DollarSign,
+    FileText,
     Mail,
+    MessageSquare,
     Settings2,
     Shield,
+    SlidersHorizontal,
     Users,
     UserRoundCog,
     BellRing,
@@ -22,6 +29,20 @@
   let summary: any = null;
 
   const modules = [
+    {
+      title: 'Planos',
+      description: 'Catálogo, valores e status dos planos de assinatura.',
+      href: '/admin/planos',
+      icon: CreditCard,
+      countKey: 'planos_total'
+    },
+    {
+      title: 'Financeiro',
+      description: 'Status de billing, mensalidades e vencimentos por empresa.',
+      href: '/admin/financeiro',
+      icon: DollarSign,
+      countKey: 'cobrancas_atrasadas'
+    },
     {
       title: 'Usuarios',
       description: 'Listagem, detalhe, status, papel, escopo, senha e 2FA.',
@@ -57,16 +78,40 @@
       countKey: 'avisos_ativos'
     },
     {
+      title: 'CRM',
+      description: 'Templates administrativos e biblioteca de mensagens.',
+      href: '/admin/crm',
+      icon: MessageSquare
+    },
+    {
       title: 'E-mail',
       description: 'Resend/SMTP, remetentes e validacao operacional.',
       href: '/admin/email',
       icon: Mail
     },
     {
-      title: 'Parametros',
-      description: 'Configuracoes operacionais, seguranca e conciliacao.',
-      href: '/parametros',
+      title: 'Modulos do sistema',
+      description: 'Controle global de disponibilidade dos módulos.',
+      href: '/admin/modulos-sistema',
+      icon: SlidersHorizontal
+    },
+    {
+      title: 'Parametros de importacao',
+      description: 'Termos auxiliares usados pelos parsers de importação.',
+      href: '/admin/parametros-importacao',
       icon: Settings2
+    },
+    {
+      title: 'Logs',
+      description: 'Auditoria técnica e trilha de eventos do sistema.',
+      href: '/dashboard/logs',
+      icon: FileText
+    },
+    {
+      title: 'Documentacao',
+      description: 'Guias internos e instruções de uso do VTUR.',
+      href: '/documentacao',
+      icon: BookOpen
     }
   ];
 
@@ -93,8 +138,8 @@
 </svelte:head>
 
 <PageHeader
-  title="Administracao"
-  subtitle="Painel consolidado de usuarios, permissoes e configuracoes administrativas."
+  title="Administracao do sistema"
+  subtitle="Central administrativa para empresas, usuarios, planos, billing, modulos, permissoes e auditoria."
   breadcrumbs={[{ label: 'Administracao' }]}
 />
 
@@ -111,60 +156,44 @@
     </div>
   </Card>
 
-  <div class="vtur-kpi-grid mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Usuários ativos</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+  {#if loading}
+    <LoadingState />
+  {:else}
+    <div class="vtur-kpi-grid mb-6">
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Usuários ativos</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.usuarios_ativos ?? 0}</p>
           <p class="text-xs text-slate-400">{summary?.counts?.usuarios_inativos ?? 0} inativos</p>
-        {/if}
+        </div>
       </div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Empresas no escopo</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-14 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Empresas no escopo</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.empresas_total ?? 0}</p>
           <p class="text-xs text-slate-400">{summary?.counts?.empresas_ativas ?? 0} ativas</p>
-        {/if}
+        </div>
       </div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><BellRing size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Avisos ativos</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><BellRing size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Avisos ativos</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.avisos_ativos ?? 0}</p>
           <p class="text-xs text-slate-400">Templates prontos para uso</p>
-        {/if}
+        </div>
       </div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Vínculos master pendentes</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-24 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Vínculos master pendentes</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.vinculos_master_pendentes ?? 0}</p>
           <p class="text-xs text-slate-400">Pendências de portfólio</p>
-        {/if}
+        </div>
       </div>
     </div>
-  </div>
+  {/if}
 
   <Card color="financeiro" title="Modulos administrativos">
     <div class="grid gap-4 lg:grid-cols-2">

@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import {
     ArrowLeft,
@@ -376,7 +376,7 @@
 
 {#if loading}
   <Card color="operacao">
-    <div class="py-16 text-center text-slate-500">Carregando mural...</div>
+    <LoadingState compact={true} />
   </Card>
 {:else if !companyContextId()}
   <Card color="operacao">
@@ -538,7 +538,7 @@
 
           <div class="mural-whatsapp-chat-body">
             {#if recadosLoading && conversation.length === 0}
-              <div class="chat-empty">Carregando mensagens...</div>
+              <LoadingState compact={true} />
             {:else if conversation.length === 0}
               <div class="chat-empty">Nenhuma mensagem nesta conversa.</div>
             {:else}
@@ -685,7 +685,7 @@
 
         <div class="mural-whatsapp-chat-body">
           {#if recadosLoading && conversation.length === 0}
-            <div class="chat-empty">Carregando mensagens...</div>
+            <LoadingState compact={true} />
           {:else if conversation.length === 0}
             <div class="chat-empty">
               <MessageCircle size={28} class="mx-auto mb-3 opacity-40" />

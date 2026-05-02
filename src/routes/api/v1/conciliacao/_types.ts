@@ -16,6 +16,7 @@ export type ConciliacaoFaixaComissao = string | 'SEM_COMISSAO';
  */
 export type ConciliacaoLinhaInput = {
   documento: string;
+  numero_reserva?: string | null;
   movimento_data?: string | null;         // ISO yyyy-mm-dd
   status?: ConciliacaoStatus | null;
   descricao?: string | null;

@@ -12,7 +12,7 @@
   import { ArrowLeft, Filter, MapPin } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { todayISODateLocal } from '$lib/date';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface DestinoRelatorio {
     destino: string;
@@ -32,20 +32,26 @@
     nome: string;
   }
 
+  type PeriodoModo = 'mes' | 'periodo';
+
   function getDefaultRange() {
     const today = todayISODateLocal();
+    const monthRange = monthRangeFromKey(today.slice(0, 7));
     return {
-      start: `${today.slice(0, 4)}-01-01`,
-      end: today
+      start: monthRange?.inicio || `${today.slice(0, 7)}-01`,
+      end: monthRange?.fim || today
     };
   }
 
   const defaultRange = getDefaultRange();
+  const defaultMonth = todayISODateLocal().slice(0, 7);
 
   let destinos: DestinoRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
   let vendedores: VendedorFiltro[] = [];
   let loading = true;
+  let filtroPeriodoModo: PeriodoModo = 'mes';
+  let mesSelecionado = defaultMonth;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
   let empresaSelecionada = '';
@@ -206,6 +212,14 @@
   $: totalVendas = destinosFiltrados.reduce((acc, destino) => acc + destino.quantidade, 0);
   $: destinoTop = destinosFiltrados.length > 0 ? destinosFiltrados[0] : null;
 
+  $: if (filtroPeriodoModo === 'mes') {
+    const range = monthRangeFromKey(mesSelecionado) || defaultRange;
+    const inicio = 'inicio' in range ? range.inicio : range.start;
+    const fim = 'fim' in range ? range.fim : range.end;
+    if (dataInicio !== inicio) dataInicio = inicio;
+    if (dataFim !== fim) dataFim = fim;
+  }
+
   $: vendasPorDestinoData = {
     labels: destinosFiltrados.slice(0, 10).map((destino) => destino.destino.split(' - ')[0]),
     datasets: [
@@ -252,21 +266,42 @@
 />
 
 <FilterPanel color="financeiro">
-  <FieldInput
-    id="rel-destinos-data-inicio"
-    label="Data Inicio"
-    type="date"
-    bind:value={dataInicio}
+  <FieldSelect
+    id="rel-destinos-periodo-modo"
+    label="Período"
+    bind:value={filtroPeriodoModo}
+    options={[
+      { value: 'mes', label: 'Mês completo' },
+      { value: 'periodo', label: 'Data específica' }
+    ]}
+    placeholder={null}
     class_name="w-full"
   />
-  <FieldInput
-    id="rel-destinos-data-fim"
-    label="Data Fim"
-    type="date"
-    bind:value={dataFim}
-    min={dataInicio || null}
-    class_name="w-full"
-  />
+  {#if filtroPeriodoModo === 'mes'}
+    <FieldInput
+      id="rel-destinos-mes"
+      label="Mês"
+      type="month"
+      bind:value={mesSelecionado}
+      class_name="w-full"
+    />
+  {:else}
+    <FieldInput
+      id="rel-destinos-data-inicio"
+      label="Data Início"
+      type="date"
+      bind:value={dataInicio}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="rel-destinos-data-fim"
+      label="Data Fim"
+      type="date"
+      bind:value={dataFim}
+      min={dataInicio || null}
+      class_name="w-full"
+    />
+  {/if}
   {#if showEmpresaFiltro}
     <FieldSelect
       id="rel-destinos-empresa"

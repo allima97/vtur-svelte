@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
@@ -15,7 +15,6 @@
     FolderKanban,
     Layers3,
     List,
-    Loader2,
     Plus,
     Search,
     SquareCheckBig,
@@ -128,6 +127,7 @@
   let taskModalOpen = false;
   let taskLoading = false;
   let taskSaving = false;
+  let taskArchiving = false;
   let selectedTaskId: string | null = null;
   let taskForm = defaultTaskForm();
   let taskMeta = {
@@ -200,7 +200,10 @@
     errorMessage = null;
 
     try {
-      const response = await fetch('/api/v1/todo/board', { credentials: 'same-origin' });
+      const response = await fetch(`/api/v1/todo/board?ts=${Date.now()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
       const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -302,6 +305,7 @@
     taskForm = defaultTaskForm();
     taskMeta = { arquivo: null, created_at: null, updated_at: null };
     taskLoading = false;
+    taskArchiving = false;
   }
 
   function resetCategoryModal() {
@@ -395,12 +399,15 @@
   }
 
   async function archiveCurrentTask() {
-    if (!selectedTaskId) return;
-    const action = taskMeta.arquivo ? 'restore' : 'archive';
-    const label = taskMeta.arquivo ? 'restaurar' : 'arquivar';
+    if (!selectedTaskId || taskArchiving) return;
+    const taskId = selectedTaskId;
+    const wasArchived = Boolean(taskMeta.arquivo);
+    const action = wasArchived ? 'restore' : 'archive';
+    const label = wasArchived ? 'restaurar' : 'arquivar';
 
     if (!(await confirmAction(`Deseja ${label} esta tarefa?`))) return;
 
+    taskArchiving = true;
     try {
       const response = await fetch('/api/v1/todo/item', {
         method: 'PATCH',
@@ -417,13 +424,32 @@
         throw new Error(payload?.error || `Erro ao ${label} tarefa.`);
       }
 
-      toast.success(taskMeta.arquivo ? 'Tarefa restaurada.' : 'Tarefa arquivada.');
+      const updatedItem = payload?.item as TodoItem | undefined;
+      const nextArquivo = action === 'archive'
+        ? updatedItem?.arquivo || new Date().toISOString()
+        : null;
+      const nextUpdatedAt = updatedItem?.updated_at || new Date().toISOString();
+
+      itens = itens.map((item) =>
+        item.id === taskId
+          ? {
+              ...item,
+              ...(updatedItem || {}),
+              arquivo: nextArquivo,
+              updated_at: nextUpdatedAt
+            }
+          : item
+      );
+
+      toast.success(wasArchived ? 'Tarefa restaurada.' : 'Tarefa arquivada.');
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao atualizar tarefa.');
+    } finally {
+      taskArchiving = false;
     }
   }
 
@@ -695,10 +721,7 @@
   </div>
 
   {#if loading}
-    <div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-      <Loader2 size={20} class="animate-spin" />
-      Carregando board...
-    </div>
+    <LoadingState compact={true} />
   {:else if errorMessage}
     <div class="px-5 py-8 text-sm text-red-600">{errorMessage}</div>
   {:else if activeItems.length === 0}
@@ -822,10 +845,7 @@
   onConfirm={saveTask}
 >
   {#if taskLoading}
-    <div class="flex items-center justify-center gap-3 py-10 text-slate-500">
-      <Loader2 size={18} class="animate-spin" />
-      Carregando tarefa...
-    </div>
+    <LoadingState compact={true} />
   {:else}
     <div class="space-y-5">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -914,7 +934,7 @@
 
   <svelte:fragment slot="actions">
     {#if selectedTaskId && !taskLoading}
-      <Button variant="ghost" on:click={archiveCurrentTask}>
+      <Button variant="ghost" loading={taskArchiving} disabled={taskSaving} on:click={archiveCurrentTask}>
         {#if taskMeta.arquivo}
           Restaurar
         {:else}

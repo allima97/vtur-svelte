@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
   let debugData: any = null;
@@ -58,9 +59,7 @@
   </div>
 
   {#if loading}
-    <div class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600"></div>
-    </div>
+    <LoadingState />
   {:else if error}
     <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
       {error}

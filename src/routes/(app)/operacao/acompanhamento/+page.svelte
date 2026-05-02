@@ -6,10 +6,10 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
-  import { CalendarDays, ExternalLink, Loader2, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
+  import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
 
   type FollowUpItem = {
     id: string;
@@ -259,10 +259,7 @@
 
 <Card color="operacao">
   {#if loading}
-    <div class="flex items-center justify-center gap-3 py-16 text-slate-500">
-      <Loader2 size={20} class="animate-spin" />
-      Carregando acompanhamento...
-    </div>
+    <LoadingState compact={true} />
   {:else if errorMessage}
     <div class="py-8 text-sm text-red-600">{errorMessage}</div>
   {:else}

@@ -3,12 +3,12 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
-  import { Calendar, Download, Loader2, Plus, RefreshCw, Video, X } from 'lucide-svelte';
+  import { Calendar, Download, Plus, RefreshCw, Video, X } from 'lucide-svelte';
 
   type Consultoria = {
     id: string;
@@ -248,9 +248,7 @@
 
   <!-- Lista -->
   {#if loading}
-    <div class="flex justify-center py-12">
-      <Loader2 size={32} class="animate-spin text-blue-500" />
-    </div>
+    <LoadingState />
   {:else if consultorias.length === 0}
     <EmptyState
       title="Nenhuma consultoria encontrada"

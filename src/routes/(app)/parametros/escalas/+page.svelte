@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { addMonthsISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
@@ -123,17 +123,6 @@
     permissoes.can('escalas', 'edit') ||
     permissoes.can('parametros', 'edit');
 
-  function buildMonthOptions() {
-    const items = [];
-    for (let i = -12; i <= 12; i++) {
-      const value = addMonthsISODate(`${currentMonth}-01`, i).slice(0, 7);
-      items.push({ value, label: formatYearMonthLabel(value) });
-    }
-    return items.reverse();
-  }
-
-  const monthOptions = buildMonthOptions();
-
   function getDaysInMonth(periodo: string) {
     const range = monthRangeFromKey(periodo);
     if (!range) return [];
@@ -151,8 +140,42 @@
     return dias.find((d) => d.usuario_id === usuarioId && d.data === data) || null;
   }
 
+  function normalizeFeriadoDate(value: unknown) {
+    return String(value || '').trim().slice(0, 10);
+  }
+
+  function getFeriados(data: string): Feriado[] {
+    return feriados.filter((f) => normalizeFeriadoDate(f.data) === data);
+  }
+
   function isFeriado(data: string): Feriado | null {
-    return feriados.find((f) => f.data === data) || null;
+    return getFeriados(data)[0] || null;
+  }
+
+  function isFeriadoEspecial(data: string) {
+    const [, mes, dia] = data.split('-').map(Number);
+    return mes === 12 && (dia === 24 || dia === 31);
+  }
+
+  function formatFeriadosTitle(lista: Feriado[]) {
+    return Array.from(new Set(lista.map((f) => f.nome).filter(Boolean))).join(' / ');
+  }
+
+  function buildFeriadosResumo(lista: Feriado[], periodo: string) {
+    const map: Record<string, Feriado[]> = {};
+    for (const feriado of lista) {
+      const data = normalizeFeriadoDate(feriado.data);
+      if (!data.startsWith(periodo)) continue;
+      map[data] = [...(map[data] || []), { ...feriado, data }];
+    }
+
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([data, itens]) => ({
+        data,
+        nomes: formatFeriadosTitle(itens),
+        origem: itens.some((item) => item.tipo !== 'nacional') ? 'local' : 'nacional'
+      }));
   }
 
   function formatTimeRange(inicio?: string | null, fim?: string | null) {
@@ -164,7 +187,7 @@
     const horario = horarios.find((item) => item.usuario_id === usuarioId);
     if (!horario?.auto_aplicar) return null;
 
-    const feriado = Boolean(isFeriado(data));
+    const feriado = Boolean(isFeriado(data)) || isFeriadoEspecial(data);
     let inicio: string | null = null;
     let fim: string | null = null;
     if (feriado) {
@@ -381,6 +404,7 @@
 
   $: diasDoMes = getDaysInMonth(periodoAtual);
   $: periodoLabel = formatYearMonthLabel(periodoAtual);
+  $: feriadosResumo = buildFeriadosResumo(feriados, periodoAtual);
   $: resumoPorUsuario = usuarios.reduce(
     (acc, usuario) => {
       const registros = dias.filter((dia) => dia.usuario_id === usuario.id);
@@ -414,27 +438,17 @@
 />
 
 <Card color="financeiro" class="mb-6">
-  <div class="grid gap-4 lg:grid-cols-[auto_minmax(240px,1fr)_auto] lg:items-end">
-    <Button variant="secondary" size="sm" on:click={() => navMes(-1)}>
+  <div class="grid gap-4 lg:grid-cols-[auto_minmax(240px,1fr)_auto] lg:items-center">
+    <Button variant="secondary" size="sm" ariaLabel="Mês anterior" on:click={() => navMes(-1)}>
       <ChevronLeft size={16} />
     </Button>
 
-    <div class="grid gap-3 sm:grid-cols-[minmax(180px,260px)_1fr] sm:items-end">
-      <FieldSelect
-        id="escala-periodo"
-        label="Mês"
-        bind:value={periodoAtual}
-        options={monthOptions}
-        placeholder={null}
-        on:change={load}
-      />
-      <div class="flex items-center gap-3 rounded-lg bg-slate-50 px-4 py-3">
-        <Calendar size={18} class="text-orange-600" />
-        <span class="text-base font-semibold text-slate-900 capitalize">{periodoLabel}</span>
-      </div>
+    <div class="flex items-center gap-3 rounded-lg bg-slate-50 px-4 py-3">
+      <Calendar size={18} class="text-orange-600" />
+      <span class="text-base font-semibold text-slate-900 capitalize">{periodoLabel}</span>
     </div>
 
-    <Button variant="secondary" size="sm" on:click={() => navMes(1)}>
+    <Button variant="secondary" size="sm" ariaLabel="Próximo mês" on:click={() => navMes(1)}>
       <ChevronRight size={16} />
     </Button>
   </div>
@@ -496,7 +510,7 @@
 </Card>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando escala...</div>
+  <LoadingState />
 {:else if usuarios.length === 0}
   <Card color="financeiro">
     <div class="py-12 text-center text-slate-500">
@@ -512,9 +526,10 @@
           <tr>
             <th class="sticky left-0 z-10 min-w-[180px] bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700">Colaborador</th>
             {#each diasDoMes as { date, dow, day }}
+              {@const feriadosDia = getFeriados(date)}
               <th
-                class="min-w-[42px] px-1 py-3 text-center font-medium {dow === 0 || dow === 6 ? 'text-red-500' : 'text-slate-600'} {isFeriado(date) ? 'bg-red-50' : ''}"
-                title={isFeriado(date)?.nome || ''}
+                class="min-w-[42px] px-1 py-3 text-center font-medium {dow === 0 || dow === 6 ? 'text-red-500' : 'text-slate-600'} {feriadosDia.length ? 'bg-red-50' : ''}"
+                title={formatFeriadosTitle(feriadosDia)}
               >
                 <div>{day}</div>
                 <div class="text-[10px] opacity-60">{DIAS_SEMANA[dow]}</div>
@@ -532,14 +547,15 @@
               </td>
               {#each diasDoMes as { date, dow }}
                 {@const registro = getDiaRegistro(usuario.id, date)}
-                {@const feriado = isFeriado(date)}
+                {@const feriadosDia = getFeriados(date)}
+                {@const feriadoTitle = formatFeriadosTitle(feriadosDia)}
                 {@const selected = multiAtivo && multiUsuarioId === usuario.id && multiDatas.includes(date)}
                 <td class="p-0.5 text-center {dow === 0 || dow === 6 ? 'bg-slate-50/50' : ''}">
                   <button
                     type="button"
                     class="flex h-8 w-full items-center justify-center rounded transition-colors hover:bg-orange-50 {selected ? 'bg-orange-100 ring-2 ring-orange-300' : ''}"
                     on:click={() => handleCellClick(usuario, date)}
-                    title={registro ? `${registro.tipo}${registro.hora_inicio ? ' ' + formatTimeRange(registro.hora_inicio, registro.hora_fim) : ''}` : feriado?.nome || ''}
+                    title={registro ? `${registro.tipo}${registro.hora_inicio ? ' ' + formatTimeRange(registro.hora_inicio, registro.hora_fim) : ''}` : feriadoTitle}
                   >
                     {#if registro?.tipo}
                       <span class="inline-flex h-7 min-w-7 items-center justify-center rounded px-1 text-[10px] font-bold ring-1 {TIPO_COLOR[registro.tipo] || 'bg-slate-100 text-slate-600 ring-slate-200'}">
@@ -548,7 +564,7 @@
                           <span class="ml-0.5 hidden text-[9px] font-semibold xl:inline">{formatTimeRange(registro.hora_inicio, registro.hora_fim)}</span>
                         {/if}
                       </span>
-                    {:else if feriado}
+                    {:else if feriadosDia.length}
                       <span class="inline-flex h-7 w-7 items-center justify-center rounded bg-red-100 text-[10px] font-bold text-red-600 ring-1 ring-red-200">H</span>
                     {:else}
                       <span class="inline-flex h-7 w-7 items-center justify-center rounded text-[12px] text-slate-300">·</span>
@@ -574,6 +590,20 @@
         </span>
       {/each}
     </div>
+
+    {#if feriadosResumo.length > 0}
+      <div class="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
+        <div class="mb-2 font-semibold text-slate-800">Feriados do mês</div>
+        <div class="flex flex-wrap gap-2">
+          {#each feriadosResumo as item}
+            <span class="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-1 text-red-700">
+              {formatDate(item.data)} · {item.nomes}
+              <span class="text-red-500">({item.origem})</span>
+            </span>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </Card>
 {/if}
 

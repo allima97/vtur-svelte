@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
 
 export async function GET(event) {
   try {
@@ -54,6 +55,9 @@ export async function GET(event) {
       return json({ error: 'Sem acesso a esta viagem.' }, { status: 403 });
     }
 
+    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as any);
+    const viagemComStatus = { ...viagem, status: statusAtual };
+
     const { data: acompanhantes } = await client
       .from('cliente_acompanhantes')
       .select('id, nome_completo, cpf, data_nascimento, grau_parentesco, telefone')
@@ -61,17 +65,17 @@ export async function GET(event) {
       .eq('ativo', true)
       .limit(20);
 
-    const { data: vouchers } = viagem.venda_id
+    const { data: vouchers } = viagemComStatus.venda_id
       ? await client
           .from('vouchers')
           .select('id, nome, provider, codigo_fornecedor, data_inicio, data_fim, ativo')
-          .eq('company_id', viagem.company_id)
+          .eq('company_id', viagemComStatus.company_id)
           .limit(20)
       : { data: [] };
 
     return json({
       viagem: {
-        ...viagem,
+        ...viagemComStatus,
         passageiros: acompanhantes || [],
         vouchers: vouchers || [],
         historico: []

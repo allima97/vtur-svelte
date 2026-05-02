@@ -2,8 +2,8 @@
   import { Loader2 } from 'lucide-svelte';
   import type { ComponentType } from 'svelte';
 
-  export let title = 'Carregando dados';
-  export let message = 'Aguarde enquanto o sistema busca as informações.';
+  export let title = 'Carregando registros';
+  export let message = 'Aguarde enquanto o sistema busca os dados da tabela.';
   export let icon: ComponentType | null = null;
   export let compact = false;
   export let className = '';

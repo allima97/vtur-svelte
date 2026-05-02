@@ -8,6 +8,7 @@
     FieldInput,
     FieldSelect,
     FieldTextarea,
+    LoadingState,
     PageHeader
   } from '$lib/components/ui';
   import { 
@@ -556,9 +557,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={40} class="animate-spin text-clientes-500" />
-  </div>
+  <LoadingState />
 {:else}
   <div class="max-w-6xl mx-auto pb-20">
     <!-- Wizard Steps -->

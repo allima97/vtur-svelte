@@ -3,7 +3,7 @@
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import { BarChart2, RefreshCw, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
@@ -410,7 +410,11 @@
   <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{errorMessage}</div>
 {/if}
 
-<KPIGrid className="mb-6" columns={5}>
+<KPIGrid
+  className="mb-6"
+  columns={5}
+  {loading}
+>
   <div class="vtur-kpi-card border-t-[3px] border-t-cyan-500">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><TrendingUp size={18} /></div>
     <div class="min-w-0 w-full flex-1">
@@ -513,7 +517,7 @@
 <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
   <Card header={evolucaoHeader} color="financeiro">
     {#if loading}
-      <div class="h-56 animate-pulse rounded-xl bg-slate-100"></div>
+      <LoadingState compact={true} />
     {:else if vendasAgg.timeline.length === 0}
       <p class="py-8 text-center text-sm text-slate-400">Sem vendas no período.</p>
     {:else}
@@ -523,7 +527,7 @@
 
   <Card header={destinosHeader} color="financeiro">
     {#if loading}
-      <div class="h-56 animate-pulse rounded-xl bg-slate-100"></div>
+      <LoadingState compact={true} />
     {:else if vendasAgg.topDestinos.length === 0}
       <p class="py-8 text-center text-sm text-slate-400">Sem destinos no período.</p>
     {:else}
@@ -533,7 +537,7 @@
 
   <Card header={orcamentosHeader} color="financeiro">
     {#if loading}
-      <div class="space-y-2">{#each [1, 2, 3] as _}<div class="h-10 animate-pulse rounded bg-slate-100"></div>{/each}</div>
+      <LoadingState compact={true} />
     {:else if orcamentos.length === 0}
       <p class="py-6 text-center text-sm text-slate-400">{orcamentosEmptyLabel}</p>
     {:else}
@@ -550,7 +554,7 @@
 
   <Card header={followUpHeader} color="financeiro">
     {#if loading}
-      <div class="space-y-2">{#each [1, 2, 3] as _}<div class="h-10 animate-pulse rounded bg-slate-100"></div>{/each}</div>
+      <LoadingState compact={true} />
     {:else if followUps.length === 0}
       <p class="py-6 text-center text-sm text-slate-400">{followUpEmptyLabel}</p>
     {:else}
@@ -568,17 +572,21 @@
   {#if podeVerOperacao}
     <Card header={viagensHeader} color="financeiro" class="xl:col-span-2">
       {#if loading}
-        <div class="space-y-2">{#each [1, 2, 3] as _}<div class="h-10 animate-pulse rounded bg-slate-100"></div>{/each}</div>
+        <LoadingState compact={true} />
       {:else if viagens.length === 0}
         <p class="py-6 text-center text-sm text-slate-400">{viagensEmptyLabel}</p>
       {:else}
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {#each viagens.slice(0, 6) as item}
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <a
+              href={`/operacao/viagens/${item.id}`}
+              class="block rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-orange-200 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              aria-label={`Abrir viagem de ${item.clientes?.nome || 'cliente'} para ${item.destino || 'destino não informado'}`}
+            >
               <p class="truncate text-sm font-semibold text-slate-900">{item.clientes?.nome || '-'}</p>
               <p class="mt-1 text-xs text-slate-500">{formatDate(item.data_inicio)} → {formatDate(item.data_fim)}</p>
               <p class="mt-1 text-xs text-slate-500">{item.destino || '-'}</p>
-            </div>
+            </a>
           {/each}
         </div>
       {/if}

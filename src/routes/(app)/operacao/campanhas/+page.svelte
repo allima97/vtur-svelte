@@ -6,7 +6,6 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, Megaphone, ExternalLink } from 'lucide-svelte';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -32,6 +31,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  let canEdit = false;
 
   let form = createForm();
 
@@ -48,8 +48,6 @@
       status: 'ativa' as 'ativa' | 'inativa' | 'cancelada'
     };
   }
-
-  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor;
 
   function getStatusBadge(status: string) {
     const styles: Record<string, string> = {
@@ -108,7 +106,9 @@
       if (!response.ok) throw new Error(await response.text());
       const payload = await response.json();
       campanhas = payload.items || [];
+      canEdit = Boolean(payload.can_write);
     } catch (err) {
+      canEdit = false;
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar campanhas.');
     } finally {
       loading = false;
@@ -116,6 +116,10 @@
   }
 
   function openNew() {
+    if (!canEdit) {
+      toast.error('Somente gestor/master podem criar campanhas.');
+      return;
+    }
     editingId = null;
     form = createForm();
     modalOpen = true;
@@ -138,6 +142,7 @@
   }
 
   async function save() {
+    if (!canEdit) { toast.error('Somente gestor/master podem gerenciar campanhas.'); return; }
     if (!form.titulo.trim()) { toast.error('Título obrigatório.'); return; }
     if (!form.data_campanha) { toast.error('Data obrigatória.'); return; }
 
@@ -160,6 +165,7 @@
   }
 
   async function deleteCampanha(id: string) {
+    if (!canEdit) { toast.error('Somente gestor/master podem excluir campanhas.'); return; }
     if (!(await confirmAction('Deseja excluir esta campanha?'))) return;
     deletingId = id;
     try {
@@ -186,7 +192,9 @@
 
 <PageHeader
   title="Campanhas"
-  subtitle="Gerencie campanhas promocionais com imagens, links e regras de validade."
+  subtitle={canEdit
+    ? 'Gerencie campanhas promocionais com imagens, links e regras de validade.'
+    : 'Visualize campanhas promocionais, links e regras de validade.'}
   color="operacao"
   breadcrumbs={[
     { label: 'Operação', href: '/operacao' },
@@ -250,7 +258,7 @@
     }
   ]}
   emptyMessage="Nenhuma campanha encontrada"
-  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
+  onRowClick={(row) => openEdit(row)}
 >
   <svelte:fragment slot="row-actions" let:row>
     {#if canEdit}
@@ -270,12 +278,12 @@
 
 <Dialog
   bind:open={modalOpen}
-  title={editingId ? 'Editar Campanha' : 'Nova Campanha'}
+  title={canEdit ? (editingId ? 'Editar Campanha' : 'Nova Campanha') : 'Detalhe da Campanha'}
   color="operacao"
   size="lg"
   showCancel={true}
-  cancelText="Cancelar"
-  showConfirm={true}
+  cancelText={canEdit ? 'Cancelar' : 'Fechar'}
+  showConfirm={canEdit}
   confirmText={editingId ? 'Salvar' : 'Criar'}
   loading={saving}
   onConfirm={save}
@@ -288,6 +296,7 @@
       bind:value={form.titulo}
       placeholder="Título da campanha"
       required={true}
+      disabled={!canEdit}
       class_name="w-full"
     />
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -297,6 +306,7 @@
         type="date"
         bind:value={form.data_campanha}
         required={true}
+        disabled={!canEdit}
         class_name="w-full"
       />
       <FieldInput
@@ -304,6 +314,7 @@
         label="Válida até"
         type="date"
         bind:value={form.validade_ate}
+        disabled={!canEdit}
         class_name="w-full"
       />
       <FieldSelect
@@ -316,6 +327,7 @@
           { value: 'cancelada', label: 'Cancelada' }
         ]}
         placeholder={null}
+        disabled={!canEdit}
         class_name="w-full"
       />
       <FieldInput
@@ -323,6 +335,7 @@
         label="URL da Imagem"
         bind:value={form.imagem_url}
         placeholder="https://..."
+        disabled={!canEdit}
         class_name="w-full"
       />
     </div>
@@ -332,6 +345,7 @@
         label="Link principal"
         bind:value={form.link_url}
         placeholder="https://..."
+        disabled={!canEdit}
         class_name="w-full"
       />
       <FieldInput
@@ -339,6 +353,7 @@
         label="Instagram"
         bind:value={form.link_instagram}
         placeholder="https://instagram.com/..."
+        disabled={!canEdit}
         class_name="w-full"
       />
       <FieldInput
@@ -346,6 +361,7 @@
         label="Facebook"
         bind:value={form.link_facebook}
         placeholder="https://facebook.com/..."
+        disabled={!canEdit}
         class_name="w-full"
       />
     </div>
@@ -355,6 +371,7 @@
       bind:value={form.regras}
       rows={4}
       placeholder="Condições e regras da campanha..."
+      disabled={!canEdit}
       class_name="w-full"
     />
   </div>

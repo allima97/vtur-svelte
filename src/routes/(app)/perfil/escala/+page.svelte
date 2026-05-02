@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
@@ -186,7 +187,7 @@
 {/if}
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando escala...</div>
+  <LoadingState />
 {:else if activeTab === 'escala_equipe' && canViewEquipe}
   <Card padding="none">
     <div class="overflow-x-visible md:overflow-x-auto">

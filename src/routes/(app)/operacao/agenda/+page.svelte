@@ -11,7 +11,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldInput, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
+  import { FieldInput, FieldTextarea, FieldCheckbox, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
@@ -505,9 +505,8 @@
   <div class="relative min-h-[42rem]">
     <div bind:this={calendarEl} class="p-4 md:p-5 min-h-[42rem]"></div>
     {#if loading}
-      <div class="absolute inset-0 flex items-center justify-center gap-3 bg-white/80 text-slate-500 backdrop-blur-sm">
-        <Loader2 size={20} class="animate-spin" />
-        Carregando agenda...
+      <div class="absolute inset-0 bg-white/80 backdrop-blur-sm">
+        <LoadingState className="h-full" />
       </div>
     {/if}
   </div>
@@ -559,10 +558,7 @@
   }}
 >
   {#if eventLoading}
-    <div class="flex items-center justify-center gap-3 py-10 text-slate-500">
-      <Loader2 size={18} class="animate-spin" />
-      Carregando...
-    </div>
+    <LoadingState compact={true} />
   {:else if selectedEventSource === 'birthday'}
     <div class="space-y-4">
       <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">

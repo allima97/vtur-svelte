@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { resolveViagemStatus } from '$lib/viagens/status';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -24,10 +25,11 @@ export async function POST(event: RequestEvent) {
     const destino = String(body?.destino || '').trim();
     const dataInicio = String(body?.data_inicio || '').trim();
     const dataFim = String(body?.data_fim || '').trim() || null;
-    const statusRaw = String(body?.status || 'planejada').trim().toLowerCase();
-    const status = ['planejada', 'programada', 'confirmada', 'em_viagem', 'em_andamento', 'concluida', 'cancelada'].includes(statusRaw)
-      ? statusRaw
-      : 'planejada';
+    const status = resolveViagemStatus({
+      status: body?.status,
+      data_inicio: dataInicio,
+      data_fim: dataFim
+    });
     const clienteId = String(body?.cliente_id || '').trim();
     const observacoes = String(body?.observacoes || '').trim() || null;
     const followUpText = String(body?.follow_up_text || '').trim() || null;

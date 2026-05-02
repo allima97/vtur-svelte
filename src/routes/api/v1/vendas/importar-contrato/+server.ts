@@ -42,6 +42,31 @@ function parseMoney(value?: number | null) {
   return Number(value);
 }
 
+function normalizeRexturLocalizador(value?: string | null) {
+  return String(value || '')
+    .trim()
+    .replace(/^REXTUR[\s-]*/i, '')
+    .toUpperCase();
+}
+
+function resolveContratoReciboNumeros(contrato: ContratoDraft, isFacialRextur: boolean) {
+  if (!isFacialRextur) {
+    return {
+      numero_recibo: contrato.contrato_numero || null,
+      numero_reserva: contrato.reserva_numero || null
+    };
+  }
+
+  const localizador =
+    normalizeRexturLocalizador(contrato.reserva_numero) ||
+    normalizeRexturLocalizador(contrato.contrato_numero);
+
+  return {
+    numero_recibo: 'REXTUR',
+    numero_reserva: localizador || null
+  };
+}
+
 function sanitizeOptionalContact(value?: string | null) {
   const trimmed = String(value || '').trim();
   return trimmed || null;
@@ -532,10 +557,7 @@ export async function POST(event) {
           client,
           companyId,
           clienteId: clientePrincipal.id,
-          recibos: contratos.map((contrato) => ({
-            numero_recibo: contrato.contrato_numero || null,
-            numero_reserva: contrato.reserva_numero || null
-          }))
+          recibos: contratos.map((contrato) => resolveContratoReciboNumeros(contrato, isFacialRextur))
         });
       } catch (err) {
         const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
@@ -650,6 +672,7 @@ export async function POST(event) {
 
       const reciboCidadeId = String((contrato as any)?.destino_cidade_id || '').trim() || cidadeId || null;
       const tipoProdutoId = String((produtoRecibo as any)?.tipo_produto || '').trim() || null;
+      const reciboNumeros = resolveContratoReciboNumeros(contrato, isFacialRextur);
 
       const { data: recibo, error: reciboError } = await client
         .from('vendas_recibos')
@@ -658,8 +681,8 @@ export async function POST(event) {
           produto_id: tipoProdutoId,
           produto_resolvido_id: produtoRecibo.id,
           destino_cidade_id: reciboCidadeId,
-          numero_recibo: contrato.contrato_numero || null,
-          numero_reserva: contrato.reserva_numero || null,
+          numero_recibo: reciboNumeros.numero_recibo,
+          numero_reserva: reciboNumeros.numero_reserva,
           tipo_pacote: contrato.tipo_pacote || null,
           valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto),
           valor_taxas: parseMoney(contrato.taxas_embarque),

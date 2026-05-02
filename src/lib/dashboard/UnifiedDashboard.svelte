@@ -774,7 +774,11 @@
 
 <!-- KPIs — intocáveis conforme instrução -->
 {#if activeWidgetOrder.includes('kpis')}
-  <KPIGrid className="mb-6" columns={kpiGridColumns}>
+  <KPIGrid
+    className="mb-6"
+    columns={kpiGridColumns}
+    {loading}
+  >
     {#each activeKpiOrder as kpiId}
       {#if kpiId === 'vendas_periodo'}
         <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
@@ -864,10 +868,7 @@
         </Button>
       </div>
       {#if loading}
-        <LoadingState
-          title="Carregando evolução das vendas"
-          message="Buscando a linha do tempo de receita no período selecionado."
-        />
+        <LoadingState />
       {:else if vendasAgg.timeline.length === 0}
         <p class="py-12 text-center text-sm text-slate-400">Nenhuma venda no período.</p>
       {:else}
@@ -888,10 +889,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando destinos"
-              message="Somando vendas por destino para montar o ranking do período."
-            />
+            <LoadingState />
           {:else if vendasAgg.topDestinos.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum destino no período.</p>
           {:else}
@@ -920,10 +918,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando produtos"
-              message="Agrupando a receita por produto para montar o gráfico."
-            />
+            <LoadingState />
           {:else if vendasAgg.porProduto.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum produto no período.</p>
           {:else}
@@ -956,10 +951,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando viagens"
-              message="Buscando próximas viagens confirmadas e seus status operacionais."
-            />
+            <LoadingState />
           {:else if viagens.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhuma viagem próxima.</p>
           {:else}
@@ -1005,10 +997,7 @@
       </div>
       <div class="border-t border-slate-100 pt-4">
         {#if loading}
-          <LoadingState
-            title="Carregando atividades"
-            message="Buscando follow-ups, orçamentos, viagens e eventos recentes."
-          />
+          <LoadingState />
         {:else if activityFeed.length === 0}
           <p class="py-6 text-center text-sm text-slate-400">Nenhuma atividade recente.</p>
         {:else}
@@ -1052,10 +1041,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando aniversariantes"
-              message="Buscando aniversários próximos para apoiar o relacionamento com clientes."
-            />
+            <LoadingState />
           {:else if aniversariantes.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum aniversariante este mês.</p>
           {:else}
@@ -1109,10 +1095,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando tarefas pendentes"
-              message="Buscando follow-ups e ações prioritárias do período."
-            />
+            <LoadingState />
           {:else if followUps.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum follow-up pendente.</p>
           {:else}
@@ -1157,10 +1140,7 @@
         </div>
         <div class="border-t border-slate-100 pt-4">
           {#if loading}
-            <LoadingState
-              title="Carregando orçamentos"
-              message="Buscando propostas recentes e seus valores para o painel."
-            />
+            <LoadingState />
           {:else if orcamentos.length === 0}
             <p class="py-8 text-center text-sm text-slate-400">Nenhum orçamento no período.</p>
           {:else}
@@ -1212,10 +1192,7 @@
     </div>
     <div class="border-t border-slate-100 pt-4">
       {#if loading}
-        <LoadingState
-          title="Carregando consultorias"
-          message="Buscando próximas sessões de consultoria agendadas."
-        />
+        <LoadingState />
       {:else if consultorias.length === 0}
         <p class="py-6 text-center text-sm text-slate-400">Nenhuma consultoria agendada.</p>
       {:else}

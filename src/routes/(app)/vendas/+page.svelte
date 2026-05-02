@@ -307,11 +307,7 @@
 {/if}
 
 {#if loadingKpis}
-  <LoadingState
-    title="Carregando indicadores de vendas"
-    message="Buscando totais do mês corrente, taxas, líquido e quantidade de vendas ativas."
-    className="mb-6"
-  />
+  <LoadingState className="mb-6" />
 {:else}
   <KPIGrid className="mb-6" columns={4}>
     <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
@@ -326,8 +322,6 @@
   data={vendas}
   color="vendas"
   {loading}
-  loadingTitle="Carregando vendas"
-  loadingMessage="Buscando vendas, recibos, clientes, destinos e status no banco compartilhado."
   title="Lista de Vendas"
   {filters}
   searchable={true}

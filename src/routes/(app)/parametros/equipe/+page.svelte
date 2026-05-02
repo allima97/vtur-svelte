@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, SimpleTable } from '$lib/components/ui';
+  import { FieldInput, LoadingState, SimpleTable } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
@@ -160,7 +160,7 @@
   </div>
 
   {#if loading}
-    <div class="py-8 text-center text-sm text-slate-500">Carregando...</div>
+    <LoadingState compact={true} />
   {:else if usuariosFiltrados.length === 0}
     <div class="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center text-sm text-slate-500">
       Nenhum usuário encontrado.

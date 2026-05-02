@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { monthRangeFromKey } from '$lib/date';
 
 function normalizePeriod(value: unknown) {
   const raw = String(value || '').trim();
@@ -25,6 +26,27 @@ function normalizeDate(value: unknown) {
 function normalizeTime(value: unknown) {
   const raw = String(value || '').trim();
   return /^\d{2}:\d{2}/.test(raw) ? raw.slice(0, 5) : null;
+}
+
+async function fetchFeriadosNacionais(ano: number, periodo: string) {
+  if (!Number.isInteger(ano) || ano < 1900 || ano > 2200) return [];
+
+  try {
+    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (Array.isArray(data) ? data : [])
+      .map((item: any) => ({
+        id: `nacional-${String(item?.date || '').trim()}`,
+        data: String(item?.date || '').trim(),
+        nome: String(item?.name || '').trim(),
+        tipo: 'nacional'
+      }))
+      .filter((item) => item.data.startsWith(periodo) && item.nome);
+  } catch (err) {
+    console.warn('[parametros/escalas] falha ao carregar feriados nacionais', err);
+    return [];
+  }
 }
 
 async function resolveEquipeIds(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>) {
@@ -104,6 +126,7 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const periodo = String(searchParams.get('periodo') || '').trim(); // YYYY-MM
+    const periodoRange = monthRangeFromKey(periodo);
 
     const equipeIds = await resolveEquipeIds(client, scope);
 
@@ -157,17 +180,25 @@ export async function GET(event) {
       usuarios = usersData || [];
     }
 
-    // Feriados customizados
+    // Feriados nacionais + locais do mês
+    const anoFeriados = Number(periodo.slice(0, 4));
+    const feriadosNacionais = periodoRange ? await fetchFeriadosNacionais(anoFeriados, periodo) : [];
     let feriadosQuery = client
       .from('feriados')
       .select('id, data, nome, tipo')
       .order('data')
       .limit(100);
+    if (periodoRange) {
+      feriadosQuery = feriadosQuery
+        .gte('data', periodoRange.inicio)
+        .lte('data', periodoRange.fim);
+    }
     if (!scope.isAdmin) {
       if (scope.companyIds.length > 0) feriadosQuery = feriadosQuery.in('company_id', scope.companyIds);
       else if (scope.companyId) feriadosQuery = feriadosQuery.eq('company_id', scope.companyId);
     }
-    const { data: feriados } = await feriadosQuery;
+    const { data: feriadosLocais } = await feriadosQuery;
+    const feriados = [...feriadosNacionais, ...(feriadosLocais || [])];
 
     // Busca horarios do usuario logado
     let horariosUsuario: any[] = [];

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime } from '$lib/utils/formatters';
 
@@ -667,7 +667,7 @@
 
         <div>
           {#if carregandoTemplates}
-            <div class="text-center py-2"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-clientes-600 mx-auto"></div></div>
+            <LoadingState compact={true} />
           {:else if erroTemplates}
             <div class="vtur-modal-notice rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
               {erroTemplates}
@@ -781,8 +781,10 @@
         {/if}
 
         <div class="border-t border-slate-100 pt-4">
-          <div class="flex items-center justify-between mb-2"><p class="text-sm font-medium text-slate-700">Últimos avisos</p>{#if carregandoHistorico}<span class="text-xs text-slate-500">Carregando...</span>{/if}</div>
-          {#if historicoIndisponivel}
+          <div class="flex items-center justify-between mb-2"><p class="text-sm font-medium text-slate-700">Últimos avisos</p></div>
+          {#if carregandoHistorico}
+            <LoadingState compact={true} />
+          {:else if historicoIndisponivel}
             <div class="vtur-modal-notice rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">Histórico ainda indisponível no banco atual.</div>
           {:else if historico.length === 0}
             <div class="vtur-modal-notice rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Nenhum aviso registrado para este cliente.</div>

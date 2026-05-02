@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X, MessageCircle, Phone, Mail, Calendar, User, Send, Clock } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { onMount } from 'svelte';
   
@@ -240,10 +240,7 @@
           <h4 class="font-medium text-slate-900 mb-4">Histórico</h4>
           
           {#if loading}
-            <div class="text-center py-8">
-              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-clientes-600 mx-auto"></div>
-              <p class="text-sm text-slate-500 mt-2">Carregando...</p>
-            </div>
+            <LoadingState compact={true} />
           {:else if interacoes.length === 0}
             <div class="text-center py-8 text-slate-500">
               <MessageCircle size={48} class="mx-auto mb-3 opacity-30" />

@@ -4,7 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldRadioGroup, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldRadioGroup, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
@@ -134,7 +134,7 @@
 {/if}
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
+  <LoadingState />
 {:else}
   <form on:submit|preventDefault={save} class="space-y-6">
     <Card title="Dados pessoais">

@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle } from '$lib/components/ui';
+  import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle, LoadingState } from '$lib/components/ui';
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -316,9 +316,7 @@
 />
 
 {#if loading}
-  <div class="flex justify-center py-12">
-    <div class="h-12 w-12 animate-spin rounded-full border-b-2 border-financeiro-600"></div>
-  </div>
+  <LoadingState />
 {:else}
   <form on:submit|preventDefault={handleSubmit}>
     <Card color="financeiro" class="mb-6">

@@ -85,4 +85,4 @@ export type StatusVenda = 'aberta' | 'fechada' | 'cancelada' | 'pendente';
 
 export type StatusOrcamento = 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado';
 
-export type StatusViagem = 'planejada' | 'confirmada' | 'em_viagem' | 'concluida' | 'cancelada';
+export type StatusViagem = 'pendente' | 'confirmada' | 'em_viagem' | 'concluida' | 'cancelada';

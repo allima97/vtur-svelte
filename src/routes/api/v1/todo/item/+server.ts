@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { ensureTodoAccess, normalizeTodoPriority, normalizeTodoStatus } from '$lib/server/agenda';
+import { ensureTodoAccess, mapTodoRow, normalizeTodoPriority, normalizeTodoStatus } from '$lib/server/agenda';
 import { getAdminClient, isUuid, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 async function ensureTodoCategoryOwnership(client: ReturnType<typeof getAdminClient>, userId: string, categoriaId: string | null) {
@@ -142,16 +142,17 @@ export async function PATCH(event) {
       return json({ error: 'Sem acesso a esta tarefa.' }, { status: 403 });
     }
 
+    const updatedAt = new Date().toISOString();
     const { data, error } = await client
       .from('agenda_itens')
-      .update({ arquivo: action === 'archive' ? new Date().toISOString() : null })
+      .update({ arquivo: action === 'archive' ? updatedAt : null, updated_at: updatedAt })
       .eq('id', id)
-      .select('id, arquivo')
+      .select('id, titulo, descricao, done, categoria_id, prioridade, status, arquivo, created_at, updated_at')
       .single();
 
     if (error) throw error;
 
-    return json({ ok: true, item: data });
+    return json({ ok: true, item: mapTodoRow(data) || data });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao arquivar tarefa.');
   }

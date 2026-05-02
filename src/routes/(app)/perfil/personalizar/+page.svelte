@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import FieldToggle from '$lib/components/ui/form/FieldToggle.svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -286,7 +287,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
+  <LoadingState />
 {:else}
   <div class="space-y-6">
     {#each secoesVisiveis as secao}

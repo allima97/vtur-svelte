@@ -6,6 +6,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
@@ -19,6 +20,7 @@
   } from 'lucide-svelte';
   import { diffDaysISODate } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import { formatViagemStatus, normalizeViagemStatus, type StatusViagem } from '$lib/viagens/status';
 
   interface Cliente {
     id: string;
@@ -82,8 +84,6 @@
 
   type BadgeColor = 'gray' | 'dark' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'pink' | 'indigo' | 'teal' | 'operacao' | 'clientes' | 'vendas' | 'financeiro' | 'orcamentos' | 'comissoes';
 
-  type ViagemStatus = Viagem['status'];
-
   interface Viagem {
     id: string;
     venda_id: string;
@@ -94,7 +94,7 @@
     destino: string;
     data_inicio: string;
     data_fim: string;
-    status: 'planejada' | 'confirmada' | 'em_viagem' | 'concluida' | 'cancelada';
+    status: StatusViagem;
     observacoes: string;
     follow_up_text: string;
     follow_up_fechado: boolean;
@@ -119,23 +119,23 @@
   let editForm: {
     data_inicio: string;
     data_fim: string;
-    status: ViagemStatus;
+    status: StatusViagem;
     observacoes: string;
     follow_up_text: string;
     follow_up_fechado: boolean;
   } = {
     data_inicio: '',
     data_fim: '',
-    status: 'planejada',
+    status: 'pendente',
     observacoes: '',
     follow_up_text: '',
     follow_up_fechado: false
   };
 
-  const statusOptions: Array<{ value: ViagemStatus; label: string; color: BadgeColor; icon: typeof Calendar }> = [
-    { value: 'planejada', label: 'Planejada', color: 'gray', icon: Calendar },
+  const statusOptions: Array<{ value: StatusViagem; label: string; color: BadgeColor; icon: typeof Calendar }> = [
+    { value: 'pendente', label: 'Pendente', color: 'gray', icon: Calendar },
     { value: 'confirmada', label: 'Confirmada', color: 'blue', icon: CheckCircle },
-    { value: 'em_viagem', label: 'Em Viagem', color: 'yellow', icon: Plane },
+    { value: 'em_viagem', label: 'Em viagem', color: 'yellow', icon: Plane },
     { value: 'concluida', label: 'Concluída', color: 'green', icon: CheckCircle },
     { value: 'cancelada', label: 'Cancelada', color: 'red', icon: AlertCircle }
   ];
@@ -181,7 +181,7 @@
       editForm = {
         data_inicio: viagemData.data_inicio ? viagemData.data_inicio.split('T')[0] : '',
         data_fim: viagemData.data_fim ? viagemData.data_fim.split('T')[0] : '',
-        status: viagemData.status || 'planejada',
+        status: normalizeViagemStatus(viagemData.status),
         observacoes: viagemData.observacoes || '',
         follow_up_text: viagemData.follow_up_text || '',
         follow_up_fechado: viagemData.follow_up_fechado || false
@@ -236,6 +236,7 @@
   function getStatusColor(status: string): BadgeColor {
     const colors: Record<string, BadgeColor> = {
       planejada: 'gray',
+      pendente: 'gray',
       confirmada: 'blue',
       em_viagem: 'yellow',
       concluida: 'green',
@@ -246,13 +247,14 @@
 
   function getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
-      planejada: 'Planejada',
+      planejada: 'Pendente',
+      pendente: 'Pendente',
       confirmada: 'Confirmada',
-      em_viagem: 'Em Viagem',
+      em_viagem: 'Em viagem',
       concluida: 'Concluída',
       cancelada: 'Cancelada'
     };
-    return labels[status] || status;
+    return labels[status] || formatViagemStatus(status);
   }
 
   function formatDate(dateString: string | null | undefined): string {
@@ -327,10 +329,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center h-64">
-    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-operacao-600"></div>
-    <span class="ml-3 text-slate-500">Carregando viagem...</span>
-  </div>
+  <LoadingState />
 {:else if viagem}
   <!-- Header -->
   <PageHeader
@@ -367,12 +366,13 @@
   <!-- Status Banner -->
   {@const bannerClasses = {
     planejada:  'bg-slate-50 border-slate-200',
+    pendente:   'bg-slate-50 border-slate-200',
     confirmada: 'bg-blue-50 border-blue-200',
     em_viagem:  'bg-amber-50 border-amber-200',
     concluida:  'bg-green-50 border-green-200',
     cancelada:  'bg-red-50 border-red-200'
   }}
-  <div class="mb-6 p-4 rounded-xl border {bannerClasses[viagem.status] ?? bannerClasses.planejada}">
+  <div class="mb-6 p-4 rounded-xl border {bannerClasses[viagem.status] ?? bannerClasses.pendente}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3">
         <Badge color={getStatusColor(viagem.status)} size="md">

@@ -7,6 +7,7 @@
    */
   export let title: string | null = null;
   export let header: string | null = null;
+  export let subtitle: string | null = null;
   export let color: 'default' | 'blue' | 'green' | 'orange' | 'teal' | 'purple' | 'crm' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'default';
   export let padding: 'none' | 'sm' | 'md' | 'lg' = 'md';
 
@@ -25,9 +26,16 @@
   A prop color permanece aceita (compatibilidade) sem efeito visual diferenciado.
 -->
 <div class="vtur-card {$$props.class || ''}">
-  {#if title || header}
+  {#if title || header || subtitle}
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-      <h3 class="text-sm font-semibold tracking-tight text-slate-800">{title || header}</h3>
+      <div>
+        {#if title || header}
+          <h3 class="text-sm font-semibold tracking-tight text-slate-800">{title || header}</h3>
+        {/if}
+        {#if subtitle}
+          <p class="mt-1 text-xs text-slate-500">{subtitle}</p>
+        {/if}
+      </div>
       <slot name="actions" />
     </div>
   {/if}

@@ -8,7 +8,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { 
     Plus, Edit2, Trash2, CreditCard, 
-    CheckCircle, XCircle, Loader2
+    CheckCircle, XCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 

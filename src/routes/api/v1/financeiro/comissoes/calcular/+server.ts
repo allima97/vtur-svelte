@@ -49,11 +49,16 @@ function normalizeRowsToReceiptPeriod(rows: any[]) {
   });
 }
 
+function canViewTeamCommissions(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return scope.isAdmin || scope.isMaster || scope.isGestor;
+}
+
 export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const podeVerEquipe = canViewTeamCommissions(scope);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 2, 'Sem permissão para calcular comissões.');
@@ -76,6 +81,9 @@ export async function POST(event) {
       filterByReceiptDate: Boolean(data_inicio || data_fim)
     });
     let vendas = normalizeRowsToReceiptPeriod(vendasPeriodo);
+    if (!podeVerEquipe) {
+      vendas = vendas.filter((venda: any) => String(venda?.vendedor_id || '').trim() === scope.userId);
+    }
 
     if (Array.isArray(venda_ids) && venda_ids.length > 0) {
       const allowedIds = new Set(venda_ids.map((id: string) => String(id)));
@@ -153,6 +161,7 @@ export async function GET(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const podeVerEquipe = canViewTeamCommissions(scope);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 1, 'Sem acesso.');
@@ -253,6 +262,10 @@ export async function GET(event) {
         };
       })
     ).filter(Boolean) as any[];
+
+    if (!podeVerEquipe) {
+      items = items.filter((item: any) => String(item.vendedor_id || '').trim() === scope.userId);
+    }
 
     if (statusParam && statusParam !== 'todas') {
       items = items.filter((item: any) => String(item.status || '').toLowerCase() === statusParam);

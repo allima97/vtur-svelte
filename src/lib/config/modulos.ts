@@ -416,6 +416,7 @@ export const SECOES_PERMISSOES: ModuloSecaoPermissoes[] = [
       'AdminFinanceiro',
       'AdminPlanos',
       'AdminUserTypes',
+      'AdminSystemModules',
     ],
   },
 ];

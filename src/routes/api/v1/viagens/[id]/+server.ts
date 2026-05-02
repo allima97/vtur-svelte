@@ -8,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { resolveViagemStatus } from '$lib/viagens/status';
+import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
 
 async function hasViagemAccessByResponsavel(client: any, scope: any, userId: string, responsavelUserId?: string | null) {
   const allowedResponsavelIds = !scope.isAdmin
@@ -80,9 +82,9 @@ async function hasViagemAccessByCliente(client: any, scope: any, userId: string,
 }
 
 function shouldRestrictViagemToOwner(scope: any) {
-  // A listagem de viagens libera Gestor/Master para a empresa inteira.
-  // O detalhe precisa seguir a mesma regra; só uso individual fica restrito ao responsável/venda/cliente.
-  return !scope.isAdmin && Boolean(scope.usoIndividual);
+  // Gestor/Master/Admin podem operar a empresa. Vendedor comum só acessa
+  // viagens vinculadas às próprias vendas, clientes ou responsabilidade direta.
+  return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
 }
 
 export async function GET(event) {
@@ -142,22 +144,25 @@ export async function GET(event) {
       }
     }
 
+    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as any);
+    const viagemComStatus = { ...viagem, status: statusAtual };
+
     let cliente = null;
-    if (viagem.cliente_id) {
+    if (viagemComStatus.cliente_id) {
       const { data: clienteData } = await client
         .from('clientes')
         .select('id, nome, email, telefone, whatsapp')
-        .eq('id', viagem.cliente_id)
+        .eq('id', viagemComStatus.cliente_id)
         .single();
       cliente = clienteData;
     }
 
     let venda = null;
-    if (viagem.venda_id) {
+    if (viagemComStatus.venda_id) {
       const { data: vendaData } = await client
         .from('vendas')
         .select('id, valor_total, valor_total_pago, status, data_venda')
-        .eq('id', viagem.venda_id)
+        .eq('id', viagemComStatus.venda_id)
         .single();
 
       if (vendaData) {
@@ -178,7 +183,7 @@ export async function GET(event) {
             data_fim,
             contrato_url
           `)
-          .eq('venda_id', viagem.venda_id);
+          .eq('venda_id', viagemComStatus.venda_id);
 
         const produtoIds = [...new Set((recibosData || [])
           .map((r: any) => r.produto_id || r.produto_resolvido_id)
@@ -201,21 +206,21 @@ export async function GET(event) {
     }
 
     let recibo = null;
-    if (viagem.recibo_id) {
+    if (viagemComStatus.recibo_id) {
       const { data: reciboData } = await client
         .from('vendas_recibos')
         .select('id, numero_recibo, numero_reserva, valor_total, data_inicio, data_fim')
-        .eq('id', viagem.recibo_id)
+        .eq('id', viagemComStatus.recibo_id)
         .single();
       recibo = reciboData;
     }
 
     // Vouchers vinculados à company da viagem (sem filtro de venda_id — comportamento original mantido)
-    const { data: vouchers } = viagem.venda_id
+    const { data: vouchers } = viagemComStatus.venda_id
       ? await client
           .from('vouchers')
           .select('id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo')
-          .eq('company_id', viagem.company_id)
+          .eq('company_id', viagemComStatus.company_id)
           .limit(20)
       : { data: [] };
 
@@ -229,7 +234,7 @@ export async function GET(event) {
       .order('created_at', { ascending: true });
 
     return json({
-      viagem: { ...viagem, cliente, venda, recibo, vouchers: vouchers || [], passageiros: passageiros || [] }
+      viagem: { ...viagemComStatus, cliente, venda, recibo, vouchers: vouchers || [], passageiros: passageiros || [] }
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar viagem.');
@@ -252,7 +257,7 @@ export async function PATCH(event) {
 
     const { data: existing, error: checkError } = await client
       .from('viagens')
-      .select('id, company_id, responsavel_user_id, venda_id, cliente_id')
+      .select('id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status')
       .eq('id', id)
       .single();
 
@@ -281,6 +286,11 @@ export async function PATCH(event) {
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
     allowedFields.forEach((field) => {
       if (body[field] !== undefined) updateData[field] = body[field];
+    });
+    updateData.status = resolveViagemStatus({
+      status: updateData.status ?? (existing as any).status,
+      data_inicio: updateData.data_inicio ?? (existing as any).data_inicio,
+      data_fim: updateData.data_fim ?? (existing as any).data_fim
     });
 
     const { data, error } = await client

@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
   import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
@@ -254,7 +254,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
+  <LoadingState />
 {:else}
   <form on:submit|preventDefault={save} class="space-y-6">
 

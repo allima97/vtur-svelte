@@ -183,6 +183,33 @@ async function assertTargetAllowed(client: any, scope: Awaited<ReturnType<typeof
   return vendedorId === scope.userId;
 }
 
+async function findExistingMetaId(client: any, vendedorId: string, periodo: string) {
+  let query = client
+    .from('metas_vendedor')
+    .select('id')
+    .eq('vendedor_id', vendedorId)
+    .eq('periodo', periodo)
+    .eq('scope', 'vendedor')
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  let { data, error } = await query;
+
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await client
+      .from('metas_vendedor')
+      .select('id')
+      .eq('vendedor_id', vendedorId)
+      .eq('periodo', periodo)
+      .limit(1);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) throw error;
+  return String(data?.[0]?.id || '');
+}
+
 async function upsertMeta(client: any, input: MetaInput, fallbackPeriod?: string) {
   const targetVendedorId = String(input?.vendedor_id || '').trim();
   if (!isUuid(targetVendedorId)) throw new Error('Vendedor inválido.');
@@ -202,24 +229,23 @@ async function upsertMeta(client: any, input: MetaInput, fallbackPeriod?: string
   };
 
   let metaId = String(input?.id || '').trim();
-  if (metaId && isUuid(metaId)) {
-    const { data, error } = await client
-      .from('metas_vendedor')
-      .update(payload)
-      .eq('id', metaId)
-      .select('id')
-      .single();
-    if (error) throw error;
-    metaId = String(data?.id || metaId);
-  } else {
-    const { data, error } = await client
-      .from('metas_vendedor')
-      .upsert(payload, { onConflict: 'vendedor_id,periodo,scope' })
-      .select('id')
-      .single();
-    if (error) throw error;
-    metaId = String(data?.id || '');
+  if (!isUuid(metaId)) metaId = await findExistingMetaId(client, targetVendedorId, periodoFull);
+
+  const savePayload = async (row: Record<string, any>) => {
+    const saveQuery = metaId
+      ? client.from('metas_vendedor').update(row).eq('id', metaId)
+      : client.from('metas_vendedor').insert(row);
+
+    return saveQuery.select('id').single();
+  };
+
+  let { data, error } = await savePayload(payload);
+  if (error && isMissingSchemaError(error) && 'scope' in payload) {
+    const { scope: _scope, ...payloadWithoutScope } = payload;
+    ({ data, error } = await savePayload(payloadWithoutScope));
   }
+  if (error) throw error;
+  metaId = String(data?.id || metaId);
 
   if (!metaId) throw new Error('Meta não foi gravada.');
 

@@ -22,6 +22,7 @@
     Gift,
     LayoutDashboard,
     LogOut,
+    Mail,
     Map as MapIcon,
     MapPinned,
     Megaphone,
@@ -53,6 +54,7 @@
     icon: typeof LayoutDashboard;
     disabled?: boolean;
     badge?: string;
+    systemOnly?: boolean;
   };
 
   type MenuSection = {
@@ -175,19 +177,20 @@
   ];
 
   const adminItems: MenuItem[] = [
-    { name: 'Administração', href: '/admin', icon: Shield },
-    { name: 'Usuários', href: '/admin/usuarios', icon: Users },
-    { name: 'Permissões', href: '/admin/permissoes', icon: Shield },
-    { name: 'Tipos', href: '/admin/tipos-usuario', icon: Users },
-    { name: 'Empresas', href: '/admin/empresas', icon: Building2 },
-    { name: 'Financeiro', href: '/admin/financeiro', icon: Wallet },
-    { name: 'Planos', href: '/admin/planos', icon: CreditCard },
-    { name: 'Aniversariantes', href: '/admin/aniversariantes', icon: Gift },
-    { name: 'Avisos', href: '/admin/avisos', icon: FileText },
-    { name: 'E-mail', href: '/admin/email', icon: Settings },
-    { name: 'CRM', href: '/admin/crm', icon: MessageSquare },
-    { name: 'Módulos', href: '/admin/modulos-sistema', icon: Settings },
-    { name: 'Param. Importação', href: '/admin/parametros-importacao', icon: Settings }
+    { key: 'admin_dashboard', name: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard, systemOnly: true },
+    { key: 'admin_planos', name: 'Planos', href: '/admin/planos', icon: CreditCard },
+    { key: 'admin_financeiro', name: 'Financeiro', href: '/admin/financeiro', icon: Wallet },
+    { key: 'admin_empresas', name: 'Empresas', href: '/admin/empresas', icon: Building2 },
+    { key: 'admin_usuarios', name: 'Usuários', href: '/admin/usuarios', icon: Users },
+    { key: 'admin_tipos', name: 'Tipos de usuário', href: '/admin/tipos-usuario', icon: Users },
+    { key: 'admin_avisos', name: 'Avisos', href: '/admin/avisos', icon: Megaphone },
+    { key: 'admin_crm', name: 'CRM — Templates', href: '/admin/crm', icon: MessageSquare },
+    { key: 'admin_email', name: 'E-mail', href: '/admin/email', icon: Mail },
+    { key: 'admin_modulos', name: 'Módulos do sistema', href: '/admin/modulos-sistema', icon: Settings },
+    { key: 'admin_permissoes', name: 'Permissões', href: '/admin/permissoes', icon: Shield },
+    { key: 'admin_parametros_importacao', name: 'Parâmetros importação', href: '/admin/parametros-importacao', icon: Settings },
+    { key: 'admin_logs', name: 'Logs', href: '/dashboard/logs', icon: FileText, systemOnly: true },
+    { key: 'admin_documentacao', name: 'Documentação', href: '/documentacao', icon: FileText, systemOnly: true }
   ];
 
   let collapsed: Record<number, boolean> = {};
@@ -220,9 +223,12 @@
     if (isHiddenByUserPreference(item)) return false;
     if (!$permissoes.ready) return true;
 
+    if (item.systemOnly && !$permissoes.isSystemAdmin) return false;
+
     if ($permissoes.isSystemAdmin) {
-      if (item.href === '/') return true;
+      if (item.href === '/') return false;
       if (item.href.startsWith('/dashboard/admin')) return true;
+      if (item.href.startsWith('/dashboard/logs')) return true;
       if (item.href.startsWith('/admin')) return true;
       if (item.href.startsWith('/perfil')) return true;
       if (item.href.startsWith('/documentacao')) return true;
@@ -292,12 +298,14 @@
   $: {
     hiddenMenuSet;
     $permissoes; // força reatividade quando o store de permissões atualiza
-    visibleMenuSections = menuSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => canSeeItem(item)),
-      }))
-      .filter((section) => section.items.length > 0);
+    visibleMenuSections = $permissoes.isSystemAdmin
+      ? []
+      : menuSections
+          .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => canSeeItem(item)),
+          }))
+          .filter((section) => section.items.length > 0);
 
     visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
     visibleAdminItems = adminItems.filter((item) => canSeeItem(item));
@@ -354,35 +362,42 @@
   let mobileNavEntries: NavEntry[] = [];
   let visibleMobileNavEntries: NavEntry[] = [];
 
-  $: mobileNavEntries = [
-    { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
-    { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },
-    { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: ShoppingCart },
-    { key: 'orcamentos',      name: 'Orçamentos',     href: '/orcamentos',                    icon: FileText },
-    { key: 'roteiros',        name: 'Roteiros',       href: '/orcamentos/roteiros',           icon: MapIcon },
-    { key: 'viagens',         name: 'Viagens',        href: '/operacao/viagens',              icon: Plane },
-    { key: 'vouchers',        name: 'Vouchers',       href: '/operacao/vouchers',             icon: Ticket },
-    { key: 'tarefas',         name: 'Tarefas',        href: '/operacao/tarefas',              icon: SquareCheckBig },
-    { key: 'agenda',          name: 'Agenda',         href: '/operacao/agenda',               icon: Calendar },
-    { key: 'acompanhamento',  name: 'Acompanhamento', href: '/operacao/acompanhamento',       icon: FileText },
-    { key: 'controle_sac',    name: 'SAC',            href: '/operacao/controle-sac',         icon: AlertCircle },
-    { key: 'campanhas',       name: 'Campanhas',      href: '/operacao/campanhas',            icon: Megaphone },
-    { key: 'documentos',      name: 'Documentos',     href: '/operacao/documentos-viagens',   icon: FileText },
-    { key: 'consultoria_online', name: 'Consultoria', href: '/consultoria-online',            icon: Video },
-    { key: 'aniversariantes', name: 'Aniversariantes',href: '/aniversariantes',               icon: Gift },
-    { key: 'preferencias',    name: 'Preferências',   href: '/operacao/minhas-preferencias',  icon: Star },
-    { key: 'caixa',           name: 'Caixa',          href: '/financeiro/caixa',              icon: TrendingUp },
-    { key: 'conciliacao',     name: 'Conciliação',    href: '/financeiro/conciliacao',        icon: FileSpreadsheet },
-    { key: 'comissoes',       name: 'Comissões',      href: '/financeiro/comissoes',          icon: Wallet },
-    { key: 'fechamento',      name: 'Fechamento',     href: '/comissoes/fechamento',          icon: Wallet },
-    { key: 'relatorios',      name: 'Relatórios',     href: '/relatorios',                    icon: FileChartColumn },
-    { key: 'rel_ranking',     name: 'Ranking',        href: '/relatorios/ranking',            icon: Trophy },
-    { key: 'parametros',      name: 'Parâmetros',     href: '/parametros',                    icon: Settings },
-    $permissoes.isMaster
-      ? { name: 'Master',     href: '/master',                 icon: Shield }
-      : { name: 'Admin',      href: '/admin',                  icon: Shield },
-    { key: 'meu_perfil',      name: 'Perfil',         href: '/perfil',                        icon: UserCircle },
-  ];
+  $: mobileNavEntries = $permissoes.isSystemAdmin
+    ? [
+        ...adminItems
+          .filter((item): item is MenuItem & { href: string } => Boolean(item.href))
+          .map((item) => ({ key: item.key, name: item.name, href: item.href, icon: item.icon })),
+        { key: 'meu_perfil', name: 'Perfil', href: '/perfil', icon: UserCircle }
+      ]
+    : [
+        { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
+        { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },
+        { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: ShoppingCart },
+        { key: 'orcamentos',      name: 'Orçamentos',     href: '/orcamentos',                    icon: FileText },
+        { key: 'roteiros',        name: 'Roteiros',       href: '/orcamentos/roteiros',           icon: MapIcon },
+        { key: 'viagens',         name: 'Viagens',        href: '/operacao/viagens',              icon: Plane },
+        { key: 'vouchers',        name: 'Vouchers',       href: '/operacao/vouchers',             icon: Ticket },
+        { key: 'tarefas',         name: 'Tarefas',        href: '/operacao/tarefas',              icon: SquareCheckBig },
+        { key: 'agenda',          name: 'Agenda',         href: '/operacao/agenda',               icon: Calendar },
+        { key: 'acompanhamento',  name: 'Acompanhamento', href: '/operacao/acompanhamento',       icon: FileText },
+        { key: 'controle_sac',    name: 'SAC',            href: '/operacao/controle-sac',         icon: AlertCircle },
+        { key: 'campanhas',       name: 'Campanhas',      href: '/operacao/campanhas',            icon: Megaphone },
+        { key: 'documentos',      name: 'Documentos',     href: '/operacao/documentos-viagens',   icon: FileText },
+        { key: 'consultoria_online', name: 'Consultoria', href: '/consultoria-online',            icon: Video },
+        { key: 'aniversariantes', name: 'Aniversariantes',href: '/aniversariantes',               icon: Gift },
+        { key: 'preferencias',    name: 'Preferências',   href: '/operacao/minhas-preferencias',  icon: Star },
+        { key: 'caixa',           name: 'Caixa',          href: '/financeiro/caixa',              icon: TrendingUp },
+        { key: 'conciliacao',     name: 'Conciliação',    href: '/financeiro/conciliacao',        icon: FileSpreadsheet },
+        { key: 'comissoes',       name: 'Comissões',      href: '/financeiro/comissoes',          icon: Wallet },
+        { key: 'fechamento',      name: 'Fechamento',     href: '/comissoes/fechamento',          icon: Wallet },
+        { key: 'relatorios',      name: 'Relatórios',     href: '/relatorios',                    icon: FileChartColumn },
+        { key: 'rel_ranking',     name: 'Ranking',        href: '/relatorios/ranking',            icon: Trophy },
+        { key: 'parametros',      name: 'Parâmetros',     href: '/parametros',                    icon: Settings },
+        $permissoes.isMaster
+          ? { name: 'Master',     href: '/master',                 icon: Shield }
+          : { name: 'Admin',      href: '/admin',                  icon: Shield },
+        { key: 'meu_perfil',      name: 'Perfil',         href: '/perfil',                        icon: UserCircle },
+      ];
 
   $: {
     hiddenMenuSet;
@@ -574,7 +589,7 @@
 
       {#if visibleAdminItems.length > 0}
         <section class="vtur-sidebar__section">
-          <h2 class="vtur-sidebar__section-title px-1">ADMIN</h2>
+          <h2 class="vtur-sidebar__section-title px-1">{$permissoes.isSystemAdmin ? 'ADMINISTRAÇÃO' : 'ADMIN'}</h2>
           <nav class="vtur-sidebar__nav" aria-label="Admin">
             {#each visibleAdminItems as item}
               <a

@@ -8,10 +8,10 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import {
-    ArrowLeft, Edit, Trash2, ShoppingCart, Loader2, User, Mail, Phone,
+    ArrowLeft, Edit, Trash2, ShoppingCart, User, Mail, Phone,
     Calendar, MapPin, Receipt, CreditCard, FileText, TrendingUp, Package, XCircle,
     AlertCircle, Clock, CheckCircle, Shield, BarChart2, AlertTriangle, Info
   } from 'lucide-svelte';
@@ -434,10 +434,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center h-64">
-    <Loader2 size={32} class="animate-spin text-vendas-600" />
-    <span class="ml-2 text-slate-600">Carregando...</span>
-  </div>
+  <LoadingState />
 {:else if error}
   <div class="text-center py-12">
     <p class="text-red-600 mb-4">{error}</p>
@@ -902,10 +899,7 @@
         {/if}
 
         {#if rankingLoading}
-          <div class="flex items-center justify-center py-6 text-slate-400">
-            <Loader2 size={18} class="animate-spin mr-2" />
-            <span class="text-sm">Carregando...</span>
-          </div>
+          <LoadingState compact={true} />
         {:else if rankingRecibos.length === 0}
           <p class="text-sm text-slate-400 py-4 text-center">Nenhum recibo encontrado.</p>
         {:else}

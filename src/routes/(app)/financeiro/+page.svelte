@@ -4,12 +4,13 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
   import {
     DollarSign, CheckCircle, AlertCircle, Clock,
     TrendingUp, ArrowRight, CreditCard,
-    Settings, TrendingDown, Loader2
+    Settings, TrendingDown
   } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
 
@@ -262,10 +263,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-12">
-    <Loader2 size={40} class="animate-spin text-financeiro-600" />
-    <span class="ml-3 text-slate-600">Carregando dashboard financeiro...</span>
-  </div>
+  <LoadingState />
 {:else}
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>

@@ -10,6 +10,7 @@
     FieldRadioGroup,
     FieldSelect,
     FieldTextarea,
+    LoadingState,
     PageHeader
   } from '$lib/components/ui';
   import AcompanhantesManager from '$lib/components/clientes/AcompanhantesManager.svelte';
@@ -17,7 +18,6 @@
     ArrowLeft,
     Calendar,
     FileText,
-    Loader2,
     Mail,
     MapPin,
     Phone,
@@ -204,10 +204,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={36} class="animate-spin text-clientes-600" />
-    <span class="ml-3 text-slate-600">Carregando cliente...</span>
-  </div>
+  <LoadingState />
 {:else if errorMessage}
   <div class="space-y-4">
     <div class="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

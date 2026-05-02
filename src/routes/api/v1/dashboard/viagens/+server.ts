@@ -9,6 +9,125 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { addDaysISODate, todayISODateLocal } from '$lib/date';
+import { normalizeViagemStatus } from '$lib/viagens/status';
+import { syncViagensStatus } from '$lib/server/viagensStatus';
+
+type DashboardViagemRow = {
+  id: string;
+  venda_id: string | null;
+  cliente_id: string | null;
+  company_id: string;
+  responsavel_user_id: string | null;
+  destino: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: string | null;
+};
+
+function isCancelledStatus(value?: string | null) {
+  return normalizeViagemStatus(value) === 'cancelada';
+}
+
+async function fetchDashboardViagens(params: {
+  client: any;
+  companyIds: string[];
+  vendedorIds: string[];
+  from: string;
+  to?: string;
+  ongoing?: boolean;
+  limit: number;
+}) {
+  let query = params.client
+    .from('viagens')
+    .select('id, venda_id, cliente_id, company_id, responsavel_user_id, destino, data_inicio, data_fim, status')
+    .order('data_inicio', { ascending: true })
+    .limit(params.limit);
+
+  if (params.ongoing) {
+    query = query.lte('data_inicio', params.from).gte('data_fim', params.from);
+  } else {
+    query = query.gte('data_inicio', params.from);
+    if (params.to) query = query.lte('data_inicio', params.to);
+  }
+
+  if (params.companyIds.length > 0) query = query.in('company_id', params.companyIds);
+  if (params.vendedorIds.length > 0) query = query.in('responsavel_user_id', params.vendedorIds);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return ((data || []) as DashboardViagemRow[]).filter((row) => !isCancelledStatus(row.status));
+}
+
+async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
+  if (rows.length === 0) return [];
+
+  const resolvedStatuses = await syncViagensStatus(client, rows as any[]);
+
+  const clienteIds = Array.from(new Set(rows.map((row) => row.cliente_id).filter(Boolean))) as string[];
+  const clientesMap = new Map<string, { nome: string; contato: string | null }>();
+  if (clienteIds.length > 0) {
+    const { data } = await client
+      .from('clientes')
+      .select('id, nome, whatsapp, telefone')
+      .in('id', clienteIds);
+    for (const row of data || []) {
+      const id = String((row as any)?.id || '').trim();
+      if (!id) continue;
+      clientesMap.set(id, {
+        nome: String((row as any)?.nome || 'Cliente'),
+        contato: (row as any)?.whatsapp || (row as any)?.telefone || null
+      });
+    }
+  }
+
+  const vendedorIds = Array.from(new Set(rows.map((row) => row.responsavel_user_id).filter(Boolean))) as string[];
+  const vendedoresMap = new Map<string, string>();
+  if (vendedorIds.length > 0) {
+    const { data } = await client
+      .from('users')
+      .select('id, nome_completo')
+      .in('id', vendedorIds);
+    for (const row of data || []) {
+      const id = String((row as any)?.id || '').trim();
+      if (id) vendedoresMap.set(id, String((row as any)?.nome_completo || ''));
+    }
+  }
+
+  const vendaIds = Array.from(new Set(rows.map((row) => row.venda_id).filter(Boolean))) as string[];
+  const vendasMap = new Map<string, string | null>();
+  if (vendaIds.length > 0) {
+    const { data } = await client
+      .from('vendas')
+      .select('id, numero_venda')
+      .in('id', vendaIds);
+    for (const row of data || []) {
+      const id = String((row as any)?.id || '').trim();
+      if (id) vendasMap.set(id, (row as any)?.numero_venda ? String((row as any).numero_venda) : null);
+    }
+  }
+
+  return rows.map((row) => {
+    const cliente = row.cliente_id ? clientesMap.get(row.cliente_id) : null;
+    const status = resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status);
+
+    return {
+      id: row.id,
+      venda_id: row.venda_id,
+      numero_venda: row.venda_id ? vendasMap.get(row.venda_id) || null : null,
+      data_inicio: row.data_inicio,
+      data_fim: row.data_fim,
+      data_embarque: row.data_inicio,
+      data_final: row.data_fim,
+      cliente_nome: cliente?.nome || 'Cliente',
+      cliente_whatsapp: cliente?.contato || null,
+      clientes: { nome: cliente?.nome || 'Cliente' },
+      destino: row.destino || 'Destino',
+      vendedor_nome: row.responsavel_user_id ? vendedoresMap.get(row.responsavel_user_id) || null : null,
+      status
+    };
+  });
+}
 
 export async function GET(event) {
   try {
@@ -43,70 +162,36 @@ export async function GET(event) {
       vendedorIds = [scope.userId];
     }
 
-    // Viagens próximas (embarque nos próximos 30 dias)
-    let vendasQuery = client
-      .from('vendas')
-      .select(`
-        id, numero_venda, data_embarque, data_final, cancelada,
-        cliente:clientes!cliente_id(id, nome, whatsapp, telefone),
-        vendedor:users!vendedor_id(id, nome_completo),
-        destino:produtos!destino_id(nome),
-        destino_cidade:cidades!destino_cidade_id(nome)
-      `)
-      .eq('cancelada', false)
-      .gte('data_embarque', hoje)
-      .lte('data_embarque', em30dias)
-      .order('data_embarque')
-      .limit(100);
+    const [proximasRows, emAndamentoRows] = await Promise.all([
+      fetchDashboardViagens({
+        client,
+        companyIds,
+        vendedorIds,
+        from: hoje,
+        to: em30dias,
+        limit: 100
+      }),
+      fetchDashboardViagens({
+        client,
+        companyIds,
+        vendedorIds,
+        from: hoje,
+        ongoing: true,
+        limit: 50
+      })
+    ]);
 
-    if (companyIds.length > 0) vendasQuery = vendasQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) vendasQuery = vendasQuery.in('vendedor_id', vendedorIds);
-
-    const { data: vendas, error: vendasError } = await vendasQuery;
-    if (vendasError) throw vendasError;
-
-    // Viagens em andamento (embarque <= hoje <= data_final)
-    let emAndamentoQuery = client
-      .from('vendas')
-      .select(`
-        id, numero_venda, data_embarque, data_final, cancelada,
-        cliente:clientes!cliente_id(id, nome, whatsapp, telefone),
-        destino:produtos!destino_id(nome),
-        destino_cidade:cidades!destino_cidade_id(nome)
-      `)
-      .eq('cancelada', false)
-      .lte('data_embarque', hoje)
-      .gte('data_final', hoje)
-      .order('data_embarque')
-      .limit(50);
-
-    if (companyIds.length > 0) emAndamentoQuery = emAndamentoQuery.in('company_id', companyIds);
-    if (vendedorIds.length > 0) emAndamentoQuery = emAndamentoQuery.in('vendedor_id', vendedorIds);
-
-    const { data: emAndamento } = await emAndamentoQuery;
+    const [proximas, emAndamento] = await Promise.all([
+      hydrateViagens(client, proximasRows),
+      hydrateViagens(client, emAndamentoRows)
+    ]);
 
     return json({
-      proximas: (vendas || []).map((v: any) => ({
-        id: v.id,
-        numero_venda: v.numero_venda,
-        data_embarque: v.data_embarque,
-        data_final: v.data_final,
-        cliente_nome: v.cliente?.nome || 'Cliente',
-        cliente_whatsapp: v.cliente?.whatsapp || v.cliente?.telefone || null,
-        destino: v.destino?.nome || v.destino_cidade?.nome || 'Destino',
-        vendedor_nome: v.vendedor?.nome_completo || null
-      })),
-      em_andamento: (emAndamento || []).map((v: any) => ({
-        id: v.id,
-        numero_venda: v.numero_venda,
-        data_embarque: v.data_embarque,
-        data_final: v.data_final,
-        cliente_nome: v.cliente?.nome || 'Cliente',
-        cliente_whatsapp: v.cliente?.whatsapp || v.cliente?.telefone || null,
-        destino: v.destino?.nome || v.destino_cidade?.nome || 'Destino'
-      })),
-      total_proximas: (vendas || []).length,
-      total_em_andamento: (emAndamento || []).length
+      items: proximas,
+      proximas,
+      em_andamento: emAndamento,
+      total_proximas: proximas.length,
+      total_em_andamento: emAndamento.length
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar viagens do dashboard.');

@@ -4,13 +4,14 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2, AlertCircle, Wallet, TrendingUp } from 'lucide-svelte';
+  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, AlertCircle, Wallet, TrendingUp } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
 
@@ -397,6 +398,11 @@
   $: labelSeguro = buildKpiLabel('Seguro Viagem', comissoes.map((c) => Number(c.percentual_seguro || 0)));
   $: valorSelecionado = comissoes.filter((c) => comissoesSelecionadas.includes(c.id)).reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
   $: comissoesVisiveis = somentePendentes ? pendentes : comissoes;
+  $: podeFiltrarVendedor =
+    $permissoes.ready && ($permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor);
+  $: if ($permissoes.ready && !podeFiltrarVendedor && filtroVendedor) {
+    filtroVendedor = '';
+  }
 </script>
 
 <svelte:head><title>Comissões | VTUR</title></svelte:head>
@@ -404,7 +410,7 @@
 <PageHeader title="Comissões" subtitle="Gerencie as comissões dos vendedores" color="financeiro" breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Comissões' }]} actions={[{ label: 'Regras', href: '/financeiro/regras', variant: 'secondary', icon: Settings }]} />
 
 {#if loading}
-  <div class="flex items-center justify-center py-12"><Loader2 size={40} class="animate-spin text-financeiro-600" /><span class="ml-3 text-slate-600">Carregando comissões...</span></div>
+  <LoadingState />
 {:else}
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -455,15 +461,17 @@
     <div class="flex flex-wrap gap-4 items-end">
       <FieldInput id="comissoes-mes" label="Mês" type="month" bind:value={filtroMes} class_name="min-w-[180px]" on:change={loadComissoes} />
       <FieldSelect id="comissoes-status" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="min-w-[180px]" on:change={loadComissoes} />
-      <FieldSelect
-        id="comissoes-vendedor"
-        label="Vendedor"
-        bind:value={filtroVendedor}
-        options={vendedorOptions}
-        placeholder="Selecione uma opção"
-        class_name="min-w-[240px]"
-        on:change={loadComissoes}
-      />
+      {#if podeFiltrarVendedor}
+        <FieldSelect
+          id="comissoes-vendedor"
+          label="Vendedor"
+          bind:value={filtroVendedor}
+          options={vendedorOptions}
+          placeholder="Selecione uma opção"
+          class_name="min-w-[240px]"
+          on:change={loadComissoes}
+        />
+      {/if}
       <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>

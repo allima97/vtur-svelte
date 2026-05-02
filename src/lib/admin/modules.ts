@@ -265,7 +265,8 @@ export const SECOES_PERMISSOES: ModuloSecaoPermissoes[] = [
       'AdminEmpresas',
       'AdminFinanceiro',
       'AdminPlanos',
-      'AdminUserTypes'
+      'AdminUserTypes',
+      'AdminSystemModules'
     ]
   }
 ];
@@ -307,7 +308,8 @@ const GLOBAL_MODULE_GROUPS: Record<string, string[]> = {
     'AdminEmpresas',
     'AdminFinanceiro',
     'AdminPlanos',
-    'AdminUserTypes'
+    'AdminUserTypes',
+    'AdminSystemModules'
   ],
   MasterPermissoes: ['MasterEmpresas', 'MasterUsuarios']
 };

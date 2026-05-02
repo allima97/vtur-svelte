@@ -7,6 +7,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { normalizeViagemStatus } from '$lib/viagens/status';
+import { syncViagensStatus } from '$lib/server/viagensStatus';
 
 export async function GET(event) {
   try {
@@ -64,6 +66,7 @@ export async function GET(event) {
       console.error('[Viagens Cliente API] Erro:', error.message, error.code);
       throw error;
     }
+    const resolvedStatuses = await syncViagensStatus(client, data as any[] || []);
 
     // Busca dados do cliente
     const { data: clienteData } = await client
@@ -82,7 +85,7 @@ export async function GET(event) {
       destino: row.destino || 'Destino não informado',
       data_inicio: row.data_inicio,
       data_fim: row.data_fim,
-      status: row.status || 'planejada',
+      status: resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status),
       observacoes: row.observacoes || '',
       follow_up_text: row.follow_up_text || '',
       follow_up_fechado: row.follow_up_fechado || false,

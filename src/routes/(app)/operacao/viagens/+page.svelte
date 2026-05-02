@@ -4,10 +4,11 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, Plane, Calendar, Users, FileText, Clock, MapPin, CreditCard } from 'lucide-svelte';
+  import { Plus, Plane, Calendar, FileText, Clock, CreditCard } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { formatViagemStatus, resolveViagemStatus, type StatusViagem } from '$lib/viagens/status';
 
   interface Viagem {
     id: string;
@@ -19,7 +20,7 @@
     data_fim: string;
     numero_pessoas: number;
     dias_viagem: number;
-    status: 'programada' | 'em_andamento' | 'concluida' | 'cancelada';
+    status: StatusViagem;
     tipo: 'nacional' | 'internacional';
     valor_total: number;
     responsavel: string;
@@ -62,7 +63,11 @@
         data_fim: v.data_fim,
         numero_pessoas: v.numero_passageiros || 1,
         dias_viagem: calcularDias(v.data_inicio, v.data_fim),
-        status: normalizarStatus(v.status),
+        status: resolveViagemStatus({
+          status: v.status,
+          data_inicio: v.data_inicio,
+          data_fim: v.data_fim
+        }),
         tipo: v.tipo_viagem || 'nacional',
         valor_total: v.valor_total || 0,
         responsavel: v.responsavel_nome || 'Não atribuído',
@@ -79,19 +84,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  function normalizarStatus(status: string): 'programada' | 'em_andamento' | 'concluida' | 'cancelada' {
-    const statusMap: Record<string, any> = {
-      'planejada': 'programada',
-      'programada': 'programada',
-      'confirmada': 'programada',
-      'em_viagem': 'em_andamento',
-      'em_andamento': 'em_andamento',
-      'concluida': 'concluida',
-      'cancelada': 'cancelada'
-    };
-    return statusMap[status] || 'programada';
   }
 
   function calcularDias(inicio: string, fim: string): number {
@@ -152,7 +144,7 @@
       v.data_fim ? formatDate(v.data_fim) : '',
       v.dias_viagem.toString(),
       v.numero_pessoas.toString(),
-      v.status,
+      formatViagemStatus(v.status),
       v.valor_total.toFixed(2).replace('.', ',')
     ]);
 
@@ -201,11 +193,11 @@
         const hoje = todayISODateLocal();
         let alerta = '';
         
-        if (compareISODate(value, hoje) <= 0 && compareISODate(hoje, row.data_fim) <= 0) {
+        if (row.status === 'em_viagem') {
           alerta = '<span class="text-amber-600 font-medium">• Em viagem</span>';
-        } else if (compareISODate(value, hoje) < 0) {
+        } else if (row.status === 'concluida') {
           alerta = '<span class="text-slate-400">• Concluída</span>';
-        } else {
+        } else if (row.status === 'confirmada' && compareISODate(value, hoje) > 0) {
           const dias = diffDaysISODate(hoje, value) ?? 0;
           if (dias <= 7) alerta = `<span class="text-red-600 font-medium">• Falta ${dias}d</span>`;
         }
@@ -244,18 +236,13 @@
       width: '130px',
       formatter: (value: string) => {
         const styles: Record<string, string> = {
-          programada: 'bg-blue-100 text-blue-700',
-          em_andamento: 'bg-amber-100 text-amber-700',
+          pendente: 'bg-slate-100 text-slate-700',
+          confirmada: 'bg-blue-100 text-blue-700',
+          em_viagem: 'bg-amber-100 text-amber-700',
           concluida: 'bg-green-100 text-green-700',
           cancelada: 'bg-red-100 text-red-700'
         };
-        const labels: Record<string, string> = {
-          programada: 'Programada',
-          em_andamento: 'Em andamento',
-          concluida: 'Concluída',
-          cancelada: 'Cancelada'
-        };
-        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[value]}">${labels[value]}</span>`;
+        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[value] || styles.pendente}">${formatViagemStatus(value)}</span>`;
       }
     },
     {
@@ -273,8 +260,9 @@
       type: 'select' as const,
       options: [
         { value: '', label: 'Todos' },
-        { value: 'programada', label: 'Programada' },
-        { value: 'em_andamento', label: 'Em andamento' },
+        { value: 'pendente', label: 'Pendente' },
+        { value: 'confirmada', label: 'Confirmada' },
+        { value: 'em_viagem', label: 'Em viagem' },
         { value: 'concluida', label: 'Concluída' },
         { value: 'cancelada', label: 'Cancelada' }
       ]
@@ -295,13 +283,13 @@
 
   $: resumo = (() => {
     const lista = viagensFiltradas.length > 0 ? viagensFiltradas : viagens;
-    const programadas = lista.filter(v => v.status === 'programada').length;
-    const emAndamento = lista.filter(v => v.status === 'em_andamento').length;
+    const pendentes = lista.filter(v => v.status === 'pendente').length;
+    const confirmadas = lista.filter(v => v.status === 'confirmada').length;
+    const emViagem = lista.filter(v => v.status === 'em_viagem').length;
     const concluidas = lista.filter(v => v.status === 'concluida').length;
     const canceladas = lista.filter(v => v.status === 'cancelada').length;
-    const totalViajantes = lista.reduce((acc, v) => acc + v.numero_pessoas, 0);
     const valorTotal = lista.reduce((acc, v) => acc + (v.valor_total || 0), 0);
-    return { total: lista.length, programadas, emAndamento, concluidas, canceladas, totalViajantes, valorTotal };
+    return { total: lista.length, pendentes, confirmadas, emViagem, concluidas, canceladas, valorTotal };
   })();
 </script>
 
@@ -311,7 +299,7 @@
 
 <PageHeader 
   title="Viagens"
-  subtitle="Gerencie as viagens programadas e acompanhe o status operacional"
+  subtitle="Gerencie viagens pendentes, confirmadas, em andamento e concluídas"
   color="clientes"
   breadcrumbs={[
     { label: 'Operação', href: '/operacao' },
@@ -337,15 +325,22 @@
   />
   
   <KPICard 
-    title="Programadas" 
-    value={resumo.programadas}
+    title="Pendentes" 
+    value={resumo.pendentes}
+    color="clientes" 
+    icon={Calendar}
+  />
+  
+  <KPICard 
+    title="Confirmadas" 
+    value={resumo.confirmadas}
     color="clientes" 
     icon={Calendar}
   />
 
   <KPICard 
-    title="Em Andamento" 
-    value={resumo.emAndamento}
+    title="Em viagem" 
+    value={resumo.emViagem}
     color="clientes" 
     icon={Clock}
   />
@@ -355,13 +350,6 @@
     value={resumo.concluidas}
     color="clientes" 
     icon={FileText}
-  />
-  
-  <KPICard 
-    title="Viajantes" 
-    value={resumo.totalViajantes}
-    color="clientes" 
-    icon={Users}
   />
   
   <KPICard 

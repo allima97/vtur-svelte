@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import {
     Building2,
@@ -81,47 +82,36 @@
     </div>
   </Card>
 
-  <div class="vtur-kpi-grid mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Usuários ativos</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+  {#if loading}
+    <LoadingState />
+  {:else}
+    <div class="vtur-kpi-grid mb-6">
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Usuários ativos</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.usuarios_ativos ?? 0}</p>
           <p class="text-xs text-slate-400">{summary?.counts?.usuarios_inativos ?? 0} inativos</p>
-        {/if}
+        </div>
       </div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Empresas no escopo</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-14 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Empresas no escopo</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.empresas_total ?? 0}</p>
           <p class="text-xs text-slate-400">{summary?.counts?.empresas_ativas ?? 0} ativas</p>
-        {/if}
+        </div>
       </div>
-    </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Vínculos master pendentes</p>
-        {#if loading}
-          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
-          <div class="mt-1 h-3 w-24 animate-pulse rounded bg-slate-100"></div>
-        {:else}
+      <div class="vtur-kpi-card">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={20} /></div>
+        <div>
+          <p class="text-sm font-medium text-slate-500">Vínculos master pendentes</p>
           <p class="text-2xl font-bold text-slate-900">{summary?.counts?.vinculos_master_pendentes ?? 0}</p>
           <p class="text-xs text-slate-400">Pendências de portfólio</p>
-        {/if}
+        </div>
       </div>
     </div>
-  </div>
+  {/if}
 
   <Card color="financeiro" title="Modulos master">
     <div class="grid gap-4 lg:grid-cols-2">

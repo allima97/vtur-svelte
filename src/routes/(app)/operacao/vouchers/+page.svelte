@@ -6,7 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
-  import { Plus, Ticket, FileText, ExternalLink, Trash2, Loader2 } from 'lucide-svelte';
+  import { Plus, Ticket, FileText, ExternalLink, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';

@@ -6,8 +6,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
-  import { Plus, Route, MapPin, Calendar, DollarSign, Loader2, Search, Trash2 } from 'lucide-svelte';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { Plus, Route, MapPin, Calendar, DollarSign, Search, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
   interface Circuito {
@@ -151,10 +151,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-12">
-    <Loader2 size={48} class="animate-spin text-financeiro-600" />
-    <span class="ml-3 text-slate-600">Carregando circuitos...</span>
-  </div>
+  <LoadingState />
 {:else}
   <!-- Stats -->
   <div class="vtur-kpi-grid-5 mb-6">

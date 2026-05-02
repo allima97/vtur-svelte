@@ -45,6 +45,10 @@ function normalizeRowsToReceiptPeriod(rows: any[]) {
   });
 }
 
+function canManageCommissionPayments(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return scope.isAdmin || scope.isMaster || scope.isGestor;
+}
+
 export async function POST(event) {
   try {
     const client = getAdminClient();
@@ -53,6 +57,9 @@ export async function POST(event) {
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 3, 'Sem permissão para registrar pagamentos.');
+    }
+    if (!canManageCommissionPayments(scope)) {
+      return json({ error: 'Vendedores não podem registrar pagamentos de comissões.' }, { status: 403 });
     }
 
     const body = await event.request.json();
@@ -209,6 +216,9 @@ export async function PUT(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 3, 'Sem permissão para atualizar pagamentos.');
     }
+    if (!canManageCommissionPayments(scope)) {
+      return json({ error: 'Vendedores não podem atualizar pagamentos de comissões.' }, { status: 403 });
+    }
 
     const body = await event.request.json();
     const { comissao_ids, data_pagamento = null, observacoes = '' } = body;
@@ -260,6 +270,9 @@ export async function DELETE(event) {
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 4, 'Sem permissão para cancelar comissão.');
+    }
+    if (!canManageCommissionPayments(scope)) {
+      return json({ error: 'Vendedores não podem cancelar comissões.' }, { status: 403 });
     }
 
     const body = await event.request.json().catch(() => ({}));

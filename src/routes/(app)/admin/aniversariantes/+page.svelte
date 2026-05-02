@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldSelect } from '$lib/components/ui';
+  import { FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Gift, RefreshCw, Users } from 'lucide-svelte';
 
@@ -80,7 +80,7 @@
 </Card>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
+  <LoadingState />
 {:else if colaboradores.length === 0}
   <Card>
     <div class="flex flex-col items-center justify-center py-12 text-slate-500">

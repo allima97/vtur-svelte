@@ -10,6 +10,8 @@ import {
   toISODateLocal
 } from '$lib/server/v1';
 import { addDaysISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
+import { normalizeViagemStatus } from '$lib/viagens/status';
+import { syncViagensStatus } from '$lib/server/viagensStatus';
 
 function getPeriodoFilter(periodo: string | null): { from?: string; to?: string } | null {
   if (!periodo) return null;
@@ -95,16 +97,8 @@ export async function GET(event) {
       query = query.eq('responsavel_user_id', user.id);
     }
 
-    const normalizedStatus = String(status || '').trim().toLowerCase();
-    if (normalizedStatus && normalizedStatus !== 'todas') {
-      if (normalizedStatus === 'programada') {
-        query = query.in('status', ['planejada', 'programada', 'confirmada']);
-      } else if (normalizedStatus === 'em_andamento') {
-        query = query.in('status', ['em_andamento', 'em_viagem']);
-      } else {
-        query = query.eq('status', normalizedStatus);
-      }
-    }
+    const normalizedStatus = normalizeViagemStatus(status);
+    const hasStatusFilter = Boolean(String(status || '').trim()) && String(status || '').trim().toLowerCase() !== 'todas';
 
     const periodoFilter = getPeriodoFilter(periodo);
     if (periodoFilter?.from && periodoFilter?.to) {
@@ -116,6 +110,7 @@ export async function GET(event) {
     const { data, error } = await query;
     if (error) throw error;
     const scopedData = data || [];
+    const resolvedStatuses = await syncViagensStatus(client, scopedData as any[]);
 
     const clienteIds = [...new Set((scopedData || []).map((v: any) => v.cliente_id).filter(Boolean))];
     const clientesMap = new Map<string, string>();
@@ -166,6 +161,7 @@ export async function GET(event) {
     ];
 
     const items = (scopedData || []).map((row: any) => {
+      const resolvedStatus = resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status);
       const numPassageiros = passageirosCountMap.get(row.id) || 1;
       const valorVenda = row.venda_id ? (vendasMap.get(row.venda_id) || 0) : 0;
       const tipoViagem =
@@ -184,7 +180,7 @@ export async function GET(event) {
         origem: row.origem,
         data_inicio: row.data_inicio,
         data_fim: row.data_fim,
-        status: row.status || 'planejada',
+        status: resolvedStatus,
         observacoes: row.observacoes || '',
         follow_up_text: row.follow_up_text || '',
         follow_up_fechado: row.follow_up_fechado || false,
@@ -195,7 +191,7 @@ export async function GET(event) {
         responsavel_nome: responsaveisMap.get(row.responsavel_user_id) || 'Não atribuído',
         created_at: row.created_at
       };
-    });
+    }).filter((item: any) => !hasStatusFilter || item.status === normalizedStatus);
 
     return json({ items, total: items.length });
   } catch (err) {

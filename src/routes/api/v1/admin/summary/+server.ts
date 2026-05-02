@@ -25,12 +25,24 @@ export async function GET(event) {
       return new Response('Sem acesso ao resumo administrativo.', { status: 403 });
     }
 
-    const [usuarios, empresas, tipos, templates, emailSettings] = await Promise.all([
+    const loadPlanos = async () => {
+      if (!scope.isAdmin) return [];
+      try {
+        const { data, error } = await client.from('plans').select('id, ativo');
+        if (error) throw error;
+        return data || [];
+      } catch {
+        return [];
+      }
+    };
+
+    const [usuarios, empresas, tipos, templates, emailSettings, planos] = await Promise.all([
       listManagedUsers(client, scope),
       loadManagedCompanies(client, scope).catch(() => []),
       loadManagedUserTypes(client, scope).catch(() => []),
       loadAvisoTemplates(client).catch(() => []),
-      loadEmailSettings(client).catch(() => null)
+      loadEmailSettings(client).catch(() => null),
+      loadPlanos()
     ]);
 
     let pendingMasterLinks = 0;
@@ -57,23 +69,81 @@ export async function GET(event) {
       pendingMasterLinks = 0;
     }
 
-    const usuariosAtivos = usuarios.filter((item) => item.active !== false).length;
-    const usuariosInativos = usuarios.length - usuariosAtivos;
-    const empresasAtivas = empresas.filter((item) => item.active !== false).length;
+    const usuariosRows = usuarios as any[];
+    const empresasRows = empresas as any[];
+    const planosRows = planos as any[];
+
+    const usuariosAtivos = usuariosRows.filter((item: any) => item.active !== false).length;
+    const usuariosInativos = usuariosRows.length - usuariosAtivos;
+    const empresasAtivas = empresasRows.filter((item: any) => item.active !== false).length;
+    const empresasInativas = empresasRows.length - empresasAtivas;
+    const planosAtivos = planosRows.filter((item: any) => item.ativo !== false).length;
+    const planosInativos = planosRows.length - planosAtivos;
     const templatesAtivos = templates.filter((item: any) => item.ativo !== false).length;
     const emailConfigured = Boolean(
       emailSettings?.resend_api_key ||
         (emailSettings?.smtp_host && emailSettings?.smtp_user && emailSettings?.smtp_pass)
     );
 
+    const companyIds = empresasRows.map((empresa: any) => String(empresa.id || '').trim()).filter(Boolean);
+    let billingRows: any[] = [];
+    if (companyIds.length > 0) {
+      try {
+        let billingQuery = client
+          .from('company_billing')
+          .select('company_id, status, valor_mensal, proximo_vencimento');
+
+        if (!scope.isAdmin) {
+          billingQuery = billingQuery.in('company_id', companyIds);
+        }
+
+        const { data, error } = await billingQuery;
+        if (error) throw error;
+        billingRows = data || [];
+      } catch {
+        billingRows = [];
+      }
+    }
+
+    const billingStatusByCompany = new Map<string, string>();
+    billingRows.forEach((row) => {
+      const companyId = String(row.company_id || '').trim();
+      if (!companyId) return;
+      billingStatusByCompany.set(companyId, String(row.status || 'trial').trim().toLowerCase() || 'trial');
+    });
+
+    const billingCounts = {
+      active: 0,
+      trial: 0,
+      past_due: 0,
+      suspended: 0,
+      canceled: 0
+    };
+
+    companyIds.forEach((companyId: string) => {
+      const status = billingStatusByCompany.get(companyId) || 'trial';
+      if (status in billingCounts) {
+        billingCounts[status as keyof typeof billingCounts] += 1;
+      }
+    });
+
     return json({
       counts: {
-        usuarios_total: usuarios.length,
+        usuarios_total: usuariosRows.length,
         usuarios_ativos: usuariosAtivos,
         usuarios_inativos: usuariosInativos,
-        empresas_total: empresas.length,
+        empresas_total: empresasRows.length,
         empresas_ativas: empresasAtivas,
+        empresas_inativas: empresasInativas,
         tipos_total: tipos.length,
+        planos_total: planosRows.length,
+        planos_ativos: planosAtivos,
+        planos_inativos: planosInativos,
+        cobrancas_ativas: billingCounts.active,
+        cobrancas_trial: billingCounts.trial,
+        cobrancas_atrasadas: billingCounts.past_due,
+        cobrancas_suspensas: billingCounts.suspended,
+        cobrancas_canceladas: billingCounts.canceled,
         avisos_ativos: templatesAtivos,
         vinculos_master_pendentes: pendingMasterLinks
       },

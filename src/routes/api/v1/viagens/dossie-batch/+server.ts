@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { syncViagemStatusIfNeeded, syncViagensStatus } from '$lib/server/viagensStatus';
 
 async function loadDossie(client: any, viagemId: string, companyId: string, userId: string, usoIndividual: boolean) {
   let query = client
@@ -89,6 +90,8 @@ async function loadDossie(client: any, viagemId: string, companyId: string, user
   const { data: detalhe, error } = await query.maybeSingle();
   if (error) throw error;
   if (!detalhe) return null;
+  const statusAtual = await syncViagemStatusIfNeeded(client, detalhe as any);
+  (detalhe as any).status = statusAtual;
 
   let viagensVenda: any[] = [];
   if (detalhe?.venda_id) {
@@ -102,6 +105,7 @@ async function loadDossie(client: any, viagemId: string, companyId: string, user
     }
     const { data } = await viagensQuery;
     viagensVenda = data || [];
+    await syncViagensStatus(client, viagensVenda);
   }
 
   let acompanhantesCliente: any[] = [];

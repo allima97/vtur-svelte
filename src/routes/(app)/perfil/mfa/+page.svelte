@@ -5,7 +5,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput } from '$lib/components/ui';
+  import { FieldInput, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode } from 'lucide-svelte';
 
@@ -144,7 +144,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando...</div>
+  <LoadingState />
 {:else}
   {#if error}
     <div class="mb-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-2 text-sm text-red-700">

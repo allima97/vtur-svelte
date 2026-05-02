@@ -3,9 +3,9 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Save, User, Phone, MapPin, Mail, Building2, Loader2 } from 'lucide-svelte';
+  import { Save, User, Phone, MapPin, Mail, Building2 } from 'lucide-svelte';
 
   type Perfil = {
     id: string;
@@ -140,10 +140,7 @@
 </svelte:head>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={32} class="animate-spin text-slate-400" />
-    <span class="ml-3 text-slate-600">Carregando perfil...</span>
-  </div>
+  <LoadingState />
 {:else}
   <PageHeader
     title="Meu Perfil"

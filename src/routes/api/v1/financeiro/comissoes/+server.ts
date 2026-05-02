@@ -95,11 +95,16 @@ function resolvePeriodoComissoes(searchParams: URLSearchParams) {
   };
 }
 
+function canViewTeamCommissions(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return scope.isAdmin || scope.isMaster || scope.isGestor;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const podeVerEquipe = canViewTeamCommissions(scope);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 1, 'Sem acesso a Comissões.');
@@ -208,6 +213,10 @@ export async function GET(event) {
         };
       });
     }).filter(Boolean) as any[];
+
+    if (!podeVerEquipe) {
+      items = items.filter((item) => String(item.vendedor_id || '').trim() === scope.userId);
+    }
 
     if (status && status !== 'todas') {
       items = items.filter((c) => c.status === status);

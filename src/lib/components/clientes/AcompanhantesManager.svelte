@@ -1,7 +1,7 @@
 <script lang="ts">
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
@@ -227,7 +227,9 @@
         <tbody class="divide-y divide-slate-200">
           {#if loading}
             <tr>
-              <td colspan="5" class="px-4 py-8 text-center text-slate-500">Carregando acompanhantes...</td>
+              <td colspan="5" class="px-4 py-8">
+                <LoadingState compact={true} />
+              </td>
             </tr>
           {:else if acompanhantes.length === 0}
             <tr>

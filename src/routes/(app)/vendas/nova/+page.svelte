@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel } from '$lib/components/ui';
+  import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel, LoadingState } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
@@ -645,9 +645,7 @@
 />
 
 {#if loading}
-  <Card title="Carregando base" color="vendas">
-    <p class="text-sm text-slate-600">Buscando dados necessários para o cadastro de venda...</p>
-  </Card>
+  <LoadingState />
 {:else}
   <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
     <button

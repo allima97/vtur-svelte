@@ -12,7 +12,7 @@
  *  - Reserva          = LOC
  *  - Forma pagamento  = "CARTÃO DE CRÉDITO 1X"
  *  - valor_total      = total das tarifas
- *  - Sem CPF — modal de CPF obrigatório deve ser exibido
+ *  - Sem CPF — a importação de vendas coleta CPF em etapa própria
  */
 
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from './contratoCvcExtractor';
@@ -60,7 +60,7 @@ export interface RexturContrato {
   data_retorno: string | null;
   destino: string | null;
   origem: string | null;
-  /** CPF não está no documento — precisa ser coletado via modal */
+  /** CPF não está no documento. */
   cpfAusente: true;
 }
 
@@ -184,8 +184,8 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
   };
 
   const contrato: ContratoDraft = {
-    contrato_numero: loc,          // LOC como número do recibo (único por reserva)
-    reserva_numero: `REXTUR-${loc}`, // prefixo para identificar a origem
+    contrato_numero: 'REXTUR',
+    reserva_numero: loc,
     destino: destino || null,
     data_saida: dataSaida,
     data_retorno: dataRetorno,

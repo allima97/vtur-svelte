@@ -3,14 +3,13 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, SimpleTable } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState, SimpleTable } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import {
     CheckCircle2,
     CircleOff,
     Edit2,
     GitBranch,
-    Loader2,
     Percent,
     Plus,
     Trash2
@@ -680,10 +679,7 @@
   color="financeiro"
 >
   {#if loading}
-    <div class="flex items-center justify-center gap-3 py-10 text-slate-500">
-      <Loader2 size={20} class="animate-spin" />
-      Carregando regras...
-    </div>
+    <LoadingState compact={true} />
   {:else if rules.length === 0}
     <div class="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-slate-500">
       <Percent size={42} class="mx-auto mb-3 opacity-40" />

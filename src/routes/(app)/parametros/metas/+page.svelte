@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { formatCurrency, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
@@ -471,7 +471,9 @@
       <tbody class="divide-y divide-slate-100 bg-white">
         {#if loading}
           <tr>
-            <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Carregando metas...</td>
+            <td colspan="5" class="px-5 py-8">
+              <LoadingState compact={true} />
+            </td>
           </tr>
         {:else if rows.length === 0}
           <tr>
@@ -504,8 +506,18 @@
               <td data-label="Ações" class="px-5 py-4">
                 <div class="flex justify-end gap-2">
                   {#if canEdit}
-                    <Button variant="ghost" size="xs" color="financeiro" on:click={() => openEdit(row)}>
-                      <Pencil size={15} />
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      color="financeiro"
+                      ariaLabel={row.meta ? 'Editar meta' : 'Cadastrar meta'}
+                      on:click={() => openEdit(row)}
+                    >
+                      {#if row.meta}
+                        <Pencil size={15} />
+                      {:else}
+                        <Plus size={15} />
+                      {/if}
                     </Button>
                   {/if}
                   {#if canDelete && row.meta}

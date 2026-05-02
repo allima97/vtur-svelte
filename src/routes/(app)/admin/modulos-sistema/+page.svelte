@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
 
@@ -114,7 +115,7 @@
 </div>
 
 {#if loading}
-  <div class="flex items-center justify-center py-20 text-slate-500">Carregando módulos...</div>
+  <LoadingState />
 {:else}
   <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
     {#each modulos as modulo}

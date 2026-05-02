@@ -5,14 +5,14 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import {
     TrendingUp, TrendingDown, DollarSign, Calendar,
     Plus, Download, ArrowUpRight, ArrowDownRight,
-    Wallet, CreditCard, Banknote, Loader2, FileText,
+    Wallet, CreditCard, Banknote, FileText,
     AlertCircle, CheckCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -305,9 +305,7 @@
 />
 
 {#if loading}
-  <div class="flex items-center justify-center py-20">
-    <Loader2 size={48} class="animate-spin text-financeiro-600" />
-  </div>
+  <LoadingState />
 {:else}
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>

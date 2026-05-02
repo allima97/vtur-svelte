@@ -1,12 +1,36 @@
 import { json } from '@sveltejs/kit';
 import { getDefaultFollowUpRange, isIsoDate, resolveFollowUpFilters } from '$lib/server/agenda';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { syncViagensStatus } from '$lib/server/viagensStatus';
 
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || '').trim().toLowerCase();
   if (raw === 'fechados') return 'fechados';
   if (raw === 'todos') return 'todos';
   return 'abertos';
+}
+
+function getVendaFromRow(row: any) {
+  const venda = Array.isArray(row?.venda) ? row.venda[0] : row?.venda;
+  return venda && typeof venda === 'object' ? venda : null;
+}
+
+function hasLinkedVenda(row: any) {
+  return Boolean(String(row?.venda_id || getVendaFromRow(row)?.id || '').trim());
+}
+
+function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
+  const venda = getVendaFromRow(row);
+
+  if (hasLinkedVenda(row)) {
+    if (!venda || venda.cancelada === true) return false;
+    if (vendedorIds.length === 0) return true;
+    return vendedorIds.includes(String(venda.vendedor_id || '').trim());
+  }
+
+  // Viagem avulsa não tem venda para comprovar vendedor. Quando há escopo de
+  // vendedor, ela não deve aparecer no acompanhamento comercial.
+  return vendedorIds.length === 0;
 }
 
 export async function GET(event) {
@@ -27,6 +51,7 @@ export async function GET(event) {
     }
 
     const { companyIds, vendedorIds } = await resolveFollowUpFilters(client, scope, event.url.searchParams);
+    const vendaJoin = vendedorIds.length > 0 ? 'venda:vendas!inner' : 'venda:vendas';
 
     let candidatasQuery = client
       .from('viagens')
@@ -37,10 +62,11 @@ export async function GET(event) {
           company_id,
           data_inicio,
           data_fim,
+          status,
           follow_up_text,
           follow_up_fechado,
           updated_at,
-          venda:vendas (
+          ${vendaJoin} (
             id,
             data_embarque,
             data_final,
@@ -76,16 +102,20 @@ export async function GET(event) {
 
     const { data: candidatasData, error: candidatasError } = await candidatasQuery;
     if (candidatasError) throw candidatasError;
+    const candidatas = ((candidatasData || []) as any[]).filter((row) =>
+      isFollowUpAllowedForVendedores(row, vendedorIds)
+    );
+    await syncViagensStatus(client, candidatas);
 
     const vendaIds = Array.from(
       new Set(
-        (candidatasData || [])
-          .map((row: any) => String(row?.venda_id || row?.venda?.id || '').trim())
+        candidatas
+          .map((row: any) => String(row?.venda_id || getVendaFromRow(row)?.id || '').trim())
           .filter(Boolean)
       )
     );
 
-    const avulsas = (candidatasData || []).filter((row: any) => !row?.venda_id);
+    const avulsas = candidatas.filter((row: any) => !hasLinkedVenda(row));
 
     let detalhadas: any[] = [];
     if (vendaIds.length > 0) {
@@ -98,10 +128,11 @@ export async function GET(event) {
             company_id,
             data_inicio,
             data_fim,
+            status,
             follow_up_text,
             follow_up_fechado,
             updated_at,
-            venda:vendas (
+            ${vendaJoin} (
               id,
               data_embarque,
               data_final,
@@ -130,12 +161,16 @@ export async function GET(event) {
 
       const { data: detalhadasData, error: detalhadasError } = await detalhadasQuery;
       if (detalhadasError) throw detalhadasError;
-      detalhadas = detalhadasData || [];
+      detalhadas = ((detalhadasData || []) as any[]).filter((row) =>
+        isFollowUpAllowedForVendedores(row, vendedorIds)
+      );
+      await syncViagensStatus(client, detalhadas);
     }
 
     const grupos = new Map<string, any>();
 
-    for (const item of [...detalhadas, ...avulsas]) {
+    for (const sourceItem of [...detalhadas, ...avulsas]) {
+      const item = { ...sourceItem, venda: getVendaFromRow(sourceItem) };
       const key = String(item?.venda_id || item?.venda?.id || item?.id || '').trim();
       if (!key) continue;
 

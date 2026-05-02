@@ -8,6 +8,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+function canManageCampanhas(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return Boolean(scope.isAdmin || scope.isMaster || scope.isGestor);
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -29,7 +33,7 @@ export async function GET(event) {
     const { data, error: queryError } = await query;
     if (queryError) throw queryError;
 
-    return json({ items: data || [] });
+    return json({ items: data || [], can_write: canManageCampanhas(scope) });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar campanhas.');
   }
@@ -41,7 +45,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!canManageCampanhas(scope)) {
       return json({ error: 'Somente gestor/master podem gerenciar campanhas.' }, { status: 403 });
     }
 
@@ -87,7 +91,7 @@ export async function DELETE(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!canManageCampanhas(scope)) {
       return json({ error: 'Sem permissão.' }, { status: 403 });
     }
 

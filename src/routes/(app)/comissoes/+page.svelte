@@ -3,12 +3,12 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import {
     Calculator, DollarSign, TrendingUp, Users,
-    RefreshCw, FileText, ChevronRight, Loader2
+    RefreshCw, FileText, ChevronRight
   } from 'lucide-svelte';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
 
@@ -158,10 +158,7 @@
 <!-- Tabela de resumo por vendedor -->
 <Card header="Resumo por Vendedor" color="comissoes">
   {#if loading}
-    <div class="flex items-center justify-center py-16">
-      <Loader2 size={28} class="animate-spin text-comissoes-600" />
-      <span class="ml-2 text-slate-500">Carregando...</span>
-    </div>
+    <LoadingState compact={true} />
   {:else if resumo.length === 0}
     <div class="flex flex-col items-center justify-center py-16 text-slate-400">
       <Calculator size={40} class="mb-3 opacity-40" />

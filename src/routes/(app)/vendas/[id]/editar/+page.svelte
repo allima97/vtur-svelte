@@ -4,7 +4,7 @@
   import { browser } from '$app/environment';
   import { onMount } from 'svelte';
   import { supabase } from '$lib/db/supabase';
-  import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel } from '$lib/components/ui';
+  import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel, LoadingState } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
@@ -921,9 +921,7 @@
 />
 
 {#if loading}
-  <Card title="Carregando venda" color="vendas">
-    <p class="text-sm text-slate-600">Buscando dados da venda, recibos e pagamentos...</p>
-  </Card>
+  <LoadingState />
 {:else}
   <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
     <button

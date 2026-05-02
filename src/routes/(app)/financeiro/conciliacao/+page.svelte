@@ -13,6 +13,7 @@
   import { toast } from '$lib/stores/ui';
   import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
   import { parseConciliacaoImportFile, parseConciliacaoImportText } from '$lib/conciliacao/importParser';
+  import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
@@ -212,6 +213,7 @@
   };
   type ImportPreviewRow = {
     documento: string;
+    numero_reserva?: string | null;
     movimento_data: string | null;
     status: string | null | undefined;
     descricao: string | null | undefined;
@@ -236,6 +238,7 @@
     tem_diferenca?: boolean;
     diff_total?: number | null;
     diff_taxas?: number | null;
+    origem?: string | null;
   };
 
   type ImportLookupMatch = {
@@ -327,6 +330,7 @@
   let detalheFaixaComissao = '';
 
   let importText = '';
+  let importMode: 'movimento' | 'rextur' = 'movimento';
   let importFallbackDate = '';
   let importFileName = '';
   let importFiles: FileList | undefined = undefined;
@@ -341,6 +345,7 @@
   let importDiferencasModalOpen = false;
   let importDiferencas: Array<{ documento: string; movimento_data: string; valor_importacao: number; valor_sistema: number; taxas_importacao: number; taxas_sistema: number; diff_total: number; diff_taxas: number; severidade: 'warning' | 'critical' }> = [];
   let importDiferencasConfirmadas = false;
+  let importParseError = '';
 
   // Dias sem movimento
   let diasSemMovimento: string[] = [];
@@ -601,21 +606,109 @@
       : 'warning';
   }
 
+  function normalizeRexturLocalizador(value?: string | null) {
+    return String(value || '')
+      .trim()
+      .replace(/^REXTUR[\s-]*/i, '')
+      .toUpperCase();
+  }
+
+  function clearImportState() {
+    importFiles = undefined;
+    importText = '';
+    importFileName = '';
+    importFallbackDate = '';
+    importIgnored = 0;
+    importRowsTotal = 0;
+    importAutoLinked = 0;
+    importLookupMatches = {};
+    importLookupSignature = '';
+    importPreparedRows = [];
+    importPreview = [];
+    importDiferencasConfirmadas = false;
+    importDiferencas = [];
+    importParseError = '';
+  }
+
+  function setImportMode(mode: 'movimento' | 'rextur') {
+    if (importMode === mode) return;
+    importMode = mode;
+    clearImportState();
+  }
+
+  function parseRexturConciliacaoImportText(text: string, fallbackDate?: string | null) {
+    const raw = String(text || '').trim();
+    if (!raw) return { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
+
+    const result = extractRexturFromText(raw);
+    const movimentoData = fallbackDate || todayISODateLocal();
+    const linhas = result.contratos.map((contrato) => {
+      const localizador = normalizeRexturLocalizador(contrato.reserva_numero || contrato.contrato_numero);
+      const passageiro = String(contrato.contratante?.nome || contrato.passageiros?.[0]?.nome || '').trim();
+      const destino = String(contrato.destino || contrato.produto_principal || '').trim();
+      const valorTotal = Number(contrato.total_pago ?? contrato.total_bruto ?? 0);
+      const valorTaxas = Math.max(0, Number(contrato.taxas_embarque || 0));
+      const valorRav = Math.max(0, Number(contrato.taxa_du || 0));
+
+      return {
+        documento: 'REXTUR',
+        numero_reserva: localizador || null,
+        movimento_data: movimentoData,
+        status: 'BAIXA',
+        descricao: ['BAIXA REXTUR', localizador ? `LOC ${localizador}` : '', passageiro, destino].filter(Boolean).join(' - '),
+        valor_lancamentos: Number.isFinite(valorTotal) ? valorTotal : 0,
+        valor_taxas: valorTaxas || null,
+        valor_descontos: null,
+        valor_abatimentos: null,
+        valor_nao_comissionavel: valorRav || null,
+        valor_comissao_loja: valorRav || null,
+        percentual_comissao_loja: null,
+        origem: 'rextur',
+        raw: { localizador, origem: 'rextur' }
+      } satisfies ConciliacaoLinhaInput;
+    });
+
+    return { linhas, ignored: 0 };
+  }
+
+  function parseImportTextForPreview() {
+    if (importMode !== 'rextur') {
+      importParseError = '';
+      return parseConciliacaoImportText(importText, null);
+    }
+
+    try {
+      importParseError = '';
+      return parseRexturConciliacaoImportText(importText, importFallbackDate || todayISODateLocal());
+    } catch (error: any) {
+      importParseError = error?.message || 'Não foi possível ler a Reserva Fácil Rextur.';
+      return { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
+    }
+  }
+
   $: {
     // Keep this dependency explicit so the preview recomputes when lookup matches arrive.
     const _lookupMatches = importLookupMatches;
 
-    const parsed = parseConciliacaoImportText(importText, null);
+    const parsed = parseImportTextForPreview();
     importIgnored = parsed.ignored;
 
     const signature = parsed.linhas
-      .map((row) => `${String(row.documento || '').trim()}::${Number(row.valor_lancamentos || 0)}::${Number(row.valor_taxas || 0)}`)
+      .map((row) => `${String(row.documento || '').trim()}::${String(row.numero_reserva || '').trim()}::${String(row.descricao || '').trim()}::${Number(row.valor_lancamentos || 0)}::${Number(row.valor_taxas || 0)}`)
       .join('|');
 
-    if (signature && signature !== importLookupSignature) {
+    if (!signature) {
+      importLookupSignature = '';
+      if (Object.keys(importLookupMatches).length > 0) importLookupMatches = {};
+      if (importPreparedRows.length > 0) importPreparedRows = [];
+    } else if (signature !== importLookupSignature) {
       // Text changed — full rebuild from scratch (discards manual edits, as expected for a new file)
       importLookupSignature = signature;
-      void loadImportLookup(parsed.linhas);
+      if (importMode === 'movimento') {
+        void loadImportLookup(parsed.linhas);
+      } else {
+        importLookupMatches = {};
+      }
       importPreparedRows = buildImportPreviewRows(parsed.linhas, importFallbackDate || null);
     } else if (importPreparedRows.length > 0) {
       // Same text, lookup data updated — merge lookup results WITHOUT overwriting manual vendedor assignments
@@ -660,10 +753,10 @@
       ? 'Corrigindo vínculos'
       : importing
         ? 'Importando conciliação'
-        : importLookupLoading
-          ? 'Buscando usuários nas vendas'
+          : importLookupLoading
+            ? 'Buscando usuários nas vendas'
           : loading
-            ? 'Carregando conciliação'
+            ? 'Carregando registros'
             : operationMessage
               ? 'Processando'
               : '';
@@ -677,9 +770,7 @@
         : importLookupLoading
           ? 'Estamos procurando vendedores e recibos correspondentes no sistema para preencher o ranking automaticamente.'
           : loading
-            ? optionsLoading
-              ? 'Buscando registros, resumo, histórico e opções de vendedores/produtos.'
-              : 'Buscando registros, resumo, histórico e execuções da conciliação.'
+            ? 'Aguarde enquanto o sistema busca os dados da tabela.'
             : operationMessage;
 
   $: showBusyNotice = Boolean(busyTitle && (loading || running || fixingVinculos || importing || importLookupLoading || operationMessage));
@@ -827,7 +918,7 @@
     activeKpiView = mode;
     operationMessage =
       mode === 'execucoes'
-        ? 'Carregando execuções recentes da conciliação.'
+        ? 'Aguarde enquanto o sistema busca os dados da tabela.'
         : 'Atualizando o recorte de registros da conciliação.';
 
     try {
@@ -1261,6 +1352,7 @@
         body: JSON.stringify({
           linhas: importPreparedRows.map((row) => ({
             documento: row.documento,
+            numero_reserva: row.numero_reserva || null,
             movimento_data: row.movimento_data,
             status: row.status,
             descricao: row.descricao,
@@ -1277,7 +1369,7 @@
             ranking_produto_id: row.ranking_produto_id,
             venda_id: row.venda_id,
             venda_recibo_id: row.venda_recibo_id,
-            origem: importFileName ? `arquivo:${importFileName}` : 'arquivo'
+            origem: row.origem || (importMode === 'rextur' ? 'rextur' : importFileName ? `arquivo:${importFileName}` : 'arquivo')
           }))
         })
       });
@@ -1306,17 +1398,7 @@
       toast.success(
         `Importação concluída: ${Number(data.importados || 0)} importados, ${Number(data.duplicados || 0)} duplicados.`
       );
-      importFiles = undefined;
-      importText = '';
-      importFileName = '';
-      importFallbackDate = '';
-      importIgnored = 0;
-      importRowsTotal = 0;
-      importAutoLinked = 0;
-      importLookupMatches = {};
-      importLookupSignature = '';
-      importDiferencasConfirmadas = false;
-      importDiferencas = [];
+      clearImportState();
       await Promise.all([loadRegistros(), loadSummary()]);
       activeTab = 'registros';
     } catch (error: any) {
@@ -1328,6 +1410,7 @@
   }
 
   async function handleFileChange() {
+    if (importMode === 'rextur') return;
     const file = importFiles?.[0];
     if (!file) return;
     importFileName = file.name;
@@ -1348,6 +1431,7 @@
       importAutoLinked = 0;
       importLookupMatches = {};
       importLookupSignature = '';
+      importParseError = '';
       toast.error(error?.message || 'Não foi possível ler o arquivo selecionado.');
     }
   }
@@ -1453,6 +1537,7 @@
 
       return {
         documento,
+        numero_reserva: String(row.numero_reserva || '').trim() || null,
         movimento_data: fallbackDate || row.movimento_data || null,
         status: row.status || null,
         descricao: row.descricao || null,
@@ -1476,7 +1561,8 @@
         sistema_valor_taxas: lookup?.sistema_valor_taxas ?? null,
         tem_diferenca: temDiferenca,
         diff_total: lookup?.diff_total ?? null,
-        diff_taxas: lookup?.diff_taxas ?? null
+        diff_taxas: lookup?.diff_taxas ?? null,
+        origem: String(row.origem || '').trim() || null
       };
     });
   }
@@ -1910,22 +1996,47 @@
 </Card>
 
 {#if activeTab === 'importacao'}
-  <Card title="Importar arquivo da conciliação" color="financeiro" class="mb-6">
+  <Card title="Importar conciliação" color="financeiro" class="mb-6">
     <div class="space-y-3">
-      <FileDropzone
-        accept=".txt,.xls,.xlsx"
-        icon={FileText}
-        title="Clique para escolher o arquivo"
-        bind:files={importFiles}
-        on:change={() => void handleFileChange()}
-      />
+      <div class="flex flex-wrap gap-2">
+        <Button
+          variant={importMode === 'movimento' ? 'selected' : 'secondary'}
+          color="financeiro"
+          size="sm"
+          on:click={() => setImportMode('movimento')}
+        >
+          Movimento
+        </Button>
+        <Button
+          variant={importMode === 'rextur' ? 'selected' : 'secondary'}
+          color="financeiro"
+          size="sm"
+          on:click={() => setImportMode('rextur')}
+        >
+          Rextur
+        </Button>
+      </div>
+
+      {#if importMode === 'movimento'}
+        <FileDropzone
+          accept=".txt,.xls,.xlsx"
+          icon={FileText}
+          title="Clique para escolher o arquivo"
+          bind:files={importFiles}
+          on:change={() => void handleFileChange()}
+        />
+      {:else}
+        <div class="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+          Cole a Reserva Fácil Rextur abaixo. A conciliação será criada com recibo <strong>REXTUR</strong> e reserva igual ao localizador, sem cadastro de CPF.
+        </div>
+      {/if}
       <div class="grid gap-3 md:grid-cols-[minmax(220px,280px)_1fr]">
         <FieldInput
           id="conciliacao-import-movimento-date"
           label="Data do movimento"
           type="date"
           bind:value={importFallbackDate}
-          helper="Se o arquivo não trouxer a data, informe aqui antes de importar."
+          helper={importMode === 'rextur' ? 'Data de baixa da reserva Rextur.' : 'Se o arquivo não trouxer a data, informe aqui antes de importar.'}
           class_name="w-full"
           on:change={handleImportMovimentoDateChange}
         />
@@ -1953,11 +2064,23 @@
         />
       {/if}
 
-      <FieldTextarea id="conciliacao-paste" label="Conteúdo do extrato (opcional)" bind:value={importText} rows={5} class_name="w-full" />
+      <FieldTextarea
+        id="conciliacao-paste"
+        label={importMode === 'rextur' ? 'Reserva Fácil Rextur' : 'Conteúdo do extrato (opcional)'}
+        bind:value={importText}
+        rows={importMode === 'rextur' ? 8 : 5}
+        class_name="w-full"
+      />
+
+      {#if importParseError}
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {importParseError}
+        </div>
+      {/if}
 
       {#if importPreparedRows.length === 0}
         <div class="rounded-xl border border-dashed border-slate-200 px-4 py-10 text-sm text-slate-500">
-          Selecione um arquivo para carregar o preview de importação.
+          {importMode === 'rextur' ? 'Cole o conteúdo da Reserva Fácil Rextur para carregar o preview.' : 'Selecione um arquivo para carregar o preview de importação.'}
         </div>
       {:else}
         <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
@@ -2037,7 +2160,7 @@
 
       <div class="flex flex-wrap gap-2">
         <Button color="financeiro" on:click={importPreviewRows} disabled={importPreparedRows.length === 0} loading={importing}><Upload size={16} class="mr-2" />Importar</Button>
-        <Button variant="secondary" on:click={() => { importFiles = undefined; importText = ''; importFileName = ''; importFallbackDate = ''; importIgnored = 0; importRowsTotal = 0; importAutoLinked = 0; importLookupMatches = {}; importLookupSignature = ''; }}>Limpar</Button>
+        <Button variant="secondary" on:click={clearImportState}>Limpar</Button>
       </div>
     </div>
   </Card>
@@ -2075,10 +2198,7 @@
     </div>
 
     {#if registrosLoading || loading}
-      <LoadingState
-        title="Carregando visão geral"
-        message="Buscando recibos, vendedores, vínculos de venda e situação de conciliação."
-      />
+      <LoadingState />
     {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[2050px] w-full text-sm">
@@ -2140,10 +2260,7 @@
   <Card title="Registros" color="financeiro" class="mb-6">
     <div class="mb-3 text-sm text-slate-600">{filteredRecords.length} registro(s) no recorte atual.</div>
     {#if registrosLoading || loading}
-      <LoadingState
-        title="Carregando registros"
-        message="Buscando os recibos do recorte selecionado e recalculando os indicadores da tela."
-      />
+      <LoadingState />
     {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[2050px] w-full text-sm">
@@ -2210,10 +2327,7 @@
       </Button>
     </div>
     {#if changesLoading}
-      <LoadingState
-        title="Carregando histórico"
-        message="Buscando alterações manuais e reversões registradas para este período."
-      />
+      <LoadingState />
     {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[980px] w-full text-sm">
@@ -2256,10 +2370,7 @@
       </Button>
     </div>
     {#if executionsLoading}
-      <LoadingState
-        title="Carregando execuções"
-        message="Buscando as últimas rodadas de conciliação automática e seus resultados."
-      />
+      <LoadingState />
     {:else}
     <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table class="table-mobile-cards min-w-[980px] w-full text-sm">

@@ -27,7 +27,7 @@
   };
 
   const statusOptions = [
-    { value: 'planejada', label: 'Planejada' },
+    { value: 'pendente', label: 'Pendente' },
     { value: 'confirmada', label: 'Confirmada' },
     { value: 'em_viagem', label: 'Em viagem' },
     { value: 'concluida', label: 'Concluída' },
@@ -48,7 +48,7 @@
     destino: '',
     data_inicio: '',
     data_fim: '',
-    status: 'planejada',
+    status: 'pendente',
     observacoes: '',
     follow_up_text: '',
     follow_up_fechado: false

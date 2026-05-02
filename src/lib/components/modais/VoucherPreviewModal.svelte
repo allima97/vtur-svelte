@@ -2,6 +2,7 @@
   import { fade } from 'svelte/transition';
   import { X, Edit, FileDown, Printer } from 'lucide-svelte';
   import Button from '../ui/Button.svelte';
+  import LoadingState from '../ui/LoadingState.svelte';
   import { buildVoucherPreviewDocument } from '../../vouchers/preview';
   import type { VoucherRecord, VoucherAssetRecord } from '../../vouchers/types';
   import { createEventDispatcher } from 'svelte';
@@ -128,9 +129,7 @@
             style="min-height: 0;"
           ></iframe>
         {:else}
-          <div class="flex items-center justify-center flex-1 text-slate-500">
-            Carregando preview...
-          </div>
+          <LoadingState className="flex-1" />
         {/if}
       </div>
     </div>

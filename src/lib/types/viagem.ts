@@ -1,5 +1,5 @@
 // Tipos alinhados com o schema real da tabela viagens
-export type StatusViagem = 'planejada' | 'confirmada' | 'em_viagem' | 'concluida' | 'cancelada';
+export type StatusViagem = 'pendente' | 'confirmada' | 'em_viagem' | 'concluida' | 'cancelada';
 
 export interface Viagem {
   id: string;
