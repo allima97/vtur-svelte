@@ -113,8 +113,8 @@ export async function GET(event) {
     let vendedorIds = explicitRequestedVendedorIds;
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
-    if (isGestorByType) {
-      // Gestor vê TODOS os vendedores e gestores elegíveis da(s) empresa(s) do escopo
+    if (isGestorByType || (!isAdminByType && !isMasterByType && companyIds.length > 0)) {
+      // Relatorio de ranking e leitura: gestor e vendedor veem todos os elegiveis da empresa.
       const companyRankingUsers = companyIds.length > 0
         ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
         : [];
@@ -128,14 +128,6 @@ export async function GET(event) {
         vendedorIds = explicitRequestedVendedorIds.filter((id) => permitidos.has(id));
       } else {
         vendedorIds = companyEligibleIds;
-      }
-    } else if (!isAdminByType && !isMasterByType && companyIds.length > 0) {
-      // Vendedor comum vê apenas o próprio ranking
-      const selfId = String(scope.userId || '').trim();
-      if (explicitRequestedVendedorIds.length > 0) {
-        vendedorIds = explicitRequestedVendedorIds.filter((id) => id === selfId);
-      } else {
-        vendedorIds = selfId ? [selfId] : [];
       }
     }
 

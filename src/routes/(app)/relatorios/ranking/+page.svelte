@@ -328,7 +328,7 @@
 
   // Ranking: filtro somente por mês
   $: showRankingPodio = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor;
-  $: showBuscaRanking = !$permissoes.ready || !$permissoes.isVendedor;
+  $: showBuscaRanking = true;
   $: showExportRanking = !$permissoes.ready || !$permissoes.isVendedor;
   $: diasRestantesNoMes = getDiasRestantesNoMes();
   $: showPodioTop3 = showRankingPodio;
