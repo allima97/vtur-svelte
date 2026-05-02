@@ -126,7 +126,9 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	const pathname = url.pathname;
 	const isApiRequest = pathname.startsWith('/api/');
 	const apiPublicRoutes = [
+		'/api/auth/login',
 		'/api/auth/set-session',
+		'/api/auth/turnstile/verify',
 		'/api/v1/cards',
 		'/api/v1/client-error',
 		'/api/v1/health',
@@ -137,7 +139,9 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/auth/login',
 		'/auth/register',
 		'/auth/recover',
+		'/auth/recuperar-senha',
 		'/auth/reset',
+		'/auth/nova-senha',
 		'/auth/convite',
 		'/auth/update-password',
 		'/manutencao',
