@@ -1,5 +1,5 @@
 import type { EffectiveConciliacaoReceipt } from '$lib/conciliacao/source';
-import { normalizeReceiptNumber } from '$lib/conciliacao/receiptNumber';
+import { normalizeReceiptNumber, receiptNumberCore } from '$lib/conciliacao/receiptNumber';
 
 export type MergeAdapters<TVenda, TRecibo> = {
   getVendaId(venda: TVenda): string;
@@ -52,6 +52,8 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
 
   const baseVendasById = new Map<string, TVenda>();
   const baseVendaIdByReciboId = new Map<string, string>();
+  // Índice por core numérico do número do recibo (para casar formatos divergentes)
+  const baseVendaIdByReciboCore = new Map<string, string>();
   baseVendas.forEach((venda) => {
     const id = str(getVendaId(venda));
     if (!id) return;
@@ -59,12 +61,19 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
     getRecibos(venda).forEach((recibo) => {
       const reciboId = str(getReciboId(recibo));
       if (reciboId) baseVendaIdByReciboId.set(reciboId, id);
+      const core = receiptNumberCore(str(getReciboNumero(recibo)));
+      if (core && !baseVendaIdByReciboCore.has(core)) baseVendaIdByReciboCore.set(core, id);
     });
   });
 
   const overriddenIds = new Set(concReceipts.map((row) => str(row.linked_recibo_id)).filter(Boolean));
   const overriddenNumeros = new Set(
     concReceipts.map((row) => normalizeReceiptNumber(str(row.documento))).filter(Boolean)
+  );
+  // Core numérico (últimos dígitos sem zeros à esquerda) para casar formatos
+  // divergentes: "5630-0000083861" (conciliação) ↔ "83861" (vendas_recibos)
+  const overriddenCores = new Set(
+    concReceipts.map((row) => receiptNumberCore(str(row.documento))).filter(Boolean)
   );
 
   const concByVendaId = new Map<string, EffectiveConciliacaoReceipt[]>();
@@ -74,9 +83,13 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
     const linkedVendaId = str(item.linked_venda_id);
     const linkedReciboId = str(item.linked_recibo_id);
     const vendaViaRecibo = linkedReciboId ? str(baseVendaIdByReciboId.get(linkedReciboId)) : '';
+    // Fallback: busca pelo core numérico do documento (ex: "5630-0000083861" → core "83861")
+    const documentoCore = receiptNumberCore(str(item.documento));
+    const vendaViaCore = documentoCore ? str(baseVendaIdByReciboCore.get(documentoCore)) : '';
     const targetVendaId =
       (linkedVendaId && baseVendasById.has(linkedVendaId) ? linkedVendaId : '') ||
-      (vendaViaRecibo && baseVendasById.has(vendaViaRecibo) ? vendaViaRecibo : '');
+      (vendaViaRecibo && baseVendasById.has(vendaViaRecibo) ? vendaViaRecibo : '') ||
+      (vendaViaCore && baseVendasById.has(vendaViaCore) ? vendaViaCore : '');
 
     if (targetVendaId) {
       const bucket = concByVendaId.get(targetVendaId) ?? [];
@@ -112,6 +125,13 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
 
       const numero = normalizeReceiptNumber(str(getReciboNumero(recibo)));
       if (numero && overriddenNumeros.has(numero)) {
+        removedBase += 1;
+        return;
+      }
+
+      // Dedup por core numérico: casa "5630-0000083861" (conciliação) com "83861" (venda)
+      const core = receiptNumberCore(str(getReciboNumero(recibo)));
+      if (core && overriddenCores.has(core)) {
         removedBase += 1;
         return;
       }

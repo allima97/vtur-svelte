@@ -429,6 +429,14 @@ export async function GET(event) {
     if (companyIds.length > 0) salesQuery = salesQuery.in('company_id', companyIds);
     if (vendedorIds.length > 0) salesQuery = salesQuery.in('vendedor_id', vendedorIds);
 
+    // Filtra por data no banco para não trazer todo o histórico.
+    // Janela de 90 dias antes do início garante incluir parcelamentos e
+    // recibos com data_venda diferente da venda-mãe.
+    // O filtro fino por recibo ainda acontece em JS logo abaixo.
+    const inicioJanela = new Date(`${inicio}T00:00:00Z`);
+    inicioJanela.setUTCDate(inicioJanela.getUTCDate() - 90);
+    salesQuery = salesQuery.gte('data_venda', inicioJanela.toISOString().slice(0, 10)).lte('data_venda', fim);
+
     const { data: salesData, error: salesError } = await salesQuery;
     if (salesError) throw salesError;
 
@@ -592,7 +600,9 @@ export async function GET(event) {
         return isInRange(reciboDate, inicio, fim);
       });
 
-      if (recibosPeriodo.length === 0) return;
+      if (recibosPeriodo.length === 0) {
+        return;
+      }
 
       let countedVenda = false;
 

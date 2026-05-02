@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { RefreshCw, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { BarChart2, RefreshCw, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
+  import { goto } from '$app/navigation';
 
   export let title = 'Dashboard do gestor';
   export let subtitle = 'Visão consolidada da equipe e desempenho comercial.';
@@ -71,11 +72,20 @@
   let userCtx: SummaryPayload['userCtx'] = null;
   let podeVerOperacao = false;
 
-  let periodoInicio = (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  })();
-  let periodoFim = new Date().toISOString().slice(0, 10);
+  function getDefaultPeriod() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    return { inicio: `${y}-${m}-01`, fim: today.toISOString().slice(0, 10) };
+  }
+
+  const defaultPeriod = getDefaultPeriod();
+  const defaultMonth = defaultPeriod.inicio.slice(0, 7);
+
+  let filtroPeriodoModo: 'mes' | 'periodo' = 'mes';
+  let mesSelecionado = defaultMonth;
+  let periodoInicio = defaultPeriod.inicio;
+  let periodoFim = defaultPeriod.fim;
   let empresaSelecionada = '';
   let vendedorSelecionado = '';
 
@@ -83,6 +93,7 @@
   let vendedoresFiltro: { id: string; nome: string }[] = [];
   let filtrosInicializados = false;
   let lastAppliedFilterKey = '';
+  let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
 
   let vendasAgg: NonNullable<SummaryPayload['vendasAgg']> = {
     totalVendas: 0,
@@ -171,7 +182,28 @@
   $: viagensEmptyLabel = isFiltroVendedorAtivo
     ? `Nenhuma viagem próxima de ${vendedorSelecionadoNome}.`
     : 'Nenhuma viagem próxima.';
-  $: currentFilterKey = [periodoInicio, periodoFim, empresaSelecionada, vendedorSelecionado].join('|');
+  function getMonthRange(monthValue: string) {
+    const raw = String(monthValue || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(raw)) return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
+    const [yearText, monthText] = raw.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const lastDay = new Date(year, month, 0).getDate();
+    return { inicio: `${yearText}-${monthText}-01`, fim: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}` };
+  }
+
+  function goToRanking() {
+    const mes = filtroPeriodoModo === 'mes' ? mesSelecionado : periodoInicio.slice(0, 7);
+    void goto(`/relatorios/ranking?mes=${mes}`);
+  }
+
+  $: if (filtroPeriodoModo === 'mes') {
+    const range = getMonthRange(mesSelecionado);
+    if (periodoInicio !== range.inicio) periodoInicio = range.inicio;
+    if (periodoFim !== range.fim) periodoFim = range.fim;
+  }
+
+  $: currentFilterKey = [filtroPeriodoModo, mesSelecionado, periodoInicio, periodoFim, empresaSelecionada, vendedorSelecionado].join('|');
 
   $: timelineChartData = {
     labels: vendasAgg.timeline.map((item) => formatDate(item.date)),
@@ -270,17 +302,44 @@
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
-    lastAppliedFilterKey = currentFilterKey;
-    void atualizar();
+    if (applyFiltersTimer) clearTimeout(applyFiltersTimer);
+    applyFiltersTimer = setTimeout(() => {
+      lastAppliedFilterKey = currentFilterKey;
+      void atualizar();
+      applyFiltersTimer = null;
+    }, 250);
   }
 
   onMount(async () => {
+    const params = new URLSearchParams(window.location.search);
+    const modoParam = String(params.get('modo') || '').trim().toLowerCase();
+    filtroPeriodoModo = modoParam === 'periodo' ? 'periodo' : 'mes';
+
+    const inicioParam = params.get('inicio') || defaultPeriod.inicio;
+    const fimParam = params.get('fim') || defaultPeriod.fim;
+    periodoInicio = inicioParam;
+    periodoFim = fimParam;
+
+    const mesParam = params.get('mes') || inicioParam.slice(0, 7) || defaultMonth;
+    mesSelecionado = mesParam;
+
+    if (filtroPeriodoModo === 'mes') {
+      const range = getMonthRange(mesSelecionado);
+      periodoInicio = range.inicio;
+      periodoFim = range.fim;
+    }
+
+    empresaSelecionada = params.get('empresa_id') || '';
+    vendedorSelecionado = params.get('vendedor_id') || '';
+
     await loadBase();
     await loadDashboard();
     await loadOperational();
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
+
+  onDestroy(() => { if (applyFiltersTimer) clearTimeout(applyFiltersTimer); });
 </script>
 
 <svelte:head>
@@ -292,13 +351,32 @@
   {subtitle}
   color="financeiro"
   breadcrumbs={[{ label: 'Dashboard' }]}
-  actions={[{ label: 'Atualizar', onClick: atualizar, variant: 'secondary', icon: RefreshCw }]}
+  actions={[
+    { label: 'Ranking', onClick: goToRanking, variant: 'secondary', icon: BarChart2 },
+    { label: 'Atualizar', onClick: atualizar, variant: 'secondary', icon: RefreshCw }
+  ]}
 />
 
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-    <FieldInput id="gestor-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
-    <FieldInput id="gestor-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
+    <FieldSelect
+      id="gestor-periodo-modo"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      class_name="w-full"
+    />
+
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput id="gestor-mes" label="Mês" type="month" bind:value={mesSelecionado} class_name="w-full" />
+    {:else}
+      <FieldInput id="gestor-inicio" label="Data início" type="date" bind:value={periodoInicio} class_name="w-full" />
+      <FieldInput id="gestor-fim" label="Data fim" type="date" bind:value={periodoFim} class_name="w-full" />
+    {/if}
+
     {#if userCtx?.papel === 'MASTER' && empresas.length > 0}
       <FieldSelect
         id="gestor-empresa"
@@ -329,17 +407,22 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><TrendingUp size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{salesLabel}</p>
-      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(vendasAgg.totalVendas)}</p>
-      <p class="mt-0.5 truncate text-xs text-slate-400">Líquido: {formatCurrency(vendasAgg.totalLiquido)}</p>
-      {#if metaTotal > 0}
-        <div class="mt-1.5 w-full">
-          <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoVendasColor};`}></div>
-          </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}% da meta</p>
-        </div>
+      {#if loading}
+        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalVendas)}</p>
+        <p class="mt-0.5 truncate text-xs text-slate-400">Líquido: {formatCurrency(vendasAgg.totalLiquido)}</p>
+        {#if metaTotal > 0}
+          <div class="mt-1.5 w-full">
+            <div class="h-1.5 w-full rounded-full bg-slate-200">
+              <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoVendasColor};`}></div>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}% da meta</p>
+          </div>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
+        {/if}
       {/if}
     </div>
   </div>
@@ -348,8 +431,13 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Wallet size={18} /></div>
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{countLabel}</p>
-      <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : vendasAgg.qtdVendas}</p>
-      <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
+      {#if loading}
+        <div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-24 animate-pulse rounded bg-slate-100"></div>
+      {:else}
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{vendasAgg.qtdVendas}</p>
+        <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>
+      {/if}
     </div>
   </div>
 
@@ -357,16 +445,21 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Target size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{metaLabel}</p>
-      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(metaTotal)}</p>
-      {#if metaTotal > 0}
-        <div class="mt-1.5 w-full">
-          <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoMetaColor};`}></div>
-          </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}%</p>
-        </div>
+      {#if loading}
+        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(metaTotal)}</p>
+        {#if metaTotal > 0}
+          <div class="mt-1.5 w-full">
+            <div class="h-1.5 w-full rounded-full bg-slate-200">
+              <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoVendasClamped.toFixed(1)}%;background:${atingimentoMetaColor};`}></div>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-400">{atingimento.toFixed(1)}%</p>
+          </div>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">Sem meta</p>
+        {/if}
       {/if}
     </div>
   </div>
@@ -375,8 +468,13 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><Users size={18} /></div>
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{scopeLabel}</p>
-      <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : isFiltroVendedorAtivo ? 1 : teamSize}</p>
-      <p class="mt-0.5 truncate text-xs text-slate-400">{scopeHelperLabel}</p>
+      {#if loading}
+        <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
+      {:else}
+        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{isFiltroVendedorAtivo ? 1 : teamSize}</p>
+        <p class="mt-0.5 truncate text-xs text-slate-400">{scopeHelperLabel}</p>
+      {/if}
     </div>
   </div>
 
@@ -384,16 +482,21 @@
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Wallet size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>
-      <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '...' : formatCurrency(vendasAgg.totalSeguro)}</p>
-      {#if metaSeguroTotal > 0}
-        <div class="mt-1.5 w-full">
-          <div class="h-1.5 w-full rounded-full bg-slate-200">
-            <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoSeguroClamped.toFixed(1)}%;background:${atingimentoSeguroColor};`}></div>
-          </div>
-          <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguro.toFixed(1)}% meta</p>
-        </div>
+      {#if loading}
+        <div class="mt-1 h-7 w-28 animate-pulse rounded bg-slate-200"></div>
+        <div class="mt-1.5 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
       {:else}
-        <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro</p>
+        <p class="truncate text-lg font-bold text-slate-900 sm:text-2xl">{formatCurrency(vendasAgg.totalSeguro)}</p>
+        {#if metaSeguroTotal > 0}
+          <div class="mt-1.5 w-full">
+            <div class="h-1.5 w-full rounded-full bg-slate-200">
+              <div class="h-1.5 rounded-full transition-all" style={`width:${atingimentoSeguroClamped.toFixed(1)}%;background:${atingimentoSeguroColor};`}></div>
+            </div>
+            <p class="mt-0.5 text-xs text-slate-400">{atingimentoSeguro.toFixed(1)}% meta</p>
+          </div>
+        {:else}
+          <p class="mt-0.5 text-xs text-slate-400">Sem meta de seguro</p>
+        {/if}
       {/if}
     </div>
   </div>

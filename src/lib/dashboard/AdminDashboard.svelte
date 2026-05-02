@@ -165,32 +165,52 @@
       <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Building2 size={18} /></div>
       <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-slate-500 sm:text-sm">Empresas</p>
-        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '…' : summary?.counts?.empresas_total ?? 0}</p>
-        <p class="text-xs text-slate-400">Ativas: {summary?.counts?.empresas_ativas ?? 0}</p>
+        {#if loading}
+          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
+          <div class="mt-1 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
+        {:else}
+          <p class="text-lg font-bold text-slate-900 sm:text-2xl">{summary?.counts?.empresas_total ?? 0}</p>
+          <p class="text-xs text-slate-400">Ativas: {summary?.counts?.empresas_ativas ?? 0}</p>
+        {/if}
       </div>
     </div>
     <div class="vtur-kpi-card border-t-[3px] border-t-indigo-400">
       <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500"><Users size={18} /></div>
       <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-slate-500 sm:text-sm">Usuários</p>
-        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '…' : summary?.counts?.usuarios_total ?? 0}</p>
-        <p class="text-xs text-slate-400">Ativos: {summary?.counts?.usuarios_ativos ?? 0}</p>
+        {#if loading}
+          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
+          <div class="mt-1 h-3 w-16 animate-pulse rounded bg-slate-100"></div>
+        {:else}
+          <p class="text-lg font-bold text-slate-900 sm:text-2xl">{summary?.counts?.usuarios_total ?? 0}</p>
+          <p class="text-xs text-slate-400">Ativos: {summary?.counts?.usuarios_ativos ?? 0}</p>
+        {/if}
       </div>
     </div>
     <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
       <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><BellRing size={18} /></div>
       <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-slate-500 sm:text-sm">Avisos ativos</p>
-        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '…' : summary?.counts?.avisos_ativos ?? 0}</p>
-        <p class="text-xs text-slate-400">Templates prontos para uso</p>
+        {#if loading}
+          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
+          <div class="mt-1 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
+        {:else}
+          <p class="text-lg font-bold text-slate-900 sm:text-2xl">{summary?.counts?.avisos_ativos ?? 0}</p>
+          <p class="text-xs text-slate-400">Templates prontos para uso</p>
+        {/if}
       </div>
     </div>
     <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
       <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500"><AlertCircle size={18} /></div>
       <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-slate-500 sm:text-sm">Vínculos pendentes</p>
-        <p class="text-lg font-bold text-slate-900 sm:text-2xl">{loading ? '…' : summary?.counts?.vinculos_master_pendentes ?? 0}</p>
-        <p class="text-xs text-slate-400">Pendências de portfólio</p>
+        {#if loading}
+          <div class="mt-1 h-7 w-12 animate-pulse rounded bg-slate-200"></div>
+          <div class="mt-1 h-3 w-20 animate-pulse rounded bg-slate-100"></div>
+        {:else}
+          <p class="text-lg font-bold text-slate-900 sm:text-2xl">{summary?.counts?.vinculos_master_pendentes ?? 0}</p>
+          <p class="text-xs text-slate-400">Pendências de portfólio</p>
+        {/if}
       </div>
     </div>
   </div>

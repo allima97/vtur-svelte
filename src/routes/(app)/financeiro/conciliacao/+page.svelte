@@ -194,6 +194,7 @@
   let activeKpiView: 'visao_geral' | 'conciliados' | 'pendentes' | 'pendentes_ranking' | 'baixa_rac' | 'execucoes' = 'visao_geral';
   let loading = true;
   let running = false;
+  let fixingVinculos = false;
   let saving = false;
   let importing = false;
   let reverting = false;
@@ -591,29 +592,33 @@
 
   $: busyTitle = running
     ? 'Executando conciliação'
-    : importing
-      ? 'Importando conciliação'
-      : importLookupLoading
-        ? 'Buscando usuários nas vendas'
-        : loading
-          ? 'Carregando conciliação'
-          : operationMessage
-            ? 'Processando'
-            : '';
+    : fixingVinculos
+      ? 'Corrigindo vínculos'
+      : importing
+        ? 'Importando conciliação'
+        : importLookupLoading
+          ? 'Buscando usuários nas vendas'
+          : loading
+            ? 'Carregando conciliação'
+            : operationMessage
+              ? 'Processando'
+              : '';
 
   $: busyMessage = running
     ? 'O sistema está comparando recibos, vendas e taxas para marcar vínculos automaticamente.'
-    : importing
-      ? 'O arquivo está sendo gravado e os registros existentes serão atualizados quando necessário.'
-      : importLookupLoading
-        ? 'Estamos procurando vendedores e recibos correspondentes no sistema para preencher o ranking automaticamente.'
-        : loading
-          ? optionsLoading
-            ? 'Buscando registros, resumo, histórico e opções de vendedores/produtos.'
-            : 'Buscando registros, resumo, histórico e execuções da conciliação.'
-          : operationMessage;
+    : fixingVinculos
+      ? 'Verificando e corrigindo vínculos incorretos entre registros de conciliação e recibos de venda.'
+      : importing
+        ? 'O arquivo está sendo gravado e os registros existentes serão atualizados quando necessário.'
+        : importLookupLoading
+          ? 'Estamos procurando vendedores e recibos correspondentes no sistema para preencher o ranking automaticamente.'
+          : loading
+            ? optionsLoading
+              ? 'Buscando registros, resumo, histórico e opções de vendedores/produtos.'
+              : 'Buscando registros, resumo, histórico e execuções da conciliação.'
+            : operationMessage;
 
-  $: showBusyNotice = Boolean(busyTitle && (loading || running || importing || importLookupLoading || operationMessage));
+  $: showBusyNotice = Boolean(busyTitle && (loading || running || fixingVinculos || importing || importLookupLoading || operationMessage));
 
   async function loadAll() {
     loading = true;
@@ -1053,6 +1058,50 @@
       toast.error(error.message || 'Erro ao sanear duplicados.');
     } finally {
       running = false;
+      operationMessage = '';
+    }
+  }
+
+  async function runFixVinculos() {
+    const confirmed = window.confirm(
+      'Isso vai verificar e corrigir vínculos incorretos entre conciliação e recibos de vendas.\n\nDeseja continuar?'
+    );
+    if (!confirmed) return;
+
+    fixingVinculos = true;
+    operationMessage = 'Verificando e corrigindo vínculos incorretos da conciliação.';
+    try {
+      const response = await fetch('/api/v1/conciliacao/fix-vinculos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dryRun: false, limit: 2000 })
+      });
+      const data = await parseJson(response, 'Erro ao corrigir vínculos.');
+      const { checked = 0, incorretos = 0, corrigidos = 0 } = data;
+      addOperationLog({
+        action: 'Corrigir vínculos',
+        status: 'success',
+        message:
+          incorretos === 0
+            ? `Verificados ${checked} registros — nenhum vínculo incorreto encontrado.`
+            : `Verificados ${checked}, incorretos ${incorretos}, corrigidos ${corrigidos}.`,
+        data
+      });
+      if (incorretos === 0) {
+        toast.success(`Verificados ${checked} registros — nenhum vínculo incorreto encontrado.`);
+      } else {
+        toast.success(`Concluído: ${corrigidos} vínculo(s) incorreto(s) corrigido(s). Rode a conciliação para re-vincular.`);
+        await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
+      }
+    } catch (error: any) {
+      addOperationLog({
+        action: 'Corrigir vínculos',
+        status: 'error',
+        message: error.message || 'Erro ao corrigir vínculos.'
+      });
+      toast.error(error.message || 'Erro ao corrigir vínculos.');
+    } finally {
+      fixingVinculos = false;
       operationMessage = '';
     }
   }
@@ -1632,6 +1681,10 @@
     <Button variant="secondary" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
       <RefreshCcw size={16} class="mr-2" />
       Recalcular mês
+    </Button>
+    <Button variant="secondary" on:click={runFixVinculos} disabled={running || fixingVinculos} loading={fixingVinculos} title="Verifica e corrige vínculos incorretos entre registros de conciliação e recibos de venda">
+      <ShieldAlert size={16} class="mr-2" />
+      Corrigir vínculos
     </Button>
     <Button variant="secondary" on:click={loadAll} disabled={loading} loading={loading}>
       <RefreshCcw size={16} class="mr-2" />

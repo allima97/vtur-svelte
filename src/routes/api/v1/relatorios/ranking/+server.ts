@@ -87,6 +87,20 @@ function isDataNoPeriodo(dataStr: string | null | undefined, inicio: string, fim
   return d >= inicio && d <= fim;
 }
 
+function normalizeReceiptNumberLoose(value?: string | null) {
+  const normalized = normalizeReceiptNumber(value);
+  const digits = normalized.replace(/\D/g, '');
+  if (!digits) return normalized;
+  if (digits.length > 4) {
+    return `${digits.slice(0, 4)}${digits.slice(4).replace(/^0+/, '')}`;
+  }
+  return digits.replace(/^0+/, '') || digits;
+}
+
+function isRexturReceipt(value?: string | null) {
+  return normalizeReceiptNumber(value).includes('rextur');
+}
+
 /**
  * Montagem SIMPLIFICADA do ranking — espelha dados da conciliação + vendas manuais.
  * Prioridade: conciliação (já possui valor bruto, taxas, vendedor atribuído).
@@ -144,12 +158,17 @@ async function buildRankingSimple(
 
   // Set de recibos já linkados à conciliação — usado para dedup mais precisa
   const concLinkedReciboIds = new Set<string>();
+  const concLinkedVendaIds = new Set<string>();
   // Set de números de recibo (sem data) da conciliação — dedup independente de data
   const concReciboNumeros = new Set<string>();
+  const concReciboNumerosLoose = new Set<string>();
   for (const receipt of concReceipts) {
     if (receipt.linked_recibo_id) concLinkedReciboIds.add(String(receipt.linked_recibo_id));
+    if (receipt.linked_venda_id) concLinkedVendaIds.add(String(receipt.linked_venda_id));
     const num = normalizeReceiptNumber(receipt.documento);
     if (num) concReciboNumeros.add(num);
+    const looseNum = normalizeReceiptNumberLoose(receipt.documento);
+    if (looseNum) concReciboNumerosLoose.add(looseNum);
   }
 
   // Contadores para diagnóstico
@@ -349,10 +368,17 @@ async function buildRankingSimple(
       // Ignora recibos que já estão linkados diretamente à conciliação (mesmo que data/número diferem)
       const reciboId = String(recibo?.id || '').trim();
       if (reciboId && concLinkedReciboIds.has(reciboId)) { skippedByLinkedRecibo++; continue; }
+      const vendaId = String((row as any)?.id || '').trim();
+      if (vendaId && concLinkedVendaIds.has(vendaId) && isRexturReceipt(recibo?.numero_recibo)) {
+        skippedByLinkedRecibo++;
+        continue;
+      }
 
       const numero = normalizeReceiptNumber(recibo?.numero_recibo);
+      const numeroLoose = normalizeReceiptNumberLoose(recibo?.numero_recibo);
       // Ignora recibos cujo número já existe na conciliação (independente de data — conciliação é primária)
       if (numero && concReciboNumeros.has(numero)) { skippedByNumero++; continue; }
+      if (numeroLoose && concReciboNumerosLoose.has(numeroLoose)) { skippedByNumero++; continue; }
       const data = String(recibo?.data_venda || '').slice(0, 10);
       const key = numero && data ? `${numero}::${data}` : `venda:${(row as any).id}:${recibo.id}`;
 
