@@ -4,6 +4,9 @@ import {
   getAdminClient,
   parseIntSafe,
   requireAuthenticatedUser,
+  resolveAccessibleClientIds,
+  resolveScopedCompanyIds,
+  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -11,8 +14,7 @@ import {
   deriveClienteStatus,
   formatDocumentoDisplay,
   isBirthdayToday,
-  matchesClienteBusca,
-  resolveClienteScopedFilters
+  matchesClienteBusca
 } from '$lib/server/clientes';
 
 type ClienteBaseRow = {
@@ -81,13 +83,27 @@ export async function GET(event) {
     const pageSize = Math.min(200, parseIntSafe(searchParams.get('pageSize'), 20));
     const all = String(searchParams.get('all') || '').trim() === '1';
     const busca = String(searchParams.get('busca') || '').trim();
+    const statusQuery = String(searchParams.get('status') || '').trim().toLowerCase();
+    const estadoQuery = String(searchParams.get('estado') || '').trim().toUpperCase();
+    const tipoPessoaQuery = String(searchParams.get('tipo_pessoa') || '').trim().toUpperCase();
+    const classificacaoQuery = String(searchParams.get('classificacao') || '').trim().toUpperCase();
+    const aniversarioHojeQuery = String(searchParams.get('aniversario_hoje') || '').trim().toLowerCase();
+    const includeSummary = String(searchParams.get('include_summary') || '').trim() === '1';
+    const summaryOnly = String(searchParams.get('summary_only') || '').trim() === '1';
 
-    const { companyIds, vendedorIds, accessibleClientIds } = await resolveClienteScopedFilters(
-      client,
-      scope,
-      searchParams.get('empresa_id'),
-      searchParams.get('vendedor_ids')
-    );
+    const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
+    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const canUseCompanyScope =
+      scope.isAdmin ||
+      scope.isMaster ||
+      tipoNome.includes('MASTER') ||
+      (tipoNome.includes('GESTOR') && !String(requestedVendedorRaw || '').trim());
+
+    const accessibleClientIds = canUseCompanyScope
+      ? null
+      : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
 
     if (accessibleClientIds && accessibleClientIds.length === 0) {
       return json({
@@ -98,23 +114,44 @@ export async function GET(event) {
       });
     }
 
-    const buildClientsQuery = (clientIds?: string[]) => {
-      let clientsQuery = client
-        .from('clientes')
-        .select(
-          'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at'
-        )
-        .order('created_at', { ascending: false })
-        .limit(5000);
+    const canUseDbPagination =
+      !all &&
+      !busca &&
+      !statusQuery &&
+      !aniversarioHojeQuery &&
+      (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE);
+
+    const buildClientsQuery = (clientIds?: string[], useRange = false) => {
+      const selectFields =
+        'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at';
+      let clientsQuery = (useRange
+        ? client.from('clientes').select(selectFields, { count: 'exact' })
+        : client.from('clientes').select(selectFields)
+      ).order('created_at', { ascending: false });
+
+      if (useRange) {
+        clientsQuery = clientsQuery.range((page - 1) * pageSize, (page - 1) * pageSize + pageSize - 1);
+      } else {
+        clientsQuery = clientsQuery.limit(5000);
+      }
 
       if (clientIds) {
         clientsQuery = clientsQuery.in('id', clientIds);
+      } else if (companyIds.length > 0) {
+        clientsQuery = clientsQuery.in('company_id', companyIds);
       }
+      if (estadoQuery) clientsQuery = clientsQuery.eq('estado', estadoQuery);
+      if (tipoPessoaQuery) clientsQuery = clientsQuery.eq('tipo_pessoa', tipoPessoaQuery);
+      if (classificacaoQuery) clientsQuery = clientsQuery.eq('classificacao', classificacaoQuery);
 
       return clientsQuery;
     };
 
     const fetchClients = async () => {
+      if (canUseDbPagination) {
+        return buildClientsQuery(accessibleClientIds || undefined, true);
+      }
+
       if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
         return buildClientsQuery(accessibleClientIds || undefined);
       }
@@ -136,13 +173,16 @@ export async function GET(event) {
       };
     };
 
-    const { data: clientsData, error: clientsError } = await fetchClients();
+    const clientsResult = (await fetchClients()) as any;
+    const { data: clientsData, error: clientsError } = clientsResult;
+    const clientsCount = typeof clientsResult?.count === 'number' ? clientsResult.count : null;
     if (clientsError) {
       console.error('[clientes/list] Erro na query de clientes:', clientsError);
       throw clientsError;
     }
 
     const clientIds = ((clientsData || []) as ClienteBaseRow[]).map((row) => row.id);
+    const summaryClientIds = canUseDbPagination ? clientIds : accessibleClientIds || clientIds;
 
     const buildSalesQuery = (clientIdsFilter?: string[]) => {
       let salesQuery = client
@@ -166,12 +206,16 @@ export async function GET(event) {
     };
 
     const fetchSales = async () => {
-      if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-        return buildSalesQuery(accessibleClientIds || undefined);
+      if (summaryClientIds.length === 0) {
+        return { data: [], error: null };
+      }
+
+      if (summaryClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildSalesQuery(summaryClientIds);
       }
 
       const rows: VendaResumoRow[] = [];
-      for (const batch of chunkArray(accessibleClientIds)) {
+      for (const batch of chunkArray(summaryClientIds)) {
         const result = await buildSalesQuery(batch);
         if (result.error) {
           return { data: null, error: result.error } as typeof result;
@@ -349,17 +393,48 @@ export async function GET(event) {
       .filter((item) =>
         matchesClienteBusca(item, busca, [item.documento, item.contato, item.cidade_uf])
       )
+      .filter((item) => (statusQuery ? item.status === statusQuery : true))
+      .filter((item) => (aniversarioHojeQuery ? String(item.aniversario_hoje) === aniversarioHojeQuery : true))
       .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
 
     const paginatedItems = all
       ? items
+      : canUseDbPagination
+        ? items
       : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+
+    const total = canUseDbPagination ? Number(clientsCount || 0) : items.length;
+    const summaryBase = includeSummary
+      ? {
+          total,
+          ativos: canUseDbPagination
+            ? paginatedItems.filter((item) => item.status === 'ativo').length
+            : items.filter((item) => item.status === 'ativo').length,
+          aniversariantesHoje: canUseDbPagination
+            ? paginatedItems.filter((item) => item.aniversario_hoje).length
+            : items.filter((item) => item.aniversario_hoje).length,
+          totalCarteira: (canUseDbPagination ? paginatedItems : items).reduce((acc, item) => acc + Number(item.total_gasto || 0), 0),
+          comViagem: (canUseDbPagination ? paginatedItems : items).filter((item) => item.total_viagens > 0).length,
+          emNegociacao: (canUseDbPagination ? paginatedItems : items).filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length
+      }
+      : undefined;
+
+    if (summaryOnly) {
+      return json({
+        page,
+        pageSize,
+        total,
+        items: [],
+        ...(summaryBase ? { summary: summaryBase } : {})
+      });
+    }
 
     return json({
       page,
       pageSize,
-      total: items.length,
-      items: paginatedItems
+      total,
+      items: paginatedItems,
+      ...(summaryBase ? { summary: summaryBase } : {})
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar clientes.');

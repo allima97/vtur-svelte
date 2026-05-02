@@ -80,6 +80,11 @@ type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 're
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
+function getResultCount(result: unknown) {
+  const value = (result as { count?: unknown } | null)?.count;
+  return typeof value === 'number' ? value : null;
+}
+
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -268,7 +273,13 @@ function computeKpisFromRows(rows: VendaRow[]) {
 async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminClient>, rows: VendaRow[]) {
   if (!Array.isArray(rows) || rows.length === 0) return;
 
-  const vendaIds = Array.from(new Set(rows.map((row) => String(row?.id || '').trim()).filter(Boolean)));
+  const rowsWithoutDestination = rows.filter((row) => {
+    if (row.destinos?.nome || row.destino_cidade?.nome) return false;
+    return !getReceipts(row).some((recibo) => String(recibo?.destino_cidade?.nome || '').trim());
+  });
+  if (rowsWithoutDestination.length === 0) return;
+
+  const vendaIds = Array.from(new Set(rowsWithoutDestination.map((row) => String(row?.id || '').trim()).filter(Boolean)));
   if (vendaIds.length === 0) return;
 
   try {
@@ -390,14 +401,26 @@ async function fetchVendaRowsWithFallback(
     clienteId: string;
     scopeIsAdmin: boolean;
     accessibleClientIds: string[];
+    useRange?: boolean;
+    page?: number;
+    pageSize?: number;
   }
 ) {
   const buildBaseQuery = (selectClause: string, accessibleClientIdsOverride?: string[]) => {
-    let query = client
-      .from('vendas')
-      .select(selectClause)
-      .order('data_venda', { ascending: false })
-      .limit(5000);
+    let query = params.useRange
+      ? client
+          .from('vendas')
+          .select(selectClause, { count: 'exact' })
+          .order('data_venda', { ascending: false })
+          .range(
+            (Math.max(1, Number(params.page || 1)) - 1) * Math.max(1, Number(params.pageSize || 20)),
+            (Math.max(1, Number(params.page || 1)) - 1) * Math.max(1, Number(params.pageSize || 20)) + Math.max(1, Number(params.pageSize || 20)) - 1
+          )
+      : client
+          .from('vendas')
+          .select(selectClause)
+          .order('data_venda', { ascending: false })
+          .limit(5000);
 
     if (params.openId) query = query.eq('id', params.openId);
     if (params.inicio) query = query.gte('data_venda', params.inicio);
@@ -470,7 +493,10 @@ async function fetchVendaRowsWithFallback(
 
   const enrichedResult = await runBaseQuery(enrichedSelect);
   if (!enrichedResult.error) {
-    return Array.isArray(enrichedResult.data) ? (enrichedResult.data as unknown as VendaRow[]) : [];
+    return {
+      rows: Array.isArray(enrichedResult.data) ? (enrichedResult.data as unknown as VendaRow[]) : [],
+      count: getResultCount(enrichedResult)
+    };
   }
 
   console.warn('[vendas/list] enriched select failed, falling back to minimal select', enrichedResult.error);
@@ -506,7 +532,10 @@ async function fetchVendaRowsWithFallback(
 
   const fallbackResult = await runBaseQuery(fallbackSelect);
   if (!fallbackResult.error) {
-    return Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [];
+    return {
+      rows: Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [],
+      count: getResultCount(fallbackResult)
+    };
   }
 
   console.warn('[vendas/list] FK fallback failed, trying legacy fallback select', fallbackResult.error);
@@ -541,10 +570,13 @@ async function fetchVendaRowsWithFallback(
   const legacyFallbackResult = await runBaseQuery(legacyFallbackSelect);
   if (legacyFallbackResult.error) {
     console.error('[vendas/list] legacy fallback failed, returning empty list', legacyFallbackResult.error);
-    return [];
+    return { rows: [], count: 0 };
   }
 
-  return Array.isArray(legacyFallbackResult.data) ? (legacyFallbackResult.data as unknown as VendaRow[]) : [];
+  return {
+    rows: Array.isArray(legacyFallbackResult.data) ? (legacyFallbackResult.data as unknown as VendaRow[]) : [],
+    count: getResultCount(legacyFallbackResult)
+  };
 }
 
 export async function GET(event) {
@@ -596,7 +628,16 @@ export async function GET(event) {
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds: effectiveVendedorIds })
         : [];
 
-    const data = await fetchVendaRowsWithFallback(client, {
+    const canUseDbPagination =
+      !all &&
+      !openId &&
+      !includeKpis &&
+      !searchQuery &&
+      !statusQuery &&
+      !tipoQuery &&
+      accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE;
+
+    const dataResult = await fetchVendaRowsWithFallback(client, {
       openId,
       inicio,
       fim,
@@ -604,8 +645,12 @@ export async function GET(event) {
       vendedorIds: effectiveVendedorIds,
       clienteId,
       scopeIsAdmin: scope.isAdmin,
-      accessibleClientIds
+      accessibleClientIds,
+      useRange: canUseDbPagination,
+      page,
+      pageSize
     });
+    const data = dataResult.rows;
 
     await hydrateDestinosFromVendaIds(client, data as VendaRow[]);
 
@@ -615,7 +660,10 @@ export async function GET(event) {
       .filter((item) => (tipoQuery ? item.tipo === tipoQuery : true))
       .filter((item) => matchesBusca(item, searchQuery, campoBusca));
 
-    const payloadItems = all || openId ? items : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+    const total = canUseDbPagination ? Number(dataResult.count ?? items.length) : items.length;
+    const payloadItems = all || openId || canUseDbPagination
+      ? items
+      : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
     let vendedores: Array<{ id: string; nome_completo: string }> = [];
     if (includeVendedores) {
@@ -635,7 +683,7 @@ export async function GET(event) {
     return json({
       page,
       pageSize,
-      total: items.length,
+      total,
       items: payloadItems,
       ...(includeKpis ? { kpis: computeKpisFromRows(data as VendaRow[]) } : {}),
       ...(includeVendedores ? { vendedores } : {})

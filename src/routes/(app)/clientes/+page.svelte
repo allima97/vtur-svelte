@@ -39,7 +39,24 @@
 
   let clientes: Cliente[] = [];
   let loading = true;
+  let loadingSummary = true;
   let errorMessage: string | null = null;
+  let mounted = false;
+  let listPage = 1;
+  let listPageSize = 25;
+  let totalClientes = 0;
+  let searchTerm = '';
+  let filterValues: Record<string, string> = {};
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let requestSeq = 0;
+  let summary = {
+    total: 0,
+    ativos: 0,
+    aniversariantesHoje: 0,
+    totalCarteira: 0,
+    comViagem: 0,
+    emNegociacao: 0
+  };
 
   const columns = [
     {
@@ -134,11 +151,11 @@
     }
   ];
 
-  $: statusAtivos = clientes.filter((item) => item.status === 'ativo').length;
-  $: aniversariantesHoje = clientes.filter((item) => item.aniversario_hoje).length;
-  $: totalCarteira = clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0);
-  $: clientesComViagem = clientes.filter((item) => item.total_viagens > 0).length;
-  $: clientesEmNegociacao = clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length;
+  $: statusAtivos = summary.ativos;
+  $: aniversariantesHoje = summary.aniversariantesHoje;
+  $: totalCarteira = summary.totalCarteira;
+  $: clientesComViagem = summary.comViagem;
+  $: clientesEmNegociacao = summary.emNegociacao;
 
   $: filters = [
     {
@@ -155,14 +172,7 @@
       key: 'estado',
       label: 'Estado',
       type: 'select' as const,
-      options: Array.from(
-        new Set(
-          clientes
-            .map((cliente) => String(cliente.estado || '').trim())
-            .filter(Boolean)
-        )
-      )
-        .sort((left, right) => left.localeCompare(right, 'pt-BR'))
+      options: ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
         .map((uf) => ({ value: uf, label: uf }))
     },
     {
@@ -192,24 +202,104 @@
   ];
 
   async function loadClientes() {
+    const seq = ++requestSeq;
     loading = true;
     errorMessage = null;
 
     try {
-      const response = await fetch('/api/v1/clientes/list?all=1');
+      const params = new URLSearchParams({
+        page: String(listPage),
+        pageSize: String(listPageSize),
+        busca: searchTerm,
+        status: filterValues.status || '',
+        estado: filterValues.estado || '',
+        tipo_pessoa: filterValues.tipo_pessoa || '',
+        classificacao: filterValues.classificacao || '',
+        aniversario_hoje: filterValues.aniversario_hoje || ''
+      });
+      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
 
       const payload = await response.json();
+      if (seq !== requestSeq) return;
       clientes = Array.isArray(payload?.items) ? payload.items : [];
+      totalClientes = Number(payload?.total || clientes.length || 0);
+      void loadClientesResumo(seq);
     } catch (error) {
+      if (seq !== requestSeq) return;
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar clientes.';
       clientes = [];
+      totalClientes = 0;
       toast.error(errorMessage);
     } finally {
-      loading = false;
+      if (seq === requestSeq) loading = false;
     }
+  }
+
+  async function loadClientesResumo(seq = requestSeq) {
+    loadingSummary = true;
+    try {
+      const params = new URLSearchParams({
+        all: '1',
+        busca: searchTerm,
+        status: filterValues.status || '',
+        estado: filterValues.estado || '',
+        tipo_pessoa: filterValues.tipo_pessoa || '',
+        classificacao: filterValues.classificacao || '',
+        aniversario_hoje: filterValues.aniversario_hoje || '',
+        include_summary: '1',
+        summary_only: '1'
+      });
+      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (seq !== requestSeq) return;
+      summary = {
+        total: Number(payload?.summary?.total ?? totalClientes),
+        ativos: Number(payload?.summary?.ativos ?? clientes.filter((item) => item.status === 'ativo').length),
+        aniversariantesHoje: Number(payload?.summary?.aniversariantesHoje ?? clientes.filter((item) => item.aniversario_hoje).length),
+        totalCarteira: Number(payload?.summary?.totalCarteira ?? clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0)),
+        comViagem: Number(payload?.summary?.comViagem ?? clientes.filter((item) => item.total_viagens > 0).length),
+        emNegociacao: Number(payload?.summary?.emNegociacao ?? clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length)
+      };
+    } finally {
+      loadingSummary = false;
+    }
+  }
+
+  function scheduleLoadClientes(resetPage = false) {
+    if (!mounted) return;
+    if (resetPage) listPage = 1;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      void loadClientes();
+    }, 250);
+  }
+
+  function handleSearch(query: string) {
+    if (searchTerm === query) return;
+    searchTerm = query;
+    scheduleLoadClientes(true);
+  }
+
+  function handleFilterChange(key: string, value: string) {
+    filterValues = { ...filterValues, [key]: value };
+    scheduleLoadClientes(true);
+  }
+
+  function handlePageChange(page: number) {
+    if (listPage === page) return;
+    listPage = page;
+    void loadClientes();
+  }
+
+  function handlePageSizeChange(pageSize: number) {
+    if (listPageSize === pageSize) return;
+    listPageSize = pageSize;
+    listPage = 1;
+    void loadClientes();
   }
 
   function handleRowClick(row: Cliente) {
@@ -221,6 +311,7 @@
   }
 
   onMount(() => {
+    mounted = true;
     void loadClientes();
   });
 </script>
@@ -257,11 +348,11 @@
 {/if}
 
 <KPIGrid className="mb-6" columns={5}>
-  <KPICard title="Clientes na carteira" value={clientes.length} color="clientes" icon={Users} />
-  <KPICard title="Clientes ativos" value={statusAtivos} color="operacao" icon={Users} />
-  <KPICard title="Em negociação" value={clientesEmNegociacao} color="financeiro" icon={Clock} />
-  <KPICard title="Aniversariantes hoje" value={aniversariantesHoje} color="clientes" icon={CalendarDays} />
-  <KPICard title="Total gasto" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)} color="slate" icon={Wallet} />
+  <KPICard title="Clientes na carteira" value={summary.total || totalClientes} color="clientes" icon={Users} loading={loadingSummary} />
+  <KPICard title="Clientes ativos" value={statusAtivos} color="operacao" icon={Users} loading={loadingSummary} />
+  <KPICard title="Em negociação" value={clientesEmNegociacao} color="financeiro" icon={Clock} loading={loadingSummary} />
+  <KPICard title="Aniversariantes hoje" value={aniversariantesHoje} color="clientes" icon={CalendarDays} loading={loadingSummary} />
+  <KPICard title="Total gasto" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)} color="slate" icon={Wallet} loading={loadingSummary} />
 </KPIGrid>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
@@ -275,9 +366,17 @@
   {loading}
   title="Carteira de Clientes"
   {filters}
+  serverSide={true}
+  totalItems={totalClientes}
+  page={listPage}
+  pageSize={listPageSize}
   searchable={true}
   filterable={true}
   exportable={true}
+  onSearch={handleSearch}
+  onFilterChange={handleFilterChange}
+  onPageChange={handlePageChange}
+  onPageSizeChange={handlePageSizeChange}
   onRowClick={handleRowClick}
   onExport={handleExport}
   emptyMessage="Nenhum cliente encontrado para o escopo atual"

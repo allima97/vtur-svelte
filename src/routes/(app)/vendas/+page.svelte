@@ -43,6 +43,15 @@
   let loading = true;
   let loadingKpis = true;
   let errorMessage: string | null = null;
+  let mounted = false;
+  let listPage = 1;
+  let listPageSize = 25;
+  let totalVendas = 0;
+  let searchTerm = '';
+  let filterValues: Record<string, string> = {};
+  let vendedoresOptions: Array<{ id: string; nome_completo: string }> = [];
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let requestSeq = 0;
   let kpisMesCorrente: VendasKpis = {
     totalVendas: 0,
     totalTaxas: 0,
@@ -137,14 +146,22 @@
   let columns = columnsBase;
 
   async function loadVendas() {
+    const seq = ++requestSeq;
     loading = true;
     errorMessage = null;
 
     try {
       const payload: any = await apiGet('/api/v1/vendas/list', {
-        all: 1,
-        include_kpis: 1
+        page: listPage,
+        pageSize: listPageSize,
+        q: searchTerm,
+        status: filterValues.status || undefined,
+        tipo: filterValues.tipo || undefined,
+        vendedor_ids: filterValues.vendedor_id || undefined,
+        include_vendedores: vendedoresOptions.length === 0 ? 1 : undefined
       });
+
+      if (seq !== requestSeq) return;
 
       vendas = (Array.isArray(payload?.items) ? payload.items : []).map((v: Venda) => {
         const recibos: string[] = Array.isArray(v.recibos) ? v.recibos : [];
@@ -156,12 +173,18 @@
         });
         return { ...v, _recibos_busca: variants.join(' ') };
       });
+      totalVendas = Number(payload?.total || vendas.length || 0);
+      if (Array.isArray(payload?.vendedores)) {
+        vendedoresOptions = payload.vendedores;
+      }
     } catch (err) {
+      if (seq !== requestSeq) return;
       errorMessage = err instanceof Error ? err.message : 'Erro ao carregar vendas.';
       vendas = [];
+      totalVendas = 0;
       toast.error(errorMessage);
     } finally {
-      loading = false;
+      if (seq === requestSeq) loading = false;
     }
   }
 
@@ -206,6 +229,7 @@
   }
 
   onMount(() => {
+    mounted = true;
     void loadVendas();
     void loadKpisMesCorrente();
   });
@@ -242,22 +266,53 @@
     ...(showVendedorFilter
       ? [
           {
-            key: 'vendedor',
+            key: 'vendedor_id',
             label: 'Vendedor',
             type: 'select' as const,
-            options: Array.from(
-              new Set(
-                vendas
-                  .map((venda) => String(venda.vendedor || '').trim())
-                  .filter(Boolean)
-              )
-            )
-              .sort((left, right) => left.localeCompare(right, 'pt-BR'))
-              .map((vendedor) => ({ value: vendedor, label: vendedor }))
+            options: vendedoresOptions
+              .filter((vendedor) => String(vendedor.id || '').trim())
+              .map((vendedor) => ({
+                value: String(vendedor.id),
+                label: String(vendedor.nome_completo || 'Usuário sem nome')
+              }))
+              .sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'))
           }
         ]
       : [])
   ];
+
+  function scheduleLoadVendas(resetPage = false) {
+    if (!mounted) return;
+    if (resetPage) listPage = 1;
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      void loadVendas();
+    }, 250);
+  }
+
+  function handleSearch(query: string) {
+    if (searchTerm === query) return;
+    searchTerm = query;
+    scheduleLoadVendas(true);
+  }
+
+  function handleFilterChange(key: string, value: string) {
+    filterValues = { ...filterValues, [key]: value };
+    scheduleLoadVendas(true);
+  }
+
+  function handlePageChange(page: number) {
+    if (listPage === page) return;
+    listPage = page;
+    void loadVendas();
+  }
+
+  function handlePageSizeChange(pageSize: number) {
+    if (listPageSize === pageSize) return;
+    listPageSize = pageSize;
+    listPage = 1;
+    void loadVendas();
+  }
 
   function handleRowClick(row: Venda) {
     goto(`/vendas/${row.id}`);
@@ -324,10 +379,18 @@
   {loading}
   title="Lista de Vendas"
   {filters}
+  serverSide={true}
+  totalItems={totalVendas}
+  page={listPage}
+  pageSize={listPageSize}
   searchable={true}
   filterable={true}
   exportable={true}
   extraSearchKeys={['_recibos_busca']}
+  onSearch={handleSearch}
+  onFilterChange={handleFilterChange}
+  onPageChange={handlePageChange}
+  onPageSizeChange={handlePageSizeChange}
   onRowClick={handleRowClick}
   onExport={handleExport}
   emptyMessage="Nenhuma venda encontrada para o escopo atual"

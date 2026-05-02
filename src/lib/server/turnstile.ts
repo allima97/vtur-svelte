@@ -31,10 +31,13 @@ export async function verifyTurnstileToken(
   });
   if (remoteIp) body.set('remoteip', remoteIp);
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
-      body
+      body,
+      signal: controller.signal
     });
 
     const payload = (await res.json().catch(() => ({}))) as TurnstileVerifyResponse;
@@ -53,5 +56,7 @@ export async function verifyTurnstileToken(
       ok: false,
       message: 'Falha ao validar o desafio de segurança. Verifique a conexão e tente novamente.'
     };
+  } finally {
+    clearTimeout(timeout);
   }
 }

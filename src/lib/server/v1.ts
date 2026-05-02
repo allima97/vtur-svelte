@@ -490,8 +490,9 @@ export async function resolveAccessibleClientIds(
   }
 ) {
   const clientIds = new Set<string>();
+  const hasVendedorScope = params.vendedorIds.length > 0;
 
-  if (params.companyIds.length > 0) {
+  if (params.companyIds.length > 0 && !hasVendedorScope) {
     const { data } = await client
       .from('clientes')
       .select('id')

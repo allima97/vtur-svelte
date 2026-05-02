@@ -62,6 +62,9 @@
   export let pagination: boolean = true;
   export let pageSize: number = 10;
   export let pageSizeOptions: number[] = [10, 25, 50, 100];
+  export let serverSide: boolean = false;
+  export let totalItems: number = 0;
+  export let page: number = 1;
   export let filters: FilterOption[] = [];
   export let title: string = '';
   export let emptyMessage: string = 'Nenhum registro encontrado';
@@ -74,6 +77,9 @@
   export let onExport: (() => void) | undefined = undefined;
   export let onSearch: ((query: string) => void) | undefined = undefined;
   export let onFilterChange: ((key: string, value: any) => void) | undefined = undefined;
+  export let onPageChange: ((page: number) => void) | undefined = undefined;
+  export let onPageSizeChange: ((pageSize: number) => void) | undefined = undefined;
+  export let onSortChange: ((key: string | null, direction: SortDirection) => void) | undefined = undefined;
 
   let searchQuery = '';
   let activeFilters: Record<string, any> = {};
@@ -85,7 +91,17 @@
   let selectedRows: Set<string> = new Set();
   let selectAll = false;
 
+  $: if (serverSide && page !== currentPage) {
+    currentPage = Math.max(1, Number(page) || 1);
+  }
+
+  $: if (serverSide && pageSize !== currentPageSize) {
+    currentPageSize = Number(pageSize) || currentPageSize;
+  }
+
   $: filteredData = (() => {
+    if (serverSide) return [...data];
+
     let result = [...data];
 
     if (searchQuery) {
@@ -143,13 +159,18 @@
     return result;
   })();
 
-  $: totalPages = Math.ceil(filteredData.length / currentPageSize);
+  $: totalRecords = serverSide ? Math.max(0, Number(totalItems) || 0) : filteredData.length;
+  $: totalPages = Math.max(1, Math.ceil(totalRecords / currentPageSize));
   $: paginatedData = pagination
-    ? filteredData.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize)
+    ? serverSide
+      ? filteredData
+      : filteredData.slice((currentPage - 1) * currentPageSize, currentPage * currentPageSize)
     : filteredData;
 
   $: startIndex = (currentPage - 1) * currentPageSize + 1;
-  $: endIndex = Math.min(currentPage * currentPageSize, filteredData.length);
+  $: endIndex = serverSide
+    ? Math.min((currentPage - 1) * currentPageSize + paginatedData.length, totalRecords)
+    : Math.min(currentPage * currentPageSize, totalRecords);
 
   $: if (searchQuery || Object.keys(activeFilters).length > 0) {
     currentPage = 1;
@@ -170,6 +191,12 @@
     } else {
       sortKey = column.key;
       sortDirection = 'asc';
+    }
+
+    if (serverSide) {
+      currentPage = 1;
+      onSortChange?.(sortKey, sortDirection);
+      onPageChange?.(1);
     }
   }
 
@@ -203,6 +230,10 @@
 
   function applyFilter(key: string, value: any) {
     activeFilters = { ...activeFilters, [key]: value };
+    if (serverSide) {
+      currentPage = 1;
+      onPageChange?.(1);
+    }
     onFilterChange?.(key, value);
   }
 
@@ -213,7 +244,15 @@
   function goToPage(page: number) {
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
+      onPageChange?.(page);
     }
+  }
+
+  function handlePageSizeChange(value: string) {
+    currentPageSize = Number(value) || pageSize;
+    currentPage = 1;
+    onPageSizeChange?.(currentPageSize);
+    onPageChange?.(1);
   }
 
   function getCellValue(row: any, column: Column): string {
@@ -412,10 +451,10 @@
       </table>
     </div>
 
-    {#if pagination && filteredData.length > 0}
+    {#if pagination && totalRecords > 0}
       <div class="vtur-table-pagination">
         <div class="text-sm text-slate-500">
-          Mostrando <span class="font-medium">{startIndex}</span> a <span class="font-medium">{endIndex}</span> de <span class="font-medium">{filteredData.length}</span> registros
+          Mostrando <span class="font-medium">{startIndex}</span> a <span class="font-medium">{endIndex}</span> de <span class="font-medium">{totalRecords}</span> registros
         </div>
 
         <div class="flex items-center gap-4">
@@ -426,9 +465,7 @@
             options={pageSizeOptions.map((size) => ({ value: String(size), label: String(size) }))}
             placeholder={null}
             class_name="w-20"
-            on:change={(event) => {
-              currentPageSize = Number(getEventValue(event)) || pageSize;
-            }}
+            on:change={(event) => handlePageSizeChange(getEventValue(event))}
           />
 
           <div class="flex items-center gap-1">

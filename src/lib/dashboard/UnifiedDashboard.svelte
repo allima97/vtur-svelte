@@ -558,7 +558,6 @@
         }
       })(),
       (async () => {
-        if (!podeVerOperacao) return;
         try {
           const d = await apiGet<{ items?: Viagem[]; proximas?: any[] }>('/api/v1/dashboard/viagens', params);
           if (Array.isArray(d.items)) {
@@ -598,7 +597,6 @@
         }
       })(),
       (async () => {
-        if (!podeVerConsultoria) return;
         try {
           const d = await apiGet<{ items: Consultoria[] }>('/api/v1/dashboard/consultorias', params);
           consultorias = d.items || [];
@@ -613,8 +611,7 @@
     if (empresaSelecionada !== lastBaseCompanyId) {
       await loadBase();
     }
-    await loadDashboard();
-    await loadOperacional();
+    await Promise.all([loadDashboard(), loadOperacional()]);
   }
 
   async function salvarPreferencias() {
@@ -690,8 +687,7 @@
     }
 
     await loadBase();
-    await loadDashboard();
-    await loadOperacional();
+    await Promise.all([loadDashboard(), loadOperacional()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });

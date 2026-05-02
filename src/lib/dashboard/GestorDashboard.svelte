@@ -279,10 +279,6 @@
 
     await Promise.allSettled([
       (async () => {
-        if (!podeVerOperacao) {
-          viagens = [];
-          return;
-        }
         try {
           const data = await apiGet<{ items: Viagem[] }>('/api/v1/dashboard/viagens', params);
           viagens = data.items || [];
@@ -305,8 +301,7 @@
     if (empresaSelecionada !== lastBaseCompanyId) {
       await loadBase();
     }
-    await loadDashboard();
-    await loadOperational();
+    await Promise.all([loadDashboard(), loadOperational()]);
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
@@ -341,8 +336,7 @@
     vendedorSelecionado = params.get('vendedor_id') || '';
 
     await loadBase();
-    await loadDashboard();
-    await loadOperational();
+    await Promise.all([loadDashboard(), loadOperational()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });

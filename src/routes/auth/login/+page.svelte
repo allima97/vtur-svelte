@@ -21,6 +21,31 @@
   let turnstileWidget: { reset?: () => void } | null = null;
 
   $: turnstileEnabled = !mockMode && Boolean(String(publicEnv.PUBLIC_TURNSTILE_SITE_KEY || '').trim());
+
+  function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+      promise
+        .then(resolve)
+        .catch(reject)
+        .finally(() => clearTimeout(timeout));
+    });
+  }
+
+  async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('Tempo esgotado ao tentar entrar. Verifique sua conexão e tente novamente.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
   
   onMount(() => {
     mockMode = isMockMode();
@@ -42,6 +67,8 @@
   });
   
   async function handleLogin() {
+    if (loading) return;
+
     if (!email || !password) {
       error = 'Preencha email e senha';
       return;
@@ -80,7 +107,7 @@
         return;
       }
 
-      const res = await fetch('/api/auth/login', {
+      const res = await fetchWithTimeout('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,23 +115,34 @@
           password,
           turnstile_token: turnstileToken
         })
-      });
+      }, 20000);
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(payload.error || 'Erro ao fazer login');
+      if (!res.ok) {
+        if (res.status === 401) throw new Error('Email ou senha incorretos.');
+        if (res.status === 403) {
+          throw new Error(payload.error || 'Não foi possível validar a verificação de segurança. Tente novamente.');
+        }
+        throw new Error(payload.error || 'Erro ao fazer login. Tente novamente.');
+      }
 
       const session = payload.session;
       if (!session?.access_token || !session?.refresh_token) {
         throw new Error('Sessão não retornada pelo servidor.');
       }
 
-      const { data, error: setSessionError } = await supabase.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token
-      });
+      const setSessionResult = await withTimeout(
+        supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        }) as Promise<{ data: any; error: any }>,
+        15000,
+        'Login autenticado, mas a sessão não foi sincronizada. Recarregue a página e tente novamente.'
+      );
+      const { data, error: setSessionError } = setSessionResult;
       if (setSessionError) throw setSessionError;
 
       auth.setAuth(data.user ?? payload.user ?? null, data.session ?? session);
-      goto('/');
+      await goto('/');
     } catch (err: any) {
       error = err.message || 'Erro ao fazer login';
       if (err.message?.includes('Invalid login')) {
