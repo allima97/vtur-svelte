@@ -1,5 +1,5 @@
-import { json } from '@sveltejs/kit';
-import { currentMonthRangeISODate, monthRangeFromKey } from '$lib/date';
+import { json } from "@sveltejs/kit";
+import { currentMonthRangeISODate, monthRangeFromKey } from "$lib/date";
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
@@ -8,8 +8,13 @@ import {
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
+  toErrorResponse,
+} from "$lib/server/v1";
+import {
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
 
 type MetaProdutoInput = {
   produto_id?: string | null;
@@ -27,34 +32,34 @@ type MetaInput = {
 };
 
 function isMissingSchemaError(err: any) {
-  const code = String(err?.code || '');
-  const message = String(err?.message || '').toLowerCase();
-  const details = String(err?.details || '').toLowerCase();
+  const code = String(err?.code || "");
+  const message = String(err?.message || "").toLowerCase();
+  const details = String(err?.details || "").toLowerCase();
 
   return (
-    code === '42P01' ||
-    code === '42703' ||
-    code === 'PGRST200' ||
-    code === 'PGRST204' ||
-    code === 'PGRST205' ||
-    message.includes('does not exist') ||
-    message.includes('could not find') ||
-    details.includes('could not find')
+    code === "42P01" ||
+    code === "42703" ||
+    code === "PGRST200" ||
+    code === "PGRST204" ||
+    code === "PGRST205" ||
+    message.includes("does not exist") ||
+    message.includes("could not find") ||
+    details.includes("could not find")
   );
 }
 
 function toNumber(value: unknown) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const normalized = String(value ?? '')
-    .replace(/\s/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.');
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function normalizePeriod(value?: string | null) {
-  const raw = String(value || '').trim();
+  const raw = String(value || "").trim();
   const monthKey = raw.match(/^(\d{4})-(0[1-9]|1[0-2])$/)?.[0];
   if (monthKey) return `${monthKey}-01`;
 
@@ -68,7 +73,7 @@ function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
   const map = new Map<string, number>();
 
   (items || []).forEach((item) => {
-    const produtoId = String(item?.produto_id || '').trim();
+    const produtoId = String(item?.produto_id || "").trim();
     if (!isUuid(produtoId)) return;
 
     const valor = toNumber(item?.valor);
@@ -77,22 +82,33 @@ function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
     map.set(produtoId, (map.get(produtoId) || 0) + valor);
   });
 
-  return Array.from(map.entries()).map(([produto_id, valor]) => ({ produto_id, valor }));
+  return Array.from(map.entries()).map(([produto_id, valor]) => ({
+    produto_id,
+    valor,
+  }));
 }
 
-async function loadScopedVendedores(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+async function loadScopedVendedores(
+  client: any,
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+) {
   const sortByName = (rows: any[]) =>
     [...rows].sort((a, b) =>
-      String(a?.nome_completo || a?.email || '').localeCompare(String(b?.nome_completo || b?.email || ''), 'pt-BR')
+      String(a?.nome_completo || a?.email || "").localeCompare(
+        String(b?.nome_completo || b?.email || ""),
+        "pt-BR",
+      ),
     );
 
   if (scope.isAdmin) {
     const { data, error } = await client
-      .from('users')
-      .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
-      .eq('active', true)
-      .eq('uso_individual', false)
-      .order('nome_completo')
+      .from("users")
+      .select(
+        "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+      )
+      .eq("active", true)
+      .eq("uso_individual", false)
+      .order("nome_completo")
       .limit(5000);
 
     if (error) throw error;
@@ -100,13 +116,17 @@ async function loadScopedVendedores(client: any, scope: Awaited<ReturnType<typeo
   }
 
   if (scope.isMaster || scope.isGestor) {
-    return sortByName(await fetchRankingVendedoresByCompanyIds(client, scope.companyIds));
+    return sortByName(
+      await fetchRankingVendedoresByCompanyIds(client, scope.companyIds),
+    );
   }
 
   const { data, error } = await client
-    .from('users')
-    .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
-    .eq('id', scope.userId)
+    .from("users")
+    .select(
+      "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+    )
+    .eq("id", scope.userId)
     .maybeSingle();
 
   if (error) throw error;
@@ -115,21 +135,21 @@ async function loadScopedVendedores(client: any, scope: Awaited<ReturnType<typeo
 
 async function loadProdutosDiferenciados(client: any) {
   const fullCols =
-    'id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor';
+    "id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor";
 
   let { data, error } = await client
-    .from('tipo_produtos')
+    .from("tipo_produtos")
     .select(fullCols)
-    .eq('ativo', true)
-    .order('nome')
+    .eq("ativo", true)
+    .order("nome")
     .limit(500);
 
   if (error && isMissingSchemaError(error)) {
     const fallback = await client
-      .from('tipo_produtos')
-      .select('id, nome, tipo, ativo')
-      .eq('ativo', true)
-      .order('nome')
+      .from("tipo_produtos")
+      .select("id, nome, tipo, ativo")
+      .eq("ativo", true)
+      .order("nome")
       .limit(500);
     data = fallback.data || [];
     error = fallback.error;
@@ -138,12 +158,12 @@ async function loadProdutosDiferenciados(client: any) {
   if (error) throw error;
 
   return (data || []).filter((row: any) => {
-    const nomeTipo = `${row?.nome || ''} ${row?.tipo || ''}`.toLowerCase();
+    const nomeTipo = `${row?.nome || ""} ${row?.tipo || ""}`.toLowerCase();
     return (
-      row?.regra_comissionamento === 'diferenciado' ||
+      row?.regra_comissionamento === "diferenciado" ||
       row?.usa_meta_produto === true ||
-      row?.tipo === 'seguro' ||
-      nomeTipo.includes('seguro')
+      row?.tipo === "seguro" ||
+      nomeTipo.includes("seguro")
     );
   });
 }
@@ -152,9 +172,11 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
   if (metaIds.length === 0) return new Map<string, any[]>();
 
   const { data, error } = await client
-    .from('metas_vendedor_produto')
-    .select('id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)')
-    .in('meta_vendedor_id', metaIds);
+    .from("metas_vendedor_produto")
+    .select(
+      "id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)",
+    )
+    .in("meta_vendedor_id", metaIds);
 
   if (error) {
     if (isMissingSchemaError(error)) return new Map<string, any[]>();
@@ -163,7 +185,7 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
 
   const map = new Map<string, any[]>();
   (data || []).forEach((row: any) => {
-    const metaId = String(row?.meta_vendedor_id || '').trim();
+    const metaId = String(row?.meta_vendedor_id || "").trim();
     if (!metaId) return;
     const list = map.get(metaId) || [];
     list.push(row);
@@ -173,51 +195,66 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
   return map;
 }
 
-async function assertTargetAllowed(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>, vendedorId: string) {
+async function assertTargetAllowed(
+  client: any,
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  vendedorId: string,
+) {
   if (scope.isAdmin) return true;
   if (scope.isMaster || scope.isGestor) {
     const scopedVendedores = await loadScopedVendedores(client, scope);
-    return scopedVendedores.some((row: any) => String(row?.id || '') === vendedorId);
+    return scopedVendedores.some(
+      (row: any) => String(row?.id || "") === vendedorId,
+    );
   }
 
   return vendedorId === scope.userId;
 }
 
-async function findExistingMetaId(client: any, vendedorId: string, periodo: string) {
+async function findExistingMetaId(
+  client: any,
+  vendedorId: string,
+  periodo: string,
+) {
   let query = client
-    .from('metas_vendedor')
-    .select('id')
-    .eq('vendedor_id', vendedorId)
-    .eq('periodo', periodo)
-    .eq('scope', 'vendedor')
-    .order('created_at', { ascending: true })
+    .from("metas_vendedor")
+    .select("id")
+    .eq("vendedor_id", vendedorId)
+    .eq("periodo", periodo)
+    .eq("scope", "vendedor")
+    .order("created_at", { ascending: true })
     .limit(1);
 
   let { data, error } = await query;
 
   if (error && isMissingSchemaError(error)) {
     const fallback = await client
-      .from('metas_vendedor')
-      .select('id')
-      .eq('vendedor_id', vendedorId)
-      .eq('periodo', periodo)
+      .from("metas_vendedor")
+      .select("id")
+      .eq("vendedor_id", vendedorId)
+      .eq("periodo", periodo)
       .limit(1);
     data = fallback.data;
     error = fallback.error;
   }
 
   if (error) throw error;
-  return String(data?.[0]?.id || '');
+  return String(data?.[0]?.id || "");
 }
 
-async function upsertMeta(client: any, input: MetaInput, fallbackPeriod?: string) {
-  const targetVendedorId = String(input?.vendedor_id || '').trim();
-  if (!isUuid(targetVendedorId)) throw new Error('Vendedor inválido.');
+async function upsertMeta(
+  client: any,
+  input: MetaInput,
+  fallbackPeriod?: string,
+) {
+  const targetVendedorId = String(input?.vendedor_id || "").trim();
+  if (!isUuid(targetVendedorId)) throw new Error("Vendedor inválido.");
 
   const periodoFull = normalizePeriod(input?.periodo || fallbackPeriod);
   const metaProdutos = normalizeProdutoMetas(input?.meta_produtos);
   const totalProduto = metaProdutos.reduce((sum, item) => sum + item.valor, 0);
-  const metaDiferenciada = totalProduto > 0 ? totalProduto : toNumber(input?.meta_diferenciada);
+  const metaDiferenciada =
+    totalProduto > 0 ? totalProduto : toNumber(input?.meta_diferenciada);
 
   const payload: Record<string, any> = {
     vendedor_id: targetVendedorId,
@@ -225,40 +262,45 @@ async function upsertMeta(client: any, input: MetaInput, fallbackPeriod?: string
     meta_geral: toNumber(input?.meta_geral),
     meta_diferenciada: metaDiferenciada,
     ativo: input?.ativo !== false,
-    scope: 'vendedor'
+    scope: "vendedor",
   };
 
-  let metaId = String(input?.id || '').trim();
-  if (!isUuid(metaId)) metaId = await findExistingMetaId(client, targetVendedorId, periodoFull);
+  let metaId = String(input?.id || "").trim();
+  if (!isUuid(metaId))
+    metaId = await findExistingMetaId(client, targetVendedorId, periodoFull);
 
   const savePayload = async (row: Record<string, any>) => {
     const saveQuery = metaId
-      ? client.from('metas_vendedor').update(row).eq('id', metaId)
-      : client.from('metas_vendedor').insert(row);
+      ? client.from("metas_vendedor").update(row).eq("id", metaId)
+      : client.from("metas_vendedor").insert(row);
 
-    return saveQuery.select('id').single();
+    return saveQuery.select("id").single();
   };
 
   let { data, error } = await savePayload(payload);
-  if (error && isMissingSchemaError(error) && 'scope' in payload) {
+  if (error && isMissingSchemaError(error) && "scope" in payload) {
     const { scope: _scope, ...payloadWithoutScope } = payload;
     ({ data, error } = await savePayload(payloadWithoutScope));
   }
   if (error) throw error;
   metaId = String(data?.id || metaId);
 
-  if (!metaId) throw new Error('Meta não foi gravada.');
+  if (!metaId) throw new Error("Meta não foi gravada.");
 
-  const deleteRes = await client.from('metas_vendedor_produto').delete().eq('meta_vendedor_id', metaId);
-  if (deleteRes.error && !isMissingSchemaError(deleteRes.error)) throw deleteRes.error;
+  const deleteRes = await client
+    .from("metas_vendedor_produto")
+    .delete()
+    .eq("meta_vendedor_id", metaId);
+  if (deleteRes.error && !isMissingSchemaError(deleteRes.error))
+    throw deleteRes.error;
 
   if (metaProdutos.length > 0 && !deleteRes.error) {
     const rows = metaProdutos.map((item) => ({
       meta_vendedor_id: metaId,
       produto_id: item.produto_id,
-      valor: item.valor
+      valor: item.valor,
     }));
-    const { error } = await client.from('metas_vendedor_produto').insert(rows);
+    const { error } = await client.from("metas_vendedor_produto").insert(rows);
     if (error && !isMissingSchemaError(error)) throw error;
   }
 
@@ -272,33 +314,49 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 1, 'Sem acesso a Metas.');
+      ensureModuloAccess(
+        scope,
+        ["parametros_metas", "metas", "parametros"],
+        1,
+        "Sem acesso a Metas.",
+      );
     }
 
     const { searchParams } = event.url;
-    const vendedorId = String(searchParams.get('vendedor_id') || '').trim();
-    const periodo = normalizePeriod(searchParams.get('periodo'));
-    const monthRange = monthRangeFromKey(periodo.slice(0, 7)) || currentMonthRangeISODate();
+    const vendedorId = String(searchParams.get("vendedor_id") || "").trim();
+    const periodo = normalizePeriod(searchParams.get("periodo"));
+    const monthRange =
+      monthRangeFromKey(periodo.slice(0, 7)) || currentMonthRangeISODate();
 
     const scopedVendedores = await loadScopedVendedores(client, scope);
-    const scopedIds = scopedVendedores.map((row: any) => String(row?.id || '').trim()).filter(isUuid);
-    const vendedorIds = vendedorId && scopedIds.includes(vendedorId) ? [vendedorId] : scopedIds;
+    const scopedIds = scopedVendedores
+      .map((row: any) => String(row?.id || "").trim())
+      .filter(isUuid);
+    const vendedorIds =
+      vendedorId && scopedIds.includes(vendedorId) ? [vendedorId] : scopedIds;
 
     let metas: any[] = [];
     if (vendedorIds.length > 0) {
       const { data, error: queryError } = await client
-        .from('metas_vendedor')
-        .select('id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope')
-        .in('vendedor_id', vendedorIds)
-        .eq('scope', 'vendedor')
-        .gte('periodo', monthRange.inicio)
-        .lte('periodo', monthRange.fim)
-        .order('periodo', { ascending: false })
+        .from("metas_vendedor")
+        .select(
+          "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
+        )
+        .in("vendedor_id", vendedorIds)
+        .eq("scope", "vendedor")
+        .gte("periodo", monthRange.inicio)
+        .lte("periodo", monthRange.fim)
+        .order("periodo", { ascending: false })
         .limit(1000);
 
       if (queryError) {
         if (isMissingSchemaError(queryError)) {
-          return json({ items: [], vendedores: scopedVendedores, produtos: [], periodo: periodo.slice(0, 7) });
+          return json({
+            items: [],
+            vendedores: scopedVendedores,
+            produtos: [],
+            periodo: periodo.slice(0, 7),
+          });
         }
         throw queryError;
       }
@@ -306,16 +364,20 @@ export async function GET(event) {
       metas = data || [];
     }
 
-    const metaIds = metas.map((row: any) => String(row?.id || '').trim()).filter(isUuid);
+    const metaIds = metas
+      .map((row: any) => String(row?.id || "").trim())
+      .filter(isUuid);
     const produtoMetasMap = await loadProdutoMetas(client, metaIds);
-    const vendedorMap = new Map(scopedVendedores.map((row: any) => [String(row?.id || ''), row]));
+    const vendedorMap = new Map(
+      scopedVendedores.map((row: any) => [String(row?.id || ""), row]),
+    );
 
     const items = metas.map((row: any) => {
-      const detalhes = produtoMetasMap.get(String(row?.id || '')) || [];
+      const detalhes = produtoMetasMap.get(String(row?.id || "")) || [];
       return {
         ...row,
-        vendedor: vendedorMap.get(String(row?.vendedor_id || '')) || null,
-        meta_produtos: detalhes
+        vendedor: vendedorMap.get(String(row?.vendedor_id || "")) || null,
+        meta_produtos: detalhes,
       };
     });
 
@@ -325,10 +387,10 @@ export async function GET(event) {
       items,
       vendedores: scopedVendedores,
       produtos,
-      periodo: periodo.slice(0, 7)
+      periodo: periodo.slice(0, 7),
     });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar metas.');
+    return toErrorResponse(err, "Erro ao carregar metas.");
   }
 }
 
@@ -339,31 +401,62 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 2, 'Sem permissão para salvar metas.');
+      ensureModuloAccess(
+        scope,
+        ["parametros_metas", "metas", "parametros"],
+        2,
+        "Sem permissão para salvar metas.",
+      );
     }
 
     const body = await event.request.json();
-    const inputs: MetaInput[] = Array.isArray(body?.items) ? body.items : [body];
-    if (inputs.length === 0) return json({ error: 'Nenhuma meta informada.' }, { status: 400 });
+    const inputs: MetaInput[] = Array.isArray(body?.items)
+      ? body.items
+      : [body];
+    if (inputs.length === 0)
+      return json({ error: "Nenhuma meta informada." }, { status: 400 });
 
     const scopedVendedores = await loadScopedVendedores(client, scope);
-    const allowedIds = new Set(scopedVendedores.map((row: any) => String(row?.id || '').trim()).filter(isUuid));
+    const allowedIds = new Set(
+      scopedVendedores
+        .map((row: any) => String(row?.id || "").trim())
+        .filter(isUuid),
+    );
     const fallbackPeriod = normalizePeriod(body?.periodo);
     const ids: string[] = [];
 
     for (const input of inputs) {
-      const targetVendedorId = String(input?.vendedor_id || '').trim();
-      if (!isUuid(targetVendedorId)) return json({ error: 'Vendedor inválido.' }, { status: 400 });
+      const targetVendedorId = String(input?.vendedor_id || "").trim();
+      if (!isUuid(targetVendedorId))
+        return json({ error: "Vendedor inválido." }, { status: 400 });
 
-      const allowed = scope.isAdmin || allowedIds.has(targetVendedorId) || (await assertTargetAllowed(client, scope, targetVendedorId));
-      if (!allowed) return json({ error: 'Vendedor fora do seu escopo.' }, { status: 403 });
+      const allowed =
+        scope.isAdmin ||
+        allowedIds.has(targetVendedorId) ||
+        (await assertTargetAllowed(client, scope, targetVendedorId));
+      if (!allowed)
+        return json({ error: "Vendedor fora do seu escopo." }, { status: 403 });
 
       ids.push(await upsertMeta(client, input, fallbackPeriod));
     }
 
+    invalidateReadModelCache({
+      tags: [
+        READ_MODEL_TAGS.metas,
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.ranking,
+        READ_MODEL_TAGS.comissoes,
+        ...scopeCacheTags({
+          vendedorIds: inputs
+            .map((input) => String(input?.vendedor_id || "").trim())
+            .filter(Boolean),
+        }),
+      ],
+    });
+
     return json({ ok: true, ids, id: ids[0] || null });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao salvar meta.');
+    return toErrorResponse(err, "Erro ao salvar meta.");
   }
 }
 
@@ -374,30 +467,50 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['parametros_metas', 'metas', 'parametros'], 3, 'Sem permissão para excluir metas.');
+      ensureModuloAccess(
+        scope,
+        ["parametros_metas", "metas", "parametros"],
+        3,
+        "Sem permissão para excluir metas.",
+      );
     }
 
-    const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    const id = String(event.url.searchParams.get("id") || "").trim();
+    if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400 });
 
     if (!scope.isAdmin) {
       const { data: meta, error: metaError } = await client
-        .from('metas_vendedor')
-        .select('id, vendedor_id')
-        .eq('id', id)
+        .from("metas_vendedor")
+        .select("id, vendedor_id")
+        .eq("id", id)
         .maybeSingle();
       if (metaError) throw metaError;
-      const vendedorId = String(meta?.vendedor_id || '').trim();
-      if (!vendedorId || !(await assertTargetAllowed(client, scope, vendedorId))) {
-        return json({ error: 'Meta fora do seu escopo.' }, { status: 403 });
+      const vendedorId = String(meta?.vendedor_id || "").trim();
+      if (
+        !vendedorId ||
+        !(await assertTargetAllowed(client, scope, vendedorId))
+      ) {
+        return json({ error: "Meta fora do seu escopo." }, { status: 403 });
       }
     }
 
-    const { error: deleteError } = await client.from('metas_vendedor').delete().eq('id', id);
+    const { error: deleteError } = await client
+      .from("metas_vendedor")
+      .delete()
+      .eq("id", id);
     if (deleteError) throw deleteError;
+
+    invalidateReadModelCache({
+      tags: [
+        READ_MODEL_TAGS.metas,
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.ranking,
+        READ_MODEL_TAGS.comissoes,
+      ],
+    });
 
     return json({ ok: true });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao excluir meta.');
+    return toErrorResponse(err, "Erro ao excluir meta.");
   }
 }

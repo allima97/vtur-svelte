@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json } from "@sveltejs/kit";
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
@@ -6,53 +6,56 @@ import {
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
-import type { ConciliacaoLinhaInput } from '../_types';
+  toErrorResponse,
+} from "$lib/server/v1";
+import type { ConciliacaoLinhaInput } from "../_types";
 import {
   isConciliacaoImportavel,
   normalizeConciliacaoDescricaoKey,
   buildConciliacaoMetrics,
   resolveConciliacaoStatus,
-} from '$lib/conciliacao/business';
-import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
-import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
+} from "$lib/conciliacao/business";
+import { diagnosticarLacunasCronologicas } from "$lib/server/conciliacaoReconcile";
+import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
 
 // ---------------------------------------------------------------------------
 // Helpers de número de recibo
 // ---------------------------------------------------------------------------
 
 function normalizeNumeroRecibo(value: string) {
-  return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 function onlyDigits(value?: string | null) {
-  return String(value ?? '').replace(/\D+/g, '');
+  return String(value ?? "").replace(/\D+/g, "");
 }
 
 function reciboCoreDigits(value?: string | null) {
   const digits = onlyDigits(value);
-  if (!digits) return '';
+  if (!digits) return "";
   return digits.length >= 10 ? digits.slice(-10) : digits;
 }
 
 function stripLeadingZeros(value?: string | null) {
-  const raw = String(value ?? '').replace(/^0+/, '');
-  return raw || '0';
+  const raw = String(value ?? "").replace(/^0+/, "");
+  return raw || "0";
 }
 
 function extractReciboPrefix(value?: string | null) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return '';
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
   const prefixMatch = raw.match(/^(\d{4})\D+/);
   if (prefixMatch?.[1]) return prefixMatch[1];
   const digits = onlyDigits(raw);
-  return digits.length >= 14 ? digits.slice(0, 4) : '';
+  return digits.length >= 14 ? digits.slice(0, 4) : "";
 }
 
 function numeroReciboMatches(left?: string | null, right?: string | null) {
-  const leftCompact = normalizeNumeroRecibo(String(left || ''));
-  const rightCompact = normalizeNumeroRecibo(String(right || ''));
+  const leftCompact = normalizeNumeroRecibo(String(left || ""));
+  const rightCompact = normalizeNumeroRecibo(String(right || ""));
   if (leftCompact && rightCompact && leftCompact === rightCompact) return true;
 
   const leftDigits = onlyDigits(left);
@@ -66,7 +69,11 @@ function numeroReciboMatches(left?: string | null, right?: string | null) {
 
   const leftSignificantCore = stripLeadingZeros(leftCore);
   const rightSignificantCore = stripLeadingZeros(rightCore);
-  if (!leftSignificantCore || !rightSignificantCore || leftSignificantCore !== rightSignificantCore) {
+  if (
+    !leftSignificantCore ||
+    !rightSignificantCore ||
+    leftSignificantCore !== rightSignificantCore
+  ) {
     return false;
   }
 
@@ -82,15 +89,17 @@ function matches(a: number, b: number) {
 
 function isRexturImportLine(linha: ConciliacaoLinhaInput) {
   return (
-    normalizeNumeroRecibo(linha.documento) === 'REXTUR' ||
-    String(linha.origem || '').toLowerCase().includes('rextur')
+    normalizeNumeroRecibo(linha.documento) === "REXTUR" ||
+    String(linha.origem || "")
+      .toLowerCase()
+      .includes("rextur")
   );
 }
 
 function normalizeRexturLocalizador(value?: string | null) {
-  return String(value || '')
+  return String(value || "")
     .trim()
-    .replace(/^REXTUR[\s-]*/i, '')
+    .replace(/^REXTUR[\s-]*/i, "")
     .toUpperCase();
 }
 
@@ -125,30 +134,34 @@ async function fetchReciboCandidates(params: {
   const [normResp, exactResp, fuzzyResp] = await Promise.all([
     numeroNormalizado
       ? client
-          .from('vendas_recibos')
-          .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
-          .eq('numero_recibo_normalizado', numeroNormalizado)
+          .from("vendas_recibos")
+          .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
+          .eq("numero_recibo_normalizado", numeroNormalizado)
           .limit(30)
       : Promise.resolve({ data: [] as any[] }),
     numero
       ? client
-          .from('vendas_recibos')
-          .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
-          .eq('numero_recibo', numero)
+          .from("vendas_recibos")
+          .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
+          .eq("numero_recibo", numero)
           .limit(30)
       : Promise.resolve({ data: [] as any[] }),
     token && token.length >= 5
       ? client
-          .from('vendas_recibos')
-          .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
-          .ilike('numero_recibo', `%${token}%`)
+          .from("vendas_recibos")
+          .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
+          .ilike("numero_recibo", `%${token}%`)
           .limit(50)
-      : Promise.resolve({ data: [] as any[] })
+      : Promise.resolve({ data: [] as any[] }),
   ]);
 
-  for (const row of [...(normResp?.data || []), ...(exactResp?.data || []), ...(fuzzyResp?.data || [])]) {
-    const id = String(row?.id || '').trim();
-    const vendaId = String(row?.venda_id || '').trim();
+  for (const row of [
+    ...(normResp?.data || []),
+    ...(exactResp?.data || []),
+    ...(fuzzyResp?.data || []),
+  ]) {
+    const id = String(row?.id || "").trim();
+    const vendaId = String(row?.venda_id || "").trim();
     if (!id || !vendaId) continue;
     if (!numeroReciboMatches(numero, row?.numero_recibo)) continue;
     byId.set(id, {
@@ -157,7 +170,7 @@ async function fetchReciboCandidates(params: {
       vendedor_id: null,
       numero_recibo: row?.numero_recibo ?? null,
       valor_total: row?.valor_total ?? null,
-      valor_taxas: row?.valor_taxas ?? null
+      valor_taxas: row?.valor_taxas ?? null,
     });
   }
 
@@ -166,18 +179,21 @@ async function fetchReciboCandidates(params: {
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
   const { data: vendas } = await client
-    .from('vendas')
-    .select('id, company_id, vendedor_id')
-    .in('id', vendaIds)
-    .eq('company_id', companyId);
+    .from("vendas")
+    .select("id, company_id, vendedor_id")
+    .in("id", vendaIds)
+    .eq("company_id", companyId);
 
-  const vendaMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
+  const vendaMap = new Map<
+    string,
+    { company_id: string | null; vendedor_id: string | null }
+  >();
   for (const row of vendas || []) {
-    const id = String((row as any)?.id || '').trim();
+    const id = String((row as any)?.id || "").trim();
     if (!id) continue;
     vendaMap.set(id, {
-      company_id: String((row as any)?.company_id || '').trim() || null,
-      vendedor_id: String((row as any)?.vendedor_id || '').trim() || null
+      company_id: String((row as any)?.company_id || "").trim() || null,
+      vendedor_id: String((row as any)?.vendedor_id || "").trim() || null,
     });
   }
 
@@ -185,7 +201,7 @@ async function fetchReciboCandidates(params: {
     .filter((row) => Boolean(vendaMap.get(row.venda_id)?.company_id))
     .map((row) => ({
       ...row,
-      vendedor_id: vendaMap.get(row.venda_id)?.vendedor_id || null
+      vendedor_id: vendaMap.get(row.venda_id)?.vendedor_id || null,
     }));
 }
 
@@ -196,12 +212,12 @@ async function findReciboByNumero(params: {
   valorLancamento?: number | null;
   valorTaxas?: number | null;
 }) {
-  const numero = String(params.numero || '').trim();
+  const numero = String(params.numero || "").trim();
   if (!numero) return null;
   const rows = await fetchReciboCandidates({
     client: params.client,
     numero,
-    companyId: params.companyId
+    companyId: params.companyId,
   });
 
   if (rows.length === 0) return null;
@@ -209,10 +225,14 @@ async function findReciboByNumero(params: {
   const targetTotal = Number(params.valorLancamento || 0);
   const targetTaxas = Number(params.valorTaxas || 0);
 
-  const reciboExato = rows.find((item: any) => String(item?.numero_recibo || '').trim() === numero);
+  const reciboExato = rows.find(
+    (item: any) => String(item?.numero_recibo || "").trim() === numero,
+  );
   if (reciboExato) return { recibo: reciboExato };
 
-  const compativeis = rows.filter((item: any) => numeroReciboMatches(numero, item?.numero_recibo));
+  const compativeis = rows.filter((item: any) =>
+    numeroReciboMatches(numero, item?.numero_recibo),
+  );
   if (compativeis.length === 0) return null;
 
   const ranked = [...compativeis].sort((a: any, b: any) => {
@@ -224,8 +244,16 @@ async function findReciboByNumero(params: {
     return aTaxDiff - bTaxDiff;
   });
 
-  const porValor = ranked.filter((item: any) => (params.valorLancamento == null ? true : matches(Number(item?.valor_total || 0), targetTotal)));
-  const porTaxas = porValor.filter((item: any) => (params.valorTaxas == null ? true : matches(Number(item?.valor_taxas || 0), targetTaxas)));
+  const porValor = ranked.filter((item: any) =>
+    params.valorLancamento == null
+      ? true
+      : matches(Number(item?.valor_total || 0), targetTotal),
+  );
+  const porTaxas = porValor.filter((item: any) =>
+    params.valorTaxas == null
+      ? true
+      : matches(Number(item?.valor_taxas || 0), targetTaxas),
+  );
 
   const escolhido =
     (porTaxas.length === 1 ? porTaxas[0] : null) ||
@@ -246,21 +274,25 @@ async function findRexturReciboByReserva(params: {
   if (!localizador) return null;
 
   const { data: rows } = await params.client
-    .from('vendas_recibos')
-    .select('id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas')
-    .eq('numero_recibo', 'REXTUR')
-    .or(`numero_reserva.eq.${localizador},numero_reserva.eq.REXTUR-${localizador},numero_reserva.ilike.${localizador},numero_reserva.ilike.REXTUR-${localizador}`)
+    .from("vendas_recibos")
+    .select(
+      "id, venda_id, numero_recibo, numero_reserva, valor_total, valor_taxas",
+    )
+    .eq("numero_recibo", "REXTUR")
+    .or(
+      `numero_reserva.eq.${localizador},numero_reserva.eq.REXTUR-${localizador},numero_reserva.ilike.${localizador},numero_reserva.ilike.REXTUR-${localizador}`,
+    )
     .limit(20);
 
   const recibos = (rows || [])
     .map((row: any) => ({
-      id: String(row?.id || '').trim(),
-      venda_id: String(row?.venda_id || '').trim(),
+      id: String(row?.id || "").trim(),
+      venda_id: String(row?.venda_id || "").trim(),
       numero_recibo: row?.numero_recibo ?? null,
       numero_reserva: row?.numero_reserva ?? null,
       valor_total: row?.valor_total ?? null,
       valor_taxas: row?.valor_taxas ?? null,
-      vendedor_id: null as string | null
+      vendedor_id: null as string | null,
     }))
     .filter((row: any) => row.id && row.venda_id);
 
@@ -268,20 +300,27 @@ async function findRexturReciboByReserva(params: {
 
   const vendaIds = Array.from(new Set(recibos.map((row: any) => row.venda_id)));
   const { data: vendas } = await params.client
-    .from('vendas')
-    .select('id, company_id, vendedor_id')
-    .in('id', vendaIds)
-    .eq('company_id', params.companyId);
+    .from("vendas")
+    .select("id, company_id, vendedor_id")
+    .in("id", vendaIds)
+    .eq("company_id", params.companyId);
 
   const vendaMap = new Map<string, string | null>();
   for (const venda of vendas || []) {
-    const id = String((venda as any)?.id || '').trim();
-    if (id) vendaMap.set(id, String((venda as any)?.vendedor_id || '').trim() || null);
+    const id = String((venda as any)?.id || "").trim();
+    if (id)
+      vendaMap.set(
+        id,
+        String((venda as any)?.vendedor_id || "").trim() || null,
+      );
   }
 
   const candidatos = recibos
     .filter((row: any) => vendaMap.has(row.venda_id))
-    .map((row: any) => ({ ...row, vendedor_id: vendaMap.get(row.venda_id) || null }));
+    .map((row: any) => ({
+      ...row,
+      vendedor_id: vendaMap.get(row.venda_id) || null,
+    }));
 
   if (candidatos.length === 0) return null;
   if (candidatos.length === 1) return { recibo: candidatos[0] };
@@ -289,10 +328,14 @@ async function findRexturReciboByReserva(params: {
   const targetTotal = Number(params.valorLancamento || 0);
   const targetTaxas = Number(params.valorTaxas || 0);
   const porValor = candidatos.filter((item: any) =>
-    params.valorLancamento == null ? true : matches(Number(item?.valor_total || 0), targetTotal)
+    params.valorLancamento == null
+      ? true
+      : matches(Number(item?.valor_total || 0), targetTotal),
   );
   const porTaxas = porValor.filter((item: any) =>
-    params.valorTaxas == null ? true : matches(Number(item?.valor_taxas || 0), targetTaxas)
+    params.valorTaxas == null
+      ? true
+      : matches(Number(item?.valor_taxas || 0), targetTaxas),
   );
 
   const escolhido =
@@ -310,28 +353,28 @@ function buildImportKey(
   companyId: string,
   movimentoData?: string | null,
   documento?: string | null,
-  descricao?: string | null
+  descricao?: string | null,
 ) {
   return [
     companyId,
-    String(movimentoData || '').trim(),
-    String(documento || '').trim(),
-    normalizeConciliacaoDescricaoKey(descricao)
-  ].join('::');
+    String(movimentoData || "").trim(),
+    String(documento || "").trim(),
+    normalizeConciliacaoDescricaoKey(descricao),
+  ].join("::");
 }
 
 function buildRexturImportKey(
   companyId: string,
   movimentoData?: string | null,
   documento?: string | null,
-  numeroReserva?: string | null
+  numeroReserva?: string | null,
 ) {
   return [
     companyId,
-    String(movimentoData || '').trim(),
-    String(documento || '').trim(),
-    normalizeRexturLocalizador(numeroReserva)
-  ].join('::');
+    String(movimentoData || "").trim(),
+    String(documento || "").trim(),
+    normalizeRexturLocalizador(numeroReserva),
+  ].join("::");
 }
 
 /** Chave sem descrição — usada no fallbackMap para capturar o mesmo recibo
@@ -339,13 +382,13 @@ function buildRexturImportKey(
 function buildImportFallbackKey(
   companyId: string,
   movimentoData?: string | null,
-  documento?: string | null
+  documento?: string | null,
 ) {
   return [
     companyId,
-    String(movimentoData || '').trim(),
-    String(documento || '').trim()
-  ].join('::');
+    String(movimentoData || "").trim(),
+    String(documento || "").trim(),
+  ].join("::");
 }
 
 // ---------------------------------------------------------------------------
@@ -359,85 +402,123 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão para importar conciliação.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_conciliacao", "conciliacao"],
+        3,
+        "Sem permissão para importar conciliação.",
+      );
     }
 
     const body = await event.request.json();
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
     const companyId = companyIds[0] || scope.companyId;
 
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId)
+      return json({ error: "Empresa não identificada." }, { status: 400 });
 
-    const linhas: ConciliacaoLinhaInput[] = Array.isArray(body?.linhas) ? body.linhas : [];
-    if (linhas.length === 0) return json({ error: 'Nenhuma linha para importar.' }, { status: 400 });
+    const linhas: ConciliacaoLinhaInput[] = Array.isArray(body?.linhas)
+      ? body.linhas
+      : [];
+    if (linhas.length === 0)
+      return json({ error: "Nenhuma linha para importar." }, { status: 400 });
 
     // Filtra apenas linhas importáveis (BAIXA / OPFAX / ESTORNO)
     const importaveis = linhas.filter((linha) =>
-      isConciliacaoImportavel({ status: linha.status, descricao: linha.descricao })
+      isConciliacaoImportavel({
+        status: linha.status,
+        descricao: linha.descricao,
+      }),
     );
 
     if (importaveis.length === 0) {
-      return json({ ok: true, importados: 0, ignorados: linhas.length, message: 'Nenhuma linha com status importável (BAIXA/OPFAX/ESTORNO).' });
+      return json({
+        ok: true,
+        importados: 0,
+        ignorados: linhas.length,
+        message: "Nenhuma linha com status importável (BAIXA/OPFAX/ESTORNO).",
+      });
     }
 
     // ── Validação: todas as linhas precisam ter data de movimento ─────────
-    const semDataMovimento = importaveis.filter((linha) => !String(linha.movimento_data || '').trim());
+    const semDataMovimento = importaveis.filter(
+      (linha) => !String(linha.movimento_data || "").trim(),
+    );
     if (semDataMovimento.length > 0) {
       return json(
         {
-          error: 'Data do movimento não identificada no arquivo. A importação não grava a data atual como fallback.',
-          sem_data_movimento: semDataMovimento.length
+          error:
+            "Data do movimento não identificada no arquivo. A importação não grava a data atual como fallback.",
+          sem_data_movimento: semDataMovimento.length,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // ── Validação: datas marcadas como "sem movimento" não podem receber importação ──
-    const datasImportaveis = Array.from(new Set(importaveis.map((l) => String(l.movimento_data || '').trim()))).filter(Boolean);
+    const datasImportaveis = Array.from(
+      new Set(importaveis.map((l) => String(l.movimento_data || "").trim())),
+    ).filter(Boolean);
     let diasSemMovimento: any[] = [];
     try {
       const { data } = await client
-        .from('conciliacao_dias_sem_movimento')
-        .select('data')
-        .eq('company_id', companyId)
-        .in('data', datasImportaveis);
+        .from("conciliacao_dias_sem_movimento")
+        .select("data")
+        .eq("company_id", companyId)
+        .in("data", datasImportaveis);
       diasSemMovimento = data || [];
     } catch (err: any) {
-      const msg = String(err?.message || err || '').toLowerCase();
-      const code = String(err?.code || '').trim();
-      const isMissing = code === '42P01' || msg.includes('does not exist') || msg.includes('could not find') || msg.includes('conciliacao_dias_sem_movimento');
+      const msg = String(err?.message || err || "").toLowerCase();
+      const code = String(err?.code || "").trim();
+      const isMissing =
+        code === "42P01" ||
+        msg.includes("does not exist") ||
+        msg.includes("could not find") ||
+        msg.includes("conciliacao_dias_sem_movimento");
       if (!isMissing) throw err;
     }
 
-    const datasBloqueadas = diasSemMovimento.map((r: any) => String(r?.data || '')).filter(Boolean);
+    const datasBloqueadas = diasSemMovimento
+      .map((r: any) => String(r?.data || ""))
+      .filter(Boolean);
     if (datasBloqueadas.length > 0) {
       const fmt = (d: string) => {
-        const [y, m, dia] = d.split('-');
+        const [y, m, dia] = d.split("-");
         return `${dia}/${m}/${y}`;
       };
       return json(
         {
-          error: `Não é possível importar arquivo(s) para data(s) já marcada(s) como "sem movimento": ${datasBloqueadas.map(fmt).join(', ')}.`,
-          datas_bloqueadas: datasBloqueadas
+          error: `Não é possível importar arquivo(s) para data(s) já marcada(s) como "sem movimento": ${datasBloqueadas.map(fmt).join(", ")}.`,
+          datas_bloqueadas: datasBloqueadas,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     // ── Busca registros já existentes (exactMap + fallbackMap) ────────────
     const { data: existentes } = await client
-      .from('conciliacao_recibos')
-      .select('id, documento, numero_reserva, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id')
-      .eq('company_id', companyId)
-      .in('documento', importaveis.map((l) => l.documento))
+      .from("conciliacao_recibos")
+      .select(
+        "id, documento, numero_reserva, movimento_data, descricao, ranking_vendedor_id, ranking_produto_id, venda_id, venda_recibo_id",
+      )
+      .eq("company_id", companyId)
+      .in(
+        "documento",
+        importaveis.map((l) => l.documento),
+      )
       .limit(5000);
 
     // Mapa exato: chave = companyId::data::documento::descricao
     const existentesByKey = new Map<string, any>(
       (existentes || []).map((row: any) => [
-        buildImportKey(companyId, row.movimento_data, row.documento, row.descricao),
-        row
-      ])
+        buildImportKey(
+          companyId,
+          row.movimento_data,
+          row.documento,
+          row.descricao,
+        ),
+        row,
+      ]),
     );
 
     const existentesRexturByKey = new Map<string, any>();
@@ -445,8 +526,13 @@ export async function POST(event) {
       const reserva = normalizeRexturLocalizador((row as any)?.numero_reserva);
       if (!reserva) continue;
       existentesRexturByKey.set(
-        buildRexturImportKey(companyId, (row as any).movimento_data, (row as any).documento, reserva),
-        row
+        buildRexturImportKey(
+          companyId,
+          (row as any).movimento_data,
+          (row as any).documento,
+          reserva,
+        ),
+        row,
       );
     }
 
@@ -454,7 +540,11 @@ export async function POST(event) {
     // Usado quando a descrição mudou levemente entre importações (evita duplicatas)
     const existentesByFallbackKey = new Map<string, any[]>();
     for (const row of existentes || []) {
-      const fk = buildImportFallbackKey(companyId, (row as any).movimento_data, (row as any).documento);
+      const fk = buildImportFallbackKey(
+        companyId,
+        (row as any).movimento_data,
+        (row as any).documento,
+      );
       const bucket = existentesByFallbackKey.get(fk) || [];
       bucket.push(row);
       existentesByFallbackKey.set(fk, bucket);
@@ -465,11 +555,11 @@ export async function POST(event) {
     const equipeVturId = equipeVturVendedor?.id ?? null;
     const rankingVendedorPermitidos = new Set(
       (await fetchRankingVendedoresByCompanyIds(client, [companyId]))
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean)
+        .map((row: any) => String(row?.id || "").trim())
+        .filter(Boolean),
     );
     const sanitizeRankingVendedorId = (value?: unknown) => {
-      const id = String(value || '').trim() || null;
+      const id = String(value || "").trim() || null;
       if (!id) return null;
       if (equipeVturId && id === equipeVturId) return null;
       return rankingVendedorPermitidos.has(id) ? id : null;
@@ -498,8 +588,9 @@ export async function POST(event) {
       });
 
       let rankingVendedorId = sanitizeRankingVendedorId(l.ranking_vendedor_id);
-      let vendaId = String((l as any).venda_id || '').trim() || null;
-      let vendaReciboId = String((l as any).venda_recibo_id || '').trim() || null;
+      let vendaId = String((l as any).venda_id || "").trim() || null;
+      let vendaReciboId =
+        String((l as any).venda_recibo_id || "").trim() || null;
 
       if (!rankingVendedorId || !vendaReciboId || !vendaId) {
         const found = isRexturImportLine(l)
@@ -508,32 +599,36 @@ export async function POST(event) {
               companyId,
               valorLancamento: l.valor_lancamentos ?? null,
               valorTaxas: l.valor_taxas ?? null,
-              client
+              client,
             })
           : await findReciboByNumero({
               numero: l.documento,
               companyId,
               valorLancamento: l.valor_lancamentos ?? null,
               valorTaxas: l.valor_taxas ?? null,
-              client
+              client,
             });
 
         if (found?.recibo) {
-          const vendedorIdCandidato = String(found.recibo.vendedor_id || '').trim() || null;
+          const vendedorIdCandidato =
+            String(found.recibo.vendedor_id || "").trim() || null;
           // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
-          const vendedorIdValido = sanitizeRankingVendedorId(vendedorIdCandidato);
+          const vendedorIdValido =
+            sanitizeRankingVendedorId(vendedorIdCandidato);
           rankingVendedorId = rankingVendedorId || vendedorIdValido;
-          vendaId = vendaId || String(found.recibo.venda_id || '').trim() || null;
-          vendaReciboId = vendaReciboId || String(found.recibo.id || '').trim() || null;
+          vendaId =
+            vendaId || String(found.recibo.venda_id || "").trim() || null;
+          vendaReciboId =
+            vendaReciboId || String(found.recibo.id || "").trim() || null;
         }
       }
 
       return {
         company_id: companyId,
-        documento: String(l.documento || '').trim(),
-        movimento_data: String(l.movimento_data || '').trim(),
+        documento: String(l.documento || "").trim(),
+        movimento_data: String(l.movimento_data || "").trim(),
         status: statusResolvido,
-        descricao: String(l.descricao || '').trim() || null,
+        descricao: String(l.descricao || "").trim() || null,
         descricao_chave: metrics.descricaoChave || null,
         valor_lancamentos: l.valor_lancamentos ?? null,
         valor_taxas: l.valor_taxas ?? null,
@@ -550,11 +645,11 @@ export async function POST(event) {
         faixa_comissao: metrics.faixaComissao,
         is_seguro_viagem: metrics.isSeguroViagem,
         ranking_vendedor_id: rankingVendedorId,
-        ranking_produto_id: String(l.ranking_produto_id || '').trim() || null,
+        ranking_produto_id: String(l.ranking_produto_id || "").trim() || null,
         venda_id: vendaId,
         venda_recibo_id: vendaReciboId,
         numero_reserva: normalizeRexturLocalizador(l.numero_reserva) || null,
-        origem: String(l.origem || 'manual').trim(),
+        origem: String(l.origem || "manual").trim(),
         conciliado: false,
       };
     };
@@ -577,7 +672,7 @@ export async function POST(event) {
       const row = await buildRow(l);
 
       // Detecta diferenças entre importação e venda existente
-      const vendaReciboIdLinked = String(row.venda_recibo_id || '').trim();
+      const vendaReciboIdLinked = String(row.venda_recibo_id || "").trim();
       if (vendaReciboIdLinked) {
         const importTotal = Number(l.valor_lancamentos || 0);
         const importTaxas = Number(l.valor_taxas || 0);
@@ -587,18 +682,29 @@ export async function POST(event) {
 
       // 1ª tentativa: chave exata (inclui descrição normalizada)
       const rexturKey = isRexturImportLine(l)
-        ? buildRexturImportKey(companyId, l.movimento_data, l.documento, l.numero_reserva)
-        : '';
+        ? buildRexturImportKey(
+            companyId,
+            l.movimento_data,
+            l.documento,
+            l.numero_reserva,
+          )
+        : "";
       let existing: any =
         (rexturKey ? existentesRexturByKey.get(rexturKey) : null) ||
-        existentesByKey.get(buildImportKey(companyId, l.movimento_data, l.documento, l.descricao)) ||
+        existentesByKey.get(
+          buildImportKey(companyId, l.movimento_data, l.documento, l.descricao),
+        ) ||
         null;
 
       // 2ª tentativa: chave fallback (sem descrição) — evita duplicatas por variação de descrição
       if (!existing && shouldUseFallbackDedup(l)) {
-        const fk = buildImportFallbackKey(companyId, l.movimento_data, l.documento);
+        const fk = buildImportFallbackKey(
+          companyId,
+          l.movimento_data,
+          l.documento,
+        );
         const candidates = (existentesByFallbackKey.get(fk) || []).filter(
-          (c: any) => !usedExistingIds.has(String(c.id))
+          (c: any) => !usedExistingIds.has(String(c.id)),
         );
         if (candidates.length > 0) {
           // Prefere o registro com mesmos valores financeiros; fallback: o mais recente (primeiro)
@@ -615,10 +721,14 @@ export async function POST(event) {
           values: {
             ...values,
             // Preserva atribuições manuais de vendedor/produto/venda já existentes
-            ranking_vendedor_id: sanitizeRankingVendedorId(values.ranking_vendedor_id ?? existing.ranking_vendedor_id),
-            ranking_produto_id: values.ranking_produto_id ?? existing.ranking_produto_id ?? null,
+            ranking_vendedor_id: sanitizeRankingVendedorId(
+              values.ranking_vendedor_id ?? existing.ranking_vendedor_id,
+            ),
+            ranking_produto_id:
+              values.ranking_produto_id ?? existing.ranking_produto_id ?? null,
             venda_id: values.venda_id ?? existing.venda_id ?? null,
-            venda_recibo_id: values.venda_recibo_id ?? existing.venda_recibo_id ?? null,
+            venda_recibo_id:
+              values.venda_recibo_id ?? existing.venda_recibo_id ?? null,
             // Reseta estado de conciliação para reprocessamento
             match_total: null,
             match_taxas: null,
@@ -627,8 +737,8 @@ export async function POST(event) {
             diff_total: null,
             diff_taxas: null,
             last_checked_at: null,
-            conciliado_em: null
-          }
+            conciliado_em: null,
+          },
         });
       } else {
         rowsToInsert.push(row);
@@ -638,33 +748,42 @@ export async function POST(event) {
     // ── Detecção de diferenças: busca valores do sistema para recibos linkados ──
     const allRows = [...rowsToInsert, ...rowsToUpdate.map((u) => u.values)];
     const reciboIdsToCheck = Array.from(
-      new Set(allRows.map((r) => String(r.venda_recibo_id || '').trim()).filter(Boolean))
+      new Set(
+        allRows
+          .map((r) => String(r.venda_recibo_id || "").trim())
+          .filter(Boolean),
+      ),
     );
     if (reciboIdsToCheck.length > 0) {
       const { data: recibosSistema } = await client
-        .from('vendas_recibos')
-        .select('id, valor_total, valor_taxas')
-        .in('id', reciboIdsToCheck);
+        .from("vendas_recibos")
+        .select("id, valor_total, valor_taxas")
+        .in("id", reciboIdsToCheck);
 
-      const reciboValorMap = new Map<string, { valor_total: number; valor_taxas: number }>();
+      const reciboValorMap = new Map<
+        string,
+        { valor_total: number; valor_taxas: number }
+      >();
       for (const r of recibosSistema || []) {
-        const id = String(r?.id || '').trim();
+        const id = String(r?.id || "").trim();
         if (id) {
           reciboValorMap.set(id, {
             valor_total: Number(r?.valor_total || 0),
-            valor_taxas: Number(r?.valor_taxas || 0)
+            valor_taxas: Number(r?.valor_taxas || 0),
           });
         }
       }
 
       for (const l of importaveis) {
-        const documento = String(l.documento || '').trim();
+        const documento = String(l.documento || "").trim();
         const reserva = normalizeRexturLocalizador(l.numero_reserva);
-        const movimentoData = String(l.movimento_data || '').trim();
+        const movimentoData = String(l.movimento_data || "").trim();
         const reciboId = allRows.find((r) => {
-          if (String(r.documento || '').trim() !== documento) return false;
-          if (String(r.movimento_data || '').trim() !== movimentoData) return false;
-          if (reserva) return normalizeRexturLocalizador(r.numero_reserva) === reserva;
+          if (String(r.documento || "").trim() !== documento) return false;
+          if (String(r.movimento_data || "").trim() !== movimentoData)
+            return false;
+          if (reserva)
+            return normalizeRexturLocalizador(r.numero_reserva) === reserva;
           return true;
         })?.venda_recibo_id;
         if (!reciboId) continue;
@@ -672,18 +791,20 @@ export async function POST(event) {
         if (!sistema) continue;
         const importTotal = Number(l.valor_lancamentos || 0);
         const importTaxas = Number(l.valor_taxas || 0);
-        const diffTotal = Math.round((importTotal - sistema.valor_total) * 100) / 100;
-        const diffTaxas = Math.round((importTaxas - sistema.valor_taxas) * 100) / 100;
+        const diffTotal =
+          Math.round((importTotal - sistema.valor_total) * 100) / 100;
+        const diffTaxas =
+          Math.round((importTaxas - sistema.valor_taxas) * 100) / 100;
         if (Math.abs(diffTotal) > 0.01 || Math.abs(diffTaxas) > 0.01) {
           diferencas.push({
-            documento: String(l.documento || '').trim(),
-            movimento_data: String(l.movimento_data || '').trim(),
+            documento: String(l.documento || "").trim(),
+            movimento_data: String(l.movimento_data || "").trim(),
             valor_importacao: importTotal,
             valor_sistema: sistema.valor_total,
             taxas_importacao: importTaxas,
             taxas_sistema: sistema.valor_taxas,
             diff_total: diffTotal,
-            diff_taxas: diffTaxas
+            diff_taxas: diffTaxas,
           });
         }
       }
@@ -693,10 +814,10 @@ export async function POST(event) {
     let atualizados = 0;
     for (const item of rowsToUpdate) {
       const { error: updateError } = await client
-        .from('conciliacao_recibos')
+        .from("conciliacao_recibos")
         .update(item.values)
-        .eq('id', item.id)
-        .eq('company_id', companyId);
+        .eq("id", item.id)
+        .eq("company_id", companyId);
       if (updateError) throw updateError;
       atualizados += 1;
     }
@@ -705,7 +826,9 @@ export async function POST(event) {
     let importados = 0;
     for (let i = 0; i < rowsToInsert.length; i += BATCH) {
       const batch = rowsToInsert.slice(i, i + BATCH);
-      const { error: insertError } = await client.from('conciliacao_recibos').insert(batch);
+      const { error: insertError } = await client
+        .from("conciliacao_recibos")
+        .insert(batch);
       if (insertError) throw insertError;
       importados += batch.length;
     }
@@ -713,10 +836,13 @@ export async function POST(event) {
     // ── Diagnóstico cronológico pós-importação ────────────────────────────
     // Informa imediatamente ao usuário se ainda há lacunas após o upload,
     // ou seja, se a conciliação ficará bloqueada por dias faltantes.
-    const diagnostico = await diagnosticarLacunasCronologicas({ client, companyId });
+    const diagnostico = await diagnosticarLacunasCronologicas({
+      client,
+      companyId,
+    });
 
     const fmt = (d: string) => {
-      const [y, m, dia] = d.split('-');
+      const [y, m, dia] = d.split("-");
       return `${dia}/${m}/${y}`;
     };
 
@@ -730,8 +856,8 @@ export async function POST(event) {
           registros_bloqueados: diagnostico.registrosBloqueados,
           aviso:
             `Arquivo salvo com sucesso, mas a conciliação está bloqueada a partir de ${fmt(diagnostico.fronteira!)}. ` +
-            `Ainda faltam os arquivos dos dias: ${diagnostico.diasFaltantes.map(fmt).join(', ')}. ` +
-            `Importe esses arquivos para liberar ${diagnostico.registrosBloqueados} registro(s) bloqueado(s).`
+            `Ainda faltam os arquivos dos dias: ${diagnostico.diasFaltantes.map(fmt).join(", ")}. ` +
+            `Importe esses arquivos para liberar ${diagnostico.registrosBloqueados} registro(s) bloqueado(s).`,
         }
       : {
           ok: true,
@@ -741,8 +867,10 @@ export async function POST(event) {
           registros_bloqueados: 0,
           aviso: diagnostico.fronteira
             ? `Sequência OK até ${fmt(diagnostico.fronteira)}. Conciliação liberada.`
-            : 'Primeiro arquivo importado.'
+            : "Primeiro arquivo importado.",
         };
+
+    invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
 
     return json({
       ok: true,
@@ -752,9 +880,9 @@ export async function POST(event) {
       duplicados: atualizados,
       status_cronologico: statusCronologico,
       diferencas: diferencas.length > 0 ? diferencas : undefined,
-      tem_diferenca: diferencas.length > 0
+      tem_diferenca: diferencas.length > 0,
     });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao importar conciliação.');
+    return toErrorResponse(err, "Erro ao importar conciliação.");
   }
 }

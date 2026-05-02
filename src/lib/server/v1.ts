@@ -1,12 +1,21 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { env as publicEnv } from '$env/dynamic/public';
-import { env as privateEnv } from '$env/dynamic/private';
-import { json, type RequestEvent } from '@sveltejs/kit';
-import { listarModulosComHeranca, MAPA_MODULOS, MODULO_ALIASES } from '$lib/config/modulos';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { env as publicEnv } from "$env/dynamic/public";
+import { env as privateEnv } from "$env/dynamic/private";
+import { json, type RequestEvent } from "@sveltejs/kit";
+import {
+  listarModulosComHeranca,
+  MAPA_MODULOS,
+  MODULO_ALIASES,
+} from "$lib/config/modulos";
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
 import {
   currentMonthRangeISODate,
-  toISODateLocal as formatISODateLocal
-} from '$lib/date';
+  toISODateLocal as formatISODateLocal,
+} from "$lib/date";
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
 class ApiError extends Error {
@@ -14,7 +23,7 @@ class ApiError extends Error {
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
@@ -22,8 +31,14 @@ function error(status: number, message: string): never {
   throw new ApiError(status, message);
 }
 
-export type Papel = 'ADMIN' | 'MASTER' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
-export type PermissaoNivel = 'none' | 'view' | 'create' | 'edit' | 'delete' | 'admin';
+export type Papel = "ADMIN" | "MASTER" | "GESTOR" | "VENDEDOR" | "OUTRO";
+export type PermissaoNivel =
+  | "none"
+  | "view"
+  | "create"
+  | "edit"
+  | "delete"
+  | "admin";
 
 export interface UserScope {
   userId: string;
@@ -64,13 +79,15 @@ export function getAdminClient() {
     const supabaseUrl = publicEnv.PUBLIC_SUPABASE_URL;
     const supabaseKey = privateEnv.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Variaveis de ambiente do Supabase nao configuradas: PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error(
+        "Variaveis de ambiente do Supabase nao configuradas: PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY",
+      );
     }
     adminClient = createClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: false,
-        autoRefreshToken: false
-      }
+        autoRefreshToken: false,
+      },
     });
   }
 
@@ -80,9 +97,9 @@ export function getAdminClient() {
 export function isUuid(value?: string | null) {
   return Boolean(
     value &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        value
-      )
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    ),
   );
 }
 
@@ -90,7 +107,7 @@ export function parseUuidList(value?: string | null, limit = 300) {
   if (!value) return [];
 
   return value
-    .split(',')
+    .split(",")
     .map((item) => item.trim())
     .filter((item) => isUuid(item))
     .slice(0, limit);
@@ -115,35 +132,35 @@ export function getMonthRange(reference?: Date) {
 
   return {
     inicio: toISODateLocal(start),
-    fim: toISODateLocal(end)
+    fim: toISODateLocal(end),
   };
 }
 
 export function normalizeText(value?: string | null) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
 }
 
 export function normalizeModulo(value?: string | null) {
-  const raw = normalizeText(value).replace(/\s+/g, '_');
-  if (!raw) return '';
+  const raw = normalizeText(value).replace(/\s+/g, "_");
+  if (!raw) return "";
   return MODULO_ALIASES[raw] || raw;
 }
 
 export function permLevel(value?: string | null) {
-  switch (String(value || '').toLowerCase()) {
-    case 'admin':
+  switch (String(value || "").toLowerCase()) {
+    case "admin":
       return 5;
-    case 'delete':
+    case "delete":
       return 4;
-    case 'edit':
+    case "edit":
       return 3;
-    case 'create':
+    case "create":
       return 2;
-    case 'view':
+    case "view":
       return 1;
     default:
       return 0;
@@ -151,66 +168,85 @@ export function permLevel(value?: string | null) {
 }
 
 export function resolveUserTypeName(
-  userTypes: { name: string | null } | { name: string | null }[] | null | undefined
+  userTypes:
+    | { name: string | null }
+    | { name: string | null }[]
+    | null
+    | undefined,
 ) {
   if (Array.isArray(userTypes)) {
-    return String(userTypes[0]?.name || '');
+    return String(userTypes[0]?.name || "");
   }
 
-  return String(userTypes?.name || '');
+  return String(userTypes?.name || "");
 }
 
 export function isTechnicalRankingUserName(value?: string | null) {
-  const normalized = normalizeText(value).replace(/\s+/g, ' ');
-  return normalized === 'baixa rac' || normalized === 'equipe vtur';
+  const normalized = normalizeText(value).replace(/\s+/g, " ");
+  return normalized === "baixa rac" || normalized === "equipe vtur";
 }
 
 export function isRankingEligibleUser(row: any) {
   if (!row?.id) return false;
   if (row?.active === false) return false;
   if (row?.uso_individual === true) return false;
-  if (isTechnicalRankingUserName(row?.nome_completo || row?.email)) return false;
+  if (isTechnicalRankingUserName(row?.nome_completo || row?.email))
+    return false;
 
   const tipoNome = resolveUserTypeName(row?.user_types).toUpperCase();
-  const isVendedor = tipoNome.includes('VENDEDOR');
-  const isGestorParticipante = tipoNome.includes('GESTOR') && Boolean(row?.participa_ranking);
+  const isVendedor = tipoNome.includes("VENDEDOR");
+  const isGestorParticipante =
+    tipoNome.includes("GESTOR") && Boolean(row?.participa_ranking);
 
   return isVendedor || isGestorParticipante;
 }
 
 export async function fetchRankingVendedoresByCompanyIds(
   client: SupabaseClient,
-  companyIds: string[]
+  companyIds: string[],
 ) {
-  const scopedCompanyIds = Array.from(new Set((companyIds || []).map((id) => String(id || '').trim()).filter(isUuid)));
+  const scopedCompanyIds = Array.from(
+    new Set(
+      (companyIds || []).map((id) => String(id || "").trim()).filter(isUuid),
+    ),
+  );
   if (scopedCompanyIds.length === 0) return [] as any[];
 
   let query = client
-    .from('users')
-    .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
-    .eq('active', true)
-    .eq('uso_individual', false)
+    .from("users")
+    .select(
+      "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+    )
+    .eq("active", true)
+    .eq("uso_individual", false)
     .limit(5000);
 
-  query = scopedCompanyIds.length === 1
-    ? query.eq('company_id', scopedCompanyIds[0])
-    : query.in('company_id', scopedCompanyIds);
+  query =
+    scopedCompanyIds.length === 1
+      ? query.eq("company_id", scopedCompanyIds[0])
+      : query.in("company_id", scopedCompanyIds);
 
   const { data, error } = await query;
   if (error) throw error;
 
   return (data || []).filter((row: any) => {
-    const companyId = String(row?.company_id || '').trim();
+    const companyId = String(row?.company_id || "").trim();
     return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
   });
 }
 
-function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>) {
+function buildPermissionsMap(
+  rows: Array<{
+    modulo: string | null;
+    permissao: string | null;
+    ativo: boolean | null;
+  }>,
+) {
   const map: Record<string, PermissaoNivel> = {};
 
   const setPerm = (key: string, incoming: PermissaoNivel) => {
     if (!key) return;
-    const current = map[key] || 'none';
+    const current = map[key] || "none";
     if (permLevel(incoming) > permLevel(current)) {
       map[key] = incoming;
     }
@@ -222,10 +258,14 @@ function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: str
     const key = normalizeModulo(row.modulo);
     if (!key) return;
 
-    const incoming = String(row.permissao || '').toLowerCase() as PermissaoNivel;
+    const incoming = String(
+      row.permissao || "",
+    ).toLowerCase() as PermissaoNivel;
     setPerm(key, incoming);
 
-    const rawModulo = String(row.modulo || '').trim().toLowerCase();
+    const rawModulo = String(row.modulo || "")
+      .trim()
+      .toLowerCase();
     if (rawModulo && rawModulo !== key) {
       setPerm(rawModulo, incoming);
     }
@@ -235,23 +275,23 @@ function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: str
 }
 
 export function resolvePapel(tipoNome: string, usoIndividual: boolean): Papel {
-  if (usoIndividual) return 'VENDEDOR';
+  if (usoIndividual) return "VENDEDOR";
 
-  const tipo = String(tipoNome || '').toUpperCase();
+  const tipo = String(tipoNome || "").toUpperCase();
 
-  if (tipo.includes('ADMIN')) return 'ADMIN';
-  if (tipo.includes('MASTER')) return 'MASTER';
-  if (tipo.includes('GESTOR')) return 'GESTOR';
-  if (tipo.includes('VENDEDOR')) return 'VENDEDOR';
+  if (tipo.includes("ADMIN")) return "ADMIN";
+  if (tipo.includes("MASTER")) return "MASTER";
+  if (tipo.includes("GESTOR")) return "GESTOR";
+  if (tipo.includes("VENDEDOR")) return "VENDEDOR";
 
-  return 'OUTRO';
+  return "OUTRO";
 }
 
 export async function requireAuthenticatedUser(event: RequestEvent) {
   const { session, user } = await event.locals.safeGetSession();
 
   if (!session || !user) {
-    throw error(401, 'Sessao invalida.');
+    throw error(401, "Sessao invalida.");
   }
 
   return user;
@@ -259,34 +299,48 @@ export async function requireAuthenticatedUser(event: RequestEvent) {
 
 async function fetchPermissions(client: SupabaseClient, userId: string) {
   const { data, error: permissionsError } = await client
-    .from('modulo_acesso')
-    .select('modulo, permissao, ativo')
-    .eq('usuario_id', userId);
+    .from("modulo_acesso")
+    .select("modulo, permissao, ativo")
+    .eq("usuario_id", userId);
 
   if (permissionsError) {
-    throw error(500, 'Erro ao carregar permissoes.');
+    throw error(500, "Erro ao carregar permissoes.");
   }
 
-  return buildPermissionsMap((data || []) as Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>);
+  return buildPermissionsMap(
+    (data || []) as Array<{
+      modulo: string | null;
+      permissao: string | null;
+      ativo: boolean | null;
+    }>,
+  );
 }
 
-export async function fetchGestorEquipeIdsComGestor(client: SupabaseClient, gestorId: string) {
+export async function fetchGestorEquipeIdsComGestor(
+  client: SupabaseClient,
+  gestorId: string,
+) {
   if (!gestorId) return [];
 
   try {
-    const { data, error: rpcError } = await client.rpc('gestor_equipe_vendedor_ids', { uid: gestorId });
+    const { data, error: rpcError } = await client.rpc(
+      "gestor_equipe_vendedor_ids",
+      { uid: gestorId },
+    );
     if (rpcError) throw rpcError;
 
     const ids = (data || [])
-      .map((row: { vendedor_id?: string | null }) => String(row?.vendedor_id || '').trim())
+      .map((row: { vendedor_id?: string | null }) =>
+        String(row?.vendedor_id || "").trim(),
+      )
       .filter(Boolean);
 
     return Array.from(new Set([gestorId, ...ids]));
   } catch {
     const { data, error: fallbackError } = await client
-      .from('gestor_vendedor')
-      .select('vendedor_id, ativo')
-      .eq('gestor_id', gestorId);
+      .from("gestor_vendedor")
+      .select("vendedor_id, ativo")
+      .eq("gestor_id", gestorId);
 
     if (fallbackError) {
       return [gestorId];
@@ -294,7 +348,9 @@ export async function fetchGestorEquipeIdsComGestor(client: SupabaseClient, gest
 
     const ids = (data || [])
       .filter((row: { ativo?: boolean | null }) => row?.ativo !== false)
-      .map((row: { vendedor_id?: string | null }) => String(row?.vendedor_id || '').trim())
+      .map((row: { vendedor_id?: string | null }) =>
+        String(row?.vendedor_id || "").trim(),
+      )
       .filter(Boolean);
 
     return Array.from(new Set([gestorId, ...ids]));
@@ -308,7 +364,7 @@ export async function fetchGestorEquipeIdsComGestor(client: SupabaseClient, gest
  */
 export async function fetchVendedorIdsByCompanyIds(
   client: SupabaseClient,
-  companyIds: string[]
+  companyIds: string[],
 ): Promise<string[]> {
   if (companyIds.length === 0) return [];
 
@@ -316,18 +372,21 @@ export async function fetchVendedorIdsByCompanyIds(
     const data = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     return (data || [])
-      .map((row: any) => String(row?.id || '').trim())
+      .map((row: any) => String(row?.id || "").trim())
       .filter(Boolean);
   } catch {
     return [];
   }
 }
 
-export async function fetchMasterEmpresas(client: SupabaseClient, masterId: string) {
+export async function fetchMasterEmpresas(
+  client: SupabaseClient,
+  masterId: string,
+) {
   const { data, error: companiesError } = await client
-    .from('master_empresas')
-    .select('company_id, status')
-    .eq('master_id', masterId);
+    .from("master_empresas")
+    .select("company_id, status")
+    .eq("master_id", masterId);
 
   if (companiesError) {
     return [];
@@ -335,22 +394,31 @@ export async function fetchMasterEmpresas(client: SupabaseClient, masterId: stri
 
   return (data || [])
     .filter((row: { status?: string | null }) => {
-      const status = String(row?.status || '').trim().toLowerCase();
-      return status !== 'rejected';
+      const status = String(row?.status || "")
+        .trim()
+        .toLowerCase();
+      return status !== "rejected";
     })
-    .map((row: { company_id?: string | null }) => String(row?.company_id || '').trim())
+    .map((row: { company_id?: string | null }) =>
+      String(row?.company_id || "").trim(),
+    )
     .filter(Boolean);
 }
 
-export async function resolveUserScope(client: SupabaseClient, userId: string): Promise<UserScope> {
+async function resolveUserScopeUncached(
+  client: SupabaseClient,
+  userId: string,
+): Promise<UserScope> {
   const { data, error: profileError } = await client
-    .from('users')
-    .select('id, company_id, nome_completo, email, uso_individual, user_types(name)')
-    .eq('id', userId)
+    .from("users")
+    .select(
+      "id, company_id, nome_completo, email, uso_individual, user_types(name)",
+    )
+    .eq("id", userId)
     .maybeSingle();
 
   if (profileError || !data) {
-    throw error(403, 'Perfil do usuario nao encontrado.');
+    throw error(403, "Perfil do usuario nao encontrado.");
   }
 
   const profile = data as UsersProfileRow;
@@ -358,18 +426,17 @@ export async function resolveUserScope(client: SupabaseClient, userId: string): 
   const usoIndividual = Boolean(profile.uso_individual);
   const papel = resolvePapel(tipoNome, usoIndividual);
   const permissoes = await fetchPermissions(client, userId);
-  const companyId = isUuid(profile.company_id) ? String(profile.company_id) : null;
+  const companyId = isUuid(profile.company_id)
+    ? String(profile.company_id)
+    : null;
 
   let companyIds: string[];
-  if (papel === 'MASTER') {
+  if (papel === "MASTER") {
     const masterEmpresas = await fetchMasterEmpresas(client, userId);
     // Fallback para Master sem master_empresas: usa o próprio company_id do perfil
     // (igual ao comportamento do vtur-app)
-    companyIds = masterEmpresas.length > 0
-      ? masterEmpresas
-      : companyId
-        ? [companyId]
-        : [];
+    companyIds =
+      masterEmpresas.length > 0 ? masterEmpresas : companyId ? [companyId] : [];
   } else {
     companyIds = companyId ? [companyId] : [];
   }
@@ -384,43 +451,64 @@ export async function resolveUserScope(client: SupabaseClient, userId: string): 
     companyId,
     companyIds,
     permissoes,
-    isAdmin: papel === 'ADMIN',
-    isMaster: papel === 'MASTER',
-    isGestor: papel === 'GESTOR',
-    isVendedor: papel === 'VENDEDOR'
+    isAdmin: papel === "ADMIN",
+    isMaster: papel === "MASTER",
+    isGestor: papel === "GESTOR",
+    isVendedor: papel === "VENDEDOR",
   };
 }
 
-export function hasModuloAccess(scope: UserScope, modulos: string[], minLevel = 1) {
+export async function resolveUserScope(
+  client: SupabaseClient,
+  userId: string,
+): Promise<UserScope> {
+  const key = buildReadModelCacheKey("user-scope", { userId });
+  return getCachedReadModel({
+    key,
+    ttlMs: 30_000,
+    tags: scopeCacheTags({ userId }),
+    loader: () => resolveUserScopeUncached(client, userId),
+  });
+}
+
+export function hasModuloAccess(
+  scope: UserScope,
+  modulos: string[],
+  minLevel = 1,
+) {
   if (scope.isAdmin) return true;
 
   const modulosConsulta = Array.from(
     new Set(
       modulos.flatMap((modulo) => {
-        const labels = listarModulosComHeranca(String(modulo || '').trim());
+        const labels = listarModulosComHeranca(String(modulo || "").trim());
         return labels.flatMap((label) => {
           const key = MAPA_MODULOS[label];
           return key ? [label, key] : [label];
         });
-      })
-    )
+      }),
+    ),
   );
 
   const allowed = new Set<string>();
   modulosConsulta.forEach((entry) => {
     const normalized = normalizeModulo(entry);
     if (normalized) allowed.add(normalized);
-    const raw = String(entry || '').trim().toLowerCase();
+    const raw = String(entry || "")
+      .trim()
+      .toLowerCase();
     if (raw) allowed.add(raw);
   });
 
   // Verifica permissões específicas
-  const hasSpecific = Object.entries(scope.permissoes).some(([modulo, permissao]) => {
-    const normalized = normalizeModulo(modulo);
-    return allowed.has(modulo) || (normalized && allowed.has(normalized))
-      ? permLevel(permissao) >= minLevel
-      : false;
-  });
+  const hasSpecific = Object.entries(scope.permissoes).some(
+    ([modulo, permissao]) => {
+      const normalized = normalizeModulo(modulo);
+      return allowed.has(modulo) || (normalized && allowed.has(normalized))
+        ? permLevel(permissao) >= minLevel
+        : false;
+    },
+  );
 
   if (hasSpecific) return true;
 
@@ -431,7 +519,7 @@ export function ensureModuloAccess(
   scope: UserScope,
   modulos: string[],
   minLevel: number,
-  message: string
+  message: string,
 ) {
   if (!hasModuloAccess(scope, modulos, minLevel)) {
     throw error(403, message);
@@ -441,7 +529,7 @@ export function ensureModuloAccess(
 export async function resolveScopedVendedorIds(
   client: SupabaseClient,
   scope: UserScope,
-  requestedRaw?: string | null
+  requestedRaw?: string | null,
 ) {
   const requestedIds = parseUuidList(requestedRaw);
 
@@ -450,7 +538,10 @@ export async function resolveScopedVendedorIds(
   }
 
   if (scope.isGestor) {
-    const companyVendedorIds = await fetchVendedorIdsByCompanyIds(client, scope.companyIds);
+    const companyVendedorIds = await fetchVendedorIdsByCompanyIds(
+      client,
+      scope.companyIds,
+    );
 
     return requestedIds.length > 0
       ? requestedIds.filter((id) => companyVendedorIds.includes(id))
@@ -464,8 +555,11 @@ export async function resolveScopedVendedorIds(
   return [scope.userId];
 }
 
-export function resolveScopedCompanyIds(scope: UserScope, requestedCompanyId?: string | null) {
-  const companyId = String(requestedCompanyId || '').trim();
+export function resolveScopedCompanyIds(
+  scope: UserScope,
+  requestedCompanyId?: string | null,
+) {
+  const companyId = String(requestedCompanyId || "").trim();
 
   if (scope.isAdmin) {
     return isUuid(companyId) ? [companyId] : [];
@@ -487,58 +581,58 @@ export async function resolveAccessibleClientIds(
   params: {
     companyIds: string[];
     vendedorIds: string[];
-  }
+  },
 ) {
   const clientIds = new Set<string>();
   const hasVendedorScope = params.vendedorIds.length > 0;
 
   if (params.companyIds.length > 0 && !hasVendedorScope) {
     const { data } = await client
-      .from('clientes')
-      .select('id')
-      .in('company_id', params.companyIds)
+      .from("clientes")
+      .select("id")
+      .in("company_id", params.companyIds)
       .limit(5000);
 
     (data || []).forEach((row: { id?: string | null }) => {
-      const id = String(row?.id || '').trim();
+      const id = String(row?.id || "").trim();
       if (id) clientIds.add(id);
     });
   }
 
   if (params.vendedorIds.length > 0) {
     const { data, error: createdByError } = await client
-      .from('clientes')
-      .select('id')
-      .in('created_by', params.vendedorIds)
+      .from("clientes")
+      .select("id")
+      .in("created_by", params.vendedorIds)
       .limit(5000);
 
     // created_by pode não existir em todos os ambientes
     if (!createdByError) {
       (data || []).forEach((row: { id?: string | null }) => {
-        const id = String(row?.id || '').trim();
+        const id = String(row?.id || "").trim();
         if (id) clientIds.add(id);
       });
     }
   }
 
   let salesQuery = client
-    .from('vendas')
-    .select('cliente_id')
-    .eq('cancelada', false)
-    .not('cliente_id', 'is', null);
+    .from("vendas")
+    .select("cliente_id")
+    .eq("cancelada", false)
+    .not("cliente_id", "is", null);
 
   if (params.companyIds.length > 0) {
-    salesQuery = salesQuery.in('company_id', params.companyIds);
+    salesQuery = salesQuery.in("company_id", params.companyIds);
   }
 
   if (params.vendedorIds.length > 0) {
-    salesQuery = salesQuery.in('vendedor_id', params.vendedorIds);
+    salesQuery = salesQuery.in("vendedor_id", params.vendedorIds);
   }
 
   const { data: salesData } = await salesQuery.limit(5000);
 
   (salesData || []).forEach((row: { cliente_id?: string | null }) => {
-    const id = String(row?.cliente_id || '').trim();
+    const id = String(row?.cliente_id || "").trim();
     if (id) clientIds.add(id);
   });
 
@@ -546,48 +640,61 @@ export async function resolveAccessibleClientIds(
 }
 
 function isHttpErrorLike(value: unknown): value is HttpErrorLike {
-  return Boolean(value && typeof value === 'object' && 'status' in value);
+  return Boolean(value && typeof value === "object" && "status" in value);
 }
 
 export function toErrorResponse(err: unknown, fallbackMessage: string) {
   // Log detalhado do erro para debug
-  console.error('[toErrorResponse] Erro capturado:', err);
-  console.error('[toErrorResponse] Tipo:', typeof err);
-  
-  if (err && typeof err === 'object') {
+  console.error("[toErrorResponse] Erro capturado:", err);
+  console.error("[toErrorResponse] Tipo:", typeof err);
+
+  if (err && typeof err === "object") {
     const errObj = err as Record<string, unknown>;
-    console.error('[toErrorResponse] Propriedades:', Object.keys(errObj));
-    console.error('[toErrorResponse] Status:', errObj.status);
-    console.error('[toErrorResponse] Body:', errObj.body);
-    console.error('[toErrorResponse] Message:', errObj.message);
+    console.error("[toErrorResponse] Propriedades:", Object.keys(errObj));
+    console.error("[toErrorResponse] Status:", errObj.status);
+    console.error("[toErrorResponse] Body:", errObj.body);
+    console.error("[toErrorResponse] Message:", errObj.message);
   }
-  
+
   if (isHttpErrorLike(err)) {
-    console.error('[toErrorResponse] Erro HTTP detectado:', err.status);
-    return json({ error: err.body?.message || fallbackMessage }, { status: err.status });
+    console.error("[toErrorResponse] Erro HTTP detectado:", err.status);
+    return json(
+      { error: err.body?.message || fallbackMessage },
+      { status: err.status },
+    );
   }
 
   // Verifica se é um erro do SvelteKit (pode ter status em outra propriedade)
-  if (err && typeof err === 'object') {
+  if (err && typeof err === "object") {
     const errObj = err as Record<string, unknown>;
-    if (typeof errObj.status === 'number') {
-      console.error('[toErrorResponse] Erro com status detectado:', errObj.status);
+    if (typeof errObj.status === "number") {
+      console.error(
+        "[toErrorResponse] Erro com status detectado:",
+        errObj.status,
+      );
       const body = errObj.body as { message?: string } | undefined;
-      return json({ error: String(body?.message || errObj.message || fallbackMessage) }, { status: errObj.status });
+      return json(
+        { error: String(body?.message || errObj.message || fallbackMessage) },
+        { status: errObj.status },
+      );
     }
   }
 
   console.error(fallbackMessage, err);
 
-  const errDetails = err && typeof err === 'object'
-    ? {
-        message: String((err as any).message || fallbackMessage),
-        code: String((err as any).code || ''),
-        details: String((err as any).details || ''),
-        hint: String((err as any).hint || ''),
-        stack: typeof (err as any).stack === 'string' ? (err as any).stack : undefined
-      }
-    : { message: fallbackMessage };
+  const errDetails =
+    err && typeof err === "object"
+      ? {
+          message: String((err as any).message || fallbackMessage),
+          code: String((err as any).code || ""),
+          details: String((err as any).details || ""),
+          hint: String((err as any).hint || ""),
+          stack:
+            typeof (err as any).stack === "string"
+              ? (err as any).stack
+              : undefined,
+        }
+      : { message: fallbackMessage };
 
   return json({ error: fallbackMessage, ...errDetails }, { status: 500 });
 }

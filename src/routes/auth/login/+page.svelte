@@ -19,8 +19,14 @@
   let sessionExpired = false;
   let turnstileToken = '';
   let turnstileWidget: { reset?: () => void } | null = null;
+  let redirectTarget = '/';
 
   $: turnstileEnabled = !mockMode && Boolean(String(publicEnv.PUBLIC_TURNSTILE_SITE_KEY || '').trim());
+
+  type LoginSession = {
+    access_token: string;
+    refresh_token: string;
+  };
 
   function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -46,6 +52,69 @@
       clearTimeout(timeout);
     }
   }
+
+  async function syncSessionOnServer(session: LoginSession) {
+    const response = await fetchWithTimeout(
+      '/api/auth/set-session',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        })
+      },
+      12000
+    );
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Login autenticado, mas o servidor não gravou a sessão.');
+    }
+
+    return payload;
+  }
+
+  async function syncSessionInBrowser(session: LoginSession) {
+    const result = await withTimeout(
+      supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      }) as Promise<{ data: any; error: any }>,
+      12000,
+      'Tempo esgotado ao sincronizar a sessão no navegador.'
+    );
+
+    if (result.error) throw result.error;
+    return result.data;
+  }
+
+  function normalizeRedirectTarget(value: string | null) {
+    if (!value) return '/';
+
+    try {
+      const url = new URL(value, window.location.origin);
+      if (url.origin !== window.location.origin) return '/';
+
+      const target = `${url.pathname}${url.search}${url.hash}`;
+      if (!target || target.startsWith('/auth/login')) return '/';
+      return target;
+    } catch {
+      if (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/auth/login')) {
+        return value;
+      }
+      return '/';
+    }
+  }
+
+  async function finishLogin() {
+    if (typeof window !== 'undefined') {
+      window.location.assign(redirectTarget);
+      return;
+    }
+
+    await goto(redirectTarget, { invalidateAll: true });
+  }
   
   onMount(() => {
     mockMode = isMockMode();
@@ -57,11 +126,13 @@
 
     // Verifica se foi redirecionado por expiração de sessão
     const params = new URLSearchParams(window.location.search);
+    redirectTarget = normalizeRedirectTarget(params.get('next'));
     if (params.get('session_expired') === '1') {
       sessionExpired = true;
       // Limpa a query string para não ficar persistindo no histórico
       if (window.history.replaceState) {
-        window.history.replaceState({}, '', '/auth/login');
+        const cleanedUrl = redirectTarget === '/' ? '/auth/login' : `/auth/login?next=${encodeURIComponent(redirectTarget)}`;
+        window.history.replaceState({}, '', cleanedUrl);
       }
     }
   });
@@ -93,16 +164,8 @@
         if (data.session) {
           auth.setAuth(data.user, data.session);
 
-          await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token
-            })
-          });
-
-          goto('/');
+          await syncSessionOnServer(data.session);
+          await finishLogin();
         }
         return;
       }
@@ -130,19 +193,14 @@
         throw new Error('Sessão não retornada pelo servidor.');
       }
 
-      const setSessionResult = await withTimeout(
-        supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        }) as Promise<{ data: any; error: any }>,
-        15000,
-        'Login autenticado, mas a sessão não foi sincronizada. Recarregue a página e tente novamente.'
-      );
-      const { data, error: setSessionError } = setSessionResult;
-      if (setSessionError) throw setSessionError;
+      await syncSessionOnServer(session);
 
-      auth.setAuth(data.user ?? payload.user ?? null, data.session ?? session);
-      await goto('/');
+      void syncSessionInBrowser(session).catch((browserSyncError) => {
+        console.warn('[login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
+      });
+
+      auth.setAuth(payload.user ?? null, session as any);
+      await finishLogin();
     } catch (err: any) {
       error = err.message || 'Erro ao fazer login';
       if (err.message?.includes('Invalid login')) {

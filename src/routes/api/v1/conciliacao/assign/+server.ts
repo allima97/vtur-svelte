@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json } from "@sveltejs/kit";
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -7,11 +7,15 @@ import {
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
-import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
-import { resolveResendApiKey, resolveFromEmails } from '$lib/server/emailSettings';
-import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
+  toErrorResponse,
+} from "$lib/server/v1";
+import { buildConciliacaoMetrics } from "$lib/conciliacao/business";
+import {
+  resolveResendApiKey,
+  resolveFromEmails,
+} from "$lib/server/emailSettings";
+import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
+import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
@@ -22,53 +26,73 @@ import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
  * notificá-los quando um vendedor já atribuído a um recibo conciliado for
  * alterado.
  */
-async function fetchGestoresMasters(client: any, companyId: string): Promise<Array<{ email: string; nome: string }>> {
+async function fetchGestoresMasters(
+  client: any,
+  companyId: string,
+): Promise<Array<{ email: string; nome: string }>> {
   try {
     // Busca usuários da empresa (GESTOR ou MASTER vinculados via company_id)
     const { data: usuarios } = await client
-      .from('users')
-      .select('id, email, nome_completo, user_types(name)')
-      .eq('company_id', companyId)
+      .from("users")
+      .select("id, email, nome_completo, user_types(name)")
+      .eq("company_id", companyId)
       .limit(100);
 
     const resultado: Array<{ email: string; nome: string }> = [];
     for (const u of usuarios || []) {
       const tipoBruto = String(
-        Array.isArray(u?.user_types) ? u.user_types[0]?.name : u?.user_types?.name || ''
+        Array.isArray(u?.user_types)
+          ? u.user_types[0]?.name
+          : u?.user_types?.name || "",
       ).toUpperCase();
-      if (tipoBruto.includes('GESTOR') || tipoBruto.includes('MASTER')) {
-        const email = String(u?.email || '').trim();
-        if (email && email.includes('@')) {
-          resultado.push({ email, nome: String(u?.nome_completo || '').trim() || email });
+      if (tipoBruto.includes("GESTOR") || tipoBruto.includes("MASTER")) {
+        const email = String(u?.email || "").trim();
+        if (email && email.includes("@")) {
+          resultado.push({
+            email,
+            nome: String(u?.nome_completo || "").trim() || email,
+          });
         }
       }
     }
 
     // MASTERs podem estar vinculados via master_empresas sem ter company_id igual
     const { data: vinculos } = await client
-      .from('master_empresas')
-      .select('master_id')
-      .eq('company_id', companyId)
-      .neq('status', 'rejected');
+      .from("master_empresas")
+      .select("master_id")
+      .eq("company_id", companyId)
+      .neq("status", "rejected");
 
-    const masterIds = (vinculos || []).map((v: any) => String(v?.master_id || '').trim()).filter(Boolean);
+    const masterIds = (vinculos || [])
+      .map((v: any) => String(v?.master_id || "").trim())
+      .filter(Boolean);
     if (masterIds.length > 0) {
       const { data: masters } = await client
-        .from('users')
-        .select('id, email, nome_completo')
-        .in('id', masterIds);
+        .from("users")
+        .select("id, email, nome_completo")
+        .in("id", masterIds);
 
       for (const m of masters || []) {
-        const email = String(m?.email || '').trim();
-        if (email && email.includes('@') && !resultado.find((r) => r.email === email)) {
-          resultado.push({ email, nome: String(m?.nome_completo || '').trim() || email });
+        const email = String(m?.email || "").trim();
+        if (
+          email &&
+          email.includes("@") &&
+          !resultado.find((r) => r.email === email)
+        ) {
+          resultado.push({
+            email,
+            nome: String(m?.nome_completo || "").trim() || email,
+          });
         }
       }
     }
 
     return resultado;
   } catch (err) {
-    console.error('CONCILIACAO_ASSIGN_FETCH_GESTORES_ERROR', (err as any)?.message ?? String(err));
+    console.error(
+      "CONCILIACAO_ASSIGN_FETCH_GESTORES_ERROR",
+      (err as any)?.message ?? String(err),
+    );
     return [];
   }
 }
@@ -92,7 +116,7 @@ async function notificarTrocaVendedor(params: {
     const [resendKey, fromEmails, destinatarios] = await Promise.all([
       resolveResendApiKey(),
       resolveFromEmails(),
-      fetchGestoresMasters(params.client, params.companyId)
+      fetchGestoresMasters(params.client, params.companyId),
     ]);
 
     if (!resendKey || destinatarios.length === 0) return;
@@ -108,34 +132,41 @@ async function notificarTrocaVendedor(params: {
         <tr><td><strong>Recibo / Documento</strong></td><td>${params.documento}</td></tr>
         <tr><td><strong>ID conciliação</strong></td><td>${params.conciliacaoId}</td></tr>
         <tr><td><strong>Vendedor anterior (ID)</strong></td><td>${params.oldVendedorId}</td></tr>
-        <tr><td><strong>Novo vendedor (ID)</strong></td><td>${params.newVendedorId ?? '(removido)'}</td></tr>
+        <tr><td><strong>Novo vendedor (ID)</strong></td><td>${params.newVendedorId ?? "(removido)"}</td></tr>
         <tr><td><strong>Alterado por</strong></td><td>${params.changedByNome} (${params.changedByUserId})</td></tr>
-        <tr><td><strong>Data/hora</strong></td><td>${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td></tr>
+        <tr><td><strong>Data/hora</strong></td><td>${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr>
       </table>
       <p style="color:#666;font-size:12px;">Este e-mail foi gerado automaticamente pelo sistema vtur.</p>
     `;
 
     await Promise.allSettled(
       destinatarios.map((dest) =>
-        fetch('https://api.resend.com/emails', {
-          method: 'POST',
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${resendKey}`,
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             from: fromEmail,
             to: [dest.email],
             subject: assunto,
-            html: bodyHtml
-          })
+            html: bodyHtml,
+          }),
         }).catch((err) => {
-          console.error('CONCILIACAO_ASSIGN_EMAIL_ERROR', dest.email, (err as any)?.message ?? String(err));
-        })
-      )
+          console.error(
+            "CONCILIACAO_ASSIGN_EMAIL_ERROR",
+            dest.email,
+            (err as any)?.message ?? String(err),
+          );
+        }),
+      ),
     );
   } catch (err) {
-    console.error('CONCILIACAO_ASSIGN_NOTIFY_ERROR', (err as any)?.message ?? String(err));
+    console.error(
+      "CONCILIACAO_ASSIGN_NOTIFY_ERROR",
+      (err as any)?.message ?? String(err),
+    );
   }
 }
 
@@ -153,14 +184,14 @@ async function logVendedorChange(params: {
   documento: string;
 }): Promise<void> {
   try {
-    await params.client.from('conciliacao_recibo_changes').insert({
+    await params.client.from("conciliacao_recibo_changes").insert({
       company_id: params.companyId,
       conciliacao_recibo_id: params.conciliacaoReciboId,
       numero_recibo: params.documento,
-      field: 'ranking_vendedor_id',
-      old_value: null,   // campo numérico no schema — não usado para este tipo de audit
+      field: "ranking_vendedor_id",
+      old_value: null, // campo numérico no schema — não usado para este tipo de audit
       new_value: null,
-      actor: 'user',
+      actor: "user",
       changed_by: params.changedByUserId,
       // Armazena os IDs de vendedor na nota — coluna "field" carrega o contexto
       // O valor real fica em old_vendor_id / new_vendor_id se a tabela tiver, senão
@@ -169,17 +200,17 @@ async function logVendedorChange(params: {
   } catch {
     // A tabela pode não ter colunas para string UUIDs — tentamos uma abordagem alternativa:
     // Logar apenas no console. A notificação por e-mail já garante rastreabilidade.
-    console.warn('CONCILIACAO_ASSIGN_LOG_VENDEDOR_CHANGE', {
+    console.warn("CONCILIACAO_ASSIGN_LOG_VENDEDOR_CHANGE", {
       conciliacao_recibo_id: params.conciliacaoReciboId,
       old_vendedor: params.oldValue,
       new_vendedor: params.newValue,
-      changed_by: params.changedByUserId
+      changed_by: params.changedByUserId,
     });
   }
 }
 
 function parseNullableNumber(value: any) {
-  if (value === null || value === undefined || value === '') return null;
+  if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
@@ -191,32 +222,45 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão para atribuir conciliação.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_conciliacao", "conciliacao"],
+        3,
+        "Sem permissão para atribuir conciliação.",
+      );
     }
 
     const body = await event.request.json();
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
     const companyId = companyIds[0] || scope.companyId;
 
-    const conciliacaoId = String(body?.conciliacaoId || '').trim();
-    if (!isUuid(conciliacaoId)) return json({ error: 'ID de conciliação inválido.' }, { status: 400 });
+    const conciliacaoId = String(body?.conciliacaoId || "").trim();
+    if (!isUuid(conciliacaoId))
+      return json({ error: "ID de conciliação inválido." }, { status: 400 });
 
-    const rankingVendedorIdRaw = String(body?.rankingVendedorId || '').trim() || null;
+    const rankingVendedorIdRaw =
+      String(body?.rankingVendedorId || "").trim() || null;
     // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
-    const equipeVturVendedor = rankingVendedorIdRaw ? await findEquipeVturVendedor(client, companyId) : null;
-    const rankingVendedorId = (equipeVturVendedor?.id && rankingVendedorIdRaw === equipeVturVendedor.id)
-      ? null
-      : rankingVendedorIdRaw;
-    const rankingProdutoId = String(body?.rankingProdutoId || '').trim() || null;
-    const vendaId = String(body?.vendaId || '').trim() || null;
-    const vendaReciboId = String(body?.vendaReciboId || '').trim() || null;
+    const equipeVturVendedor = rankingVendedorIdRaw
+      ? await findEquipeVturVendedor(client, companyId)
+      : null;
+    const rankingVendedorId =
+      equipeVturVendedor?.id && rankingVendedorIdRaw === equipeVturVendedor.id
+        ? null
+        : rankingVendedorIdRaw;
+    const rankingProdutoId =
+      String(body?.rankingProdutoId || "").trim() || null;
+    const vendaId = String(body?.vendaId || "").trim() || null;
+    const vendaReciboId = String(body?.vendaReciboId || "").trim() || null;
     const isBaixaRac = Boolean(body?.isBaixaRac);
 
     const valorLancamentos = parseNullableNumber(body?.valorLancamentos);
     const valorTaxas = parseNullableNumber(body?.valorTaxas);
     const valorDescontos = parseNullableNumber(body?.valorDescontos);
     const valorAbatimentos = parseNullableNumber(body?.valorAbatimentos);
-    const valorNaoComissionavel = parseNullableNumber(body?.valorNaoComissionavel);
+    const valorNaoComissionavel = parseNullableNumber(
+      body?.valorNaoComissionavel,
+    );
     const valorCalculadaLoja = parseNullableNumber(body?.valorCalculadaLoja);
     const valorVisaoMaster = parseNullableNumber(body?.valorVisaoMaster);
     const valorOpfax = parseNullableNumber(body?.valorOpfax);
@@ -235,64 +279,81 @@ export async function POST(event) {
       Number.isNaN(valorSaldo) ||
       Number.isNaN(valorComissaoLoja)
     ) {
-      return json({ error: 'Um ou mais campos de valor estão inválidos.' }, { status: 400 });
+      return json(
+        { error: "Um ou mais campos de valor estão inválidos." },
+        { status: 400 },
+      );
     }
 
     // Verifica se o registro pertence à empresa e lê o vendedor atual para auditoria
     const { data: registro, error: registroErr } = await client
-      .from('conciliacao_recibos')
-      .select('id, company_id, descricao, documento, ranking_vendedor_id')
-      .eq('id', conciliacaoId)
+      .from("conciliacao_recibos")
+      .select("id, company_id, descricao, documento, ranking_vendedor_id")
+      .eq("id", conciliacaoId)
       .maybeSingle();
 
     if (registroErr) throw registroErr;
-    if (!registro) return json({ error: 'Registro não encontrado.' }, { status: 404 });
+    if (!registro)
+      return json({ error: "Registro não encontrado." }, { status: 404 });
     if (!scope.isAdmin && registro.company_id !== companyId) {
-      return json({ error: 'Registro fora do escopo.' }, { status: 403 });
+      return json({ error: "Registro fora do escopo." }, { status: 403 });
     }
 
     if (rankingVendedorId) {
       const { data: vendedorRow, error: vendedorErr } = await client
-        .from('users')
-        .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
-        .eq('id', rankingVendedorId)
+        .from("users")
+        .select(
+          "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+        )
+        .eq("id", rankingVendedorId)
         .maybeSingle();
       if (vendedorErr) throw vendedorErr;
       if (
         !vendedorRow ||
-        String(vendedorRow.company_id || '') !== String(registro.company_id || '') ||
+        String(vendedorRow.company_id || "") !==
+          String(registro.company_id || "") ||
         !isRankingEligibleUser(vendedorRow)
       ) {
-        return json({ error: 'Vendedor fora do escopo da empresa ou inelegível para ranking.' }, { status: 422 });
+        return json(
+          {
+            error:
+              "Vendedor fora do escopo da empresa ou inelegível para ranking.",
+          },
+          { status: 422 },
+        );
       }
     }
 
     // Captura o vendedor atualmente atribuído (antes da atualização) para detectar troca
-    const vendedorAnterior = String(registro.ranking_vendedor_id || '').trim() || null;
-    const documentoRecibo = String(registro.documento || '').trim();
+    const vendedorAnterior =
+      String(registro.ranking_vendedor_id || "").trim() || null;
+    const documentoRecibo = String(registro.documento || "").trim();
 
     const update: Record<string, any> = {
-      ranking_assigned_at: new Date().toISOString()
+      ranking_assigned_at: new Date().toISOString(),
     };
 
-    if (rankingVendedorId !== undefined) update.ranking_vendedor_id = rankingVendedorId;
-    if (rankingProdutoId !== undefined) update.ranking_produto_id = rankingProdutoId;
+    if (rankingVendedorId !== undefined)
+      update.ranking_vendedor_id = rankingVendedorId;
+    if (rankingProdutoId !== undefined)
+      update.ranking_produto_id = rankingProdutoId;
     if (vendaId !== undefined) update.venda_id = vendaId;
     if (vendaReciboId !== undefined) update.venda_recibo_id = vendaReciboId;
-    if (body && 'isBaixaRac' in body) update.is_baixa_rac = isBaixaRac;
-    if (body && 'conciliado' in body) update.conciliado = Boolean(body.conciliado);
+    if (body && "isBaixaRac" in body) update.is_baixa_rac = isBaixaRac;
+    if (body && "conciliado" in body)
+      update.conciliado = Boolean(body.conciliado);
 
     const payloadTemValores = [
-      'valorLancamentos',
-      'valorTaxas',
-      'valorDescontos',
-      'valorAbatimentos',
-      'valorNaoComissionavel',
-      'valorCalculadaLoja',
-      'valorVisaoMaster',
-      'valorOpfax',
-      'valorSaldo',
-      'valorComissaoLoja'
+      "valorLancamentos",
+      "valorTaxas",
+      "valorDescontos",
+      "valorAbatimentos",
+      "valorNaoComissionavel",
+      "valorCalculadaLoja",
+      "valorVisaoMaster",
+      "valorOpfax",
+      "valorSaldo",
+      "valorComissaoLoja",
     ].some((field) => body && field in body);
 
     if (payloadTemValores) {
@@ -307,7 +368,7 @@ export async function POST(event) {
         valorVisaoMaster,
         valorOpfax,
         valorSaldo,
-        valorComissaoLoja
+        valorComissaoLoja,
       });
 
       update.valor_lancamentos = valorLancamentos;
@@ -328,9 +389,9 @@ export async function POST(event) {
     }
 
     const { error: updateError } = await client
-      .from('conciliacao_recibos')
+      .from("conciliacao_recibos")
       .update(update)
-      .eq('id', conciliacaoId);
+      .eq("id", conciliacaoId);
 
     if (updateError) throw updateError;
 
@@ -339,9 +400,9 @@ export async function POST(event) {
     const novoVendedor = rankingVendedorId;
     const houveTrocaDeVendedor =
       vendedorAnterior !== null &&
-      vendedorAnterior !== '' &&
+      vendedorAnterior !== "" &&
       novoVendedor !== vendedorAnterior &&
-      'rankingVendedorId' in (body ?? {});
+      "rankingVendedorId" in (body ?? {});
 
     if (houveTrocaDeVendedor) {
       // Log de auditoria (best-effort)
@@ -352,7 +413,7 @@ export async function POST(event) {
         oldValue: vendedorAnterior!,
         newValue: novoVendedor,
         changedByUserId: user.id,
-        documento: documentoRecibo
+        documento: documentoRecibo,
       });
 
       // Notificação por e-mail para gestores/masters (best-effort, não bloqueia)
@@ -364,14 +425,23 @@ export async function POST(event) {
         oldVendedorId: vendedorAnterior!,
         newVendedorId: novoVendedor,
         changedByUserId: user.id,
-        changedByNome: scope.nome || user.id
+        changedByNome: scope.nome || user.id,
       }).catch((err) => {
-        console.error('CONCILIACAO_ASSIGN_NOTIFY_UNCAUGHT', (err as any)?.message ?? String(err));
+        console.error(
+          "CONCILIACAO_ASSIGN_NOTIFY_UNCAUGHT",
+          (err as any)?.message ?? String(err),
+        );
       });
     }
 
+    invalidateSalesReadModels({
+      companyIds: registro.company_id ? [registro.company_id] : [],
+      vendedorIds: [vendedorAnterior, novoVendedor].filter(Boolean) as string[],
+      userId: user.id,
+    });
+
     return json({ ok: true });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao atribuir conciliação.');
+    return toErrorResponse(err, "Erro ao atribuir conciliação.");
   }
 }
