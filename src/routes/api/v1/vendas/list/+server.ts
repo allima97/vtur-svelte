@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   fetchMasterEmpresas,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   normalizeText,
   parseIntSafe,
@@ -12,6 +13,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { todayISODateLocal } from '$lib/date';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -76,9 +78,30 @@ type VendaItem = {
 
 type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 'recibo';
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeVendaRows(rows: VendaRow[]) {
+  const map = new Map<string, VendaRow>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values()).sort((left, right) =>
+    String(right?.data_venda || '').localeCompare(String(left?.data_venda || ''))
+  );
+}
+
 function deriveVendaStatus(row: VendaRow): VendaStatus {
   if (row.cancelada) return 'cancelada';
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayISODateLocal();
   if (row.data_final && row.data_final < todayIso) return 'concluida';
   if (row.data_embarque && row.data_embarque >= todayIso) return 'confirmada';
   return 'pendente';
@@ -105,10 +128,14 @@ function getReceipts(row: VendaRow) {
   return Array.isArray(row.recibos) ? row.recibos : [];
 }
 
+function getReciboValorRanking(recibo: NonNullable<VendaRow['recibos']>[number]) {
+  return Math.max(0, Number(recibo?.valor_total || 0) - Number(recibo?.valor_rav || 0));
+}
+
 function deriveValorTotal(row: VendaRow) {
   const recibos = getReceipts(row);
   if (recibos.length > 0) {
-    const totalRecibos = recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
+    const totalRecibos = recibos.reduce((sum, recibo) => sum + getReciboValorRanking(recibo), 0);
     if (totalRecibos > 0) return totalRecibos;
   }
   return Number(row.valor_total || 0);
@@ -123,7 +150,7 @@ function deriveValorTotalBruto(row: VendaRow) {
 function deriveValorTaxas(row: VendaRow) {
   const recibos = getReceipts(row);
   const taxasRecibos = recibos.reduce((sum, recibo) => {
-    return sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0) + Number(recibo?.valor_rav || 0);
+    return sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0);
   }, 0);
   const valorTaxasBase = Number(row.valor_taxas || 0);
   return valorTaxasBase > 0 ? valorTaxasBase : taxasRecibos;
@@ -142,7 +169,7 @@ function formatVendaItem(row: VendaRow): VendaItem {
     const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
     const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
     const isSeguro = tipo.includes('seguro') || nome.includes('seguro');
-    return sum + (isSeguro ? Number(recibo?.valor_total || 0) : 0);
+    return sum + (isSeguro ? getReciboValorRanking(recibo) : 0);
   }, 0);
   const produtos = recibos
     .map((recibo) => String(recibo?.produto_resolvido?.nome || recibo?.tipo_produtos?.nome || '').trim())
@@ -212,16 +239,16 @@ function computeKpisFromRows(rows: VendaRow[]) {
   for (const row of rows) {
     const recibos = getReceipts(row);
     if (recibos.length > 0) {
-      totalVendas += recibos.reduce((sum, recibo) => sum + Number(recibo?.valor_total || 0), 0);
+      totalVendas += recibos.reduce((sum, recibo) => sum + getReciboValorRanking(recibo), 0);
       totalTaxas += recibos.reduce(
-        (sum, recibo) => sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0) + Number(recibo?.valor_rav || 0),
+        (sum, recibo) => sum + Number(recibo?.valor_taxas || 0) + Number(recibo?.valor_du || 0),
         0
       );
       totalSeguro += recibos.reduce((sum, recibo) => {
         const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
         const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
         const isSeguro = tipo.includes('seguro') || nome.includes('seguro');
-        return sum + (isSeguro ? Number(recibo?.valor_total || 0) : 0);
+        return sum + (isSeguro ? getReciboValorRanking(recibo) : 0);
       }, 0);
       continue;
     }
@@ -245,15 +272,19 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
   if (vendaIds.length === 0) return;
 
   try {
-    const { data: vendaDestinos, error: vendaDestinosError } = await client
-      .from('vendas')
-      .select('id, destino_id, destino_cidade_id')
-      .in('id', vendaIds)
-      .limit(Math.max(500, vendaIds.length));
+    const vendaDestinos: any[] = [];
+    for (const batch of chunkArray(vendaIds)) {
+      const { data, error: vendaDestinosError } = await client
+        .from('vendas')
+        .select('id, destino_id, destino_cidade_id')
+        .in('id', batch)
+        .limit(Math.max(500, batch.length));
 
-    if (vendaDestinosError) {
-      console.warn('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
-      return;
+      if (vendaDestinosError) {
+        console.warn('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
+        return;
+      }
+      vendaDestinos.push(...((data || []) as any[]));
     }
 
     const destinoByVendaId = new Map<string, { destino_id: string; destino_cidade_id: string }>();
@@ -275,24 +306,36 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
       )
     );
 
-    const [produtosResult, cidadesResult] = await Promise.all([
-      produtoIds.length > 0
-        ? client.from('produtos').select('id, nome, cidade_id').in('id', produtoIds).limit(Math.max(500, produtoIds.length))
-        : Promise.resolve({ data: [], error: null } as any),
-      cidadeIds.length > 0
-        ? client.from('cidades').select('id, nome').in('id', cidadeIds).limit(Math.max(500, cidadeIds.length))
-        : Promise.resolve({ data: [], error: null } as any)
-    ]);
-
-    if (produtosResult.error) {
-      console.warn('[vendas/list] could not load produtos for destino hydration', produtosResult.error);
+    const produtosData: any[] = [];
+    for (const batch of chunkArray(produtoIds)) {
+      const { data, error } = await client
+        .from('produtos')
+        .select('id, nome, cidade_id')
+        .in('id', batch)
+        .limit(Math.max(500, batch.length));
+      if (error) {
+        console.warn('[vendas/list] could not load produtos for destino hydration', error);
+        break;
+      }
+      produtosData.push(...((data || []) as any[]));
     }
-    if (cidadesResult.error) {
-      console.warn('[vendas/list] could not load cidades for destino hydration', cidadesResult.error);
+
+    const cidadesData: any[] = [];
+    for (const batch of chunkArray(cidadeIds)) {
+      const { data, error } = await client
+        .from('cidades')
+        .select('id, nome')
+        .in('id', batch)
+        .limit(Math.max(500, batch.length));
+      if (error) {
+        console.warn('[vendas/list] could not load cidades for destino hydration', error);
+        break;
+      }
+      cidadesData.push(...((data || []) as any[]));
     }
 
     const produtosById = new Map<string, { nome: string; cidade_id: string }>();
-    for (const row of (produtosResult.data || []) as any[]) {
+    for (const row of produtosData) {
       const id = String(row?.id || '').trim();
       if (!id) continue;
       produtosById.set(id, {
@@ -302,7 +345,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
     }
 
     const cidadesById = new Map<string, string>();
-    for (const row of (cidadesResult.data || []) as any[]) {
+    for (const row of cidadesData) {
       const id = String(row?.id || '').trim();
       if (!id) continue;
       cidadesById.set(id, String(row?.nome || '').trim());
@@ -349,7 +392,7 @@ async function fetchVendaRowsWithFallback(
     accessibleClientIds: string[];
   }
 ) {
-  const buildBaseQuery = (selectClause: string) => {
+  const buildBaseQuery = (selectClause: string, accessibleClientIdsOverride?: string[]) => {
     let query = client
       .from('vendas')
       .select(selectClause)
@@ -363,10 +406,32 @@ async function fetchVendaRowsWithFallback(
     if (params.vendedorIds.length > 0) query = query.in('vendedor_id', params.vendedorIds);
     if (params.clienteId) query = query.eq('cliente_id', params.clienteId);
     else if (!params.scopeIsAdmin && params.accessibleClientIds.length > 0) {
-      query = query.in('cliente_id', params.accessibleClientIds);
+      query = query.in('cliente_id', accessibleClientIdsOverride || params.accessibleClientIds);
     }
 
     return query;
+  };
+
+  const runBaseQuery = async (selectClause: string) => {
+    const shouldBatchClientFilter =
+      !params.scopeIsAdmin &&
+      !params.clienteId &&
+      params.accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE;
+
+    if (!shouldBatchClientFilter) {
+      return buildBaseQuery(selectClause);
+    }
+
+    const rows: VendaRow[] = [];
+    for (const batch of chunkArray(params.accessibleClientIds)) {
+      const result = await buildBaseQuery(selectClause, batch);
+      if (result.error) {
+        return { data: null, error: result.error } as typeof result;
+      }
+      rows.push(...(((result.data || []) as unknown) as VendaRow[]));
+    }
+
+    return { data: dedupeVendaRows(rows), error: null };
   };
 
   const enrichedSelect = `
@@ -403,7 +468,7 @@ async function fetchVendaRowsWithFallback(
     )
   `;
 
-  const enrichedResult = await buildBaseQuery(enrichedSelect);
+  const enrichedResult = await runBaseQuery(enrichedSelect);
   if (!enrichedResult.error) {
     return Array.isArray(enrichedResult.data) ? (enrichedResult.data as unknown as VendaRow[]) : [];
   }
@@ -439,7 +504,7 @@ async function fetchVendaRowsWithFallback(
     )
   `;
 
-  const fallbackResult = await buildBaseQuery(fallbackSelect);
+  const fallbackResult = await runBaseQuery(fallbackSelect);
   if (!fallbackResult.error) {
     return Array.isArray(fallbackResult.data) ? (fallbackResult.data as unknown as VendaRow[]) : [];
   }
@@ -473,7 +538,7 @@ async function fetchVendaRowsWithFallback(
     )
   `;
 
-  const legacyFallbackResult = await buildBaseQuery(legacyFallbackSelect);
+  const legacyFallbackResult = await runBaseQuery(legacyFallbackSelect);
   if (legacyFallbackResult.error) {
     console.error('[vendas/list] legacy fallback failed, returning empty list', legacyFallbackResult.error);
     return [];
@@ -554,23 +619,11 @@ export async function GET(event) {
 
     let vendedores: Array<{ id: string; nome_completo: string }> = [];
     if (includeVendedores) {
-      let usersQuery = client
-        .from('users')
-        .select('id, nome_completo, user_types (name)')
-        .limit(1000);
-
-      if (!scope.isAdmin && companyIds.length > 0) {
-        usersQuery = usersQuery.in('company_id', companyIds);
-      }
-
-      const { data: usersData } = await usersQuery;
+      const usersData = companyIds.length > 0
+        ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
+        : [];
 
       vendedores = ((usersData || []) as any[])
-        .filter((row) => {
-          const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
-          const name = String(userType?.name || '').toUpperCase();
-          return name.includes('VENDEDOR') || name.includes('GESTOR') || name.includes('MASTER') || name.includes('ADMIN');
-        })
         .map((row) => ({
           id: String(row.id || ''),
           nome_completo: String(row.nome_completo || row.email || 'Usuário sem nome')

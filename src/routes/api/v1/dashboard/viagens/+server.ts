@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { addDaysISODate, todayISODateLocal } from '$lib/date';
 
 export async function GET(event) {
   try {
@@ -25,8 +26,8 @@ export async function GET(event) {
     );
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
 
-    const hoje = new Date().toISOString().slice(0, 10);
-    const em30dias = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const hoje = todayISODateLocal();
+    const em30dias = addDaysISODate(hoje, 30);
 
     let vendedorIds: string[] = [];
     if (tipoNome.includes('ADMIN')) {

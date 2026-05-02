@@ -1,4 +1,5 @@
 import { isSeguroPasseioLike } from "./roteiroSeguro";
+import { toISODateUTC } from '$lib/date';
 
 export type ImportedRoteiroPasseio = {
   cidade: string;
@@ -83,7 +84,7 @@ function parseDate(day: number, monthLabel: string, year: number) {
 }
 
 function toIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateUTC(date);
 }
 
 function isDateLine(line: string) {

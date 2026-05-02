@@ -7,6 +7,7 @@
     CheckCircle, XCircle, Layers, Users 
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Tier {
     id?: string;
@@ -72,6 +73,21 @@
     { value: 'POS', label: 'Pós-meta' }
   ];
 
+  function getVendedorId(vendedor: any) {
+    return String(vendedor?.vendedor_id || vendedor?.id || '');
+  }
+
+  function getVendedorNome(vendedor: any) {
+    return String(
+      vendedor?.vendedor_nome ||
+        vendedor?.nome_completo ||
+        vendedor?.nome ||
+        vendedor?.email ||
+        vendedor?.id ||
+        'Vendedor'
+    );
+  }
+
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
     { key: 'tipo', label: 'Tipo', sortable: true, width: '140px' },
@@ -105,7 +121,7 @@
       label: 'Atualizado', 
       sortable: true, 
       width: '150px',
-      formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+      formatter: (value: string) => formatDate(value)
     }
   ];
 
@@ -136,8 +152,8 @@
   $: vendedorSelectOptions = [
     { value: '', label: 'Selecione um vendedor...' },
     ...vendedoresDisponiveis.map((v) => ({
-      value: v.id,
-      label: v.nome_completo || v.email || v.id
+      value: getVendedorId(v),
+      label: getVendedorNome(v)
     }))
   ];
 
@@ -164,7 +180,7 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/tarefas/usuarios');
+      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
       if (response.ok) {
         const data = await response.json();
         vendedoresDisponiveis = data.items || [];

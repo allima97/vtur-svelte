@@ -1,6 +1,14 @@
 import { buildConciliacaoMetrics, isConciliacaoEfetivada } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
+import { fetchRankingVendedoresByCompanyIds } from '$lib/server/v1';
+import {
+  addDaysISODate,
+  currentMonthRangeISODate,
+  diffDaysISODate,
+  monthRangeFromKey,
+  todayISODateLocal
+} from '$lib/date';
 
 const EPS = 0.01;
 
@@ -198,28 +206,17 @@ function buildDuplicateWinnerPatch(winner: any, losers: any[]) {
 }
 
 function resolveMonthDateRange(month?: string | null) {
-  const raw = String(month || '').trim();
-  if (!/^\d{4}-\d{2}$/.test(raw)) return null;
-  const [yearRaw, monthRaw] = raw.split('-');
-  const year = Number(yearRaw);
-  const monthIndex = Number(monthRaw) - 1;
-  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) return null;
-
-  const start = new Date(Date.UTC(year, monthIndex, 1));
-  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+  const range = monthRangeFromKey(month);
+  if (!range) return null;
   return {
-    start: start.toISOString().slice(0, 10),
-    endExclusive: end.toISOString().slice(0, 10)
+    start: range.inicio,
+    endExclusive: addDaysISODate(range.fim, 1)
   };
 }
 
 function getCurrentMonthRange() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const start = `${year}-${month}-01`;
-  const end = new Date(year, now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { start, end };
+  const range = currentMonthRangeISODate();
+  return { start: range.inicio, end: range.fim };
 }
 
 async function insertConciliacaoNumericAudit(params: {
@@ -593,10 +590,8 @@ export async function diagnosticarLacunasCronologicas(params: {
   const { client, companyId } = params;
 
   // Janela de análise: últimos 60 dias até hoje.
-  const hoje = new Date();
-  const inicio60d = new Date(hoje);
-  inicio60d.setUTCDate(hoje.getUTCDate() - 60);
-  const inicio60dStr = inicio60d.toISOString().slice(0, 10);
+  const hoje = todayISODateLocal();
+  const inicio60dStr = addDaysISODate(hoje, -60);
 
   // Busca os movimento_data distintos da empresa nos últimos 60 dias
   const { data, error } = await client
@@ -641,9 +636,7 @@ export async function diagnosticarLacunasCronologicas(params: {
   let frontier = diasPreenchidos[0];
   let gapIndex = -1;
   for (let i = 1; i < diasPreenchidos.length; i++) {
-    const prev = new Date(`${diasPreenchidos[i - 1]}T12:00:00Z`);
-    const curr = new Date(`${diasPreenchidos[i]}T12:00:00Z`);
-    const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86_400_000);
+    const diffDays = diffDaysISODate(diasPreenchidos[i - 1], diasPreenchidos[i]) ?? 0;
     if (diffDays > 1) {
       gapIndex = i;
       break;
@@ -658,12 +651,11 @@ export async function diagnosticarLacunasCronologicas(params: {
 
   // Calcula os dias faltantes entre a fronteira e o próximo dia preenchido
   const diasFaltantes: string[] = [];
-  const cursor = new Date(`${frontier}T12:00:00Z`);
-  const nextFilled = new Date(`${diasPreenchidos[gapIndex]}T12:00:00Z`);
-  cursor.setUTCDate(cursor.getUTCDate() + 1);
-  while (cursor < nextFilled) {
-    diasFaltantes.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  let cursor = addDaysISODate(frontier, 1);
+  const nextFilled = diasPreenchidos[gapIndex];
+  while (cursor && cursor < nextFilled) {
+    diasFaltantes.push(cursor);
+    cursor = addDaysISODate(cursor, 1);
   }
 
   // Dias bloqueados = dias IMPORTADOS após a fronteira (sem movimento não bloqueia)
@@ -772,6 +764,17 @@ async function reconcilePendentesCompany(params: {
   // Carrega o ID do vendedor "Equipe vtur" para proteger atribuição automática
   const equipeVturVendedor = await findEquipeVturVendedor(client, params.companyId);
   const equipeVturId = equipeVturVendedor?.id ?? null;
+  const rankingVendedorPermitidos = new Set(
+    (await fetchRankingVendedoresByCompanyIds(client, [params.companyId]))
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean)
+  );
+  const sanitizeRankingVendedorId = (value?: unknown) => {
+    const id = String(value || '').trim() || null;
+    if (!id) return null;
+    if (equipeVturId && id === equipeVturId) return null;
+    return rankingVendedorPermitidos.has(id) ? id : null;
+  };
 
   let checked = 0;
   let reconciled = 0;
@@ -866,8 +869,7 @@ async function reconcilePendentesCompany(params: {
       // dos vendedores que só lançam via conciliação (sem venda no sistema).
       // Sem isso, ficam presos em conciliado=false para sempre e nunca saem do lote.
       const rankingVendedorManualRaw = String(row.ranking_vendedor_id || '').trim() || null;
-      const rankingVendedorManual =
-        equipeVturId && rankingVendedorManualRaw === equipeVturId ? null : rankingVendedorManualRaw;
+      const rankingVendedorManual = sanitizeRankingVendedorId(rankingVendedorManualRaw);
       if (rankingVendedorManual) {
         await client.from('conciliacao_recibos').update({
           conciliado: true,
@@ -894,11 +896,10 @@ async function reconcilePendentesCompany(params: {
     const matchTaxas = matches(valorTaxas, sistemaTaxas);
 
     const rankingVendedorAtualRaw = String(row.ranking_vendedor_id || '').trim() || null;
-    const rankingVendedorAtual =
-      equipeVturId && rankingVendedorAtualRaw === equipeVturId ? null : rankingVendedorAtualRaw;
+    const rankingVendedorAtual = sanitizeRankingVendedorId(rankingVendedorAtualRaw);
     const vendedorIdDaVenda = String(recibo.vendedor_id || '').trim() || null;
     // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
-    const vendedorIdDaVendaValido = (equipeVturId && vendedorIdDaVenda === equipeVturId) ? null : vendedorIdDaVenda;
+    const vendedorIdDaVendaValido = sanitizeRankingVendedorId(vendedorIdDaVenda);
     // Quando o recibo foi linkado a uma venda, o vendedor da venda é a fonte de verdade.
     // ranking_vendedor_id manual só prevalece quando NÃO há venda linkada (recibos
     // de vendedores que lançam apenas via conciliação, sem venda no sistema).

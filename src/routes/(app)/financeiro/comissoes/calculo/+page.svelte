@@ -3,19 +3,29 @@
   import { goto } from '$app/navigation';
   import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect } from '$lib/components/ui';
   import { 
-    Calculator, RefreshCw, CheckCircle, AlertCircle,
-    DollarSign, TrendingUp
+    Calculator, RefreshCw, AlertCircle,
+    DollarSign, TrendingUp, Wallet
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface VendaCalculada {
+    id?: string;
     venda_id: string;
+    recibo_id?: string;
     numero_venda: string;
+    numero_recibo?: string;
+    produto?: string;
     cliente: string;
     valor_venda: number;
     valor_comissionavel: number;
     percentual: number;
+    percentual_comissao_geral?: number;
+    percentual_seguro?: number;
     valor_comissao: number;
+    valor_comissao_geral?: number;
+    valor_comissao_seguro?: number;
     regra: string;
     status: 'calculada' | 'ignorada' | 'erro' | 'paga' | 'pendente' | 'cancelada';
     motivo?: string;
@@ -29,30 +39,43 @@
     processadas: number;
     erro: number;
     total_vendas: number;
+    total_recibos?: number;
     detalhes: VendaCalculada[];
   } | null = null;
   
   let comissoesPendentes: any[] = [];
-  let resumoComissoes = { total_pendente: 0, total_pago: 0, total_geral: 0 };
   let persistenciaDisponivel = true;
 
   // Filtros
+  const todayParts = parseISODateParts(todayISODateLocal());
   let filtroDataInicio = '';
   let filtroDataFim = '';
-  let filtroMes = String(new Date().getMonth() + 1);
-  let filtroAno = new Date().getFullYear();
+  let filtroMes = String(todayParts?.month || new Date().getMonth() + 1);
+  let filtroAno = todayParts?.year || new Date().getFullYear();
   let filtroVendedor = '';
   let filtroStatus = 'todas';
   let vendedores: any[] = [];
 
+  function getVendedorId(vendedor: any) {
+    return String(vendedor?.vendedor_id || vendedor?.id || '');
+  }
+
+  function getVendedorNome(vendedor: any) {
+    return String(
+      vendedor?.vendedor_nome ||
+        vendedor?.nome_completo ||
+        vendedor?.nome ||
+        vendedor?.email ||
+        vendedor?.id ||
+        'Vendedor'
+    );
+  }
+
   onMount(() => {
     // Define período padrão (mês atual)
-    const hoje = new Date();
-    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    
-    filtroDataInicio = primeiroDia.toISOString().split('T')[0];
-    filtroDataFim = ultimoDia.toISOString().split('T')[0];
+    const range = currentMonthRangeISODate();
+    filtroDataInicio = range.inicio;
+    filtroDataFim = range.fim;
     
     loadComissoes();
     loadVendedores();
@@ -74,7 +97,6 @@
       
       const data = await response.json();
       comissoesPendentes = data.items || [];
-      resumoComissoes = data.resumo || { total_pendente: 0, total_pago: 0, total_geral: 0 };
       persistenciaDisponivel = data.persistencia_disponivel !== false;
     } catch (err) {
       toast.error('Erro ao carregar comissões pendentes');
@@ -86,7 +108,7 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/tarefas/usuarios');
+      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
       if (response.ok) {
         const data = await response.json();
         vendedores = data.items || [];
@@ -153,12 +175,36 @@
     }
   }
 
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(value || 0));
+  }
+
+  function formatPercent(value: number) {
+    return `${Number(value || 0).toFixed(2).replace('.', ',')}%`;
+  }
+
+  function buildKpiLabel(label: string, values: number[]) {
+    const unique = Array.from(
+      new Set(
+        values
+          .map((value) => Number(value || 0))
+          .filter((value) => value > 0)
+          .map((value) => Number(value.toFixed(2)))
+      )
+    ).sort((a, b) => a - b);
+    if (unique.length === 0) return label;
+    if (unique.length <= 2) return `${label} (${unique.map(formatPercent).join(' / ')})`;
+    return `${label} (${unique.length} faixas)`;
+  }
+
   const columnsResultado = [
+    { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '150px' },
     { key: 'numero_venda', label: 'Venda', sortable: true, width: '120px' },
     { key: 'cliente', label: 'Cliente', sortable: true },
+    { key: 'produto', label: 'Produto', sortable: true },
     { 
       key: 'valor_venda', 
-      label: 'Valor Venda', 
+      label: 'Valor Recibo', 
       sortable: true, 
       align: 'right' as const,
       formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -173,7 +219,7 @@
     },
     { 
       key: 'valor_comissao', 
-      label: 'Comissão', 
+      label: 'Comissão + seguro', 
       sortable: true, 
       align: 'right' as const,
       formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -189,19 +235,21 @@
   ];
 
   const columnsPendentes = [
+    { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '150px' },
     { key: 'numero_venda', label: 'Venda', sortable: true, width: '120px' },
     { key: 'cliente', label: 'Cliente', sortable: true },
+    { key: 'produto', label: 'Produto', sortable: true },
     { key: 'vendedor', label: 'Vendedor', sortable: true, width: '150px' },
     { 
       key: 'data_venda', 
       label: 'Data', 
       sortable: true, 
       width: '100px',
-      formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+      formatter: (value: string) => formatDate(value)
     },
     { 
       key: 'valor_venda', 
-      label: 'Valor Venda', 
+      label: 'Valor Recibo', 
       sortable: true, 
       align: 'right' as const,
       formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -216,7 +264,7 @@
     },
     { 
       key: 'valor_comissao', 
-      label: 'Comissão', 
+      label: 'Comissão + seguro', 
       sortable: true, 
       align: 'right' as const,
       formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -233,7 +281,7 @@
       label: 'Data Pgto',
       sortable: true,
       width: '110px',
-      formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+      formatter: (value: string) => formatDate(value)
     },
     {
       key: 'status',
@@ -244,9 +292,11 @@
     }
   ];
 
-  $: totalVendasPeriodo = comissoesPendentes.reduce((acc, c) => acc + c.valor_venda, 0);
-  $: totalPagoPeriodo = Number(resumoComissoes.total_pago || 0);
-  $: totalPendentePeriodo = Number(resumoComissoes.total_pendente || 0);
+  $: totalComissaoGeralPeriodo = comissoesPendentes.reduce((acc, c) => acc + Number(c.valor_comissao_geral ?? c.valor_comissao ?? 0), 0);
+  $: totalSeguroPeriodo = comissoesPendentes.reduce((acc, c) => acc + Number(c.valor_comissao_seguro || 0), 0);
+  $: totalComissaoComSeguroPeriodo = totalComissaoGeralPeriodo + totalSeguroPeriodo;
+  $: labelComissao = buildKpiLabel('Comissão', comissoesPendentes.map((c) => Number(c.percentual_comissao_geral || 0)));
+  $: labelSeguro = buildKpiLabel('Seguro Viagem', comissoesPendentes.map((c) => Number(c.percentual_seguro || 0)));
   $: quantidadePagas = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'paga').length;
   $: quantidadePendentes = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'pendente').length;
   $: statusOptions = [
@@ -319,7 +369,7 @@
       bind:value={filtroVendedor}
       options={[
         { value: '', label: 'Todos os vendedores' },
-        ...vendedores.map((v) => ({ value: v.id, label: String(v.nome_completo || v.email || 'Vendedor') }))
+        ...vendedores.map((v) => ({ value: getVendedorId(v), label: getVendedorNome(v) }))
       ]}
       class_name="w-full"
     />
@@ -354,39 +404,39 @@
 <!-- Resumo -->
 <div class="vtur-kpi-grid mb-6">
   <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Calculator size={20} /></div>
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Pendentes no período</p>
-      <p class="text-2xl font-bold text-slate-900">{quantidadePendentes}</p>
+      <p class="text-sm font-medium text-slate-500">{labelComissao}</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalComissaoGeralPeriodo)}</p>
+    </div>
+  </div>
+
+  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calculator size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Comissão total</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {formatCurrency(totalComissaoGeralPeriodo)}
+      </p>
+    </div>
+  </div>
+
+  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Wallet size={20} /></div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">{labelSeguro}</p>
+      <p class="text-2xl font-bold text-slate-900">
+        {formatCurrency(totalSeguroPeriodo)}
+      </p>
     </div>
   </div>
 
   <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><TrendingUp size={20} /></div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Total em Vendas</p>
+      <p class="text-sm font-medium text-slate-500">Comissão + seguro</p>
       <p class="text-2xl font-bold text-slate-900">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalVendasPeriodo)}
-      </p>
-    </div>
-  </div>
-
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><DollarSign size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Total pendente</p>
-      <p class="text-2xl font-bold text-slate-900">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalPendentePeriodo)}
-      </p>
-    </div>
-  </div>
-
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
-    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
-    <div>
-      <p class="text-sm font-medium text-slate-500">Total pago</p>
-      <p class="text-2xl font-bold text-slate-900">
-        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalPagoPeriodo)}
+        {formatCurrency(totalComissaoComSeguroPeriodo)}
       </p>
     </div>
   </div>
@@ -438,7 +488,7 @@
         <div>
           <p class="font-medium text-amber-800">Atenção</p>
           <p class="text-sm text-amber-700">
-            O cálculo de comissões irá processar todas as vendas do período selecionado 
+            O cálculo de comissões irá processar todos os recibos do período selecionado 
             que ainda não possuem comissão calculada ou que precisam ser recalculadas.
           </p>
         </div>
@@ -449,7 +499,7 @@
       <div>
         <p class="text-slate-500">Período</p>
         <p class="font-medium">
-          {new Date(filtroDataInicio).toLocaleDateString('pt-BR')} até {new Date(filtroDataFim).toLocaleDateString('pt-BR')}
+          {formatDate(filtroDataInicio)} até {formatDate(filtroDataFim)}
         </p>
       </div>
       <div>
@@ -462,7 +512,7 @@
         <p class="text-slate-500">Vendedor</p>
         <p class="font-medium">
           {filtroVendedor 
-            ? (vendedores.find(v => v.id === filtroVendedor)?.nome_completo || 'Selecionado')
+            ? getVendedorNome(vendedores.find(v => getVendedorId(v) === filtroVendedor))
             : 'Todos'}
         </p>
       </div>
@@ -497,8 +547,8 @@
           <p class="text-2xl font-bold text-red-700">{resultadoCalculo.erro}</p>
         </div>
         <div class="p-4 bg-blue-50 rounded-lg text-center">
-          <p class="text-sm text-blue-600">Total Vendas</p>
-          <p class="text-2xl font-bold text-blue-700">{resultadoCalculo.total_vendas}</p>
+          <p class="text-sm text-blue-600">Total Recibos</p>
+          <p class="text-2xl font-bold text-blue-700">{resultadoCalculo.total_recibos ?? resultadoCalculo.total_vendas}</p>
         </div>
       </div>
 

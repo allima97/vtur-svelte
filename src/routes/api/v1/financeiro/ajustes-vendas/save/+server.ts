@@ -72,6 +72,7 @@ export async function POST(event) {
     }
 
     let vendedorOrigemId = '';
+    let sourceCompanyId = companyId || '';
     let keyColumn: 'venda_recibo_id' | 'conciliacao_recibo_id' = 'venda_recibo_id';
 
     if (!isConciliacao) {
@@ -102,6 +103,7 @@ export async function POST(event) {
         return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403 });
       }
 
+      sourceCompanyId = reciboCompany || sourceCompanyId;
       vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
       keyColumn = 'venda_recibo_id';
     } else {
@@ -120,6 +122,7 @@ export async function POST(event) {
         return json({ error: 'Recibo de conciliacao fora do escopo da empresa.' }, { status: 403 });
       }
 
+      sourceCompanyId = concCompany || sourceCompanyId;
       vendedorOrigemId = String((concRow as any)?.ranking_vendedor_id || '').trim();
 
       // Fallback: buscar vendedor_id na venda associada
@@ -144,14 +147,22 @@ export async function POST(event) {
       return json({ error: 'Venda sem vendedor valido para rateio.' }, { status: 400 });
     }
 
-    // Limpar rateio quando percentual_destino = 0
+    // Desfazer rateio quando percentual_destino = 0.
+    // Mantemos a linha inativa para preservar histórico; todos os consumidores
+    // relevantes filtram ativo=true, então os valores voltam ao recibo inteiro.
     if (percentualDestino === 0) {
-      const { error: deleteError } = await client
+      const { error: clearError } = await client
         .from('vendas_recibos_rateio')
-        .delete()
+        .update({
+          ativo: false,
+          percentual_origem: 100,
+          percentual_destino: 0,
+          observacao: observacao || null,
+          updated_by: user.id
+        })
         .eq(keyColumn, rawId)
-        .eq('company_id', companyId ?? '');
-      if (deleteError) throw deleteError;
+        .eq('company_id', sourceCompanyId);
+      if (clearError) throw clearError;
 
       return json({ ok: true, cleared: true });
     }
@@ -205,7 +216,7 @@ export async function POST(event) {
     const payload = {
       venda_recibo_id: keyColumn === 'venda_recibo_id' ? rawId : null,
       conciliacao_recibo_id: keyColumn === 'conciliacao_recibo_id' ? rawId : null,
-      company_id: companyId,
+      company_id: sourceCompanyId,
       vendedor_origem_id: vendedorOrigemId,
       vendedor_destino_id: vendedorDestinoId,
       percentual_origem: percentualOrigem,

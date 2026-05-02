@@ -9,6 +9,8 @@ import {
 import { normalizeText, titleCaseNome } from '$lib/normalizeText';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas/contratoCvcExtractor';
 import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
+import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
+import { todayISODateLocal } from '$lib/date';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -20,10 +22,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'carta de credito',
   'credito'
 ];
-
-function toISODateLocal(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function isISODate(value?: string | null) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
@@ -47,6 +45,10 @@ function parseMoney(value?: number | null) {
 function sanitizeOptionalContact(value?: string | null) {
   const trimmed = String(value || '').trim();
   return trimmed || null;
+}
+
+function cleanImportedClienteNome(value?: string | null, fallback = 'Cliente sem nome') {
+  return titleCaseNome(sanitizeImportedClienteNome(value)) || fallback;
 }
 
 function buildPagamentoKey(pagamento: PagamentoDraft) {
@@ -78,9 +80,14 @@ function dedupePagamentos(pagamentos: PagamentoDraft[]) {
   return result;
 }
 
+function totalParcelasPagamento(pagamento: PagamentoDraft) {
+  return (pagamento.parcelas || []).reduce((sum, parcela) => sum + parseMoney(parcela.valor), 0);
+}
+
 function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   return pagamentos.reduce((acc, pagamento) => {
-    const bruto = parseMoney(pagamento.valor_bruto);
+    const parcelasTotal = totalParcelasPagamento(pagamento);
+    const bruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
     const desconto = parseMoney(pagamento.desconto);
     const total = parseMoney(pagamento.total);
     if (pagamento.total != null && (bruto <= 0 || total <= bruto * 1.05)) {
@@ -121,6 +128,110 @@ function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
 function isAllowedSellerTipo(tipoNome?: string | null) {
   const tipo = String(tipoNome || '').toUpperCase();
   return tipo.includes('VENDEDOR') || tipo.includes('GESTOR') || tipo.includes('MASTER');
+}
+
+function pickProdutoNome(contrato: ContratoDraft, fallbackDestino?: string | null) {
+  const candidates = [
+    contrato.produto_principal,
+    contrato.produto_tipo,
+    contrato.produto_detalhes,
+    contrato.destino,
+    fallbackDestino,
+    'Produto'
+  ];
+  return String(candidates.find((value) => String(value || '').trim()) || 'Produto').trim();
+}
+
+function resolveTipoProdutoId(contrato: ContratoDraft, tipos: any[]) {
+  const normalized = normalizeText(
+    [
+      contrato.produto_principal,
+      contrato.produto_tipo,
+      contrato.produto_detalhes,
+      contrato.tipo_pacote
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+  const matches = (patterns: string[]) =>
+    tipos.find((tipo: any) => {
+      const label = normalizeText(`${tipo?.nome || ''} ${tipo?.tipo || ''}`);
+      return patterns.some((pattern) => label.includes(pattern));
+    });
+
+  if (normalized.includes('seguro')) return matches(['seguro'])?.id || null;
+  if (normalized.includes('ingresso')) return matches(['ingresso'])?.id || null;
+  if (normalized.includes('aereo') || normalized.includes('passagem')) {
+    return matches(['aereo', 'passagem'])?.id || null;
+  }
+  if (normalized.includes('locacao') || normalized.includes('locadora') || normalized.includes('carro')) {
+    return matches(['carro', 'locacao', 'locadora'])?.id || null;
+  }
+  if (normalized.includes('traslado') || normalized.includes('transfer') || normalized.includes('transporte') || normalized.includes('passeio')) {
+    return matches(['servico', 'traslado', 'transfer', 'transporte', 'passeio'])?.id || null;
+  }
+  if (normalized.includes('hotel') || normalized.includes('hospedagem')) {
+    return matches(['hotel', 'hospedagem'])?.id || null;
+  }
+
+  return tipos[0]?.id || null;
+}
+
+async function resolveProdutoOperacional(params: {
+  client: any;
+  contrato: ContratoDraft;
+  produtoId?: string | null;
+  cidadeId?: string | null;
+  destinoNome?: string | null;
+  tiposProduto: any[];
+}) {
+  const { client, contrato, produtoId, cidadeId, destinoNome, tiposProduto } = params;
+  const existingId = String(produtoId || '').trim();
+  if (isUuid(existingId)) {
+    const { data, error } = await client
+      .from('produtos')
+      .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
+      .eq('id', existingId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.id) return data;
+  }
+
+  const nome = titleCaseNome(pickProdutoNome(contrato, destinoNome));
+  const tipoProdutoId = resolveTipoProdutoId(contrato, tiposProduto);
+  if (!tipoProdutoId) throw new Error('TIPO_PRODUTO_NAO_ENCONTRADO');
+
+  let query = client
+    .from('produtos')
+    .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
+    .ilike('nome', nome);
+  if (cidadeId) {
+    query = query.eq('cidade_id', cidadeId);
+  } else {
+    query = query.eq('todas_as_cidades', true);
+  }
+
+  const { data: existentes, error: existentesError } = await query.limit(1);
+  if (existentesError) throw existentesError;
+  if (Array.isArray(existentes) && existentes[0]?.id) return existentes[0];
+
+  const payload = {
+    nome,
+    destino: titleCaseNome(String(destinoNome || contrato.destino || nome).trim()),
+    cidade_id: cidadeId || null,
+    tipo_produto: tipoProdutoId,
+    todas_as_cidades: !cidadeId,
+    ativo: true
+  };
+
+  const { data: criado, error: criarError } = await client
+    .from('produtos')
+    .insert(payload)
+    .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
+    .single();
+  if (criarError) throw criarError;
+  return criado;
 }
 
 function guessPagaComissaoDefault(forma: string, termosNaoComissionaveis?: string[]) {
@@ -241,12 +352,19 @@ async function resolveClienteImport(client: any, scope: any, params: {
   rg?: string | null;
 }) {
   const cpf = normalizeCpf(params.cpf);
-  const nome = String(params.nome || '').trim() || null;
+  const nome = cleanImportedClienteNome(params.nome, '');
   const nascimento = isISODate(params.nascimento) ? params.nascimento : null;
 
   const existing = await findClienteByDocumento(client, cpf);
   if (existing) {
     const updates: any = {};
+    const existingNome = String(existing.nome || '').trim();
+    const existingNomeLimpo = cleanImportedClienteNome(existingNome, '');
+    if (existingNomeLimpo && existingNomeLimpo !== existingNome) {
+      updates.nome = existingNomeLimpo;
+    } else if (nome && (!existingNome || normalizeText(existingNome) === 'cliente sem nome')) {
+      updates.nome = nome;
+    }
     if (params.endereco && !existing.endereco) updates.endereco = params.endereco;
     if (params.numero && !existing.numero) updates.numero = params.numero;
     if (params.cidade && !existing.cidade) updates.cidade = params.cidade;
@@ -263,7 +381,7 @@ async function resolveClienteImport(client: any, scope: any, params: {
     .from('clientes')
     .insert({
       cpf: formatCpf(cpf),
-      nome: titleCaseNome(nome) || 'Cliente sem nome',
+      nome: nome || 'Cliente sem nome',
       nascimento,
       endereco: params.endereco || null,
       numero: params.numero || null,
@@ -307,7 +425,7 @@ export async function POST(event) {
     if (!isISODate(dataVenda)) {
       return new Response('Data da venda inválida.', { status: 400 });
     }
-    const hoje = toISODateLocal(new Date());
+    const hoje = todayISODateLocal();
     const dataLancamento = dataVenda > hoje ? hoje : dataVenda;
 
     const companyId = scope.companyId;
@@ -443,28 +561,6 @@ export async function POST(event) {
     const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
     const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
 
-    const produtoIds = Array.from(
-      new Set(
-        contratos
-          .map((contrato: any) => String(contrato?.produto_resolvido_id || '').trim() || destinoProdutoId || '')
-          .filter(Boolean)
-      )
-    );
-
-    if (produtoIds.length === 0) {
-      return new Response('Selecione o produto de cada recibo para continuar.', { status: 400 });
-    }
-
-    const { data: produtosSelecionados, error: produtosSelecionadosError } = await client
-      .from('produtos')
-      .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
-      .in('id', produtoIds);
-    if (produtosSelecionadosError) throw produtosSelecionadosError;
-
-    const produtosMap = new Map(
-      (produtosSelecionados || []).map((produto: any) => [String(produto.id), produto])
-    );
-
     const cidadeIds = Array.from(
       new Set(
         contratos
@@ -483,6 +579,30 @@ export async function POST(event) {
         cidadeNomeMap.set(String(cidade.id), String(cidade.nome || '').trim());
       });
     }
+
+    const { data: tiposProdutoData, error: tiposProdutoError } = await client
+      .from('tipo_produtos')
+      .select('id, nome, tipo')
+      .order('nome', { ascending: true });
+    if (tiposProdutoError) throw tiposProdutoError;
+    const tiposProduto = tiposProdutoData || [];
+
+    const produtosMap = new Map<string, any>();
+    for (const contrato of contratos as any[]) {
+      const reciboCidadeId = String(contrato?.destino_cidade_id || '').trim() || cidadeId || null;
+      const produto = await resolveProdutoOperacional({
+        client,
+        contrato,
+        produtoId: String(contrato?.produto_resolvido_id || '').trim() || null,
+        cidadeId: reciboCidadeId,
+        destinoNome: cidadeNomeMap.get(String(reciboCidadeId || '')) || contrato?.destino || null,
+        tiposProduto
+      });
+      contrato.produto_resolvido_id = produto.id;
+      produtosMap.set(String(produto.id), produto);
+    }
+
+    const produtoIds = Array.from(produtosMap.keys());
 
     const produtoVendaId =
       String((contratos[0] as any)?.produto_resolvido_id || '').trim() ||
@@ -581,18 +701,19 @@ export async function POST(event) {
       if (viagemError || !viagem) throw viagemError || new Error('Erro ao criar viagem.');
 
       const passageiros = (contrato.passageiros || []).filter(
-        (p) => String(p.nome || '').trim() && normalizeCpf(p.cpf).length >= 11
+        (p) => sanitizeImportedClienteNome(p.nome) && normalizeCpf(p.cpf).length >= 11
       );
 
       for (const p of passageiros) {
         const cpf = normalizeCpf(p.cpf);
+        const passageiroNome = cleanImportedClienteNome(p.nome, 'Passageiro');
         let passageiroCliente = await findClienteByDocumento(client, cpf);
         if (!passageiroCliente) {
           const { data: created } = await client
             .from('clientes')
             .insert({
               cpf: formatCpf(cpf),
-              nome: titleCaseNome(String(p.nome || '').trim()) || 'Passageiro',
+              nome: passageiroNome,
               nascimento: isISODate(p.nascimento) ? p.nascimento : null,
               company_id: companyId,
               created_by: user.id,
@@ -601,6 +722,18 @@ export async function POST(event) {
             .select('id')
             .single();
           passageiroCliente = created;
+        } else {
+          const existingNome = String((passageiroCliente as any)?.nome || '').trim();
+          const existingNomeLimpo = cleanImportedClienteNome(existingNome, '');
+          const updates: Record<string, string> = {};
+          if (existingNomeLimpo && existingNomeLimpo !== existingNome) {
+            updates.nome = existingNomeLimpo;
+          } else if (passageiroNome && (!existingNome || normalizeText(existingNome) === 'passageiro')) {
+            updates.nome = passageiroNome;
+          }
+          if (Object.keys(updates).length > 0) {
+            await client.from('clientes').update(updates).eq('id', passageiroCliente.id);
+          }
         }
 
         if (passageiroCliente) {
@@ -649,10 +782,15 @@ export async function POST(event) {
         }
       }
 
-      const valorBruto = parseMoney(pagamento.valor_bruto);
+      const parcelasTotal = totalParcelasPagamento(pagamento);
+      const valorBruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
       const descontoValor = parseMoney(pagamento.desconto);
       const valorTotalPagamento =
-        pagamento.total != null ? parseMoney(pagamento.total) : valorBruto > 0 ? Math.max(valorBruto - descontoValor, 0) : 0;
+        pagamento.total != null
+          ? parseMoney(pagamento.total)
+          : valorBruto > 0
+            ? Math.max(valorBruto - descontoValor, 0)
+            : 0;
       const pagamentoComissionavel = isFormaNaoComissionavel(formaNome, termosNaoComissionaveis)
         ? false
         : pagaComissao ?? true;

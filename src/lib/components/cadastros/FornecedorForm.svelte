@@ -8,6 +8,7 @@
   import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { formatDate } from '$lib/utils/formatters';
 
   export let fornecedorId: string | null = null;
 
@@ -347,7 +348,7 @@
                 {#each vouchersRelacionados as voucher}
                   <div class="rounded-lg border border-slate-200 p-3">
                     <div class="font-medium text-slate-900">{voucher.codigo || voucher.id}</div>
-                    <div class="text-sm text-slate-500">{voucher.status || 'Sem status'}{voucher.data_utilizacao ? ` · ${new Date(voucher.data_utilizacao).toLocaleDateString('pt-BR')}` : ''}</div>
+                    <div class="text-sm text-slate-500">{voucher.status || 'Sem status'}{voucher.data_utilizacao ? ` · ${formatDate(voucher.data_utilizacao)}` : ''}</div>
                   </div>
                 {/each}
               </div>

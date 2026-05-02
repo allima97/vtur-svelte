@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Preferencia = {
     id: string;
     tipo_produto_id: string | null;
@@ -176,7 +177,7 @@
   }
 
   async function deletePref(id: string) {
-    if (!confirm('Deseja excluir esta preferência?')) return;
+    if (!(await confirmAction('Deseja excluir esta preferência?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/operacao/preferencias?id=${id}`, { method: 'DELETE' });

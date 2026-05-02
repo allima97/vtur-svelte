@@ -1,6 +1,7 @@
 import { normalizeText } from '$lib/normalizeText';
-import { fetchGestorEquipeIdsComGestor, isUuid, type UserScope } from '$lib/server/v1';
+import { fetchGestorEquipeIdsComGestor, isRankingEligibleUser, isUuid, type UserScope } from '$lib/server/v1';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
+import { compareISODate, todayISODateLocal, toISODateLocal as formatISODateLocal } from '$lib/date';
 
 function collapseSpaces(value?: string | null) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -25,9 +26,7 @@ export function toNullableString(value: unknown) {
 }
 
 export function toISODateLocal(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate()
-  ).padStart(2, '0')}`;
+  return formatISODateLocal(date);
 }
 
 export function isISODate(value?: string | null) {
@@ -62,26 +61,18 @@ function sanitizeLabel(value?: string | null) {
 
 export function calcularStatusPeriodo(inicio?: string | null, fim?: string | null) {
   if (!inicio) return 'planejada';
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const dataInicio = new Date(inicio);
-  const dataFim = fim ? new Date(fim) : null;
+  const hoje = todayISODateLocal();
 
-  if (dataFim && dataFim < hoje) return 'concluida';
-  if (dataInicio > hoje) return 'confirmada';
-  if (dataFim && hoje > dataFim) return 'concluida';
+  if (fim && compareISODate(fim, hoje) < 0) return 'concluida';
+  if (compareISODate(inicio, hoje) > 0) return 'confirmada';
+  if (fim && compareISODate(hoje, fim) > 0) return 'concluida';
   return 'em_viagem';
-}
-
-function isAllowedSellerTipo(tipoNome?: string | null) {
-  const tipo = String(tipoNome || '').toUpperCase();
-  return tipo.includes('VENDEDOR') || tipo.includes('GESTOR') || tipo.includes('MASTER');
 }
 
 export async function ensureAssignableActiveSeller(client: any, scope: UserScope, vendedorId: string) {
   const { data, error } = await client
     .from('users')
-    .select('id, company_id, nome_completo, active, uso_individual, user_types(name)')
+    .select('id, company_id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name)')
     .eq('id', vendedorId)
     .maybeSingle();
   if (error) throw error;
@@ -90,7 +81,7 @@ export async function ensureAssignableActiveSeller(client: any, scope: UserScope
   if (!vendedor?.id) return 'Vendedor informado nao encontrado.';
   if (!Boolean(vendedor?.active)) return 'Vendedor informado esta inativo.';
   if (isEquipeVturNome(vendedor?.nome_completo)) return 'Equipe vtur nao pode receber vendas ou recibos.';
-  if (!isAllowedSellerTipo(vendedor?.user_types?.name)) return 'Usuario informado nao pode receber venda.';
+  if (!isRankingEligibleUser(vendedor)) return 'Usuario informado nao pode receber venda.';
 
   const vendedorCompanyId = String(vendedor?.company_id || '').trim() || null;
 
@@ -198,7 +189,7 @@ export async function ensureReciboReservaUnicos(params: {
 }
 
 export function buildVendaPayload(venda: any, vendedorId: string, clienteId: string, destinoId: string, companyId?: string | null) {
-  const todayIso = toISODateLocal(new Date());
+  const todayIso = todayISODateLocal();
   const dataVendaInput = String(venda?.data_venda || '').trim();
   const dataLancamentoInput = String(venda?.data_lancamento || '').trim();
   if (!isISODate(dataVendaInput)) {

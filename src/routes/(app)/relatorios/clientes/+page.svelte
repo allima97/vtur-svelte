@@ -12,6 +12,8 @@
   import { ArrowLeft, Filter, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface ClienteRelatorio {
     cliente_id?: string;
@@ -37,10 +39,10 @@
   }
 
   function getDefaultRange() {
-    const today = new Date();
+    const today = todayISODateLocal();
     return {
-      start: `${today.getFullYear()}-01-01`,
-      end: today.toISOString().slice(0, 10)
+      start: `${today.slice(0, 4)}-01-01`,
+      end: today
     };
   }
 
@@ -109,7 +111,7 @@
       label: 'Ultima Compra',
       sortable: true,
       width: '130px',
-      formatter: (value: string | null) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
+      formatter: (value: string | null) => formatDate(value)
     }
   ];
 
@@ -179,14 +181,14 @@
       cliente.total_gasto.toFixed(2).replace('.', ','),
       cliente.ticket_medio.toFixed(2).replace('.', ','),
       cliente.frequencia.toFixed(2).replace('.', ','),
-      cliente.ultima_compra ? new Date(cliente.ultima_compra).toLocaleDateString('pt-BR') : ''
+      cliente.ultima_compra ? formatDate(cliente.ultima_compra) : ''
     ]);
 
     const csv = ['\uFEFF' + headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_clientes_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `relatorio_clientes_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Relatório exportado com sucesso');
   }

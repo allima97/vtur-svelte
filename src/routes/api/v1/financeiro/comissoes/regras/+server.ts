@@ -17,7 +17,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 1, 'Sem acesso às regras de comissão.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 1, 'Sem acesso às regras de comissão.');
     }
 
     const { searchParams } = event.url;
@@ -53,7 +53,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 2, 'Sem permissão para criar regras.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 2, 'Sem permissão para criar regras.');
     }
 
     const body = await event.request.json();
@@ -103,7 +103,7 @@ export async function PUT(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 3, 'Sem permissão.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 3, 'Sem permissão.');
     }
 
     const id = event.url.searchParams.get('id') || (await event.request.json().catch(() => ({}))).id;
@@ -133,7 +133,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 4, 'Sem permissão.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 4, 'Sem permissão.');
     }
 
     const id = event.url.searchParams.get('id');

@@ -3,20 +3,12 @@ import {
   ensureModuloAccess,
   fetchVendedorIdsByCompanyIds,
   getAdminClient,
+  isRankingEligibleUser,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-function isRankingUserType(value?: string | null) {
-  const normalized = String(value || '').trim().toUpperCase();
-  return (
-    normalized.includes('VENDEDOR') ||
-    normalized.includes('GESTOR') ||
-    normalized.includes('MASTER')
-  );
-}
 
 export async function GET(event) {
   try {
@@ -110,8 +102,7 @@ export async function GET(event) {
         if (row?.active === false) return false;
         if (row?.uso_individual === true) return false;
         if (isGestorByType && scopedTeamIds.length > 0) return true;
-        const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
-        return isRankingUserType(userType?.name);
+        return isRankingEligibleUser(row);
       })
       .map((row: any) => {
         const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;

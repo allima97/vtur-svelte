@@ -6,6 +6,8 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { Plus, Plane, Calendar, Users, FileText, Clock, MapPin, CreditCard } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Viagem {
     id: string;
@@ -93,10 +95,8 @@
   }
 
   function calcularDias(inicio: string, fim: string): number {
-    if (!inicio || !fim) return 0;
-    const d1 = new Date(inicio);
-    const d2 = new Date(fim);
-    const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = diffDaysISODate(inicio, fim);
+    if (diff === null) return 0;
     return diff + 1;
   }
 
@@ -148,8 +148,8 @@
       v.codigo,
       v.cliente,
       v.destino,
-      v.data_inicio ? new Date(v.data_inicio).toLocaleDateString('pt-BR') : '',
-      v.data_fim ? new Date(v.data_fim).toLocaleDateString('pt-BR') : '',
+      v.data_inicio ? formatDate(v.data_inicio) : '',
+      v.data_fim ? formatDate(v.data_fim) : '',
       v.dias_viagem.toString(),
       v.numero_pessoas.toString(),
       v.status,
@@ -160,7 +160,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `viagens_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `viagens_${todayISODateLocal()}.csv`;
     link.click();
     
     toast.success('Viagens exportadas com sucesso!');
@@ -198,22 +198,20 @@
       sortable: true,
       width: '150px',
       formatter: (value: string, row: Viagem) => {
-        const hoje = new Date();
-        const inicio = new Date(value);
-        const fim = new Date(row.data_fim);
+        const hoje = todayISODateLocal();
         let alerta = '';
         
-        if (inicio <= hoje && hoje <= fim) {
+        if (compareISODate(value, hoje) <= 0 && compareISODate(hoje, row.data_fim) <= 0) {
           alerta = '<span class="text-amber-600 font-medium">• Em viagem</span>';
-        } else if (inicio < hoje) {
+        } else if (compareISODate(value, hoje) < 0) {
           alerta = '<span class="text-slate-400">• Concluída</span>';
         } else {
-          const dias = Math.ceil((inicio.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+          const dias = diffDaysISODate(hoje, value) ?? 0;
           if (dias <= 7) alerta = `<span class="text-red-600 font-medium">• Falta ${dias}d</span>`;
         }
         
         return `<div class="text-sm">
-          <div>${inicio.toLocaleDateString('pt-BR')} - ${fim.toLocaleDateString('pt-BR')}</div>
+          <div>${formatDate(value)} - ${formatDate(row.data_fim)}</div>
           <div class="text-xs">${row.dias_viagem} dias ${alerta}</div>
         </div>`;
       }

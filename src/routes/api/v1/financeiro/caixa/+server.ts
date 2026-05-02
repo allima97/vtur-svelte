@@ -9,6 +9,7 @@ import {
   toISODateLocal,
   getMonthRange
 } from '$lib/server/v1';
+import { addDaysISODate, parseISODateLocal, todayISODateLocal } from '$lib/date';
 
 export async function GET(event) {
   try {
@@ -32,11 +33,12 @@ export async function GET(event) {
       inicio = dataInicio;
       fim = dataFim;
     } else if (periodo === 'semana') {
-      const hoje = new Date();
+      const hojeIso = todayISODateLocal();
+      const hoje = parseISODateLocal(hojeIso) || new Date();
       const sete = new Date(hoje);
       sete.setDate(hoje.getDate() - 7);
-      inicio = toISODateLocal(sete);
-      fim = toISODateLocal(hoje);
+      inicio = addDaysISODate(hojeIso, -7) || toISODateLocal(sete);
+      fim = hojeIso;
     } else {
       const range = getMonthRange();
       inicio = range.inicio;

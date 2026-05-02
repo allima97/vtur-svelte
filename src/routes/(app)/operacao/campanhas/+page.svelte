@@ -8,7 +8,10 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, Megaphone, ExternalLink } from 'lucide-svelte';
+  import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Campanha = {
     id: string;
     titulo: string;
@@ -39,7 +42,7 @@
       link_url: '',
       link_instagram: '',
       link_facebook: '',
-      data_campanha: new Date().toISOString().slice(0, 10),
+      data_campanha: todayISODateLocal(),
       validade_ate: '',
       regras: '',
       status: 'ativa' as 'ativa' | 'inativa' | 'cancelada'
@@ -65,7 +68,7 @@
       label: 'Data',
       sortable: true,
       width: '110px',
-      formatter: (v: string) => v ? new Date(v + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string) => formatDate(v)
     },
     {
       key: 'validade_ate',
@@ -74,10 +77,8 @@
       width: '110px',
       formatter: (v: string | null) => {
         if (!v) return '-';
-        const d = new Date(v + 'T00:00:00');
-        const hoje = new Date();
-        const diff = Math.ceil((d.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        const label = d.toLocaleDateString('pt-BR');
+        const diff = diffDaysISODate(todayISODateLocal(), v) ?? 0;
+        const label = formatDate(v);
         if (diff < 0) return `<span class="text-red-600">${label}</span>`;
         if (diff <= 3) return `<span class="text-amber-600">${label}</span>`;
         return label;
@@ -159,7 +160,7 @@
   }
 
   async function deleteCampanha(id: string) {
-    if (!confirm('Deseja excluir esta campanha?')) return;
+    if (!(await confirmAction('Deseja excluir esta campanha?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/operacao/campanhas?id=${id}`, { method: 'DELETE' });
@@ -176,7 +177,7 @@
   onMount(load);
 
   $: ativas = campanhas.filter((c) => c.status === 'ativa').length;
-  $: vencidas = campanhas.filter((c) => c.validade_ate && new Date(c.validade_ate + 'T00:00:00') < new Date()).length;
+  $: vencidas = campanhas.filter((c) => c.validade_ate && compareISODate(c.validade_ate, todayISODateLocal()) < 0).length;
 </script>
 
 <svelte:head>

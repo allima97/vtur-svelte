@@ -6,6 +6,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { Plus, FileText, Send, ShoppingCart, AlertCircle, FileSpreadsheet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Orcamento {
     id: string;
@@ -47,8 +49,7 @@
 
   function getDiasParaValidade(value: string | null | undefined) {
     if (!value) return Number.POSITIVE_INFINITY;
-    const data = new Date(value);
-    return Math.ceil((data.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diffDaysISODate(todayISODateLocal(), value) ?? Number.POSITIVE_INFINITY;
   }
 
   function isExpirando(item: Orcamento) {
@@ -195,11 +196,11 @@
       o.codigo,
       o.cliente,
       o.destino,
-      o.data_criacao ? new Date(o.data_criacao).toLocaleDateString('pt-BR') : '',
-      o.data_validade ? new Date(o.data_validade).toLocaleDateString('pt-BR') : '',
+      o.data_criacao ? formatDate(o.data_criacao) : '',
+      o.data_validade ? formatDate(o.data_validade) : '',
       o.valor_total.toFixed(2).replace('.', ','),
       o.status,
-      o.last_interaction_at ? new Date(o.last_interaction_at).toLocaleDateString('pt-BR') : '',
+      o.last_interaction_at ? formatDate(o.last_interaction_at) : '',
       o.vendedor
     ]);
 
@@ -207,7 +208,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `orcamentos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `orcamentos_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Orçamentos exportados com sucesso!');
   }
@@ -230,7 +231,7 @@
       sortable: true,
       width: '110px',
       formatter: (value: string | null) =>
-        value ? new Date(value).toLocaleDateString('pt-BR') : '-'
+        formatDate(value)
     },
     {
       key: 'last_interaction_at',
@@ -239,12 +240,11 @@
       width: '180px',
       formatter: (value: string | null, row: Orcamento) => {
         if (!value) return '<span class="text-red-600 font-medium">Sem interação</span>';
-        const data = new Date(value);
         const diff = getDiasSemInteracao(value);
         const classe = diff >= 7 ? 'text-amber-700 font-medium' : 'text-slate-700';
         const nota = row.last_interaction_notes ? `<div class="text-xs text-slate-500">${row.last_interaction_notes}</div>` : '';
         const atraso = diff >= 7 ? `<div class="text-xs text-amber-700">${diff} dias sem contato</div>` : '';
-        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${atraso}${nota}</div>`;
+        return `<div><div class="${classe}">${formatDate(value)}</div>${atraso}${nota}</div>`;
       }
     },
     {
@@ -254,7 +254,6 @@
       width: '130px',
       formatter: (value: string | null) => {
         if (!value) return '-';
-        const data = new Date(value);
         const diff = getDiasParaValidade(value);
         const classe =
           diff < 0  ? 'text-red-600 font-medium' :
@@ -264,7 +263,7 @@
           : diff <= 3
             ? `<div class="text-xs text-amber-600">Vence em ${diff}d</div>`
             : '';
-        return `<div><div class="${classe}">${data.toLocaleDateString('pt-BR')}</div>${alerta}</div>`;
+        return `<div><div class="${classe}">${formatDate(value)}</div>${alerta}</div>`;
       }
     },
     {

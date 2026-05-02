@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isRankingEligibleUser,
   isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -248,6 +249,22 @@ export async function POST(event) {
     if (!registro) return json({ error: 'Registro não encontrado.' }, { status: 404 });
     if (!scope.isAdmin && registro.company_id !== companyId) {
       return json({ error: 'Registro fora do escopo.' }, { status: 403 });
+    }
+
+    if (rankingVendedorId) {
+      const { data: vendedorRow, error: vendedorErr } = await client
+        .from('users')
+        .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
+        .eq('id', rankingVendedorId)
+        .maybeSingle();
+      if (vendedorErr) throw vendedorErr;
+      if (
+        !vendedorRow ||
+        String(vendedorRow.company_id || '') !== String(registro.company_id || '') ||
+        !isRankingEligibleUser(vendedorRow)
+      ) {
+        return json({ error: 'Vendedor fora do escopo da empresa ou inelegível para ranking.' }, { status: 422 });
+      }
     }
 
     // Captura o vendedor atualmente atribuído (antes da atualização) para detectar troca

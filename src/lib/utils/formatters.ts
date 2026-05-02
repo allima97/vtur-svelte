@@ -1,3 +1,5 @@
+import { extractISODate, formatISODateBR, formatISODateShortBR } from '$lib/date';
+
 /**
  * Formatadores utilitários — VTUR
  *
@@ -45,13 +47,23 @@ export function formatPercent(value: number | null | undefined, decimals = 1): s
 
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '-';
-  const d = typeof value === 'string' ? new Date(value + (value.length === 10 ? 'T00:00:00' : '')) : value;
+
+  if (typeof value === 'string' && extractISODate(value)) {
+    return formatISODateBR(value);
+  }
+
+  const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d.getTime())) return '-';
   return new Intl.DateTimeFormat('pt-BR').format(d);
 }
 
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '-';
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return formatISODateBR(value);
+  }
+
   const d = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(d.getTime())) return '-';
   return new Intl.DateTimeFormat('pt-BR', {
@@ -65,7 +77,12 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 
 export function formatDateShort(value: string | Date | null | undefined): string {
   if (!value) return '-';
-  const d = typeof value === 'string' ? new Date(value + (value.length === 10 ? 'T00:00:00' : '')) : value;
+
+  if (typeof value === 'string' && extractISODate(value)) {
+    return formatISODateShortBR(value);
+  }
+
+  const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d.getTime())) return '-';
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(d);
 }

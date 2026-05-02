@@ -9,6 +9,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type TipoProduto = {
     id: string;
     nome: string | null;
@@ -186,7 +187,7 @@
   }
 
   async function deleteTipo(id: string) {
-    if (!confirm('Deseja excluir este tipo de produto? Ele não pode estar vinculado a recibos.')) return;
+    if (!(await confirmAction('Deseja excluir este tipo de produto? Ele não pode estar vinculado a recibos.'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/tipo-produtos?id=${id}`, { method: 'DELETE' });

@@ -9,12 +9,13 @@ import {
   getMonthRange,
   toISODateLocal
 } from '$lib/server/v1';
+import { addDaysISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
 
 function getPeriodoFilter(periodo: string | null): { from?: string; to?: string } | null {
   if (!periodo) return null;
 
-  const hoje = new Date();
-  const hojeStr = toISODateLocal(hoje);
+  const hojeStr = todayISODateLocal();
+  const hoje = parseISODateLocal(hojeStr) || new Date();
 
   switch (periodo) {
     case 'hoje': {
@@ -28,13 +29,11 @@ function getPeriodoFilter(periodo: string | null): { from?: string; to?: string 
       return { from: toISODateLocal(inicioSemana), to: toISODateLocal(fimSemana) };
     }
     case 'mes': {
-      const { inicio, fim } = getMonthRange(hoje);
+      const { inicio, fim } = monthRangeFromKey(hojeStr.slice(0, 7)) || getMonthRange(hoje);
       return { from: inicio, to: fim };
     }
     case 'proximos_30': {
-      const fim = new Date(hoje);
-      fim.setDate(hoje.getDate() + 30);
-      return { from: hojeStr, to: toISODateLocal(fim) };
+      return { from: hojeStr, to: addDaysISODate(hojeStr, 30) };
     }
     default:
       return null;

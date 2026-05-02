@@ -28,6 +28,8 @@
     CheckCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   type ClienteDetalhe = {
     id: string;
@@ -108,17 +110,17 @@
   }
 
   function formatDate(value: string | null | undefined) {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function calculateAge(value: string | null | undefined) {
-    if (!value) return null;
-    const today = new Date();
-    const birth = new Date(value);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    const today = parseISODateParts(todayISODateLocal());
+    const birth = parseISODateParts(value);
+    if (!today || !birth) return null;
+
+    let age = today.year - birth.year;
+    const monthDiff = today.month - birth.month;
+    if (monthDiff < 0 || (monthDiff === 0 && today.day < birth.day)) {
       age -= 1;
     }
     return age;

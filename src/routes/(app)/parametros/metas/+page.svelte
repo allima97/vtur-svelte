@@ -4,12 +4,34 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import DataTable from '$lib/components/ui/DataTable.svelte';
   import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
-  import { formatYearMonthLabel } from '$lib/utils/formatters';
+  import { addMonthsISODate, todayISODateLocal } from '$lib/date';
+  import { formatCurrency, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { Plus, Target, Trash2, RefreshCw } from 'lucide-svelte';
+  import { confirmAction } from '$lib/stores/confirm';
+  import { CopyCheck, Pencil, Plus, RefreshCw, Target, Trash2 } from 'lucide-svelte';
+
+  type Produto = {
+    id: string;
+    nome: string | null;
+    tipo?: string | null;
+  };
+
+  type MetaProduto = {
+    id?: string | null;
+    meta_vendedor_id?: string | null;
+    produto_id: string;
+    valor: number;
+    produto?: Produto | null;
+  };
+
+  type Vendedor = {
+    id: string;
+    nome_completo: string | null;
+    email?: string | null;
+    company_id?: string | null;
+  };
 
   type Meta = {
     id: string;
@@ -19,41 +41,141 @@
     meta_diferenciada: number;
     ativo: boolean;
     scope: string | null;
-    vendedor?: { nome_completo?: string | null } | null;
+    vendedor?: Vendedor | null;
+    meta_produtos?: MetaProduto[];
   };
 
-  type Vendedor = { id: string; nome_completo: string | null };
+  type ProdutoFormRow = {
+    produto_id: string;
+    valor: string;
+  };
 
+  type GridRow = {
+    vendedor: Vendedor;
+    meta: Meta | null;
+  };
+
+  const currentMonth = todayISODateLocal().slice(0, 7);
+
+  let periodo = currentMonth;
+  let vendedorFiltro = '';
   let metas: Meta[] = [];
   let vendedores: Vendedor[] = [];
+  let produtos: Produto[] = [];
   let loading = true;
-  let modalOpen = false;
   let saving = false;
   let deletingId = '';
-  let editingId: string | null = null;
-
+  let modalOpen = false;
+  let bulkOpen = false;
   let form = createForm();
+  let bulkForm = createBulkForm();
+
+  $: canEdit =
+    !$permissoes.ready ||
+    $permissoes.isSystemAdmin ||
+    permissoes.can('metas', 'edit') ||
+    permissoes.can('parametros', 'edit');
+  $: canDelete =
+    !$permissoes.ready ||
+    $permissoes.isSystemAdmin ||
+    permissoes.can('metas', 'delete') ||
+    permissoes.can('parametros', 'delete');
 
   function createForm() {
-    const now = new Date();
     return {
+      id: '',
       vendedor_id: '',
-      periodo: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      periodo,
       meta_geral: '',
-      meta_diferenciada: '',
-      ativo: true
+      ativo: true,
+      meta_produtos: [] as ProdutoFormRow[]
     };
   }
 
-  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('metas', 'edit') || permissoes.can('parametros', 'edit');
-  $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('metas', 'delete') || permissoes.can('parametros', 'delete');
-
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  function createBulkForm() {
+    return {
+      modo: 'por_vendedor',
+      meta_geral: '',
+      ativo: true,
+      meta_produtos: [] as ProdutoFormRow[]
+    };
   }
 
-  function formatPeriodo(value: string) {
-    return formatYearMonthLabel(value);
+  function parseMoney(value: unknown) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    const parsed = Number(
+      String(value ?? '')
+        .replace(/\s/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.')
+    );
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function formatInputValue(value: number | string | null | undefined) {
+    const num = parseMoney(value);
+    return num > 0 ? String(Number(num.toFixed(2))) : '';
+  }
+
+  function buildMonthOptions() {
+    const options: Array<{ value: string; label: string }> = [];
+    for (let i = -24; i <= 12; i++) {
+      const value = addMonthsISODate(`${currentMonth}-01`, i).slice(0, 7);
+      options.push({ value, label: formatYearMonthLabel(value) });
+    }
+    return options.reverse();
+  }
+
+  const monthOptions = buildMonthOptions();
+
+  $: vendedorOptions = [
+    { value: '', label: 'Todos os vendedores' },
+    ...vendedores.map((v) => ({ value: v.id, label: v.nome_completo || v.email || 'Vendedor' }))
+  ];
+
+  $: vendedorModalOptions = vendedores.map((v) => ({
+    value: v.id,
+    label: v.nome_completo || v.email || 'Vendedor'
+  }));
+
+  $: produtoOptions = produtos.map((produto) => ({
+    value: produto.id,
+    label: produto.nome || 'Produto'
+  }));
+
+  $: metaByVendedor = new Map(metas.map((meta) => [meta.vendedor_id, meta]));
+  $: rows = vendedores
+    .filter((vendedor) => !vendedorFiltro || vendedor.id === vendedorFiltro)
+    .map((vendedor) => ({ vendedor, meta: metaByVendedor.get(vendedor.id) || null }));
+
+  $: totalVendas = rows.reduce((sum, row) => sum + Number(row.meta?.meta_geral || 0), 0);
+  $: totalProdutos = rows.reduce((sum, row) => sum + totalMetaProduto(row.meta), 0);
+  $: metasAtivas = rows.filter((row) => row.meta?.ativo).length;
+  $: vendedoresSemMeta = rows.filter((row) => !row.meta).length;
+  $: bulkCount = rows.length;
+
+  function totalMetaProduto(meta: Meta | null | undefined) {
+    const detalhes = meta?.meta_produtos || [];
+    const totalDetalhes = detalhes.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+    return totalDetalhes > 0 ? totalDetalhes : Number(meta?.meta_diferenciada || 0);
+  }
+
+  function produtoNome(produtoId: string) {
+    return produtos.find((produto) => produto.id === produtoId)?.nome || 'Produto';
+  }
+
+  function produtoResumo(meta: Meta | null) {
+    if (!meta) return 'Sem meta de produto';
+    const detalhes = meta.meta_produtos || [];
+    if (detalhes.length === 0) {
+      return Number(meta.meta_diferenciada || 0) > 0
+        ? formatCurrency(Number(meta.meta_diferenciada || 0))
+        : 'Sem meta de produto';
+    }
+
+    return detalhes
+      .map((item) => `${item.produto?.nome || produtoNome(item.produto_id)}: ${formatCurrency(Number(item.valor || 0))}`)
+      .join(' | ');
   }
 
   async function readError(response: Response, fallback: string) {
@@ -65,53 +187,18 @@
     }
   }
 
-  const columns = [
-    {
-      key: 'vendedor',
-      label: 'Vendedor',
-      sortable: true,
-      formatter: (_: any, row: Meta) => String(row.vendedor?.nome_completo || 'Vendedor')
-    },
-    {
-      key: 'periodo',
-      label: 'Período',
-      sortable: true,
-      formatter: (value: string) => formatPeriodo(value)
-    },
-    {
-      key: 'meta_geral',
-      label: 'Meta Geral',
-      sortable: true,
-      align: 'right' as const,
-      formatter: (value: number) => formatCurrency(value)
-    },
-    {
-      key: 'meta_diferenciada',
-      label: 'Meta Diferenciada',
-      sortable: true,
-      align: 'right' as const,
-      formatter: (value: number) => value ? formatCurrency(value) : '-'
-    },
-    {
-      key: 'ativo',
-      label: 'Status',
-      sortable: true,
-      width: '100px',
-      formatter: (value: boolean) =>
-        value
-          ? '<span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Ativa</span>'
-          : '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Inativa</span>'
-    }
-  ];
-
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/metas');
+      const params = new URLSearchParams({ periodo });
+      if (vendedorFiltro) params.set('vendedor_id', vendedorFiltro);
+      const response = await fetch(`/api/v1/parametros/metas?${params.toString()}`);
       if (!response.ok) throw new Error(await readError(response, 'Erro ao carregar metas.'));
+
       const payload = await response.json();
       metas = payload.items || [];
       vendedores = payload.vendedores || [];
+      produtos = payload.produtos || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar metas.');
     } finally {
@@ -119,29 +206,77 @@
     }
   }
 
-  function openNew() {
-    editingId = null;
+  function addProdutoRow(target: 'form' | 'bulk') {
+    if (target === 'form') {
+      form = { ...form, meta_produtos: [...form.meta_produtos, { produto_id: '', valor: '' }] };
+    } else {
+      bulkForm = { ...bulkForm, meta_produtos: [...bulkForm.meta_produtos, { produto_id: '', valor: '' }] };
+    }
+  }
+
+  function removeProdutoRow(target: 'form' | 'bulk', index: number) {
+    if (target === 'form') {
+      form = { ...form, meta_produtos: form.meta_produtos.filter((_, i) => i !== index) };
+    } else {
+      bulkForm = { ...bulkForm, meta_produtos: bulkForm.meta_produtos.filter((_, i) => i !== index) };
+    }
+  }
+
+  function updateProdutoRow(target: 'form' | 'bulk', index: number, patch: Partial<ProdutoFormRow>) {
+    if (target === 'form') {
+      const meta_produtos = form.meta_produtos.map((row, i) => (i === index ? { ...row, ...patch } : row));
+      form = { ...form, meta_produtos };
+    } else {
+      const meta_produtos = bulkForm.meta_produtos.map((row, i) => (i === index ? { ...row, ...patch } : row));
+      bulkForm = { ...bulkForm, meta_produtos };
+    }
+  }
+
+  function openNew(vendedor?: Vendedor) {
     form = createForm();
-    if (vendedores.length === 1) form.vendedor_id = vendedores[0].id;
+    form.vendedor_id = vendedor?.id || vendedorFiltro || vendedores[0]?.id || '';
     modalOpen = true;
   }
 
-  function openEdit(meta: Meta) {
-    editingId = meta.id;
+  function openEdit(row: GridRow) {
+    const meta = row.meta;
     form = {
-      vendedor_id: meta.vendedor_id,
-      periodo: meta.periodo.slice(0, 7),
-      meta_geral: String(meta.meta_geral || ''),
-      meta_diferenciada: String(meta.meta_diferenciada || ''),
-      ativo: meta.ativo
+      id: meta?.id || '',
+      vendedor_id: row.vendedor.id,
+      periodo,
+      meta_geral: formatInputValue(meta?.meta_geral || ''),
+      ativo: meta?.ativo !== false,
+      meta_produtos: (meta?.meta_produtos || []).map((item) => ({
+        produto_id: item.produto_id,
+        valor: formatInputValue(item.valor)
+      }))
     };
     modalOpen = true;
   }
 
+  function openBulk() {
+    bulkForm = createBulkForm();
+    bulkOpen = true;
+  }
+
+  function normalizedProdutoRows(rowsToNormalize: ProdutoFormRow[], divisor = 1) {
+    return rowsToNormalize
+      .map((row) => ({
+        produto_id: row.produto_id,
+        valor: parseMoney(row.valor) / Math.max(1, divisor)
+      }))
+      .filter((row) => row.produto_id && row.valor > 0);
+  }
+
   async function save() {
-    if (!form.vendedor_id) { toast.error('Selecione o vendedor.'); return; }
-    if (!form.periodo) { toast.error('Informe o período.'); return; }
-    if (!form.meta_geral) { toast.error('Informe a meta geral.'); return; }
+    if (!form.vendedor_id) {
+      toast.error('Selecione o vendedor.');
+      return;
+    }
+    if (!form.periodo) {
+      toast.error('Informe o mês da meta.');
+      return;
+    }
 
     saving = true;
     try {
@@ -149,16 +284,17 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: editingId || undefined,
+          id: form.id || undefined,
           vendedor_id: form.vendedor_id,
           periodo: form.periodo,
-          meta_geral: Number(String(form.meta_geral).replace(',', '.')),
-          meta_diferenciada: Number(String(form.meta_diferenciada || '0').replace(',', '.')),
-          ativo: form.ativo
+          meta_geral: parseMoney(form.meta_geral),
+          ativo: form.ativo,
+          meta_produtos: normalizedProdutoRows(form.meta_produtos)
         })
       });
+
       if (!response.ok) throw new Error(await readError(response, 'Erro ao salvar meta.'));
-      toast.success(editingId ? 'Meta atualizada.' : 'Meta criada.');
+      toast.success(form.id ? 'Meta atualizada.' : 'Meta criada.');
       modalOpen = false;
       await load();
     } catch (err) {
@@ -168,11 +304,60 @@
     }
   }
 
-  async function deleteMeta(id: string) {
-    if (!confirm('Deseja excluir esta meta?')) return;
-    deletingId = id;
+  async function saveBulk() {
+    if (rows.length === 0) {
+      toast.error('Não há vendedores no filtro atual.');
+      return;
+    }
+
+    const divisor = bulkForm.modo === 'total_loja' ? rows.length : 1;
+    const metaGeral = parseMoney(bulkForm.meta_geral) / divisor;
+    const metaProdutos = normalizedProdutoRows(bulkForm.meta_produtos, divisor);
+
+    if (metaGeral <= 0 && metaProdutos.length === 0) {
+      toast.error('Informe a meta de vendas ou uma meta de produto.');
+      return;
+    }
+
+    const confirmed = await confirmAction(
+      `Isso vai aplicar metas para ${rows.length} vendedor(es) em ${formatYearMonthLabel(periodo)} e substituir as metas de produto desses vendedores. Deseja continuar?`
+    );
+    if (!confirmed) return;
+
+    saving = true;
     try {
-      const response = await fetch(`/api/v1/parametros/metas?id=${id}`, { method: 'DELETE' });
+      const response = await fetch('/api/v1/parametros/metas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodo,
+          items: rows.map((row) => ({
+            id: row.meta?.id || undefined,
+            vendedor_id: row.vendedor.id,
+            periodo,
+            meta_geral: metaGeral,
+            ativo: bulkForm.ativo,
+            meta_produtos: metaProdutos
+          }))
+        })
+      });
+
+      if (!response.ok) throw new Error(await readError(response, 'Erro ao aplicar metas.'));
+      toast.success('Metas aplicadas ao mês.');
+      bulkOpen = false;
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao aplicar metas.');
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function deleteMeta(meta: Meta) {
+    if (!(await confirmAction(`Excluir a meta de ${formatYearMonthLabel(meta.periodo.slice(0, 7))}?`))) return;
+    deletingId = meta.id;
+    try {
+      const response = await fetch(`/api/v1/parametros/metas?id=${meta.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error(await readError(response, 'Erro ao excluir meta.'));
       toast.success('Meta excluída.');
       await load();
@@ -184,27 +369,6 @@
   }
 
   onMount(load);
-
-  $: totalMetas = metas.reduce((acc, m) => acc + Number(m.meta_geral || 0), 0);
-  $: metasAtivas = metas.filter((m) => m.ativo).length;
-
-  function buildMonthOptions() {
-    const items: Array<{ value: string; label: string }> = [];
-    const now = new Date();
-    for (let i = -12; i <= 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-      items.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
-    }
-    return items;
-  }
-
-  const monthOptions = buildMonthOptions();
-  $: vendedorOptions = vendedores.map((v) => ({
-    value: v.id,
-    label: v.nome_completo || 'Vendedor'
-  }));
 </script>
 
 <svelte:head>
@@ -213,7 +377,7 @@
 
 <PageHeader
   title="Metas de Vendedores"
-  subtitle="Defina e acompanhe as metas mensais por vendedor."
+  subtitle="Filtre o mês, revise o histórico e ajuste metas de vendas e produtos diferenciados."
   color="financeiro"
   breadcrumbs={[
     { label: 'Parâmetros', href: '/parametros' },
@@ -221,21 +385,58 @@
   ]}
   actions={[
     { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw },
-    ...(canEdit ? [{ label: 'Nova Meta', onClick: openNew, variant: 'primary' as const, icon: Plus }] : [])
+    ...(canEdit ? [{ label: 'Aplicar em lote', onClick: openBulk, variant: 'secondary' as const, icon: CopyCheck }] : []),
+    ...(canEdit ? [{ label: 'Nova meta', onClick: () => openNew(), variant: 'primary' as const, icon: Plus }] : [])
   ]}
 />
 
-<div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+<Card title="Filtros" padding="md" class="mb-6">
+  <div class="grid gap-4 md:grid-cols-[220px_minmax(220px,320px)_auto] md:items-end">
+    <FieldSelect
+      id="metas-periodo-filtro"
+      label="Mês"
+      bind:value={periodo}
+      options={monthOptions}
+      placeholder={null}
+      on:change={load}
+    />
+
+    <FieldSelect
+      id="metas-vendedor-filtro"
+      label="Vendedor"
+      bind:value={vendedorFiltro}
+      options={vendedorOptions}
+      placeholder={null}
+      on:change={load}
+    />
+
+    <Button variant="secondary" color="financeiro" on:click={load} loading={loading}>
+      <RefreshCw size={16} class="mr-2" />
+      Atualizar
+    </Button>
+  </div>
+</Card>
+
+<div class="vtur-kpi-grid vtur-kpi-grid-4 mb-6">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
       <Target size={20} />
     </div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Total de metas</p>
-      <p class="text-2xl font-bold text-slate-900">{metas.length}</p>
+      <p class="text-sm font-medium text-slate-500">Meta de vendas</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalVendas)}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+      <Target size={20} />
+    </div>
+    <div>
+      <p class="text-sm font-medium text-slate-500">Produto diferenciado</p>
+      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalProdutos)}</p>
+    </div>
+  </div>
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
       <Target size={20} />
     </div>
@@ -244,105 +445,282 @@
       <p class="text-2xl font-bold text-slate-900">{metasAtivas}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
       <Target size={20} />
     </div>
     <div>
-      <p class="text-sm font-medium text-slate-500">Volume total</p>
-      <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalMetas)}</p>
+      <p class="text-sm font-medium text-slate-500">Sem meta no mês</p>
+      <p class="text-2xl font-bold text-slate-900">{vendedoresSemMeta}</p>
     </div>
   </div>
 </div>
 
-<DataTable
-  {columns}
-  data={metas}
-  color="financeiro"
-  {loading}
-  title="Metas cadastradas"
-  searchable={true}
-  emptyMessage="Nenhuma meta cadastrada"
-  onRowClick={canEdit ? (row) => openEdit(row) : undefined}
->
-  <svelte:fragment slot="row-actions" let:row>
-    {#if canDelete}
-      <Button
-        variant="ghost"
-        size="xs"
-        color="financeiro"
-        on:click={(event) => {
-          event.stopPropagation();
-          deleteMeta(row.id);
-        }}
-        class_name="min-w-0 !p-1.5 !text-slate-400 hover:!bg-red-50 hover:!text-red-600"
-        loading={deletingId === row.id}
-      >
-        <Trash2 size={15} />
-      </Button>
-    {/if}
-  </svelte:fragment>
-</DataTable>
+<Card title={`Metas de ${formatYearMonthLabel(periodo)}`} padding="none">
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 table-mobile-cards">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Vendedor</th>
+          <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Meta vendas</th>
+          <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Produto diferenciado</th>
+          <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+          <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Ações</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 bg-white">
+        {#if loading}
+          <tr>
+            <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Carregando metas...</td>
+          </tr>
+        {:else if rows.length === 0}
+          <tr>
+            <td colspan="5" class="px-5 py-8 text-center text-sm text-slate-500">Nenhum vendedor no escopo atual.</td>
+          </tr>
+        {:else}
+          {#each rows as row}
+            <tr class="hover:bg-slate-50">
+              <td data-label="Vendedor" class="px-5 py-4">
+                <div class="font-semibold text-slate-900">{row.vendedor.nome_completo || 'Vendedor'}</div>
+                {#if row.vendedor.email}
+                  <div class="text-xs text-slate-500">{row.vendedor.email}</div>
+                {/if}
+              </td>
+              <td data-label="Meta vendas" class="px-5 py-4 text-right font-semibold text-slate-900">
+                {row.meta ? formatCurrency(Number(row.meta.meta_geral || 0)) : '-'}
+              </td>
+              <td data-label="Produto diferenciado" class="px-5 py-4 text-sm text-slate-600">
+                {produtoResumo(row.meta)}
+              </td>
+              <td data-label="Status" class="px-5 py-4">
+                {#if row.meta?.ativo}
+                  <span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Ativa</span>
+                {:else if row.meta}
+                  <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Inativa</span>
+                {:else}
+                  <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">Não cadastrada</span>
+                {/if}
+              </td>
+              <td data-label="Ações" class="px-5 py-4">
+                <div class="flex justify-end gap-2">
+                  {#if canEdit}
+                    <Button variant="ghost" size="xs" color="financeiro" on:click={() => openEdit(row)}>
+                      <Pencil size={15} />
+                    </Button>
+                  {/if}
+                  {#if canDelete && row.meta}
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      color="financeiro"
+                      class_name="hover:!bg-red-50 hover:!text-red-600"
+                      loading={deletingId === row.meta.id}
+                      on:click={() => deleteMeta(row.meta!)}
+                    >
+                      <Trash2 size={15} />
+                    </Button>
+                  {/if}
+                </div>
+              </td>
+            </tr>
+          {/each}
+        {/if}
+      </tbody>
+    </table>
+  </div>
+</Card>
 
 <Dialog
   bind:open={modalOpen}
-  title={editingId ? 'Editar Meta' : 'Nova Meta'}
+  title={form.id ? 'Editar meta' : 'Nova meta'}
   color="financeiro"
-  size="md"
+  size="lg"
   showCancel={true}
   cancelText="Cancelar"
   showConfirm={true}
-  confirmText={editingId ? 'Salvar' : 'Criar'}
+  confirmText="Salvar"
   loading={saving}
   onConfirm={save}
   onCancel={() => (modalOpen = false)}
 >
-  <div class="space-y-4">
-    {#if vendedores.length > 0}
+  <div class="space-y-5">
+    <div class="grid gap-4 md:grid-cols-2">
       <FieldSelect
         id="meta-vendedor"
         label="Vendedor"
         bind:value={form.vendedor_id}
-        options={vendedorOptions}
+        options={vendedorModalOptions}
+        required={true}
+        disabled={Boolean(form.id)}
+      />
+
+      <FieldSelect
+        id="meta-periodo"
+        label="Mês"
+        bind:value={form.periodo}
+        options={monthOptions}
+        placeholder={null}
         required={true}
       />
-    {/if}
 
-    <FieldSelect
-      id="meta-periodo"
-      label="Período"
-      bind:value={form.periodo}
-      options={monthOptions}
-      placeholder={null}
-      required={true}
-    />
+      <FieldInput
+        id="meta-geral"
+        label="Meta de vendas"
+        type="number"
+        step="0.01"
+        min="0"
+        prefix="R$"
+        bind:value={form.meta_geral}
+        placeholder="0,00"
+      />
 
-    <FieldInput
-      id="meta-geral"
-      label="Meta Geral (R$)"
-      type="number"
-      step="0.01"
-      min="0"
-      bind:value={form.meta_geral}
-      placeholder="0,00"
-      required={true}
-    />
+      <div class="flex items-end">
+        <FieldCheckbox label="Meta ativa" bind:checked={form.ativo} color="financeiro" />
+      </div>
+    </div>
 
-    <FieldInput
-      id="meta-diferenciada"
-      label="Meta Diferenciada (R$)"
-      type="number"
-      step="0.01"
-      min="0"
-      bind:value={form.meta_diferenciada}
-      placeholder="0,00"
-      helper="Opcional. Meta específica por produto diferenciado."
-    />
+    <div class="rounded-lg border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div>
+          <h4 class="text-sm font-semibold text-slate-900">Metas por produto diferenciado</h4>
+          <p class="text-xs text-slate-500">Use para seguro viagem e outros produtos com meta própria.</p>
+        </div>
+        <Button variant="secondary" size="xs" color="financeiro" on:click={() => addProdutoRow('form')} disabled={produtos.length === 0}>
+          <Plus size={14} class="mr-1" />
+          Produto
+        </Button>
+      </div>
 
-    <FieldCheckbox
-      label="Meta ativa"
-      bind:checked={form.ativo}
-      color="financeiro"
-    />
+      <div class="space-y-3 p-4">
+        {#if produtos.length === 0}
+          <p class="text-sm text-slate-500">Nenhum produto diferenciado ativo encontrado.</p>
+        {:else if form.meta_produtos.length === 0}
+          <p class="text-sm text-slate-500">Sem meta de produto para este vendedor.</p>
+        {:else}
+          {#each form.meta_produtos as item, index}
+            <div class="grid gap-3 md:grid-cols-[minmax(180px,1fr)_180px_auto] md:items-end">
+              <FieldSelect
+                label="Produto"
+                value={item.produto_id}
+                options={produtoOptions}
+                on:change={(event) => updateProdutoRow('form', index, { produto_id: (event.currentTarget as HTMLSelectElement).value })}
+                required={true}
+              />
+              <FieldInput
+                label="Meta"
+                type="number"
+                step="0.01"
+                min="0"
+                prefix="R$"
+                value={item.valor}
+                on:input={(event) => updateProdutoRow('form', index, { valor: (event.currentTarget as HTMLInputElement).value })}
+              />
+              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('form', index)} class_name="hover:!bg-red-50 hover:!text-red-600">
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </div>
+  </div>
+</Dialog>
+
+<Dialog
+  bind:open={bulkOpen}
+  title="Aplicar metas em lote"
+  description={`Aplicação para ${bulkCount} vendedor(es) em ${formatYearMonthLabel(periodo)}.`}
+  color="financeiro"
+  size="lg"
+  showCancel={true}
+  cancelText="Cancelar"
+  showConfirm={true}
+  confirmText="Aplicar"
+  loading={saving}
+  confirmDisabled={bulkCount === 0}
+  onConfirm={saveBulk}
+  onCancel={() => (bulkOpen = false)}
+>
+  <div class="space-y-5">
+    <div class="grid gap-4 md:grid-cols-2">
+      <FieldSelect
+        id="bulk-modo"
+        label="Forma de aplicação"
+        bind:value={bulkForm.modo}
+        options={[
+          { value: 'por_vendedor', label: 'Valor informado para cada vendedor' },
+          { value: 'total_loja', label: 'Dividir valor total entre vendedores filtrados' }
+        ]}
+        placeholder={null}
+      />
+
+      <FieldInput
+        id="bulk-meta-geral"
+        label={bulkForm.modo === 'total_loja' ? 'Meta total de vendas' : 'Meta de vendas por vendedor'}
+        type="number"
+        step="0.01"
+        min="0"
+        prefix="R$"
+        bind:value={bulkForm.meta_geral}
+        placeholder="0,00"
+      />
+
+      <div class="rounded-lg bg-slate-50 p-4 text-sm text-slate-600 md:col-span-2">
+        {#if bulkForm.modo === 'total_loja'}
+          Cada vendedor receberá {formatCurrency(parseMoney(bulkForm.meta_geral) / Math.max(1, bulkCount))} de meta de vendas.
+        {:else}
+          Cada vendedor receberá {formatCurrency(parseMoney(bulkForm.meta_geral))} de meta de vendas.
+        {/if}
+      </div>
+
+      <div class="md:col-span-2">
+        <FieldCheckbox label="Criar metas como ativas" bind:checked={bulkForm.ativo} color="financeiro" />
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div>
+          <h4 class="text-sm font-semibold text-slate-900">Produto diferenciado</h4>
+          <p class="text-xs text-slate-500">
+            No modo de divisão, o valor de cada produto também será dividido entre os vendedores filtrados.
+          </p>
+        </div>
+        <Button variant="secondary" size="xs" color="financeiro" on:click={() => addProdutoRow('bulk')} disabled={produtos.length === 0}>
+          <Plus size={14} class="mr-1" />
+          Produto
+        </Button>
+      </div>
+
+      <div class="space-y-3 p-4">
+        {#if bulkForm.meta_produtos.length === 0}
+          <p class="text-sm text-slate-500">Nenhuma meta de produto será aplicada.</p>
+        {:else}
+          {#each bulkForm.meta_produtos as item, index}
+            <div class="grid gap-3 md:grid-cols-[minmax(180px,1fr)_180px_auto] md:items-end">
+              <FieldSelect
+                label="Produto"
+                value={item.produto_id}
+                options={produtoOptions}
+                on:change={(event) => updateProdutoRow('bulk', index, { produto_id: (event.currentTarget as HTMLSelectElement).value })}
+                required={true}
+              />
+              <FieldInput
+                label={bulkForm.modo === 'total_loja' ? 'Meta total' : 'Meta por vendedor'}
+                type="number"
+                step="0.01"
+                min="0"
+                prefix="R$"
+                value={item.valor}
+                on:input={(event) => updateProdutoRow('bulk', index, { valor: (event.currentTarget as HTMLInputElement).value })}
+              />
+              <Button variant="ghost" color="financeiro" on:click={() => removeProdutoRow('bulk', index)} class_name="hover:!bg-red-50 hover:!text-red-600">
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </div>
   </div>
 </Dialog>

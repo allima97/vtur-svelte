@@ -11,6 +11,7 @@
     TrendingUp, ArrowRight, CreditCard,
     Settings, TrendingDown, Loader2
   } from 'lucide-svelte';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface ConciliacaoSummary {
     total: number;
@@ -438,7 +439,7 @@
           <tbody class="divide-y divide-slate-200">
             {#each movimentosRecentes as movimento}
               <tr class="hover:bg-slate-50">
-                <td class="px-4 py-3 text-slate-700">{new Date(movimento.data).toLocaleDateString('pt-BR')}</td>
+                <td class="px-4 py-3 text-slate-700">{formatDate(movimento.data)}</td>
                 <td class="px-4 py-3">
                   <p class="font-medium text-slate-900">{movimento.descricao}</p>
                   <p class="text-xs text-slate-500">{movimento.detalhe}</p>

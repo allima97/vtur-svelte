@@ -10,6 +10,7 @@
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User, Loader2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { addDaysISODate, todayISODateLocal } from '$lib/date';
 
   const orcamentoId = $page.params.id ?? '';
 
@@ -218,9 +219,7 @@
 
   // ─── Validade ─────────────────────────────────────────────────────────────────
   function setValidadeDias(dias: number) {
-    const data = new Date();
-    data.setDate(data.getDate() + dias);
-    formData.valid_until = data.toISOString().split('T')[0];
+    formData.valid_until = addDaysISODate(todayISODateLocal(), dias);
   }
 
   async function ensureServerSessionCookie() {

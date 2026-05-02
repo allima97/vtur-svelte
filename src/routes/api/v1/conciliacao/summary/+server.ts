@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
+import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
 function isConciliacaoEfetivada(row: any) {
   const raw = String(row?.descricao || row?.status || '')
@@ -40,19 +41,10 @@ export async function GET(event) {
       return json({ error: 'Informe company_id.' }, { status: 400 });
     }
 
-    const inicio = mes
-      ? `${mes}-01`
-      : (() => {
-          const d = new Date();
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-        })();
-
-    const fim = mes
-      ? (() => {
-          const [y, m] = mes.split('-').map(Number);
-          return new Date(y, m, 0).toISOString().slice(0, 10);
-        })()
-      : new Date().toISOString().slice(0, 10);
+    const monthRange = monthRangeFromKey(mes);
+    const hoje = todayISODateLocal();
+    const inicio = monthRange?.inicio || `${hoje.slice(0, 7)}-01`;
+    const fim = monthRange?.fim || hoje;
 
     // companyId primário para diagnóstico cronológico (usa o primeiro do escopo)
     const companyIdDiag = companyIds[0];

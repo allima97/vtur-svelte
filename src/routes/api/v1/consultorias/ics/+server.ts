@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isUuid, requireAuthenticatedUser } from '$lib/server/v1';
+import { todayISODateLocal } from '$lib/date';
 
 function toIcsDate(value: Date) {
   const iso = value.toISOString().replace(/[-:]/g, "").split(".")[0];
@@ -73,7 +74,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     const fileName = id && items[0]?.id
       ? `consultoria-${items[0].id}.ics`
-      : `consultorias-${new Date().toISOString().slice(0, 10)}.ics`;
+      : `consultorias-${todayISODateLocal()}.ics`;
 
     return new Response(ics, {
       headers: {

@@ -3,6 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { formatDateTime } from '$lib/utils/formatters';
 
   export let open: boolean = false;
   export let clienteId: string = '';
@@ -514,8 +515,7 @@
   }
 
   function formatDate(value: string) {
-    if (!value) return '-';
-    return new Date(value).toLocaleString('pt-BR');
+    return formatDateTime(value);
   }
 
   function getStatusLabel(value: string) {

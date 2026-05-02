@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Plano = {
     id: string;
     nome: string;
@@ -103,7 +104,7 @@
   }
 
   async function deletePlano(id: string) {
-    if (!confirm('Deseja excluir este plano?')) return;
+    if (!(await confirmAction('Deseja excluir este plano?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/admin/planos?id=${id}`, { method: 'DELETE' });

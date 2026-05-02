@@ -91,7 +91,6 @@
         data: { subscription }
       } = supabase.auth.onAuthStateChange(
         async (event: AuthChangeEvent, session: Session | null) => {
-          console.log('[AuthStateChange]', event, session ? 'com sessao' : 'sem sessao');
           if (
             (event === 'SIGNED_IN' ||
               event === 'TOKEN_REFRESHED' ||
@@ -127,14 +126,11 @@
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
 
-      console.log('[Layout] Session no mount:', session ? 'existe' : 'nao existe');
       if (session) {
         lastSessionAt = Date.now();
         if (hasServerSession) {
-          console.log('[Layout] Sessao SSR ja existe; pulando sincronizacao redundante no mount.');
           sessionSynced.set(true);
         } else {
-          console.log('[Layout] Sincronizando session existente...');
           await syncServerSession(session, 'mount');
         }
       } else {

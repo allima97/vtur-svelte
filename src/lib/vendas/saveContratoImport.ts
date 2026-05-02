@@ -3,17 +3,12 @@ import { normalizeText } from '$lib/normalizeText';
 import { titleCaseWithExceptions } from '$lib/titleCase';
 import { carregarTermosNaoComissionaveis, isFormaNaoComissionavel } from '$lib/pagamentoUtils';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
+import { compareISODate, todayISODateLocal } from '$lib/date';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from './contratoCvcExtractor';
 import { ensureReciboReservaUnicos } from './reciboReservaValidator';
 import { criarVinculosViajaComAutomaticos } from './viagaComManager';
 
 const STORAGE_BUCKET = "viagens";
-
-function toISODateLocal(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")}`;
-}
 
 function isISODate(value?: string | null) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
@@ -237,14 +232,11 @@ async function findCidadeIdByDestinoTerm(termo: string) {
 
 function calcularStatusPeriodo(inicio?: string | null, fim?: string | null) {
   if (!inicio) return "planejada";
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const dataInicio = new Date(inicio);
-  const dataFim = fim ? new Date(fim) : null;
+  const hoje = todayISODateLocal();
 
-  if (dataFim && dataFim < hoje) return "concluida";
-  if (dataInicio > hoje) return "confirmada";
-  if (dataFim && hoje > dataFim) return "concluida";
+  if (fim && compareISODate(fim, hoje) < 0) return "concluida";
+  if (compareISODate(inicio, hoje) > 0) return "confirmada";
+  if (fim && compareISODate(hoje, fim) > 0) return "concluida";
   return "em_viagem";
 }
 
@@ -583,7 +575,7 @@ export async function saveContratoImport(params: {
   if (!contratos.length) throw new Error("Nenhum contrato para salvar.");
   if (!dataVenda) throw new Error("Data da venda é obrigatória.");
   if (!isISODate(dataVenda)) throw new Error("Data da venda inválida.");
-  const dataLancamento = toISODateLocal(new Date());
+  const dataLancamento = todayISODateLocal();
   const dataVendaFinal = dataVenda > dataLancamento ? dataLancamento : dataVenda;
 
   const { data: authSession } = await supabaseBrowser.auth.getSession();

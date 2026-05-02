@@ -9,6 +9,7 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw, Search } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Cidade = {
     id: string;
     nome: string;
@@ -107,7 +108,7 @@
   }
 
   async function deleteCidade(id: string) {
-    if (!confirm('Deseja excluir esta cidade?')) return;
+    if (!(await confirmAction('Deseja excluir esta cidade?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/cidades?id=${id}`, { method: 'DELETE' });

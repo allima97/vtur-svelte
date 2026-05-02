@@ -1,5 +1,11 @@
 import { calcularValorVendaReal, isConciliacaoEfetivada, resolveConciliacaoStatus } from '$lib/conciliacao/business';
 import { EQUIPE_VTUR_USER_NAME } from '$lib/conciliacao/baixaRac';
+import {
+  calcularNaoComissionavelResumo,
+  type PagamentoNaoComissionavelInput
+} from '$lib/naoComissionavel';
+import { calcularRankingComissionavel } from '$lib/server/rankingComissionavel';
+import { isRankingEligibleUser } from '$lib/server/v1';
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -22,7 +28,7 @@ export type EffectiveConciliacaoReceipt = {
   valor_nao_comissionavel: number;
   cancelado_por_conciliacao_em: string | null;
   cancelado_por_conciliacao_observacao: string | null;
-  produto: { id: string; nome: string | null } | null;
+  produto: { id: string; nome: string | null; tipo?: string | null } | null;
   /** Rateio cadastrado para este recibo — presente apenas quando há divisão entre vendedores.
    *  Usado pelo ranking para exibir valores proporcionais por vendedor. */
   rateio_split?: {
@@ -31,6 +37,13 @@ export type EffectiveConciliacaoReceipt = {
     percentual_origem: number;
     percentual_destino: number;
   } | null;
+  rateio_origem?: 'conciliacao' | 'venda_recibo' | null;
+};
+
+export type SuppressedConciliacaoReceipt = {
+  documento: string;
+  linked_venda_id: string | null;
+  linked_recibo_id: string | null;
 };
 
 function toStr(value: unknown) {
@@ -40,6 +53,14 @@ function toStr(value: unknown) {
 function toNumber(value: unknown) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function moneyEquals(a: number, b: number, tolerance = 0.01) {
+  return Math.abs(roundMoney(a) - roundMoney(b)) <= tolerance;
 }
 
 function isUuid(value?: string | null) {
@@ -58,6 +79,66 @@ function isPositive(value: unknown) {
 function toMonthKey(value?: string | null) {
   const raw = toStr(value);
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw.slice(0, 7) : '';
+}
+
+function normalizeTextValue(value?: string | null) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isSeguroText(value?: string | null) {
+  return normalizeTextValue(value).includes('seguro');
+}
+
+function isSeguroFaixa(value?: unknown) {
+  return String(value || '').toUpperCase().includes('SEGURO');
+}
+
+function isSeguroPercentual(value?: unknown) {
+  const pct = toNumber(value);
+  return pct >= 31.5 && pct <= 35.5;
+}
+
+function isSeguroPorComissao(valorComissao: unknown, valorBase: unknown) {
+  const comissao = toNumber(valorComissao);
+  const base = toNumber(valorBase);
+  if (comissao <= 0 || base <= 0) return false;
+  return isSeguroPercentual((comissao / base) * 100);
+}
+
+const DEFAULT_NAO_COMISSIONAVEIS = [
+  'credito diversos',
+  'credito pax',
+  'credito passageiro',
+  'credito de viagem',
+  'credipax',
+  'vale viagem',
+  'carta de credito',
+  'ficha cvc',
+  'cvc ficha',
+  'credito'
+].map((termo) => normalizeTextValue(termo));
+
+async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
+  try {
+    const { data, error } = await client
+      .from('parametros_pagamentos_nao_comissionaveis')
+      .select('termo, termo_normalizado, ativo')
+      .eq('ativo', true)
+      .order('termo', { ascending: true });
+    if (error) throw error;
+    const termos: string[] = (data || [])
+      .map((row: any) => normalizeTextValue(row?.termo_normalizado || row?.termo))
+      .filter(Boolean);
+    return termos.length > 0 ? Array.from(new Set(termos)) : DEFAULT_NAO_COMISSIONAVEIS;
+  } catch (error) {
+    console.warn('[source] parametros_pagamentos_nao_comissionaveis indisponivel:', error);
+    return DEFAULT_NAO_COMISSIONAVEIS;
+  }
 }
 
 export function pickConciliacaoSourceRow(rows: any[]) {
@@ -188,6 +269,73 @@ export function filterRecibosCanceladosMesmoMes<
         cancelado_por_conciliacao_em: recibo.cancelado_por_conciliacao_em
       })
   );
+}
+
+export async function fetchSuppressedConciliacaoReceipts(params: {
+  client: any;
+  companyId: string | null;
+  companyIds?: string[] | null;
+  inicio: string;
+  fim: string;
+}) {
+  const { client, companyId, companyIds, inicio, fim } = params;
+  const normalizedCompanyIds = Array.from(
+    new Set([companyId, ...(companyIds || [])].map((value) => toStr(value)).filter(Boolean))
+  );
+  if (normalizedCompanyIds.length === 0) return [] as SuppressedConciliacaoReceipt[];
+
+  const rows: any[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; offset < 10000; offset += pageSize) {
+    let query = client
+      .from('conciliacao_recibos')
+      .select('id, company_id, documento, descricao, movimento_data, status, valor_lancamentos, valor_venda_real, venda_id, venda_recibo_id')
+      .neq('is_baixa_rac', true)
+      .gte('movimento_data', inicio)
+      .lte('movimento_data', fim)
+      .order('movimento_data', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    query =
+      normalizedCompanyIds.length === 1
+        ? query.eq('company_id', normalizedCompanyIds[0])
+        : query.in('company_id', normalizedCompanyIds);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    const chunk = Array.isArray(data) ? data : [];
+    rows.push(...chunk);
+    if (chunk.length < pageSize) break;
+  }
+
+  const byDocumento = new Map<string, any[]>();
+  rows.forEach((row) => {
+    const documento = toStr(row?.documento);
+    if (!documento) return;
+    const bucket = byDocumento.get(documento) || [];
+    bucket.push(row);
+    byDocumento.set(documento, bucket);
+  });
+
+  return Array.from(byDocumento.entries())
+    .map(([documento, group]) => {
+      const { sortedRows, sourceRow } = pickConciliacaoSourceRow(group);
+      if (!sourceRow) return null;
+      const effectiveDate = toStr(sourceRow?.movimento_data);
+      if (!effectiveDate || effectiveDate < inicio || effectiveDate > fim) return null;
+      const hasEstornoMesmoMes = sortedRows.some(
+        (row) =>
+          resolveConciliacaoStatus({ status: row?.status, descricao: row?.descricao }) === 'ESTORNO' &&
+          toMonthKey(row?.movimento_data) === toMonthKey(effectiveDate)
+      );
+      if (!hasEstornoMesmoMes) return null;
+      return {
+        documento,
+        linked_venda_id: sortedRows.map((row) => toStr(row?.venda_id)).find(Boolean) || null,
+        linked_recibo_id: sortedRows.map((row) => toStr(row?.venda_recibo_id)).find(Boolean) || null
+      } satisfies SuppressedConciliacaoReceipt;
+    })
+    .filter(Boolean) as SuppressedConciliacaoReceipt[];
 }
 
 export async function fetchEffectiveConciliacaoReceipts(params: {
@@ -344,11 +492,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   ) => {
     if (!id) return;
+    const percentualOrigem = toNumber(row?.percentual_origem);
+    const percentualDestino = toNumber(row?.percentual_destino);
+    if (percentualOrigem <= 0 || percentualDestino <= 0) return;
     map.set(id, {
       vendedor_origem_id: toStr(row?.vendedor_origem_id) || null,
       vendedor_destino_id: toStr(row?.vendedor_destino_id) || null,
-      percentual_origem: toNumber(row?.percentual_origem),
-      percentual_destino: toNumber(row?.percentual_destino)
+      percentual_origem: percentualOrigem,
+      percentual_destino: percentualDestino
     });
   };
 
@@ -419,14 +570,33 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     new Set(concRows.map((row) => toStr(row?.ranking_vendedor_id)).filter(isUuid))
   );
 
-  const vendasMap = new Map<string, { vendedor_id: string | null }>();
+  const vendaDocumentoSets = new Map<string, Set<string>>();
+  concRows.forEach((row) => {
+    const vendaId = toStr(row?.venda_id);
+    const documento = toStr(row?.documento);
+    if (!vendaId || !documento) return;
+    if (!vendaDocumentoSets.has(vendaId)) vendaDocumentoSets.set(vendaId, new Set());
+    vendaDocumentoSets.get(vendaId)?.add(documento);
+  });
+
+  const vendasMap = new Map<
+    string,
+    { vendedor_id: string | null; valor_total: number | null; valor_nao_comissionado: number | null }
+  >();
   if (vendaIds.length > 0) {
-    const { data, error } = await client.from('vendas').select('id, vendedor_id').in('id', vendaIds);
+    const { data, error } = await client
+      .from('vendas')
+      .select('id, vendedor_id, valor_total, valor_nao_comissionado')
+      .in('id', vendaIds);
     if (error) throw error;
     (data || []).forEach((row: any) => {
       const id = toStr(row?.id);
       if (!id) return;
-      vendasMap.set(id, { vendedor_id: toStr(row?.vendedor_id) || null });
+      vendasMap.set(id, {
+        vendedor_id: toStr(row?.vendedor_id) || null,
+        valor_total: row?.valor_total == null ? null : toNumber(row.valor_total),
+        valor_nao_comissionado: row?.valor_nao_comissionado == null ? null : toNumber(row.valor_nao_comissionado)
+      });
     });
   }
 
@@ -435,7 +605,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   if (reciboIds.length > 0) {
     const { data, error } = await client
       .from('vendas_recibos')
-      .select('id, venda_id, produto_id, data_venda, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao')
+      .select('id, venda_id, produto_id, data_venda, valor_total, valor_rav, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao')
       .in('id', reciboIds);
     if (error) throw error;
     (data || []).forEach((row: any) => {
@@ -445,6 +615,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         venda_id: toStr(row?.venda_id) || null,
         produto_id: toStr(row?.produto_id) || null,
         data_venda: toStr(row?.data_venda) || null,
+        valor_total: toNumber(row?.valor_total),
+        valor_rav: toNumber(row?.valor_rav),
         cancelado_por_conciliacao_em: toStr(row?.cancelado_por_conciliacao_em) || null,
         cancelado_por_conciliacao_observacao: toStr(row?.cancelado_por_conciliacao_observacao) || null
       });
@@ -457,14 +629,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const batch = rankingVendedorIds.slice(i, i + 200);
       const { data, error } = await client
         .from('users')
-        .select('id, company_id, active, uso_individual')
+        .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
         .in('id', batch);
       if (error) throw error;
 
       (data || []).forEach((row: any) => {
         const id = toStr(row?.id);
         const companyId = toStr(row?.company_id);
-        if (!id || row?.active === false || row?.uso_individual === true) return;
+        if (!id || !isRankingEligibleUser(row)) return;
         if (!normalizedCompanyIds.includes(companyId)) return;
         validRankingVendedorIds.add(id);
       });
@@ -476,7 +648,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const batch = documentos.slice(i, i + 200);
       const { data, error } = await client
         .from('vendas_recibos')
-        .select('id, numero_recibo, venda_id, produto_id, data_venda, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao')
+        .select('id, numero_recibo, venda_id, produto_id, data_venda, valor_total, valor_rav, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao')
         .in('numero_recibo', batch);
       if (error) throw error;
 
@@ -507,6 +679,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
             venda_id: vendaId || null,
             produto_id: toStr(row?.produto_id) || null,
             data_venda: toStr(row?.data_venda) || null,
+            valor_total: toNumber(row?.valor_total),
+            valor_rav: toNumber(row?.valor_rav),
             cancelado_por_conciliacao_em: toStr(row?.cancelado_por_conciliacao_em) || null,
             cancelado_por_conciliacao_observacao: toStr(row?.cancelado_por_conciliacao_observacao) || null
           });
@@ -548,6 +722,41 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   }
 
+  const pagamentoVendaIds = Array.from(
+    new Set(
+      [
+        ...vendaIds,
+        ...Array.from(reciboByNumeroMap.values())
+          .map((row: any) => toStr(row?.venda_id))
+          .filter(isUuid)
+      ].filter(Boolean)
+    )
+  );
+  const pagamentosNaoComissionaveis = {
+    porVenda: new Map<string, number>(),
+    porVendaSemRecibo: new Map<string, number>(),
+    porRecibo: new Map<string, number>()
+  };
+  if (pagamentoVendaIds.length > 0) {
+    const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
+    const pagamentos: PagamentoNaoComissionavelInput[] = [];
+    for (let index = 0; index < pagamentoVendaIds.length; index += 200) {
+      const batch = pagamentoVendaIds.slice(index, index + 200);
+      const { data, error } = await client
+        .from('vendas_pagamentos')
+        .select(
+          'venda_id, venda_recibo_id, forma_nome, operacao, plano, valor_total, valor_bruto, desconto_valor, paga_comissao, forma:formas_pagamento(nome, paga_comissao)'
+        )
+        .in('venda_id', batch);
+      if (error) throw error;
+      pagamentos.push(...((data || []) as PagamentoNaoComissionavelInput[]));
+    }
+    const resumo = calcularNaoComissionavelResumo(pagamentos, termosNaoComissionaveis);
+    pagamentosNaoComissionaveis.porVenda = resumo.porVenda;
+    pagamentosNaoComissionaveis.porVendaSemRecibo = resumo.porVendaSemRecibo;
+    pagamentosNaoComissionaveis.porRecibo = resumo.porRecibo;
+  }
+
   const produtoIds = Array.from(
     new Set(
       concRows
@@ -563,7 +772,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   let seguroFallbackId: string | null = null;
   const { data: seguroRows, error: seguroErr } = await client
     .from('tipo_produtos')
-    .select('id, nome')
+    .select('id, nome, tipo')
     .ilike('nome', '%seguro%')
     .limit(10);
   if (seguroErr) throw seguroErr;
@@ -572,14 +781,18 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     produtoIds.push(seguroFallbackId);
   }
 
-  const produtosMap = new Map<string, { id: string; nome: string | null }>();
+  const produtosMap = new Map<string, { id: string; nome: string | null; tipo: string | null }>();
   if (produtoIds.length > 0) {
-    const { data, error } = await client.from('tipo_produtos').select('id, nome').in('id', produtoIds);
+    const { data, error } = await client.from('tipo_produtos').select('id, nome, tipo').in('id', produtoIds);
     if (error) throw error;
     (data || []).forEach((row: any) => {
       const id = toStr(row?.id);
       if (!id) return;
-      produtosMap.set(id, { id, nome: row?.nome ? String(row.nome) : null });
+      produtosMap.set(id, {
+        id,
+        nome: row?.nome ? String(row.nome) : null,
+        tipo: row?.tipo ? String(row.tipo) : null
+      });
     });
   }
 
@@ -618,7 +831,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         ? recibosMap.get(linkedReciboId) || fallbackRecibo || null
         : null;
       const linkedVendaId = linkedVendaIdFromConc || linkedReciboMeta?.venda_id || fallbackRecibo?.venda_id || null;
-      const linkedVendedorIdRaw = linkedVendaId ? vendasMap.get(linkedVendaId)?.vendedor_id || null : null;
+      const linkedVendaMeta = linkedVendaId ? vendasMap.get(linkedVendaId) || null : null;
+      const linkedVendedorIdRaw = linkedVendaMeta?.vendedor_id || null;
       const linkedVendedorId =
         linkedVendedorIdRaw && !equipeVturIds.has(linkedVendedorIdRaw) ? linkedVendedorIdRaw : null;
       // Prefer the ranking_vendedor_id from the sourceRow first (it is the "effective" row),
@@ -644,14 +858,46 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       if (canceladoMesmoMes) return [];
 
       const manualProdutoId = sortedRows.map((row) => toStr(row?.ranking_produto_id)).find(Boolean) || null;
-      const isSeguro = sortedRows.some((row) => Boolean(row?.is_seguro_viagem));
-      const produtoId = linkedProdutoId || manualProdutoId || (isSeguro ? seguroFallbackId : null);
+      const hasSeguroSinalizado = sortedRows.some(
+        (row) =>
+          Boolean(row?.is_seguro_viagem) ||
+          isSeguroFaixa(row?.faixa_comissao) ||
+          isSeguroPercentual(row?.percentual_comissao_loja)
+      );
+      const linkedProduto = linkedProdutoId ? produtosMap.get(linkedProdutoId) || null : null;
+      const manualProduto = manualProdutoId ? produtosMap.get(manualProdutoId) || null : null;
+      const produtoId = linkedProdutoId || manualProdutoId || (hasSeguroSinalizado ? seguroFallbackId : null);
       const produto = produtoId ? produtosMap.get(produtoId) || null : null;
 
       const valorTaxas = toNumber(sourceRow?.valor_taxas);
       const valorDescontos = toNumber(sourceRow?.valor_descontos);
       const valorAbatimentos = toNumber(sourceRow?.valor_abatimentos);
-      const valorNaoComissionavel = Math.max(0, toNumber(sourceRow?.valor_nao_comissionavel));
+      const linkedVendaDocumentCount = linkedVendaId ? vendaDocumentoSets.get(linkedVendaId)?.size || 0 : 0;
+      const valorNaoComissionavelConciliacao = toNumber(sourceRow?.valor_nao_comissionavel);
+      const valorNaoComissionavelPagamentoRecibo = linkedReciboId
+        ? toNumber(pagamentosNaoComissionaveis.porRecibo.get(linkedReciboId))
+        : 0;
+      const valorNaoComissionavelPagamentoVenda =
+        linkedVendaId && linkedVendaDocumentCount <= 1
+          ? toNumber(pagamentosNaoComissionaveis.porVendaSemRecibo.get(linkedVendaId))
+          : 0;
+      const valorNaoComissionavelVenda =
+        valorNaoComissionavelConciliacao <= 0 &&
+        valorAbatimentos <= 0 &&
+        Boolean(linkedReciboId) &&
+        linkedVendaDocumentCount <= 1 &&
+        toNumber(linkedVendaMeta?.valor_total) > 0
+          ? toNumber(linkedVendaMeta?.valor_nao_comissionado)
+          : 0;
+      const valorNaoComissionavel = Math.max(
+        0,
+        valorNaoComissionavelConciliacao,
+        valorNaoComissionavelPagamentoRecibo,
+        valorNaoComissionavelPagamentoVenda,
+        valorNaoComissionavelVenda
+      );
+      const valorRav = Math.max(0, toNumber(linkedReciboMeta?.valor_rav));
+      const linkedReciboTotal = Math.max(0, toNumber(linkedReciboMeta?.valor_total));
       const valorMetaCalculado = calcularValorVendaReal({
         valorLancamentos: toNumber(sourceRow?.valor_lancamentos),
         valorTaxas,
@@ -660,7 +906,6 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       });
       const valorMetaBanco = toNumber(sourceRow?.valor_venda_real);
       const valorMetaBase = valorMetaCalculado > 0 ? valorMetaCalculado : valorMetaBanco;
-      const valorMeta = Math.max(0, valorMetaBase - valorNaoComissionavel);
 
       const valorBrutoCalculado = Math.max(
         0,
@@ -670,14 +915,53 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       // então somamos valorTaxas para reconstituir o bruto — alinhado com vtur-app.
       const valorBrutoBase =
         valorBrutoCalculado > 0 ? valorBrutoCalculado : valorMetaBase > 0 ? valorMetaBase + valorTaxas : 0;
-      const valorBruto = Math.max(0, valorBrutoBase - valorNaoComissionavel);
-      const valorLiquido = Math.max(0, valorBruto - valorTaxas);
+      const linkedReciboSemRav = Math.max(0, linkedReciboTotal - valorRav);
+      const conciliacaoJaSemRav =
+        valorRav > 0 &&
+        linkedReciboTotal > 0 &&
+        linkedReciboSemRav > 0 &&
+        (moneyEquals(valorBrutoBase, linkedReciboSemRav) || moneyEquals(valorMetaBase, linkedReciboSemRav));
+      const valorBrutoBaseSemRav = conciliacaoJaSemRav ? valorBrutoBase : Math.max(0, valorBrutoBase - valorRav);
+      const valorMetaBaseSemRav = conciliacaoJaSemRav ? valorMetaBase : Math.max(0, valorMetaBase - valorRav);
+      const valorMetaBancoSemRav = conciliacaoJaSemRav ? valorMetaBanco : Math.max(0, valorMetaBanco - valorRav);
+      const bancoJaAplicaNaoComissionavelSemTaxas =
+        valorNaoComissionavel > 0 &&
+        valorMetaBancoSemRav > 0 &&
+        moneyEquals(valorMetaBancoSemRav, Math.max(0, valorBrutoBaseSemRav - valorNaoComissionavel));
+      const valorTaxasNaoComissionavel = bancoJaAplicaNaoComissionavelSemTaxas ? 0 : valorTaxas;
+      const rankingComissionavel =
+        valorNaoComissionavel > 0
+          ? calcularRankingComissionavel({
+              valorBruto: valorBrutoBaseSemRav,
+              valorTaxas: valorTaxasNaoComissionavel,
+              valorNaoComissionado: valorNaoComissionavel
+            })
+          : null;
+      const valorBruto = rankingComissionavel
+        ? rankingComissionavel.valorRanking
+        : valorBrutoBaseSemRav;
+      const valorMeta = rankingComissionavel
+        ? Math.min(rankingComissionavel.valorRanking, valorMetaBaseSemRav)
+        : valorMetaBaseSemRav;
+      const valorTaxasRanking = rankingComissionavel ? rankingComissionavel.valorTaxasRanking : valorTaxas;
+      const valorLiquido = Math.max(0, valorBruto - valorTaxasRanking);
+      const isSeguro =
+        hasSeguroSinalizado ||
+        isSeguroText(linkedProduto?.tipo) ||
+        isSeguroText(linkedProduto?.nome) ||
+        isSeguroText(manualProduto?.tipo) ||
+        isSeguroText(manualProduto?.nome) ||
+        isSeguroText(produto?.tipo) ||
+        isSeguroText(produto?.nome) ||
+        isSeguroPorComissao(sourceRow?.valor_comissao_loja, valorMetaBaseSemRav) ||
+        isSeguroPorComissao(sourceRow?.valor_comissao_loja, valorBruto);
 
       // Verifica se algum dos IDs do grupo tem rateio cadastrado
       const rateioId = groupedConcIds.find((id) => concRowIdsWithRateio.has(id)) || null;
-      const rateio =
-        (rateioId ? concRateioMap.get(rateioId) || null : null) ||
-        (linkedReciboId ? reciboRateioMap.get(linkedReciboId) || null : null);
+      const rateioConciliacao = rateioId ? concRateioMap.get(rateioId) || null : null;
+      const rateioVendaRecibo = linkedReciboId ? reciboRateioMap.get(linkedReciboId) || null : null;
+      const rateio = rateioConciliacao || rateioVendaRecibo;
+      const rateioOrigem = rateioConciliacao ? 'conciliacao' : rateioVendaRecibo ? 'venda_recibo' : null;
       const preferredConciliacaoId = rateioId || toStr(sourceRow?.id) || groupedConcIds[0] || `conc:${documento}`;
 
       const effectiveSaleDate = effectiveDate;
@@ -716,7 +1000,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         linked_venda_id: linkedVendaId,
         linked_recibo_id: linkedReciboId,
         valor_bruto: valorBruto || null,
-        valor_taxas: valorTaxas || null,
+        valor_taxas: valorTaxasRanking || null,
         valor_meta_override: valorMeta || null,
         valor_liquido_override: valorLiquido || null,
         valor_comissao_loja: sourceRow?.valor_comissao_loja ?? null,
@@ -727,7 +1011,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         cancelado_por_conciliacao_em: linkedReciboMeta?.cancelado_por_conciliacao_em || null,
         cancelado_por_conciliacao_observacao: linkedReciboMeta?.cancelado_por_conciliacao_observacao || null,
         produto,
-        rateio_split: rateioSplit
+        rateio_split: rateioSplit,
+        rateio_origem: rateioOrigem
       } satisfies EffectiveConciliacaoReceipt];
     })
     .filter(Boolean) as EffectiveConciliacaoReceipt[];
@@ -762,6 +1047,7 @@ export function buildConciliacaoSyntheticVendas(items: EffectiveConciliacaoRecei
         valor_comissao_loja: item.valor_comissao_loja,
         percentual_comissao_loja: item.percentual_comissao_loja,
         faixa_comissao: item.faixa_comissao,
+        vendedor_id: item.vendedor_id,
         is_seguro_viagem: item.is_seguro_viagem,
         cancelado_por_conciliacao_em: item.cancelado_por_conciliacao_em,
         cancelado_por_conciliacao_observacao: item.cancelado_por_conciliacao_observacao,

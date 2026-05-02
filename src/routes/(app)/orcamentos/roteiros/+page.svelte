@@ -9,7 +9,9 @@
   import { FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, Trash2, RefreshCw, Map as MapIcon, Calendar } from 'lucide-svelte';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Roteiro = {
     id: string;
     nome: string;
@@ -55,7 +57,7 @@
       label: 'Atualizado',
       sortable: true,
       width: '130px',
-      formatter: (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string | null) => formatDate(v)
     }
   ];
 
@@ -117,7 +119,7 @@
   }
 
   async function deleteRoteiro(id: string) {
-    if (!confirm('Deseja excluir este roteiro?')) return;
+    if (!(await confirmAction('Deseja excluir este roteiro?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/roteiros?id=${id}`, { method: 'DELETE' });

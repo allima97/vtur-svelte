@@ -7,6 +7,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
+  import { formatDate } from '$lib/utils/formatters';
 
   type Cliente = {
     id: string;
@@ -126,7 +127,7 @@
       sortable: true,
       formatter: (value: string | null, row: Cliente) =>
         value
-          ? `${new Date(value).toLocaleDateString('pt-BR')} · ${row.total_orcamentos} orc.`
+          ? `${formatDate(value)} · ${row.total_orcamentos} orc.`
           : row.total_orcamentos > 0
             ? `Sem venda · ${row.total_orcamentos} orc.`
             : '-'

@@ -9,13 +9,19 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2, AlertCircle, Wallet } from 'lucide-svelte';
+  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, Loader2, AlertCircle, Wallet, TrendingUp } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Comissao {
     id: string;
     venda_id: string;
+    recibo_id?: string | null;
     numero_venda: string;
+    numero_recibo?: string | null;
+    numero_reserva?: string | null;
+    produto?: string | null;
     vendedor_id: string;
     vendedor: string;
     cliente: string;
@@ -23,9 +29,13 @@
     valor_venda: number;
     valor_comissionavel: number;
     percentual_aplicado: number;
+    percentual_comissao_geral?: number;
+    percentual_seguro?: number;
     regra_nome?: string;
     tipo_pacote?: string | null;
     valor_comissao: number;
+    valor_comissao_geral?: number;
+    valor_comissao_seguro?: number;
     valor_pago: number;
     valor_taxas?: number;
     status: string;
@@ -44,10 +54,11 @@
 
   let comissoes: Comissao[] = [];
   let resumoVendedores: ResumoVendedor[] = [];
-  let vendedores: { id: string; nome_completo?: string; email?: string }[] = [];
+  let vendedores: { id: string; vendedor_id?: string; vendedor_nome?: string; nome?: string; nome_completo?: string; email?: string }[] = [];
   let loading = true;
   let filtroStatus = 'todas';
   let filtroVendedor = '';
+  let filtroMes = getCurrentMonthValue();
   let somentePendentes = false;
   let comissaoSelecionada: Comissao | null = null;
   let comissoesSelecionadas: string[] = [];
@@ -56,7 +67,7 @@
   let showDetalhesDialog = false;
   let processando = false;
   let persistenciaDisponivel = true;
-  let dataPagamento = new Date().toISOString().split('T')[0];
+  let dataPagamento = todayISODateLocal();
   let observacoesPagamento = '';
   let detalhesDataPagamento = '';
   let detalhesObservacoes = '';
@@ -70,10 +81,24 @@
 
   $: vendedorOptions = [
     ...vendedores.map((vendedor) => ({
-      value: vendedor.id,
-      label: vendedor.nome_completo || vendedor.email || vendedor.id
+      value: vendedor.vendedor_id || vendedor.id,
+      label: vendedor.vendedor_nome || vendedor.nome_completo || vendedor.nome || vendedor.email || vendedor.id
     }))
   ];
+
+  function getCurrentMonthValue() {
+    return todayISODateLocal().slice(0, 7);
+  }
+
+  function getMonthRange(monthValue: string) {
+    const normalized = /^\d{4}-\d{2}$/.test(monthValue) ? monthValue : getCurrentMonthValue();
+    const range = monthRangeFromKey(normalized);
+
+    return {
+      inicio: range?.inicio || `${normalized}-01`,
+      fim: range?.fim || `${normalized}-01`
+    };
+  }
 
   onMount(() => {
     loadComissoes();
@@ -86,6 +111,11 @@
       const params = new URLSearchParams();
       if (filtroStatus !== 'todas') params.set('status', filtroStatus);
       if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
+      if (filtroMes) {
+        const range = getMonthRange(filtroMes);
+        params.set('data_inicio', range.inicio);
+        params.set('data_fim', range.fim);
+      }
       const response = await fetch(`/api/v1/financeiro/comissoes?${params.toString()}`);
       if (!response.ok) throw new Error('Erro ao carregar comissões');
       const data = await response.json();
@@ -95,7 +125,11 @@
         valor_venda: Number(item.valor_venda || 0),
         valor_comissionavel: Number(item.valor_comissionavel || 0),
         percentual_aplicado: Number(item.percentual_aplicado || 0),
+        percentual_comissao_geral: Number(item.percentual_comissao_geral || 0),
+        percentual_seguro: Number(item.percentual_seguro || 0),
         valor_comissao: Number(item.valor_comissao || 0),
+        valor_comissao_geral: Number(item.valor_comissao_geral || 0),
+        valor_comissao_seguro: Number(item.valor_comissao_seguro || 0),
         valor_pago: Number(item.valor_pago || 0),
         valor_taxas: Number(item.valor_taxas || 0),
         status: String(item.status || 'pendente').toLowerCase(),
@@ -113,7 +147,7 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/tarefas/usuarios');
+      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
       if (response.ok) {
         const data = await response.json();
         vendedores = data.items || [];
@@ -125,6 +159,25 @@
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  }
+
+  function formatPercent(value: number) {
+    return `${Number(value || 0).toFixed(2).replace('.', ',')}%`;
+  }
+
+  function buildKpiLabel(label: string, values: number[]) {
+    const unique = Array.from(
+      new Set(
+        values
+          .map((value) => Number(value || 0))
+          .filter((value) => value > 0)
+          .map((value) => Number(value.toFixed(2)))
+      )
+    ).sort((a, b) => a - b);
+
+    if (unique.length === 0) return label;
+    if (unique.length <= 2) return `${label} (${unique.map(formatPercent).join(' / ')})`;
+    return `${label} (${unique.length} faixas)`;
   }
 
   function getStatusBadge(status: string) {
@@ -149,11 +202,13 @@
   }
 
   const columns = [
+    { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '150px' },
     { key: 'numero_venda', label: 'Venda', sortable: true, width: '120px' },
     { key: 'vendedor', label: 'Vendedor', sortable: true },
     { key: 'cliente', label: 'Cliente', sortable: true },
-    { key: 'data_venda', label: 'Data Venda', sortable: true, width: '110px', formatter: (value: string) => value ? new Date(value).toLocaleDateString('pt-BR') : '-' },
-    { key: 'valor_venda', label: 'Valor Venda', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
+    { key: 'produto', label: 'Produto', sortable: true },
+    { key: 'data_venda', label: 'Data Recibo', sortable: true, width: '110px', formatter: (value: string) => formatDate(value) },
+    { key: 'valor_venda', label: 'Valor Recibo', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
     { key: 'percentual_aplicado', label: '%', sortable: true, width: '80px', align: 'center' as const, formatter: (value: number) => `${Number(value || 0).toFixed(2)}%` },
     { key: 'valor_comissao', label: 'Comissão', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
     { key: 'valor_pago', label: 'Pago', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
@@ -167,14 +222,14 @@
     }
     if (comissao.status !== 'pendente') return;
     comissaoSelecionada = comissao;
-    dataPagamento = new Date().toISOString().split('T')[0];
+    dataPagamento = todayISODateLocal();
     observacoesPagamento = '';
     showPagamentoDialog = true;
   }
 
   function abrirDetalhes(comissao: Comissao) {
     comissaoSelecionada = comissao;
-    detalhesDataPagamento = comissao.data_pagamento || new Date().toISOString().split('T')[0];
+    detalhesDataPagamento = comissao.data_pagamento || todayISODateLocal();
     detalhesObservacoes = comissao.observacoes_pagamento || '';
     showDetalhesDialog = true;
   }
@@ -316,13 +371,13 @@
 
   function handleExport() {
     const base = comissoesVisiveis;
-    const headers = ['Venda', 'Vendedor', 'Cliente', 'Data Venda', 'Valor Venda', 'Percentual', 'Comissão', 'Pago', 'Status'];
-    const rows = base.map((c) => [c.numero_venda, c.vendedor, c.cliente, c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '', String(c.valor_venda || 0).replace('.', ','), String(c.percentual_aplicado || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
+    const headers = ['Recibo', 'Venda', 'Vendedor', 'Cliente', 'Produto', 'Data Recibo', 'Valor Recibo', 'Percentual', 'Comissão base', 'Seguro Viagem', 'Comissão total', 'Pago', 'Status'];
+    const rows = base.map((c) => [c.numero_recibo || c.id, c.numero_venda, c.vendedor, c.cliente, c.produto || '', c.data_venda ? formatDate(c.data_venda) : '', String(c.valor_venda || 0).replace('.', ','), String(c.percentual_aplicado || 0).replace('.', ','), String(c.valor_comissao_geral || 0).replace('.', ','), String(c.valor_comissao_seguro || 0).replace('.', ','), String(c.valor_comissao || 0).replace('.', ','), String(c.valor_pago || 0).replace('.', ','), c.status]);
     const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'comissoes.csv';
+    link.download = `comissoes-${filtroMes || 'todos'}.csv`;
     link.click();
     toast.success('Relatório exportado com sucesso');
   }
@@ -335,6 +390,11 @@
   $: pagas = comissoes.filter((c) => c.status === 'pago');
   $: totalPendente = pendentes.reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
   $: totalPago = pagas.reduce((acc, c) => acc + Number(c.valor_pago || c.valor_comissao || 0), 0);
+  $: totalComissaoGeral = comissoes.reduce((acc, c) => acc + Number(c.valor_comissao_geral ?? c.valor_comissao ?? 0), 0);
+  $: totalComissaoSeguro = comissoes.reduce((acc, c) => acc + Number(c.valor_comissao_seguro || 0), 0);
+  $: totalComissaoComSeguro = totalComissaoGeral + totalComissaoSeguro;
+  $: labelComissao = buildKpiLabel('Comissão', comissoes.map((c) => Number(c.percentual_comissao_geral || 0)));
+  $: labelSeguro = buildKpiLabel('Seguro Viagem', comissoes.map((c) => Number(c.percentual_seguro || 0)));
   $: valorSelecionado = comissoes.filter((c) => comissoesSelecionadas.includes(c.id)).reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
   $: comissoesVisiveis = somentePendentes ? pendentes : comissoes;
 </script>
@@ -357,58 +417,43 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
       on:click={() => (somentePendentes = true)}
     >
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Clock size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Comissões pendentes</p>
-        <p class="text-2xl font-bold text-slate-900">{pendentes.length}</p>
-      </div>
+      <KPICard title="Comissões pendentes" value={pendentes.length} color="financeiro" icon={Clock} />
     </Button>
 
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-green-400 !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
       on:click={() => (somentePendentes = false)}
     >
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Total pago</p>
-        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPago)}</p>
-      </div>
+      <KPICard title="Total pago" value={formatCurrency(totalPago)} color="operacao" icon={CheckCircle} />
     </Button>
 
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
       on:click={() => (somentePendentes = true)}
     >
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Wallet size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Valor pendente</p>
-        <p class="text-2xl font-bold text-slate-900">{formatCurrency(totalPendente)}</p>
-      </div>
+      <KPICard title="Valor pendente" value={formatCurrency(totalPendente)} color="financeiro" icon={Wallet} />
     </Button>
 
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-blue-400 !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="!block !w-full !border-0 !bg-transparent !p-0 !shadow-none focus:!ring-0"
       on:click={() => goto('/financeiro/regras')}
     >
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
-      <div>
-        <p class="text-sm font-medium text-slate-500">Vendedores na base</p>
-        <p class="text-2xl font-bold text-slate-900">{resumoVendedores.length}</p>
-      </div>
+      <KPICard title="Vendedores na base" value={resumoVendedores.length} color="clientes" icon={Users} />
     </Button>
   </KPIGrid>
 
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
+      <FieldInput id="comissoes-mes" label="Mês" type="month" bind:value={filtroMes} class_name="min-w-[180px]" on:change={loadComissoes} />
       <FieldSelect id="comissoes-status" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="min-w-[180px]" on:change={loadComissoes} />
       <FieldSelect
         id="comissoes-vendedor"
@@ -445,11 +490,11 @@
   </Card>
 
   <KPIGrid className="mb-6" columns={5}>
-    <KPICard title="Pendentes" value={pendentes.length} color="financeiro" icon={Clock} />
-    <KPICard title="Total pago" value={formatCurrency(totalPago)} color="operacao" icon={CheckCircle} />
-    <KPICard title="Total em comissões" value={comissoes.length} color="financeiro" icon={DollarSign} />
-    <KPICard title="Vendedores" value={resumoVendedores.length} color="clientes" icon={Users} />
-    <KPICard title="Backlog" value={pendentes.length} color="slate" icon={AlertCircle} />
+    <KPICard title={labelComissao} value={formatCurrency(totalComissaoGeral)} color="financeiro" icon={DollarSign} />
+    <KPICard title="Comissão total" value={formatCurrency(totalComissaoGeral)} color="operacao" icon={CheckCircle} />
+    <KPICard title={labelSeguro} value={formatCurrency(totalComissaoSeguro)} color="financeiro" icon={Wallet} />
+    <KPICard title="Comissão + seguro" value={formatCurrency(totalComissaoComSeguro)} color="clientes" icon={TrendingUp} />
+    <KPICard title="Recibos" value={comissoes.length} color="slate" icon={FileText} />
   </KPIGrid>
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
@@ -471,14 +516,14 @@
   {/if}
 
   {#if resumoVendedores.length > 0}
-    <Card header="Resumo por Vendedor" color="financeiro" class="mb-6"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{#each resumoVendedores as dados}<div class="p-4 bg-slate-50 rounded-lg"><p class="font-medium text-slate-900 truncate" title={dados.vendedor_nome}>{dados.vendedor_nome}</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-slate-500">Vendas:</span><span class="font-medium">{dados.total_vendas}</span></div><div class="flex justify-between"><span class="text-slate-500">Comissão:</span><span class="font-medium">{formatCurrency(dados.total_comissao)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pago:</span><span class="font-medium text-green-600">{formatCurrency(dados.total_pago)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pendente:</span><span class="font-medium text-amber-600">{formatCurrency(dados.total_pendente)}</span></div></div></div>{/each}</div></Card>
+    <Card header="Resumo por Vendedor" color="financeiro" class="mb-6"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{#each resumoVendedores as dados}<div class="p-4 bg-slate-50 rounded-lg"><p class="font-medium text-slate-900 truncate" title={dados.vendedor_nome}>{dados.vendedor_nome}</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-slate-500">Recibos:</span><span class="font-medium">{dados.total_vendas}</span></div><div class="flex justify-between"><span class="text-slate-500">Comissão:</span><span class="font-medium">{formatCurrency(dados.total_comissao)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pago:</span><span class="font-medium text-green-600">{formatCurrency(dados.total_pago)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pendente:</span><span class="font-medium text-amber-600">{formatCurrency(dados.total_pendente)}</span></div></div></div>{/each}</div></Card>
   {/if}
 
   {#if persistenciaDisponivel && comissoesSelecionadas.length > 0}
-    <Card header="Pagamento em Lote" color="financeiro" class="mb-6"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-600"><strong>{comissoesSelecionadas.length}</strong> comissões selecionadas</p><p class="text-lg font-semibold text-financeiro-600">{formatCurrency(valorSelecionado)}</p></div><Button variant="primary" color="financeiro" on:click={() => { dataPagamento = new Date().toISOString().split('T')[0]; observacoesPagamento = ''; showPagamentoMultiploDialog = true; }}><CheckCircle size={16} class="mr-2" />Pagar Selecionadas</Button></div></Card>
+    <Card header="Pagamento em Lote" color="financeiro" class="mb-6"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-600"><strong>{comissoesSelecionadas.length}</strong> comissões selecionadas</p><p class="text-lg font-semibold text-financeiro-600">{formatCurrency(valorSelecionado)}</p></div><Button variant="primary" color="financeiro" on:click={() => { dataPagamento = todayISODateLocal(); observacoesPagamento = ''; showPagamentoMultiploDialog = true; }}><CheckCircle size={16} class="mr-2" />Pagar Selecionadas</Button></div></Card>
   {/if}
 
-  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões" searchable={true} filterable={false} exportable={false} selectable={persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
+  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões por Recibo" searchable={true} filterable={false} exportable={false} selectable={persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
       <div class="flex items-center gap-1"><Button variant="secondary" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
     </svelte:fragment>
@@ -487,7 +532,7 @@
 
 <Dialog bind:open={showPagamentoDialog} title="Confirmar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Confirmar Pagamento" onConfirm={handleConfirmarPagamento}>
   {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><FieldInput id="comissao-data-pagamento" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações opcionais..." /></div>
+    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Recibo</p><p class="font-medium">{comissaoSelecionada.numero_recibo || comissaoSelecionada.id}</p></div><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Produto</p><p class="font-medium">{comissaoSelecionada.produto || '-'}</p></div><div><p class="text-slate-500">Valor do Recibo</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><FieldInput id="comissao-data-pagamento" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações opcionais..." /></div>
   {/if}
 </Dialog>
 
@@ -499,11 +544,13 @@
   {#if comissaoSelecionada}
     <div class="space-y-4">
       <div class="grid grid-cols-2 gap-4 text-sm">
+        <div><p class="text-slate-500">Recibo</p><p class="font-medium">{comissaoSelecionada.numero_recibo || comissaoSelecionada.id}</p></div>
         <div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div>
         <div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div>
         <div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div>
         <div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div>
-        <div><p class="text-slate-500">Data da Venda</p><p class="font-medium">{comissaoSelecionada.data_venda ? new Date(comissaoSelecionada.data_venda).toLocaleDateString('pt-BR') : '-'}</p></div>
+        <div><p class="text-slate-500">Produto</p><p class="font-medium">{comissaoSelecionada.produto || '-'}</p></div>
+        <div><p class="text-slate-500">Data do Recibo</p><p class="font-medium">{formatDate(comissaoSelecionada.data_venda)}</p></div>
         <div><p class="text-slate-500">Regra</p><p class="font-medium">{comissaoSelecionada.regra_nome || 'Sem regra'}</p></div>
         <div><p class="text-slate-500">Tipo de pacote</p><p class="font-medium">{comissaoSelecionada.tipo_pacote || '-'}</p></div>
         <div><p class="text-slate-500">Percentual aplicado</p><p class="font-medium">{Number(comissaoSelecionada.percentual_aplicado || 0).toFixed(2)}%</p></div>
@@ -512,9 +559,11 @@
       <div class="border-t pt-4">
         <h4 class="font-medium text-slate-900 mb-2">Valores</h4>
         <div class="grid grid-cols-2 gap-4 text-sm">
-          <div><p class="text-slate-500">Valor da Venda</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div>
+          <div><p class="text-slate-500">Valor do Recibo</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div>
           <div><p class="text-slate-500">Valor comissionável</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissionavel || 0)}</p></div>
-          <div><p class="text-slate-500">Valor Comissão</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div>
+          <div><p class="text-slate-500">Comissão base</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissao_geral || 0)}</p></div>
+          <div><p class="text-slate-500">Seguro Viagem</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_comissao_seguro || 0)}</p></div>
+          <div><p class="text-slate-500">Comissão + seguro</p><p class="font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div>
           <div><p class="text-slate-500">Valor Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago || 0)}</p></div>
         </div>
       </div>

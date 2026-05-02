@@ -10,6 +10,7 @@
     Calculator, DollarSign, TrendingUp, Users,
     RefreshCw, FileText, ChevronRight, Loader2
   } from 'lucide-svelte';
+  import { parseISODateParts, todayISODateLocal } from '$lib/date';
 
   // ─── Tipos ──────────────────────────────────────────────────────────────────
   interface ComissaoItem {
@@ -40,8 +41,9 @@
   let resumo: ResumoVendedor[] = [];
   let loading = true;
 
-  let filtroMes = new Date().getMonth() + 1;
-  let filtroAno = new Date().getFullYear();
+  const todayParts = parseISODateParts(todayISODateLocal());
+  let filtroMes = todayParts?.month || new Date().getMonth() + 1;
+  let filtroAno = todayParts?.year || new Date().getFullYear();
   let filtroStatus = 'todas';
 
   let abortController: AbortController | null = null;

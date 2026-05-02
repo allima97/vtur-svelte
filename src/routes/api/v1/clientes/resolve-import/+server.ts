@@ -54,7 +54,21 @@ export async function POST(event) {
     const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing) {
-      return json({ cliente: existing, created: false });
+      const existingNome = String(existing.nome || '').trim();
+      const existingNomeLimpo = titleCaseNome(sanitizeImportedClienteNome(existingNome)) || '';
+      const updates: Record<string, string> = {};
+
+      if (existingNomeLimpo && existingNomeLimpo !== existingNome) {
+        updates.nome = existingNomeLimpo;
+      } else if (nome && (!existingNome || existingNome.toLowerCase() === 'cliente sem nome')) {
+        updates.nome = nome;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await client.from('clientes').update(updates).eq('id', existing.id);
+      }
+
+      return json({ cliente: { ...existing, ...updates }, created: false });
     }
 
     // ✅ company_id compatível com MASTER (usa primeiro do escopo)

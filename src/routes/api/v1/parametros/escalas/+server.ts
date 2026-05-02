@@ -2,12 +2,93 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   fetchGestorEquipeIdsComGestor,
+  fetchVendedorIdsByCompanyIds,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+function normalizePeriod(value: unknown) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return `${raw}-01`;
+  if (/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(raw)) return `${raw.slice(0, 7)}-01`;
+  return '';
+}
+
+function normalizeDate(value: unknown) {
+  const raw = String(value || '').trim();
+  return /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(raw) ? raw : '';
+}
+
+function normalizeTime(value: unknown) {
+  const raw = String(value || '').trim();
+  return /^\d{2}:\d{2}/.test(raw) ? raw.slice(0, 5) : null;
+}
+
+async function resolveEquipeIds(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  if (scope.isGestor) {
+    return fetchGestorEquipeIdsComGestor(client, scope.userId);
+  }
+
+  if (scope.isMaster || scope.isAdmin) {
+    if (scope.isAdmin) {
+      const { data } = await client.from('users').select('id').eq('active', true).limit(1000);
+      return (data || []).map((u: any) => String(u?.id || '')).filter(Boolean);
+    }
+
+    return fetchVendedorIdsByCompanyIds(client, scope.companyIds);
+  }
+
+  if (scope.companyIds.length > 0) {
+    const { data } = await client
+      .from('users')
+      .select('id')
+      .eq('active', true)
+      .in('company_id', scope.companyIds)
+      .limit(500);
+    return (data || []).map((u: any) => String(u?.id || '')).filter(Boolean);
+  }
+
+  return [scope.userId];
+}
+
+async function ensureEscalaMes(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>, periodo: string) {
+  const periodoFull = normalizePeriod(periodo);
+  if (!periodoFull) throw new Error('Período inválido.');
+
+  const companyId = scope.companyId || scope.companyIds[0] || null;
+  if (!companyId) throw new Error('Empresa não definida para a escala.');
+
+  let gestorId = scope.userId;
+  if (scope.isGestor) {
+    try {
+      const { data } = await client.rpc('gestor_equipe_base_id', { uid: scope.userId });
+      if (isUuid(String(data || ''))) gestorId = String(data);
+    } catch {
+      gestorId = scope.userId;
+    }
+  }
+
+  const { data: existing, error: existingError } = await client
+    .from('escala_mes')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('gestor_id', gestorId)
+    .eq('periodo', periodoFull)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.id) return String(existing.id);
+
+  const { data: inserted, error: insertError } = await client
+    .from('escala_mes')
+    .insert({ company_id: companyId, gestor_id: gestorId, periodo: periodoFull, status: 'rascunho' })
+    .select('id')
+    .single();
+  if (insertError) throw insertError;
+  return String(inserted?.id || '');
+}
 
 export async function GET(event) {
   try {
@@ -24,26 +105,7 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const periodo = String(searchParams.get('periodo') || '').trim(); // YYYY-MM
 
-    // Resolve equipe visivel. Vendedores podem visualizar a escala da equipe,
-    // mas continuam sem permissao de edicao no POST.
-    let equipeIds: string[] = [];
-    if (scope.isGestor) {
-      equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-    } else {
-      let usersQuery = client
-        .from('users')
-        .select('id')
-        .eq('active', true)
-        .limit(500);
-
-      if (!scope.isAdmin) {
-        if (scope.companyIds.length > 0) usersQuery = usersQuery.in('company_id', scope.companyIds);
-        else if (scope.companyId) usersQuery = usersQuery.eq('company_id', scope.companyId);
-      }
-
-      const { data: usersData } = await usersQuery;
-      equipeIds = (usersData || []).map((u: any) => u.id);
-    }
+    const equipeIds = await resolveEquipeIds(client, scope);
 
     // Busca escala_mes
     let mesQuery = client
@@ -109,13 +171,13 @@ export async function GET(event) {
 
     // Busca horarios do usuario logado
     let horariosUsuario: any[] = [];
-    const { data: horariosData } = await client
-      .from('escala_horario_usuario')
-      .select('*')
-      .eq('usuario_id', scope.userId)
-      .maybeSingle();
-    if (horariosData) {
-      horariosUsuario = [horariosData];
+    if (equipeIds.length > 0) {
+      const { data: horariosData } = await client
+        .from('escala_horario_usuario')
+        .select('*')
+        .in('usuario_id', equipeIds)
+        .limit(500);
+      horariosUsuario = horariosData || [];
     }
 
     return json({
@@ -150,13 +212,18 @@ export async function POST(event) {
         return json({ error: 'Dados inválidos.' }, { status: 400 });
       }
 
+      const equipeIds = await resolveEquipeIds(client, scope);
+      if (!scope.isAdmin && !equipeIds.includes(usuario_id)) {
+        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403 });
+      }
+
       const payload = {
         escala_mes_id,
         usuario_id,
-        data,
+        data: normalizeDate(data),
         tipo: String(tipo || '').trim() || null,
-        hora_inicio: String(hora_inicio || '').trim() || null,
-        hora_fim: String(hora_fim || '').trim() || null,
+        hora_inicio: normalizeTime(hora_inicio),
+        hora_fim: normalizeTime(hora_fim),
         observacao: String(observacao || '').trim() || null
       };
 
@@ -183,30 +250,67 @@ export async function POST(event) {
       return json({ ok: true });
     }
 
+    if (action === 'apply_batch') {
+      const usuarioId = String(body.usuario_id || '').trim();
+      const datas: string[] = Array.from(
+        new Set((body.datas || []).map((data: unknown) => normalizeDate(data)).filter(Boolean))
+      ) as string[];
+      const tipo = String(body.tipo || '').trim() || null;
+      const horaInicio = normalizeTime(body.hora_inicio);
+      const horaFim = normalizeTime(body.hora_fim);
+      const observacao = String(body.observacao || '').trim() || null;
+
+      if (!isUuid(usuarioId) || datas.length === 0) {
+        return json({ error: 'Seleção inválida.' }, { status: 400 });
+      }
+
+      const equipeIds = await resolveEquipeIds(client, scope);
+      if (!scope.isAdmin && !equipeIds.includes(usuarioId)) {
+        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403 });
+      }
+
+      const periodo = normalizePeriod(body.periodo || datas[0]?.slice(0, 7));
+      if (!periodo) return json({ error: 'Período inválido.' }, { status: 400 });
+
+      const escalaMesId = String(body.escala_mes_id || '').trim();
+      const mesId = isUuid(escalaMesId) ? escalaMesId : await ensureEscalaMes(client, scope, periodo);
+
+      if (!tipo) {
+        const { error: deleteError } = await client
+          .from('escala_dia')
+          .delete()
+          .eq('escala_mes_id', mesId)
+          .eq('usuario_id', usuarioId)
+          .in('data', datas);
+        if (deleteError) throw deleteError;
+        return json({ ok: true, removed: datas.length, id: mesId });
+      }
+
+      const rows = datas.map((data) => ({
+        escala_mes_id: mesId,
+        usuario_id: usuarioId,
+        data,
+        tipo,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim,
+        observacao
+      }));
+
+      const { data: saved, error: upsertError } = await client
+        .from('escala_dia')
+        .upsert(rows, { onConflict: 'escala_mes_id,usuario_id,data' })
+        .select('id, escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao');
+      if (upsertError) throw upsertError;
+
+      return json({ ok: true, id: mesId, items: saved || [] });
+    }
+
     if (action === 'ensure_mes') {
       const { periodo } = body; // YYYY-MM
       if (!periodo) return json({ error: 'Período inválido.' }, { status: 400 });
 
-      const periodoFull = periodo.length === 7 ? `${periodo}-01` : periodo;
-
-      const { data: existing } = await client
-        .from('escala_mes')
-        .select('id')
-        .eq('company_id', scope.companyId || '')
-        .eq('periodo', periodoFull)
-        .maybeSingle();
-
-      if (!existing) {
-        const { data: inserted, error: insertError } = await client
-          .from('escala_mes')
-          .insert({ company_id: scope.companyId, gestor_id: scope.userId, periodo: periodoFull, status: 'rascunho' })
-          .select('id')
-          .single();
-        if (insertError) throw insertError;
-        return json({ ok: true, id: inserted?.id });
-      }
-
-      return json({ ok: true, id: existing.id });
+      const id = await ensureEscalaMes(client, scope, periodo);
+      return json({ ok: true, id });
     }
 
     if (action === 'upsert_horario_usuario') {

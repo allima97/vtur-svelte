@@ -1,6 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -294,19 +295,7 @@ export async function GET(event: RequestEvent) {
       : itensUnificados
     ).slice(0, limit);
 
-    let vendedoresQuery = client
-      .from("users")
-      .select("id, nome_completo")
-      .eq("active", true)
-      .order("nome_completo", { ascending: true });
-
-    if (companyIds.length === 1) {
-      vendedoresQuery = vendedoresQuery.eq("company_id", companyIds[0]);
-    } else {
-      vendedoresQuery = vendedoresQuery.in("company_id", companyIds);
-    }
-    const { data: vendedoresData, error: vendedoresError } = await vendedoresQuery;
-    if (vendedoresError) throw vendedoresError;
+    const vendedoresData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     const vendedores = (vendedoresData || []).map((row: any) => ({
       id: String(row?.id || ""),

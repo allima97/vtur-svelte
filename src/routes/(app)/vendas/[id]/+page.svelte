@@ -19,7 +19,9 @@
   import { permissoes } from '$lib/stores/permissoes';
   import MesclarVendasModal from '$lib/components/modais/MesclarVendasModal.svelte';
   import { Merge } from 'lucide-svelte';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   const vendaId = $page.params.id;
   const vendaIdSafe = vendaId ?? '';
 
@@ -29,7 +31,6 @@
   let processando = false;
   let showMesclar = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
-  let ensuringProdutos = new Set<string>();
   let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
   let cidadesBase: Array<{ id: string; label?: string | null; nome?: string | null }> = [];
   let tiposPacoteBase: Array<{ id: string; nome: string }> = [];
@@ -230,28 +231,22 @@
 
   onMount(async () => {
     await ensureServerSessionCookie();
-    await carregarVenda();
     await loadReciboBaseData();
+    await carregarVenda();
     await carregarRankingRecibos();
   });
 
   async function ensureProduto(produtoId: string) {
     const id = String(produtoId || '').trim();
-    if (!id || produtosCache[id] || ensuringProdutos.has(id)) return;
-    ensuringProdutos.add(id);
-    try {
-      const response = await fetch(`/api/v1/produtos/${encodeURIComponent(id)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
-      if (payload?.id) {
-        produtosCache[id] = { id: String(payload.id), nome: payload.nome || 'Produto' };
-        produtosCache = { ...produtosCache };
-      }
-    } catch {
-      // ignorar
-    } finally {
-      ensuringProdutos.delete(id);
+    if (!id || produtosCache[id]) return;
+    const produtoBase = produtosBase.find((item) => item.id === id);
+    if (produtoBase) {
+      produtosCache[id] = { id, nome: produtoBase.nome || 'Produto' };
+      produtosCache = { ...produtosCache };
+      return;
     }
+    produtosCache[id] = { id, nome: 'Produto não encontrado' };
+    produtosCache = { ...produtosCache };
   }
 
   async function carregarVenda() {
@@ -305,14 +300,14 @@
   }
 
   async function handleCancelar() {
-    if (!confirm('Tem certeza que deseja cancelar esta venda?')) return;
+    if (!(await confirmAction('Tem certeza que deseja cancelar esta venda?'))) return;
 
     processando = true;
     try {
-      const response = await fetch(`/api/v1/vendas/${vendaId}`, {
-        method: 'PATCH',
+      const response = await fetch('/api/v1/vendas/cancel', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelada', cancelada: true })
+        body: JSON.stringify({ venda_id: vendaId })
       });
 
       if (!response.ok) throw new Error('Erro ao cancelar');
@@ -328,7 +323,7 @@
   }
 
   async function handleExcluir() {
-    if (!confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) return;
+    if (!(await confirmAction('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.'))) return;
 
     try {
       const response = await fetch(`/api/v1/vendas/${vendaId}`, {
@@ -349,13 +344,7 @@
   }
 
   function formatDate(dateString: string | null): string {
-    if (!dateString) return '-';
-    const raw = String(dateString).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      const [year, month, day] = raw.split('-').map(Number);
-      return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
-    }
-    return new Date(raw).toLocaleDateString('pt-BR');
+    return formatDateValue(dateString);
   }
 
   function getReciboCidade(recibo: any): string {
@@ -926,7 +915,7 @@
               <AlertTriangle size={15} class="mt-0.5 shrink-0 text-amber-600" />
               <p class="text-xs text-amber-800">
                 Um ou mais recibos possuem divergência entre os valores da venda e os valores conciliados.
-                O ranking usa o valor conciliado quando disponível.
+                O ranking usa o valor conciliado apenas quando a conciliação está confirmada.
               </p>
             </div>
           {/if}
@@ -948,6 +937,10 @@
                       <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                         <CheckCircle size={10} /> Conciliado
                       </span>
+                    {:else if rec.tem_conciliacao}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                        <Clock size={10} /> {rec.conciliacao_status || 'Pendente'}
+                      </span>
                     {:else}
                       <span class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                         <Info size={10} /> {rec.conciliacao_status || 'Em aberto'}
@@ -965,7 +958,7 @@
                     <span class="block text-slate-400 mb-0.5">Venda (entrada)</span>
                     <span class="font-medium text-slate-700">{formatCurrency(rec.venda_valor_total)}</span>
                   </div>
-                  {#if !rec.provisorio}
+                  {#if rec.tem_conciliacao}
                     <div>
                       <span class="block text-slate-400 mb-0.5">Conciliação</span>
                       <span class="font-medium {rec.diverge ? 'text-amber-700' : 'text-green-700'}">
@@ -975,12 +968,26 @@
                   {/if}
                 </div>
 
+                {#if rec.is_seguro_viagem || rec.ranking_produto_nome}
+                  <div class="mt-2 inline-flex items-center gap-1 rounded bg-cyan-50 px-2 py-1 text-xs text-cyan-700 border border-cyan-100">
+                    <Package size={11} />
+                    Produto de ranking: {rec.ranking_produto_nome || (rec.is_seguro_viagem ? 'Seguro viagem' : 'Diferenciado')}
+                  </div>
+                {/if}
+
                 <!-- Divergência -->
                 {#if rec.diverge && rec.divergencia_valor !== null}
                   <div class="mt-2 flex items-center gap-1 text-xs text-amber-700">
                     <AlertTriangle size={11} />
                     Diferença: {formatCurrency(Math.abs(rec.divergencia_valor))}
                     {rec.divergencia_valor > 0 ? '(conciliação maior)' : '(conciliação menor)'}
+                  </div>
+                {/if}
+                {#if rec.diverge_taxas && rec.divergencia_taxas !== null}
+                  <div class="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                    <AlertTriangle size={11} />
+                    Diferença nas taxas: {formatCurrency(Math.abs(rec.divergencia_taxas))}
+                    {rec.divergencia_taxas > 0 ? '(conciliação maior)' : '(conciliação menor)'}
                   </div>
                 {/if}
 
@@ -1033,9 +1040,15 @@
                   <span class="font-semibold">{formatCurrency(Math.abs(rankingTotais.divergencia_total))}</span>
                 </div>
               {/if}
+              {#if Math.abs(rankingTotais.divergencia_taxas_total || 0) > 0.5}
+                <div class="mt-1 flex justify-between items-center text-xs text-amber-600">
+                  <span>Divergência total de taxas</span>
+                  <span class="font-semibold">{formatCurrency(Math.abs(rankingTotais.divergencia_taxas_total || 0))}</span>
+                </div>
+              {/if}
               <p class="mt-2 text-xs text-slate-400">
                 {rankingTotais.algum_provisorio
-                  ? 'Valores provisórios até a conciliação ser concluída. O ranking usa esses valores enquanto não há conciliação.'
+                  ? 'Valores provisórios até a conciliação ser concluída. O ranking efetivo permanece nos dados da venda enquanto não houver conciliação confirmada.'
                   : 'Valores conciliados. O ranking usa os dados da conciliação.'}
               </p>
             </div>

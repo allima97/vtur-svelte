@@ -13,6 +13,8 @@
   import { toast } from '$lib/stores/ui';
   import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
   import { parseConciliacaoImportFile, parseConciliacaoImportText } from '$lib/conciliacao/importParser';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
   import {
     AlertCircle,
@@ -152,6 +154,62 @@
     vendedor_destino_nome: string;
     percentual_destino: number;
   };
+  type VinculoAuditIssue = {
+    code: string;
+    severity: 'info' | 'warning' | 'critical';
+    title: string;
+    message: string;
+    expected?: string | number | null;
+    actual?: string | number | null;
+  };
+  type VinculoAuditDetail = {
+    id: string;
+    documento: string;
+    movimento_data: string | null;
+    status: string | null;
+    severity: 'ok' | 'info' | 'warning' | 'critical';
+    fixable: boolean;
+    issues: VinculoAuditIssue[];
+    conciliacao?: {
+      venda_id?: string | null;
+      venda_recibo_id?: string | null;
+      ranking_vendedor_nome?: string | null;
+      valor_venda_real?: number | null;
+      valor_taxas?: number | null;
+    };
+    sistema?: {
+      numero_recibo?: string | null;
+      vendedor_nome?: string | null;
+      data_venda?: string | null;
+      data_lancamento?: string | null;
+      valor_ranking?: number | null;
+      valor_taxas?: number | null;
+      rateio?: {
+        vendedor_origem_nome?: string | null;
+        vendedor_destino_nome?: string | null;
+        percentual_origem?: number | null;
+        percentual_destino?: number | null;
+      } | null;
+    } | null;
+    candidatos?: Array<{
+      numero_recibo: string;
+      vendedor_nome?: string | null;
+      data_venda?: string | null;
+      valor_total?: number | null;
+      valor_taxas?: number | null;
+    }>;
+  };
+  type VinculoAuditResult = {
+    checked: number;
+    critical: number;
+    warnings: number;
+    infos: number;
+    issues: number;
+    corrigiveis: number;
+    corrigidos: number;
+    dryRun: boolean;
+    detalhes: VinculoAuditDetail[];
+  };
   type ImportPreviewRow = {
     documento: string;
     movimento_data: string | null;
@@ -195,6 +253,12 @@
   let loading = true;
   let running = false;
   let fixingVinculos = false;
+  let vinculosAuditOpen = false;
+  let vinculosAuditLoading = false;
+  let vinculosAuditApplying = false;
+  let vinculosAuditResult: VinculoAuditResult | null = null;
+  let vinculosAuditScope: 'global' | 'recibo' = 'global';
+  let vinculosAuditConciliacaoId: string | null = null;
   let saving = false;
   let importing = false;
   let reverting = false;
@@ -1062,46 +1126,74 @@
     }
   }
 
-  async function runFixVinculos() {
-    const confirmed = window.confirm(
-      'Isso vai verificar e corrigir vínculos incorretos entre conciliação e recibos de vendas.\n\nDeseja continuar?'
-    );
-    if (!confirmed) return;
+  async function runFixVinculosAudit(options: { conciliacaoId?: string | null; apply?: boolean } = {}) {
+    if (running || fixingVinculos || vinculosAuditLoading || vinculosAuditApplying) return;
+
+    const apply = Boolean(options.apply);
+    const conciliacaoId = options.conciliacaoId ?? vinculosAuditConciliacaoId ?? null;
+    vinculosAuditScope = conciliacaoId ? 'recibo' : 'global';
+    vinculosAuditConciliacaoId = conciliacaoId || null;
+    if (!apply) {
+      vinculosAuditResult = null;
+      vinculosAuditOpen = true;
+    }
 
     fixingVinculos = true;
-    operationMessage = 'Verificando e corrigindo vínculos incorretos da conciliação.';
+    vinculosAuditLoading = !apply;
+    vinculosAuditApplying = apply;
+    operationMessage = apply
+      ? 'Corrigindo vínculos críticos apontados pela auditoria.'
+      : conciliacaoId
+        ? 'Auditando vínculo do recibo selecionado.'
+        : 'Auditando vínculos da conciliação no mês selecionado.';
+
     try {
       const response = await fetch('/api/v1/conciliacao/fix-vinculos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dryRun: false, limit: 2000 })
+        body: JSON.stringify({
+          dryRun: !apply,
+          limit: conciliacaoId ? 1 : 2000,
+          month: conciliacaoId ? null : monthFilter || null,
+          conciliacaoReciboId: conciliacaoId
+        })
       });
-      const data = await parseJson(response, 'Erro ao corrigir vínculos.');
-      const { checked = 0, incorretos = 0, corrigidos = 0 } = data;
+      const data = await parseJson(response, apply ? 'Erro ao corrigir vínculos.' : 'Erro ao auditar vínculos.');
+      vinculosAuditResult = data as VinculoAuditResult;
+      const checked = Number(data.checked || 0);
+      const critical = Number(data.critical || data.incorretos || 0);
+      const warnings = Number(data.warnings || 0);
+      const corrigiveis = Number(data.corrigiveis || 0);
+      const corrigidos = Number(data.corrigidos || 0);
+
       addOperationLog({
-        action: 'Corrigir vínculos',
+        action: apply ? 'Corrigir vínculos críticos' : 'Auditar vínculos',
         status: 'success',
-        message:
-          incorretos === 0
-            ? `Verificados ${checked} registros — nenhum vínculo incorreto encontrado.`
-            : `Verificados ${checked}, incorretos ${incorretos}, corrigidos ${corrigidos}.`,
+        message: apply
+          ? `Corrigidos ${corrigidos} vínculo(s) crítico(s).`
+          : `Verificados ${checked}: ${critical} crítico(s), ${warnings} alerta(s), ${corrigiveis} corrigível(is).`,
         data
       });
-      if (incorretos === 0) {
-        toast.success(`Verificados ${checked} registros — nenhum vínculo incorreto encontrado.`);
-      } else {
-        toast.success(`Concluído: ${corrigidos} vínculo(s) incorreto(s) corrigido(s). Rode a conciliação para re-vincular.`);
+
+      if (apply) {
+        toast.success(`Corrigidos ${corrigidos} vínculo(s) crítico(s). Rode a conciliação para reprocessar.`);
         await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
+      } else if (critical === 0 && warnings === 0) {
+        toast.success(`Auditoria concluída: ${checked} registro(s), nenhum problema encontrado.`);
+      } else {
+        toast.warning(`Auditoria concluída: ${critical} crítico(s), ${warnings} alerta(s).`);
       }
     } catch (error: any) {
       addOperationLog({
-        action: 'Corrigir vínculos',
+        action: apply ? 'Corrigir vínculos críticos' : 'Auditar vínculos',
         status: 'error',
-        message: error.message || 'Erro ao corrigir vínculos.'
+        message: error.message || 'Erro ao auditar vínculos.'
       });
-      toast.error(error.message || 'Erro ao corrigir vínculos.');
+      toast.error(error.message || 'Erro ao auditar vínculos.');
     } finally {
       fixingVinculos = false;
+      vinculosAuditLoading = false;
+      vinculosAuditApplying = false;
       operationMessage = '';
     }
   }
@@ -1550,13 +1642,12 @@
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `conciliacao_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `conciliacao_${todayISODateLocal()}.csv`;
     link.click();
   }
 
   function currentMonth() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return todayISODateLocal().slice(0, 7);
   }
 
   function formatCurrency(value: number | null | undefined) {
@@ -1570,13 +1661,40 @@
   }
 
   function formatDate(value?: string | null) {
-    if (!value) return '-';
-    return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function formatDateTime(value?: string | null) {
-    if (!value) return '-';
-    return new Date(value).toLocaleString('pt-BR');
+    return formatDateTimeValue(value);
+  }
+
+  function auditSeverityLabel(severity?: string | null) {
+    if (severity === 'critical') return 'Crítico';
+    if (severity === 'warning') return 'Alerta';
+    if (severity === 'info') return 'Info';
+    return 'OK';
+  }
+
+  function auditSeverityClass(severity?: string | null) {
+    if (severity === 'critical') return 'bg-red-100 text-red-700';
+    if (severity === 'warning') return 'bg-amber-100 text-amber-700';
+    if (severity === 'info') return 'bg-blue-100 text-blue-700';
+    return 'bg-green-100 text-green-700';
+  }
+
+  function auditIssueBorderClass(severity?: string | null) {
+    if (severity === 'critical') return 'border-red-200 bg-red-50 text-red-900';
+    if (severity === 'warning') return 'border-amber-200 bg-amber-50 text-amber-900';
+    return 'border-blue-200 bg-blue-50 text-blue-900';
+  }
+
+  function auditExpectedActual(issue: VinculoAuditIssue) {
+    const expected = issue.expected ?? null;
+    const actual = issue.actual ?? null;
+    if (expected === null && actual === null) return '';
+    const left = expected === null ? '-' : String(expected);
+    const right = actual === null ? '-' : String(actual);
+    return `Esperado: ${left} | Atual: ${right}`;
   }
 
   function escapeHtml(value: string) {
@@ -1682,9 +1800,9 @@
       <RefreshCcw size={16} class="mr-2" />
       Recalcular mês
     </Button>
-    <Button variant="secondary" on:click={runFixVinculos} disabled={running || fixingVinculos} loading={fixingVinculos} title="Verifica e corrige vínculos incorretos entre registros de conciliação e recibos de venda">
+    <Button variant="secondary" on:click={() => runFixVinculosAudit()} disabled={running || fixingVinculos} loading={fixingVinculos} title="Audita vínculos entre registros de conciliação e recibos de venda">
       <ShieldAlert size={16} class="mr-2" />
-      Corrigir vínculos
+      Auditar vínculos
     </Button>
     <Button variant="secondary" on:click={loadAll} disabled={loading} loading={loading}>
       <RefreshCcw size={16} class="mr-2" />
@@ -2319,6 +2437,10 @@
         <Button variant="secondary" on:click={() => selectedRow && runAutoConciliacao(selectedRow.id)} disabled={running} loading={running}>
           Forçar recálculo do recibo
         </Button>
+        <Button variant="secondary" on:click={() => selectedRow && runFixVinculosAudit({ conciliacaoId: selectedRow.id })} disabled={running || fixingVinculos} loading={vinculosAuditLoading && vinculosAuditScope === 'recibo'}>
+          <ShieldAlert size={16} class="mr-2" />
+          Auditar vínculo
+        </Button>
         <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Última checagem: {formatDateTime(selectedRow.last_checked_at)}
         </div>
@@ -2331,6 +2453,159 @@
       <Button variant="primary" on:click={enableDetailsEdit} disabled={saving || running}>
         <Pencil size={16} class="mr-2" />
         Editar
+      </Button>
+    {/if}
+  </svelte:fragment>
+</Dialog>
+
+<Dialog
+  bind:open={vinculosAuditOpen}
+  title={vinculosAuditScope === 'recibo' ? 'Auditoria do vínculo do recibo' : 'Auditoria de vínculos da conciliação'}
+  color="financeiro"
+  cancelText="Fechar"
+  size="full"
+  maxWidth="min(96vw, 1500px)"
+>
+  <div class="space-y-4">
+    {#if vinculosAuditLoading}
+      <LoadingState
+        title="Auditando vínculos"
+        message="Comparando recibo, venda, vendedor, valores, taxas, data e possíveis candidatos."
+        compact={true}
+      />
+    {:else if vinculosAuditResult}
+      <div class="grid gap-3 text-sm md:grid-cols-5">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <p class="text-xs font-semibold text-slate-500">Verificados</p>
+          <p class="text-lg font-semibold text-slate-900">{vinculosAuditResult.checked}</p>
+        </div>
+        <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-3">
+          <p class="text-xs font-semibold text-red-600">Críticos</p>
+          <p class="text-lg font-semibold text-red-700">{vinculosAuditResult.critical}</p>
+        </div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+          <p class="text-xs font-semibold text-amber-600">Alertas</p>
+          <p class="text-lg font-semibold text-amber-700">{vinculosAuditResult.warnings}</p>
+        </div>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3">
+          <p class="text-xs font-semibold text-blue-600">Informativos</p>
+          <p class="text-lg font-semibold text-blue-700">{vinculosAuditResult.infos}</p>
+        </div>
+        <div class="rounded-xl border border-orange-200 bg-orange-50 px-3 py-3">
+          <p class="text-xs font-semibold text-orange-600">Corrigíveis</p>
+          <p class="text-lg font-semibold text-orange-700">{vinculosAuditResult.corrigiveis}</p>
+        </div>
+      </div>
+
+      {#if vinculosAuditResult.detalhes.length === 0}
+        <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          Nenhuma divergência encontrada nos vínculos auditados.
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each vinculosAuditResult.detalhes as detail}
+            <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="font-semibold text-slate-900">{detail.documento || '-'}</p>
+                    <span class="rounded-full px-2 py-1 text-xs font-semibold {auditSeverityClass(detail.severity)}">
+                      {auditSeverityLabel(detail.severity)}
+                    </span>
+                    {#if detail.fixable}
+                      <span class="rounded-full bg-orange-100 px-2 py-1 text-[11px] font-semibold text-orange-700">limpeza segura</span>
+                    {/if}
+                  </div>
+                  <p class="text-xs text-slate-500">{formatDate(detail.movimento_data)}</p>
+                </div>
+                <div class="text-left sm:text-right">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Recibo do sistema</p>
+                  <p class="font-medium text-slate-900">{detail.sistema?.numero_recibo || '-'}</p>
+                  <p class="text-xs text-slate-500">
+                    Venda: {formatDate(detail.sistema?.data_venda)}
+                    {#if detail.sistema?.data_lancamento}
+                      · Lanç.: {formatDate(detail.sistema.data_lancamento)}
+                    {/if}
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid gap-3 text-sm lg:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr]">
+                <div class="rounded-lg bg-slate-50 px-3 py-2">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Vendedores</p>
+                  <p class="text-slate-700">Venda: <span class="font-medium">{detail.sistema?.vendedor_nome || '-'}</span></p>
+                  <p class="text-slate-700">Ranking: <span class="font-medium">{detail.conciliacao?.ranking_vendedor_nome || '-'}</span></p>
+                  {#if detail.sistema?.rateio}
+                    <p class="mt-1 text-xs text-blue-700">
+                      Rateio: {detail.sistema.rateio.vendedor_origem_nome || '-'} {Number(detail.sistema.rateio.percentual_origem || 0).toFixed(2)}%
+                      / {detail.sistema.rateio.vendedor_destino_nome || '-'} {Number(detail.sistema.rateio.percentual_destino || 0).toFixed(2)}%
+                    </p>
+                  {/if}
+                </div>
+                <div class="rounded-lg bg-slate-50 px-3 py-2">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Candidatos</p>
+                  {#if detail.candidatos && detail.candidatos.length > 0}
+                    <p class="text-slate-700">{detail.candidatos.map((c) => c.numero_recibo).join(', ')}</p>
+                  {:else}
+                    <p class="text-slate-500">-</p>
+                  {/if}
+                </div>
+                <div class="rounded-lg bg-slate-50 px-3 py-2">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Valor conc. / venda</p>
+                  <p class="font-medium text-slate-900">{formatCurrency(detail.conciliacao?.valor_venda_real)}</p>
+                  <p class="text-xs text-slate-500">{formatCurrency(detail.sistema?.valor_ranking)}</p>
+                </div>
+                <div class="rounded-lg bg-slate-50 px-3 py-2">
+                  <p class="text-xs font-semibold uppercase text-slate-500">Taxas conc. / venda</p>
+                  <p class="font-medium text-slate-900">{formatCurrency(detail.conciliacao?.valor_taxas)}</p>
+                  <p class="text-xs text-slate-500">{formatCurrency(detail.sistema?.valor_taxas)}</p>
+                </div>
+              </div>
+
+              <div class="mt-3 grid gap-2 xl:grid-cols-2">
+                {#each detail.issues as issueItem}
+                  <div class="rounded-xl border px-3 py-2 {auditIssueBorderClass(issueItem.severity)}">
+                    <p class="text-xs font-semibold">{issueItem.title}</p>
+                    <p class="text-xs leading-relaxed">{issueItem.message}</p>
+                    {#if auditExpectedActual(issueItem)}
+                      <p class="mt-1 text-[11px] opacity-80">{auditExpectedActual(issueItem)}</p>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            </section>
+          {/each}
+        </div>
+      {/if}
+
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        A correção automática só limpa vínculos críticos inseguros. Diferenças de valor, taxas, datas, vendedor e rateio ficam como auditoria; o ajuste pode ser na venda, na conciliação/ranking ou no rateio.
+      </div>
+    {:else}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        Execute a auditoria para comparar os vínculos da conciliação com as vendas do sistema.
+      </div>
+    {/if}
+  </div>
+
+  <svelte:fragment slot="actions">
+    {#if vinculosAuditResult && vinculosAuditResult.corrigiveis > 0}
+      <Button
+        color="financeiro"
+        on:click={() => runFixVinculosAudit({ conciliacaoId: vinculosAuditConciliacaoId, apply: true })}
+        disabled={vinculosAuditApplying || vinculosAuditLoading}
+        loading={vinculosAuditApplying}
+      >
+        Corrigir críticos
+      </Button>
+    {/if}
+    {#if vinculosAuditResult}
+      <Button
+        variant="secondary"
+        on:click={() => runFixVinculosAudit({ conciliacaoId: vinculosAuditConciliacaoId })}
+        disabled={vinculosAuditApplying || vinculosAuditLoading}
+      >
+        Auditar novamente
       </Button>
     {/if}
   </svelte:fragment>

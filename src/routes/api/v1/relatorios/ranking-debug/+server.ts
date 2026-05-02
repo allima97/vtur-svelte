@@ -15,16 +15,107 @@
  */
 import { json } from '@sveltejs/kit';
 import {
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  isRankingEligibleUser,
+  parseUuidList,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
+  resolveUserScope,
   toErrorResponse,
 } from '$lib/server/v1';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
+import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 
 export async function GET(event) {
   try {
     const client = getAdminClient();
-    await requireAuthenticatedUser(event);
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+
+    // Modo contribuições canônicas do ranking/KPIs:
+    // ?contribuicoes_mes=2026-04
+    const contribuicoesMes = event.url.searchParams.get('contribuicoes_mes');
+    if (contribuicoesMes) {
+      const [ano, mes] = String(contribuicoesMes).split('-');
+      const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
+      const inicio = `${ano}-${mes}-01`;
+      const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
+      const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
+      let vendedorIds = parseUuidList(
+        event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
+      );
+
+      if (vendedorIds.length === 0 && companyIds.length > 0) {
+        const companyUsers = await fetchRankingVendedoresByCompanyIds(client, companyIds);
+
+        vendedorIds = (companyUsers || [])
+          .map((row: any) => String(row?.id || '').trim())
+          .filter(Boolean);
+      }
+
+      const vendedorMap = new Map<string, string>();
+      if (vendedorIds.length > 0) {
+        const { data: usersRows, error: usersError } = await client
+          .from('users')
+          .select('id, nome_completo, email')
+          .in('id', vendedorIds)
+          .limit(5000);
+
+        if (usersError) throw usersError;
+        (usersRows || []).forEach((row: any) => {
+          vendedorMap.set(
+            String(row?.id || ''),
+            String(row?.nome_completo || row?.email || row?.id || '')
+          );
+        });
+      }
+
+      const canonical = await fetchVendasKpiReciboContributions(client, {
+        dataInicio: inicio,
+        dataFim: fim,
+        companyIds,
+        vendedorIds
+      });
+
+      const porVendedor = new Map<string, { vendedor_id: string; vendedor_nome: string; total: number; taxas: number; seguro: number; recibos: number }>();
+      canonical.contributions.forEach((item) => {
+        const vendedorId = String(item.vendedorId || '').trim();
+        if (!vendedorId) return;
+        const current = porVendedor.get(vendedorId) || {
+          vendedor_id: vendedorId,
+          vendedor_nome: vendedorMap.get(vendedorId) || vendedorId,
+          total: 0,
+          taxas: 0,
+          seguro: 0,
+          recibos: 0
+        };
+        current.total += Number(item.bruto || 0);
+        current.taxas += Number(item.taxas || 0);
+        if (item.isSeguro) current.seguro += Number(item.bruto || 0);
+        current.recibos += 1;
+        porVendedor.set(vendedorId, current);
+      });
+
+      return json({
+        periodo: `${inicio} a ${fim}`,
+        empresas: companyIds,
+        vendedores_considerados: vendedorIds.length,
+        resumo_kpi: canonical.agg,
+        por_vendedor: Array.from(porVendedor.values())
+          .map((row) => ({
+            ...row,
+            total: Math.round(row.total * 100) / 100,
+            taxas: Math.round(row.taxas * 100) / 100,
+            seguro: Math.round(row.seguro * 100) / 100
+          }))
+          .sort((a, b) => b.total - a.total),
+        contribuicoes: canonical.contributions.map((item) => ({
+          ...item,
+          vendedorNome: vendedorMap.get(String(item.vendedorId || '')) || item.vendedorId
+        }))
+      });
+    }
 
     // Modo diagnóstico por vendedor: ?vendedor=Leonardo&mes=2026-04
     const vendedorBusca = event.url.searchParams.get('vendedor');
@@ -356,6 +447,90 @@ export async function GET(event) {
       });
     }
 
+    // ── Modo cross-referência: ?docs_por_vendedor=Andre&mes=2026-04 ──
+    // Lista TODOS os documentos que o sistema atribui a um vendedor via conciliação
+    // (fetchEffectiveConciliacaoReceipts logic), para comparar com relatório externo.
+    // Inclui: documento, movimento_data, ranking_vendedor_id, linked_venda_id, linked_recibo_id
+    const docsPorVendedor = event.url.searchParams.get('docs_por_vendedor');
+    if (docsPorVendedor) {
+      const mesBusca2 = event.url.searchParams.get('mes') || '2026-04';
+      const [ano2, mes2] = mesBusca2.split('-');
+      const inicio2 = `${ano2}-${mes2}-01`;
+      const ultimoDia2 = new Date(Number(ano2), Number(mes2), 0).getDate();
+      const fim2 = `${ano2}-${mes2}-${String(ultimoDia2).padStart(2, '0')}`;
+
+      // Encontrar usuário
+      const { data: usersData2 } = await client
+        .from('users')
+        .select('id, nome_completo')
+        .ilike('nome_completo', `%${docsPorVendedor}%`)
+        .limit(5);
+      const userIds2 = (usersData2 || []).map((u: any) => u.id);
+      if (userIds2.length === 0) return json({ erro: `Nenhum usuário encontrado com nome "${docsPorVendedor}"` });
+
+      // Buscar TODOS os registros de conciliação do período com ranking_vendedor_id desse usuário
+      const { data: concRows2, error: concErr2 } = await client
+        .from('conciliacao_recibos')
+        .select('id, documento, status, movimento_data, valor_lancamentos, valor_venda_real, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, ranking_vendedor_id, venda_id, venda_recibo_id')
+        .in('ranking_vendedor_id', userIds2)
+        .gte('movimento_data', inicio2)
+        .lte('movimento_data', fim2)
+        .neq('is_baixa_rac', true)
+        .order('documento', { ascending: true });
+      if (concErr2) throw concErr2;
+
+      // Agrupar por documento, dedup (ignorar ESTORNO)
+      const docMap2 = new Map<string, any>();
+      for (const r of (concRows2 || [])) {
+        const doc = String(r.documento || '').trim();
+        const status = String(r.status || '').toUpperCase();
+        if (!doc) continue;
+        const existing = docMap2.get(doc);
+        if (!existing) {
+          docMap2.set(doc, { ...r, _estornado: status === 'ESTORNO' });
+        } else {
+          if (status === 'ESTORNO') existing._estornado = true;
+        }
+      }
+      const recibosAtivos2 = Array.from(docMap2.values()).filter(r => !r._estornado);
+
+      // Extrair o "core" numérico de cada documento para comparação
+      const { receiptNumberCore: coreFn } = await import('$lib/conciliacao/receiptNumber');
+      const resultado = recibosAtivos2.map((r: any) => {
+        const doc = String(r.documento || '').trim();
+        const digits = doc.replace(/\D/g, '');
+        const core = digits.length >= 10 ? digits.slice(-10).replace(/^0+/, '') || digits.slice(-10)
+                   : digits.replace(/^0+/, '') || digits;
+        const lanc = Number(r.valor_lancamentos || 0);
+        const desc = Number(r.valor_descontos || 0);
+        const abat = Number(r.valor_abatimentos || 0);
+        const naoC = Math.max(0, Number(r.valor_nao_comissionavel || 0));
+        const bruto = Math.max(0, lanc - desc - abat - naoC);
+        return {
+          documento: doc,
+          core_numerico: core,
+          movimento_data: r.movimento_data,
+          status: r.status,
+          valor_lancamentos: r.valor_lancamentos,
+          valor_bruto_calculado: Math.round(bruto * 100) / 100,
+          valor_taxas: r.valor_taxas,
+          linked_venda_id: r.venda_id,
+          linked_recibo_id: r.venda_recibo_id,
+        };
+      });
+
+      const totalBruto2 = resultado.reduce((s: number, r: any) => s + r.valor_bruto_calculado, 0);
+
+      return json({
+        vendedor_buscado: docsPorVendedor,
+        usuarios_encontrados: usersData2,
+        periodo: `${inicio2} a ${fim2}`,
+        total_documentos_atribuidos: resultado.length,
+        total_bruto: Math.round(totalBruto2 * 100) / 100,
+        documentos: resultado,
+      });
+    }
+
     const docsParam = event.url.searchParams.get('docs') || '084185,083862,084186';
     const docNumbers = docsParam.split(',').map((d) => d.trim()).filter(Boolean);
 
@@ -434,6 +609,15 @@ export async function POST(event) {
       const equipeVturVendedor = await findEquipeVturVendedor(client, companyIdRec);
       if (equipeVturVendedor?.id && vendedor_id === equipeVturVendedor.id) {
         return json({ error: 'Não é permitido atribuir "Equipe vtur" como vendedor de um recibo.' }, { status: 422 });
+      }
+      const { data: vendedorRow, error: vendedorError } = await client
+        .from('users')
+        .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
+        .eq('id', vendedor_id)
+        .maybeSingle();
+      if (vendedorError) throw vendedorError;
+      if (!vendedorRow || vendedorRow.company_id !== companyIdRec || !isRankingEligibleUser(vendedorRow)) {
+        return json({ error: 'Vendedor fora do escopo da empresa ou inelegível para ranking.' }, { status: 422 });
       }
 
       const { data, error } = await client

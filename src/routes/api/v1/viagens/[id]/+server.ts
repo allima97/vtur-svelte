@@ -79,6 +79,12 @@ async function hasViagemAccessByCliente(client: any, scope: any, userId: string,
   return false;
 }
 
+function shouldRestrictViagemToOwner(scope: any) {
+  // A listagem de viagens libera Gestor/Master para a empresa inteira.
+  // O detalhe precisa seguir a mesma regra; só uso individual fica restrito ao responsável/venda/cliente.
+  return !scope.isAdmin && Boolean(scope.usoIndividual);
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -127,11 +133,13 @@ export async function GET(event) {
       return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
     }
 
-    const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, viagem.responsavel_user_id);
-    const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, viagem.venda_id);
-    const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, viagem.cliente_id);
-    if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+    if (shouldRestrictViagemToOwner(scope)) {
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, viagem.responsavel_user_id);
+      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, viagem.venda_id);
+      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, viagem.cliente_id);
+      if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
+        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      }
     }
 
     let cliente = null;
@@ -256,11 +264,13 @@ export async function PATCH(event) {
       return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
     }
 
-    const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
-    const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
-    const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
-    if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+    if (shouldRestrictViagemToOwner(scope)) {
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
+      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
+      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
+      if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
+        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      }
     }
 
     const allowedFields = [
@@ -320,11 +330,13 @@ export async function DELETE(event) {
       return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
     }
 
-    const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
-    const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
-    const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
-    if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+    if (shouldRestrictViagemToOwner(scope)) {
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
+      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
+      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
+      if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
+        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      }
     }
 
     const { error } = await client.from('viagens').delete().eq('id', id);

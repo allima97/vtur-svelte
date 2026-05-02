@@ -8,7 +8,10 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-svelte';
+  import { diffDaysISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type SacRegistro = {
     id: string;
     recibo: string | null;
@@ -43,7 +46,7 @@
     return {
       recibo: '',
       tour: '',
-      data_solicitacao: new Date().toISOString().slice(0, 10),
+      data_solicitacao: todayISODateLocal(),
       motivo: '',
       contratante_pax: '',
       ok_quando: '',
@@ -104,7 +107,7 @@
       label: 'Solicitação',
       sortable: true,
       width: '120px',
-      formatter: (v: string | null) => v ? new Date(v + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string | null) => formatDate(v)
     },
     {
       key: 'prazo',
@@ -113,10 +116,8 @@
       width: '110px',
       formatter: (v: string | null) => {
         if (!v) return '-';
-        const d = new Date(v + 'T00:00:00');
-        const hoje = new Date();
-        const diff = Math.ceil((d.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        const label = d.toLocaleDateString('pt-BR');
+        const diff = diffDaysISODate(todayISODateLocal(), v) ?? 0;
+        const label = formatDate(v);
         if (diff < 0) return `<span class="text-red-600 font-medium">${label}</span>`;
         if (diff <= 3) return `<span class="text-amber-600 font-medium">${label}</span>`;
         return label;
@@ -162,7 +163,7 @@
     form = {
       recibo: registro.recibo || '',
       tour: registro.tour || '',
-      data_solicitacao: registro.data_solicitacao || new Date().toISOString().slice(0, 10),
+      data_solicitacao: registro.data_solicitacao || todayISODateLocal(),
       motivo: registro.motivo || '',
       contratante_pax: registro.contratante_pax || '',
       ok_quando: registro.ok_quando || '',
@@ -193,7 +194,7 @@
   }
 
   async function deleteRegistro(id: string) {
-    if (!confirm('Deseja excluir este registro SAC?')) return;
+    if (!(await confirmAction('Deseja excluir este registro SAC?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/operacao/sac?id=${id}`, { method: 'DELETE' });

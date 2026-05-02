@@ -11,6 +11,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet } from '$lib/services/api';
+  import { diffDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface VendedorRanking {
     posicao: number;
@@ -45,30 +46,21 @@
 
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
-    const today = new Date();
-    const fallbackYear = today.getFullYear();
-    const fallbackMonth = String(today.getMonth() + 1).padStart(2, '0');
-    const normalized = /^\d{4}-\d{2}$/.test(raw) ? raw : `${fallbackYear}-${fallbackMonth}`;
-
-    const [yearText, monthText] = normalized.split('-');
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const lastDay = new Date(year, month, 0).getDate();
+    const normalized = /^\d{4}-\d{2}$/.test(raw) ? raw : todayISODateLocal().slice(0, 7);
+    const range = monthRangeFromKey(normalized) || monthRangeFromKey(todayISODateLocal().slice(0, 7));
 
     return {
       month: normalized,
-      start: `${yearText}-${monthText}-01`,
-      end: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}`
+      start: range?.inicio || `${normalized}-01`,
+      end: range?.fim || `${normalized}-01`
     };
-  }
-
-  function monthToDateValue(monthValue: string) {
-    const range = getMonthRange(monthValue);
-    return `${range.month}-01`;
   }
 
   function dateValueToMonth(dateValue: string) {
     const raw = String(dateValue || '').trim();
+    if (/^\d{4}-\d{2}$/.test(raw)) {
+      return raw;
+    }
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       return raw.slice(0, 7);
     }
@@ -88,7 +80,7 @@
   let vendedores: VendedorRanking[] = [];
   let loading = true;
   let mesSelecionado = defaultRange.month;
-  let mesReferenciaData = monthToDateValue(defaultRange.month);
+  let mesReferenciaData = defaultRange.month;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
   let resumo: Resumo = {
@@ -123,10 +115,9 @@
   }
 
   function getDiasRestantesNoMes() {
-    const hoje = new Date();
-    const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    return Math.max(0, Math.ceil((fimMes.getTime() - inicioHoje.getTime()) / 86400000));
+    const hoje = todayISODateLocal();
+    const range = getMonthRange(hoje.slice(0, 7));
+    return Math.max(0, diffDaysISODate(hoje, range.end) ?? 0);
   }
 
   function getValorDiario(row: VendedorRanking) {
@@ -262,7 +253,7 @@
   async function applyMonthFilter(monthValue: string) {
     const range = getMonthRange(monthValue);
     mesSelecionado = range.month;
-    mesReferenciaData = monthToDateValue(range.month);
+    mesReferenciaData = range.month;
     dataInicio = range.start;
     dataFim = range.end;
     syncUrl();
@@ -291,7 +282,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `ranking_vendas_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `ranking_vendas_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Ranking de vendas exportado');
   }
@@ -311,7 +302,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `ranking_seguro_viagem_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `ranking_seguro_viagem_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Ranking de seguro exportado');
   }
@@ -321,7 +312,7 @@
     const selectedMonth = params.get('mes') || dataInicio.slice(0, 7) || defaultRange.month;
     const range = getMonthRange(selectedMonth);
     mesSelecionado = range.month;
-    mesReferenciaData = monthToDateValue(range.month);
+    mesReferenciaData = range.month;
     dataInicio = range.start;
     dataFim = range.end;
     await loadRanking();
@@ -372,9 +363,9 @@
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <FieldInput
       id="rank-mes"
-      type="date"
+      type="month"
       label="Mês"
-      helper="Selecione qualquer dia do mês desejado"
+      helper="Selecione o mês desejado"
       bind:value={mesReferenciaData}
       on:change={handleMesReferenciaChange}
     />

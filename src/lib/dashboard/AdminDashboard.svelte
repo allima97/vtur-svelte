@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldCheckbox, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import {
     AlertCircle,
     BellRing,
@@ -65,8 +66,7 @@
   ];
 
   function formatDateTime(value: string | null | undefined) {
-    if (!value) return 'Sem registro';
-    return new Date(value).toLocaleString('pt-BR');
+    return value ? formatDateTimeValue(value) : 'Sem registro';
   }
 
   async function loadSummary() {

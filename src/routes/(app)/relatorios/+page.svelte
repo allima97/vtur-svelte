@@ -19,6 +19,8 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { currentMonthRangeISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   interface EmpresaFiltro {
     id: string;
@@ -105,22 +107,11 @@
   ];
 
   function getCurrentMonthRange() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    return {
-      inicio: start.toISOString().slice(0, 10),
-      fim: now.toISOString().slice(0, 10)
-    };
+    return currentMonthRangeISODate();
   }
 
   function getMonthRange(ym: string) {
-    const [y, m] = ym.split('-').map(Number);
-    const start = new Date(y, m - 1, 1);
-    const end = new Date(y, m, 0);
-    return {
-      inicio: start.toISOString().slice(0, 10),
-      fim: end.toISOString().slice(0, 10)
-    };
+    return monthRangeFromKey(ym) || getCurrentMonthRange();
   }
 
   const lineChartOptions: ChartOptions = {
@@ -156,8 +147,7 @@
   }
 
   function formatDate(value: string | null) {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function normalizeStatus(status: string) {
@@ -168,7 +158,7 @@
   }
 
   const currentMonth = getCurrentMonthRange();
-  const defaultMonth = new Date().toISOString().slice(0, 7);
+  const defaultMonth = todayISODateLocal().slice(0, 7);
 
   let mesSelecionado = defaultMonth;
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
@@ -457,5 +447,4 @@
     {/each}
   </div>
 </Card>
-
 

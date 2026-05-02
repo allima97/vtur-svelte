@@ -16,6 +16,8 @@
     AlertCircle, CheckCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   interface Movimentacao {
     id: string;
@@ -99,11 +101,10 @@
   }));
 
   onMount(() => {
-    const hoje = new Date();
-    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    dataInicio = primeiroDia.toISOString().split('T')[0];
-    dataFim = hoje.toISOString().split('T')[0];
-    novaMovimentacao.data_movimentacao = hoje.toISOString().split('T')[0];
+    const hoje = todayISODateLocal();
+    dataInicio = `${hoje.slice(0, 7)}-01`;
+    dataFim = hoje;
+    novaMovimentacao.data_movimentacao = hoje;
 
     carregarDados();
     carregarFormasPagamento();
@@ -157,7 +158,7 @@
   }
 
   function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString('pt-BR');
+    return formatDateValue(dateStr);
   }
 
   $: backlogFinanceiroValor = Number(resumo.totalPendente || 0) + Number(resumo.totalDivergente || 0);
@@ -227,7 +228,7 @@
         categoria: 'outro',
         descricao: '',
         valor: 0,
-        data_movimentacao: new Date().toISOString().split('T')[0],
+        data_movimentacao: todayISODateLocal(),
         forma_pagamento_id: '',
         observacoes: ''
       };

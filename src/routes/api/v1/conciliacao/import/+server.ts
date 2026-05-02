@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -353,10 +354,16 @@ export async function POST(event) {
     // ── Carrega o ID do vendedor "Equipe vtur" para proteger atribuição ──
     const equipeVturVendedor = await findEquipeVturVendedor(client, companyId);
     const equipeVturId = equipeVturVendedor?.id ?? null;
+    const rankingVendedorPermitidos = new Set(
+      (await fetchRankingVendedoresByCompanyIds(client, [companyId]))
+        .map((row: any) => String(row?.id || '').trim())
+        .filter(Boolean)
+    );
     const sanitizeRankingVendedorId = (value?: unknown) => {
       const id = String(value || '').trim() || null;
       if (!id) return null;
-      return equipeVturId && id === equipeVturId ? null : id;
+      if (equipeVturId && id === equipeVturId) return null;
+      return rankingVendedorPermitidos.has(id) ? id : null;
     };
 
     // ── Build de cada linha a inserir/atualizar ───────────────────────────
@@ -397,7 +404,7 @@ export async function POST(event) {
         if (found?.recibo) {
           const vendedorIdCandidato = String(found.recibo.vendedor_id || '').trim() || null;
           // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
-          const vendedorIdValido = (equipeVturId && vendedorIdCandidato === equipeVturId) ? null : vendedorIdCandidato;
+          const vendedorIdValido = sanitizeRankingVendedorId(vendedorIdCandidato);
           rankingVendedorId = rankingVendedorId || vendedorIdValido;
           vendaId = vendaId || String(found.recibo.venda_id || '').trim() || null;
           vendaReciboId = vendaReciboId || String(found.recibo.id || '').trim() || null;

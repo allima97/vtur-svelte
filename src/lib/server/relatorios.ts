@@ -1,9 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
+import { todayISODateLocal } from '$lib/date';
 
 export type ReportReceiptRow = {
   id?: string | null;
   numero_recibo?: string | null;
+  numero_reserva?: string | null;
   data_venda?: string | null;
   produto_id?: string | null;
   destino_cidade?: {
@@ -18,6 +20,11 @@ export type ReportReceiptRow = {
   percentual_comissao_loja?: number | null;
   faixa_comissao?: string | null;
   valor_comissao_loja?: number | null;
+  vendedor_id?: string | null;
+  vendedor?: {
+    nome_completo?: string | null;
+    email?: string | null;
+  } | null;
   cancelado_por_conciliacao_em?: string | null;
   cancelado_por_conciliacao_observacao?: string | null;
   valor_bruto_override?: number | null;
@@ -116,6 +123,7 @@ function buildSalesSelect(
   const reciboBaseCols = [
     'id',
     'numero_recibo',
+    'numero_reserva',
     'data_venda',
     'produto_id',
     'destino_cidade:cidades!destino_cidade_id (id, nome)',
@@ -308,7 +316,7 @@ export function getVendaStatus(
     return 'cancelada';
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayISODateLocal();
 
   if (row.data_final && row.data_final < todayIso) {
     return 'concluida';
@@ -437,10 +445,10 @@ export function normalizeFormaPagamento(value?: string | null) {
 }
 
 export function getCurrentYearRange() {
-  const today = new Date();
+  const today = todayISODateLocal();
   return {
-    dataInicio: `${today.getFullYear()}-01-01`,
-    dataFim: today.toISOString().slice(0, 10)
+    dataInicio: `${today.slice(0, 4)}-01-01`,
+    dataFim: today
   };
 }
 

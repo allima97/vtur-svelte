@@ -8,6 +8,7 @@
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
+  import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
@@ -46,7 +47,7 @@
   };
 
   const vendaId = String($page.params.id || '');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODateLocal();
 
   let loading = true;
   let saving = false;
@@ -192,6 +193,8 @@
 
     const data = await response.json();
     const sale = data || {};
+    const destinoProduto = produtoResolvidoToOption(sale?.destino);
+    if (destinoProduto) mergeProdutos([destinoProduto]);
     const statusNormalizado = String(sale?.status || 'pendente') === 'aberto' ? 'pendente' : String(sale?.status || 'pendente');
 
     venda = {
@@ -221,16 +224,45 @@
 
     const recibosData = Array.isArray(sale?.recibos) ? sale.recibos : [];
     if (recibosData.length > 0) {
+      mergeProdutos(
+        recibosData
+          .map((item: any) => produtoResolvidoToOption(item?.produto_resolvido))
+          .filter(Boolean) as Option[]
+      );
+
       recibos = recibosData.map((item: any, index: number) => {
-        const produtoResolvidoId = String(item?.produto_resolvido_id || item?.produto_id || '');
-        const produtoRelacionado = produtos.find((p) => String(p.id) === produtoResolvidoId);
+        const rawProdutoId = String(item?.produto_id || '').trim();
+        const produtoIdEhTipo =
+          Boolean(item?.tipo_produtos?.id) ||
+          tipos.some((tipo) => String(tipo.id) === rawProdutoId);
+        const produtoResolvidoId = String(
+          item?.produto_resolvido_id ||
+            item?.produto_resolvido?.id ||
+            (!produtoIdEhTipo ? rawProdutoId : '') ||
+            ''
+        );
+        const produtoRelacionado =
+          produtos.find((p) => String(p.id) === produtoResolvidoId) ||
+          produtoResolvidoToOption(item?.produto_resolvido);
+        const cidadeReciboId = String(
+          item?.destino_cidade_id ||
+            produtoRelacionado?.cidade_id ||
+            ''
+        );
+        const tipoProdutoId = String(
+          item?.tipo_produto_id ||
+            item?.tipo_produtos?.id ||
+            produtoRelacionado?.tipo_produto ||
+            (produtoIdEhTipo ? rawProdutoId : '') ||
+            ''
+        );
         return {
           principal: index === 0,
           usar_cidade_padrao:
-            !item?.destino_cidade_id ||
-            String(item?.destino_cidade_id || '') === String(sale?.destino_cidade_id || ''),
-          destino_cidade_id: String(item?.destino_cidade_id || ''),
-          tipo_produto_id: String(item?.tipo_produto_id || produtoRelacionado?.tipo_produto || ''),
+            !cidadeReciboId ||
+            String(cidadeReciboId) === String(sale?.destino_cidade_id || ''),
+          destino_cidade_id: cidadeReciboId,
+          tipo_produto_id: tipoProdutoId,
           produto_id: produtoResolvidoId,
           produto_resolvido_id: produtoResolvidoId,
           numero_recibo: String(item?.numero_recibo || ''),
@@ -382,8 +414,56 @@
     return cidades.find((item) => String(item.id) === String(cidadeId)) || null;
   }
 
+  function mergeProdutos(items: Option[]) {
+    if (!items.length) return;
+    const byId = new Map<string, Option>();
+    produtos.forEach((item) => byId.set(String(item.id), item));
+    items.forEach((item) => {
+      const id = String(item?.id || '').trim();
+      if (!id) return;
+      const todasAsCidades =
+        item.todas_as_cidades === true ||
+        (!item.cidade_id && item.todas_as_cidades !== false);
+      byId.set(id, { ...(byId.get(id) || {}), ...item, todas_as_cidades: todasAsCidades });
+    });
+    produtos = Array.from(byId.values()).sort((a, b) =>
+      String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' })
+    );
+  }
+
+  function produtoResolvidoToOption(produto: any): Option | null {
+    const id = String(produto?.id || '').trim();
+    if (!id) return null;
+    return {
+      id,
+      nome: produto?.nome || 'Produto',
+      cidade_id: produto?.cidade_id || null,
+      tipo: produto?.tipo_produto || null,
+      tipo_produto: produto?.tipo_produto || null,
+      todas_as_cidades:
+        produto?.todas_as_cidades === true ||
+        (!produto?.cidade_id && produto?.todas_as_cidades !== false)
+    };
+  }
+
+  function getProdutoById(produtoId: string) {
+    return produtos.find((item) => String(item.id) === String(produtoId)) || null;
+  }
+
+  function getProdutoRealId(recibo: (typeof recibos)[number]) {
+    return String(recibo.produto_resolvido_id || recibo.produto_id || '').trim();
+  }
+
+  function getProdutoCidadeId(recibo: (typeof recibos)[number]) {
+    const produto = getProdutoById(getProdutoRealId(recibo));
+    return String(produto?.cidade_id || '').trim();
+  }
+
   function getReciboCidadeId(recibo: (typeof recibos)[number]) {
-    return recibo.usar_cidade_padrao ? venda.destino_cidade_id : String(recibo.destino_cidade_id || '');
+    const cidadeProduto = getProdutoCidadeId(recibo);
+    return recibo.usar_cidade_padrao
+      ? String(venda.destino_cidade_id || cidadeProduto || '')
+      : String(recibo.destino_cidade_id || cidadeProduto || '');
   }
 
   function isProdutoCompativelCidade(produto: Option, cidadeId = venda.destino_cidade_id) {
@@ -399,16 +479,17 @@
     });
   }
 
+  function getProdutosOptionsRecibo(recibo: (typeof recibos)[number]) {
+    const selectedId = getProdutoRealId(recibo);
+    const filtered = getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo));
+    if (!selectedId || filtered.some((produto) => String(produto.id) === selectedId)) return filtered;
+    const selected = getProdutoById(selectedId);
+    return selected ? [selected, ...filtered] : filtered;
+  }
+
   function syncReciboCidade(index: number, cidadeId: string) {
     const recibo = recibos[index];
     recibo.destino_cidade_id = cidadeId;
-    if (recibo.produto_id) {
-      const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
-      if (produto && !isProdutoCompativelCidade(produto, getReciboCidadeId(recibo))) {
-        recibo.produto_id = '';
-        recibo.produto_resolvido_id = '';
-      }
-    }
     recibos = recibos;
   }
 
@@ -424,6 +505,13 @@
   function updateReciboProduto(index: number) {
     const recibo = recibos[index];
     recibo.produto_resolvido_id = recibo.produto_id;
+    const produto = getProdutoById(recibo.produto_id);
+    if (produto?.tipo_produto && !recibo.tipo_produto_id) {
+      recibo.tipo_produto_id = String(produto.tipo_produto);
+    }
+    if (!recibo.usar_cidade_padrao && !recibo.destino_cidade_id && produto?.cidade_id) {
+      recibo.destino_cidade_id = String(produto.cidade_id);
+    }
     recibos = recibos;
   }
 
@@ -449,16 +537,9 @@
     const valorTotal = parseMoney(pagamento.valor_total);
     const valorParcela = quantidade > 0 ? valorTotal / quantidade : 0;
     const inicio = pagamento.vencimento_primeira || '';
-    const baseDate = inicio ? new Date(inicio) : null;
 
     pagamento.parcelas = Array.from({ length: quantidade }).map((_, parcelaIndex) => {
-      const vencimento = baseDate
-        ? (() => {
-            const next = new Date(baseDate);
-            next.setMonth(baseDate.getMonth() + parcelaIndex);
-            return next.toISOString().slice(0, 10);
-          })()
-        : '';
+      const vencimento = inicio ? addMonthsISODate(inicio, parcelaIndex) : '';
 
       return {
         numero: String(parcelaIndex + 1),
@@ -721,8 +802,8 @@
     saving = true;
 
     try {
-      const primeiroReciboComProduto = recibos.find((item) => item.produto_id) || recibos[0];
-      const destinoId = primeiroReciboComProduto?.produto_id || venda.destino_id;
+      const primeiroReciboComProduto = recibos.find((item) => getProdutoRealId(item)) || recibos[0] || null;
+      const destinoId = primeiroReciboComProduto ? getProdutoRealId(primeiroReciboComProduto) || venda.destino_id : venda.destino_id;
 
       const totalRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_total), 0);
       const totalTaxasRecibos = recibos.reduce((acc, item) => acc + parseMoney(item.valor_taxas), 0);
@@ -744,13 +825,21 @@
 
       const payload = {
         venda: vendaPayload,
-        recibos: recibos.map((item) => ({
-          ...item,
-          produto_id: item.tipo_produto_id || item.produto_id,
-          destino_cidade_id: getReciboCidadeId(item) || null,
-          cidade_nome: getCidadeById(getReciboCidadeId(item))?.nome || null,
-          produto_resolvido_id: item.produto_resolvido_id || item.produto_id
-        })),
+        recibos: recibos.map((item) => {
+          const produtoRealId = getProdutoRealId(item);
+          const produto = getProdutoById(produtoRealId);
+          const tipoProdutoId = item.tipo_produto_id || String(produto?.tipo_produto || '');
+          const cidadeReciboId = getReciboCidadeId(item);
+
+          return {
+            ...item,
+            produto_id: tipoProdutoId,
+            destino_cidade_id: cidadeReciboId || null,
+            cidade_nome: getCidadeById(cidadeReciboId)?.nome || null,
+            produto_nome: produto?.nome || null,
+            produto_resolvido_id: produtoRealId
+          };
+        }),
         pagamentos: pagamentos.map((item) => {
           const parcelasQtd = Number(item.parcelas_qtd || item.parcelas.length || 1);
           return {
@@ -815,19 +904,6 @@
   }
   $: if (venda.destino_cidade_id !== lastDestinoCidadeId) {
     lastDestinoCidadeId = venda.destino_cidade_id;
-    recibos = recibos.map((recibo) => {
-      if (!recibo.usar_cidade_padrao) return recibo;
-      if (!recibo.produto_id) return recibo;
-      const produto = produtos.find((item) => String(item.id) === String(recibo.produto_id));
-      if (!produto || isProdutoCompativelCidade(produto)) return recibo;
-      return {
-        ...recibo,
-        produto_id: '',
-        produto_resolvido_id: '',
-        principal: false
-      };
-    });
-    ensurePrincipalRecibo();
   }
 </script>
 
@@ -1017,7 +1093,7 @@
                     bind:value={recibo.produto_id}
                     options={[
                       { value: '', label: 'Selecione uma opção' },
-                      ...getProdutosByTipoCidade(recibo.tipo_produto_id, getReciboCidadeId(recibo)).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
+                      ...getProdutosOptionsRecibo(recibo).map((produto) => ({ value: produto.id, label: produto.nome || '' }))
                     ]}
                     class_name="w-full"
                     error={errors[`recibo_produto_${index}`]}
@@ -1242,4 +1318,3 @@
     </div>
   </form>
 {/if}
-

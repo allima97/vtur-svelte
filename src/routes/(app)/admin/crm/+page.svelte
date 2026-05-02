@@ -13,6 +13,7 @@
   import { toast } from '$lib/stores/ui';
   import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Categoria = { id: string; nome: string; icone: string; sort_order: number; ativo: boolean };
   type Tema = { id: string; nome: string; categoria_id: string | null; asset_url: string; scope: string; ativo: boolean };
   type Template = { id: string; nome: string; categoria: string | null; titulo: string; corpo: string; scope: string; ativo: boolean };
@@ -79,7 +80,7 @@
   }
 
   async function deleteEntity(entity: string, id: string) {
-    if (!confirm('Deseja excluir este item?')) return;
+    if (!(await confirmAction('Deseja excluir este item?'))) return;
     deletingId = id;
     try {
       const response = await fetch('/api/v1/admin/crm', {

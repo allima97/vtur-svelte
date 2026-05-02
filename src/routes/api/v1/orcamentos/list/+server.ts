@@ -12,6 +12,7 @@ import {
   getMonthRange,
   toISODateLocal
 } from '$lib/server/v1';
+import { addDaysISODate, addMonthsISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
 
 type OrcamentoRow = {
   id: string;
@@ -38,12 +39,29 @@ type OrcamentoItemRow = {
   city_name?: string | null;
 };
 
-function addDays(isoDate: string | null, days: number) {
-  if (!isoDate) return null;
+const SUPABASE_IN_BATCH_SIZE = 100;
 
-  const date = new Date(isoDate);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeOrcamentos(rows: OrcamentoRow[]) {
+  const map = new Map<string, OrcamentoRow>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values()).sort((left, right) =>
+    String(right.created_at || '').localeCompare(String(left.created_at || ''))
+  );
+}
+
+function addDays(isoDate: string | null, days: number) {
+  return isoDate ? addDaysISODate(isoDate, days) : null;
 }
 
 function deriveStatus(row: OrcamentoRow): 'novo' | 'pendente' | 'enviado' | 'aprovado' | 'rejeitado' | 'expirado' | 'fechado' {
@@ -62,8 +80,8 @@ function deriveStatus(row: OrcamentoRow): 'novo' | 'pendente' | 'enviado' | 'apr
 function getPeriodoFilter(periodo: string | null): { from?: string; to?: string } | null {
   if (!periodo) return null;
 
-  const hoje = new Date();
-  const hojeStr = toISODateLocal(hoje);
+  const hojeStr = todayISODateLocal();
+  const hoje = parseISODateLocal(hojeStr) || new Date();
 
   switch (periodo) {
     case 'hoje': {
@@ -75,12 +93,13 @@ function getPeriodoFilter(periodo: string | null): { from?: string; to?: string 
       return { from: toISODateLocal(inicioSemana), to: hojeStr };
     }
     case 'mes': {
-      const { inicio, fim } = getMonthRange(hoje);
+      const { inicio, fim } = monthRangeFromKey(hojeStr.slice(0, 7)) || getMonthRange(hoje);
       return { from: inicio, to: fim };
     }
     case 'mes_passado': {
-      const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-      const { inicio, fim } = getMonthRange(mesPassado);
+      const monthStart = `${hojeStr.slice(0, 7)}-01`;
+      const mesPassado = addMonthsISODate(monthStart, -1).slice(0, 7);
+      const { inicio, fim } = monthRangeFromKey(mesPassado) || getMonthRange(hoje);
       return { from: inicio, to: fim };
     }
     default:
@@ -105,10 +124,13 @@ export async function GET(event) {
     
     const statusFilter = searchParams.get('status');
     const periodoFilter = getPeriodoFilter(searchParams.get('periodo'));
+    const shouldFilterByClientIds = vendedorIds.length === 0 && companyIds.length > 0;
 
-    let query = client
-      .from('quote')
-      .select(`
+    if (shouldFilterByClientIds && clientIds.length === 0) {
+      return json([]);
+    }
+
+    const joinedSelect = `
         id,
         created_at,
         status,
@@ -120,42 +142,54 @@ export async function GET(event) {
         last_interaction_at,
         last_interaction_notes,
         cliente:client_id (id, nome, cpf, email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(500);
+      `;
+    const fallbackSelect =
+      'id, created_at, status, status_negociacao, total, currency, client_id, created_by, last_interaction_at, last_interaction_notes';
 
-    if (vendedorIds.length > 0) {
-      query = query.in('created_by', vendedorIds);
-    } else if (companyIds.length > 0) {
-      if (clientIds.length === 0) {
-        return json([]);
+    const buildQuoteQuery = (selectClause: string, clientIdsFilter?: string[]) => {
+      let query = client
+        .from('quote')
+        .select(selectClause)
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (vendedorIds.length > 0) {
+        query = query.in('created_by', vendedorIds);
+      } else if (shouldFilterByClientIds && clientIdsFilter) {
+        query = query.in('client_id', clientIdsFilter);
       }
-      query = query.in('client_id', clientIds);
-    }
 
-    if (periodoFilter?.from && periodoFilter?.to) {
-      query = query.gte('created_at', periodoFilter.from).lte('created_at', periodoFilter.to + 'T23:59:59');
-    }
+      if (periodoFilter?.from && periodoFilter?.to) {
+        query = query.gte('created_at', periodoFilter.from).lte('created_at', periodoFilter.to + 'T23:59:59');
+      }
 
-    const queryResult = await query;
+      return query;
+    };
+
+    const fetchQuoteRows = async (selectClause: string) => {
+      if (!shouldFilterByClientIds || clientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildQuoteQuery(selectClause, shouldFilterByClientIds ? clientIds : undefined);
+      }
+
+      const rows: OrcamentoRow[] = [];
+      for (const batch of chunkArray(clientIds)) {
+        const result = await buildQuoteQuery(selectClause, batch);
+        if (result.error) {
+          return { data: null, error: result.error } as typeof result;
+        }
+        rows.push(...(((result.data || []) as unknown) as OrcamentoRow[]));
+      }
+
+      return { data: dedupeOrcamentos(rows).slice(0, 500), error: null };
+    };
+
+    const queryResult = await fetchQuoteRows(joinedSelect);
     let data = (queryResult.data || null) as OrcamentoRow[] | null;
     const queryError = queryResult.error;
 
     if (queryError) {
       console.error('[orcamentos/list] Erro na query com join:', queryError.message);
-      let fallbackQuery = client
-        .from('quote')
-        .select('id, created_at, status, status_negociacao, total, currency, client_id, created_by, last_interaction_at, last_interaction_notes')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
-      if (vendedorIds.length > 0) fallbackQuery = fallbackQuery.in('created_by', vendedorIds);
-      else if (companyIds.length > 0 && clientIds.length > 0) fallbackQuery = fallbackQuery.in('client_id', clientIds);
-      if (periodoFilter?.from && periodoFilter?.to) {
-        fallbackQuery = fallbackQuery.gte('created_at', periodoFilter.from).lte('created_at', periodoFilter.to + 'T23:59:59');
-      }
-
-      const fallback = await fallbackQuery;
+      const fallback = await fetchQuoteRows(fallbackSelect);
       if (fallback.error) throw fallback.error;
       data = (fallback.data || []) as OrcamentoRow[];
     }
@@ -166,15 +200,17 @@ export async function GET(event) {
     const clienteMap = new Map<string, { nome: string; email: string }>();
 
     if (clientIdsFromData.length > 0) {
-      const { data: clientesData } = await client
-        .from('clientes')
-        .select('id, nome, email')
-        .in('id', clientIdsFromData)
-        .limit(500);
+      for (const batch of chunkArray(clientIdsFromData)) {
+        const { data: clientesData } = await client
+          .from('clientes')
+          .select('id, nome, email')
+          .in('id', batch)
+          .limit(500);
 
-      (clientesData || []).forEach((c: any) => {
-        clienteMap.set(String(c.id || ''), { nome: String(c.nome || 'Cliente'), email: String(c.email || '') });
-      });
+        (clientesData || []).forEach((c: any) => {
+          clienteMap.set(String(c.id || ''), { nome: String(c.nome || 'Cliente'), email: String(c.email || '') });
+        });
+      }
     }
 
     const quoteIds = ((data || []) as OrcamentoRow[])
@@ -186,25 +222,27 @@ export async function GET(event) {
     if (quoteIds.length > 0) {
       let quoteItems: OrcamentoItemRow[] = [];
 
-      const withCity = await client
-        .from('quote_item')
-        .select('id, quote_id, title, product_name, item_type, total_amount, order_index, city_name')
-        .in('quote_id', quoteIds)
-        .order('order_index', { ascending: true })
-        .limit(5000);
-
-      if (withCity.error) {
-        const fallback = await client
+      for (const batch of chunkArray(quoteIds)) {
+        const withCity = await client
           .from('quote_item')
-          .select('id, quote_id, title, product_name, item_type, total_amount, order_index')
-          .in('quote_id', quoteIds)
+          .select('id, quote_id, title, product_name, item_type, total_amount, order_index, city_name')
+          .in('quote_id', batch)
           .order('order_index', { ascending: true })
           .limit(5000);
 
-        if (fallback.error) throw fallback.error;
-        quoteItems = (fallback.data || []) as OrcamentoItemRow[];
-      } else {
-        quoteItems = (withCity.data || []) as OrcamentoItemRow[];
+        if (withCity.error) {
+          const fallback = await client
+            .from('quote_item')
+            .select('id, quote_id, title, product_name, item_type, total_amount, order_index')
+            .in('quote_id', batch)
+            .order('order_index', { ascending: true })
+            .limit(5000);
+
+          if (fallback.error) throw fallback.error;
+          quoteItems.push(...((fallback.data || []) as OrcamentoItemRow[]));
+        } else {
+          quoteItems.push(...((withCity.data || []) as OrcamentoItemRow[]));
+        }
       }
 
       quoteItems.forEach((item) => {
@@ -227,20 +265,22 @@ export async function GET(event) {
     const creatorMap = new Map<string, { nome: string; email: string }>();
 
     if (creatorIds.length > 0) {
-      const { data: creators } = await client
-        .from('users')
-        .select('id, nome_completo, email')
-        .in('id', creatorIds)
-        .limit(500);
+      for (const batch of chunkArray(creatorIds)) {
+        const { data: creators } = await client
+          .from('users')
+          .select('id, nome_completo, email')
+          .in('id', batch)
+          .limit(500);
 
-      (creators || []).forEach((row: { id?: string | null; nome_completo?: string | null; email?: string | null }) => {
-        const id = String(row?.id || '').trim();
-        if (!id) return;
-        creatorMap.set(id, {
-          nome: String(row?.nome_completo || 'Equipe VTUR'),
-          email: String(row?.email || '')
+        (creators || []).forEach((row: { id?: string | null; nome_completo?: string | null; email?: string | null }) => {
+          const id = String(row?.id || '').trim();
+          if (!id) return;
+          creatorMap.set(id, {
+            nome: String(row?.nome_completo || 'Equipe VTUR'),
+            email: String(row?.email || '')
+          });
         });
-      });
+      }
     }
 
     let items = ((data || []) as OrcamentoRow[]).map((row) => {

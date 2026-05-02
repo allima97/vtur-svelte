@@ -275,6 +275,17 @@ function extractCurrency(line: string) {
   return null;
 }
 
+function extractCurrencyAfterLabel(block: string, labelPattern: string) {
+  if (!block) return null;
+  const moneyPattern = "([0-9]{1,3}(?:\\.[0-9]{3})*,\\d{2}|[0-9]+,\\d{2})";
+  const regex = new RegExp(
+    `\\b${labelPattern}\\b\\s*(?:\\(R\\$\\))?\\s*:?\\s*(?:R\\$\\s*)?${moneyPattern}`,
+    "i"
+  );
+  const match = block.match(regex);
+  return parseCurrency(match?.[1] || null);
+}
+
 function parseDateBr(value?: string | null) {
   if (!value) return null;
   const match = value.match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -2475,11 +2486,13 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
     const operacao = extractLineValue(block, "Opera[cç][ãa]o") || null;
     const plano = extractLineValue(block, "Plano") || null;
     const valorRaw = extractLineValue(block, "Valor") || "";
-    const valor_bruto = extractCurrency(valorRaw);
-    const desconto = extractCurrency(extractLineValue(block, "Desconto"));
+    const valorBrutoRaw = extractCurrency(valorRaw);
+    const desconto =
+      extractCurrencyAfterLabel(block, "Descontos?(?!\\s+Comerciais)") ??
+      extractCurrency(extractLineValue(block, "Desconto"));
     const totalRaw = extractCurrency(extractLineValue(block, "Total"));
     const total =
-      totalRaw != null && valor_bruto != null && totalRaw > valor_bruto * 1.05
+      totalRaw != null && valorBrutoRaw != null && totalRaw > valorBrutoRaw * 1.05
         ? null
         : totalRaw;
 
@@ -2492,6 +2505,13 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
       const vencimento = pmatch[3] ? parseDateBr(pmatch[3]) : null;
       parcelas.push({ numero, valor, vencimento });
     }
+    const totalParcelas = parcelas.reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0);
+    const valor_bruto = valorBrutoRaw ?? (totalParcelas > 0 ? totalParcelas : null);
+    const totalLiquido =
+      total ??
+      (valor_bruto != null
+        ? Math.max(valor_bruto - Number(desconto || 0), 0)
+        : null);
 
     pagamentos.push({
       forma: forma.trim(),
@@ -2499,7 +2519,7 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
       plano: plano?.trim() || null,
       valor_bruto,
       desconto,
-      total,
+      total: totalLiquido,
       parcelas: parcelas.length ? parcelas : undefined,
     });
   });

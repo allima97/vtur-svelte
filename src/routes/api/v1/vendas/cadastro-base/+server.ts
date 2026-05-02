@@ -1,17 +1,13 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-function isAllowedSellerTipo(tipoNome?: string | null) {
-  const tipo = String(tipoNome || '').toUpperCase();
-  return tipo.includes('VENDEDOR') || tipo.includes('GESTOR') || tipo.includes('MASTER');
-}
 
 function isIgnorableQueryError(err: any) {
   const code = String(err?.code || '');
@@ -58,14 +54,10 @@ export async function GET(event: RequestEvent) {
     let formasPagamento: any[] = [];
 
     if ((scope.isGestor || scope.isMaster) && activeCompanyIds.length > 0) {
-      const { data } = await client
-        .from('users')
-        .select('id, nome_completo, uso_individual, user_types(name)')
-        .in('company_id', activeCompanyIds)
-        .eq('active', true)
-        .eq('uso_individual', false)
-        .order('nome_completo');
-      vendedoresEquipe = (data || []).filter((row: any) => isAllowedSellerTipo(row?.user_types?.name));
+      const data = await fetchRankingVendedoresByCompanyIds(client, activeCompanyIds);
+      vendedoresEquipe = (data || [])
+        .map((row: any) => ({ id: row.id, nome_completo: row.nome_completo || row.email || 'Vendedor' }))
+        .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR'));
     }
 
     let clientesQuery = client

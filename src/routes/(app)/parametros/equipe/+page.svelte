@@ -7,6 +7,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
+  import { formatDate } from '$lib/utils/formatters';
 
   type Usuario = {
     id: string;
@@ -236,10 +237,10 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-slate-600">
-                {new Date(convite.created_at).toLocaleDateString('pt-BR')}
+                {formatDate(convite.created_at)}
               </td>
               <td class="px-4 py-3 text-slate-600">
-                {convite.expires_at ? new Date(convite.expires_at).toLocaleDateString('pt-BR') : '-'}
+                {formatDate(convite.expires_at)}
               </td>
             </tr>
           {/each}

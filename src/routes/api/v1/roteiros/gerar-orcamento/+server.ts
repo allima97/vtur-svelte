@@ -4,9 +4,9 @@ import {
   requireAuthenticatedUser,
   resolveUserScope,
   ensureModuloAccess,
-  toErrorResponse,
-  toISODateLocal
+  toErrorResponse
 } from '$lib/server/v1';
+import { todayISODateLocal } from '$lib/date';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -106,7 +106,7 @@ export async function POST(event: RequestEvent) {
         unit_price: Number(p.valor_total_com_taxas || 0) - Number(p.taxas || 0),
         total_amount: Number(p.valor_total_com_taxas || 0) - Number(p.taxas || 0),
         taxes_amount: Number(p.taxas || 0),
-        start_date: toISODateLocal(new Date()),
+        start_date: todayISODateLocal(),
         end_date: null,
         currency: 'BRL',
         confidence: 1,

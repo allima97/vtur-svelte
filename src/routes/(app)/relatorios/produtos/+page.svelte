@@ -12,6 +12,7 @@
   import { ArrowLeft, Filter, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { todayISODateLocal } from '$lib/date';
 
   interface ProdutoRelatorio {
     produto: string;
@@ -34,10 +35,10 @@
   }
 
   function getDefaultRange() {
-    const today = new Date();
+    const today = todayISODateLocal();
     return {
-      start: `${today.getFullYear()}-01-01`,
-      end: today.toISOString().slice(0, 10)
+      start: `${today.slice(0, 4)}-01-01`,
+      end: today
     };
   }
 
@@ -166,7 +167,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_produtos_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `relatorio_produtos_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Relatório exportado com sucesso');
   }

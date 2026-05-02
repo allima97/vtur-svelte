@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReportVendaRow } from '$lib/server/relatorios';
-import type { ResolvedVendaCommission } from '$lib/server/comissoes';
+import type { ResolvedReceiptCommission, ResolvedVendaCommission } from '$lib/server/comissoes';
 
 export type PersistedComissaoRow = {
   id: string;
   venda_id: string | null;
+  recibo_id: string | null;
   vendedor_id: string | null;
   regra_id: string | null;
   valor_venda: number | null;
@@ -63,13 +64,25 @@ export function buildPersistedComissaoKey(vendaId?: string | null, vendedorId?: 
   const venda = String(vendaId || '').trim();
   const vendedor = String(vendedorId || '').trim();
   if (!venda || !vendedor) return '';
-  return `${venda}::${vendedor}`;
+  return `venda:${venda}::${vendedor}`;
+}
+
+export function buildPersistedReciboComissaoKey(
+  reciboId?: string | null,
+  vendedorId?: string | null,
+  vendaId?: string | null
+) {
+  const recibo = String(reciboId || '').trim();
+  const vendedor = String(vendedorId || '').trim();
+  if (recibo && vendedor) return `recibo:${recibo}::${vendedor}`;
+  return buildPersistedComissaoKey(vendaId, vendedorId);
 }
 
 export async function fetchPersistedComissoes(
   client: SupabaseClient,
   params: {
     vendaIds?: string[];
+    reciboIds?: string[];
     vendedorIds?: string[];
     companyIds?: string[];
   }
@@ -77,12 +90,16 @@ export async function fetchPersistedComissoes(
   let query = client
     .from('comissoes')
     .select(
-      'id, venda_id, vendedor_id, regra_id, valor_venda, valor_comissionavel, percentual_aplicado, valor_comissao, status, data_pagamento, observacoes_pagamento, pago_por, mes_referencia, ano_referencia, company_id'
+      'id, venda_id, recibo_id, vendedor_id, regra_id, valor_venda, valor_comissionavel, percentual_aplicado, valor_comissao, status, data_pagamento, observacoes_pagamento, pago_por, mes_referencia, ano_referencia, company_id'
     )
     .limit(5000);
 
   if ((params.vendaIds || []).length > 0) {
     query = query.in('venda_id', params.vendaIds || []);
+  }
+
+  if ((params.reciboIds || []).length > 0) {
+    query = query.in('recibo_id', params.reciboIds || []);
   }
 
   if ((params.vendedorIds || []).length > 0) {
@@ -138,6 +155,95 @@ export async function persistPaidComissoes(params: {
       vendedor_id: row.vendedor_id,
       regra_id: resolved.regraId,
       valor_venda: resolved.valorVenda,
+      valor_comissionavel: resolved.valorComissionavel,
+      percentual_aplicado: resolved.percentual,
+      valor_comissao: resolved.valorComissao,
+      status: 'PAGA',
+      data_pagamento: dataPagamento,
+      observacoes_pagamento: observacoesPagamento || null,
+      pago_por: userId,
+      mes_referencia: periodo.mes,
+      ano_referencia: periodo.ano,
+      company_id: row.company_id,
+      created_by: existing ? undefined : userId
+    };
+
+    if (existing?.id) {
+      updates.push({
+        id: existing.id,
+        payload
+      });
+    } else {
+      inserts.push(payload);
+    }
+  }
+
+  if (updates.length === 0 && inserts.length === 0) {
+    return { pagas: 0 };
+  }
+
+  try {
+    if (inserts.length > 0) {
+      const { error: insertError } = await client.from('comissoes').insert(inserts);
+      if (insertError) throw insertError;
+    }
+
+    for (const update of updates) {
+      const { error: updateError } = await client
+        .from('comissoes')
+        .update(update.payload)
+        .eq('id', update.id);
+
+      if (updateError) throw updateError;
+    }
+
+    return { pagas: updates.length + inserts.length };
+  } catch (error) {
+    if (isMissingComissoesSchema(error)) {
+      return { pagas: 0, fallback: true as const };
+    }
+    throw error;
+  }
+}
+
+export type PersistReceiptPaymentRow = {
+  venda_id: string;
+  recibo_id: string;
+  vendedor_id: string | null;
+  company_id: string | null;
+  data_venda: string | null;
+  valor_recibo: number;
+};
+
+export async function persistPaidReceiptComissoes(params: {
+  client: SupabaseClient;
+  userId: string;
+  rows: PersistReceiptPaymentRow[];
+  resolvedByKey: Map<string, ResolvedReceiptCommission>;
+  existingByKey: Map<string, PersistedComissaoRow>;
+  dataPagamento: string;
+  observacoesPagamento?: string | null;
+}) {
+  const { client, userId, rows, resolvedByKey, existingByKey, dataPagamento, observacoesPagamento } = params;
+
+  const inserts: Record<string, unknown>[] = [];
+  const updates: Array<{ id: string; payload: Record<string, unknown> }> = [];
+
+  for (const row of rows) {
+    const key = buildPersistedReciboComissaoKey(row.recibo_id, row.vendedor_id, row.venda_id);
+    if (!key) continue;
+
+    const resolved = resolvedByKey.get(key);
+    if (!resolved || resolved.valorComissao <= 0) continue;
+
+    const existing = existingByKey.get(key);
+    const periodo = getPeriodFromDate(row.data_venda);
+    const payload = {
+      venda_id: row.venda_id,
+      recibo_id: row.recibo_id,
+      vendedor_id: row.vendedor_id,
+      regra_id: null,
+      valor_venda: row.valor_recibo,
       valor_comissionavel: resolved.valorComissionavel,
       percentual_aplicado: resolved.percentual,
       valor_comissao: resolved.valorComissao,

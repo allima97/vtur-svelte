@@ -9,6 +9,7 @@
   import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { confirmAction } from '$lib/stores/confirm';
   import {
     Archive,
     FolderKanban,
@@ -398,7 +399,7 @@
     const action = taskMeta.arquivo ? 'restore' : 'archive';
     const label = taskMeta.arquivo ? 'restaurar' : 'arquivar';
 
-    if (!window.confirm(`Deseja ${label} esta tarefa?`)) return;
+    if (!(await confirmAction(`Deseja ${label} esta tarefa?`))) return;
 
     try {
       const response = await fetch('/api/v1/todo/item', {
@@ -428,7 +429,7 @@
 
   async function deleteCurrentTask() {
     if (!selectedTaskId) return;
-    if (!window.confirm('Deseja excluir esta tarefa?')) return;
+    if (!(await confirmAction('Deseja excluir esta tarefa?'))) return;
 
     try {
       const response = await fetch(`/api/v1/todo/item?id=${selectedTaskId}`, {
@@ -508,7 +509,7 @@
       toast.error('Remova as tarefas vinculadas antes de excluir a categoria.');
       return;
     }
-    if (!window.confirm('Deseja excluir esta categoria?')) return;
+    if (!(await confirmAction('Deseja excluir esta categoria?'))) return;
 
     try {
       const response = await fetch(`/api/v1/todo/category?id=${selectedCategoryId}`, {

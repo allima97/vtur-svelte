@@ -4,6 +4,8 @@ import {
   getMonthRange,
   hasModuloAccess,
   fetchGestorEquipeIdsComGestor,
+  fetchRankingVendedoresByCompanyIds,
+  isRankingEligibleUser,
   parseUuidList,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
@@ -12,6 +14,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
+import { addDaysISODate } from '$lib/date';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,9 +123,15 @@ async function fetchGestorCompanyScopeIds(
   const companyIds = Array.from(new Set((options.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
   const userIds = Array.from(new Set((options.userIds || []).map((id) => String(id || '').trim()).filter(Boolean)));
 
+  if (userIds.length === 0 && companyIds.length > 0) {
+    return (await fetchRankingVendedoresByCompanyIds(client, companyIds))
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean);
+  }
+
   let query = client
     .from('users')
-    .select('id, active, uso_individual, user_types(name), company_id')
+    .select('id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name), company_id')
     .limit(1000);
 
   if (userIds.length === 1) {
@@ -144,9 +153,9 @@ async function fetchGestorCompanyScopeIds(
         if (!row?.id) return false;
         if (row?.active === false) return false;
         if (row?.uso_individual === true) return false;
-        if (userIds.length > 0) return true;
-        const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
-        return role.includes('VENDEDOR') || role.includes('GESTOR');
+        if (!isRankingEligibleUser(row)) return false;
+        if (companyIds.length > 0) return companyIds.includes(String(row?.company_id || '').trim());
+        return true;
       })
       .map((row: any) => String(row?.id || '').trim())
       .filter(Boolean);
@@ -331,7 +340,7 @@ export async function GET(event) {
     const includeOrcamentos = String(searchParams.get('include_orcamentos') || '1').trim() === '1';
 
     const requestedCompanyId = searchParams.get('company_id');
-    const requestedVendedorIds = parseUuidList(searchParams.get('vendedor_ids'));
+    const requestedVendedorIds = parseUuidList(searchParams.get('vendedor_ids') || searchParams.get('vendedor_id'));
 
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const isAdminByType = tipoNome.includes('ADMIN');
@@ -433,9 +442,8 @@ export async function GET(event) {
     // Janela de 90 dias antes do início garante incluir parcelamentos e
     // recibos com data_venda diferente da venda-mãe.
     // O filtro fino por recibo ainda acontece em JS logo abaixo.
-    const inicioJanela = new Date(`${inicio}T00:00:00Z`);
-    inicioJanela.setUTCDate(inicioJanela.getUTCDate() - 90);
-    salesQuery = salesQuery.gte('data_venda', inicioJanela.toISOString().slice(0, 10)).lte('data_venda', fim);
+    const inicioJanela = addDaysISODate(inicio, -90);
+    salesQuery = salesQuery.gte('data_venda', inicioJanela).lte('data_venda', fim);
 
     const { data: salesData, error: salesError } = await salesQuery;
     if (salesError) throw salesError;
@@ -615,10 +623,10 @@ export async function GET(event) {
         // Usa valores de conciliação como override se disponível
         const bruto = recibo._conciliacao_valor_bruto != null
           ? recibo._conciliacao_valor_bruto
-          : toNum(recibo.valor_total);
+          : Math.max(0, toNum(recibo.valor_total) - toNum(recibo.valor_rav));
         const taxas = recibo._conciliacao_valor_taxas != null
           ? recibo._conciliacao_valor_taxas
-          : toNum(recibo.valor_taxas) + toNum(recibo.valor_du) + toNum(recibo.valor_rav);
+          : toNum(recibo.valor_taxas) + toNum(recibo.valor_du);
 
         allocations.forEach((alloc) => {
           const brutoAlloc = bruto * alloc.fator;

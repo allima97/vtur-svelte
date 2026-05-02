@@ -1,3 +1,5 @@
+import { toISODateUTC } from '$lib/date';
+
 export type ImportedRoteiroHotel = {
   cidade: string;
   hotel: string;
@@ -105,7 +107,7 @@ function parseDate(day: number, monthLabel: string, year: number) {
 }
 
 function toIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateUTC(date);
 }
 
 function diffNights(start: Date | null, end: Date | null) {

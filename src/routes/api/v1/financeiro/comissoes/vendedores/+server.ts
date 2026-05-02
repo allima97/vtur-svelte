@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -17,25 +18,15 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 1, 'Sem acesso.');
+      ensureModuloAccess(scope, ['Comissionamento', 'RegrasComissao', 'parametros'], 1, 'Sem acesso.');
     }
 
     const { searchParams } = event.url;
     const regraId = searchParams.get('regra_id');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
-    // Busca usuários ativos da empresa
-    let usersQuery = client
-      .from('users')
-      .select('id, nome_completo, email, company_id')
-      .eq('active', true)
-      .order('nome_completo')
-      .limit(200);
-
-    if (companyIds.length > 0) usersQuery = usersQuery.in('company_id', companyIds);
-    else if (scope.companyId) usersQuery = usersQuery.eq('company_id', scope.companyId);
-
-    const { data: usersData } = await usersQuery;
+    const usersCompanyIds = companyIds.length > 0 ? companyIds : scope.companyId ? [scope.companyId] : [];
+    const usersData = await fetchRankingVendedoresByCompanyIds(client, usersCompanyIds);
     const commissionContext = await fetchCommissionContext(client, { companyIds });
 
     // regrasMap é Record<id, Regra> — converte para array para compatibilidade
@@ -61,6 +52,9 @@ export async function GET(event) {
       return {
         id: u.id,
         vendedor_id: u.id,
+        nome: u.nome_completo || u.email || 'Vendedor',
+        nome_completo: u.nome_completo || null,
+        email: u.email || null,
         vendedor_nome: u.nome_completo || u.email || 'Vendedor',
         regra_id: regraId && commissionContext.regrasMap[regraId] ? regraId : regraBase?.id || null,
         regra_nome:
@@ -86,7 +80,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 2, 'Sem permissão.');
+      ensureModuloAccess(scope, ['Comissionamento', 'RegrasComissao', 'parametros'], 2, 'Sem permissão.');
     }
 
     // Retorna sucesso — associação de vendedor a regra não tem tabela dedicada no schema atual

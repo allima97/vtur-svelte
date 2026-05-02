@@ -329,6 +329,9 @@
 	"/api/v1/dashboard/aniversariantes": [
 		"src/routes/api/v1/dashboard/aniversariantes/+server.ts"
 	],
+	"/api/v1/dashboard/base": [
+		"src/routes/api/v1/dashboard/base/+server.ts"
+	],
 	"/api/v1/dashboard/consultorias": [
 		"src/routes/api/v1/dashboard/consultorias/+server.ts"
 	],

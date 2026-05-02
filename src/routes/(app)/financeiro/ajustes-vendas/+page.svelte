@@ -8,7 +8,9 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { RefreshCw, Search } from 'lucide-svelte';
+  import { RefreshCw, RotateCcw, Search } from 'lucide-svelte';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   type AjusteItem = {
     id: string;
@@ -43,14 +45,15 @@
   let modalOpen = false;
   let saving = false;
   let selectedItem: AjusteItem | null = null;
+  let clearing = false;
 
   let inicio = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const d = todayISODateLocal();
+    return `${d.slice(0, 7)}-01`;
   })();
-  let fim = new Date().toISOString().slice(0, 10);
+  let fim = todayISODateLocal();
   let filtroVendedor = '';
-  let filtroApenasRateados = false;
+  let filtroApenasRateados = 'false';
   let busca = '';
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
@@ -84,7 +87,7 @@
       label: 'Data Venda',
       sortable: true,
       width: '110px',
-      formatter: (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string | null) => formatDate(v)
     },
     {
       key: 'valor_total',
@@ -110,7 +113,7 @@
     try {
       const params = new URLSearchParams({ inicio, fim });
       if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
-      if (filtroApenasRateados) params.set('apenas_rateados', 'true');
+      if (filtroApenasRateados === 'true') params.set('apenas_rateados', 'true');
       if (busca.trim()) params.set('q', busca.trim());
 
       const response = await fetch(`/api/v1/financeiro/ajustes-vendas/list?${params.toString()}`);
@@ -159,6 +162,31 @@
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar rateio.');
     } finally {
       saving = false;
+    }
+  }
+
+  async function clearRateio() {
+    if (!selectedItem?.rateio?.ativo) return;
+
+    clearing = true;
+    try {
+      const response = await fetch('/api/v1/financeiro/ajustes-vendas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ajuste_id: selectedItem.id,
+          percentual_destino: 0,
+          observacao: form.observacao || 'Rateio desfeito'
+        })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      toast.success('Rateio desfeito. O recibo voltou ao valor integral do vendedor de origem.');
+      modalOpen = false;
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao desfazer rateio.');
+    } finally {
+      clearing = false;
     }
   }
 
@@ -211,7 +239,7 @@
       id="aj-rateados"
       label="Rateio"
       bind:value={filtroApenasRateados}
-      options={[{ value: false, label: 'Todos' }, { value: true, label: 'Apenas rateados' }]}
+      options={[{ value: 'false', label: 'Todos' }, { value: 'true', label: 'Apenas rateados' }]}
       placeholder={null}
       class_name="min-w-[180px]"
     />
@@ -256,6 +284,22 @@
         <p class="text-slate-600">Recibo: {selectedItem.numero_recibo} · {formatCurrency(selectedItem.valor_total)}</p>
         <p class="text-slate-500">Vendedor origem: {selectedItem.vendedor_origem_nome}</p>
       </div>
+
+      {#if selectedItem.rateio?.ativo}
+        <div class="flex justify-end">
+          <Button
+            variant="outline"
+            color="red"
+            size="sm"
+            loading={clearing}
+            disabled={saving}
+            on:click={clearRateio}
+          >
+            <RotateCcw class="mr-2 h-4 w-4" />
+            Desfazer rateio
+          </Button>
+        </div>
+      {/if}
 
       <FieldSelect
         id="rateio-destino"

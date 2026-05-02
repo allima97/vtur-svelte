@@ -14,12 +14,21 @@
   import { ArrowLeft, Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import {
+    addMonthsISODate,
+    monthRangeFromYearMonth,
+    parseISODateParts,
+    todayISODateLocal
+  } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Recibo {
     id: string | null;
     numero_recibo: string | null;
     numero_recibo_normalizado: string | null;
     data_venda: string | null;
+    vendedor_id?: string | null;
+    vendedor_nome?: string | null;
     produto_id?: string | null;
     tipo_produto: string;
     produto_nome: string;
@@ -120,19 +129,18 @@
   }
 
   function getDefaultRange() {
-    const today = new Date();
+    const today = todayISODateLocal();
     return {
-      start: `${today.getFullYear()}-01-01`,
-      end: today.toISOString().slice(0, 10)
+      start: `${today.slice(0, 4)}-01-01`,
+      end: today
     };
   }
 
   function getCurrentMonthRange() {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const today = todayISODateLocal();
     return {
-      start: start.toISOString().slice(0, 10),
-      end: today.toISOString().slice(0, 10)
+      start: `${today.slice(0, 7)}-01`,
+      end: today
     };
   }
 
@@ -223,11 +231,13 @@
   }
 
   function getLastSixMonthsRange(referenceIso?: string | null) {
-    const reference = referenceIso ? new Date(`${referenceIso}T12:00:00`) : new Date();
-    const start = new Date(reference.getFullYear(), reference.getMonth() - 5, 1);
+    const reference = referenceIso || todayISODateLocal();
+    const parts = parseISODateParts(reference);
+    if (!parts) return getCurrentMonthRange();
+    const monthStart = `${parts.year}-${String(parts.month).padStart(2, '0')}-01`;
     return {
-      start: start.toISOString().slice(0, 10),
-      end: reference.toISOString().slice(0, 10)
+      start: addMonthsISODate(monthStart, -5),
+      end: parts.iso
     };
   }
 
@@ -268,7 +278,7 @@
       label: 'Data',
       sortable: true,
       width: '100px',
-      formatter: (value: string | null) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
+      formatter: (value: string | null) => formatDate(value)
     },
     { key: 'cliente_nome', label: 'Cliente', sortable: true },
     { key: 'vendedor_nome', label: 'Vendedor', sortable: true, width: '160px' },
@@ -480,7 +490,7 @@
     ];
     const rows = recibosFiltrados.map((recibo) => [
       recibo.numero_recibo || '',
-      recibo.data_venda ? new Date(recibo.data_venda).toLocaleDateString('pt-BR') : '',
+      recibo.data_venda ? formatDate(recibo.data_venda) : '',
       recibo.cliente_nome,
       ...(hideVendedorColumn ? [] : [recibo.vendedor_nome]),
       recibo.destino_nome,
@@ -495,7 +505,7 @@
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_vendas_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `relatorio_vendas_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Relatório exportado com sucesso');
   }
@@ -546,7 +556,7 @@
         produto_id: recibo.produto_id || null,
         cliente_nome: venda.cliente_nome,
         cliente_cpf: venda.cliente_cpf,
-        vendedor_nome: venda.vendedor_nome,
+        vendedor_nome: recibo.vendedor_nome || venda.vendedor_nome,
         destino_nome: venda.destino_nome,
         cidade_nome: recibo.cidade_nome || venda.destino_cidade_nome,
         produto_nome: recibo.produto_nome,
@@ -569,18 +579,16 @@
   $: totalRecibos = recibosFiltrados.length;
   $: ticketMedio = Number(resumo.ticket_medio || 0);
   $: monthKeys = (() => {
-    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
+    const reference = parseISODateParts(dataFim || todayISODateLocal());
+    if (!reference) return [];
+    const monthStart = `${reference.year}-${String(reference.month).padStart(2, '0')}-01`;
     return Array.from({ length: 6 }, (_, index) => {
-      const d = new Date(reference.getFullYear(), reference.getMonth() - (5 - index), 1);
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      return `${d.getFullYear()}-${month}`;
+      return addMonthsISODate(monthStart, -(5 - index)).slice(0, 7);
     });
   })();
 
   $: currentMonthKey = (() => {
-    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
-    const month = String(reference.getMonth() + 1).padStart(2, '0');
-    return `${reference.getFullYear()}-${month}`;
+    return (dataFim || todayISODateLocal()).slice(0, 7);
   })();
 
   $: vendasPorMesData = (() => {
@@ -603,8 +611,12 @@
   })();
 
   $: vendasPorDiaMesData = (() => {
-    const reference = dataFim ? new Date(`${dataFim}T12:00:00`) : new Date();
-    const daysInMonth = new Date(reference.getFullYear(), reference.getMonth() + 1, 0).getDate();
+    const reference = parseISODateParts(dataFim || todayISODateLocal());
+    if (!reference) {
+      return { labels: [], datasets: [] } satisfies ChartData;
+    }
+    const range = monthRangeFromYearMonth(reference.year, reference.month);
+    const daysInMonth = Number(range.fim.slice(8, 10));
     const dayMap = new Map<number, number>();
 
     (chartSeries.diaria || []).forEach((point) => {

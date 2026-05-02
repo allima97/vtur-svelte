@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
   import Topbar from '$lib/components/layout/Topbar.svelte';
+  import GlobalConfirmDialog from '$lib/components/ui/GlobalConfirmDialog.svelte';
   import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
   import { sidebar, isMobile } from '$lib/stores/ui';
   import { sessionSynced, auth } from '$lib/stores/auth';
@@ -87,6 +88,7 @@
 <svelte:window on:resize={handleResize} />
 
 <ToastContainer />
+<GlobalConfirmDialog />
 
 <div class="vtur-app-shell">
   <Topbar />

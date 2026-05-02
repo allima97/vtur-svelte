@@ -6,6 +6,7 @@
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
+  import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
@@ -43,7 +44,7 @@
     whatsapp?: string | null;
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODateLocal();
 
   let loading = true;
   let saving = false;
@@ -304,16 +305,9 @@
     const valorTotal = parseMoney(pagamento.valor_total);
     const valorParcela = quantidade > 0 ? valorTotal / quantidade : 0;
     const inicio = pagamento.vencimento_primeira || '';
-    const baseDate = inicio ? new Date(inicio) : null;
 
     pagamento.parcelas = Array.from({ length: quantidade }).map((_, parcelaIndex) => {
-      const vencimento = baseDate
-        ? (() => {
-            const next = new Date(baseDate);
-            next.setMonth(baseDate.getMonth() + parcelaIndex);
-            return next.toISOString().slice(0, 10);
-          })()
-        : '';
+      const vencimento = inicio ? addMonthsISODate(inicio, parcelaIndex) : '';
 
       return {
         numero: String(parcelaIndex + 1),
@@ -1045,4 +1039,3 @@
     {/if}
   </form>
 {/if}
-

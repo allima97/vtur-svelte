@@ -1,3 +1,5 @@
+import { toISODateUTC } from '$lib/date';
+
 export type ImportedRoteiroAereo = {
   trecho: string;
   cia_aerea: string;
@@ -345,7 +347,7 @@ function parseDate(day: number, monthLabel: string, year: number) {
 }
 
 function toIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateUTC(date);
 }
 
 function parseIsoDate(value?: string | null) {

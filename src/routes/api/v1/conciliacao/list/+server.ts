@@ -7,6 +7,7 @@ import {
   normalizeComputedFields,
   normalizeTerm
 } from '../_legacy';
+import { monthRangeFromKey } from '$lib/date';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -55,10 +56,8 @@ export async function GET(event) {
     if (somentePendentes) query = query.eq('conciliado', false);
     if (somenteConciliados) query = query.eq('conciliado', true);
     if (/^\d{4}-\d{2}$/.test(month)) {
-      const [year, monthNum] = month.split('-').map(Number);
-      const inicio = `${month}-01`;
-      const fim = new Date(year, monthNum, 0).toISOString().slice(0, 10);
-      query = query.gte('movimento_data', inicio).lte('movimento_data', fim);
+      const range = monthRangeFromKey(month);
+      if (range) query = query.gte('movimento_data', range.inicio).lte('movimento_data', range.fim);
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
       query = query.eq('movimento_data', day);
@@ -297,4 +296,3 @@ export async function GET(event) {
     return toErrorResponse(err, 'Erro ao listar conciliacao.');
   }
 }
-

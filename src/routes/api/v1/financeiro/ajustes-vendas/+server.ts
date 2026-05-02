@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
@@ -127,18 +128,7 @@ export async function GET(event) {
     });
 
     // Vendedores para o filtro
-    let vendedoresQuery = client
-      .from('users')
-      .select('id, nome_completo')
-      .eq('active', true)
-      .order('nome_completo')
-      .limit(100);
-    if (companyIds.length === 1) {
-       vendedoresQuery = vendedoresQuery.eq('company_id', companyIds[0]);
-    } else if (companyIds.length > 1) {
-       vendedoresQuery = vendedoresQuery.in('company_id', companyIds);
-     }
-    const { data: vendedoresData } = await vendedoresQuery;
+    const vendedoresData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     return json({ items, vendedores: (vendedoresData || []).map((v: any) => ({ id: v.id, nome_completo: v.nome_completo })) });
   } catch (err: any) {
@@ -184,10 +174,6 @@ export async function POST(event) {
       return json({ error: 'Percentual deve ser >= 0 e < 100.' }, { status: 400 });
     }
 
-    if (!isUuid(vendedor_destino_id)) {
-      return json({ error: 'Vendedor destino inválido.' }, { status: 400 });
-    }
-
     const companyId = scope.companyId;
     if (!companyId && !scope.isAdmin) {
       return json({ error: 'Empresa não identificada.' }, { status: 400 });
@@ -230,6 +216,33 @@ export async function POST(event) {
 
     if (!isUuid(vendedorOrigemId)) {
       return json({ error: 'Recibo sem vendedor válido para rateio.' }, { status: 400 });
+    }
+
+    if (pct === 0) {
+      let clearQuery = client
+        .from('vendas_recibos_rateio')
+        .update({
+          ativo: false,
+          percentual_origem: 100,
+          percentual_destino: 0,
+          observacao: String(observacao || '').trim() || null,
+          updated_by: user.id
+        });
+
+      clearQuery = vendaReciboId
+        ? clearQuery.eq('venda_recibo_id', vendaReciboId)
+        : clearQuery.eq('conciliacao_recibo_id', conciliacaoReciboId);
+
+      if (reciboCompany) clearQuery = clearQuery.eq('company_id', reciboCompany);
+
+      const { error: clearError } = await clearQuery;
+      if (clearError) throw clearError;
+
+      return json({ ok: true, cleared: true });
+    }
+
+    if (!isUuid(vendedor_destino_id)) {
+      return json({ error: 'Vendedor destino inválido.' }, { status: 400 });
     }
 
     if (vendedor_destino_id === vendedorOrigemId) {

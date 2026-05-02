@@ -115,8 +115,8 @@ export async function GET(event) {
     const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
 
     const selectClauses = [
-      `*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,
-      `id, numero_venda, vendedor_id, cliente_id, company_id, data_venda, data_embarque, data_final, valor_total, valor_total_bruto, valor_taxas, cancelada, notas, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(id, venda_id, produto_id, produto_resolvido_id, destino_cidade_id, numero_recibo, numero_recibo_normalizado, numero_reserva, tipo_pacote, valor_total, valor_taxas, valor_du, valor_rav, data_inicio, data_fim, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome), tipo_produtos:tipo_produtos(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`
+      `*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,
+      `id, numero_venda, vendedor_id, cliente_id, company_id, data_lancamento, data_venda, data_embarque, data_final, valor_total, valor_total_bruto, valor_taxas, valor_total_pago, valor_nao_comissionado, desconto_comercial_aplicado, desconto_comercial_valor, status, cancelada, notas, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(id, venda_id, produto_id, produto_resolvido_id, destino_cidade_id, numero_recibo, numero_recibo_normalizado, numero_reserva, tipo_pacote, valor_total, valor_taxas, valor_du, valor_rav, data_inicio, data_fim, contrato_url, contrato_path, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`
     ];
 
     let data: any = null;
@@ -219,9 +219,32 @@ export async function PATCH(event) {
 
     const { data: currentRecibos, error: currentRecibosError } = await client
       .from('vendas_recibos')
-      .select('numero_recibo, numero_recibo_normalizado, numero_reserva')
+      .select('numero_recibo, numero_recibo_normalizado, numero_reserva, produto_id, produto_resolvido_id, destino_cidade_id')
       .eq('venda_id', id);
     if (currentRecibosError) throw currentRecibosError;
+
+    const currentReciboByReceipt = new Map<string, any>();
+    const currentReciboByReserva = new Map<string, any>();
+    (currentRecibos || []).forEach((row: any) => {
+      const receiptKey = normalizeReceiptKey(row?.numero_recibo_normalizado || row?.numero_recibo);
+      const reservaKey = normalizeReservaKey(row?.numero_reserva);
+      if (receiptKey) currentReciboByReceipt.set(receiptKey, row);
+      if (reservaKey) currentReciboByReserva.set(reservaKey, row);
+    });
+
+    const recibosForSync = recibos.map((item: any) => {
+      const current =
+        currentReciboByReceipt.get(normalizeReceiptKey(item?.numero_recibo)) ||
+        currentReciboByReserva.get(normalizeReservaKey(item?.numero_reserva)) ||
+        null;
+      if (!current) return item;
+      return {
+        ...item,
+        produto_id: item?.produto_id || current?.produto_id || null,
+        produto_resolvido_id: item?.produto_resolvido_id || current?.produto_resolvido_id || null,
+        destino_cidade_id: item?.destino_cidade_id || current?.destino_cidade_id || null
+      };
+    });
 
     const currentReceiptKeys = Array.from(
       new Set(
@@ -250,9 +273,9 @@ export async function PATCH(event) {
           companyId: targetCompanyId,
           clienteId,
           ignoreVendaId: id,
-          recibos
-        });
-      } catch (err) {
+        recibos: recibosForSync
+      });
+    } catch (err) {
         const code = err instanceof Error ? err.message : 'Erro ao validar recibos.';
         if (code === 'RECIBO_DUPLICADO') {
           return json({ code, error: 'Recibo já utilizado em outra venda da empresa.' }, { status: 409 });
@@ -294,9 +317,9 @@ export async function PATCH(event) {
         companyId: targetCompanyId,
         clienteId,
         vendedorId,
-        recibosCount: recibos.length,
+        recibosCount: recibosForSync.length,
         pagamentosCount: pagamentos.length,
-        recibos: recibos.slice(0, 2),
+        recibos: recibosForSync.slice(0, 2),
         pagamentos: pagamentos.slice(0, 2)
       }, null, 2));
       await syncVendaChildren({
@@ -306,7 +329,7 @@ export async function PATCH(event) {
         clienteId,
         vendedorId,
         userId: user.id,
-        recibos,
+        recibos: recibosForSync,
         pagamentos
       });
     } catch (syncError) {
@@ -322,5 +345,130 @@ export async function PATCH(event) {
   } catch (err) {
     console.error('[PATCH venda] catch geral:', err);
     return toErrorResponse(err, 'Erro ao atualizar venda.');
+  }
+}
+
+export async function DELETE(event) {
+  try {
+    const client = getAdminClient();
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+
+    if (!scope.isAdmin && !scope.isMaster) {
+      ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 4, 'Sem permissão para excluir vendas.');
+    }
+
+    const id = String(event.params.id || '').trim();
+    if (!isUuid(id)) {
+      return json({ error: 'ID invalido.' }, { status: 400 });
+    }
+
+    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+
+    let saleScopeQuery = client.from('vendas').select('id, company_id').eq('id', id);
+    if (companyIds.length > 0) saleScopeQuery = saleScopeQuery.in('company_id', companyIds);
+    if (shouldApplySellerScope && vendedorIds.length > 0) saleScopeQuery = saleScopeQuery.in('vendedor_id', vendedorIds);
+
+    const { data: saleScopeData, error: saleScopeError } = await saleScopeQuery.maybeSingle();
+    if (saleScopeError) throw saleScopeError;
+    if (!saleScopeData?.id) throw error(404, 'Venda não encontrada.');
+
+    const { data: recibosData, error: recibosError } = await client
+      .from('vendas_recibos')
+      .select('id')
+      .eq('venda_id', id);
+    if (recibosError) throw recibosError;
+
+    const reciboIds = (recibosData || [])
+      .map((row: any) => String(row?.id || '').trim())
+      .filter((value: string) => isUuid(value));
+
+    const ignoreMissingTable = (err: any) => {
+      const code = String(err?.code || '').trim();
+      return code === '42P01' || code === '42703';
+    };
+
+    const clearConciliacaoPayload = {
+      venda_id: null,
+      venda_recibo_id: null,
+      conciliado: false,
+      conciliado_em: null,
+      last_checked_at: null,
+      sistema_valor_total: null,
+      sistema_valor_taxas: null,
+      match_total: false,
+      match_taxas: false,
+      diff_total: null,
+      diff_taxas: null
+    };
+
+    let clearConciliacaoQuery = client
+      .from('conciliacao_recibos')
+      .update(clearConciliacaoPayload);
+    if (reciboIds.length > 0) {
+      clearConciliacaoQuery = clearConciliacaoQuery.or(
+        `venda_id.eq.${id},venda_recibo_id.in.(${reciboIds.join(',')})`
+      );
+    } else {
+      clearConciliacaoQuery = clearConciliacaoQuery.eq('venda_id', id);
+    }
+    const { error: clearConciliacaoError } = await clearConciliacaoQuery;
+    if (clearConciliacaoError && !ignoreMissingTable(clearConciliacaoError)) throw clearConciliacaoError;
+
+    if (reciboIds.length > 0) {
+      const { error: rateioError } = await client
+        .from('vendas_recibos_rateio')
+        .delete()
+        .in('venda_recibo_id', reciboIds);
+      if (rateioError && !ignoreMissingTable(rateioError)) throw rateioError;
+
+      const { error: notasPorReciboError } = await client
+        .from('vendas_recibos_notas')
+        .delete()
+        .in('recibo_id', reciboIds);
+      if (notasPorReciboError && !ignoreMissingTable(notasPorReciboError)) throw notasPorReciboError;
+    }
+
+    const { error: notasError } = await client
+      .from('vendas_recibos_notas')
+      .delete()
+      .eq('venda_id', id);
+    if (notasError && !ignoreMissingTable(notasError)) throw notasError;
+
+    const { error: complementaresError } = await client
+      .from('vendas_recibos_complementares')
+      .delete()
+      .eq('venda_id', id);
+    if (complementaresError && !ignoreMissingTable(complementaresError)) throw complementaresError;
+
+    const { error: paymentsError } = await client
+      .from('vendas_pagamentos')
+      .delete()
+      .eq('venda_id', id);
+    if (paymentsError) throw paymentsError;
+
+    const { error: receiptsError } = await client
+      .from('vendas_recibos')
+      .delete()
+      .eq('venda_id', id);
+    if (receiptsError) throw receiptsError;
+
+    const { error: viagensError } = await client
+      .from('viagens')
+      .update({ venda_id: null })
+      .eq('venda_id', id);
+    if (viagensError && !ignoreMissingTable(viagensError)) throw viagensError;
+
+    const { error: deleteError } = await client
+      .from('vendas')
+      .delete()
+      .eq('id', id);
+    if (deleteError) throw deleteError;
+
+    return json({ ok: true, deleted: true });
+  } catch (err) {
+    return toErrorResponse(err, 'Erro ao excluir venda.');
   }
 }

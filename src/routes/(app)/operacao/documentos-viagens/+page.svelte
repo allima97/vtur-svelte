@@ -7,7 +7,9 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Trash2, FileText, ExternalLink } from 'lucide-svelte';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Documento = {
     id: string;
     file_name: string;
@@ -73,7 +75,7 @@
       label: 'Enviado em',
       sortable: true,
       width: '130px',
-      formatter: (v: string | null) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string | null) => formatDate(v)
     },
     {
       key: 'uploader',
@@ -98,7 +100,7 @@
   }
 
   async function deleteDoc(id: string) {
-    if (!confirm('Deseja excluir este documento?')) return;
+    if (!(await confirmAction('Deseja excluir este documento?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/operacao/documentos-viagens?id=${id}`, { method: 'DELETE' });

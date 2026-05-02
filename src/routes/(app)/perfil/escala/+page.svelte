@@ -4,7 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
-  import { formatYearMonthLabel } from '$lib/utils/formatters';
+  import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
   import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
@@ -262,7 +262,7 @@
             {@const feriado = isFeriado(date)}
             <tr class="{dow === 0 || dow === 6 ? 'bg-slate-50/50' : ''} {feriado ? 'bg-red-50/30' : ''}">
               <td class="px-4 py-2 text-slate-700">
-                {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR')}
+                {formatDate(date)}
               </td>
               <td class="px-4 py-2 text-slate-500 text-xs">
                 {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dow]}

@@ -68,6 +68,19 @@ export type ResolvedVendaCommission = {
   tipoPacote: string | null;
 };
 
+export type ResolvedReceiptCommission = {
+  vendaId: string;
+  receiptId: string;
+  valorComissionavel: number;
+  percentual: number;
+  percentualComissaoGeral: number;
+  percentualSeguro: number;
+  valorComissao: number;
+  valorComissaoGeral: number;
+  valorComissaoSeguro: number;
+  regraNome: string;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers — replicados do vtur-app RelatorioVendasIsland
 // ---------------------------------------------------------------------------
@@ -79,6 +92,15 @@ function toNum(value: unknown): number {
 
 function roundMoney(v: number) {
   return Number(v.toFixed(2));
+}
+
+function getCommissionPeriod(row: Pick<ReportVendaRow, 'data_venda'>): string {
+  const data = String(row.data_venda || '').trim();
+  return /^\d{4}-\d{2}/.test(data) ? `${data.slice(0, 7)}-01` : '';
+}
+
+function getCommissionGroupKey(row: Pick<ReportVendaRow, 'vendedor_id' | 'data_venda'>): string {
+  return `${String(row.vendedor_id || '').trim() || 'sem-vendedor'}::${getCommissionPeriod(row) || 'sem-periodo'}`;
 }
 
 function normalizeText(value?: string | null) {
@@ -124,12 +146,12 @@ function getBrutoRecibo(r: ReportReceiptRow): number {
   if (hasConciliacaoOverride(r)) {
     return Math.max(0, toNum(r.valor_bruto_override ?? r.valor_total ?? 0));
   }
-  return Math.max(0, toNum(r.valor_total ?? 0));
+  return Math.max(0, toNum(r.valor_total ?? 0) - toNum(r.valor_rav ?? 0));
 }
 
 function getBrutoSemRav(r: ReportReceiptRow): number {
   if (!r) return 0;
-  return Math.max(0, toNum(r.valor_total || 0) - toNum(r.valor_rav || 0));
+  return getBrutoRecibo(r);
 }
 
 function getTaxasEfetivas(r: ReportReceiptRow): number {
@@ -614,6 +636,8 @@ export function calcularComissaoRows(
 ): {
   pctMetaGeral: number;
   pctByReceiptId: Map<string, number>;
+  pctComissaoGeralByReceiptId: Map<string, number>;
+  pctSeguroByReceiptId: Map<string, number>;
   regraNomeByReceiptId: Map<string, string>;
 } {
   const { params } = context;
@@ -710,6 +734,8 @@ export function calcularComissaoRows(
 
   // Passa 2 — calcular pct por bucket (idêntico ao forEach de bucketTotals no vtur-app)
   const pctByBucket: Record<string, number> = {};
+  const pctComissaoGeralByBucket: Record<string, number> = {};
+  const pctSeguroByBucket: Record<string, number> = {};
   const regraNomeByBucket: Record<string, string> = {};
 
   for (const [bucketKey, bucket] of Object.entries(bucketTotals)) {
@@ -734,7 +760,10 @@ export function calcularComissaoRows(
         is_seguro_viagem: bucket.isSeguro
       });
       if (selection.kind === 'CONCILIACAO' && selection.rule) {
-        pctByBucket[bucketKey] = calcularPctPorRegra(selection.rule, pctMetaGeral);
+        const pct = calcularPctPorRegra(selection.rule, pctMetaGeral);
+        pctByBucket[bucketKey] = pct;
+        pctComissaoGeralByBucket[bucketKey] = pct;
+        pctSeguroByBucket[bucketKey] = 0;
         regraNomeByBucket[bucketKey] = 'Conciliação';
         continue;
       }
@@ -750,7 +779,10 @@ export function calcularComissaoRows(
       const temMetaProd = metaProdValor > 0;
       const pctMetaProd = temMetaProd ? (baseMetaProduto / metaProdValor) * 100 : 0;
       const pctReferencia = temMetaProd ? pctMetaProd : pctMetaGeral;
-      pctByBucket[bucketKey] = calcularPctFixoProduto(regraProd, pctReferencia);
+      const pct = calcularPctFixoProduto(regraProd, pctReferencia);
+      pctByBucket[bucketKey] = pct;
+      pctComissaoGeralByBucket[bucketKey] = pct;
+      pctSeguroByBucket[bucketKey] = 0;
       regraNomeByBucket[bucketKey] = 'Diferenciado';
       continue;
     }
@@ -777,6 +809,7 @@ export function calcularComissaoRows(
     }
 
     // ── Meta por produto ── (igual ao vtur-app linha 1875)
+    let extraPct = 0;
     if (
       produto.usa_meta_produto &&
       toNum(produto.meta_produto_valor) > 0 &&
@@ -795,26 +828,239 @@ export function calcularComissaoRows(
               ? valMetaProd
               : Math.max(valMetaProd - valGeral, 0);
           if (diffValor > 0) {
-            pct += (diffValor / baseComProduto) * 100;
+            extraPct = (diffValor / baseComProduto) * 100;
+            pct += extraPct;
           }
         }
       }
     }
 
     pctByBucket[bucketKey] = pct;
+    pctComissaoGeralByBucket[bucketKey] = bucket.isSeguro && extraPct > 0 ? pct - extraPct : pct;
+    pctSeguroByBucket[bucketKey] = bucket.isSeguro ? extraPct : 0;
   }
 
   // Passa 3 — mapear receiptId → pct calculado
   const pctByReceiptId = new Map<string, number>();
+  const pctComissaoGeralByReceiptId = new Map<string, number>();
+  const pctSeguroByReceiptId = new Map<string, number>();
   const regraNomeByReceiptId = new Map<string, string>();
 
   for (const [receiptId, bucketKey] of receiptToBucket.entries()) {
     const pct = pctByBucket[bucketKey] ?? 0;
     pctByReceiptId.set(receiptId, pct);
+    pctComissaoGeralByReceiptId.set(receiptId, pctComissaoGeralByBucket[bucketKey] ?? pct);
+    pctSeguroByReceiptId.set(receiptId, pctSeguroByBucket[bucketKey] ?? 0);
     regraNomeByReceiptId.set(receiptId, regraNomeByBucket[bucketKey] ?? 'Sem regra');
   }
 
-  return { pctMetaGeral, pctByReceiptId, regraNomeByReceiptId };
+  return {
+    pctMetaGeral,
+    pctByReceiptId,
+    pctComissaoGeralByReceiptId,
+    pctSeguroByReceiptId,
+    regraNomeByReceiptId
+  };
+}
+
+export function resolveReceiptCommissions(
+  rows: ReportVendaRow[],
+  context: CommissionContext
+): Map<string, ResolvedReceiptCommission> {
+  const { pctByReceiptId, pctComissaoGeralByReceiptId, pctSeguroByReceiptId, regraNomeByReceiptId } =
+    calcularComissaoRows(rows, context);
+  const resolved = new Map<string, ResolvedReceiptCommission>();
+
+  for (const row of rows) {
+    const recibos = (Array.isArray(row.recibos) ? row.recibos : []).filter(
+      (r) => !r?.cancelado_por_conciliacao_em
+    );
+
+    const totalBrutoVendaBase = recibos.reduce((sum, r) => sum + getBrutoRecibo(r), 0);
+    const naoComissionado = toNum(row.valor_nao_comissionado || 0);
+    const valorComissionavel = Math.max(0, roundMoney(totalBrutoVendaBase - naoComissionado));
+    const fatorComissionavel =
+      totalBrutoVendaBase > 0 ? Math.max(0, Math.min(1, valorComissionavel / totalBrutoVendaBase)) : 1;
+
+    for (const receipt of recibos) {
+      if (!receipt) continue;
+      const receiptId = String(receipt?.id || '').trim();
+      if (!receiptId) continue;
+
+      const reciboComFator = {
+        ...receipt,
+        valor_comissionavel:
+          receipt.valor_comissionavel != null
+            ? receipt.valor_comissionavel
+            : getBrutoRecibo(receipt) * fatorComissionavel
+      };
+
+      const baseCom = getLiquidoBaseComissaoRecibo(reciboComFator);
+      const percentual = pctByReceiptId.get(receiptId) ?? 0;
+      const percentualSeguro = pctSeguroByReceiptId.get(receiptId) ?? 0;
+      const percentualComissaoGeral = pctComissaoGeralByReceiptId.get(receiptId) ?? percentual;
+      const valorComissao = roundMoney(baseCom * (percentual / 100));
+      const valorComissaoSeguro = roundMoney(baseCom * (percentualSeguro / 100));
+      const valorComissaoGeral = roundMoney(Math.max(0, valorComissao - valorComissaoSeguro));
+
+      resolved.set(receiptId, {
+        vendaId: row.id,
+        receiptId,
+        valorComissionavel: roundMoney(baseCom),
+        percentual: roundMoney(percentual),
+        percentualComissaoGeral: roundMoney(percentualComissaoGeral),
+        percentualSeguro: roundMoney(percentualSeguro),
+        valorComissao,
+        valorComissaoGeral,
+        valorComissaoSeguro,
+        regraNome: regraNomeByReceiptId.get(receiptId) ?? 'Sem regra'
+      });
+    }
+  }
+
+  return resolved;
+}
+
+export function resolveVendaCommissions(
+  rows: ReportVendaRow[],
+  context: CommissionContext
+): Map<string, ResolvedVendaCommission> {
+  const receiptsById = resolveReceiptCommissions(rows, context);
+  const resolved = new Map<string, ResolvedVendaCommission>();
+
+  for (const row of rows) {
+    const recibos = (Array.isArray(row.recibos) ? row.recibos : []).filter(
+      (r) => !r?.cancelado_por_conciliacao_em
+    );
+
+    const totalBrutoVendaBase = recibos.reduce((sum, r) => sum + getBrutoRecibo(r), 0);
+    const naoComissionado = toNum(row.valor_nao_comissionado || 0);
+    const valorComissionavel = Math.max(0, roundMoney(totalBrutoVendaBase - naoComissionado));
+    const valorVenda =
+      recibos.length > 0
+        ? roundMoney(totalBrutoVendaBase)
+        : roundMoney(toNum(row.valor_total || row.valor_total_bruto));
+
+    let valorComissao = 0;
+    let percentualPonderadoNumerador = 0;
+    let percentualPonderadoDenominador = 0;
+    const regraNomes = new Set<string>();
+    const tipoPacotes = new Set<string>();
+
+    for (const receipt of recibos) {
+      if (receipt?.tipo_pacote) tipoPacotes.add(String(receipt.tipo_pacote));
+      const receiptId = String(receipt?.id || '').trim();
+      const receiptCommission = receiptId ? receiptsById.get(receiptId) : undefined;
+      if (!receiptCommission) continue;
+
+      valorComissao += receiptCommission.valorComissao;
+      percentualPonderadoNumerador += receiptCommission.percentual * receiptCommission.valorComissionavel;
+      percentualPonderadoDenominador += receiptCommission.valorComissionavel;
+      regraNomes.add(receiptCommission.regraNome);
+    }
+
+    const percentual =
+      percentualPonderadoDenominador > 0
+        ? roundMoney(percentualPonderadoNumerador / percentualPonderadoDenominador)
+        : 0;
+
+    const regraNome =
+      regraNomes.size === 0
+        ? 'Sem regra'
+        : regraNomes.size === 1
+          ? Array.from(regraNomes)[0]
+          : `Múltiplas regras (${regraNomes.size})`;
+
+    const tipoPacote =
+      tipoPacotes.size === 0
+        ? null
+        : tipoPacotes.size === 1
+          ? Array.from(tipoPacotes)[0]
+          : 'Multiplos';
+
+    resolved.set(row.id, {
+      valorVenda,
+      valorComissionavel,
+      percentual,
+      valorComissao: roundMoney(valorComissao),
+      regraId: null,
+      regraNome,
+      tipoPacote
+    });
+  }
+
+  return resolved;
+}
+
+function groupRowsByVendedorPeriod(rows: ReportVendaRow[]): ReportVendaRow[][] {
+  const groups = new Map<string, ReportVendaRow[]>();
+  for (const row of rows) {
+    const key = getCommissionGroupKey(row);
+    const current = groups.get(key) || [];
+    current.push(row);
+    groups.set(key, current);
+  }
+  return Array.from(groups.values());
+}
+
+export async function resolveGroupedVendaCommissions(
+  client: SupabaseClient,
+  params: {
+    companyIds?: string[];
+    rows: ReportVendaRow[];
+  }
+): Promise<Map<string, ResolvedVendaCommission>> {
+  const result = new Map<string, ResolvedVendaCommission>();
+  const companyIds = (params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean);
+
+  for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
+    const vendedorIds = Array.from(
+      new Set(groupRows.map((row) => String(row.vendedor_id || '').trim()).filter(Boolean))
+    );
+    const periodo = getCommissionPeriod(groupRows[0]);
+    const context = await fetchCommissionContext(client, {
+      companyIds,
+      vendedorIds,
+      periodo,
+      rows: groupRows
+    });
+    const groupResolved = resolveVendaCommissions(groupRows, context);
+    for (const [vendaId, commission] of groupResolved.entries()) {
+      result.set(vendaId, commission);
+    }
+  }
+
+  return result;
+}
+
+export async function resolveGroupedReceiptCommissions(
+  client: SupabaseClient,
+  params: {
+    companyIds?: string[];
+    rows: ReportVendaRow[];
+  }
+): Promise<Map<string, ResolvedReceiptCommission>> {
+  const result = new Map<string, ResolvedReceiptCommission>();
+  const companyIds = (params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean);
+
+  for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
+    const vendedorIds = Array.from(
+      new Set(groupRows.map((row) => String(row.vendedor_id || '').trim()).filter(Boolean))
+    );
+    const periodo = getCommissionPeriod(groupRows[0]);
+    const context = await fetchCommissionContext(client, {
+      companyIds,
+      vendedorIds,
+      periodo,
+      rows: groupRows
+    });
+    const groupResolved = resolveReceiptCommissions(groupRows, context);
+    for (const [receiptId, commission] of groupResolved.entries()) {
+      result.set(receiptId, commission);
+    }
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------

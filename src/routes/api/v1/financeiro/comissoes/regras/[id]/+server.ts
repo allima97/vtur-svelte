@@ -14,7 +14,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 1, 'Sem acesso.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 1, 'Sem acesso.');
     }
 
     const { id } = event.params;
@@ -41,7 +41,7 @@ export async function PUT(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 3, 'Sem permissão.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 3, 'Sem permissão.');
     }
 
     const { id } = event.params;
@@ -89,7 +89,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes', 'parametros'], 4, 'Sem permissão.');
+      ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 4, 'Sem permissão.');
     }
 
     const { id } = event.params;

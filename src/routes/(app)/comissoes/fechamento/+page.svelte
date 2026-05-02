@@ -8,6 +8,8 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { Calculator, DollarSign, RefreshCw, TrendingUp, Users } from 'lucide-svelte';
+  import { parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   // ─── Tipos ──────────────────────────────────────────────────────────────────
   interface ComissaoItem {
@@ -38,8 +40,9 @@
   let vendedores: VendedorOption[] = [];
   let loading = true;
 
-  let filtroMes    = new Date().getMonth() + 1;
-  let filtroAno    = new Date().getFullYear();
+  const todayParts = parseISODateParts(todayISODateLocal());
+  let filtroMes    = todayParts?.month || new Date().getMonth() + 1;
+  let filtroAno    = todayParts?.year || new Date().getFullYear();
   let filtroVendedor = '';
   let filtroStatus = 'todas';
 
@@ -62,7 +65,7 @@
     { key: 'cliente',      label: 'Cliente',  sortable: true },
     {
       key: 'data_venda', label: 'Data', sortable: true, width: '110px',
-      formatter: (v: string) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string) => formatDate(v)
     },
     {
       key: 'valor_venda', label: 'Valor Venda', sortable: true, align: 'right' as const,
@@ -137,7 +140,7 @@
     const headers = ['Venda', 'Vendedor', 'Cliente', 'Data', 'Valor Venda', '%', 'Comissão', 'Status'];
     const rows = comissoes.map((c) => [
       c.numero_venda, c.vendedor, c.cliente,
-      c.data_venda ? new Date(c.data_venda).toLocaleDateString('pt-BR') : '',
+      c.data_venda ? formatDate(c.data_venda) : '',
       c.valor_venda.toFixed(2),
       c.percentual_aplicado ?? 10,
       c.valor_comissao.toFixed(2),

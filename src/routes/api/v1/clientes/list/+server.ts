@@ -47,6 +47,25 @@ type QuoteResumoRow = {
   created_by: string | null;
 };
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -79,19 +98,45 @@ export async function GET(event) {
       });
     }
 
-    let clientsQuery = client
-      .from('clientes')
-      .select(
-        'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at'
-      )
-      .order('created_at', { ascending: false })
-      .limit(5000);
+    const buildClientsQuery = (clientIds?: string[]) => {
+      let clientsQuery = client
+        .from('clientes')
+        .select(
+          'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at'
+        )
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
-    if (accessibleClientIds) {
-      clientsQuery = clientsQuery.in('id', accessibleClientIds);
-    }
+      if (clientIds) {
+        clientsQuery = clientsQuery.in('id', clientIds);
+      }
 
-    const { data: clientsData, error: clientsError } = await clientsQuery;
+      return clientsQuery;
+    };
+
+    const fetchClients = async () => {
+      if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildClientsQuery(accessibleClientIds || undefined);
+      }
+
+      const rows: ClienteBaseRow[] = [];
+      for (const batch of chunkArray(accessibleClientIds)) {
+        const result = await buildClientsQuery(batch);
+        if (result.error) {
+          return { data: null, error: result.error } as typeof result;
+        }
+        rows.push(...(((result.data || []) as unknown) as ClienteBaseRow[]));
+      }
+
+      return {
+        data: dedupeRowsById(rows).sort((left, right) =>
+          String(right.created_at || '').localeCompare(String(left.created_at || ''))
+        ),
+        error: null
+      };
+    };
+
+    const { data: clientsData, error: clientsError } = await fetchClients();
     if (clientsError) {
       console.error('[clientes/list] Erro na query de clientes:', clientsError);
       throw clientsError;
@@ -99,43 +144,89 @@ export async function GET(event) {
 
     const clientIds = ((clientsData || []) as ClienteBaseRow[]).map((row) => row.id);
 
-    let salesQuery = client
-      .from('vendas')
-      .select('cliente_id, data_venda, valor_total')
-      .eq('cancelada', false)
-      .not('cliente_id', 'is', null)
-      .limit(5000);
+    const buildSalesQuery = (clientIdsFilter?: string[]) => {
+      let salesQuery = client
+        .from('vendas')
+        .select('cliente_id, data_venda, valor_total')
+        .eq('cancelada', false)
+        .not('cliente_id', 'is', null)
+        .limit(5000);
 
-    if (companyIds.length > 0) {
-      salesQuery = salesQuery.in('company_id', companyIds);
-    }
-    if (vendedorIds.length > 0) {
-      salesQuery = salesQuery.in('vendedor_id', vendedorIds);
-    }
-    if (accessibleClientIds) {
-      salesQuery = salesQuery.in('cliente_id', accessibleClientIds);
-    }
+      if (companyIds.length > 0) {
+        salesQuery = salesQuery.in('company_id', companyIds);
+      }
+      if (vendedorIds.length > 0) {
+        salesQuery = salesQuery.in('vendedor_id', vendedorIds);
+      }
+      if (clientIdsFilter) {
+        salesQuery = salesQuery.in('cliente_id', clientIdsFilter);
+      }
 
-    const { data: salesData, error: salesError } = await salesQuery;
+      return salesQuery;
+    };
+
+    const fetchSales = async () => {
+      if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildSalesQuery(accessibleClientIds || undefined);
+      }
+
+      const rows: VendaResumoRow[] = [];
+      for (const batch of chunkArray(accessibleClientIds)) {
+        const result = await buildSalesQuery(batch);
+        if (result.error) {
+          return { data: null, error: result.error } as typeof result;
+        }
+        rows.push(...(((result.data || []) as unknown) as VendaResumoRow[]));
+      }
+
+      return { data: rows, error: null };
+    };
+
+    const { data: salesData, error: salesError } = await fetchSales();
     if (salesError) {
       console.error('[clientes/list] Erro na query de vendas:', salesError);
       throw salesError;
     }
 
-    let quotesQuery = client
-      .from('quote')
-      .select('client_id, created_at, created_by')
-      .not('client_id', 'is', null)
-      .limit(5000);
+    const buildQuotesQuery = (clientIdsFilter?: string[]) => {
+      let quotesQuery = client
+        .from('quote')
+        .select('client_id, created_at, created_by')
+        .not('client_id', 'is', null)
+        .limit(5000);
 
-    if (clientIds.length > 0) {
-      quotesQuery = quotesQuery.in('client_id', clientIds);
-    }
-    if (vendedorIds.length > 0) {
-      quotesQuery = quotesQuery.in('created_by', vendedorIds);
-    }
+      if (clientIdsFilter) {
+        quotesQuery = quotesQuery.in('client_id', clientIdsFilter);
+      }
+      if (vendedorIds.length > 0) {
+        quotesQuery = quotesQuery.in('created_by', vendedorIds);
+      }
 
-    const { data: quotesData, error: quotesError } = await quotesQuery;
+      return quotesQuery;
+    };
+
+    const fetchQuotes = async () => {
+      if (clientIds.length === 0) {
+        return { data: [], error: null };
+      }
+
+      if (clientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildQuotesQuery(clientIds);
+      }
+
+      const rows: QuoteResumoRow[] = [];
+      for (const batch of chunkArray(clientIds)) {
+        const result = await buildQuotesQuery(batch);
+        if (result.error) {
+          return { data: null, error: result.error } as typeof result;
+        }
+        rows.push(...(((result.data || []) as unknown) as QuoteResumoRow[]));
+      }
+
+      return { data: rows, error: null };
+    };
+
+    const { data: quotesData, error: quotesError } = await fetchQuotes();
     if (quotesError) {
       // Tabela quote pode não existir em todos os ambientes — não bloqueia
       console.warn('[clientes/list] Erro ao buscar quotes:', quotesError.message);
@@ -151,14 +242,20 @@ export async function GET(event) {
     );
 
     if (companyIds.length > 0 && creatorIds.length > 0) {
-      const { data: creators } = await client
-        .from('users')
-        .select('id, company_id')
-        .in('id', creatorIds)
-        .limit(5000);
+      const creatorsRows: Array<{ id?: string | null; company_id?: string | null }> = [];
+
+      for (const batch of chunkArray(creatorIds)) {
+        const { data: creators } = await client
+          .from('users')
+          .select('id, company_id')
+          .in('id', batch)
+          .limit(5000);
+
+        creatorsRows.push(...(creators || []));
+      }
 
       creatorCompanyMap = new Map(
-        (creators || []).map((row: { id?: string | null; company_id?: string | null }) => [
+        creatorsRows.map((row: { id?: string | null; company_id?: string | null }) => [
           String(row?.id || '').trim(),
           String(row?.company_id || '').trim()
         ])

@@ -98,13 +98,23 @@ export function onlyDigits(value?: string | null) {
 import { titleCaseNome } from '$lib/normalizeText';
 
 export function sanitizeImportedClienteNome(value?: string | null) {
-  const raw = String(value || '').trim();
+  const raw = String(value || '').replace(/\s+/g, ' ').trim();
   if (!raw) return '';
 
-  const dividerIndex = raw.lastIndexOf('//');
-  const relevant = dividerIndex >= 0 ? raw.slice(dividerIndex + 2) : raw;
+  const dividerPattern = /(?:\/\s*){2,}/g;
+  let relevant = raw;
+  let match: RegExpExecArray | null;
 
-  return relevant.replace(/^[\s\-–—:;,.\/]+/, '').trim();
+  while ((match = dividerPattern.exec(raw)) !== null) {
+    relevant = raw.slice(match.index + match[0].length);
+  }
+
+  return relevant
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s\-–—_:;,.\/\\|]+/, '')
+    .replace(/^ssp\s*\([^)]*\)\s*/i, '')
+    .replace(/^[\s\-–—_:;,.\/\\|]+/, '')
+    .trim();
 }
 
 export function formatTelefone(value: string) {

@@ -17,7 +17,10 @@
   import ModalInteracaoQuote from '$lib/components/modais/ModalInteracaoQuote.svelte';
   import { openQuotePreview } from '$lib/quote/exportQuotePdfClient';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
+  import { compareISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   const orcamentoId = $page.params.id;
   let previewingPdf = false;
   
@@ -135,14 +138,14 @@
     }
   }
   
-  function handleAprovar() {
-    if (!confirm('Confirmar aprovação deste orçamento?')) return;
-    const redirectToVenda = confirm('Deseja seguir agora para criar a venda a partir deste orçamento?');
+  async function handleAprovar() {
+    if (!(await confirmAction('Confirmar aprovação deste orçamento?'))) return;
+    const redirectToVenda = await confirmAction('Deseja seguir agora para criar a venda a partir deste orçamento?');
     atualizarStatus('aprovado', redirectToVenda);
   }
   
-  function handleRejeitar() {
-    if (confirm('Confirmar rejeição deste orçamento?')) {
+  async function handleRejeitar() {
+    if (await confirmAction('Confirmar rejeição deste orçamento?')) {
       atualizarStatus('rejeitado');
     }
   }
@@ -173,7 +176,7 @@
   }
   
   async function handleExcluir() {
-    if (!confirm('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.')) return;
+    if (!(await confirmAction('Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.'))) return;
     
     try {
       const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`, {
@@ -197,13 +200,11 @@
   }
   
   function formatDate(dateString: string | null): string {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return formatDateValue(dateString);
   }
   
   function formatDateTime(dateString: string | null): string {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('pt-BR');
+    return formatDateTimeValue(dateString);
   }
 
   function getDiasSemInteracao(dateString: string | null) {
@@ -267,7 +268,7 @@
   $: podeCriarVenda = statusAtual === 'aprovado';
   $: orcamentoConvertido = statusAtual === 'fechado';
   $: isExpirado = orcamento?.valid_until 
-    ? new Date(orcamento.valid_until) < new Date() 
+    ? compareISODate(orcamento.valid_until, todayISODateLocal()) < 0
     : false;
   $: ultimaInteracao = interacoes.length > 0 ? interacoes[0] : null;
   $: diasSemInteracao = getDiasSemInteracao(ultimaInteracao?.created_at || null);

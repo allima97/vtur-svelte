@@ -1,4 +1,5 @@
 import { buildPassengerSummary, createEmptyVoucherExtraData, normalizeVoucherExtraData } from "./extraData";
+import { toISODateUTC } from '$lib/date';
 import type {
   VoucherDia,
   VoucherExtraData,
@@ -54,7 +55,7 @@ function cleanMultilineText(value?: string | null) {
 }
 
 function toIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateUTC(date);
 }
 
 function diffNights(start?: string | null, end?: string | null) {

@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   fetchEffectiveConciliacaoReceipts,
+  fetchSuppressedConciliacaoReceipts,
   filterRecibosCanceladosMesmoMes
 } from '$lib/conciliacao/source';
 import { mergeEffectiveRecibos } from '$lib/conciliacao/mergeEffectiveRecibos';
 import type { ReportReceiptRow, ReportVendaRow } from '$lib/server/relatorios';
 import { fetchSalesReportRows } from '$lib/server/relatorios';
+import { calcularRankingComissionavel } from '$lib/server/rankingComissionavel';
 import {
   fetchRateioByReciboIds,
   fetchSplitSaleIdsForDestinationVendedores,
@@ -174,15 +176,45 @@ function calcularNaoComissionavelResumo(
 
 function buildReciboBusinessKey(recibo?: ReportReceiptRow | null) {
   if (!recibo) return '';
-  const numero = normalizeReceiptNumber(recibo?.numero_recibo);
+  if (isRexturReceipt(recibo?.numero_recibo)) {
+    const reciboId = toStr(recibo?.id);
+    if (reciboId) return `rextur:${reciboId}`;
+  }
+  const numeroBase = isRexturReceipt(recibo?.numero_recibo)
+    ? String(recibo?.numero_reserva || recibo?.numero_recibo || '')
+    : String(recibo?.numero_recibo || '');
+  const numero = normalizeReceiptNumber(numeroBase);
   const produtoId = toStr(recibo?.tipo_produtos?.id || recibo?.produto_id).toLowerCase();
   const data = toDateKey(recibo?.data_venda);
   if (!numero || !data) return '';
   return `${numero}::${produtoId || 'sem-produto'}::${data}`;
 }
 
+function isRexturReceipt(value?: string | null) {
+  return normalizeReceiptNumber(value).includes('rextur');
+}
+
+function isSeguroPercentual(value?: unknown) {
+  const pct = toNum(value);
+  return pct >= 31.5 && pct <= 35.5;
+}
+
+function isSeguroFaixa(value?: unknown) {
+  return String(value || '').toUpperCase().includes('SEGURO');
+}
+
+function isSeguroPorComissao(recibo?: ReportReceiptRow | null) {
+  const comissao = toNum(recibo?.valor_comissao_loja);
+  const bruto = getReciboBruto(recibo);
+  if (comissao <= 0 || bruto <= 0) return false;
+  return isSeguroPercentual((comissao / bruto) * 100);
+}
+
 function isSeguroProduto(recibo?: ReportReceiptRow | null) {
   if ((recibo as any)?._conciliacao_is_seguro === true || (recibo as any)?.is_seguro_viagem === true) return true;
+  if (isSeguroFaixa(recibo?.faixa_comissao)) return true;
+  if (isSeguroPercentual(recibo?.percentual_comissao_loja)) return true;
+  if (isSeguroPorComissao(recibo)) return true;
   const tipo = String(recibo?.tipo_produtos?.tipo || '').toLowerCase();
   const nome = String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || '').toLowerCase();
   return tipo.includes('seguro') || nome.includes('seguro');
@@ -200,7 +232,7 @@ function getReciboBruto(recibo?: ReportReceiptRow | null) {
   if (hasConciliacaoOverride(recibo)) {
     return toNum(recibo.valor_bruto_override ?? recibo.valor_total);
   }
-  return toNum(recibo.valor_total);
+  return Math.max(0, toNum(recibo.valor_total) - toNum(recibo.valor_rav));
 }
 
 function getReciboTaxas(recibo?: ReportReceiptRow | null) {
@@ -439,6 +471,7 @@ async function fetchResolvedRows(
       .from('vendas_recibos_rateio')
       .select('conciliacao_recibo_id')
       .eq('ativo', true)
+      .gt('percentual_destino', 0)
       .in('vendedor_destino_id', params.vendedorIds)
       .not('conciliacao_recibo_id', 'is', null);
 
@@ -489,14 +522,41 @@ async function fetchResolvedRows(
   const overriddenReceiptIds = new Set(
     concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
   );
+  let suppressedConcReceipts: Array<{ documento: string; linked_recibo_id: string | null }> = [];
+  try {
+    suppressedConcReceipts = await fetchSuppressedConciliacaoReceipts({
+      client,
+      companyId: normalizedCompanyIds[0] || null,
+      companyIds: normalizedCompanyIds,
+      inicio: params.dataInicio,
+      fim: params.dataFim
+    });
+  } catch (error) {
+    console.warn('[vendas-kpis] conciliacao suprimida indisponivel:', error);
+    suppressedConcReceipts = [];
+  }
+  const suppressedReceiptIds = new Set(
+    suppressedConcReceipts.map((item) => toStr(item.linked_recibo_id)).filter(Boolean)
+  );
+  const suppressedReceiptNumbers = new Set(
+    suppressedConcReceipts.map((item) => normalizeReceiptNumber(item.documento)).filter(Boolean)
+  );
   const overrideCompanySet = new Set(conciliacaoCompanyIds);
 
   const baseRows = rows.map((row) => {
     const recibos = normalizeReceiptRows(row?.vendas_recibos);
     const shouldOverrideCompany = overrideCompanySet.has(toStr(row?.company_id));
+    const withoutSuppressed = recibos.filter((recibo) => {
+          const reciboId = toStr(recibo?.id);
+          const reciboNumero = normalizeReceiptNumber(recibo?.numero_recibo);
+          return (
+            !suppressedReceiptIds.has(reciboId) &&
+            !(reciboNumero && suppressedReceiptNumbers.has(reciboNumero))
+          );
+        });
     const withoutOverridden = shouldOverrideCompany
-      ? recibos.filter((recibo) => !overriddenReceiptIds.has(toStr(recibo?.id)))
-      : recibos;
+      ? withoutSuppressed.filter((recibo) => !overriddenReceiptIds.has(toStr(recibo?.id)))
+      : withoutSuppressed;
 
     return {
       ...row,
@@ -512,8 +572,13 @@ async function fetchResolvedRows(
       valor_total: item.valor_bruto,
       valor_taxas: item.valor_taxas,
       valor_du: 0,
+      vendedor_id: item.vendedor_id,
       valor_bruto_override: item.valor_bruto,
       valor_liquido_override: item.valor_liquido_override,
+      valor_comissao_loja: item.valor_comissao_loja,
+      percentual_comissao_loja: item.percentual_comissao_loja,
+      faixa_comissao: item.faixa_comissao,
+      is_seguro_viagem: item.is_seguro_viagem,
       cancelado_por_conciliacao_em: null,
       cancelado_por_conciliacao_observacao: null,
       produto_id: item.produto_id,
@@ -521,14 +586,14 @@ async function fetchResolvedRows(
         ? {
             id: item.produto.id,
             nome: item.produto.nome,
-            tipo: item.is_seguro_viagem ? 'Seguro' : null
+            tipo: item.produto.tipo || (item.is_seguro_viagem ? 'Seguro' : null)
           }
         : null,
       produto_resolvido: item.produto
         ? {
             id: item.produto.id,
             nome: item.produto.nome,
-            tipo: item.is_seguro_viagem ? 'Seguro' : null
+            tipo: item.produto.tipo || (item.is_seguro_viagem ? 'Seguro' : null)
           }
         : null,
       _conciliacao_is_seguro: item.is_seguro_viagem
@@ -551,7 +616,7 @@ async function fetchResolvedRows(
               id: item.id,
               numero_venda: null,
               cliente_id: null,
-              company_id: null,
+              company_id: item.company_id,
               data_embarque: null,
               data_retorno: null,
               source_venda_id: item.linked_venda_id || null,
@@ -658,15 +723,17 @@ export async function fetchAndComputeVendasKpis(
     });
     const recibosUnique = Array.from(recibosByKey.values());
     const somaBrutoRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboBruto(recibo), 0);
+    const somaTaxasRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboTaxas(recibo), 0);
 
     const linkedNaoComissionado = toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0);
     const naoComissionadoSemRecibo = toNum(naoComissionadoPorVenda.porVendaSemRecibo.get(vendaKey) || 0);
     const usarModoPorRecibo = linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
     const naoComissionadoTotalPagamentos = Math.max(0, toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0));
-    const fatorComissionavel =
-      !usarModoPorRecibo && somaBrutoRecibos > 0
-        ? Math.max(0, Math.min(1, (somaBrutoRecibos - naoComissionadoTotalPagamentos) / somaBrutoRecibos))
-        : 1;
+    const rankingGrupo = calcularRankingComissionavel({
+      valorBruto: somaBrutoRecibos,
+      valorTaxas: somaTaxasRecibos,
+      valorNaoComissionado: usarModoPorRecibo ? 0 : naoComissionadoTotalPagamentos
+    });
 
     const recibosPeriodo = recibosUnique.filter((recibo) => {
       const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
@@ -681,17 +748,28 @@ export async function fetchAndComputeVendasKpis(
 
     recibosPeriodo.forEach((recibo) => {
       const reciboId = toStr(recibo?.id);
-      const naoComissionadoRecibo = usarModoPorRecibo && reciboId
+      const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
+      const naoComissionadoRecibo = usarModoPorRecibo && reciboId && !reciboJaAjustadoPorConciliacao
         ? toNum(naoComissionadoPorVenda.porRecibo.get(reciboId) || 0)
         : 0;
 
-      const fatorRecibo = usarModoPorRecibo ? 1 : fatorComissionavel;
+      const rankingRecibo = calcularRankingComissionavel({
+        valorBruto: getReciboBruto(recibo),
+        valorTaxas: getReciboTaxas(recibo),
+        valorNaoComissionado: usarModoPorRecibo ? naoComissionadoRecibo : 0
+      });
+      const fatorRecibo = usarModoPorRecibo ? rankingRecibo.fatorValor : rankingGrupo.fatorValor;
       const bruto = usarModoPorRecibo
-        ? Math.max(0, getReciboBruto(recibo) - naoComissionadoRecibo)
+        ? rankingRecibo.valorRanking
         : getReciboBruto(recibo) * fatorRecibo;
-      const taxasEfetivas = getReciboTaxas(recibo) * fatorRecibo;
+      const taxasEfetivas = usarModoPorRecibo
+        ? rankingRecibo.valorTaxasRanking
+        : getReciboTaxas(recibo) * rankingGrupo.fatorTaxas;
 
-      const vendedorId = toStr((vendaPrincipal as any)?.vendedor_id);
+      const vendedorId =
+        toStr((recibo as any)?.rateio_scope_vendor_id) ||
+        toStr((recibo as any)?.vendedor_id) ||
+        toStr((vendaPrincipal as any)?.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&
@@ -822,15 +900,17 @@ export async function fetchVendasKpiReciboContributions(
     });
     const recibosUnique = Array.from(recibosByKey.values());
     const somaBrutoRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboBruto(recibo), 0);
+    const somaTaxasRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboTaxas(recibo), 0);
 
     const linkedNaoComissionado = toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0);
     const naoComissionadoSemRecibo = toNum(naoComissionadoPorVenda.porVendaSemRecibo.get(vendaKey) || 0);
     const usarModoPorRecibo = linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
     const naoComissionadoTotalPagamentos = Math.max(0, toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0));
-    const fatorComissionavel =
-      !usarModoPorRecibo && somaBrutoRecibos > 0
-        ? Math.max(0, Math.min(1, (somaBrutoRecibos - naoComissionadoTotalPagamentos) / somaBrutoRecibos))
-        : 1;
+    const rankingGrupo = calcularRankingComissionavel({
+      valorBruto: somaBrutoRecibos,
+      valorTaxas: somaTaxasRecibos,
+      valorNaoComissionado: usarModoPorRecibo ? 0 : naoComissionadoTotalPagamentos
+    });
 
     const recibosPeriodo = recibosUnique.filter((recibo) => {
       const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
@@ -845,19 +925,30 @@ export async function fetchVendasKpiReciboContributions(
 
     recibosPeriodo.forEach((recibo) => {
       const reciboId = toStr(recibo?.id);
-      const naoComissionadoRecibo = usarModoPorRecibo && reciboId
+      const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
+      const naoComissionadoRecibo = usarModoPorRecibo && reciboId && !reciboJaAjustadoPorConciliacao
         ? toNum(naoComissionadoPorVenda.porRecibo.get(reciboId) || 0)
         : 0;
 
-      const fatorRecibo = usarModoPorRecibo ? 1 : fatorComissionavel;
       const sourceBruto = getReciboBruto(recibo);
       const sourceTaxas = getReciboTaxas(recibo);
+      const rankingRecibo = calcularRankingComissionavel({
+        valorBruto: sourceBruto,
+        valorTaxas: sourceTaxas,
+        valorNaoComissionado: usarModoPorRecibo ? naoComissionadoRecibo : 0
+      });
+      const fatorRecibo = usarModoPorRecibo ? rankingRecibo.fatorValor : rankingGrupo.fatorValor;
       const bruto = usarModoPorRecibo
-        ? Math.max(0, sourceBruto - naoComissionadoRecibo)
+        ? rankingRecibo.valorRanking
         : sourceBruto * fatorRecibo;
-      const taxasEfetivas = sourceTaxas * fatorRecibo;
+      const taxasEfetivas = usarModoPorRecibo
+        ? rankingRecibo.valorTaxasRanking
+        : sourceTaxas * rankingGrupo.fatorTaxas;
 
-      const vendedorId = toStr((vendaPrincipal as any)?.vendedor_id);
+      const vendedorId =
+        toStr((recibo as any)?.rateio_scope_vendor_id) ||
+        toStr((recibo as any)?.vendedor_id) ||
+        toStr((vendaPrincipal as any)?.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&
@@ -1000,15 +1091,17 @@ export async function fetchAndComputeVendasTimeline(
     });
     const recibosUnique = Array.from(recibosByKey.values());
     const somaBrutoRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboBruto(recibo), 0);
+    const somaTaxasRecibos = recibosUnique.reduce((acc, recibo) => acc + getReciboTaxas(recibo), 0);
 
     const linkedNaoComissionado = toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0);
     const naoComissionadoSemRecibo = toNum(naoComissionadoPorVenda.porVendaSemRecibo.get(vendaKey) || 0);
     const usarModoPorRecibo = linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
     const naoComissionadoTotalPagamentos = Math.max(0, toNum(naoComissionadoPorVenda.porVenda.get(vendaKey) || 0));
-    const fatorComissionavel =
-      !usarModoPorRecibo && somaBrutoRecibos > 0
-        ? Math.max(0, Math.min(1, (somaBrutoRecibos - naoComissionadoTotalPagamentos) / somaBrutoRecibos))
-        : 1;
+    const rankingGrupo = calcularRankingComissionavel({
+      valorBruto: somaBrutoRecibos,
+      valorTaxas: somaTaxasRecibos,
+      valorNaoComissionado: usarModoPorRecibo ? 0 : naoComissionadoTotalPagamentos
+    });
 
     const recibosPeriodo = recibosUnique.filter((recibo) => {
       const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
@@ -1017,16 +1110,25 @@ export async function fetchAndComputeVendasTimeline(
 
     recibosPeriodo.forEach((recibo) => {
       const reciboId = toStr(recibo?.id);
-      const naoComissionadoRecibo = usarModoPorRecibo && reciboId
+      const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
+      const naoComissionadoRecibo = usarModoPorRecibo && reciboId && !reciboJaAjustadoPorConciliacao
         ? toNum(naoComissionadoPorVenda.porRecibo.get(reciboId) || 0)
         : 0;
 
-      const fatorRecibo = usarModoPorRecibo ? 1 : fatorComissionavel;
+      const rankingRecibo = calcularRankingComissionavel({
+        valorBruto: getReciboBruto(recibo),
+        valorTaxas: getReciboTaxas(recibo),
+        valorNaoComissionado: usarModoPorRecibo ? naoComissionadoRecibo : 0
+      });
+      const fatorRecibo = usarModoPorRecibo ? rankingRecibo.fatorValor : rankingGrupo.fatorValor;
       const bruto = usarModoPorRecibo
-        ? Math.max(0, getReciboBruto(recibo) - naoComissionadoRecibo)
+        ? rankingRecibo.valorRanking
         : getReciboBruto(recibo) * fatorRecibo;
 
-      const vendedorId = toStr((vendaPrincipal as any)?.vendedor_id);
+      const vendedorId =
+        toStr((recibo as any)?.rateio_scope_vendor_id) ||
+        toStr((recibo as any)?.vendedor_id) ||
+        toStr((vendaPrincipal as any)?.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&

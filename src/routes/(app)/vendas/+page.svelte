@@ -10,6 +10,8 @@
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
   interface Venda {
     id: string;
@@ -78,7 +80,7 @@
       label: 'Embarque',
       sortable: true,
       width: '120px',
-      formatter: (value: string | null) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
+      formatter: (value: string | null) => formatDate(value)
     },
     {
       key: 'valor_total',
@@ -164,11 +166,10 @@
   }
 
   function getCurrentMonthRange() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const now = todayISODateLocal();
     return {
-      inicio: start.toISOString().slice(0, 10),
-      fim: now.toISOString().slice(0, 10)
+      inicio: `${now.slice(0, 7)}-01`,
+      fim: now
     };
   }
 

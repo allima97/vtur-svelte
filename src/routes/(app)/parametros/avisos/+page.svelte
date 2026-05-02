@@ -10,6 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type MessageTemplate = {
     id: string;
     nome: string;
@@ -128,7 +129,7 @@
   }
 
   async function deleteTemplate(id: string) {
-    if (!confirm('Deseja excluir este template?')) return;
+    if (!(await confirmAction('Deseja excluir este template?'))) return;
     deletingId = id;
     try {
       const response = await fetch('/api/v1/admin/crm', {

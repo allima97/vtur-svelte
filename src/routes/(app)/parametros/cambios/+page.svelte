@@ -9,7 +9,10 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
+  import { todayISODateLocal } from '$lib/date';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Cambio = {
     id: string;
     moeda: string;
@@ -28,7 +31,7 @@
 
   const MOEDAS = ['USD', 'EUR', 'ARS', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'MXN', 'CLP', 'UYU', 'PYG'];
 
-  let form = { moeda: 'USD', data: new Date().toISOString().slice(0, 10), valor: '' };
+  let form = { moeda: 'USD', data: todayISODateLocal(), valor: '' };
 
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('cambios', 'edit') || permissoes.can('parametros', 'edit');
   $: canDelete = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('cambios', 'delete') || permissoes.can('parametros', 'delete');
@@ -40,7 +43,7 @@
       label: 'Data',
       sortable: true,
       width: '120px',
-      formatter: (value: string) => value ? new Date(value + 'T00:00:00').toLocaleDateString('pt-BR') : '-'
+      formatter: (value: string) => formatDate(value)
     },
     {
       key: 'valor',
@@ -76,7 +79,7 @@
 
   function openNew() {
     editingId = null;
-    form = { moeda: 'USD', data: new Date().toISOString().slice(0, 10), valor: '' };
+    form = { moeda: 'USD', data: todayISODateLocal(), valor: '' };
     modalOpen = true;
   }
 
@@ -119,7 +122,7 @@
   }
 
   async function deleteCambio(id: string) {
-    if (!confirm('Deseja excluir este câmbio?')) return;
+    if (!(await confirmAction('Deseja excluir este câmbio?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/parametros/cambios?id=${id}`, { method: 'DELETE' });

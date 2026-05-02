@@ -34,6 +34,8 @@
   import { extractCruzeiroFromText } from '$lib/vendas/cruzeiroExtractor';
   import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
   import { extractFacialCvcFromText } from '$lib/vendas/facialCvcExtractor';
+  import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
+  import { todayISODateLocal } from '$lib/date';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
   type ContratoDraftUI = ContratoDraft & {
@@ -170,7 +172,7 @@
   }
 
   onMount(async () => {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = todayISODateLocal();
     dataVenda = hoje;
     await loadCadastroBase();
   });
@@ -367,6 +369,20 @@
     return contrato.usar_cidade_padrao === false ? String(contrato.destino_cidade_id || '') : cidadeId;
   }
 
+  function normalizeImportedClienteNames(c: ContratoDraft): ContratoDraft {
+    const contratanteNome = sanitizeImportedClienteNome(c.contratante?.nome);
+    return {
+      ...c,
+      contratante: c.contratante
+        ? { ...c.contratante, nome: contratanteNome || c.contratante.nome }
+        : c.contratante,
+      passageiros: (c.passageiros || []).map((p) => {
+        const passageiroNome = sanitizeImportedClienteNome(p.nome);
+        return { ...p, nome: passageiroNome || p.nome };
+      })
+    };
+  }
+
   function getCidadeNomeById(cidadeIdAtual: string) {
     if (!cidadeIdAtual) return 'Não informada';
     const cidade = cidadesDisponiveis.find((item) => item.id === cidadeIdAtual) || resultadosCidade.find((item) => item.id === cidadeIdAtual);
@@ -460,6 +476,8 @@
         toast.error('Nenhum contrato encontrado no texto informado.');
         return;
       }
+
+      result.contratos = result.contratos.map(normalizeImportedClienteNames);
 
       // Facial Rextur e Facial CVC não têm CPF — solicitar antes de continuar
       const semCpf = tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc';
@@ -608,8 +626,11 @@
     const skipTipo = tipoImportacao === 'roteiro' || tipoImportacao === 'facial_rextur' || tipoImportacao === 'facial_cvc';
     const missingTipo = contratos.find((c) => !c.tipo_pacote && !skipTipo);
     if (missingTipo) return 'Todos os contratos devem ter um tipo de pacote.';
-    const missingProduto = contratos.find((c) => !c.produto_resolvido_id);
-    if (missingProduto) return 'Selecione o produto de cada recibo antes de salvar.';
+    const missingProduto = contratos.find((c) => {
+      if (c.produto_resolvido_id) return false;
+      return !String(c.produto_principal || c.produto_tipo || c.produto_detalhes || c.destino || '').trim();
+    });
+    if (missingProduto) return 'Informe ou selecione o produto de cada recibo antes de salvar.';
     const missingCidade = contratos.find((c) => !getCidadeContratoId(c));
     if (missingCidade) return 'Selecione a cidade de todos os recibos antes de salvar.';
     return null;
@@ -1008,7 +1029,7 @@
           label="Data da venda"
           type="date"
           bind:value={dataVenda}
-          max={new Date().toISOString().slice(0, 10)}
+          max={todayISODateLocal()}
         />
         {#if canAssignVendedor}
           <FieldSelect

@@ -23,6 +23,10 @@ function normalizeReciboLookupId(value?: unknown) {
   return raw.replace(/::rateio:[^:]+$/i, "").replace(/:recibo$/i, "");
 }
 
+function isAplicavelRateio(row: any) {
+  return toNumber(row?.percentual_origem) > 0 && toNumber(row?.percentual_destino) > 0;
+}
+
 function normalizeCompanyScopeIds(companyId?: string | null, companyIds?: string[] | null) {
   return Array.from(
     new Set([companyId, ...(companyIds || [])].map((value) => toStr(value)).filter(Boolean))
@@ -98,6 +102,7 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
       .in("venda_recibo_id", chunk);
     if (byVendaErr) throw byVendaErr;
     (byVendaRecibo || []).forEach((row: any) => {
+      if (!isAplicavelRateio(row)) return;
       const key = toStr(row?.venda_recibo_id);
       if (key) map.set(key, row as RateioRow);
     });
@@ -111,6 +116,7 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
       .in("conciliacao_recibo_id", chunk);
     if (byConcErr) throw byConcErr;
     (byConcRecibo || []).forEach((row: any) => {
+      if (!isAplicavelRateio(row)) return;
       const key = toStr(row?.conciliacao_recibo_id);
       if (key) map.set(key, row as RateioRow);
       byConcReciboRows.push(row);

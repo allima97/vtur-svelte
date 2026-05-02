@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type MfaFactor = {
     id: string;
     friendly_name?: string | null;
@@ -100,7 +101,7 @@
   }
 
   async function removeFactor(factorId: string) {
-    if (!confirm('Deseja remover este fator de autenticação? Você precisará configurar novamente para usar 2FA.')) return;
+    if (!(await confirmAction('Deseja remover este fator de autenticação? Você precisará configurar novamente para usar 2FA.'))) return;
 
     removing = true;
     error = null;

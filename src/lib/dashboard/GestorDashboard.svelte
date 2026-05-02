@@ -10,6 +10,8 @@
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { goto } from '$app/navigation';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   export let title = 'Dashboard do gestor';
   export let subtitle = 'Visão consolidada da equipe e desempenho comercial.';
@@ -73,10 +75,8 @@
   let podeVerOperacao = false;
 
   function getDefaultPeriod() {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    return { inicio: `${y}-${m}-01`, fim: today.toISOString().slice(0, 10) };
+    const today = todayISODateLocal();
+    return { inicio: `${today.slice(0, 7)}-01`, fim: today };
   }
 
   const defaultPeriod = getDefaultPeriod();
@@ -93,6 +93,7 @@
   let vendedoresFiltro: { id: string; nome: string }[] = [];
   let filtrosInicializados = false;
   let lastAppliedFilterKey = '';
+  let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
 
   let vendasAgg: NonNullable<SummaryPayload['vendasAgg']> = {
@@ -116,8 +117,7 @@
   }
 
   function formatDate(value: string | null | undefined) {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function clamp(value: number, min: number, max: number) {
@@ -185,11 +185,7 @@
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
     if (!/^\d{4}-\d{2}$/.test(raw)) return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
-    const [yearText, monthText] = raw.split('-');
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const lastDay = new Date(year, month, 0).getDate();
-    return { inicio: `${yearText}-${monthText}-01`, fim: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}` };
+    return monthRangeFromKey(raw) || { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
   }
 
   function goToRanking() {
@@ -232,12 +228,21 @@
 
   async function loadBase() {
     try {
-      const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>('/api/v1/relatorios/base');
+      const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
+        '/api/v1/dashboard/base',
+        { empresa_id: empresaSelecionada || undefined }
+      );
       empresas = data.empresas || [];
       vendedoresFiltro = data.vendedores || [];
+      if (vendedorSelecionado && !vendedoresFiltro.some((item) => item.id === vendedorSelecionado)) {
+        vendedorSelecionado = '';
+      }
     } catch {
       empresas = [];
       vendedoresFiltro = [];
+      vendedorSelecionado = '';
+    } finally {
+      lastBaseCompanyId = empresaSelecionada;
     }
   }
 
@@ -297,6 +302,9 @@
   }
 
   async function atualizar() {
+    if (empresaSelecionada !== lastBaseCompanyId) {
+      await loadBase();
+    }
     await loadDashboard();
     await loadOperational();
   }

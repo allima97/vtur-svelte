@@ -13,8 +13,87 @@ import {
   getVendaVendedorNome,
   getVendaClienteNome
 } from '$lib/server/relatorios';
-import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
-import { applyPersistedComissao, buildPersistedComissaoKey, fetchPersistedComissoes } from '$lib/server/comissoes-registro';
+import { resolveGroupedReceiptCommissions } from '$lib/server/comissoes';
+import {
+  applyPersistedComissao,
+  buildPersistedReciboComissaoKey,
+  fetchPersistedComissoes
+} from '$lib/server/comissoes-registro';
+import { monthRangeFromKey, monthRangeFromYearMonth, parseISODateParts, todayISODateLocal } from '$lib/date';
+
+function toNum(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundMoney(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function scaleCommissionPart(part: number, calculatedTotal: number, appliedTotal: number) {
+  const total = toNum(calculatedTotal);
+  const applied = toNum(appliedTotal);
+  if (total <= 0 || applied <= 0) return 0;
+  return roundMoney((toNum(part) / total) * applied);
+}
+
+function getReciboValor(recibo: any) {
+  return Math.max(0, toNum(recibo?.valor_total) - toNum(recibo?.valor_rav));
+}
+
+function getReciboCodigo(recibo: any) {
+  return String(recibo?.numero_recibo || recibo?.numero_reserva || '').trim();
+}
+
+function getReciboProduto(recibo: any) {
+  return String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || 'Produto sem nome');
+}
+
+function normalizeRowsToReceiptPeriod(rows: any[]) {
+  return (rows || []).map((row) => {
+    const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
+    const firstReceiptDate = recibos.find((recibo: any) => recibo?.data_venda)?.data_venda;
+    return firstReceiptDate ? { ...row, data_venda: firstReceiptDate } : row;
+  });
+}
+
+function resolvePeriodoComissoes(searchParams: URLSearchParams) {
+  const dataInicio = String(searchParams.get('data_inicio') || searchParams.get('inicio') || '').trim();
+  const dataFim = String(searchParams.get('data_fim') || searchParams.get('fim') || '').trim();
+  if (dataInicio || dataFim) {
+    return {
+      dataInicio: dataInicio || null,
+      dataFim: dataFim || null
+    };
+  }
+
+  const mesParam = String(searchParams.get('mes') || '').trim();
+  const anoParam = String(searchParams.get('ano') || '').trim();
+  const matchMesAno = mesParam.match(/^(\d{4})-(\d{2})$/);
+
+  if (matchMesAno) {
+    const range = monthRangeFromKey(mesParam);
+    if (range) return { dataInicio: range.inicio, dataFim: range.fim };
+  }
+
+  if (mesParam || anoParam) {
+    const today = parseISODateParts(todayISODateLocal());
+    const month = Number(mesParam || today?.month || new Date().getMonth() + 1);
+    const year = Number(anoParam || today?.year || new Date().getFullYear());
+    if (Number.isFinite(month) && Number.isFinite(year) && month >= 1 && month <= 12) {
+      const range = monthRangeFromYearMonth(year, month);
+      return {
+        dataInicio: range.inicio,
+        dataFim: range.fim
+      };
+    }
+  }
+
+  return {
+    dataInicio: null,
+    dataFim: null
+  };
+}
 
 export async function GET(event) {
   try {
@@ -23,76 +102,112 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['financeiro', 'comissoes'], 1, 'Sem acesso a Comissoes.');
+      ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 1, 'Sem acesso a Comissões.');
     }
 
     const { searchParams } = event.url;
     const status = searchParams.get('status');
     const vendedorIdParam = searchParams.get('vendedor_id');
+    const periodo = resolvePeriodoComissoes(searchParams);
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
-    let vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids'));
-
-    // vendedor_id avulso tem prioridade sobre lista
-    if (vendedorIdParam && vendedorIds.length === 0) {
-      vendedorIds = [vendedorIdParam];
-    }
+    const vendedorIds = await resolveScopedVendedorIds(
+      client,
+      scope,
+      vendedorIdParam || searchParams.get('vendedor_ids')
+    );
 
     const rows = await fetchSalesReportRows(client, {
+      dataInicio: periodo.dataInicio,
+      dataFim: periodo.dataFim,
       companyIds,
-      vendedorIds
+      vendedorIds,
+      filterByReceiptDate: Boolean(periodo.dataInicio || periodo.dataFim)
     });
-    const commissionContext = await fetchCommissionContext(client, { companyIds, rows });
+    const rowsForComissao = normalizeRowsToReceiptPeriod(rows);
+    const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, { companyIds, rows: rowsForComissao });
+    const reciboIds = rowsForComissao
+      .flatMap((row: any) => (Array.isArray(row?.recibos) ? row.recibos : []))
+      .map((recibo: any) => String(recibo?.id || '').trim())
+      .filter(Boolean);
     const persistedSnapshot = await fetchPersistedComissoes(client, {
       companyIds,
       vendaIds: rows.map((row) => row.id),
+      reciboIds,
       vendedorIds: rows.map((row) => String(row.vendedor_id || '')).filter(Boolean)
     });
     const persistedByKey = new Map(
-      persistedSnapshot.rows.map((row) => [buildPersistedComissaoKey(row.venda_id, row.vendedor_id), row] as const)
+      persistedSnapshot.rows.map((row) => [
+        buildPersistedReciboComissaoKey(row.recibo_id, row.vendedor_id, row.venda_id),
+        row
+      ] as const)
     );
 
-    let items = rows.map((row) => {
-      const commission = resolveVendaCommission(row, commissionContext);
-      const persisted = persistedByKey.get(buildPersistedComissaoKey(row.id, row.vendedor_id));
-      const persistedApplied = applyPersistedComissao(
-        {
-          valor_venda: commission.valorVenda,
-          valor_comissionavel: commission.valorComissionavel,
-          percentual_aplicado: commission.percentual,
-          valor_comissao: commission.valorComissao,
-          valor_pago: 0,
-          status: 'pendente'
-        },
-        persisted
+    let items = rowsForComissao.flatMap((row: any) => {
+      const recibos = (Array.isArray(row?.recibos) ? row.recibos : []).filter(
+        (recibo: any) => recibo && !recibo?.cancelado_por_conciliacao_em
       );
 
-      return {
-        id: row.id,
-        venda_id: row.id,
-        numero_venda: row.numero_venda,
-        cliente: getVendaClienteNome(row),
-        cliente_id: row.cliente_id,
-        vendedor: getVendaVendedorNome(row),
-        vendedor_short: (getVendaVendedorNome(row) || '').slice(0, 20),
-        vendedor_label: (getVendaVendedorNome(row) || ''),
-        vendedor_id: row.vendedor_id,
-        valor_venda: persistedApplied.valor_venda,
-        valor_comissionavel: persistedApplied.valor_comissionavel,
-        percentual_aplicado: persistedApplied.percentual_aplicado,
-        regra_nome: commission.regraNome,
-        tipo_pacote: commission.tipoPacote,
-        valor_comissao: persistedApplied.valor_comissao,
-        valor_pago: persistedApplied.valor_pago,
-        valor_taxas: Number(row.valor_taxas || 0),
-        data_venda: row.data_venda,
-        data_embarque: row.data_embarque,
-        status: persistedApplied.status,
-        // Parity alias for UI/templates
-        status_label: persistedApplied.status,
-        data_pagamento: persisted?.data_pagamento || null,
-        observacoes_pagamento: persisted?.observacoes_pagamento || null
-      };
-    });
+      return recibos.map((recibo: any) => {
+        const reciboId = String(recibo?.id || '').trim();
+        const commission = reciboId ? resolvedByReceiptId.get(reciboId) : undefined;
+        if (!reciboId || !commission) return null;
+
+        const persisted = persistedByKey.get(buildPersistedReciboComissaoKey(reciboId, row.vendedor_id, row.id));
+        const persistedApplied = applyPersistedComissao(
+          {
+            valor_venda: getReciboValor(recibo),
+            valor_comissionavel: commission.valorComissionavel,
+            percentual_aplicado: commission.percentual,
+            valor_comissao: commission.valorComissao,
+            valor_pago: 0,
+            status: 'pendente'
+          },
+          persisted
+        );
+        const valorComissaoSeguro = scaleCommissionPart(
+          commission.valorComissaoSeguro,
+          commission.valorComissao,
+          persistedApplied.valor_comissao
+        );
+        const valorComissaoGeral = roundMoney(Math.max(0, persistedApplied.valor_comissao - valorComissaoSeguro));
+
+        const numeroRecibo = getReciboCodigo(recibo);
+
+        return {
+          id: reciboId,
+          venda_id: row.id,
+          recibo_id: reciboId,
+          numero_venda: row.numero_venda,
+          numero_recibo: numeroRecibo || `REC-${reciboId.slice(0, 8).toUpperCase()}`,
+          numero_reserva: recibo?.numero_reserva || null,
+          produto: getReciboProduto(recibo),
+          cliente: getVendaClienteNome(row),
+          cliente_id: row.cliente_id,
+          vendedor: getVendaVendedorNome(row),
+          vendedor_short: (getVendaVendedorNome(row) || '').slice(0, 20),
+          vendedor_label: (getVendaVendedorNome(row) || ''),
+          vendedor_id: row.vendedor_id,
+          valor_venda: persistedApplied.valor_venda,
+          valor_comissionavel: persistedApplied.valor_comissionavel,
+          percentual_aplicado: persistedApplied.percentual_aplicado,
+          percentual_comissao_geral: commission.percentualComissaoGeral,
+          percentual_seguro: commission.percentualSeguro,
+          regra_nome: commission.regraNome,
+          tipo_pacote: recibo?.tipo_pacote || null,
+          valor_comissao: persistedApplied.valor_comissao,
+          valor_comissao_geral: valorComissaoGeral,
+          valor_comissao_seguro: valorComissaoSeguro,
+          valor_pago: persistedApplied.valor_pago,
+          valor_taxas: Number(recibo?.valor_taxas || 0),
+          data_venda: recibo?.data_venda || row.data_venda,
+          data_embarque: row.data_embarque,
+          status: persistedApplied.status,
+          status_label: persistedApplied.status,
+          data_pagamento: persisted?.data_pagamento || null,
+          observacoes_pagamento: persisted?.observacoes_pagamento || null
+        };
+      });
+    }).filter(Boolean) as any[];
 
     if (status && status !== 'todas') {
       items = items.filter((c) => c.status === status);
@@ -106,11 +221,15 @@ export async function GET(event) {
         vendedor_nome: c.vendedor,
         total_vendas: 0,
         total_comissao: 0,
+        total_comissao_geral: 0,
+        total_comissao_seguro: 0,
         total_pago: 0,
         total_pendente: 0
       };
       atual.total_vendas += 1;
       atual.total_comissao += c.valor_comissao;
+      atual.total_comissao_geral += c.valor_comissao_geral || 0;
+      atual.total_comissao_seguro += c.valor_comissao_seguro || 0;
       if (c.status === 'pago') {
         atual.total_pago += c.valor_pago || c.valor_comissao;
       } else if (c.status !== 'cancelada') {

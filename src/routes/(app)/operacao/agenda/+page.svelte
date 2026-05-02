@@ -14,6 +14,7 @@
   import { FieldInput, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { confirmAction } from '$lib/stores/confirm';
   import {
     CalendarDays,
     Clock3,
@@ -375,7 +376,7 @@
 
   async function deleteEvent() {
     if (!selectedEventId) return;
-    if (!window.confirm('Deseja excluir este evento?')) return;
+    if (!(await confirmAction('Deseja excluir este evento?'))) return;
 
     try {
       const response = await fetch(`/api/v1/agenda/delete?id=${selectedEventId}`, {

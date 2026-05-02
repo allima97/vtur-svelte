@@ -11,6 +11,8 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
+  import { monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import {
     TrendingUp,
     ShoppingCart,
@@ -138,12 +140,10 @@
 
 
   function getDefaultPeriod() {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const today = todayISODateLocal();
     return {
-      inicio: `${y}-${m}-01`,
-      fim: today.toISOString().slice(0, 10)
+      inicio: `${today.slice(0, 7)}-01`,
+      fim: today
     };
   }
 
@@ -158,6 +158,7 @@
   let vendedorSelecionado = '';
   let filtrosInicializados = false;
   let lastAppliedFilterKey = '';
+  let lastBaseCompanyId = '';
   let applyFiltersTimer: ReturnType<typeof setTimeout> | null = null;
 
   let vendasAgg: VendasAgg = {
@@ -210,9 +211,7 @@
   }
 
   function formatDate(value: string | null | undefined): string {
-    if (!value) return '-';
-    const [y, m, d] = String(value).slice(0, 10).split('-');
-    return `${d}/${m}/${y}`;
+    return formatDateValue(value);
   }
 
   function formatDateTime(value: string | null | undefined): string {
@@ -222,26 +221,24 @@
   }
 
   function formatAgeFromBirthDate(value: string | null | undefined): number | null {
-    if (!value) return null;
-    const birth = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(birth.getTime())) return null;
+    const birth = parseISODateParts(value);
+    const today = parseISODateParts(todayISODateLocal());
+    if (!birth || !today) return null;
 
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    const dayDiff = today.getDate() - birth.getDate();
+    let age = today.year - birth.year;
+    const monthDiff = today.month - birth.month;
+    const dayDiff = today.day - birth.day;
     if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) age -= 1;
     return Math.max(0, age);
   }
 
   function formatBirthdayContext(value: string | null | undefined): string {
-    if (!value) return '-';
-    const birth = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(birth.getTime())) return '-';
+    const birth = parseISODateParts(value);
+    const today = parseISODateParts(todayISODateLocal());
+    if (!birth || !today) return '-';
 
-    const today = new Date();
-    const sameMonth = birth.getMonth() === today.getMonth();
-    const dayDelta = birth.getDate() - today.getDate();
+    const sameMonth = birth.month === today.month;
+    const dayDelta = birth.day - today.day;
     if (sameMonth && dayDelta === 0) return 'Hoje';
     if (sameMonth && dayDelta === 1) return 'Amanha';
     return formatDate(value);
@@ -295,14 +292,7 @@
       return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
     }
 
-    const [yearText, monthText] = raw.split('-');
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const lastDay = new Date(year, month, 0).getDate();
-    return {
-      inicio: `${yearText}-${monthText}-01`,
-      fim: `${yearText}-${monthText}-${String(lastDay).padStart(2, '0')}`
-    };
+    return monthRangeFromKey(raw) || { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
   }
 
   function syncUrl() {
@@ -482,12 +472,21 @@
 
   async function loadBase() {
     try {
-      const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>('/api/v1/relatorios/base');
+      const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
+        '/api/v1/dashboard/base',
+        { empresa_id: empresaSelecionada || undefined }
+      );
       empresas = data.empresas || [];
       vendedoresFiltro = data.vendedores || [];
+      if (vendedorSelecionado && !vendedoresFiltro.some((item) => item.id === vendedorSelecionado)) {
+        vendedorSelecionado = '';
+      }
     } catch {
       empresas = [];
       vendedoresFiltro = [];
+      vendedorSelecionado = '';
+    } finally {
+      lastBaseCompanyId = empresaSelecionada;
     }
   }
 
@@ -611,6 +610,9 @@
   }
 
   async function atualizar() {
+    if (empresaSelecionada !== lastBaseCompanyId) {
+      await loadBase();
+    }
     await loadDashboard();
     await loadOperacional();
   }

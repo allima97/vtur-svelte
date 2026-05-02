@@ -15,6 +15,7 @@
   import { toast } from '$lib/stores/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { fade } from 'svelte/transition';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord } from '$lib/vouchers/types';
 
   let voucher: VoucherRecord | null = null;
@@ -149,8 +150,7 @@
   }
 
   function formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return formatDateValue(dateString);
   }
 
   function formatDateRange(inicio: string | null | undefined, fim: string | null | undefined): string {

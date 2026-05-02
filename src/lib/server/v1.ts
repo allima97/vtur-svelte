@@ -3,6 +3,10 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { listarModulosComHeranca, MAPA_MODULOS, MODULO_ALIASES } from '$lib/config/modulos';
+import {
+  currentMonthRangeISODate,
+  toISODateLocal as formatISODateLocal
+} from '$lib/date';
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
 class ApiError extends Error {
@@ -100,12 +104,12 @@ export function parseIntSafe(value: string | null, fallback: number) {
 }
 
 export function toISODateLocal(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
-    date.getDate()
-  ).padStart(2, '0')}`;
+  return formatISODateLocal(date);
 }
 
-export function getMonthRange(reference = new Date()) {
+export function getMonthRange(reference?: Date) {
+  if (!reference) return currentMonthRangeISODate();
+
   const start = new Date(reference.getFullYear(), reference.getMonth(), 1);
   const end = new Date(reference.getFullYear(), reference.getMonth() + 1, 0);
 
@@ -146,7 +150,7 @@ export function permLevel(value?: string | null) {
   }
 }
 
-function resolveUserTypeName(
+export function resolveUserTypeName(
   userTypes: { name: string | null } | { name: string | null }[] | null | undefined
 ) {
   if (Array.isArray(userTypes)) {
@@ -154,6 +158,51 @@ function resolveUserTypeName(
   }
 
   return String(userTypes?.name || '');
+}
+
+export function isTechnicalRankingUserName(value?: string | null) {
+  const normalized = normalizeText(value).replace(/\s+/g, ' ');
+  return normalized === 'baixa rac' || normalized === 'equipe vtur';
+}
+
+export function isRankingEligibleUser(row: any) {
+  if (!row?.id) return false;
+  if (row?.active === false) return false;
+  if (row?.uso_individual === true) return false;
+  if (isTechnicalRankingUserName(row?.nome_completo || row?.email)) return false;
+
+  const tipoNome = resolveUserTypeName(row?.user_types).toUpperCase();
+  const isVendedor = tipoNome.includes('VENDEDOR');
+  const isGestorParticipante = tipoNome.includes('GESTOR') && Boolean(row?.participa_ranking);
+
+  return isVendedor || isGestorParticipante;
+}
+
+export async function fetchRankingVendedoresByCompanyIds(
+  client: SupabaseClient,
+  companyIds: string[]
+) {
+  const scopedCompanyIds = Array.from(new Set((companyIds || []).map((id) => String(id || '').trim()).filter(isUuid)));
+  if (scopedCompanyIds.length === 0) return [] as any[];
+
+  let query = client
+    .from('users')
+    .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
+    .eq('active', true)
+    .eq('uso_individual', false)
+    .limit(5000);
+
+  query = scopedCompanyIds.length === 1
+    ? query.eq('company_id', scopedCompanyIds[0])
+    : query.in('company_id', scopedCompanyIds);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).filter((row: any) => {
+    const companyId = String(row?.company_id || '').trim();
+    return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
+  });
 }
 
 function buildPermissionsMap(rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>) {
@@ -264,27 +313,9 @@ export async function fetchVendedorIdsByCompanyIds(
   if (companyIds.length === 0) return [];
 
   try {
-    let query = client
-      .from('users')
-      .select('id, active, uso_individual, user_types(name), company_id')
-      .eq('active', true)
-      .eq('uso_individual', false)
-      .limit(1000);
-
-    query = companyIds.length === 1
-      ? query.eq('company_id', companyIds[0])
-      : query.in('company_id', companyIds);
-
-    const { data, error } = await query;
-    if (error) throw error;
+    const data = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     return (data || [])
-      .filter((row: any) => {
-        if (!row?.id) return false;
-        const role = String((Array.isArray(row?.user_types) ? row.user_types[0]?.name : row?.user_types?.name) || '').toUpperCase();
-        if (role.includes('ADMIN') || role.includes('MASTER')) return false;
-        return true;
-      })
       .map((row: any) => String(row?.id || '').trim())
       .filter(Boolean);
   } catch {

@@ -1,16 +1,20 @@
 /**
  * POST /api/v1/conciliacao/fix-vinculos
  *
- * Corrige vínculos incorretos em conciliacao_recibos onde o numero_recibo
- * do vendas_recibos linkado não confere com o documento da conciliação.
+ * Auditoria de vinculos entre conciliacao_recibos e vendas_recibos.
  *
- * Isso ocorreu quando o match fuzzy (ilike) ligou um documento de conciliação
- * a um recibo de outro vendedor. A correção limpa venda_recibo_id, venda_id e
- * ranking_vendedor_id para que o próximo reconcile refaça o match corretamente.
+ * O modo padrao e dryRun=true: verifica numero do recibo, empresa, venda,
+ * vendedor da venda versus vendedor da conciliacao/ranking, valores, taxas,
+ * data e candidatos duplicados sem alterar dados.
  *
- * Apenas Admin, Master ou Gestor podem executar.
+ * Quando dryRun=false, a correcao e conservadora: apenas limpa vinculos
+ * inseguros (recibo inexistente, empresa/venda divergente ou numero que nao
+ * confere). Divergencias de valor, taxa, data e vendedor ficam como alerta para
+ * revisao manual: o erro pode estar na venda, na conciliacao ou em um rateio.
  */
 import { json } from '@sveltejs/kit';
+import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
+import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -19,9 +23,52 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { addDaysISODate, monthRangeFromKey } from '$lib/date';
+
+const MONEY_TOLERANCE = 0.01;
+const AUTO_FIX_CODES = new Set([
+  'RECIBO_INEXISTENTE',
+  'RECIBO_NUMERO_DIVERGENTE',
+  'EMPRESA_DIVERGENTE',
+  'VENDA_DIVERGENTE',
+  'VENDA_INEXISTENTE'
+]);
+
+type AuditSeverity = 'info' | 'warning' | 'critical';
+
+type AuditIssue = {
+  code: string;
+  severity: AuditSeverity;
+  title: string;
+  message: string;
+  expected?: string | number | null;
+  actual?: string | number | null;
+};
+
+function toStr(value: unknown) {
+  return String(value || '').trim();
+}
+
+function toNumber(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function monthKey(value?: string | null) {
+  const raw = toStr(value);
+  return /^\d{4}-\d{2}/.test(raw) ? raw.slice(0, 7) : '';
+}
+
+function addDays(date: string, days: number) {
+  return addDaysISODate(date, days);
+}
 
 function compactNumero(value?: string | null) {
-  return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  return normalizeReceiptKey(value);
 }
 
 function onlyDigits(value?: string | null) {
@@ -72,6 +119,128 @@ function numeroReciboMatches(left?: string | null, right?: string | null) {
   return true;
 }
 
+function isCvcReceiptLike(value?: string | null) {
+  const digits = onlyDigits(value);
+  const prefix = extractReciboPrefix(value);
+  return prefix === '5630' || digits.length >= 10;
+}
+
+function isManualRepeatingDoc(value?: string | null) {
+  const normalized = normalizeReceiptKey(value);
+  return normalized.includes('REXTUR') || /[A-Z]/.test(normalized);
+}
+
+function moneyMatches(left: number, right: number) {
+  return Math.abs(left - right) <= MONEY_TOLERANCE;
+}
+
+function maxSeverity(issues: AuditIssue[]) {
+  if (issues.some((issue) => issue.severity === 'critical')) return 'critical';
+  if (issues.some((issue) => issue.severity === 'warning')) return 'warning';
+  if (issues.some((issue) => issue.severity === 'info')) return 'info';
+  return 'ok';
+}
+
+function issue(code: string, severity: AuditSeverity, title: string, message: string, expected?: string | number | null, actual?: string | number | null): AuditIssue {
+  return { code, severity, title, message, expected, actual };
+}
+
+function hasAutoFixIssue(issues: AuditIssue[]) {
+  return issues.some((item) => AUTO_FIX_CODES.has(item.code));
+}
+
+function receiptMatchesDocument(row: any, recibo: any) {
+  return (
+    numeroReciboMatches(row?.documento, recibo?.numero_recibo) ||
+    numeroReciboMatches(row?.documento, recibo?.numero_recibo_normalizado)
+  );
+}
+
+function receiptLabel(recibo: any) {
+  return toStr(recibo?.numero_recibo) || toStr(recibo?.numero_recibo_normalizado) || '-';
+}
+
+async function fetchUsersMap(client: any, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids.map(toStr).filter(Boolean)));
+  const map = new Map<string, string>();
+  for (let index = 0; index < uniqueIds.length; index += 200) {
+    const batch = uniqueIds.slice(index, index + 200);
+    const { data, error } = await client
+      .from('users')
+      .select('id, nome_completo, email')
+      .in('id', batch);
+    if (error) throw error;
+    (data || []).forEach((row: any) => {
+      const id = toStr(row?.id);
+      if (!id) return;
+      map.set(id, toStr(row?.nome_completo) || toStr(row?.email) || id);
+    });
+  }
+  return map;
+}
+
+const CONCILIACAO_SELECT = `
+  id,
+  company_id,
+  documento,
+  movimento_data,
+  status,
+  descricao,
+  valor_lancamentos,
+  valor_taxas,
+  valor_descontos,
+  valor_abatimentos,
+  valor_nao_comissionavel,
+  valor_saldo,
+  valor_opfax,
+  valor_calculada_loja,
+  valor_visao_master,
+  valor_venda_real,
+  valor_comissao_loja,
+  percentual_comissao_loja,
+  faixa_comissao,
+  is_seguro_viagem,
+  conciliado,
+  venda_id,
+  venda_recibo_id,
+  ranking_vendedor_id,
+  ranking_produto_id,
+  sistema_valor_total,
+  sistema_valor_taxas,
+  match_total,
+  match_taxas,
+  diff_total,
+  diff_taxas,
+  last_checked_at,
+  conciliado_em
+`;
+
+const RECIBO_SELECT = `
+  id,
+  venda_id,
+  numero_recibo,
+  numero_recibo_normalizado,
+  numero_reserva,
+  data_venda,
+  valor_total,
+  valor_taxas,
+  valor_rav,
+  tipo_pacote,
+  produto_id,
+  tipo_produtos(id, nome, tipo),
+  venda:vendas!inner(
+    id,
+    company_id,
+    vendedor_id,
+    cliente_id,
+    data_venda,
+    data_lancamento,
+    valor_total,
+    valor_taxas,
+    cancelada
+  )
+`;
+
 export async function POST(event) {
   try {
     const client = getAdminClient();
@@ -79,69 +248,428 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão para corrigir vínculos.');
+      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissao para auditar vinculos.');
     }
 
     const body = await event.request.json().catch(() => ({}));
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
     const companyId = companyIds[0] || scope.companyId;
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Empresa nao identificada.' }, { status: 400 });
 
-    const dryRun = Boolean(body?.dryRun ?? true); // default: apenas diagnóstico, não corrige
-    const limit = Math.min(2000, Math.max(1, Number(body?.limit || 500)));
+    const dryRun = Boolean(body?.dryRun ?? true);
+    const limit = Math.min(5000, Math.max(1, Number(body?.limit || 500)));
+    const month = toStr(body?.month);
+    const conciliacaoReciboId = toStr(body?.conciliacaoReciboId || body?.conciliacaoId);
 
-    // Busca registros conciliados com venda_recibo_id preenchido
-    const { data: rows, error: rowsErr } = await client
+    let query = client
       .from('conciliacao_recibos')
-      .select('id, documento, venda_recibo_id, ranking_vendedor_id, conciliado')
+      .select(CONCILIACAO_SELECT)
       .eq('company_id', companyId)
-      .not('venda_recibo_id', 'is', null)
+      .order('movimento_data', { ascending: false })
       .limit(limit);
 
+    if (conciliacaoReciboId) {
+      query = query.eq('id', conciliacaoReciboId);
+    } else if (/^\d{4}-\d{2}$/.test(month)) {
+      const range = monthRangeFromKey(month);
+      if (range) query = query.gte('movimento_data', range.inicio).lte('movimento_data', range.fim);
+    }
+
+    const { data: rowsData, error: rowsErr } = await query;
     if (rowsErr) throw rowsErr;
-    if (!rows || rows.length === 0) return json({ ok: true, checked: 0, incorretos: 0, corrigidos: 0, dryRun });
 
-    // Busca todos os recibos referenciados de uma vez
-    const reciboIds = [...new Set((rows).map((r: any) => String(r.venda_recibo_id)).filter(Boolean))];
-    const { data: recibosData, error: recibosErr } = await client
+    const rows = Array.isArray(rowsData) ? rowsData : [];
+    if (rows.length === 0) {
+      return json({
+        ok: true,
+        checked: 0,
+        critical: 0,
+        warnings: 0,
+        infos: 0,
+        issues: 0,
+        corrigiveis: 0,
+        corrigidos: 0,
+        dryRun,
+        detalhes: []
+      });
+    }
+
+    const linkedReciboIds = Array.from(new Set(rows.map((row: any) => toStr(row?.venda_recibo_id)).filter(Boolean)));
+    const receiptById = new Map<string, any>();
+
+    for (let index = 0; index < linkedReciboIds.length; index += 200) {
+      const batch = linkedReciboIds.slice(index, index + 200);
+      const { data, error } = await client
+        .from('vendas_recibos')
+        .select(RECIBO_SELECT)
+        .in('id', batch);
+      if (error) throw error;
+      (data || []).forEach((recibo: any) => {
+        const id = toStr(recibo?.id);
+        if (id) receiptById.set(id, recibo);
+      });
+    }
+
+    const movementDates = rows.map((row: any) => toStr(row?.movimento_data)).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
+    let candidateStart = '';
+    let candidateEnd = '';
+    if (movementDates.length > 0) {
+      const sorted = [...movementDates].sort();
+      candidateStart = addDays(sorted[0], -60);
+      candidateEnd = addDays(sorted[sorted.length - 1], 60);
+    }
+
+    let candidateQuery = client
       .from('vendas_recibos')
-      .select('id, numero_recibo')
-      .in('id', reciboIds);
+      .select(RECIBO_SELECT)
+      .eq('venda.company_id', companyId)
+      .limit(10000);
 
-    if (recibosErr) throw recibosErr;
+    if (candidateStart && candidateEnd) {
+      candidateQuery = candidateQuery.gte('data_venda', candidateStart).lte('data_venda', candidateEnd);
+    }
 
-    const reciboNumeroMap = new Map<string, string>();
-    (recibosData || []).forEach((r: any) => {
-      reciboNumeroMap.set(String(r.id), String(r.numero_recibo || ''));
+    const { data: candidateData, error: candidateErr } = await candidateQuery;
+    if (candidateErr) throw candidateErr;
+    (candidateData || []).forEach((recibo: any) => {
+      const id = toStr(recibo?.id);
+      if (id) receiptById.set(id, recibo);
     });
 
-    // Identifica vínculos incorretos
-    const incorretos: Array<{ id: string; documento: string; numero_recibo: string; ranking_vendedor_id: string | null }> = [];
-    for (const row of rows) {
-      const documento = String(row.documento || '').trim();
-      const reciboId = String(row.venda_recibo_id || '').trim();
-      const numeroRecibo = reciboNumeroMap.get(reciboId) || '';
+    const allReceipts = Array.from(receiptById.values());
+    const allReceiptIds = allReceipts.map((recibo: any) => toStr(recibo?.id)).filter(Boolean);
+    const rateioByReciboId = new Map<string, any>();
 
-      if (!numeroReciboMatches(documento, numeroRecibo)) {
-        incorretos.push({
-          id: String(row.id),
-          documento,
-          numero_recibo: numeroRecibo,
-          ranking_vendedor_id: row.ranking_vendedor_id || null
-        });
+    for (let index = 0; index < allReceiptIds.length; index += 200) {
+      const batch = allReceiptIds.slice(index, index + 200);
+      const { data, error } = await client
+        .from('vendas_recibos_rateio')
+        .select('id, venda_recibo_id, vendedor_origem_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao')
+        .eq('ativo', true)
+        .in('venda_recibo_id', batch);
+      if (error) throw error;
+      (data || []).forEach((rateio: any) => {
+        const reciboId = toStr(rateio?.venda_recibo_id);
+        if (reciboId) rateioByReciboId.set(reciboId, rateio);
+      });
+    }
+
+    const userIds = new Set<string>();
+    rows.forEach((row: any) => {
+      const rankingId = toStr(row?.ranking_vendedor_id);
+      if (rankingId) userIds.add(rankingId);
+    });
+    allReceipts.forEach((recibo: any) => {
+      const vendedorId = toStr(recibo?.venda?.vendedor_id);
+      if (vendedorId) userIds.add(vendedorId);
+    });
+    rateioByReciboId.forEach((rateio: any) => {
+      const origem = toStr(rateio?.vendedor_origem_id);
+      const destino = toStr(rateio?.vendedor_destino_id);
+      if (origem) userIds.add(origem);
+      if (destino) userIds.add(destino);
+    });
+    const userNameById = await fetchUsersMap(client, Array.from(userIds));
+
+    const detalhes = rows.map((row: any) => {
+      const issues: AuditIssue[] = [];
+      const rowId = toStr(row?.id);
+      const documento = toStr(row?.documento);
+      const linkedReciboId = toStr(row?.venda_recibo_id);
+      const linkedVendaId = toStr(row?.venda_id);
+      const rankingVendedorId = toStr(row?.ranking_vendedor_id);
+      const linkedRecibo = linkedReciboId ? receiptById.get(linkedReciboId) : null;
+      const candidates = allReceipts.filter((recibo: any) => receiptMatchesDocument(row, recibo));
+      const uniqueCandidates = Array.from(new Map(candidates.map((recibo: any) => [toStr(recibo?.id), recibo])).values());
+
+      const metrics = buildConciliacaoMetrics({
+        descricao: row?.descricao,
+        valorLancamentos: toNumber(row?.valor_lancamentos),
+        valorTaxas: toNumber(row?.valor_taxas),
+        valorDescontos: toNumber(row?.valor_descontos),
+        valorAbatimentos: toNumber(row?.valor_abatimentos),
+        valorNaoComissionavel: toNumber(row?.valor_nao_comissionavel),
+        valorCalculadaLoja: toNumber(row?.valor_calculada_loja),
+        valorVisaoMaster: toNumber(row?.valor_visao_master),
+        valorOpfax: toNumber(row?.valor_opfax),
+        valorSaldo: toNumber(row?.valor_saldo),
+        valorComissaoLoja: toNumber(row?.valor_comissao_loja),
+        percentualComissaoLoja: toNumber(row?.percentual_comissao_loja)
+      });
+
+      if (linkedReciboId && !linkedRecibo) {
+        issues.push(issue(
+          'RECIBO_INEXISTENTE',
+          'critical',
+          'Recibo vinculado nao existe',
+          'A conciliacao guarda um venda_recibo_id que nao foi encontrado em vendas_recibos.',
+          linkedReciboId,
+          null
+        ));
       }
-    }
 
-    if (incorretos.length === 0) {
-      return json({ ok: true, checked: rows.length, incorretos: 0, corrigidos: 0, dryRun });
-    }
+      if (!linkedReciboId) {
+        if (uniqueCandidates.length === 1) {
+          issues.push(issue(
+            'SEM_VINCULO_COM_CANDIDATO',
+            'warning',
+            'Sem vinculo, mas ha candidato',
+            `Existe um recibo de venda com o mesmo documento: ${receiptLabel(uniqueCandidates[0])}. Rode a conciliacao pendente ou audite manualmente antes de atribuir ranking.`,
+            receiptLabel(uniqueCandidates[0]),
+            null
+          ));
+        } else if (uniqueCandidates.length > 1 && !isManualRepeatingDoc(documento)) {
+          issues.push(issue(
+            'MULTIPLOS_CANDIDATOS',
+            'warning',
+            'Mais de um candidato para o documento',
+            `Foram encontrados ${uniqueCandidates.length} recibos de venda parecidos com este documento.`,
+            uniqueCandidates.length,
+            null
+          ));
+        } else if (isCvcReceiptLike(documento)) {
+          issues.push(issue(
+            'SEM_VINCULO_CVC',
+            'warning',
+            'Recibo CVC sem vinculo de venda',
+            'O documento parece ser um recibo CVC, mas nao esta ligado a vendas_recibos.',
+            documento,
+            null
+          ));
+        }
+      }
+
+      if (linkedRecibo) {
+        const venda = linkedRecibo.venda || null;
+        const rateio = rateioByReciboId.get(toStr(linkedRecibo.id)) || null;
+        const reciboNumero = receiptLabel(linkedRecibo);
+
+        if (!receiptMatchesDocument(row, linkedRecibo)) {
+          issues.push(issue(
+            'RECIBO_NUMERO_DIVERGENTE',
+            'critical',
+            'Documento nao confere com o recibo vinculado',
+            'O numero da conciliacao nao bate com o numero do recibo de venda vinculado.',
+            documento,
+            reciboNumero
+          ));
+        }
+
+        if (!venda) {
+          issues.push(issue(
+            'VENDA_INEXISTENTE',
+            'critical',
+            'Venda do recibo nao encontrada',
+            'O recibo vinculado nao retornou uma venda correspondente.',
+            linkedRecibo.venda_id,
+            null
+          ));
+        } else {
+          const vendaCompanyId = toStr(venda?.company_id);
+          const reciboVendaId = toStr(linkedRecibo?.venda_id);
+          const vendedorVendaId = toStr(venda?.vendedor_id);
+
+          if (vendaCompanyId !== companyId) {
+            issues.push(issue(
+              'EMPRESA_DIVERGENTE',
+              'critical',
+              'Empresa divergente',
+              'O recibo vinculado pertence a outra empresa.',
+              companyId,
+              vendaCompanyId
+            ));
+          }
+
+          if (linkedVendaId && reciboVendaId && linkedVendaId !== reciboVendaId) {
+            issues.push(issue(
+              'VENDA_DIVERGENTE',
+              'critical',
+              'Venda divergente',
+              'conciliacao_recibos.venda_id nao e a venda dona do venda_recibo_id vinculado.',
+              reciboVendaId,
+              linkedVendaId
+            ));
+          }
+
+          if (Boolean(venda?.cancelada)) {
+            issues.push(issue(
+              'VENDA_CANCELADA',
+              'warning',
+              'Venda vinculada esta cancelada',
+              'A conciliacao esta ligada a uma venda marcada como cancelada.',
+              'venda ativa',
+              'cancelada'
+            ));
+          }
+
+          if (rankingVendedorId && vendedorVendaId && rankingVendedorId !== vendedorVendaId) {
+            issues.push(issue(
+              'VENDEDOR_RANKING_DIVERGENTE',
+              'warning',
+              'Vendedor da venda difere da conciliacao',
+              'A venda vinculada esta em um vendedor diferente do vendedor atribuido na conciliacao/ranking. Se a conciliacao estiver correta, ajuste a venda; se a venda estiver correta, ajuste o ranking. Rateios devem ficar em ajustes de vendas.',
+              userNameById.get(rankingVendedorId) || rankingVendedorId,
+              userNameById.get(vendedorVendaId) || vendedorVendaId
+            ));
+          }
+
+          if (!rankingVendedorId && vendedorVendaId) {
+            issues.push(issue(
+              'VENDEDOR_RANKING_VAZIO',
+              'warning',
+              'Vendedor de ranking vazio',
+              'A venda vinculada tem vendedor, mas a conciliacao ainda nao refletiu esse vendedor no ranking.',
+              userNameById.get(vendedorVendaId) || vendedorVendaId,
+              null
+            ));
+          }
+
+          if (monthKey(venda?.data_lancamento) && monthKey(linkedRecibo?.data_venda) && monthKey(venda?.data_lancamento) !== monthKey(linkedRecibo?.data_venda)) {
+            issues.push(issue(
+              'DATA_LANCAMENTO_DIVERGENTE',
+              'warning',
+              'Data de lancamento em outro mes',
+              'A venda pode aparecer em telas que usam data_lancamento/created_at, mesmo com recibo em outro mes.',
+              linkedRecibo.data_venda,
+              venda.data_lancamento
+            ));
+          }
+
+          if (rateio) {
+            issues.push(issue(
+              'RATEIO_ATIVO',
+              'info',
+              'Recibo tem divisao ativa',
+              `Rateio ${toNumber(rateio.percentual_origem).toFixed(2)}% / ${toNumber(rateio.percentual_destino).toFixed(2)}%.`,
+              userNameById.get(toStr(rateio.vendedor_origem_id)) || toStr(rateio.vendedor_origem_id),
+              userNameById.get(toStr(rateio.vendedor_destino_id)) || toStr(rateio.vendedor_destino_id)
+            ));
+          }
+        }
+
+        const valorRav = Math.max(0, toNumber(linkedRecibo.valor_rav));
+        const sistemaValorRanking = roundMoney(Math.max(0, toNumber(linkedRecibo.valor_total) - valorRav));
+        const sistemaTaxas = roundMoney(toNumber(linkedRecibo.valor_taxas));
+        const conciliacaoValorReal = roundMoney(toNumber(metrics.valorVendaReal));
+        const conciliacaoTaxas = roundMoney(toNumber(row?.valor_taxas));
+
+        if (!moneyMatches(conciliacaoValorReal, sistemaValorRanking)) {
+          issues.push(issue(
+            'VALOR_DIVERGENTE',
+            'warning',
+            'Valor da conciliacao difere da venda',
+            'A base da conciliacao nao bate com o valor do recibo de venda para ranking.',
+            sistemaValorRanking,
+            conciliacaoValorReal
+          ));
+        }
+
+        if (!moneyMatches(conciliacaoTaxas, sistemaTaxas)) {
+          issues.push(issue(
+            'TAXAS_DIVERGENTES',
+            'warning',
+            'Taxas divergentes',
+            'As taxas importadas na conciliacao nao batem com as taxas do recibo de venda.',
+            sistemaTaxas,
+            conciliacaoTaxas
+          ));
+        }
+
+        if (valorRav > 0) {
+          issues.push(issue(
+            'RAV_ABATIDO',
+            'info',
+            'Recibo possui RAV',
+            'O RAV nao deve subir para ranking/comissao; a auditoria compara o valor da venda ja abatendo o RAV.',
+            valorRav,
+            null
+          ));
+        }
+
+        if (uniqueCandidates.length > 1 && !isManualRepeatingDoc(documento)) {
+          issues.push(issue(
+            'DUPLICIDADE_CANDIDATOS',
+            'warning',
+            'Documento com mais de um candidato',
+            `Foram encontrados ${uniqueCandidates.length} recibos de venda que podem casar com este documento.`,
+            uniqueCandidates.length,
+            reciboNumero
+          ));
+        }
+      }
+
+      const severity = maxSeverity(issues);
+      const fixable = hasAutoFixIssue(issues);
+      const linkedVenda = linkedRecibo?.venda || null;
+      const rateio = linkedRecibo ? rateioByReciboId.get(toStr(linkedRecibo.id)) : null;
+
+      return {
+        id: rowId,
+        documento,
+        movimento_data: row?.movimento_data || null,
+        status: row?.status || null,
+        severity,
+        fixable,
+        fixAction: fixable ? 'clear_link' : null,
+        issues,
+        conciliacao: {
+          venda_id: linkedVendaId || null,
+          venda_recibo_id: linkedReciboId || null,
+          ranking_vendedor_id: rankingVendedorId || null,
+          ranking_vendedor_nome: rankingVendedorId ? userNameById.get(rankingVendedorId) || rankingVendedorId : null,
+          valor_venda_real: roundMoney(toNumber(metrics.valorVendaReal)),
+          valor_taxas: roundMoney(toNumber(row?.valor_taxas))
+        },
+        sistema: linkedRecibo
+          ? {
+              venda_id: toStr(linkedRecibo?.venda_id) || null,
+              venda_recibo_id: toStr(linkedRecibo?.id) || null,
+              numero_recibo: receiptLabel(linkedRecibo),
+              vendedor_id: toStr(linkedVenda?.vendedor_id) || null,
+              vendedor_nome: toStr(linkedVenda?.vendedor_id) ? userNameById.get(toStr(linkedVenda?.vendedor_id)) || toStr(linkedVenda?.vendedor_id) : null,
+              data_venda: linkedRecibo?.data_venda || linkedVenda?.data_venda || null,
+              data_lancamento: linkedVenda?.data_lancamento || null,
+              valor_total: roundMoney(toNumber(linkedRecibo?.valor_total)),
+              valor_rav: roundMoney(toNumber(linkedRecibo?.valor_rav)),
+              valor_ranking: roundMoney(Math.max(0, toNumber(linkedRecibo?.valor_total) - Math.max(0, toNumber(linkedRecibo?.valor_rav)))),
+              valor_taxas: roundMoney(toNumber(linkedRecibo?.valor_taxas)),
+              cancelada: Boolean(linkedVenda?.cancelada),
+              produto: linkedRecibo?.tipo_produtos?.nome || linkedRecibo?.tipo_pacote || null,
+              rateio: rateio
+                ? {
+                    vendedor_origem_id: toStr(rateio?.vendedor_origem_id) || null,
+                    vendedor_origem_nome: userNameById.get(toStr(rateio?.vendedor_origem_id)) || null,
+                    vendedor_destino_id: toStr(rateio?.vendedor_destino_id) || null,
+                    vendedor_destino_nome: userNameById.get(toStr(rateio?.vendedor_destino_id)) || null,
+                    percentual_origem: toNumber(rateio?.percentual_origem),
+                    percentual_destino: toNumber(rateio?.percentual_destino)
+                  }
+                : null
+            }
+          : null,
+        candidatos: uniqueCandidates.slice(0, 5).map((recibo: any) => ({
+          venda_recibo_id: toStr(recibo?.id),
+          venda_id: toStr(recibo?.venda_id),
+          numero_recibo: receiptLabel(recibo),
+          vendedor_nome: userNameById.get(toStr(recibo?.venda?.vendedor_id)) || toStr(recibo?.venda?.vendedor_id) || null,
+          data_venda: recibo?.data_venda || recibo?.venda?.data_venda || null,
+          valor_total: roundMoney(toNumber(recibo?.valor_total)),
+          valor_taxas: roundMoney(toNumber(recibo?.valor_taxas))
+        }))
+      };
+    });
+
+    const critical = detalhes.filter((item: any) => item.severity === 'critical').length;
+    const warnings = detalhes.filter((item: any) => item.severity === 'warning').length;
+    const infos = detalhes.filter((item: any) => item.severity === 'info').length;
+    const rowsWithIssues = detalhes.filter((item: any) => item.issues.length > 0).length;
+    const corrigiveis = detalhes.filter((item: any) => item.fixable).length;
 
     let corrigidos = 0;
-    if (!dryRun) {
-      // Corrige em lotes
-      const ids = incorretos.map((r) => r.id);
-      for (let i = 0; i < ids.length; i += 50) {
-        const batch = ids.slice(i, i + 50);
+    if (!dryRun && corrigiveis > 0) {
+      const ids = detalhes.filter((item: any) => item.fixable).map((item: any) => item.id).filter(Boolean);
+      for (let index = 0; index < ids.length; index += 50) {
+        const batch = ids.slice(index, index + 50);
         const { error: fixErr } = await client
           .from('conciliacao_recibos')
           .update({
@@ -163,15 +691,24 @@ export async function POST(event) {
       }
     }
 
+    const remainingCorrigiveis = dryRun ? corrigiveis : Math.max(0, corrigiveis - corrigidos);
+
     return json({
       ok: true,
       checked: rows.length,
-      incorretos: incorretos.length,
+      critical,
+      warnings,
+      infos,
+      issues: rowsWithIssues,
+      incorretos: critical,
+      corrigiveis: remainingCorrigiveis,
       corrigidos,
       dryRun,
-      detalhes: incorretos.slice(0, 50) // primeiros 50 para diagnóstico
+      detalhes: detalhes
+        .filter((item: any) => item.issues.length > 0)
+        .slice(0, 200)
     });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao corrigir vínculos de conciliação.');
+    return toErrorResponse(err, 'Erro ao auditar vinculos de conciliacao.');
   }
 }

@@ -31,6 +31,7 @@
     buildPassengerSummary, 
     createBlankAppInfo 
   } from '$lib/vouchers/extraData';
+  import { addDaysISODate, diffDaysISODate } from '$lib/date';
   import type { 
     VoucherProvider, 
     VoucherDia, 
@@ -165,16 +166,12 @@
   }
 
   function addDaysToDate(startDate: string, days: number): string {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
+    return addDaysISODate(startDate, days);
   }
 
   function diffNights(start?: string | null, end?: string | null): number | null {
-    if (!start || !end) return null;
-    const d1 = new Date(start);
-    const d2 = new Date(end);
-    const diff = Math.round((d2.getTime() - d1.getTime()) / 86400000);
+    const diff = diffDaysISODate(start, end);
+    if (diff === null) return null;
     return diff > 0 ? diff : 0;
   }
 

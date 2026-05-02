@@ -25,6 +25,7 @@ import {
 import {
   buildConciliacaoSyntheticVendas,
   fetchEffectiveConciliacaoReceipts,
+  fetchSuppressedConciliacaoReceipts,
   filterRecibosCanceladosMesmoMes
 } from '$lib/conciliacao/source';
 import {
@@ -32,9 +33,17 @@ import {
   fetchRateioByReciboIds,
   fetchSplitSaleIdsForDestinationVendedores
 } from '$lib/vendas/rateio';
-import { fetchCommissionContext, resolveVendaCommission } from '$lib/server/comissoes';
+import {
+  addMonthsISODate,
+  monthRangeFromYearMonth,
+  parseISODateParts,
+  todayISODateLocal
+} from '$lib/date';
+import { resolveGroupedReceiptCommissions } from '$lib/server/comissoes';
 import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
+import { calcularRankingComissionavel } from '$lib/server/rankingComissionavel';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
+import { normalizeReceiptNumber } from '$lib/conciliacao/receiptNumber';
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -101,7 +110,7 @@ function getReciboBrutoExibicao(recibo?: ReportReceiptRow | null) {
   if (hasConciliacaoOverride(recibo) && recibo.valor_bruto_override != null) {
     return Math.max(0, toNum(recibo.valor_bruto_override));
   }
-  return Math.max(0, toNum(recibo.valor_total));
+  return Math.max(0, toNum(recibo.valor_total) - toNum(recibo.valor_rav));
 }
 
 function getReciboTaxasExibicao(recibo?: ReportReceiptRow | null) {
@@ -133,21 +142,13 @@ function addToMap(map: Map<string, number>, key: string, value: number) {
   map.set(key, (map.get(key) || 0) + value);
 }
 
-async function hydrateMissingVendedores(client: any, rows: any[]) {
-  const missingIds = Array.from(
-    new Set(
-      rows
-        .filter((row) => row?.vendedor_id && !row?.vendedor)
-        .map((row) => toStr(row.vendedor_id))
-        .filter(Boolean)
-    )
-  );
-
-  if (missingIds.length === 0) return rows;
-
+async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
+  const ids = Array.from(new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean)));
   const vendedorMap = new Map<string, { nome_completo?: string | null; email?: string | null }>();
-  for (let index = 0; index < missingIds.length; index += 200) {
-    const batch = missingIds.slice(index, index + 200);
+  if (ids.length === 0) return vendedorMap;
+
+  for (let index = 0; index < ids.length; index += 200) {
+    const batch = ids.slice(index, index + 200);
     const { data, error } = await client
       .from('users')
       .select('id, nome_completo, email')
@@ -163,8 +164,22 @@ async function hydrateMissingVendedores(client: any, rows: any[]) {
     });
   }
 
+  return vendedorMap;
+}
+
+async function hydrateMissingVendedores(client: any, rows: any[]) {
+  const vendedorIds = Array.from(
+    new Set(
+      rows
+        .map((row) => toStr(row?.vendedor_id))
+        .filter(Boolean)
+    )
+  );
+
+  if (vendedorIds.length === 0) return rows;
+
+  const vendedorMap = await fetchVendedoresByIds(client, vendedorIds);
   return rows.map((row) => {
-    if (row?.vendedor || !row?.vendedor_id) return row;
     const vendedor = vendedorMap.get(toStr(row.vendedor_id));
     return vendedor ? { ...row, vendedor } : row;
   });
@@ -281,32 +296,33 @@ function getVendaTaxasExibicao(row: any) {
 }
 
 function getLastSixMonthBuckets(referenceIso: string) {
-  const reference = new Date(`${referenceIso}T12:00:00`);
+  const reference = parseISODateParts(referenceIso) || parseISODateParts(todayISODateLocal());
+  if (!reference) return [];
+  const referenceMonthStart = `${reference.year}-${String(reference.month).padStart(2, '0')}-01`;
+
   return Array.from({ length: 6 }, (_, index) => {
-    const current = new Date(reference.getFullYear(), reference.getMonth() - (5 - index), 1);
-    const start = new Date(current.getFullYear(), current.getMonth(), 1);
-    const isReferenceMonth =
-      current.getFullYear() === reference.getFullYear() && current.getMonth() === reference.getMonth();
-    const end = isReferenceMonth
-      ? new Date(reference.getFullYear(), reference.getMonth(), reference.getDate())
-      : new Date(current.getFullYear(), current.getMonth() + 1, 0);
-    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const monthStart = addMonthsISODate(referenceMonthStart, -(5 - index));
+    const current = parseISODateParts(monthStart);
+    if (!current) return { key: monthStart.slice(0, 7), start: monthStart, end: monthStart };
+    const range = monthRangeFromYearMonth(current.year, current.month);
+    const key = monthStart.slice(0, 7);
+    const isReferenceMonth = key === reference.iso.slice(0, 7);
     return {
-      key: `${current.getFullYear()}-${month}`,
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10)
+      key,
+      start: range.inicio,
+      end: isReferenceMonth ? reference.iso : range.fim
     };
   });
 }
 
 function getCurrentMonthDayBuckets(referenceIso: string) {
-  const reference = new Date(`${referenceIso}T12:00:00`);
-  const year = reference.getFullYear();
-  const month = reference.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const reference = parseISODateParts(referenceIso) || parseISODateParts(todayISODateLocal());
+  if (!reference) return [];
+  const range = monthRangeFromYearMonth(reference.year, reference.month);
+  const daysInMonth = Number(range.fim.slice(8, 10));
 
   return Array.from({ length: daysInMonth }, (_, index) => {
-    const date = new Date(year, month, index + 1).toISOString().slice(0, 10);
+    const date = `${reference.year}-${String(reference.month).padStart(2, '0')}-${String(index + 1).padStart(2, '0')}`;
     return {
       date,
       day: index + 1
@@ -328,9 +344,8 @@ export async function GET(event) {
     const defaultRange = getCurrentYearRange();
     const hasDataInicio = Boolean(searchParams.get('data_inicio'));
     const hasDataFim = Boolean(searchParams.get('data_fim'));
-    const today = new Date();
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-    const monthEnd = today.toISOString().slice(0, 10);
+    const monthEnd = todayISODateLocal();
+    const monthStart = `${monthEnd.slice(0, 7)}-01`;
     const vendedorDefaultRange = scope.isVendedor || scope.usoIndividual;
 
     const dataInicio = String(
@@ -457,12 +472,36 @@ export async function GET(event) {
         console.warn('[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides:', error);
         concReceipts = [];
       }
+      let concReceiptsAllCache: any[] | null = null;
+      const loadConcReceiptsAll = async () => {
+        if (concReceiptsAllCache) return concReceiptsAllCache;
+        try {
+          concReceiptsAllCache = await fetchEffectiveConciliacaoReceipts({
+            client,
+            companyId: companyIds[0] || null,
+            companyIds,
+            inicio: periodStart,
+            fim: periodEnd,
+            vendedorIds: null,
+            excludeVendedorIds: undefined
+          });
+        } catch (error) {
+          console.warn('[relatorios/vendas] conciliation all indisponivel:', error);
+          concReceiptsAllCache = [];
+        }
+        return concReceiptsAllCache;
+      };
+      const concReceiptsForOverrides =
+        vendedorIds.length > 0 ? await loadConcReceiptsAll() : concReceipts;
+      const allowedVendedorSet =
+        vendedorIds.length > 0 ? new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean)) : null;
 
       if (vendedorIds.length > 0) {
         let splitConcQuery = client
           .from('vendas_recibos_rateio')
           .select('conciliacao_recibo_id')
           .eq('ativo', true)
+          .gt('percentual_destino', 0)
           .in('vendedor_destino_id', vendedorIds)
           .not('conciliacao_recibo_id', 'is', null);
 
@@ -482,22 +521,7 @@ export async function GET(event) {
         );
 
         if (splitConcIdSet.size > 0) {
-          let concAll: any[] = [];
-          try {
-            concAll = await fetchEffectiveConciliacaoReceipts({
-              client,
-              companyId: companyIds[0] || null,
-              companyIds,
-              inicio: periodStart,
-              fim: periodEnd,
-              vendedorIds: null,
-              excludeVendedorIds: undefined
-            });
-          } catch (error) {
-            console.warn('[relatorios/vendas] conciliation all indisponivel:', error);
-            concAll = [];
-          }
-
+          const concAll = await loadConcReceiptsAll();
           const seenConcIds = new Set((concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)));
           concAll.forEach((item: any) => {
             const candidateIds = getConciliacaoIds(item);
@@ -511,10 +535,29 @@ export async function GET(event) {
       }
 
       const overriddenReceiptIds = new Set(
-        concReceipts.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
+        concReceiptsForOverrides.map((item) => String(item.linked_recibo_id || '').trim()).filter(Boolean)
+      );
+      let suppressedConcReceipts: Array<{ documento: string; linked_recibo_id: string | null }> = [];
+      try {
+        suppressedConcReceipts = await fetchSuppressedConciliacaoReceipts({
+          client,
+          companyId: companyIds[0] || null,
+          companyIds,
+          inicio: periodStart,
+          fim: periodEnd
+        });
+      } catch (error) {
+        console.warn('[relatorios/vendas] conciliacao suprimida indisponivel:', error);
+        suppressedConcReceipts = [];
+      }
+      const suppressedReceiptIds = new Set(
+        suppressedConcReceipts.map((item) => toStr(item.linked_recibo_id)).filter(Boolean)
+      );
+      const suppressedReceiptNumbers = new Set(
+        suppressedConcReceipts.map((item) => normalizeReceiptNumber(item.documento)).filter(Boolean)
       );
       const vendedorByConcReceiptId = new Map<string, string>(
-        concReceipts
+        concReceiptsForOverrides
           .map((item) => [
             String(item.linked_recibo_id || '').trim(),
             String(item.vendedor_id || '').trim()
@@ -527,13 +570,31 @@ export async function GET(event) {
           const recibos = Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : [];
           const withoutOverridden = conciliacaoSobrepoeVendas
             ? recibos.filter(
-                (recibo: any) => !overriddenReceiptIds.has(String(recibo?.id || '').trim())
+                (recibo: any) => {
+                  const reciboId = String(recibo?.id || '').trim();
+                  const reciboNumero = normalizeReceiptNumber(recibo?.numero_recibo);
+                  return (
+                    !overriddenReceiptIds.has(reciboId) &&
+                    !suppressedReceiptIds.has(reciboId) &&
+                    !(reciboNumero && suppressedReceiptNumbers.has(reciboNumero))
+                  );
+                }
               )
             : recibos;
+          const withVendedorEfetivo = withoutOverridden
+            .map((recibo: any) => {
+              const vendedorId = vendedorByConcReceiptId.get(String(recibo?.id || '').trim());
+              return vendedorId ? { ...recibo, vendedor_id: vendedorId } : recibo;
+            })
+            .filter((recibo: any) => {
+              if (!allowedVendedorSet) return true;
+              const vendedorId = vendedorByConcReceiptId.get(String(recibo?.id || '').trim());
+              return !vendedorId || allowedVendedorSet.has(vendedorId);
+            });
           const vendedorAtual = String(row?.vendedor?.nome_completo || '').trim();
           const vendedorEfetivo =
             !vendedorAtual || isEquipeVturNome(vendedorAtual)
-              ? withoutOverridden
+              ? withVendedorEfetivo
                   .map((recibo: any) => vendedorByConcReceiptId.get(String(recibo?.id || '').trim()))
                   .find(Boolean)
               : null;
@@ -543,7 +604,7 @@ export async function GET(event) {
             ...(vendedorEfetivo
               ? { vendedor_id: vendedorEfetivo, vendedor: null }
               : {}),
-            vendas_recibos: filterRecibosCanceladosMesmoMes(withoutOverridden)
+            vendas_recibos: filterRecibosCanceladosMesmoMes(withVendedorEfetivo)
           };
         })
         .filter((row: any) => Array.isArray(row?.vendas_recibos) && row.vendas_recibos.length > 0);
@@ -684,21 +745,33 @@ export async function GET(event) {
       client,
       await loadRowsViewForPeriod(dataInicio, dataFim)
     );
+    const getReciboVendedorId = (row: any, recibo: any) =>
+      toStr(recibo?.rateio_scope_vendor_id) ||
+      toStr(recibo?.vendedor_id) ||
+      toStr(row?.vendedor_id) ||
+      null;
+    const reciboVendedorIds = Array.from(
+      new Set(
+        rowsView
+          .flatMap((row: any) =>
+            (Array.isArray(row?.recibos) ? row.recibos : []).map((recibo: any) =>
+              getReciboVendedorId(row, recibo)
+            )
+          )
+          .filter(Boolean)
+      )
+    ) as string[];
+    const reciboVendedores = await fetchVendedoresByIds(client, reciboVendedorIds);
+    const getVendedorNomeById = (vendedorId: string | null, fallback: string) => {
+      if (!vendedorId) return fallback;
+      const vendedor = reciboVendedores.get(vendedorId);
+      return vendedor ? getVendaVendedorNome({ vendedor }) : fallback;
+    };
 
     const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
       client,
       rowsView.map((row) => toStr(row?.id)).filter(Boolean)
     );
-
-    // Determina o período para busca de metas (primeiro dia do mês de dataInicio)
-    const periodoMeta = dataInicio ? dataInicio.slice(0, 7) + '-01' : '';
-
-    const commissionContext = await fetchCommissionContext(client, {
-      companyIds,
-      vendedorIds,
-      periodo: periodoMeta,
-      rows: rowsView
-    });
 
     const paymentForms = await fetchLatestPaymentForms(
       client,
@@ -706,44 +779,57 @@ export async function GET(event) {
     );
 
     const filteredRows = filterRowsForReport(rowsView);
+    const receiptCommissionMap = await resolveGroupedReceiptCommissions(client, {
+      companyIds,
+      rows: filteredRows as any
+    });
 
     let items = filteredRows.map((row) => {
       const status = getVendaStatus(row);
+      const vendaVendedorNome = getVendaVendedorNome(row);
       const receiptRows = getRecibosAtivos(row);
       const vendaId = toStr(row?.id);
       const somaBrutoRecibos = receiptRows.reduce(
         (sum: number, recibo: ReportReceiptRow) => sum + getReciboBrutoExibicao(recibo),
         0
       );
+      const somaTaxasRecibos = receiptRows.reduce(
+        (sum: number, recibo: ReportReceiptRow) => sum + getReciboTaxasExibicao(recibo),
+        0
+      );
       const linkedNaoComissionado = toNum(naoComissionadoPorVenda.porVenda.get(vendaId) || 0);
       const naoComissionadoSemRecibo = toNum(naoComissionadoPorVenda.porVendaSemRecibo.get(vendaId) || 0);
       const usarModoPorRecibo = linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
-      const fatorComissionavel =
-        !usarModoPorRecibo && somaBrutoRecibos > 0
-          ? Math.max(0, Math.min(1, (somaBrutoRecibos - linkedNaoComissionado) / somaBrutoRecibos))
-          : 1;
+      const rankingGrupo = calcularRankingComissionavel({
+        valorBruto: somaBrutoRecibos,
+        valorTaxas: somaTaxasRecibos,
+        valorNaoComissionado: usarModoPorRecibo ? 0 : linkedNaoComissionado
+      });
 
       const recibos = receiptRows.map((recibo: any) => {
         const descriptor = getReceiptProductDescriptor(recibo, row);
+        const reciboVendedorId = getReciboVendedorId(row, recibo);
+        const reciboVendedorNome = getVendedorNomeById(reciboVendedorId, vendaVendedorNome);
         const brutoBase = getReciboBrutoExibicao(recibo);
+        const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
         const naoComissionadoRecibo =
-          usarModoPorRecibo && toStr(recibo?.id)
+          usarModoPorRecibo && toStr(recibo?.id) && !reciboJaAjustadoPorConciliacao
             ? toNum(naoComissionadoPorVenda.porRecibo.get(toStr(recibo.id)) || 0)
             : 0;
+        const rankingRecibo = calcularRankingComissionavel({
+          valorBruto: brutoBase,
+          valorTaxas: getReciboTaxasExibicao(recibo),
+          valorNaoComissionado: usarModoPorRecibo ? naoComissionadoRecibo : 0
+        });
         const valorComissionavel = usarModoPorRecibo
-          ? Math.max(0, brutoBase - naoComissionadoRecibo)
-          : brutoBase * fatorComissionavel;
-        const commissionByReceipt = resolveVendaCommission(
-          {
-            ...row,
-            desconto_comercial_valor: 0,
-            valor_total_bruto: brutoBase,
-            valor_total_pago: brutoBase,
-            valor_nao_comissionado: Math.max(0, brutoBase - valorComissionavel),
-            recibos: [{ ...recibo }]
-          },
-          commissionContext
-        );
+          ? rankingRecibo.valorRanking
+          : brutoBase * rankingGrupo.fatorValor;
+        const valorTaxasRanking = usarModoPorRecibo
+          ? rankingRecibo.valorTaxasRanking
+          : getReciboTaxasExibicao(recibo) * rankingGrupo.fatorTaxas;
+        const commissionByReceipt = toStr(recibo?.id)
+          ? receiptCommissionMap.get(toStr(recibo.id))
+          : null;
 
         return {
           id: recibo?.id || null,
@@ -752,12 +838,15 @@ export async function GET(event) {
           numero_recibo_normalizado: recibo?.numero_recibo_normalizado ?? null,
           recibo_short: String(recibo?.numero_recibo ?? '').slice(0, 8),
           data_venda: recibo?.data_venda || row.data_venda,
+          vendedor_id: reciboVendedorId,
+          vendedor_nome: reciboVendedorNome,
           produto_id: recibo?.produto_id || null,
           tipo_produto: descriptor.tipo,
           produto_nome: descriptor.produto,
           cidade_nome: getReceiptCidadeNome(recibo, row),
           valor_total: brutoBase,
           valor_taxas: getReciboTaxasExibicao(recibo),
+          valor_taxas_ranking: valorTaxasRanking,
           valor_du: Number(recibo?.valor_du || 0),
           valor_rav: Number(recibo?.valor_rav || 0),
           percentual_comissao_loja: Number(recibo?.percentual_comissao_loja || 0),
@@ -771,15 +860,15 @@ export async function GET(event) {
           // usa valor_comissao_loja da conciliação como fallback — espelha o
           // comportamento do vtur-app que usa o valor real informado pela operadora.
           valor_comissao_calculada:
-            commissionByReceipt.valorComissao > 0
-              ? commissionByReceipt.valorComissao
+            Number(commissionByReceipt?.valorComissao || 0) > 0
+              ? Number(commissionByReceipt?.valorComissao || 0)
               : Number(recibo?.valor_comissao_loja || 0),
           // Quando o motor de regras não encontra regra aplicável (percentual = 0),
           // usa percentual_comissao_loja da conciliação como fallback — espelha o
           // comportamento do vtur-app que exibe o percentual real informado pela operadora.
           percentual_comissao_calculado:
-            commissionByReceipt.percentual > 0
-              ? commissionByReceipt.percentual
+            Number(commissionByReceipt?.percentual || 0) > 0
+              ? Number(commissionByReceipt?.percentual || 0)
               : Number(recibo?.percentual_comissao_loja || 0)
         };
       });
@@ -804,7 +893,7 @@ export async function GET(event) {
         cliente_nome: getVendaClienteNome(row),
         cliente_cpf: (row.clientes as any)?.cpf || null,
         vendedor_id: row.vendedor_id,
-        vendedor_nome: getVendaVendedorNome(row),
+        vendedor_nome: vendaVendedorNome,
         destino_id: (row.destinos as any)?.id || null,
         destino_nome: getVendaDestino(row),
         destino_cidade_id: (row.destino_cidade as any)?.id || null,
@@ -815,11 +904,9 @@ export async function GET(event) {
             .toFixed(2)
         ),
         valor_taxas: Number(
-          recibos.reduce((sum: number, recibo: { valor_total?: number | null; valor_taxas?: number | null; valor_comissionavel?: number | null }) => {
-            const bruto = Math.max(0, toNum(recibo.valor_total));
-            const fator = bruto > 0 ? Math.max(0, Math.min(1, toNum(recibo.valor_comissionavel) / bruto)) : 0;
-            return sum + toNum(recibo.valor_taxas) * fator;
-          }, 0).toFixed(2)
+          recibos
+            .reduce((sum: number, recibo: { valor_taxas_ranking?: number | null }) => sum + toNum(recibo.valor_taxas_ranking), 0)
+            .toFixed(2)
         ),
         cancelada: row.cancelada || false,
         status,

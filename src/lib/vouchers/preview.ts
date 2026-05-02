@@ -1,4 +1,5 @@
 import { normalizeVoucherExtraData, splitLinesFromMultilineText } from "./extraData";
+import { addDaysISODate } from '$lib/date';
 import type {
   VoucherAssetRecord,
   VoucherAppInfo,
@@ -194,12 +195,7 @@ function buildDayHeading(dia: VoucherDia) {
 }
 
 function addDaysToIsoDate(startDate: string, offset: number) {
-  const match = textValue(startDate).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return "";
-  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-  if (Number.isNaN(date.getTime())) return "";
-  date.setUTCDate(date.getUTCDate() + offset);
-  return date.toISOString().slice(0, 10);
+  return addDaysISODate(textValue(startDate), offset);
 }
 
 function normalizePreviewDays(items: VoucherDia[], startDate?: string | null) {

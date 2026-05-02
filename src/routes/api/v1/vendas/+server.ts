@@ -10,6 +10,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { todayISODateLocal } from '$lib/date';
 
 type VendaRow = {
   id: string;
@@ -28,7 +29,7 @@ type VendaRow = {
 
 function deriveStatus(row: VendaRow) {
   if (row.cancelada) return 'cancelada';
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayISODateLocal();
   if (row.data_final && row.data_final < todayIso) return 'concluida';
   if (row.data_embarque && row.data_embarque >= todayIso) return 'confirmada';
   return 'pendente';

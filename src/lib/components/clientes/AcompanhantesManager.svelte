@@ -4,7 +4,9 @@
   import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Calendar, Phone, Save, Trash2, UserPlus, Users } from 'lucide-svelte';
+  import { formatDate } from '$lib/utils/formatters';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Acompanhante = {
     id: string;
     nome_completo: string;
@@ -172,7 +174,7 @@
 
   async function excluirAcompanhante() {
     if (!clienteId || !editable || !selectedId) return;
-    if (!window.confirm('Deseja remover este acompanhante?')) return;
+    if (!(await confirmAction('Deseja remover este acompanhante?'))) return;
 
     deleting = true;
     errorMessage = null;
@@ -245,7 +247,7 @@
                 <td class="px-4 py-3 text-slate-700">{item.grau_parentesco || '-'}</td>
                 <td class="px-4 py-3 text-slate-700">{item.telefone || '-'}</td>
                 <td class="px-4 py-3 text-slate-700">
-                  {item.data_nascimento ? new Date(item.data_nascimento).toLocaleDateString('pt-BR') : '-'}
+                  {formatDate(item.data_nascimento)}
                 </td>
                 <td class="px-4 py-3">
                   <span

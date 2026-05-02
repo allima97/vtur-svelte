@@ -10,6 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type TipoPacote = {
     id: string;
     nome: string;
@@ -165,7 +166,7 @@
   }
 
   async function deleteTipo(id: string) {
-    if (!confirm('Deseja excluir este tipo de pacote? Ele não pode estar vinculado a vendas.')) return;
+    if (!(await confirmAction('Deseja excluir este tipo de pacote? Ele não pode estar vinculado a vendas.'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/parametros/tipo-pacotes?id=${id}`, { method: 'DELETE' });

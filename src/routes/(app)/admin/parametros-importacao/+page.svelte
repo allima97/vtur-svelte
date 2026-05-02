@@ -9,6 +9,7 @@
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Termo = {
     id: string;
     termo: string;
@@ -87,7 +88,7 @@
   }
 
   async function deleteTermo(id: string) {
-    if (!confirm('Deseja excluir este termo?')) return;
+    if (!(await confirmAction('Deseja excluir este termo?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/parametros/nao-comissionaveis?id=${id}`, { method: 'DELETE' });

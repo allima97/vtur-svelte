@@ -17,6 +17,8 @@
     ExternalLink, Ticket, Plus, User, Mail, Phone, MessageCircle, AlertCircle, 
     CheckCircle, Clock, Briefcase, History, TrendingUp, MapPinned, Luggage
   } from 'lucide-svelte';
+  import { diffDaysISODate } from '$lib/date';
+  import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
 
   interface Cliente {
     id: string;
@@ -254,13 +256,11 @@
   }
 
   function formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    return formatDateValue(dateString);
   }
 
   function formatDateTime(dateString: string | null | undefined): string {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('pt-BR');
+    return formatDateTimeValue(dateString);
   }
 
   function formatCurrency(value: number | null): string {
@@ -272,10 +272,8 @@
   }
 
   function getDiasViagem(inicio: string, fim: string): number {
-    if (!inicio || !fim) return 0;
-    const d1 = new Date(inicio);
-    const d2 = new Date(fim);
-    const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = diffDaysISODate(inicio, fim);
+    if (diff === null) return 0;
     return diff + 1;
   }
 

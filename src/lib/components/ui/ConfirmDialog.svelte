@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Modal } from 'flowbite-svelte';
-  import { ExclamationCircleSolid } from 'flowbite-svelte-icons';
-  import Button from './Button.svelte';
+  import { AlertTriangle } from 'lucide-svelte';
+  import Dialog from './Dialog.svelte';
+  import type { ConfirmColor } from '$lib/stores/confirm';
 
   export let open = false;
   export let title = 'Confirmar ação';
@@ -9,7 +9,9 @@
   export let confirmLabel = 'Confirmar';
   export let cancelLabel = 'Cancelar';
   export let confirmVariant: 'primary' | 'danger' = 'primary';
+  export let color: ConfirmColor = 'financeiro';
   export let loading = false;
+  export let dismissable = false;
 
   export let onConfirm: (() => void) | undefined = undefined;
   export let onCancel: (() => void) | undefined = undefined;
@@ -24,25 +26,28 @@
   }
 </script>
 
-<Modal bind:open size="sm" autoclose={false} class="z-[1200]">
+<Dialog
+  bind:open
+  {title}
+  {color}
+  size="sm"
+  {dismissable}
+  showCancel={true}
+  cancelText={cancelLabel}
+  showConfirm={true}
+  confirmText={confirmLabel}
+  {confirmVariant}
+  {loading}
+  onCancel={handleCancel}
+  onConfirm={handleConfirm}
+>
   <div class="flex flex-col items-center gap-4 py-2 text-center">
-    <ExclamationCircleSolid class="h-12 w-12 text-amber-400" />
-    <h3 class="text-lg font-semibold text-slate-900">{title}</h3>
+    <div class="flex h-12 w-12 items-center justify-center rounded-full {confirmVariant === 'danger' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}">
+      <AlertTriangle size={26} />
+    </div>
     {#if message}
       <p class="text-sm leading-relaxed text-slate-500">{message}</p>
     {/if}
     <slot />
-    <div class="vtur-confirm-dialog__actions mt-2">
-      <Button variant="secondary" on:click={handleCancel} disabled={loading}>
-        {cancelLabel}
-      </Button>
-      <Button
-        variant={confirmVariant}
-        on:click={handleConfirm}
-        {loading}
-      >
-        {confirmLabel}
-      </Button>
-    </div>
   </div>
-</Modal>
+</Dialog>

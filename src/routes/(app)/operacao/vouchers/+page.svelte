@@ -8,6 +8,7 @@
   import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
   import { Plus, Ticket, FileText, ExternalLink, Trash2, Loader2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
 
   let vouchers: VoucherRecord[] = [];
@@ -48,14 +49,14 @@
       label: 'Data Início', 
       sortable: true,
       width: '120px',
-      formatter: (v: string) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string) => formatDate(v)
     },
     { 
       key: 'data_fim', 
       label: 'Data Fim', 
       sortable: true,
       width: '120px',
-      formatter: (v: string) => v ? new Date(v).toLocaleDateString('pt-BR') : '-'
+      formatter: (v: string) => formatDate(v)
     },
     { 
       key: 'ativo', 

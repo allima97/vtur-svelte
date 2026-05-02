@@ -8,6 +8,33 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+type ViagemClienteRow = {
+  id: string;
+  nome: string | null;
+  cpf: string | null;
+};
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeClientes(rows: ViagemClienteRow[]) {
+  const map = new Map<string, ViagemClienteRow>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values()).sort((left, right) =>
+    String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR')
+  );
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -23,12 +50,36 @@ export async function GET(event: RequestEvent) {
       ? await resolveAccessibleClientIds(client, { companyIds: scope.companyIds, vendedorIds })
       : [];
 
-    let query = client.from('clientes').select('id, nome, cpf').order('nome', { ascending: true }).limit(200);
-    if (!scope.isAdmin && accessibleClientIds.length > 0) {
-      query = query.in('id', accessibleClientIds);
-    }
+    const buildQuery = (clientIds?: string[]) => {
+      let query = client.from('clientes').select('id, nome, cpf').order('nome', { ascending: true }).limit(200);
+      if (clientIds) {
+        query = query.in('id', clientIds);
+      }
+      return query;
+    };
 
-    const { data, error } = await query;
+    const fetchClientes = async () => {
+      if (!scope.isAdmin && accessibleClientIds.length > 0) {
+        if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+          return buildQuery(accessibleClientIds);
+        }
+
+        const rows: ViagemClienteRow[] = [];
+        for (const batch of chunkArray(accessibleClientIds)) {
+          const result = await buildQuery(batch);
+          if (result.error) {
+            return { data: null, error: result.error } as typeof result;
+          }
+          rows.push(...(((result.data || []) as unknown) as ViagemClienteRow[]));
+        }
+
+        return { data: dedupeClientes(rows).slice(0, 200), error: null };
+      }
+
+      return buildQuery();
+    };
+
+    const { data, error } = await fetchClientes();
     if (error) throw error;
     return json(data || []);
   } catch (err) {

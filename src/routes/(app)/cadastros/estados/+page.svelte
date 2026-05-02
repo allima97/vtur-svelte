@@ -9,6 +9,7 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
+  import { confirmAction } from '$lib/stores/confirm';
   type Subdivisao = {
     id: string;
     nome: string;
@@ -97,7 +98,7 @@
   }
 
   async function deleteEstado(id: string) {
-    if (!confirm('Deseja excluir este estado/província?')) return;
+    if (!(await confirmAction('Deseja excluir este estado/província?'))) return;
     deletingId = id;
     try {
       const response = await fetch(`/api/v1/subdivisoes?id=${id}`, { method: 'DELETE' });

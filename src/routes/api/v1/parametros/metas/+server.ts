@@ -1,13 +1,243 @@
 import { json } from '@sveltejs/kit';
+import { currentMonthRangeISODate, monthRangeFromKey } from '$lib/date';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  isRankingEligibleUser,
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+type MetaProdutoInput = {
+  produto_id?: string | null;
+  valor?: number | string | null;
+};
+
+type MetaInput = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  periodo?: string | null;
+  meta_geral?: number | string | null;
+  meta_diferenciada?: number | string | null;
+  ativo?: boolean | null;
+  meta_produtos?: MetaProdutoInput[] | null;
+};
+
+function isMissingSchemaError(err: any) {
+  const code = String(err?.code || '');
+  const message = String(err?.message || '').toLowerCase();
+  const details = String(err?.details || '').toLowerCase();
+
+  return (
+    code === '42P01' ||
+    code === '42703' ||
+    code === 'PGRST200' ||
+    code === 'PGRST204' ||
+    code === 'PGRST205' ||
+    message.includes('does not exist') ||
+    message.includes('could not find') ||
+    details.includes('could not find')
+  );
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? '')
+    .replace(/\s/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePeriod(value?: string | null) {
+  const raw = String(value || '').trim();
+  const monthKey = raw.match(/^(\d{4})-(0[1-9]|1[0-2])$/)?.[0];
+  if (monthKey) return `${monthKey}-01`;
+
+  const dateKey = raw.match(/^(\d{4})-(0[1-9]|1[0-2])-\d{2}$/)?.[0];
+  if (dateKey) return `${dateKey.slice(0, 7)}-01`;
+
+  return currentMonthRangeISODate().inicio;
+}
+
+function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
+  const map = new Map<string, number>();
+
+  (items || []).forEach((item) => {
+    const produtoId = String(item?.produto_id || '').trim();
+    if (!isUuid(produtoId)) return;
+
+    const valor = toNumber(item?.valor);
+    if (valor <= 0) return;
+
+    map.set(produtoId, (map.get(produtoId) || 0) + valor);
+  });
+
+  return Array.from(map.entries()).map(([produto_id, valor]) => ({ produto_id, valor }));
+}
+
+async function loadScopedVendedores(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  const sortByName = (rows: any[]) =>
+    [...rows].sort((a, b) =>
+      String(a?.nome_completo || a?.email || '').localeCompare(String(b?.nome_completo || b?.email || ''), 'pt-BR')
+    );
+
+  if (scope.isAdmin) {
+    const { data, error } = await client
+      .from('users')
+      .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
+      .eq('active', true)
+      .eq('uso_individual', false)
+      .order('nome_completo')
+      .limit(5000);
+
+    if (error) throw error;
+    return sortByName((data || []).filter(isRankingEligibleUser));
+  }
+
+  if (scope.isMaster || scope.isGestor) {
+    return sortByName(await fetchRankingVendedoresByCompanyIds(client, scope.companyIds));
+  }
+
+  const { data, error } = await client
+    .from('users')
+    .select('id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)')
+    .eq('id', scope.userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? [data] : [];
+}
+
+async function loadProdutosDiferenciados(client: any) {
+  const fullCols =
+    'id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor';
+
+  let { data, error } = await client
+    .from('tipo_produtos')
+    .select(fullCols)
+    .eq('ativo', true)
+    .order('nome')
+    .limit(500);
+
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await client
+      .from('tipo_produtos')
+      .select('id, nome, tipo, ativo')
+      .eq('ativo', true)
+      .order('nome')
+      .limit(500);
+    data = fallback.data || [];
+    error = fallback.error;
+  }
+
+  if (error) throw error;
+
+  return (data || []).filter((row: any) => {
+    const nomeTipo = `${row?.nome || ''} ${row?.tipo || ''}`.toLowerCase();
+    return (
+      row?.regra_comissionamento === 'diferenciado' ||
+      row?.usa_meta_produto === true ||
+      row?.tipo === 'seguro' ||
+      nomeTipo.includes('seguro')
+    );
+  });
+}
+
+async function loadProdutoMetas(client: any, metaIds: string[]) {
+  if (metaIds.length === 0) return new Map<string, any[]>();
+
+  const { data, error } = await client
+    .from('metas_vendedor_produto')
+    .select('id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)')
+    .in('meta_vendedor_id', metaIds);
+
+  if (error) {
+    if (isMissingSchemaError(error)) return new Map<string, any[]>();
+    throw error;
+  }
+
+  const map = new Map<string, any[]>();
+  (data || []).forEach((row: any) => {
+    const metaId = String(row?.meta_vendedor_id || '').trim();
+    if (!metaId) return;
+    const list = map.get(metaId) || [];
+    list.push(row);
+    map.set(metaId, list);
+  });
+
+  return map;
+}
+
+async function assertTargetAllowed(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>, vendedorId: string) {
+  if (scope.isAdmin) return true;
+  if (scope.isMaster || scope.isGestor) {
+    const scopedVendedores = await loadScopedVendedores(client, scope);
+    return scopedVendedores.some((row: any) => String(row?.id || '') === vendedorId);
+  }
+
+  return vendedorId === scope.userId;
+}
+
+async function upsertMeta(client: any, input: MetaInput, fallbackPeriod?: string) {
+  const targetVendedorId = String(input?.vendedor_id || '').trim();
+  if (!isUuid(targetVendedorId)) throw new Error('Vendedor inválido.');
+
+  const periodoFull = normalizePeriod(input?.periodo || fallbackPeriod);
+  const metaProdutos = normalizeProdutoMetas(input?.meta_produtos);
+  const totalProduto = metaProdutos.reduce((sum, item) => sum + item.valor, 0);
+  const metaDiferenciada = totalProduto > 0 ? totalProduto : toNumber(input?.meta_diferenciada);
+
+  const payload: Record<string, any> = {
+    vendedor_id: targetVendedorId,
+    periodo: periodoFull,
+    meta_geral: toNumber(input?.meta_geral),
+    meta_diferenciada: metaDiferenciada,
+    ativo: input?.ativo !== false,
+    scope: 'vendedor'
+  };
+
+  let metaId = String(input?.id || '').trim();
+  if (metaId && isUuid(metaId)) {
+    const { data, error } = await client
+      .from('metas_vendedor')
+      .update(payload)
+      .eq('id', metaId)
+      .select('id')
+      .single();
+    if (error) throw error;
+    metaId = String(data?.id || metaId);
+  } else {
+    const { data, error } = await client
+      .from('metas_vendedor')
+      .upsert(payload, { onConflict: 'vendedor_id,periodo,scope' })
+      .select('id')
+      .single();
+    if (error) throw error;
+    metaId = String(data?.id || '');
+  }
+
+  if (!metaId) throw new Error('Meta não foi gravada.');
+
+  const deleteRes = await client.from('metas_vendedor_produto').delete().eq('meta_vendedor_id', metaId);
+  if (deleteRes.error && !isMissingSchemaError(deleteRes.error)) throw deleteRes.error;
+
+  if (metaProdutos.length > 0 && !deleteRes.error) {
+    const rows = metaProdutos.map((item) => ({
+      meta_vendedor_id: metaId,
+      produto_id: item.produto_id,
+      valor: item.valor
+    }));
+    const { error } = await client.from('metas_vendedor_produto').insert(rows);
+    if (error && !isMissingSchemaError(error)) throw error;
+  }
+
+  return metaId;
+}
 
 export async function GET(event) {
   try {
@@ -21,80 +251,56 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const vendedorId = String(searchParams.get('vendedor_id') || '').trim();
-    const periodo = String(searchParams.get('periodo') || '').trim();
+    const periodo = normalizePeriod(searchParams.get('periodo'));
+    const monthRange = monthRangeFromKey(periodo.slice(0, 7)) || currentMonthRangeISODate();
 
-    // Resolve quais vendedores o usuário pode ver
-    let vendedorIds: string[] = [];
-    if (scope.isAdmin) {
-      if (vendedorId) vendedorIds = [vendedorId];
-    } else if (scope.isGestor) {
-      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-      vendedorIds = vendedorId && equipeIds.includes(vendedorId) ? [vendedorId] : equipeIds;
-    } else {
-      vendedorIds = [scope.userId];
-    }
+    const scopedVendedores = await loadScopedVendedores(client, scope);
+    const scopedIds = scopedVendedores.map((row: any) => String(row?.id || '').trim()).filter(isUuid);
+    const vendedorIds = vendedorId && scopedIds.includes(vendedorId) ? [vendedorId] : scopedIds;
 
-    let query = client
-      .from('metas_vendedor')
-      .select('id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope')
-      .order('periodo', { ascending: false });
+    let metas: any[] = [];
+    if (vendedorIds.length > 0) {
+      const { data, error: queryError } = await client
+        .from('metas_vendedor')
+        .select('id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope')
+        .in('vendedor_id', vendedorIds)
+        .eq('scope', 'vendedor')
+        .gte('periodo', monthRange.inicio)
+        .lte('periodo', monthRange.fim)
+        .order('periodo', { ascending: false })
+        .limit(1000);
 
-    if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
-    if (periodo) {
-      const periodoDate = periodo.length === 7 ? `${periodo}-01` : periodo;
-      query = query.eq('periodo', periodoDate);
-    }
-
-    const { data, error: queryError } = await query.limit(500);
-    if (queryError) {
-      // Tabela meta_vendedor pode não existir
-      if (String(queryError.code || '').includes('42P01') || String(queryError.message || '').includes('does not exist')) {
-        return json({ items: [], vendedores: [] });
+      if (queryError) {
+        if (isMissingSchemaError(queryError)) {
+          return json({ items: [], vendedores: scopedVendedores, produtos: [], periodo: periodo.slice(0, 7) });
+        }
+        throw queryError;
       }
-      throw queryError;
+
+      metas = data || [];
     }
 
-    const metas = data || [];
-    const metaVendedorIds = Array.from(
-      new Set(
-        metas
-          .map((row: any) => String(row?.vendedor_id || '').trim())
-          .filter((id) => isUuid(id))
-      )
-    );
+    const metaIds = metas.map((row: any) => String(row?.id || '').trim()).filter(isUuid);
+    const produtoMetasMap = await loadProdutoMetas(client, metaIds);
+    const vendedorMap = new Map(scopedVendedores.map((row: any) => [String(row?.id || ''), row]));
 
-    const vendedorMap = new Map<string, { nome_completo: string | null }>();
-    if (metaVendedorIds.length > 0) {
-      const { data: vendedoresData, error: vendedoresError } = await client
-        .from('users')
-        .select('id, nome_completo')
-        .in('id', metaVendedorIds);
+    const items = metas.map((row: any) => {
+      const detalhes = produtoMetasMap.get(String(row?.id || '')) || [];
+      return {
+        ...row,
+        vendedor: vendedorMap.get(String(row?.vendedor_id || '')) || null,
+        meta_produtos: detalhes
+      };
+    });
 
-      if (vendedoresError) throw vendedoresError;
+    const produtos = await loadProdutosDiferenciados(client);
 
-      (vendedoresData || []).forEach((row: any) => {
-        const id = String(row?.id || '').trim();
-        if (id) vendedorMap.set(id, { nome_completo: row?.nome_completo || null });
-      });
-    }
-
-    const items = metas.map((row: any) => ({
-      ...row,
-      vendedor: vendedorMap.get(String(row?.vendedor_id || '').trim()) || null
-    }));
-
-    // Busca vendedores da equipe para o formulário
-    let vendedores: any[] = [];
-    if (scope.isAdmin || scope.isGestor) {
-      const ids = scope.isGestor ? await fetchGestorEquipeIdsComGestor(client, scope.userId) : [];
-      let vQuery = client.from('users').select('id, nome_completo').eq('active', true).eq('uso_individual', false);
-      if (ids.length > 0 && !scope.isAdmin) vQuery = vQuery.in('id', ids);
-      if (scope.companyId && !scope.isAdmin) vQuery = vQuery.eq('company_id', scope.companyId);
-      const { data: vData } = await vQuery.order('nome_completo').limit(200);
-      vendedores = vData || [];
-    }
-
-    return json({ items, vendedores });
+    return json({
+      items,
+      vendedores: scopedVendedores,
+      produtos,
+      periodo: periodo.slice(0, 7)
+    });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar metas.');
   }
@@ -111,48 +317,25 @@ export async function POST(event) {
     }
 
     const body = await event.request.json();
-    const { id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope: metaScope } = body;
+    const inputs: MetaInput[] = Array.isArray(body?.items) ? body.items : [body];
+    if (inputs.length === 0) return json({ error: 'Nenhuma meta informada.' }, { status: 400 });
 
-    const targetVendedorId = String(vendedor_id || scope.userId).trim();
-    if (!isUuid(targetVendedorId)) return json({ error: 'Vendedor inválido.' }, { status: 400 });
+    const scopedVendedores = await loadScopedVendedores(client, scope);
+    const allowedIds = new Set(scopedVendedores.map((row: any) => String(row?.id || '').trim()).filter(isUuid));
+    const fallbackPeriod = normalizePeriod(body?.periodo);
+    const ids: string[] = [];
 
-    // Verifica se gestor pode gerenciar este vendedor
-    if (!scope.isAdmin) {
-      if (scope.isGestor) {
-        const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
-        if (!equipeIds.includes(targetVendedorId)) {
-          return json({ error: 'Vendedor não pertence à sua equipe.' }, { status: 403 });
-        }
-      } else if (targetVendedorId !== scope.userId) {
-        return json({ error: 'Sem permissão.' }, { status: 403 });
-      }
+    for (const input of inputs) {
+      const targetVendedorId = String(input?.vendedor_id || '').trim();
+      if (!isUuid(targetVendedorId)) return json({ error: 'Vendedor inválido.' }, { status: 400 });
+
+      const allowed = scope.isAdmin || allowedIds.has(targetVendedorId) || (await assertTargetAllowed(client, scope, targetVendedorId));
+      if (!allowed) return json({ error: 'Vendedor fora do seu escopo.' }, { status: 403 });
+
+      ids.push(await upsertMeta(client, input, fallbackPeriod));
     }
 
-    const periodoDate = String(periodo || '').trim();
-    if (!periodoDate) return json({ error: 'Período inválido.' }, { status: 400 });
-    const periodoFull = periodoDate.length === 7 ? `${periodoDate}-01` : periodoDate;
-
-    const payload: Record<string, any> = {
-      vendedor_id: targetVendedorId,
-      periodo: periodoFull,
-      meta_geral: Number(meta_geral || 0),
-      meta_diferenciada: Number(meta_diferenciada || 0),
-      ativo: ativo !== false,
-      scope: 'vendedor'
-    };
-
-    let result;
-    if (id && isUuid(id)) {
-      const { data, error: updateError } = await client.from('metas_vendedor').update(payload).eq('id', id).select('id').single();
-      if (updateError) throw updateError;
-      result = data;
-    } else {
-      const { data, error: insertError } = await client.from('metas_vendedor').insert(payload).select('id').single();
-      if (insertError) throw insertError;
-      result = data;
-    }
-
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, ids, id: ids[0] || null });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar meta.');
   }
@@ -170,6 +353,19 @@ export async function DELETE(event) {
 
     const id = String(event.url.searchParams.get('id') || '').trim();
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+
+    if (!scope.isAdmin) {
+      const { data: meta, error: metaError } = await client
+        .from('metas_vendedor')
+        .select('id, vendedor_id')
+        .eq('id', id)
+        .maybeSingle();
+      if (metaError) throw metaError;
+      const vendedorId = String(meta?.vendedor_id || '').trim();
+      if (!vendedorId || !(await assertTargetAllowed(client, scope, vendedorId))) {
+        return json({ error: 'Meta fora do seu escopo.' }, { status: 403 });
+      }
+    }
 
     const { error: deleteError } = await client.from('metas_vendedor').delete().eq('id', id);
     if (deleteError) throw deleteError;
