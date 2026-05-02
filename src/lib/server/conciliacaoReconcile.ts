@@ -460,15 +460,20 @@ async function fetchReciboCandidates(params: {
     collect(data || []);
   }
 
+  // Busca fuzzy via ilike — apenas como último recurso, com limite menor para
+  // reduzir risco de match errado entre recibos de vendedores diferentes.
+  // O selectBestReciboMatch exige discriminação por valor para confirmar o match.
   if (candidatesById.size === 0) {
-    for (const token of buildReciboSearchPatterns(numero).slice(0, 3)) {
+    for (const token of buildReciboSearchPatterns(numero).slice(0, 2)) {
       const { data, error } = await client
         .from('vendas_recibos')
         .select('id, venda_id, numero_recibo, valor_total, valor_taxas, data_venda')
-        .ilike('numero_recibo', `%${token}%`)
-        .limit(50);
+        .ilike('numero_recibo', token)
+        .limit(20);
       if (error) throw error;
       collect(data || []);
+      // Se o fuzzy já encontrou candidatos, não tenta mais tokens para limitar falsos positivos
+      if (candidatesById.size > 0) break;
     }
   }
 
@@ -509,24 +514,31 @@ function selectBestReciboMatch(params: {
   const { numero, candidates, valorLancamento = null, valorTaxas = null } = params;
   if (candidates.length === 0) return null;
 
+  // Match exato de string primeiro — mais seguro
   const reciboExato = candidates.find((item) => String(item.numero_recibo || '').trim() === numero);
   if (reciboExato) return reciboExato;
 
   const compativeis = candidates.filter((item) => numeroReciboMatches(numero, item.numero_recibo));
   if (compativeis.length === 0) return null;
 
-  const porValor = compativeis.filter((item) =>
-    valorLancamento == null ? true : matches(Number(item.valor_total || 0), Number(valorLancamento || 0))
-  );
-  const porTaxa = porValor.filter((item) =>
-    valorTaxas == null ? true : matches(Number(item.valor_taxas || 0), Number(valorTaxas || 0))
-  );
+  // Filtra por valor quando disponível — reduz ambiguidade
+  const porValor = valorLancamento != null
+    ? compativeis.filter((item) => matches(Number(item.valor_total || 0), Number(valorLancamento || 0)))
+    : compativeis;
 
-  return (
-    (porTaxa.length === 1 ? porTaxa[0] : null) ||
-    (porValor.length === 1 ? porValor[0] : null) ||
-    (compativeis.length === 1 ? compativeis[0] : null)
-  );
+  const porTaxa = valorTaxas != null
+    ? porValor.filter((item) => matches(Number(item.valor_taxas || 0), Number(valorTaxas || 0)))
+    : porValor;
+
+  // Só retorna quando há exatamente 1 candidato — nunca escolhe arbitrariamente entre múltiplos.
+  // Com múltiplos candidatos ambíguos, é mais seguro não linkar do que linkar ao vendedor errado.
+  if (porTaxa.length === 1) return porTaxa[0];
+  if (porValor.length === 1) return porValor[0];
+  if (compativeis.length === 1) return compativeis[0];
+
+  // Múltiplos candidatos e sem discriminador — não faz match para evitar atribuição errada
+  console.warn('[conciliacaoReconcile] selectBestReciboMatch: múltiplos candidatos ambíguos para', numero, '— nenhum selecionado');
+  return null;
 }
 
 async function findReciboByNumero(params: {
@@ -803,22 +815,37 @@ async function reconcilePendentesCompany(params: {
         .maybeSingle();
 
       if (reciboRow) {
-        const { data: vendaRow } = await client
-          .from('vendas')
-          .select('id, company_id, vendedor_id')
-          .eq('id', String(reciboRow.venda_id || ''))
-          .maybeSingle();
+        // Valida que o número do recibo gravado realmente bate com o documento.
+        // Se não bater, o vínculo foi feito por match errado — ignora e refaz a busca.
+        const numeroConfere = numeroReciboMatches(documento, reciboRow.numero_recibo);
+        if (!numeroConfere) {
+          console.warn(
+            '[conciliacaoReconcile] venda_recibo_id gravado não confere com documento — descartando vínculo.',
+            { id, documento, reciboNumero: reciboRow.numero_recibo, existingReciboId }
+          );
+          // Limpa o vínculo incorreto para que o reconcile refaça o match corretamente
+          await client
+            .from('conciliacao_recibos')
+            .update({ venda_recibo_id: null, venda_id: null, ranking_vendedor_id: null, conciliado: false, conciliado_em: null })
+            .eq('id', id);
+        } else {
+          const { data: vendaRow } = await client
+            .from('vendas')
+            .select('id, company_id, vendedor_id')
+            .eq('id', String(reciboRow.venda_id || ''))
+            .maybeSingle();
 
-        if (String(vendaRow?.company_id || '') === params.companyId) {
-          recibo = {
-            id: String(reciboRow.id),
-            venda_id: String(reciboRow.venda_id || ''),
-            vendedor_id: String(vendaRow?.vendedor_id || '').trim() || null,
-            numero_recibo: reciboRow.numero_recibo ?? null,
-            valor_total: reciboRow.valor_total ?? null,
-            valor_taxas: reciboRow.valor_taxas ?? null,
-            data_venda: reciboRow.data_venda ?? null
-          };
+          if (String(vendaRow?.company_id || '') === params.companyId) {
+            recibo = {
+              id: String(reciboRow.id),
+              venda_id: String(reciboRow.venda_id || ''),
+              vendedor_id: String(vendaRow?.vendedor_id || '').trim() || null,
+              numero_recibo: reciboRow.numero_recibo ?? null,
+              valor_total: reciboRow.valor_total ?? null,
+              valor_taxas: reciboRow.valor_taxas ?? null,
+              data_venda: reciboRow.data_venda ?? null
+            };
+          }
         }
       }
     }
@@ -872,7 +899,10 @@ async function reconcilePendentesCompany(params: {
     const vendedorIdDaVenda = String(recibo.vendedor_id || '').trim() || null;
     // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
     const vendedorIdDaVendaValido = (equipeVturId && vendedorIdDaVenda === equipeVturId) ? null : vendedorIdDaVenda;
-    const rankingVendedorResolvido = rankingVendedorAtual || vendedorIdDaVendaValido || null;
+    // Quando o recibo foi linkado a uma venda, o vendedor da venda é a fonte de verdade.
+    // ranking_vendedor_id manual só prevalece quando NÃO há venda linkada (recibos
+    // de vendedores que lançam apenas via conciliação, sem venda no sistema).
+    const rankingVendedorResolvido = vendedorIdDaVendaValido || rankingVendedorAtual || null;
     const updatePayload: Record<string, any> = {
       venda_id: recibo.venda_id,
       venda_recibo_id: recibo.id,

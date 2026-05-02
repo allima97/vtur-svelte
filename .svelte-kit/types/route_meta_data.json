@@ -266,6 +266,9 @@
 	"/api/v1/conciliacao/existing": [
 		"src/routes/api/v1/conciliacao/existing/+server.ts"
 	],
+	"/api/v1/conciliacao/fix-vinculos": [
+		"src/routes/api/v1/conciliacao/fix-vinculos/+server.ts"
+	],
 	"/api/v1/conciliacao/import": [
 		"src/routes/api/v1/conciliacao/import/+server.ts"
 	],
