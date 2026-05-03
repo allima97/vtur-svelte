@@ -96,9 +96,9 @@
     if (digits.length !== 8) { cepStatus = null; return; }
     cepStatus = 'Buscando CEP...';
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const response = await fetch(`/api/v1/enderecos/cep?cep=${digits}`);
+      if (!response.ok) throw new Error('CEP não encontrado.');
       const data = await response.json();
-      if (data?.erro) throw new Error('CEP não encontrado.');
       form = {
         ...form,
         endereco: data.logradouro || form.endereco,

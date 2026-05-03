@@ -401,6 +401,9 @@
 	"/api/v1/documentos-viagens/update": [
 		"src/routes/api/v1/documentos-viagens/update/+server.ts"
 	],
+	"/api/v1/enderecos/cep": [
+		"src/routes/api/v1/enderecos/cep/+server.ts"
+	],
 	"/api/v1/equipe/relacao": [
 		"src/routes/api/v1/equipe/relacao/+server.ts"
 	],
@@ -619,6 +622,9 @@
 	],
 	"/api/v1/push/unsubscribe": [
 		"src/routes/api/v1/push/unsubscribe/+server.ts"
+	],
+	"/api/v1/qr": [
+		"src/routes/api/v1/qr/+server.ts"
 	],
 	"/api/v1/relatorios/base": [
 		"src/routes/api/v1/relatorios/base/+server.ts"

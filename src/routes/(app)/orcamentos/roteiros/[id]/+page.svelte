@@ -1004,7 +1004,7 @@
   async function resolvePreviewPdfAssets(): Promise<PreviewPdfAssets> {
     const whatsappLink = construirLinkWhatsApp(pdfSettings.whatsapp, pdfSettings.whatsapp_codigo_pais);
     const qrSource = whatsappLink
-      ? `https://quickchart.io/qr?size=200&margin=1&text=${encodeURIComponent(whatsappLink)}`
+      ? `/api/v1/qr?size=200&margin=1&text=${encodeURIComponent(whatsappLink)}`
       : null;
 
     const [logoUrl, complementUrl, qrUrl] = await Promise.all([

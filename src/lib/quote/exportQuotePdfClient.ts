@@ -326,7 +326,7 @@ async function storageImageToDataUrl(
 }
 
 /**
- * Converte uma URL de imagem externa (ex: quickchart.io) para data URL via fetch.
+ * Converte uma URL de imagem para data URL via fetch.
  */
 async function externalImageToDataUrl(url: string): Promise<string | null> {
   try {
@@ -692,7 +692,7 @@ export async function openQuotePreview(params: {
   // 6. QR Code
   const whatsappLink = construirLinkWhatsApp(pdfSettings.whatsapp, pdfSettings.whatsapp_codigo_pais);
   const qrSignedUrl = whatsappLink
-    ? `https://quickchart.io/qr?size=200&margin=1&text=${encodeURIComponent(whatsappLink)}`
+    ? `/api/v1/qr?size=200&margin=1&text=${encodeURIComponent(whatsappLink)}`
     : null;
 
   // 7. Converte todas as imagens para data URL antes de montar o HTML
