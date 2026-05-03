@@ -8,6 +8,7 @@
   import { mergeImportedRoteiroAereo, parseImportedRoteiroAereo } from '$lib/roteiroAereoImport';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import { FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
@@ -2396,165 +2397,142 @@
   </div>
 {/if}
 
-<!-- ─── Modal: Gerar Orçamento ──────────────────────────────────────────── -->
-{#if showGerarModal}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-    <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-      <div class="border-b border-slate-100 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-800">Gerar Orçamento</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Informe o cliente para criar o orçamento a partir deste roteiro.</p>
+<Dialog
+  bind:open={showGerarModal}
+  title="Gerar Orçamento"
+  description="Informe o cliente para criar o orçamento a partir deste roteiro."
+  color="orcamentos"
+  cancelText="Cancelar"
+  confirmText="Gerar Orçamento"
+  showConfirm={true}
+  loading={gerarLoading}
+  onCancel={() => { showGerarModal = false; gerarLoading = false; }}
+  onConfirm={handleGerarOrcamento}
+>
+  <div class="space-y-4">
+    <div>
+      <FieldInput id="gerar-q" label="Buscar cliente" bind:value={gerarClienteQ} placeholder="Digite o nome..." />
+      {#if gerarClienteLoading}
+        <p class="mt-1 text-xs text-slate-400">Buscando...</p>
+      {:else if gerarClienteResults.length > 0}
+        <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow">
+          {#each gerarClienteResults as cliente}
+            <li>
+              <Button
+                type="button"
+                variant="ghost"
+                class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:!bg-slate-50 ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:!bg-clientes-50' : ''}`}
+                on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}
+              >
+                {cliente.nome}
+                {#if cliente.email}<span class="ml-2 text-xs text-slate-400">{cliente.email}</span>{/if}
+              </Button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+
+    {#if !gerarClienteSel}
+      <FieldInput label="Ou informe o nome do cliente" bind:value={gerarClienteNome} placeholder="Nome do cliente" id="gerar-nome" />
+    {:else}
+      <div class="rounded-lg bg-clientes-50 px-3 py-2 text-sm text-clientes-700">
+        Cliente selecionado: <strong>{gerarClienteSel.nome}</strong>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          class_name="ml-2 !px-0 !py-0 text-xs text-slate-400 underline hover:!bg-transparent hover:!text-slate-500"
+          on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}
+        >
+          Remover
+        </Button>
       </div>
-      <div class="px-6 py-4 space-y-4">
-        <div>
-          <label class="vtur-label" for="gerar-q">Buscar cliente</label>
-          <FieldInput id="gerar-q" class_name="w-full" bind:value={gerarClienteQ} placeholder="Digite o nome…" />
-          {#if gerarClienteLoading}
-            <p class="mt-1 text-xs text-slate-400">Buscando…</p>
-          {:else if gerarClienteResults.length > 0}
-            <ul class="mt-1 rounded-lg border border-slate-200 bg-white shadow">
-              {#each gerarClienteResults as cliente}
-                <li>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    class_name={`w-full justify-start rounded-none px-3 py-2 text-left text-sm hover:!bg-slate-50 ${gerarClienteSel?.id === cliente.id ? 'bg-clientes-50 font-medium text-clientes-700 hover:!bg-clientes-50' : ''}`}
-                    on:click={() => { gerarClienteSel = cliente; gerarClienteQ = cliente.nome; gerarClienteResults = []; }}
-                  >
-                    {cliente.nome}
-                    {#if cliente.email}<span class="ml-2 text-xs text-slate-400">{cliente.email}</span>{/if}
-                  </Button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-        {#if !gerarClienteSel}
-          <div>
-            <FieldInput label="Ou informe o nome do cliente" bind:value={gerarClienteNome} placeholder="Nome do cliente" id="gerar-nome" />
-          </div>
-        {:else}
-          <div class="rounded-lg bg-clientes-50 px-3 py-2 text-sm text-clientes-700">
-            Cliente selecionado: <strong>{gerarClienteSel.nome}</strong>
+    {/if}
+  </div>
+</Dialog>
+
+<Dialog
+  bind:open={showDiasBusca}
+  title="Buscar dias no banco"
+  description="Reutilize descrições de dias de outros roteiros."
+  color="orcamentos"
+  size="lg"
+  cancelText="Fechar"
+  onCancel={() => { showDiasBusca = false; }}
+>
+  <div class="space-y-3">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <FieldInput label="Texto" bind:value={diasBuscaQ} placeholder="Palavra-chave..." id="db-q" />
+      <FieldDatalistInput
+        id="db-cidade"
+        label="Cidade"
+        bind:value={diasBuscaCidade}
+        placeholder="Filtrar por cidade"
+        options={sugestoes['cidade'] || []}
+        listId="sugestoes-cidade"
+      />
+    </div>
+
+    <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} on:click={buscarDias}>
+      Buscar
+    </Button>
+
+    {#if diasBuscaResults.length > 0}
+      <div class="max-h-72 overflow-y-auto rounded-lg border border-slate-200">
+        {#each diasBuscaResults as dia}
+          <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-0">
+            <div class="text-sm">
+              <span class="font-medium text-slate-700">{dia.cidade || '-'}</span>
+              {#if dia.data}<span class="ml-2 text-xs text-slate-400">{dia.data}</span>{/if}
+              {#if dia.percurso}<p class="mt-0.5 text-xs text-slate-500">{dia.percurso}</p>{/if}
+              {#if dia.descricao}<p class="mt-0.5 line-clamp-2 text-xs text-slate-600">{dia.descricao}</p>{/if}
+            </div>
             <Button
               type="button"
               variant="ghost"
               size="xs"
-              class_name="ml-2 !px-0 !py-0 text-xs text-slate-400 underline hover:!bg-transparent hover:!text-slate-500"
-              on:click={() => { gerarClienteSel = null; gerarClienteQ = ''; }}
+              class_name="shrink-0 border border-clientes-200 bg-clientes-100 !px-2.5 !py-1 text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
+              on:click={() => addDiaBanco(dia)}
             >
-              Remover
+              Usar
             </Button>
           </div>
-        {/if}
+        {/each}
       </div>
-      <div class="vtur-modal-footer">
-        <Button type="button" variant="secondary" on:click={() => { showGerarModal = false; gerarLoading = false; }}>
-          Cancelar
-        </Button>
-        <Button type="button" variant="primary" color="clientes" loading={gerarLoading} on:click={handleGerarOrcamento}>
-          <DollarSign size={14} class="mr-1" />
-          Gerar Orçamento
-        </Button>
-      </div>
-    </div>
+    {:else if !diasBuscaLoading}
+      <p class="py-4 text-center text-sm text-slate-400">Nenhum resultado. Tente buscar acima.</p>
+    {/if}
   </div>
-{/if}
+</Dialog>
 
-<!-- ─── Modal: Buscar dias no banco ────────────────────────────────────── -->
-{#if showDiasBusca}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-    <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-      <div class="border-b border-slate-100 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-800">Buscar dias no banco</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Reutilize descrições de dias de outros roteiros.</p>
-      </div>
-      <div class="px-6 py-4 space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <FieldInput label="Texto" bind:value={diasBuscaQ} placeholder="Palavra-chave…" id="db-q" />
-          </div>
-          <div>
-            <label class="vtur-label" for="db-cidade">Cidade</label>
-            <FieldDatalistInput
-              id="db-cidade"
-              label="Cidade"
-              bind:value={diasBuscaCidade}
-              placeholder="Filtrar por cidade"
-              options={sugestoes['cidade'] || []}
-              listId="sugestoes-cidade"
-            />
-          </div>
-        </div>
-        <Button type="button" variant="primary" color="clientes" size="sm" loading={diasBuscaLoading} on:click={buscarDias}>
-          Buscar
-        </Button>
-
-        {#if diasBuscaResults.length > 0}
-          <div class="max-h-72 overflow-y-auto rounded-lg border border-slate-200">
-            {#each diasBuscaResults as dia}
-              <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-2 last:border-0">
-                <div class="text-sm">
-                  <span class="font-medium text-slate-700">{dia.cidade || '—'}</span>
-                  {#if dia.data}<span class="ml-2 text-xs text-slate-400">{dia.data}</span>{/if}
-                  {#if dia.percurso}<p class="text-xs text-slate-500 mt-0.5">{dia.percurso}</p>{/if}
-                  {#if dia.descricao}<p class="mt-0.5 text-xs text-slate-600 line-clamp-2">{dia.descricao}</p>{/if}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  class_name="shrink-0 border border-clientes-200 bg-clientes-100 !px-2.5 !py-1 text-xs font-medium text-clientes-700 hover:!bg-clientes-200"
-                  on:click={() => addDiaBanco(dia)}
-                >
-                  Usar
-                </Button>
-              </div>
-            {/each}
-          </div>
-        {:else if !diasBuscaLoading}
-          <p class="text-center text-sm text-slate-400 py-4">Nenhum resultado. Tente buscar acima.</p>
-        {/if}
-      </div>
-      <div class="vtur-modal-footer">
-        <Button type="button" variant="secondary" on:click={() => { showDiasBusca = false; }}>Fechar</Button>
-      </div>
-    </div>
+<Dialog
+  bind:open={showDiasImport}
+  title="Importar dia a dia do circuito"
+  description="Cole o texto do circuito e o sistema monta os dias automaticamente."
+  color="orcamentos"
+  size="xl"
+  cancelText="Cancelar"
+  confirmText="Importar dias"
+  showConfirm={true}
+  onCancel={() => { showDiasImport = false; diasImportError = null; diasImportMsg = null; }}
+  onConfirm={handleImportDiasText}
+>
+  <div class="space-y-3">
+    <FieldTextarea
+      bind:value={diasImportText}
+      rows={12}
+      class_name="w-full"
+      monospace={true}
+      placeholder={"Dia 1 - Chegada em Lisboa\nRecepcao no aeroporto e traslado ao hotel.\n\nDia 2 - Lisboa\nCity tour e tarde livre."}
+    />
+    <p class="text-xs text-slate-500">
+      Formatos aceitos: <strong>Dia 1 - Título</strong>, <strong>1º Dia - Título</strong> ou blocos separados por linha em branco.
+    </p>
+    {#if diasImportMsg}<p class="text-xs text-green-600">{diasImportMsg}</p>{/if}
+    {#if diasImportError}<p class="text-xs text-red-600">{diasImportError}</p>{/if}
   </div>
-{/if}
-
-<!-- ─── Modal: Importar dia a dia ─────────────────────────────────────── -->
-{#if showDiasImport}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-    <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
-      <div class="border-b border-slate-100 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-800">Importar dia a dia do circuito</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Cole o texto do circuito e o sistema monta os dias automaticamente.</p>
-      </div>
-      <div class="space-y-3 px-6 py-4">
-        <FieldTextarea
-          bind:value={diasImportText}
-          rows={12}
-          class_name="w-full"
-          monospace={true}
-          placeholder={"Dia 1 - Chegada em Lisboa\nRecepção no aeroporto e traslado ao hotel.\n\nDia 2 - Lisboa\nCity tour e tarde livre."}
-        />
-        <p class="text-xs text-slate-500">
-          Formatos aceitos: <strong>Dia 1 - Título</strong>, <strong>1º Dia - Título</strong> ou blocos separados por linha em branco.
-        </p>
-        {#if diasImportMsg}<p class="text-xs text-green-600">{diasImportMsg}</p>{/if}
-        {#if diasImportError}<p class="text-xs text-red-600">{diasImportError}</p>{/if}
-      </div>
-      <div class="vtur-modal-footer">
-        <Button type="button" variant="secondary" on:click={() => { showDiasImport = false; diasImportError = null; diasImportMsg = null; }}>
-          Cancelar
-        </Button>
-        <Button type="button" variant="primary" color="clientes" on:click={handleImportDiasText}>
-          Importar dias
-        </Button>
-      </div>
-    </div>
-  </div>
-{/if}
+</Dialog>
 
 <style lang="postcss">
   :global(.vtur-label) {

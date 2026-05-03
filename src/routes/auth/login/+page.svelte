@@ -121,7 +121,7 @@
   
   onMount(() => {
     mockMode = isMockMode();
-    passkeySupported = !mockMode && browserSupportsWebAuthn();
+    passkeySupported = !mockMode && window.isSecureContext && browserSupportsWebAuthn();
     // Auto-login no modo mock para facilitar testes
     if (mockMode) {
       email = 'admin@vtur.com';
@@ -221,6 +221,11 @@
   async function handlePasskeyLogin() {
     if (loading || passkeyLoading) return;
 
+    if (!window.isSecureContext) {
+      error = 'Passkeys exigem HTTPS ou localhost.';
+      return;
+    }
+
     if (!browserSupportsWebAuthn()) {
       error = 'Este navegador não suporta passkeys.';
       return;
@@ -259,6 +264,8 @@
         throw new Error('Sessão não retornada pelo servidor.');
       }
 
+      await syncSessionOnServer(session);
+
       void syncSessionInBrowser(session).catch((browserSyncError) => {
         console.warn('[passkey-login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
       });
@@ -266,7 +273,12 @@
       auth.setAuth(payload.user ?? null, session as any);
       await finishLogin();
     } catch (err: any) {
-      error = err.message || 'Não foi possível entrar com passkey.';
+      const message = String(err?.message || '').trim();
+      if (message.includes('The operation either timed out or was not allowed')) {
+        error = 'A autenticação por passkey foi cancelada ou expirou.';
+      } else {
+        error = message || 'Não foi possível entrar com passkey.';
+      }
     } finally {
       passkeyLoading = false;
     }

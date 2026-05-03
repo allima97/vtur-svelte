@@ -308,7 +308,7 @@
           .filter((section) => section.items.length > 0);
 
     visibleMasterItems = masterItems.filter((item) => canSeeItem(item));
-    visibleAdminItems = adminItems.filter((item) => canSeeItem(item));
+    visibleAdminItems = $permissoes.isSystemAdmin ? adminItems.filter((item) => canSeeItem(item)) : [];
   }
 
   function handleItemClick() {

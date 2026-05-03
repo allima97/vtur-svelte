@@ -11,7 +11,7 @@ import {
   verifyRegistrationResponse
 } from '@simplewebauthn/server';
 import type { RequestEvent } from '@sveltejs/kit';
-import { error } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
 import { getAdminClient } from '$lib/server/v1';
 
@@ -81,6 +81,26 @@ function normalizeTransports(value?: unknown): AuthenticatorTransportFuture[] {
   return Array.isArray(value) ? (value.filter(Boolean) as AuthenticatorTransportFuture[]) : [];
 }
 
+function isMissingPasskeyTable(err: unknown) {
+  const code = String((err as any)?.code || '').toLowerCase();
+  const message = String((err as any)?.message || '').toLowerCase();
+  return code === '42p01' || message.includes('auth_passkeys') || message.includes('auth_passkey_challenges');
+}
+
+function passkeyUnavailable(): never {
+  throw error(
+    503,
+    'Passkeys ainda não estão provisionadas neste ambiente. Execute a migration 20260502_auth_passkeys.sql antes de usar esse recurso.'
+  );
+}
+
+export function toPasskeyErrorResponse(err: unknown, fallbackMessage: string) {
+  const status = typeof (err as any)?.status === 'number' ? (err as any).status : 500;
+  const message = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
+
+  return json({ error: message }, { status });
+}
+
 async function storeChallenge(params: {
   userId?: string | null;
   type: 'registration' | 'authentication';
@@ -102,6 +122,7 @@ async function storeChallenge(params: {
 
   if (insertError || !data?.id) {
     console.error('[passkeys] Falha ao gravar challenge:', insertError);
+    if (isMissingPasskeyTable(insertError)) passkeyUnavailable();
     throw error(500, 'Erro ao preparar passkey.');
   }
 
@@ -121,6 +142,7 @@ async function getChallenge(challengeId: string, type: 'registration' | 'authent
 
   if (challengeError) {
     console.error('[passkeys] Falha ao buscar challenge:', challengeError);
+    if (isMissingPasskeyTable(challengeError)) passkeyUnavailable();
     throw error(500, 'Erro ao validar passkey.');
   }
 
@@ -206,6 +228,7 @@ export async function listPasskeys(userId: string) {
 
   if (listError) {
     console.error('[passkeys] Falha ao listar passkeys:', listError);
+    if (isMissingPasskeyTable(listError)) passkeyUnavailable();
     throw error(500, 'Erro ao carregar passkeys.');
   }
 
@@ -222,6 +245,7 @@ export async function deletePasskey(userId: string, passkeyId: string) {
 
   if (deleteError) {
     console.error('[passkeys] Falha ao remover passkey:', deleteError);
+    if (isMissingPasskeyTable(deleteError)) passkeyUnavailable();
     throw error(500, 'Erro ao remover passkey.');
   }
 }
@@ -238,6 +262,7 @@ export async function buildRegistrationOptions(event: RequestEvent, user: { id: 
 
   if (existingError) {
     console.error('[passkeys] Falha ao buscar passkeys existentes:', existingError);
+    if (isMissingPasskeyTable(existingError)) passkeyUnavailable();
     throw error(500, 'Erro ao preparar cadastro de passkey.');
   }
 
@@ -340,6 +365,7 @@ export async function buildAuthenticationOptions(event: RequestEvent, email?: st
 
     if (listError) {
       console.error('[passkeys] Falha ao buscar passkeys por email:', listError);
+      if (isMissingPasskeyTable(listError)) passkeyUnavailable();
       throw error(500, 'Erro ao preparar login por passkey.');
     }
 
@@ -389,6 +415,7 @@ export async function verifyAuthentication(params: {
 
   if (passkeyError) {
     console.error('[passkeys] Falha ao buscar credencial:', passkeyError);
+    if (isMissingPasskeyTable(passkeyError)) passkeyUnavailable();
     throw error(500, 'Erro ao validar passkey.');
   }
 

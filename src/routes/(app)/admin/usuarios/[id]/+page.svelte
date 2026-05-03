@@ -235,7 +235,6 @@
         await loadDetail();
       }
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar usuario.');
     } finally {
       saving = false;

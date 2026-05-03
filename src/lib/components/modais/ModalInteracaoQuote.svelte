@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { X, MessageCircle, Phone, Mail, Calendar, User, Send, Clock } from 'lucide-svelte';
+  import { MessageCircle, Phone, Mail, Calendar, Send, Clock } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { onMount } from 'svelte';
   
@@ -130,43 +130,16 @@
   }
 </script>
 
-{#if open}
-  <div 
-    class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    on:click|self={onClose}
-    on:keydown={(event) => event.key === 'Escape' && onClose()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="0"
-  >
-    <div 
-      class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-    >
-      <!-- Header -->
-      <div class="vtur-modal-header border-b border-slate-100 bg-clientes-50">
-        <div class="vtur-modal-header__lead">
-          <div class="vtur-modal-header__icon bg-clientes-100">
-            <MessageCircle size={24} class="text-clientes-600" />
-          </div>
-          <div class="vtur-modal-header__copy">
-            <h3 class="vtur-modal-header__title">Histórico de Interações</h3>
-            <p class="vtur-modal-header__subtitle">Cliente: {clienteNome}</p>
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          ariaLabel="Fechar histórico de interações"
-          class_name="vtur-modal-header__close !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
-          on:click={onClose}
-        >
-          <X size={20} />
-        </Button>
-      </div>
-      
-      <!-- Content -->
-      <div class="vtur-modal-body-dense">
+<Dialog
+  bind:open
+  title="Histórico de Interações"
+  description={`Cliente: ${clienteNome}`}
+  color="clientes"
+  size="lg"
+  cancelText="Fechar"
+  onclose={onClose}
+>
+  <div class="space-y-6">
         <!-- Nova Interação -->
         <div class="vtur-modal-section-compact bg-slate-50 rounded-xl p-4 mb-6">
           <h4 class="font-medium text-slate-900 mb-4">Registrar Nova Interação</h4>
@@ -279,14 +252,5 @@
             </div>
           {/if}
         </div>
-      </div>
-      
-      <!-- Footer -->
-      <div class="vtur-modal-footer">
-        <Button variant="secondary" on:click={onClose}>
-          Fechar
-        </Button>
-      </div>
-    </div>
   </div>
-{/if}
+</Dialog>

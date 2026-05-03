@@ -320,6 +320,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
+	if (pathname.startsWith('/admin') || pathname.startsWith('/dashboard/admin')) {
+		throw redirect(303, '/negado');
+	}
+
 	if (
 		pathname.startsWith('/perfil') ||
 		pathname.startsWith('/negado') ||

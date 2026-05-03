@@ -4,7 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldTextarea, FieldSelect } from '$lib/components/ui';
+  import { AlertMessage, FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { extractCvcQuoteFromText } from '$lib/quote/cvcPdfExtractor';
   import {
@@ -179,6 +179,10 @@
       .map((value) => String(value || '').trim())
       .filter(Boolean)
       .join(' / ') || '-';
+  }
+
+  function inputValue(event: Event) {
+    return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value;
   }
 
   // Itens filtrados com o índice real dentro de draft.items preservado
@@ -518,16 +522,10 @@
 
   <!-- ── Mensagens de status / erro ── -->
   {#if errorMessage}
-    <div class="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      <AlertCircle size={16} class="mt-0.5 shrink-0" />
-      {errorMessage}
-    </div>
+    <AlertMessage variant="error" message={errorMessage} />
   {/if}
   {#if statusMessage && !errorMessage}
-    <div class="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-      <CheckCircle size={16} class="mt-0.5 shrink-0" />
-      {statusMessage}
-    </div>
+    <AlertMessage variant="info" message={statusMessage} />
   {/if}
 
   <!-- ── Texto + configurações ── -->
@@ -600,35 +598,31 @@
 
       <!-- Cliente -->
       <div class="relative">
-        <label class="mb-1 block text-sm font-medium text-slate-700">Cliente *</label>
-        <div class="relative">
-          <input
-            type="text"
-            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            placeholder={carregandoClientes ? 'Carregando clientes...' : 'Buscar cliente por nome ou CPF...'}
-            value={clienteSelecionado ? clienteSelecionado.nome : clienteBusca}
-            disabled={carregandoClientes}
-            on:input={(e) => {
-              clienteBusca = e.currentTarget.value;
-              clienteId = '';
-              clienteSelecionado = null;
-              mostrarSugestoesCliente = true;
-            }}
-            on:focus={() => { mostrarSugestoesCliente = true; }}
-            on:blur={() => setTimeout(() => { mostrarSugestoesCliente = false; }, 150)}
-          />
-          <Search size={15} class="pointer-events-none absolute right-3 top-3 text-slate-400" />
-        </div>
+        <FieldInput
+          label="Cliente *"
+          icon={Search}
+          value={clienteSelecionado ? clienteSelecionado.nome : clienteBusca}
+          placeholder={carregandoClientes ? 'Carregando clientes...' : 'Buscar cliente por nome ou CPF...'}
+          disabled={carregandoClientes}
+          on:input={(e) => {
+            clienteBusca = inputValue(e);
+            clienteId = '';
+            clienteSelecionado = null;
+            mostrarSugestoesCliente = true;
+          }}
+          on:focus={() => { mostrarSugestoesCliente = true; }}
+          on:blur={() => setTimeout(() => { mostrarSugestoesCliente = false; }, 150)}
+        />
         {#if mostrarSugestoesCliente && clienteBusca.trim().length >= 1}
           <div class="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg">
             {#if clientesFiltrados.length === 0}
               <div class="px-4 py-3 text-sm text-slate-500">Nenhum cliente encontrado.</div>
             {:else}
               {#each clientesFiltrados as c}
-                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                <!-- svelte-ignore a11y-no-static-element-interactions -->
-                <div
-                  class="cursor-pointer px-4 py-2.5 text-sm hover:bg-slate-50 {clienteId === c.id ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-800'}"
+                <Button
+                  type="button"
+                  variant="ghost"
+                  class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:!bg-slate-50 {clienteId === c.id ? 'bg-blue-50 font-medium text-blue-700 hover:!bg-blue-50' : 'text-slate-800'}"
                   on:mousedown={(e) => {
                     e.preventDefault();
                     clienteId = c.id;
@@ -639,45 +633,41 @@
                 >
                   <div class="font-medium">{c.nome}</div>
                   {#if c.cpf}<div class="text-xs text-slate-400">CPF {c.cpf}</div>{/if}
-                </div>
+                </Button>
               {/each}
             {/if}
           </div>
         {/if}
         {#if clienteSelecionado}
-          <p class="mt-1 text-xs text-green-600">✓ Cliente selecionado</p>
+          <p class="mt-1 text-xs text-green-600">Cliente selecionado</p>
         {/if}
       </div>
 
       <!-- Cidade de destino -->
       <div class="relative">
-        <label class="mb-1 block text-sm font-medium text-slate-700">Cidade de destino</label>
-        <div class="relative">
-          <input
-            type="text"
-            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            placeholder="Buscar cidade..."
-            value={cidadeBusca}
-            on:input={(e) => handleCidadeBuscaChange(e.currentTarget.value)}
-            on:focus={() => { mostrarSugestoesCidade = true; }}
-            on:blur={() => setTimeout(() => { mostrarSugestoesCidade = false; }, 150)}
-          />
-          <Search size={15} class="pointer-events-none absolute right-3 top-3 text-slate-400" />
-        </div>
+        <FieldInput
+          label="Cidade de destino"
+          icon={Search}
+          value={cidadeBusca}
+          placeholder="Buscar cidade..."
+          on:input={(e) => handleCidadeBuscaChange(inputValue(e))}
+          on:focus={() => { mostrarSugestoesCidade = true; }}
+          on:blur={() => setTimeout(() => { mostrarSugestoesCidade = false; }, 150)}
+        />
         {#if mostrarSugestoesCidade && cidadeResultados.length > 0}
           <div class="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg">
             {#each cidadeResultados as cidade}
-              <!-- svelte-ignore a11y-click-events-have-key-events -->
-              <!-- svelte-ignore a11y-no-static-element-interactions -->
-              <div
-                class="cursor-pointer px-4 py-2.5 text-sm hover:bg-slate-50 {cidadeId === cidade.id ? 'bg-blue-50 font-medium text-blue-700' : 'text-slate-800'}"
+              <Button
+                type="button"
+                variant="ghost"
+                class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:!bg-slate-50 {cidadeId === cidade.id ? 'bg-blue-50 font-medium text-blue-700 hover:!bg-blue-50' : 'text-slate-800'}"
                 on:mousedown={(e) => { e.preventDefault(); selecionarCidade(cidade); }}
               >
                 <div class="font-medium">{cidade.nome}</div>
                 {#if cidade.subdivisao_nome}
                   <div class="text-xs text-slate-400">{cidade.subdivisao_nome}</div>
                 {/if}
-              </div>
+              </Button>
             {/each}
           </div>
         {/if}
@@ -687,22 +677,8 @@
       </div>
 
       <!-- Datas -->
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Data de embarque</label>
-        <input
-          type="date"
-          class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          bind:value={dataEmbarque}
-        />
-      </div>
-      <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Data de retorno</label>
-        <input
-          type="date"
-          class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          bind:value={dataFinal}
-        />
-      </div>
+      <FieldInput label="Data de embarque" type="date" bind:value={dataEmbarque} />
+      <FieldInput label="Data de retorno" type="date" bind:value={dataFinal} />
     </div>
   </Card>
 
@@ -725,113 +701,92 @@
                 </span>
               </div>
               <div class="flex gap-1">
-                <button
+                <Button
                   type="button"
-                  class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                  variant="ghost"
+                  size="xs"
+                  class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                   disabled={displayIdx === 0}
                   title="Mover para cima"
                   on:click={() => moveItem(realIdx, 'up')}
                 >
                   <ChevronUp size={16} />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                  variant="ghost"
+                  size="xs"
+                  class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                   disabled={displayIdx === itensFiltrados.length - 1}
                   title="Mover para baixo"
                   on:click={() => moveItem(realIdx, 'down')}
                 >
                   <ChevronDown size={16} />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                  variant="ghost"
+                  size="xs"
+                  class_name="!p-1 text-red-400 hover:!bg-red-50 hover:text-red-600"
                   title="Remover item"
                   on:click={() => removeItem(realIdx)}
                 >
                   <Trash2 size={16} />
-                </button>
+                </Button>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Título *</label>
-                <input
-                  type="text"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.title || ''}
-                  on:change={(e) => updateItem(realIdx, { title: e.currentTarget.value })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Tipo *</label>
-                <input
-                  type="text"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.item_type || ''}
-                  on:change={(e) => updateItem(realIdx, { item_type: e.currentTarget.value })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Cidade</label>
-                <input
-                  type="text"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.city_name || ''}
-                  on:change={(e) => updateItem(realIdx, { city_name: e.currentTarget.value })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Qtd</label>
-                <input
-                  type="number"
-                  min="1"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.quantity || 1}
-                  on:change={(e) => updateItem(realIdx, { quantity: Number(e.currentTarget.value) })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Data início *</label>
-                <input
-                  type="date"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.start_date || ''}
-                  on:change={(e) => updateItem(realIdx, { start_date: e.currentTarget.value })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Data fim</label>
-                <input
-                  type="date"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.end_date || ''}
-                  on:change={(e) => updateItem(realIdx, { end_date: e.currentTarget.value })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Valor sem taxas (R$) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.total_amount || 0}
-                  on:change={(e) => updateItem(realIdx, { total_amount: Number(e.currentTarget.value) })}
-                />
-              </div>
-              <div>
-                <label class="mb-1 block text-xs font-medium text-slate-500">Taxas (R$)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
-                  value={item.taxes_amount || 0}
-                  on:change={(e) => updateItem(realIdx, { taxes_amount: Number(e.currentTarget.value) })}
-                />
-              </div>
+              <FieldInput
+                label="Título *"
+                value={item.title || ''}
+                on:change={(e) => updateItem(realIdx, { title: inputValue(e) })}
+              />
+              <FieldInput
+                label="Tipo *"
+                value={item.item_type || ''}
+                on:change={(e) => updateItem(realIdx, { item_type: inputValue(e) })}
+              />
+              <FieldInput
+                label="Cidade"
+                value={item.city_name || ''}
+                on:change={(e) => updateItem(realIdx, { city_name: inputValue(e) })}
+              />
+              <FieldInput
+                label="Qtd"
+                type="number"
+                min="1"
+                value={item.quantity || 1}
+                on:change={(e) => updateItem(realIdx, { quantity: Number(inputValue(e)) })}
+              />
+              <FieldInput
+                label="Data início *"
+                type="date"
+                value={item.start_date || ''}
+                on:change={(e) => updateItem(realIdx, { start_date: inputValue(e) })}
+              />
+              <FieldInput
+                label="Data fim"
+                type="date"
+                value={item.end_date || ''}
+                on:change={(e) => updateItem(realIdx, { end_date: inputValue(e) })}
+              />
+              <FieldInput
+                label="Valor sem taxas (R$) *"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.total_amount || 0}
+                on:change={(e) => updateItem(realIdx, { total_amount: Number(inputValue(e)) })}
+              />
+              <FieldInput
+                label="Taxas (R$)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.taxes_amount || 0}
+                on:change={(e) => updateItem(realIdx, { taxes_amount: Number(inputValue(e)) })}
+              />
               <div class="flex items-end">
                 <span class="text-sm font-semibold text-slate-700">{formatCurrency((item.total_amount || 0) + (item.taxes_amount || 0), item.currency || draft.currency || 'BRL')}</span>
               </div>
@@ -884,45 +839,34 @@
 
                 <!-- Meta: Codigo / Serie / Tags -->
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-500">Código</label>
-                    <input
-                      type="text"
-                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                      value={meta.codigo || ''}
-                      on:change={(e) => updateCircuitMeta(realIdx, { codigo: e.currentTarget.value })}
-                    />
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-500">Série</label>
-                    <input
-                      type="text"
-                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                      value={meta.serie || ''}
-                      on:change={(e) => updateCircuitMeta(realIdx, { serie: e.currentTarget.value })}
-                    />
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-slate-500">Tags <span class="font-normal text-slate-400">(uma por linha)</span></label>
-                    <textarea
-                      class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                      rows={2}
-                      value={(meta.tags || []).join('\n')}
-                      on:change={(e) => updateCircuitMeta(realIdx, { tags: e.currentTarget.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
-                    ></textarea>
-                  </div>
+                  <FieldInput
+                    label="Código"
+                    value={meta.codigo || ''}
+                    on:change={(e) => updateCircuitMeta(realIdx, { codigo: inputValue(e) })}
+                  />
+                  <FieldInput
+                    label="Série"
+                    value={meta.serie || ''}
+                    on:change={(e) => updateCircuitMeta(realIdx, { serie: inputValue(e) })}
+                  />
+                  <FieldTextarea
+                    label="Tags"
+                    rows={2}
+                    value={(meta.tags || []).join('\n')}
+                    helper="Uma por linha"
+                    on:change={(e) => updateCircuitMeta(realIdx, { tags: inputValue(e).split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
+                  />
                 </div>
 
                 <!-- Itinerário -->
-                <div class="mt-3">
-                  <label class="mb-1 block text-xs font-medium text-slate-500">Itinerário <span class="font-normal text-slate-400">(uma cidade por linha)</span></label>
-                  <textarea
-                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                    rows={3}
-                    value={(meta.itinerario || []).join('\n')}
-                    on:change={(e) => updateCircuitMeta(realIdx, { itinerario: e.currentTarget.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
-                  ></textarea>
-                </div>
+                <FieldTextarea
+                  class_name="mt-3"
+                  label="Itinerário"
+                  rows={3}
+                  value={(meta.itinerario || []).join('\n')}
+                  helper="Uma cidade por linha"
+                  on:change={(e) => updateCircuitMeta(realIdx, { itinerario: inputValue(e).split(/\r?\n/).map(v => v.trim()).filter(Boolean) })}
+                />
 
                 <!-- Dia a dia -->
                 <div class="mt-4">
@@ -931,13 +875,15 @@
                       <p class="text-sm font-semibold text-slate-700">Dia a dia</p>
                       <p class="text-xs text-slate-400">Título e descrição de cada etapa do circuito.</p>
                     </div>
-                    <button
+                    <Button
                       type="button"
-                      class="flex items-center gap-1 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                      variant="secondary"
+                      size="xs"
+                      class_name="gap-1 border-indigo-300 text-indigo-700 hover:!bg-indigo-100"
                       on:click={() => addCircuitDay(realIdx)}
                     >
                       <Plus size={13} /> Adicionar dia
-                    </button>
+                    </Button>
                   </div>
 
                   {#if circuitDays.length === 0}
@@ -951,56 +897,57 @@
                         <div class="rounded-lg border border-slate-200 bg-white p-3">
                           <div class="grid grid-cols-3 gap-2 sm:grid-cols-[auto_1fr_auto]">
                             <div class="w-20">
-                              <label class="mb-1 block text-xs font-medium text-slate-500">Dia</label>
-                              <input
+                              <FieldInput
+                                label="Dia"
                                 type="number"
                                 min="1"
-                                class="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
                                 value={dayData.dia ?? segIdx + 1}
-                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'dia', Number(e.currentTarget.value) || segIdx + 1)}
+                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'dia', Number(inputValue(e)) || segIdx + 1)}
                               />
                             </div>
                             <div>
-                              <label class="mb-1 block text-xs font-medium text-slate-500">Cidade / Título</label>
-                              <input
-                                type="text"
-                                class="w-full rounded border border-slate-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+                              <FieldInput
+                                label="Cidade / Título"
                                 value={dayData.titulo || ''}
-                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'titulo', e.currentTarget.value)}
+                                on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'titulo', inputValue(e))}
                               />
                             </div>
                             <div class="flex items-end gap-1 pb-0.5">
-                              <button
+                              <Button
                                 type="button"
-                                class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                variant="ghost"
+                                size="xs"
+                                class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                                 disabled={segIdx === 0}
                                 title="Subir dia"
                                 on:click={() => moveCircuitDay(realIdx, segIdx, 'up')}
-                              ><ChevronUp size={14} /></button>
-                              <button
+                              ><ChevronUp size={14} /></Button>
+                              <Button
                                 type="button"
-                                class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                                variant="ghost"
+                                size="xs"
+                                class_name="!p-1 text-slate-400 hover:!bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                                 disabled={segIdx === circuitDays.length - 1}
                                 title="Descer dia"
                                 on:click={() => moveCircuitDay(realIdx, segIdx, 'down')}
-                              ><ChevronDown size={14} /></button>
-                              <button
+                              ><ChevronDown size={14} /></Button>
+                              <Button
                                 type="button"
-                                class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                variant="ghost"
+                                size="xs"
+                                class_name="!p-1 text-red-400 hover:!bg-red-50 hover:text-red-600"
                                 title="Remover dia"
                                 on:click={() => removeCircuitDay(realIdx, segIdx)}
-                              ><Trash2 size={14} /></button>
+                              ><Trash2 size={14} /></Button>
                             </div>
                           </div>
-                          <div class="mt-2">
-                            <label class="mb-1 block text-xs font-medium text-slate-500">Descrição</label>
-                            <textarea
-                              class="w-full rounded border border-slate-200 px-2 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                              rows={2}
-                              value={dayData.descricao || ''}
-                              on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'descricao', e.currentTarget.value)}
-                            ></textarea>
-                          </div>
+                          <FieldTextarea
+                            class_name="mt-2"
+                            label="Descrição"
+                            rows={2}
+                            value={dayData.descricao || ''}
+                            on:change={(e) => updateCircuitDayField(realIdx, segIdx, 'descricao', inputValue(e))}
+                          />
                         </div>
                       {/each}
                     </div>

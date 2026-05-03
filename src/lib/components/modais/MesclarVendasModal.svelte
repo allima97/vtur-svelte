@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Merge, X, AlertTriangle, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from 'lucide-svelte';
+  import { Merge, CheckCircle, Loader2, Calendar, MapPin, Receipt, DollarSign, Search } from 'lucide-svelte';
+  import AlertMessage from '$lib/components/ui/AlertMessage.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toast } from '$lib/stores/ui';
 
   // ─── Props ─────────────────────────────────────────────────────────────────
@@ -133,45 +135,22 @@
   $: if (open && vendaId) carregarCandidatos();
 </script>
 
-{#if open}
-  <div
-    class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    on:click|self={fechar}
-    on:keydown={(e) => e.key === 'Escape' && fechar()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="0"
-  >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
-
-      <!-- Header -->
-      <div class="vtur-modal-header border-b border-slate-100 bg-vendas-50 flex-shrink-0">
-        <div class="vtur-modal-header__lead">
-          <div class="vtur-modal-header__icon bg-vendas-100">
-            <Merge size={20} class="text-vendas-600" />
-          </div>
-          <div class="vtur-modal-header__copy">
-            <h3 class="vtur-modal-header__title">Mesclar Vendas</h3>
-            <p class="vtur-modal-header__subtitle">
-              Venda principal: <span class="font-semibold text-slate-700">{vendaCodigo || vendaId.slice(0,8).toUpperCase()}</span>
-            </p>
-          </div>
-        </div>
-        <Button type="button" variant="ghost" size="sm" class_name="vtur-modal-header__close p-2" ariaLabel="Fechar" on:click={fechar}>
-          <X size={18} />
-        </Button>
-      </div>
-
-      <!-- Aviso -->
-      <div class="vtur-modal-notice flex-shrink-0 mx-4 mt-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex gap-2 items-start">
-        <AlertTriangle size={15} class="text-amber-600 mt-0.5 flex-shrink-0" />
-        <p class="text-xs text-amber-800">
-          As vendas selecionadas serão <strong>absorvidas</strong> pela venda principal — seus recibos e pagamentos serão migrados e as vendas secundárias excluídas. Esta ação <strong>não pode ser desfeita</strong>.
-        </p>
-      </div>
-
-      <!-- Conteúdo -->
-      <div class="vtur-modal-body-dense flex-1 space-y-3">
+<Dialog
+  bind:open
+  title="Mesclar Vendas"
+  description={`Venda principal: ${vendaCodigo || vendaId.slice(0, 8).toUpperCase()}`}
+  color="vendas"
+  size="lg"
+  showCancel={false}
+  dismissable={!mesclando}
+  onclose={fechar}
+>
+  <div class="space-y-4">
+    <AlertMessage variant="warning" title="Ação irreversível">
+      <p class="m-0">
+        As vendas selecionadas serão <strong>absorvidas</strong> pela venda principal. Seus recibos e pagamentos serão migrados e as vendas secundárias excluídas.
+      </p>
+    </AlertMessage>
 
         {#if loading}
           <div class="flex items-center justify-center py-12 gap-3 text-slate-500">
@@ -180,10 +159,7 @@
           </div>
 
         {:else if erro}
-          <div class="vtur-modal-notice rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex gap-2 items-center">
-            <AlertTriangle size={16} class="text-red-500 flex-shrink-0" />
-            <p class="text-sm text-red-700">{erro}</p>
-          </div>
+          <AlertMessage variant="error" message={erro} />
 
         {:else if candidatos.length === 0}
           <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-3">
@@ -197,15 +173,12 @@
         {:else}
           <!-- Filtro e contador -->
           <div class="vtur-modal-grid-compact flex items-center gap-3">
-            <div class="relative flex-1">
-              <Search size={14} class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                bind:value={filtro}
-                placeholder="Filtrar por destino ou recibo..."
-                class="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-vendas-200 focus:border-vendas-400"
-              />
-            </div>
+            <FieldInput
+              icon={Search}
+              bind:value={filtro}
+              placeholder="Filtrar por destino ou recibo..."
+              class_name="flex-1"
+            />
             <span class="text-xs text-slate-500 whitespace-nowrap">
               {candidatos.length} venda{candidatos.length !== 1 ? 's' : ''} disponível{candidatos.length !== 1 ? 'is' : ''}
             </span>
@@ -215,10 +188,11 @@
           <div class="space-y-2">
             {#each candidatosFiltrados as c (c.id)}
               {@const sel = selecionados.has(c.id)}
-              <button
+              <Button
                 type="button"
+                variant="unstyled"
                 on:click={() => toggleSelecionado(c.id)}
-                class="vtur-modal-list-item w-full text-left rounded-xl border-2 px-4 py-3 transition-all
+                class_name="vtur-modal-list-item !block w-full rounded-xl border-2 px-4 py-3 text-left transition-all
                   {sel
                     ? 'border-vendas-400 bg-vendas-50 shadow-sm'
                     : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'}"
@@ -277,7 +251,7 @@
                     </div>
                   </div>
                 </div>
-              </button>
+              </Button>
             {/each}
 
             {#if candidatosFiltrados.length === 0 && filtro}
@@ -285,10 +259,9 @@
             {/if}
           </div>
         {/if}
-      </div>
 
       <!-- Footer -->
-      <div class="flex-shrink-0 border-t border-slate-100 p-4">
+      <div class="border-t border-slate-100 pt-4">
 
         {#if confirmando}
           <!-- Passo de confirmação -->
@@ -339,6 +312,5 @@
         {/if}
 
       </div>
-    </div>
   </div>
-{/if}
+</Dialog>

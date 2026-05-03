@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { deletePasskey, listPasskeys } from '$lib/server/passkeys';
+import { deletePasskey, listPasskeys, toPasskeyErrorResponse } from '$lib/server/passkeys';
 import type { RequestHandler } from './$types';
 
 async function getCurrentUser(event: Parameters<RequestHandler>[0]) {
@@ -12,27 +12,35 @@ async function getCurrentUser(event: Parameters<RequestHandler>[0]) {
 }
 
 export const GET: RequestHandler = async (event) => {
-  const user = await getCurrentUser(event);
-  if (!user) {
-    return json({ error: 'Sessao invalida.' }, { status: 401 });
-  }
+  try {
+    const user = await getCurrentUser(event);
+    if (!user) {
+      return json({ error: 'Sessao invalida.' }, { status: 401 });
+    }
 
-  const passkeys = await listPasskeys(user.id);
-  return json({ ok: true, passkeys });
+    const passkeys = await listPasskeys(user.id);
+    return json({ ok: true, passkeys });
+  } catch (err) {
+    return toPasskeyErrorResponse(err, 'Erro ao carregar passkeys.');
+  }
 };
 
 export const DELETE: RequestHandler = async (event) => {
-  const user = await getCurrentUser(event);
-  if (!user) {
-    return json({ error: 'Sessao invalida.' }, { status: 401 });
-  }
+  try {
+    const user = await getCurrentUser(event);
+    if (!user) {
+      return json({ error: 'Sessao invalida.' }, { status: 401 });
+    }
 
-  const body = await event.request.json().catch(() => ({}));
-  const id = String(body?.id || '').trim();
-  if (!id) {
-    return json({ error: 'Passkey obrigatoria.' }, { status: 400 });
-  }
+    const body = await event.request.json().catch(() => ({}));
+    const id = String(body?.id || '').trim();
+    if (!id) {
+      return json({ error: 'Passkey obrigatoria.' }, { status: 400 });
+    }
 
-  await deletePasskey(user.id, id);
-  return json({ ok: true });
+    await deletePasskey(user.id, id);
+    return json({ ok: true });
+  } catch (err) {
+    return toPasskeyErrorResponse(err, 'Erro ao remover passkey.');
+  }
 };

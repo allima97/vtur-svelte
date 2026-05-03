@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { Button } from 'flowbite-svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import { Home, AlertTriangle, ArrowLeft } from 'lucide-svelte';
   
   $: status = $page.status;
@@ -36,12 +36,12 @@
     
     <!-- Ações -->
     <div class="flex flex-col sm:flex-row gap-3 justify-center">
-      <Button href="/" color="blue">
+      <Button href="/" color="clientes">
         <Home size={18} class="mr-2" />
         Ir para o Dashboard
       </Button>
       
-      <Button href="javascript:history.back()" color="light">
+      <Button href="javascript:history.back()" variant="secondary">
         <ArrowLeft size={18} class="mr-2" />
         Voltar
       </Button>

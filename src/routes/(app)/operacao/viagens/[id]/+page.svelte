@@ -913,8 +913,9 @@
     confirmText="Excluir"
     cancelText="Cancelar"
     confirmVariant="danger"
-    on:confirm={deleteViagem}
-    on:cancel={() => (showDeleteDialog = false)}
+    showConfirm={true}
+    onConfirm={deleteViagem}
+    onCancel={() => (showDeleteDialog = false)}
   >
     <div
       class="flex items-start gap-3 text-amber-600 bg-amber-50 p-3 rounded-lg"
@@ -926,158 +927,82 @@
     </div>
   </Dialog>
 
-  <!-- Modal de Edição -->
-  {#if showEditModal}
-    <div
-      class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    >
-      <div
-        class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
-      >
-        <!-- Header -->
-        <div
-          class="flex items-center justify-between p-4 border-b border-slate-100"
-        >
-          <h3 class="text-lg font-semibold text-slate-900">Editar Viagem</h3>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            ariaLabel="Fechar edição da viagem"
-            class_name="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-            on:click={() => (showEditModal = false)}
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
-
-        <!-- Form -->
-        <div class="p-6 overflow-y-auto max-h-[60vh]">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FieldInput
-              label="Data de Saída"
-              type="date"
-              bind:value={editForm.data_inicio}
-              id="viagem-edit-data-inicio"
-            />
-            <FieldInput
-              label="Data de Retorno"
-              type="date"
-              bind:value={editForm.data_fim}
-              min={editForm.data_inicio || null}
-              id="viagem-edit-data-fim"
-            />
-            <FieldTextarea
-              label="Observações"
-              bind:value={editForm.observacoes}
-              rows={3}
-              id="viagem-edit-observacoes"
-              class_name="md:col-span-2"
-            />
-            <FieldTextarea
-              label="Follow Up"
-              bind:value={editForm.follow_up_text}
-              rows={2}
-              id="viagem-edit-follow-up"
-              class_name="md:col-span-2"
-            />
-            <FieldCheckbox
-              label="Marcar como fechado"
-              bind:checked={editForm.follow_up_fechado}
-              class_name="md:col-span-2"
-            />
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="vtur-modal-footer">
-          <Button variant="ghost" on:click={() => (showEditModal = false)}
-            >Cancelar</Button
-          >
-          <Button variant="primary" on:click={saveViagem} loading={saving}
-            >Salvar Alterações</Button
-          >
-        </div>
-      </div>
+  <Dialog
+    bind:open={showEditModal}
+    title="Editar Viagem"
+    description="Atualize as datas, observações e informações de acompanhamento."
+    size="lg"
+    color="operacao"
+    cancelText="Cancelar"
+    confirmText="Salvar Alterações"
+    showConfirm={true}
+    loading={saving}
+    onCancel={() => (showEditModal = false)}
+    onConfirm={saveViagem}
+  >
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <FieldInput
+        label="Data de Saída"
+        type="date"
+        bind:value={editForm.data_inicio}
+        id="viagem-edit-data-inicio"
+      />
+      <FieldInput
+        label="Data de Retorno"
+        type="date"
+        bind:value={editForm.data_fim}
+        min={editForm.data_inicio || null}
+        id="viagem-edit-data-fim"
+      />
+      <FieldTextarea
+        label="Observações"
+        bind:value={editForm.observacoes}
+        rows={3}
+        id="viagem-edit-observacoes"
+        class_name="md:col-span-2"
+      />
+      <FieldTextarea
+        label="Follow Up"
+        bind:value={editForm.follow_up_text}
+        rows={2}
+        id="viagem-edit-follow-up"
+        class_name="md:col-span-2"
+      />
+      <FieldCheckbox
+        label="Marcar como fechado"
+        bind:checked={editForm.follow_up_fechado}
+        class_name="md:col-span-2"
+      />
     </div>
-  {/if}
+  </Dialog>
 
-  <!-- Modal de Mudança de Status -->
-  {#if showStatusModal}
-    <div
-      class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div
-          class="flex items-center justify-between p-4 border-b border-slate-100"
+  <Dialog
+    bind:open={showStatusModal}
+    title="Mudar Status da Viagem"
+    description="Escolha o novo status operacional da viagem."
+    color="operacao"
+    cancelText="Cancelar"
+    confirmText="Confirmar"
+    showConfirm={true}
+    loading={saving}
+    onCancel={() => (showStatusModal = false)}
+    onConfirm={saveViagem}
+  >
+    <div class="grid grid-cols-1 gap-3">
+      {#each statusOptions as option}
+        <Button
+          variant={editForm.status === option.value ? "primary" : "outline"}
+          color="clientes"
+          class_name="flex w-full items-center justify-start gap-3 text-left"
+          on:click={() => (editForm.status = option.value)}
         >
-          <h3 class="text-lg font-semibold text-slate-900">
-            Mudar Status da Viagem
-          </h3>
-          <Button
-            variant="ghost"
-            size="xs"
-            title="Fechar"
-            on:click={() => (showStatusModal = false)}
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </Button>
-        </div>
-
-        <div class="p-6">
-          <div class="grid grid-cols-1 gap-3">
-            {#each statusOptions as option}
-              <Button
-                variant={editForm.status === option.value
-                  ? "primary"
-                  : "outline"}
-                color="clientes"
-                class_name="flex items-center gap-3 justify-start text-left w-full"
-                on:click={() => (editForm.status = option.value)}
-              >
-                <svelte:component this={option.icon} size={20} />
-                <span>{option.label}</span>
-                {#if editForm.status === option.value}
-                  <CheckCircle size={18} class="ml-auto" />
-                {/if}
-              </Button>
-            {/each}
-          </div>
-        </div>
-
-        <div class="vtur-modal-footer">
-          <Button variant="ghost" on:click={() => (showStatusModal = false)}
-            >Cancelar</Button
-          >
-          <Button variant="primary" on:click={saveViagem} loading={saving}
-            >Confirmar</Button
-          >
-        </div>
-      </div>
+          <svelte:component this={option.icon} size={20} />
+          <span>{option.label}</span>
+          {#if editForm.status === option.value}
+            <CheckCircle size={18} class="ml-auto" />
+          {/if}
+        </Button>
+      {/each}
     </div>
-  {/if}
+  </Dialog>
 {/if}
