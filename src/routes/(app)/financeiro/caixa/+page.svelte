@@ -18,6 +18,7 @@
   import { toast } from '$lib/stores/ui';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   interface Movimentacao {
     id: string;
@@ -113,23 +114,20 @@
   async function carregarDados() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      params.append('periodo', periodo);
-      if (dataInicio) params.append('data_inicio', dataInicio);
-      if (dataFim) params.append('data_fim', dataFim);
-
-      const response = await fetch(`/api/v1/financeiro/caixa?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        resumo = data.resumo;
-        movimentacoes = data.movimentacoes || [];
-        porFormaPagamento = data.porFormaPagamento || [];
-      } else {
-        toast.error('Erro ao carregar dados do caixa');
-      }
+      const data = await apiGet<{
+        resumo?: Resumo;
+        movimentacoes?: Movimentacao[];
+        porFormaPagamento?: FormaPagamentoResumo[];
+      }>('/api/v1/financeiro/caixa', {
+        periodo,
+        data_inicio: dataInicio || undefined,
+        data_fim: dataFim || undefined
+      });
+      if (data.resumo) resumo = data.resumo;
+      movimentacoes = data.movimentacoes || [];
+      porFormaPagamento = data.porFormaPagamento || [];
     } catch (err) {
-      console.error('Erro:', err);
-      toast.error('Erro ao carregar dados');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
       loading = false;
     }
@@ -137,16 +135,16 @@
 
   async function carregarFormasPagamento() {
     try {
-      const response = await fetch('/api/v1/financeiro/formas-pagamento?ativas=true');
-      if (response.ok) {
-        const data = await response.json();
-        formasPagamento = (data.items || []).map((fp: any) => ({
-          id: fp.id,
-          nome: fp.nome
-        }));
-      }
+      const data = await apiGet<{ items?: Array<{ id: string; nome: string }> }>(
+        '/api/v1/financeiro/formas-pagamento',
+        { ativas: true }
+      );
+      formasPagamento = (data.items || []).map((fp) => ({
+        id: fp.id,
+        nome: fp.nome
+      }));
     } catch (err) {
-      console.error('Erro ao carregar formas de pagamento:', err);
+      formasPagamento = [];
     }
   }
 
@@ -209,16 +207,7 @@
 
     processando = true;
     try {
-      const response = await fetch('/api/v1/financeiro/caixa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(novaMovimentacao)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao criar movimentação');
-      }
+      await apiPost('/api/v1/financeiro/caixa', novaMovimentacao);
 
       toast.success('Movimentação registrada com sucesso!');
       showMovimentacaoDialog = false;

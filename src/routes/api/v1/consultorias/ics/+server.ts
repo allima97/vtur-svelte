@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { isUuid, requireAuthenticatedUser } from '$lib/server/v1';
+import { isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
 
 function toIcsDate(value: Date) {
@@ -91,7 +91,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       },
     });
   } catch (error: any) {
-    console.error("[consultorias/ics] falha ao exportar ICS", error);
+    logServerError("[consultorias/ics] falha ao exportar ICS", error);
     return json({ error: "Erro interno ao exportar consultorias." }, { status: 500 });
   }
 };

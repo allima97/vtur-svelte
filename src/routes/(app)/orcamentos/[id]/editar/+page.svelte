@@ -1,9 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
   import { onMount, onDestroy } from 'svelte';
-  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -11,6 +9,8 @@
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
 
   const orcamentoId = $page.params.id ?? '';
 
@@ -103,29 +103,10 @@
   async function carregarOrcamento() {
     try {
       loading = true;
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`);
-      if (!response.ok) {
-        const message = (await response.text()) || 'Erro ao carregar orçamento';
-        if (response.status === 401) {
-          toast.error('Sessão expirada. Faça login novamente para continuar.');
-          const next = `${$page.url.pathname}${$page.url.search}`;
-          await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
-          return;
-        }
-        if (response.status === 403) {
-          toast.error(message || 'Você não tem permissão para editar este orçamento.');
-          await goto('/orcamentos');
-          return;
-        }
-        if (response.status === 404) {
-          toast.error(message || 'Orçamento não encontrado.');
-          await goto('/orcamentos');
-          return;
-        }
-        throw new Error(message);
-      }
-
-      const data = await response.json();
+      const data = await apiFetch<Record<string, any>>(`/api/v1/orcamentos/${orcamentoId}`, {
+        redirectOnUnauthorized: false,
+        redirectOnForbidden: false
+      });
       orcamentoOriginal = data;
 
       const itensCarregados: ItemOrcamento[] = (Array.isArray(data.itens) ? data.itens : []).map(
@@ -154,6 +135,22 @@
         itens: itensCarregados.length > 0 ? itensCarregados : [makeItem(0)]
       };
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente para continuar.');
+        const next = `${$page.url.pathname}${$page.url.search}`;
+        await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (err instanceof ApiError && err.status === 403) {
+        toast.error(err.message || 'Você não tem permissão para editar este orçamento.');
+        await goto('/orcamentos');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error(err.message || 'Orçamento não encontrado.');
+        await goto('/orcamentos');
+        return;
+      }
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar orçamento');
       goto('/orcamentos');
     } finally {
@@ -166,10 +163,10 @@
     if (query.length < 2) { clientesFiltrados = []; return; }
     loadingClientes = true;
     try {
-      const params = new URLSearchParams({ q: query, pageSize: '15' });
-      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
-      if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
+        q: query,
+        pageSize: 15
+      });
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
     } catch {
       clientesFiltrados = [];
@@ -222,24 +219,6 @@
     formData.valid_until = addDaysISODate(todayISODateLocal(), dias);
   }
 
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        })
-      });
-    } catch {
-      // Falha silenciosa: o carregamento tratará 401 explicitamente.
-    }
-  }
-
   onMount(() => {
     void (async () => {
       await ensureServerSessionCookie();
@@ -290,16 +269,7 @@
         }))
       };
 
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao atualizar orçamento');
-      }
+      await apiPatch(`/api/v1/orcamentos/${orcamentoId}`, payload);
 
       toast.success(enviar
         ? 'Orçamento atualizado e enviado ao cliente!'

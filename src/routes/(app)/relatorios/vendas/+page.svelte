@@ -21,6 +21,7 @@
     todayISODateLocal
   } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiGet } from '$lib/services/api';
 
   interface Recibo {
     id: string | null;
@@ -319,13 +320,7 @@
   async function loadBase() {
     loadingBase = true;
     try {
-      const response = await fetch('/api/v1/relatorios/base');
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[relatorios/base] Erro:', response.status, errorText);
-        throw new Error(`Erro ${response.status}: ${errorText}`);
-      }
-      const data = (await response.json()) as BasePayload;
+      const data = await apiGet<BasePayload>('/api/v1/relatorios/base');
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
     } catch (err) {
@@ -379,13 +374,7 @@
 
   async function fetchRelatorioRange(start: string, end: string): Promise<RelatorioPayload> {
     const params = buildRelatorioParams(start, end);
-    const response = await fetch(`/api/v1/relatorios/vendas?${params.toString()}`);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[relatorios/vendas] Erro:', response.status, errorText);
-      throw new Error(`Erro ${response.status}: ${errorText}`);
-    }
-    return (await response.json()) as RelatorioPayload;
+    return apiGet<RelatorioPayload>('/api/v1/relatorios/vendas', Object.fromEntries(params));
   }
 
   async function loadRelatorio(showSuccess = false) {

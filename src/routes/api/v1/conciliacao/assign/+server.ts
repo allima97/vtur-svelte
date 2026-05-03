@@ -4,6 +4,7 @@ import {
   getAdminClient,
   isRankingEligibleUser,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -89,10 +90,7 @@ async function fetchGestoresMasters(
 
     return resultado;
   } catch (err) {
-    console.error(
-      "CONCILIACAO_ASSIGN_FETCH_GESTORES_ERROR",
-      (err as any)?.message ?? String(err),
-    );
+    logServerError("CONCILIACAO_ASSIGN_FETCH_GESTORES_ERROR", err);
     return [];
   }
 }
@@ -154,19 +152,12 @@ async function notificarTrocaVendedor(params: {
             html: bodyHtml,
           }),
         }).catch((err) => {
-          console.error(
-            "CONCILIACAO_ASSIGN_EMAIL_ERROR",
-            dest.email,
-            (err as any)?.message ?? String(err),
-          );
+          logServerError("CONCILIACAO_ASSIGN_EMAIL_ERROR", err);
         }),
       ),
     );
   } catch (err) {
-    console.error(
-      "CONCILIACAO_ASSIGN_NOTIFY_ERROR",
-      (err as any)?.message ?? String(err),
-    );
+    logServerError("CONCILIACAO_ASSIGN_NOTIFY_ERROR", err);
   }
 }
 
@@ -197,15 +188,10 @@ async function logVendedorChange(params: {
       // O valor real fica em old_vendor_id / new_vendor_id se a tabela tiver, senão
       // usamos uma convenção: armazenamos como texto no campo correto abaixo.
     });
-  } catch {
+  } catch (err) {
     // A tabela pode não ter colunas para string UUIDs — tentamos uma abordagem alternativa:
-    // Logar apenas no console. A notificação por e-mail já garante rastreabilidade.
-    console.warn("CONCILIACAO_ASSIGN_LOG_VENDEDOR_CHANGE", {
-      conciliacao_recibo_id: params.conciliacaoReciboId,
-      old_vendedor: params.oldValue,
-      new_vendedor: params.newValue,
-      changed_by: params.changedByUserId,
-    });
+    // A notificação por e-mail já garante rastreabilidade.
+    logServerError("CONCILIACAO_ASSIGN_LOG_VENDEDOR_CHANGE", err);
   }
 }
 
@@ -427,10 +413,7 @@ export async function POST(event) {
         changedByUserId: user.id,
         changedByNome: scope.nome || user.id,
       }).catch((err) => {
-        console.error(
-          "CONCILIACAO_ASSIGN_NOTIFY_UNCAUGHT",
-          (err as any)?.message ?? String(err),
-        );
+        logServerError("CONCILIACAO_ASSIGN_NOTIFY_UNCAUGHT", err);
       });
     }
 

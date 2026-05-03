@@ -6,6 +6,8 @@
   import { FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Gift, RefreshCw, Users } from 'lucide-svelte';
+  import { apiGet } from '$lib/services/api';
+  import { parseISODateParts } from '$lib/date';
 
   type Colaborador = {
     id: string;
@@ -27,15 +29,19 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/users/aniversariantes?month=${mesSelecionado}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Colaborador[] }>('/api/v1/users/aniversariantes', { month: mesSelecionado });
       colaboradores = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar aniversariantes.');
     } finally {
       loading = false;
     }
+  }
+
+  function formatBirthDate(value: string | null) {
+    const parts = parseISODateParts(value);
+    if (!parts) return '-';
+    return `${String(parts.day).padStart(2, '0')} de ${MESES[parts.month - 1].toLowerCase()}`;
   }
 
   onMount(load);
@@ -109,7 +115,7 @@
             {/if}
             {#if colab.data_nascimento}
               <p class="text-xs text-slate-600 mt-1">
-                {new Date(colab.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+                {formatBirthDate(colab.data_nascimento)}
               </p>
             {/if}
           </div>

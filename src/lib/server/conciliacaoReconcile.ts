@@ -1,7 +1,7 @@
 import { buildConciliacaoMetrics, isConciliacaoEfetivada } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
-import { fetchRankingVendedoresByCompanyIds } from '$lib/server/v1';
+import { fetchRankingVendedoresByCompanyIds, logServerError } from '$lib/server/v1';
 import {
   addDaysISODate,
   currentMonthRangeISODate,
@@ -269,8 +269,7 @@ async function insertConciliacaoNumericAudit(params: {
       changed_by: params.actorUserId || null
     });
   } catch (error) {
-    console.error('CONCILIACAO_NUMERIC_AUDIT_ERROR', {
-      message: (error as any)?.message ?? String(error),
+    logServerError('CONCILIACAO_NUMERIC_AUDIT_ERROR', error, {
       field: params.field,
       conciliacao_recibo_id: params.conciliacaoReciboId,
       venda_recibo_id: params.vendaReciboId || null
@@ -300,8 +299,7 @@ async function persistExecutionLog(params: {
       error_message: params.errorMessage || null
     });
   } catch (error) {
-    console.error('CONCILIACAO_EXECUCAO_LOG_ERROR', {
-      message: (error as any)?.message ?? String(error),
+    logServerError('CONCILIACAO_EXECUCAO_LOG_ERROR', error, {
       company_id: params.companyId
     });
   }
@@ -630,8 +628,12 @@ function selectBestReciboMatch(params: {
   if (porValor.length === 1) return porValor[0];
   if (compativeis.length === 1) return compativeis[0];
 
-  // Múltiplos candidatos e sem discriminador — não faz match para evitar atribuição errada
-  console.warn('[conciliacaoReconcile] selectBestReciboMatch: múltiplos candidatos ambíguos para', numero, '— nenhum selecionado');
+  // Múltiplos candidatos e sem discriminador — não faz match para evitar atribuição errada.
+  logServerError(
+    '[conciliacaoReconcile] selectBestReciboMatch: múltiplos candidatos ambíguos — nenhum selecionado',
+    new Error('ambiguous_receipt_match'),
+    { candidatos: compativeis.length }
+  );
   return null;
 }
 
@@ -684,10 +686,11 @@ async function findRexturReciboByReserva(params: {
   if (porTaxa.length === 1) return porTaxa[0];
   if (porValor.length === 1) return porValor[0];
 
-  console.warn('[conciliacaoReconcile] REXTUR com localizador ambíguo — nenhum recibo selecionado', {
-    reserva: normalizeRexturLocalizador(params.reserva),
-    candidates: candidates.length
-  });
+  logServerError(
+    '[conciliacaoReconcile] REXTUR com localizador ambíguo — nenhum recibo selecionado',
+    new Error('ambiguous_rextur_locator_match'),
+    { candidatos: candidates.length }
+  );
   return null;
 }
 
@@ -959,9 +962,9 @@ async function reconcilePendentesCompany(params: {
           ? isRexturDocumento(reciboRow.numero_recibo) && (!numeroReserva || rexturReservaMatches(numeroReserva, reciboRow.numero_reserva))
           : numeroReciboMatches(documento, reciboRow.numero_recibo);
         if (!numeroConfere) {
-          console.warn(
+          logServerError(
             '[conciliacaoReconcile] venda_recibo_id gravado não confere com documento — descartando vínculo.',
-            { id, documento, numeroReserva, reciboNumero: reciboRow.numero_recibo, reciboReserva: reciboRow.numero_reserva, existingReciboId }
+            new Error('invalid_stored_receipt_link')
           );
           // Limpa o vínculo incorreto para que o reconcile refaça o match corretamente
           await client

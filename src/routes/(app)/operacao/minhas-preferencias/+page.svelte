@@ -10,6 +10,7 @@
   import { Plus, Trash2, RefreshCw, Star, Search } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type Preferencia = {
     id: string;
     tipo_produto_id: string | null;
@@ -86,9 +87,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/operacao/preferencias');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Preferencia[]; tipos?: TipoProduto[] }>('/api/v1/operacao/preferencias');
       preferencias = payload.items || [];
       tipos = payload.tipos || [];
     } catch (err) {
@@ -102,11 +101,8 @@
     if (q.length < 2) { cidadeResultados = []; return; }
     buscandoCidade = true;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(q)}&limite=10`);
-      if (response.ok) {
-        const payload = await response.json();
-        cidadeResultados = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : []);
-      }
+      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { q, limite: 10 });
+      cidadeResultados = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : []);
     } catch {} finally {
       buscandoCidade = false;
     }
@@ -152,20 +148,15 @@
     if (!form.nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/operacao/preferencias', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          tipo_produto_id: form.tipo_produto_id || null,
-          cidade_id: form.cidade_id || null,
-          nome: form.nome,
-          localizacao: form.localizacao || null,
-          classificacao: form.classificacao || null,
-          observacao: form.observacao || null
-        })
+      await apiPost('/api/v1/operacao/preferencias', {
+        id: editingId || undefined,
+        tipo_produto_id: form.tipo_produto_id || null,
+        cidade_id: form.cidade_id || null,
+        nome: form.nome,
+        localizacao: form.localizacao || null,
+        classificacao: form.classificacao || null,
+        observacao: form.observacao || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Preferência atualizada.' : 'Preferência criada.');
       modalOpen = false;
       await load();
@@ -180,8 +171,7 @@
     if (!(await confirmAction('Deseja excluir esta preferência?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/operacao/preferencias?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/operacao/preferencias', { id });
       toast.success('Preferência excluída.');
       await load();
     } catch (err) {

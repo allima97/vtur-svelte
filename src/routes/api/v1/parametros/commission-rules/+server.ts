@@ -96,7 +96,7 @@ export async function GET(event: RequestEvent) {
 
     const primary = await client
       .from('commission_rule')
-      .select('*, company_id, created_by, commission_tier(*)')
+      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_by, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
       .order('nome', { ascending: true });
 
     data = primary.data as any[] | null;
@@ -105,7 +105,7 @@ export async function GET(event: RequestEvent) {
     if (error && isMissingColumnError(error)) {
       const fallback = await client
         .from('commission_rule')
-        .select('*, commission_tier(*)')
+        .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
         .order('nome', { ascending: true });
 
       data = fallback.data as any[] | null;

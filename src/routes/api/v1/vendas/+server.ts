@@ -11,6 +11,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+
+const SUPABASE_IN_BATCH_SIZE = 100;
 
 type VendaRow = {
   id: string;
@@ -44,6 +47,23 @@ function deriveTipo(row: VendaRow) {
   return 'pacote';
 }
 
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -64,34 +84,47 @@ export async function GET(event) {
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
         : [];
 
-    let query = client
-      .from('vendas')
-      .select(`
-        id,
-        numero_venda,
-        cliente_id,
-        company_id,
-        vendedor_id,
-        data_venda,
-        data_embarque,
-        data_final,
-        valor_total,
-        cancelada,
-        clientes (nome),
-        recibos:vendas_recibos (valor_taxas, tipo_pacote, numero_recibo, numero_reserva)
-      `)
-      .order('data_venda', { ascending: false })
-      .limit(5000);
+    const fetchRows = async (clientIdsFilter?: string[]) => {
+      let query = client
+        .from('vendas')
+        .select(`
+          id,
+          numero_venda,
+          cliente_id,
+          company_id,
+          vendedor_id,
+          data_venda,
+          data_embarque,
+          data_final,
+          valor_total,
+          cancelada,
+          clientes (nome),
+          recibos:vendas_recibos (valor_taxas, tipo_pacote, numero_recibo, numero_reserva)
+        `)
+        .order('data_venda', { ascending: false })
+        .limit(5000);
 
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
-    if (clienteId) query = query.eq('cliente_id', clienteId);
-    else if (!scope.isAdmin && accessibleClientIds.length > 0) query = query.in('cliente_id', accessibleClientIds);
+      if (companyIds.length > 0) query = query.in('company_id', companyIds);
+      if (shouldApplySellerScope && vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
+      if (clienteId) query = query.eq('cliente_id', clienteId);
+      else if (!scope.isAdmin && clientIdsFilter && clientIdsFilter.length > 0) query = query.in('cliente_id', clientIdsFilter);
 
-    const { data, error } = await query;
-    if (error) throw error;
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as VendaRow[];
+    };
 
-    const items = ((data || []) as VendaRow[]).map((row) => ({
+    let data: VendaRow[] = [];
+    if (!clienteId && !scope.isAdmin && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE) {
+      for (const batch of chunkArray(accessibleClientIds)) {
+        data.push(...(await fetchRows(batch)));
+      }
+      data = dedupeRowsById(data);
+    } else {
+      data = await fetchRows(!clienteId && !scope.isAdmin && accessibleClientIds.length > 0 ? accessibleClientIds : undefined);
+    }
+
+    const items = data.map((row) => ({
       id: row.id,
       codigo: String(row.numero_venda || '').trim() || `VD-${row.id.slice(0, 8).toUpperCase()}`,
       cliente_id: row.cliente_id,
@@ -105,7 +138,10 @@ export async function GET(event) {
       comissao: (Array.isArray(row.recibos) ? row.recibos : []).reduce((sum, recibo) => sum + Number(recibo?.valor_taxas || 0), 0)
     }));
 
-    return json({ items, total: items.length });
+    return json(
+      { items, total: items.length },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vendas.');
   }

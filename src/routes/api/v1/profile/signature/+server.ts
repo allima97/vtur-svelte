@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -40,7 +41,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       cargo: '',
     });
   } catch (err) {
-    console.error('Erro ao carregar assinatura do perfil:', err);
+    logServerError('[profile/signature] falha ao carregar assinatura', err);
     return toErrorResponse(err, 'Erro ao carregar assinatura.');
   }
 };
@@ -75,7 +76,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 
     return json({ ok: true, signature });
   } catch (err) {
-    console.error('Erro ao salvar assinatura do perfil:', err);
+    logServerError('[profile/signature] falha ao salvar assinatura', err);
     return toErrorResponse(err, 'Erro ao salvar assinatura.');
   }
 };

@@ -16,10 +16,23 @@
   let factorId = "";
   let nextPath = "/";
 
+  function normalizeNextPath(value: string | null) {
+    const raw = String(value || "").trim();
+    if (!raw) return "/";
+    try {
+      const parsed = new URL(raw, window.location.origin);
+      if (parsed.origin !== window.location.origin) return "/";
+      if (parsed.pathname.startsWith("/auth/")) return "/";
+      return `${parsed.pathname}${parsed.search || ""}${parsed.hash || ""}`;
+    } catch {
+      return "/";
+    }
+  }
+
   onMount(async () => {
     try {
       const params = new URLSearchParams(window.location.search);
-      nextPath = params.get("next") || "/";
+      nextPath = normalizeNextPath(params.get("next"));
 
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.user) {

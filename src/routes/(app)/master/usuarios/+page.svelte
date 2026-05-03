@@ -8,6 +8,8 @@
   import { FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
+  import { apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type Usuario = {
     id: string;
@@ -56,11 +58,11 @@
     return `
       <div class="flex items-center gap-3">
         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 font-semibold text-orange-700">
-          ${initials || 'U'}
+          ${escapeHtml(initials || 'U')}
         </div>
         <div class="min-w-0">
-          <p class="truncate font-medium text-slate-900">${row.nome}</p>
-          <p class="truncate text-xs text-slate-500">${row.email || '-'}</p>
+          <p class="truncate font-medium text-slate-900">${escapeHtml(row.nome)}</p>
+          <p class="truncate text-xs text-slate-500">${escapeHtml(row.email || '-')}</p>
         </div>
       </div>
     `;
@@ -75,7 +77,7 @@
       blue: 'bg-blue-100 text-blue-700'
     };
 
-    return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${classes[tone]}">${label}</span>`;
+    return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${classes[tone]}">${escapeHtml(label)}</span>`;
   }
 
   const columns = [
@@ -116,13 +118,10 @@
   async function loadUsuarios() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/usuarios');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Usuario[] }>('/api/v1/admin/usuarios');
       usuarios = payload.items || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar os usuarios administrativos.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar os usuarios administrativos.');
       usuarios = [];
     } finally {
       loading = false;

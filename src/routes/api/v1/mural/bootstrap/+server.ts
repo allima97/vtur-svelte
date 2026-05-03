@@ -1,4 +1,13 @@
-import { readCache, requireMuralScope, writeCache, fetchRecados, fetchUsuariosEmpresa } from '../_shared';
+import {
+  privateJsonResponse,
+  readCache,
+  requireMuralScope,
+  writeCache,
+  fetchRecados,
+  fetchUsuariosEmpresa,
+  noStoreTextResponse
+} from '../_shared';
+import { logServerError } from '$lib/server/v1';
 
 export async function GET(event) {
   try {
@@ -34,10 +43,7 @@ export async function GET(event) {
     const cacheKey = ['v1', 'muralBootstrap', user.id, selectedCompanyId].join('|');
     const cached = readCache(cacheKey);
     if (cached) {
-      return new Response(JSON.stringify(cached), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=5', Vary: 'Cookie' }
-      });
+      return privateJsonResponse(cached);
     }
 
     let usuariosEmpresa: any[] = [];
@@ -66,13 +72,9 @@ export async function GET(event) {
 
     writeCache(cacheKey, payload, 5_000);
 
-    return new Response(JSON.stringify(payload), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=5', Vary: 'Cookie' }
-    });
+    return privateJsonResponse(payload);
   } catch (e: any) {
-    console.error('Erro mural bootstrap:', e);
-    return new Response('Erro ao carregar mural.', { status: 500 });
+    logServerError('[mural/bootstrap] falha ao carregar mural', e);
+    return noStoreTextResponse('Erro ao carregar mural.', 500);
   }
 }
-

@@ -1,5 +1,5 @@
 import { isUuid } from '$lib/server/v1';
-import { requirePreferenciasScope, safeJsonParse } from '../_shared';
+import { buildNoStoreJsonResponse, buildNoStoreTextResponse, logServerError, requirePreferenciasScope, safeJsonParse } from '../_shared';
 
 export async function POST(event) {
   try {
@@ -9,10 +9,10 @@ export async function POST(event) {
     const { client, user, scope } = await requirePreferenciasScope(event, isUpdate ? 3 : 2);
 
     const companyId = scope.companyId;
-    if (!companyId) return new Response('Empresa inválida.', { status: 400 });
+    if (!companyId) return buildNoStoreTextResponse('Empresa inválida.', 400);
 
     const nome = String(body?.nome || '').trim();
-    if (!nome) return new Response('nome obrigatorio.', { status: 400 });
+    if (!nome) return buildNoStoreTextResponse('nome obrigatorio.', 400);
 
     const cidadeId = isUuid(body?.cidade_id) ? String(body?.cidade_id) : null;
     const tipoProdutoId = isUuid(body?.tipo_produto_id) ? String(body?.tipo_produto_id) : null;
@@ -43,13 +43,10 @@ export async function POST(event) {
         .single();
       if (error) throw error;
 
-      return new Response(JSON.stringify({ ok: true, item: data }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return buildNoStoreJsonResponse({ ok: true, item: data });
     }
 
-    if (!isUuid(id)) return new Response('id invalido.', { status: 400 });
+    if (!isUuid(id)) return buildNoStoreTextResponse('id invalido.', 400);
 
     let updateQuery = client
       .from('minhas_preferencias')
@@ -61,14 +58,11 @@ export async function POST(event) {
       .select('id, company_id, created_by, tipo_produto_id, cidade_id, nome, localizacao, classificacao, observacao, created_at, updated_at')
       .maybeSingle();
     if (error) throw error;
-    if (!data) return new Response('Preferência não encontrada.', { status: 404 });
+    if (!data) return buildNoStoreTextResponse('Preferência não encontrada.', 404);
 
-    return new Response(JSON.stringify({ ok: true, item: data }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return buildNoStoreJsonResponse({ ok: true, item: data });
   } catch (err) {
-    console.error('Erro preferencias/save', err);
-    return new Response('Erro ao salvar preferência.', { status: 500 });
+    logServerError('[preferencias/save] falha ao salvar preferencia', err);
+    return buildNoStoreTextResponse('Erro ao salvar preferência.', 500);
   }
 }

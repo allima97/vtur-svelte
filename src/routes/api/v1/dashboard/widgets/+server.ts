@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 
 type CacheEntry = {
   expiresAt: number;
@@ -15,6 +15,19 @@ type WidgetInput = {
 const CACHE_TTL_MS = 900_000;
 const CACHE_MAX_ENTRIES = 300;
 const cache = new Map<string, CacheEntry>();
+const PRIVATE_CACHE_HEADERS = {
+  'Cache-Control': 'private, max-age=900',
+  Vary: 'Cookie'
+};
+const NO_STORE_TEXT_HEADERS = {
+  'Content-Type': 'text/plain; charset=utf-8',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+const NO_STORE_JSON_HEADERS = {
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
 
 function readCache(key: string) {
   const entry = cache.get(key);
@@ -72,12 +85,7 @@ export async function GET(event: RequestEvent) {
     const cacheKey = ['v1', 'dashWidgets', user.id].join('|');
     const cached = readCache(cacheKey);
     if (cached) {
-      return json(cached, {
-        headers: {
-          'Cache-Control': 'private, max-age=900',
-          Vary: 'Cookie'
-        }
-      });
+      return json(cached, { headers: PRIVATE_CACHE_HEADERS });
     }
 
     const { data, error } = await client
@@ -91,15 +99,13 @@ export async function GET(event: RequestEvent) {
     const payload = { items: data || [] };
     writeCache(cacheKey, payload);
 
-    return json(payload, {
-      headers: {
-        'Cache-Control': 'private, max-age=900',
-        Vary: 'Cookie'
-      }
-    });
+    return json(payload, { headers: PRIVATE_CACHE_HEADERS });
   } catch (err) {
-    console.error('Erro dashboard/widgets', err);
-    return new Response('Erro ao carregar widgets.', { status: 500 });
+    logServerError('[dashboard/widgets] falha ao carregar widgets', err);
+    return new Response('Erro ao carregar widgets.', {
+      status: 500,
+      headers: NO_STORE_TEXT_HEADERS
+    });
   }
 }
 
@@ -118,7 +124,7 @@ export async function POST(event: RequestEvent) {
     const items = normalizeItems((body as any)?.items);
 
     if (!items.length) {
-      return new Response('items obrigatorio.', { status: 400 });
+      return new Response('items obrigatorio.', { status: 400, headers: NO_STORE_TEXT_HEADERS });
     }
 
     const rows = items.slice(0, 80).map((item, idx) => ({
@@ -153,9 +159,9 @@ export async function POST(event: RequestEvent) {
 
     cache.delete(cacheKey);
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_JSON_HEADERS });
   } catch (err) {
-    console.error('Erro dashboard/widgets POST', err);
-    return new Response('Erro ao salvar widgets.', { status: 500 });
+    logServerError('[dashboard/widgets] falha ao salvar widgets', err);
+    return new Response('Erro ao salvar widgets.', { status: 500, headers: NO_STORE_TEXT_HEADERS });
   }
 }

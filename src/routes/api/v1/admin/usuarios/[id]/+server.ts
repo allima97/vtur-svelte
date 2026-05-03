@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
+  ensureAssignableCompany,
+  ensureAssignableUserType,
   ensureCanManageUsers,
   extractCompanyName,
   extractUserTypeName,
@@ -87,6 +89,26 @@ export async function PATCH(event) {
     const targetUser = await loadManagedUser(client, scope, userId);
 
     const body = await event.request.json();
+
+    if (body.company_id !== undefined) {
+      ensureAssignableCompany(scope, String(body.company_id || '').trim());
+    }
+
+    if (body.user_type_id !== undefined) {
+      const requestedTypeId = String(body.user_type_id || '').trim();
+      if (!requestedTypeId) {
+        if (!scope.isAdmin) {
+          return json({ error: 'Tipo de usuario obrigatorio.' }, { status: 400 });
+        }
+      } else {
+        const managedTypes = await loadManagedUserTypes(client, scope);
+        const targetType = managedTypes.find((row) => row.id === requestedTypeId);
+        if (!targetType) {
+          return json({ error: 'Tipo de usuario fora do escopo.' }, { status: 403 });
+        }
+        ensureAssignableUserType(scope, targetType.name);
+      }
+    }
 
     // Campos permitidos na tabela users
     const ALLOWED_USER = [

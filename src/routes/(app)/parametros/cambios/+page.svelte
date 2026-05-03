@@ -8,6 +8,7 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -66,9 +67,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/cambios');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Cambio[] }>('/api/v1/parametros/cambios');
       cambios = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar câmbios.');
@@ -100,17 +99,12 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/parametros/cambios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          moeda: form.moeda.trim().toUpperCase(),
-          data: form.data,
-          valor: Number(String(form.valor).replace(',', '.'))
-        })
+      await apiPost('/api/v1/parametros/cambios', {
+        id: editingId || undefined,
+        moeda: form.moeda.trim().toUpperCase(),
+        data: form.data,
+        valor: Number(String(form.valor).replace(',', '.'))
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Câmbio atualizado.' : 'Câmbio registrado.');
       modalOpen = false;
       await load();
@@ -125,8 +119,7 @@
     if (!(await confirmAction('Deseja excluir este câmbio?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/parametros/cambios?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/parametros/cambios', { id });
       toast.success('Câmbio excluído.');
       await load();
     } catch (err) {

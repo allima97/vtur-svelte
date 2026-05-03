@@ -55,7 +55,7 @@ export async function PATCH(event) {
     if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
     if (shouldApplySellerScope && vendedorIds.length > 0) updateQuery = updateQuery.in('vendedor_id', vendedorIds);
 
-    const { data, error } = await updateQuery.select().single();
+    const { data, error } = await updateQuery.select('id, status, updated_at').single();
     if (error) throw error;
 
     return json({ success: true, item: data });

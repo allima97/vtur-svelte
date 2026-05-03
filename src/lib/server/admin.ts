@@ -87,6 +87,8 @@ export type EmailSettingsPayload = {
   suporte_from_email?: string | null;
 };
 
+const PERMISSION_VALUES = new Set(['none', 'view', 'create', 'edit', 'delete', 'admin']);
+
 export const DEFAULT_FROM_EMAILS = {
   alerta: 'alerta@vtur.com.br',
   admin: 'admin@vtur.com.br',
@@ -94,6 +96,11 @@ export const DEFAULT_FROM_EMAILS = {
   financeiro: 'financeiro@vtur.com.br',
   suporte: 'suporte@vtur.com.br'
 };
+
+function normalizePermissionValue(value?: string | null) {
+  const normalized = String(value || 'none').trim().toLowerCase();
+  return PERMISSION_VALUES.has(normalized) ? normalized : 'none';
+}
 
 function firstEmbedded<T>(value: T | T[] | null | undefined) {
   if (Array.isArray(value)) return value[0] || null;
@@ -275,6 +282,44 @@ export function ensureAssignableUserType(scope: UserScope, typeName?: string | n
 
   if (scope.isGestor && !isSellerRole(normalized)) {
     throw error(403, 'Gestor so pode atribuir perfil de vendedor.');
+  }
+}
+
+export function ensureAssignablePermissionSet(
+  scope: UserScope,
+  permissions: Array<{ modulo?: string | null; permissao?: string | null; ativo?: boolean | null }>
+) {
+  if (scope.isAdmin) return;
+
+  const blockedModules = new Set<string>();
+
+  for (const item of permissions || []) {
+    const modulo = normalizeModuloKey(item?.modulo);
+    const permissao = normalizePermissionValue(item?.permissao);
+    const active = item?.ativo !== false && permissao !== 'none';
+
+    if (!modulo || !active) continue;
+
+    if (modulo === 'admin' || modulo.startsWith('admin_')) {
+      blockedModules.add(modulo);
+      continue;
+    }
+
+    if (modulo === 'master_permissoes') {
+      blockedModules.add(modulo);
+      continue;
+    }
+
+    if (!scope.isMaster && modulo.startsWith('master_')) {
+      blockedModules.add(modulo);
+    }
+  }
+
+  if (blockedModules.size > 0) {
+    throw error(
+      403,
+      `Sem permissao para atribuir modulos administrativos: ${Array.from(blockedModules).join(', ')}.`
+    );
   }
 }
 
@@ -473,8 +518,8 @@ export async function saveUserPermissions(
 ) {
   const normalized = permissions.map((item) => ({
     modulo: normalizeModuloKey(item.modulo),
-    permissao: String(item.permissao || 'none').toLowerCase(),
-    ativo: item.ativo !== false && String(item.permissao || '').toLowerCase() !== 'none'
+    permissao: normalizePermissionValue(item.permissao),
+    ativo: item.ativo !== false && normalizePermissionValue(item.permissao) !== 'none'
   }));
 
   const keys = Array.from(new Set(normalized.map((item) => item.modulo).filter(Boolean)));
@@ -520,8 +565,8 @@ export async function saveDefaultPermissions(
 ) {
   const normalized = permissions.map((item) => ({
     modulo: normalizeModuloKey(item.modulo),
-    permissao: String(item.permissao || 'none').toLowerCase(),
-    ativo: item.ativo !== false && String(item.permissao || '').toLowerCase() !== 'none'
+    permissao: normalizePermissionValue(item.permissao),
+    ativo: item.ativo !== false && normalizePermissionValue(item.permissao) !== 'none'
   }));
 
   const keys = Array.from(new Set(normalized.map((item) => item.modulo).filter(Boolean)));

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { Button, FieldInput } from '$lib/components/ui';
+  import { apiGet } from '$lib/services/api';
 
   type CidadeOption = {
     id: string;
@@ -193,9 +194,7 @@
     ensuringId = idValue;
 
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?id=${encodeURIComponent(idValue)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload: any = await apiGet('/api/v1/vendas/cidades-busca', { id: idValue });
       if (!payload?.id) return;
       dispatch('loaded', [payload]);
       if (!showOptions) searchText = getCidadeLabel(payload);
@@ -215,9 +214,7 @@
 
     loading = true;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(query)}&limite=${maxResults}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: maxResults });
       const items = sortCities(uniqueCities(parseItems(payload)), query).slice(0, maxResults);
       searchResults = items;
       dispatch('loaded', items);

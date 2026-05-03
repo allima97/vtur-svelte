@@ -10,6 +10,7 @@
   import { Plus, Trash2, RefreshCw, DollarSign } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type Plano = {
     id: string;
     nome: string;
@@ -53,9 +54,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/planos');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Plano[] }>('/api/v1/admin/planos');
       planos = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar planos.');
@@ -80,19 +79,14 @@
     if (!form.nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/planos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          nome: form.nome,
-          descricao: form.descricao || null,
-          valor_mensal: Number(form.valor_mensal || 0),
-          moeda: form.moeda,
-          ativo: form.ativo
-        })
+      await apiPost('/api/v1/admin/planos', {
+        id: editingId || undefined,
+        nome: form.nome,
+        descricao: form.descricao || null,
+        valor_mensal: Number(form.valor_mensal || 0),
+        moeda: form.moeda,
+        ativo: form.ativo
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Plano atualizado.' : 'Plano criado.');
       modalOpen = false;
       await load();
@@ -107,8 +101,7 @@
     if (!(await confirmAction('Deseja excluir este plano?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/admin/planos?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/admin/planos', { id });
       toast.success('Plano excluído.');
       await load();
     } catch (err) {

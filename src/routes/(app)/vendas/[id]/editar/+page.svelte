@@ -1,15 +1,15 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
-  import { supabase } from '$lib/db/supabase';
   import { PageHeader, Card, Button, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, FormPanel, LoadingState } from '$lib/components/ui';
   import CidadeAutocomplete from '$lib/components/vendas/CidadeAutocomplete.svelte';
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { ApiError, apiFetch, apiGet, apiPatch } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
   $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
@@ -152,12 +152,7 @@
   }
 
   async function loadBase() {
-    const response = await fetch('/api/v1/vendas/cadastro-base');
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-
-    const data = await response.json();
+    const data = await apiGet<any>('/api/v1/vendas/cadastro-base');
     currentUser = data.user ?? null;
     vendedoresEquipe = data.vendedoresEquipe || [];
     clientes = data.clientes || [];
@@ -169,29 +164,32 @@
   }
 
   async function loadVenda() {
-    const response = await fetch(`/api/v1/vendas/${vendaId}`);
-    if (!response.ok) {
-      const message = (await response.text()) || 'Erro ao carregar dados da venda.';
-      if (response.status === 401) {
+    let data: any;
+    try {
+      data = await apiFetch<any>(`/api/v1/vendas/${vendaId}`, {
+        redirectOnUnauthorized: false,
+        redirectOnForbidden: false
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
         toast.error('Sessão expirada. Faça login novamente para continuar.');
         const next = `${$page.url.pathname}${$page.url.search}`;
         await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
         return;
       }
-      if (response.status === 403) {
-        toast.error(message || 'Você não tem permissão para editar esta venda.');
+      if (error instanceof ApiError && error.status === 403) {
+        toast.error(error.message || 'Você não tem permissão para editar esta venda.');
         await goto('/vendas');
         return;
       }
-      if (response.status === 404) {
-        toast.error(message || 'Venda não encontrada.');
+      if (error instanceof ApiError && error.status === 404) {
+        toast.error(error.message || 'Venda não encontrada.');
         await goto('/vendas');
         return;
       }
-      throw new Error(message);
+      throw error;
     }
 
-    const data = await response.json();
     const sale = data || {};
     const destinoProduto = produtoResolvidoToOption(sale?.destino);
     if (destinoProduto) mergeProdutos([destinoProduto]);
@@ -356,24 +354,6 @@
     ensurePrincipalRecibo();
   }
 
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        })
-      });
-    } catch {
-      // Falha silenciosa: o carregamento tratará 401 explicitamente.
-    }
-  }
-
   onMount(async () => {
     loading = true;
     try {
@@ -381,7 +361,6 @@
       await loadBase();
       await loadVenda();
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da venda.');
     } finally {
       loading = false;
@@ -680,9 +659,7 @@
     if (ensuringCidadeId === id) return;
     ensuringCidadeId = id;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?id=${encodeURIComponent(id)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { id });
       if (payload?.id) mergeCidades([payload]);
     } catch {
       // Mantem a tela funcionando mesmo sem prefetch complementar.
@@ -698,9 +675,7 @@
     if (ensuringProdutoId === id) return;
     ensuringProdutoId = id;
     try {
-      const response = await fetch(`/api/v1/produtos/${encodeURIComponent(id)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet<any>(`/api/v1/produtos/${encodeURIComponent(id)}`);
       if (payload?.id) {
         const todasAsCidades =
           payload.todas_as_cidades === true ||
@@ -856,20 +831,11 @@
         })
       };
 
-      const response = await fetch(`/api/v1/vendas/${vendaId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(result?.error || 'Erro ao atualizar venda.');
-      }
+      await apiPatch(`/api/v1/vendas/${vendaId}`, payload);
 
       toast.success('Venda atualizada com sucesso!');
       goto(`/vendas/${vendaId}`);
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message || 'Erro ao atualizar venda.');
     } finally {
       saving = false;

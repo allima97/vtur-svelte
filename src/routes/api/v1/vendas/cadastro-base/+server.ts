@@ -162,6 +162,11 @@ export async function GET(event: RequestEvent) {
       tiposPacote,
       formasPagamento,
       warning
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=10',
+        Vary: 'Cookie'
+      }
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar base do cadastro de vendas.');

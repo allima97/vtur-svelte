@@ -181,10 +181,6 @@ export async function POST(event) {
       observacoesPagamento: observacoes
     });
 
-    console.log(
-      `[Pagamento Comissão] Usuário ${user.id} registrou pagamento de ${result.pagas} comissão(ões) em ${data_pagamento}`
-    );
-
     if ((result as { fallback?: boolean }).fallback) {
       return json({
         success: false,

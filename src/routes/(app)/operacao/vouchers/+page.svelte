@@ -5,11 +5,11 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import VoucherPreviewModal from '$lib/components/modais/VoucherPreviewModal.svelte';
   import { Plus, Ticket, FileText, ExternalLink, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
+  import { apiDelete, apiGet } from '$lib/services/api';
 
   let vouchers: VoucherRecord[] = [];
   let assets: VoucherAssetRecord[] = [];
@@ -19,6 +19,9 @@
   let companyId: string | null = null;
   let deleteConfirmVoucher: VoucherRecord | null = null;
   let showDeleteDialog = false;
+  let VoucherPreviewModal: any = null;
+  let loadingPreviewModal = false;
+  let assetsLoaded = false;
   
   $: showDeleteDialog = !!deleteConfirmVoucher;
 
@@ -76,13 +79,10 @@
 
   async function loadUserContext() {
     try {
-      const response = await fetch('/api/v1/user/context');
-      if (response.ok) {
-        const data = await response.json();
-        companyId = data.company_id;
-      }
+      const data = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
+      companyId = data.company_id || null;
     } catch (err) {
-      console.error('Erro ao carregar contexto:', err);
+      companyId = null;
     }
   }
 
@@ -91,32 +91,42 @@
     
     loading = true;
     try {
-      const [vouchersRes, assetsRes] = await Promise.all([
-        fetch(`/api/v1/vouchers?company_id=${companyId}`),
-        fetch(`/api/v1/voucher-assets?company_id=${companyId}`)
-      ]);
-
-      if (vouchersRes.ok) {
-        const data = await vouchersRes.json();
-        vouchers = data.items || [];
-      }
-      
-      if (assetsRes.ok) {
-        const data = await assetsRes.json();
-        assets = data.items || [];
-      }
+      const vouchersData = await apiGet<{ items?: VoucherRecord[] }>('/api/v1/vouchers', { company_id: companyId });
+      vouchers = vouchersData.items || [];
     } catch (err) {
-      toast.error('Erro ao carregar vouchers');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar vouchers');
     } finally {
       loading = false;
     }
   }
 
-  function handleRowClick(row: VoucherRecord) {
-    console.log('[Vouchers] Clique no voucher:', row.nome, row.id);
+  async function loadPreviewDependencies() {
+    if (VoucherPreviewModal && assetsLoaded) return;
+    loadingPreviewModal = true;
+    try {
+      if (!VoucherPreviewModal) {
+        VoucherPreviewModal = (await import('$lib/components/modais/VoucherPreviewModal.svelte')).default;
+      }
+      if (!assetsLoaded && companyId) {
+        const assetsData = await apiGet<{ items?: VoucherAssetRecord[] }>('/api/v1/voucher-assets', {
+          company_id: companyId
+        });
+        assets = assetsData.items || [];
+        assetsLoaded = true;
+      }
+    } finally {
+      loadingPreviewModal = false;
+    }
+  }
+
+  async function handleRowClick(row: VoucherRecord) {
     previewVoucher = row;
-    showPreview = true;
-    console.log('[Vouchers] showPreview:', showPreview, 'previewVoucher:', previewVoucher);
+    try {
+      await loadPreviewDependencies();
+      showPreview = true;
+    } catch {
+      toast.error('Erro ao carregar prévia do voucher.');
+    }
   }
 
   function handleNew() {
@@ -134,17 +144,12 @@
     if (!deleteConfirmVoucher) return;
     
     try {
-      const response = await fetch(`/api/v1/vouchers/${deleteConfirmVoucher.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Erro ao excluir');
-
+      await apiDelete(`/api/v1/vouchers/${deleteConfirmVoucher.id}`);
       toast.success('Voucher excluído!');
       deleteConfirmVoucher = null;
       await loadData();
     } catch (err) {
-      toast.error('Erro ao excluir voucher');
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir voucher');
     }
   }
 
@@ -260,12 +265,15 @@
 </DataTable>
 
 <!-- Preview Modal -->
-<VoucherPreviewModal
-  bind:open={showPreview}
-  voucher={previewVoucher}
-  {assets}
-  on:edit={handleEditFromPreview}
-/>
+{#if VoucherPreviewModal && showPreview}
+  <svelte:component
+    this={VoucherPreviewModal}
+    bind:open={showPreview}
+    voucher={previewVoucher}
+    {assets}
+    on:edit={handleEditFromPreview}
+  />
+{/if}
 
 <!-- Delete Confirmation -->
 <Dialog

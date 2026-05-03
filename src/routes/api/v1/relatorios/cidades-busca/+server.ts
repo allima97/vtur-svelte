@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -31,7 +31,7 @@ export async function GET(event: RequestEvent) {
 
     return json(data || []);
   } catch (err) {
-    console.error('Erro relatorios/cidades-busca', err);
+    logServerError('[relatorios/cidades-busca] falha ao buscar cidades', err);
     return new Response('Erro ao buscar cidades.', { status: 500 });
   }
 }

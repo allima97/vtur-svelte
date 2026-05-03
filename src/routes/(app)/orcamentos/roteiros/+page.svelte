@@ -12,6 +12,7 @@
   import { formatDate } from '$lib/utils/formatters';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type Roteiro = {
     id: string;
     nome: string;
@@ -64,9 +65,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/roteiros');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ roteiros?: Roteiro[] }>('/api/v1/roteiros');
       roteiros = payload.roteiros || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiros.');
@@ -96,18 +95,13 @@
     if (!form.nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/roteiros', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          nome: form.nome,
-          duracao: form.duracao ? Number(form.duracao) : null,
-          inicio_cidade: form.inicio_cidade || null,
-          fim_cidade: form.fim_cidade || null
-        })
+      await apiPost('/api/v1/roteiros', {
+        id: editingId || undefined,
+        nome: form.nome,
+        duracao: form.duracao ? Number(form.duracao) : null,
+        inicio_cidade: form.inicio_cidade || null,
+        fim_cidade: form.fim_cidade || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Roteiro atualizado.' : 'Roteiro criado.');
       modalOpen = false;
       await load();
@@ -122,8 +116,7 @@
     if (!(await confirmAction('Deseja excluir este roteiro?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/roteiros?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/roteiros', { id });
       toast.success('Roteiro excluído.');
       await load();
     } catch (err) {

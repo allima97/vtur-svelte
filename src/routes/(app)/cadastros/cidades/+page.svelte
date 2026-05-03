@@ -7,7 +7,9 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, Search } from 'lucide-svelte';
+  import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Cidade = {
@@ -42,31 +44,29 @@
       formatter: (_: any, row: Cidade) => {
         const sub = row.subdivisao?.nome || '-';
         const pais = row.subdivisao?.pais?.nome || '';
-        return pais ? `${sub} · ${pais}` : sub;
+        return `<span>${pais ? `${escapeHtml(sub)} · ${escapeHtml(pais)}` : escapeHtml(sub)}</span>`;
       }
     },
-    { key: 'descricao', label: 'Descrição', sortable: false, formatter: (v: string | null) => v || '-' }
+    { key: 'descricao', label: 'Descrição', sortable: false, formatter: (v: string | null) => `<span>${escapeHtml(v || '-')}</span>` }
   ];
 
   async function loadSubdivisoes() {
-    const response = await fetch('/api/v1/subdivisoes');
-    if (response.ok) {
-      const payload = await response.json();
+    try {
+      const payload = await apiGet<any>('/api/v1/subdivisoes');
       subdivisoes = payload.items || [];
+    } catch {
+      subdivisoes = [];
     }
   }
 
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (busca.trim()) params.set('q', busca.trim());
-      if (filtroSubdivisao) params.set('subdivisao_id', filtroSubdivisao);
-      params.set('pageSize', '100');
-
-      const response = await fetch(`/api/v1/cidades?${params.toString()}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/cidades', {
+        q: busca.trim() || undefined,
+        subdivisao_id: filtroSubdivisao || undefined,
+        pageSize: 100
+      });
       cidades = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
@@ -91,12 +91,12 @@
     if (!form.nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/cidades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, nome: form.nome, subdivisao_id: form.subdivisao_id || null, descricao: form.descricao || null })
+      await apiPost('/api/v1/cidades', {
+        id: editingId || undefined,
+        nome: form.nome,
+        subdivisao_id: form.subdivisao_id || null,
+        descricao: form.descricao || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Cidade atualizada.' : 'Cidade criada.');
       modalOpen = false;
       await load();
@@ -111,8 +111,7 @@
     if (!(await confirmAction('Deseja excluir esta cidade?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/cidades?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/cidades', { id });
       toast.success('Cidade excluída.');
       await load();
     } catch (err) {

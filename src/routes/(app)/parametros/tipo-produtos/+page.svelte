@@ -7,6 +7,7 @@
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -106,9 +107,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/tipo-produtos?all=1');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: TipoProduto[] }>('/api/v1/tipo-produtos', { all: 1 });
       tipos = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar tipos de produto.');
@@ -147,35 +146,20 @@
     saving = true;
     try {
       const toNum = (v: string) => (String(v).trim() === '' ? null : Number(v));
-      const response = await fetch('/api/v1/tipo-produtos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          nome: form.nome.trim(),
-          tipo: form.tipo,
-          descricao: form.descricao || null,
-          ativo: form.ativo,
-          soma_na_meta: form.soma_na_meta,
-          regra_comissionamento: form.regra_comissionamento,
-          usa_meta_produto: form.usa_meta_produto,
-          meta_produto_valor: toNum(form.meta_produto_valor),
-          comissao_produto_meta_pct: toNum(form.comissao_produto_meta_pct),
-          descontar_meta_geral: form.descontar_meta_geral,
-          exibe_kpi_comissao: form.exibe_kpi_comissao
-        })
+      await apiPost('/api/v1/tipo-produtos', {
+        id: editingId || undefined,
+        nome: form.nome.trim(),
+        tipo: form.tipo,
+        descricao: form.descricao || null,
+        ativo: form.ativo,
+        soma_na_meta: form.soma_na_meta,
+        regra_comissionamento: form.regra_comissionamento,
+        usa_meta_produto: form.usa_meta_produto,
+        meta_produto_valor: toNum(form.meta_produto_valor),
+        comissao_produto_meta_pct: toNum(form.comissao_produto_meta_pct),
+        descontar_meta_geral: form.descontar_meta_geral,
+        exibe_kpi_comissao: form.exibe_kpi_comissao
       });
-      if (!response.ok) {
-        const raw = await response.text();
-        let message = raw;
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed?.error) message = String(parsed.error);
-        } catch {
-          // resposta nao-json
-        }
-        throw new Error(message || 'Erro ao salvar tipo de produto.');
-      }
       toast.success(editingId ? 'Tipo de produto atualizado.' : 'Tipo de produto criado.');
       modalOpen = false;
       await load();
@@ -190,8 +174,7 @@
     if (!(await confirmAction('Deseja excluir este tipo de produto? Ele não pode estar vinculado a recibos.'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/tipo-produtos?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/tipo-produtos', { id });
       toast.success('Tipo de produto excluído.');
       await load();
     } catch (err) {

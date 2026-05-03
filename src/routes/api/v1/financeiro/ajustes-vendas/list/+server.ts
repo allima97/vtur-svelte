@@ -4,9 +4,11 @@ import {
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -24,6 +26,8 @@ function isRateioTableMissingError(err: any) {
     (message.includes("vendas_recibos_rateio") || message.includes("does not exist"))
   );
 }
+
+let rateioMissingLogged = false;
 
 export async function GET(event: RequestEvent) {
   try {
@@ -44,7 +48,7 @@ export async function GET(event: RequestEvent) {
     const inicio = String(url.searchParams.get("inicio") || "").trim();
     const fim = String(url.searchParams.get("fim") || "").trim();
     const vendedorId = String(url.searchParams.get("vendedor_id") || "").trim();
-    const termo = String(url.searchParams.get("q") || "").trim();
+    const termo = sanitizePostgrestSearchTerm(url.searchParams.get("q"));
     const apenasRateados = url.searchParams.get("apenas_rateados") === "true";
     const limitRaw = Number(url.searchParams.get("limit") || 80);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 80;
@@ -179,7 +183,10 @@ export async function GET(event: RequestEvent) {
         if (!isRateioTableMissingError(rateioError)) {
           throw rateioError;
         }
-        console.warn("[ajustes-vendas/list] tabela vendas_recibos_rateio ainda nao existe");
+        if (!rateioMissingLogged) {
+          rateioMissingLogged = true;
+          logServerError("[ajustes-vendas/list] tabela vendas_recibos_rateio ainda nao existe", rateioError);
+        }
       } else {
         (rateioData || []).forEach((row: any) => {
           const vendaReciboKey = String(row?.venda_recibo_id || "").trim();
@@ -305,11 +312,14 @@ export async function GET(event: RequestEvent) {
     return json({ items, vendedores }, {
       headers: {
         "Cache-Control": "private, max-age=10",
+        Vary: "Cookie",
       },
     });
   } catch (err: any) {
-    console.error("Erro financeiro/ajustes-vendas/list", err);
-    const detail = String(err?.message || "Erro ao carregar ajustes de vendas.");
-    return json({ error: detail }, { status: 500 });
+    logServerError("[financeiro/ajustes-vendas/list] erro ao carregar lista", err);
+    return json(
+      { error: "Erro ao carregar ajustes de vendas." },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
   }
 }

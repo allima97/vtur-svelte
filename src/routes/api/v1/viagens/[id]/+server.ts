@@ -297,7 +297,7 @@ export async function PATCH(event) {
       .from('viagens')
       .update(updateData)
       .eq('id', id)
-      .select()
+      .select('id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status, observacoes, follow_up_text, follow_up_fechado, created_at, updated_at')
       .single();
 
     if (error) throw error;

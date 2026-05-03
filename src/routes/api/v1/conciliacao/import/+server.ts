@@ -100,7 +100,8 @@ function normalizeRexturLocalizador(value?: string | null) {
   return String(value || "")
     .trim()
     .replace(/^REXTUR[\s-]*/i, "")
-    .toUpperCase();
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 }
 
 function shouldUseFallbackDedup(linha: ConciliacaoLinhaInput) {

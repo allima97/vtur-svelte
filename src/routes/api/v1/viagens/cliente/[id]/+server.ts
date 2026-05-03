@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -63,7 +64,6 @@ export async function GET(event) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('[Viagens Cliente API] Erro:', error.message, error.code);
       throw error;
     }
     const resolvedStatuses = await syncViagensStatus(client, data as any[] || []);
@@ -95,7 +95,7 @@ export async function GET(event) {
 
     return json({ success: true, items, total: items.length });
   } catch (err) {
-    console.error('[Viagens Cliente API] Erro:', err);
+    logServerError('[viagens/cliente] falha ao carregar viagens do cliente', err);
     return toErrorResponse(err, 'Erro ao carregar viagens do cliente.');
   }
 }

@@ -7,6 +7,14 @@ function normalizeNumero(valor?: string | null) {
   return normalizeText(valor, { trim: true, collapseWhitespace: true }).replace(/\s+/g, "");
 }
 
+function logViajaComError(context: string, error: unknown) {
+  const err = error as Record<string, unknown> | null;
+  console.error(context, {
+    message: String(err?.message || ''),
+    code: String(err?.code || ''),
+  });
+}
+
 /**
  * Cria vínculos automáticos "Viaja Com" entre recibos de diferentes
  * contratantes que compartilham a mesma reserva.
@@ -28,8 +36,6 @@ export async function criarVinculosViajaComAutomaticos(params: {
   if (!recibosRelacionados || recibosRelacionados.length === 0) {
     return 0;
   }
-
-  console.log(`Criando vinculos "Viaja Com" para ${recibosRelacionados.length} recibo(s) relacionado(s)`);
 
   let vinculosCriados = 0;
 
@@ -63,7 +69,7 @@ export async function criarVinculosViajaComAutomaticos(params: {
           );
 
         if (erro1) {
-          console.error("Erro ao criar vínculo 1:", erro1);
+          logViajaComError("[viaja-com] erro ao criar vinculo direto", erro1);
           continue;
         }
 
@@ -82,20 +88,17 @@ export async function criarVinculosViajaComAutomaticos(params: {
           );
 
         if (erro2) {
-          console.error("Erro ao criar vínculo 2:", erro2);
+          logViajaComError("[viaja-com] erro ao criar vinculo reverso", erro2);
           continue;
         }
 
         vinculosCriados += 2;
-        console.log(`  Vinculo criado: Reserva ${reciboNovo.numero_reserva} (${reciboNovo.id} <-> ${relacionado.id})`);
-
       } catch (error) {
-        console.error("Erro ao criar vínculo 'Viaja Com':", error);
+        logViajaComError("[viaja-com] erro ao criar vinculo", error);
       }
     }
   }
 
-  console.log(`Total de ${vinculosCriados} vinculos criados automaticamente`);
   return vinculosCriados;
 }
 
@@ -130,7 +133,7 @@ export async function buscarRecibosComplementares(params: {
     .eq("venda_id", vendaId);
 
   if (error) {
-    console.error("Erro ao buscar recibos complementares:", error);
+    logViajaComError("[viaja-com] erro ao buscar recibos complementares", error);
     return [];
   }
 

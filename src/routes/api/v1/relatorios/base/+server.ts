@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -119,16 +120,19 @@ export async function GET(event) {
       .filter((row) => row.id)
       .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
 
-    return json({
-      empresas,
-      vendedores,
-      statusVendas: [
-        { value: 'confirmada', label: 'Confirmada' },
-        { value: 'pendente', label: 'Pendente' },
-        { value: 'concluida', label: 'Concluída' },
-        { value: 'cancelada', label: 'Cancelada' }
-      ]
-    });
+    return json(
+      {
+        empresas,
+        vendedores,
+        statusVendas: [
+          { value: 'confirmada', label: 'Confirmada' },
+          { value: 'pendente', label: 'Pendente' },
+          { value: 'concluida', label: 'Concluída' },
+          { value: 'cancelada', label: 'Cancelada' }
+        ]
+      },
+      { headers: SHORT_DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar base analítica.');
   }

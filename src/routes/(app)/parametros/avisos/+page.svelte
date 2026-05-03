@@ -8,6 +8,7 @@
   import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -77,9 +78,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/crm');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ templates?: MessageTemplate[] }>('/api/v1/admin/crm');
       templates = payload.templates || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar templates.');
@@ -107,17 +106,12 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/crm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entity: 'template',
-          action: 'upsert',
-          id: editingId || undefined,
-          data: { nome: form.nome, categoria: form.categoria || null, titulo: form.titulo, corpo: form.corpo, scope: form.scope, ativo: form.ativo }
-        })
+      await apiPost('/api/v1/admin/crm', {
+        entity: 'template',
+        action: 'upsert',
+        id: editingId || undefined,
+        data: { nome: form.nome, categoria: form.categoria || null, titulo: form.titulo, corpo: form.corpo, scope: form.scope, ativo: form.ativo }
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Template atualizado.' : 'Template criado.');
       modalOpen = false;
       await load();
@@ -132,12 +126,7 @@
     if (!(await confirmAction('Deseja excluir este template?'))) return;
     deletingId = id;
     try {
-      const response = await fetch('/api/v1/admin/crm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity: 'template', action: 'delete', id })
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/admin/crm', { entity: 'template', action: 'delete', id });
       toast.success('Template excluído.');
       await load();
     } catch (err) {

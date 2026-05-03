@@ -1,8 +1,28 @@
 import { isWasmCodegenBlockedError, renderSvgToPng } from '$lib/cards/svgToPng';
+import { logServerError } from '$lib/server/v1';
+import { checkRateLimit } from '$lib/server/rateLimit';
 import { renderCardSvg } from '../_render';
 
 export async function GET(event: import('@sveltejs/kit').RequestEvent) {
   try {
+    const rateLimit = checkRateLimit(`cards-render-png:${event.getClientAddress?.() || 'unknown'}`, {
+      max: 80,
+      windowMs: 60_000
+    });
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: "rate_limited", message: "Muitas requisições. Tente novamente em instantes." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
     const { svg } = await renderCardSvg(event);
     try {
       const png = await renderSvgToPng(svg, event.request);
@@ -15,7 +35,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       });
     } catch (error) {
       if (isWasmCodegenBlockedError(error)) {
-        console.warn("[cards/render.png] PNG indisponível no runtime.");
+        logServerError("[cards/render.png] PNG indisponível no runtime", error);
         return new Response(
           JSON.stringify({
             error: "png_render_unavailable",
@@ -34,7 +54,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       throw error;
     }
   } catch (e: any) {
-    console.error("[cards/render.png] falha ao renderizar cartão", e);
+    logServerError("[cards/render.png] falha ao renderizar cartão", e);
     return new Response(
       JSON.stringify({
         error: "card_render_error",

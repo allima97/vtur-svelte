@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
@@ -16,6 +17,10 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+
+function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
+  logServerError(context, err, extra);
+}
 
 function mapSyncChildrenError(err: unknown) {
   const code = String((err as any)?.code || "").trim();
@@ -233,12 +238,6 @@ export async function PATCH(event) {
     const venda = body?.venda || body || {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
-    console.error(
-      "[PATCH venda] body parsed. recibos:",
-      recibos.length,
-      "pagamentos:",
-      pagamentos.length,
-    );
 
     const vendedorId = String(venda?.vendedor_id || "").trim() || scope.userId;
     const deniedSeller = await ensureAssignableActiveSeller(
@@ -395,13 +394,9 @@ export async function PATCH(event) {
         destinationId,
         targetCompanyId,
       );
-      console.error(
-        "[PATCH venda] buildVendaPayload ok:",
-        JSON.stringify(payload),
-      );
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
-      console.error("[PATCH venda] buildVendaPayload error:", code, err);
+      logVendaError("[PATCH venda] buildVendaPayload error:", err, { code });
       if (code === "DATA_VENDA_INVALIDA") {
         return json({ error: "Data da venda invalida." }, { status: 400 });
       }
@@ -414,30 +409,12 @@ export async function PATCH(event) {
       query = query.in("vendedor_id", vendedorIds);
     const { data, error: updateError } = await query.select("id").maybeSingle();
     if (updateError) {
-      console.error("[PATCH venda] update vendas error:", updateError);
+      logVendaError("[PATCH venda] update vendas error:", updateError);
       throw updateError;
     }
     if (!data?.id) throw error(404, "Venda não encontrada.");
-    console.error("[PATCH venda] update vendas ok. id:", data.id);
 
     try {
-      console.error(
-        "[PATCH venda] syncVendaChildren payload:",
-        JSON.stringify(
-          {
-            vendaId: data.id,
-            companyId: targetCompanyId,
-            clienteId,
-            vendedorId,
-            recibosCount: recibosForSync.length,
-            pagamentosCount: pagamentos.length,
-            recibos: recibosForSync.slice(0, 2),
-            pagamentos: pagamentos.slice(0, 2),
-          },
-          null,
-          2,
-        ),
-      );
       await syncVendaChildren({
         client,
         vendaId: data.id,
@@ -449,7 +426,7 @@ export async function PATCH(event) {
         pagamentos,
       });
     } catch (syncError) {
-      console.error("[PATCH venda] syncVendaChildren error:", syncError);
+      logVendaError("[PATCH venda] syncVendaChildren error:", syncError);
       const mapped = mapSyncChildrenError(syncError);
       if (mapped) {
         return json(mapped.body, { status: mapped.status });
@@ -465,7 +442,7 @@ export async function PATCH(event) {
 
     return json({ ok: true, venda_id: data.id });
   } catch (err) {
-    console.error("[PATCH venda] catch geral:", err);
+    logVendaError("[PATCH venda] catch geral:", err);
     return toErrorResponse(err, "Erro ao atualizar venda.");
   }
 }

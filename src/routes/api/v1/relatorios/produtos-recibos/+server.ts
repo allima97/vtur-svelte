@@ -9,6 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchSalesReportRows, getReceiptProductDescriptor, getVendaStatus } from '$lib/server/relatorios';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function parseUuidList(raw?: string | null) {
   return String(raw || '')
@@ -105,7 +106,7 @@ export async function GET(event: RequestEvent) {
       .filter((row) => !statusFilter || row.status === statusFilter)
       .filter((row) => tipoProdutoIds.size === 0 || row.vendas_recibos.some((recibo: any) => tipoProdutoIds.has(String(recibo?.produto_id || ''))));
 
-    return json(items);
+    return json(items, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar relatorio de produtos por recibo.');
   }

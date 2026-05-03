@@ -1,14 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import Button from '$lib/components/ui/Button.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, Plane, Calendar, FileText, Clock, CreditCard } from 'lucide-svelte';
+  import { Plus, Plane, Calendar, FileText, Clock, CreditCard, RefreshCw } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
   import { formatViagemStatus, resolveViagemStatus, type StatusViagem } from '$lib/viagens/status';
+  import { apiGet } from '$lib/services/api';
 
   interface Viagem {
     id: string;
@@ -33,26 +38,46 @@
   let loading = true;
   let errorMessage: string | null = null;
   
-  // Filtros
-  let filtroBusca = '';
+  type PeriodoEmbarque = '' | 'semana' | 'quinzena' | 'mes';
+  type OrdenacaoViagem = 'embarque_asc' | 'embarque_desc' | 'retorno_asc' | 'cadastro_desc';
+
+  // Filtros de operação
   let filtroStatus = '';
-  let filtroPeriodo = '';
+  let filtroPeriodo: PeriodoEmbarque = '';
+  let ordenacao: OrdenacaoViagem = 'embarque_asc';
+
+  const statusOptions = [
+    { value: '', label: 'Todos' },
+    { value: 'pendente', label: 'Pendente' },
+    { value: 'confirmada', label: 'Confirmada' },
+    { value: 'em_viagem', label: 'Em viagem' },
+    { value: 'concluida', label: 'Concluída' },
+    { value: 'cancelada', label: 'Cancelada' }
+  ];
+
+  const periodoOptions: Array<{ value: PeriodoEmbarque; label: string; helper: string }> = [
+    { value: '', label: 'Todos', helper: 'Sem recorte' },
+    { value: 'semana', label: 'Semana', helper: '7 dias' },
+    { value: 'quinzena', label: 'Quinzena', helper: '15 dias' },
+    { value: 'mes', label: 'Mês', helper: '30 dias' }
+  ];
+
+  const ordenacaoOptions = [
+    { value: 'embarque_asc', label: 'Embarque mais próximo' },
+    { value: 'embarque_desc', label: 'Embarque mais distante' },
+    { value: 'retorno_asc', label: 'Retorno mais próximo' },
+    { value: 'cadastro_desc', label: 'Cadastro recente' }
+  ];
 
   async function loadViagens() {
     loading = true;
     errorMessage = null;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus) params.set('status', filtroStatus);
-      if (filtroPeriodo) params.set('periodo', filtroPeriodo);
-
-      const response = await fetch(`/api/v1/viagens?${params.toString()}`);
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`HTTP ${response.status}: ${body}`);
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ items?: any[] }>('/api/v1/viagens', {
+        status: filtroStatus || undefined,
+        periodo: filtroPeriodo || undefined,
+        ordenar: ordenacao
+      });
       viagens = (data.items || []).map((v: any) => ({
         id: v.id,
         codigo: v.venda_id ? `VND-${v.venda_id.slice(0, 8)}` : v.id.slice(0, 8),
@@ -74,8 +99,7 @@
         venda_id: v.venda_id,
         created_at: v.created_at
       }));
-      
-      aplicarFiltrosBusca();
+      viagensFiltradas = viagens;
     } catch (err) {
       errorMessage = `Erro ao carregar viagens: ${err instanceof Error ? err.message : String(err)}`;
       toast.error(errorMessage);
@@ -92,32 +116,8 @@
     return diff + 1;
   }
 
-  function aplicarFiltrosBusca() {
-    if (!filtroBusca.trim()) {
-      viagensFiltradas = viagens;
-      return;
-    }
-    
-    const termo = filtroBusca.toLowerCase().trim();
-    viagensFiltradas = viagens.filter(v => 
-      v.cliente?.toLowerCase().includes(termo) ||
-      v.destino?.toLowerCase().includes(termo) ||
-      v.codigo?.toLowerCase().includes(termo) ||
-      v.responsavel?.toLowerCase().includes(termo)
-    );
-  }
-
-  function handleBusca(valor: string) {
-    filtroBusca = valor;
-    aplicarFiltrosBusca();
-  }
-
-  function handleFiltroChange(key: string, value: string) {
-    if (key === 'status') {
-      filtroStatus = value;
-    } else if (key === 'periodo') {
-      filtroPeriodo = value;
-    }
+  function setPeriodo(value: PeriodoEmbarque) {
+    filtroPeriodo = value;
     loadViagens();
   }
 
@@ -176,10 +176,10 @@
             ? 'bg-purple-400'
             : 'bg-green-400';
         return `<div class="flex flex-col">
-          <span class="font-medium text-slate-900">${value}</span>
+          <span class="font-medium text-slate-900">${escapeHtml(value)}</span>
           <span class="text-xs text-slate-500 flex items-center gap-1">
             <span class="w-2 h-2 rounded-full ${dotClass}"></span>
-            ${row.destino}
+            ${escapeHtml(row.destino)}
           </span>
         </div>`;
       }
@@ -253,36 +253,8 @@
     }
   ];
 
-  const filters = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select' as const,
-      options: [
-        { value: '', label: 'Todos' },
-        { value: 'pendente', label: 'Pendente' },
-        { value: 'confirmada', label: 'Confirmada' },
-        { value: 'em_viagem', label: 'Em viagem' },
-        { value: 'concluida', label: 'Concluída' },
-        { value: 'cancelada', label: 'Cancelada' }
-      ]
-    },
-    {
-      key: 'periodo',
-      label: 'Período',
-      type: 'select' as const,
-      options: [
-        { value: '', label: 'Todos' },
-        { value: 'hoje', label: 'Hoje' },
-        { value: 'semana', label: 'Esta semana' },
-        { value: 'mes', label: 'Este mês' },
-        { value: 'proximos_30', label: 'Próximos 30 dias' }
-      ]
-    }
-  ];
-
   $: resumo = (() => {
-    const lista = viagensFiltradas.length > 0 ? viagensFiltradas : viagens;
+    const lista = viagensFiltradas;
     const pendentes = lista.filter(v => v.status === 'pendente').length;
     const confirmadas = lista.filter(v => v.status === 'confirmada').length;
     const emViagem = lista.filter(v => v.status === 'em_viagem').length;
@@ -364,16 +336,78 @@
   />
 </div>
 
+<Card
+  title="Ordem de embarque"
+  subtitle="Use os recortes rápidos para acompanhar quem embarca nos próximos dias."
+  color="clientes"
+  class="mb-6"
+>
+  <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+    <div class="min-w-0 flex-1">
+      <div class="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+        <Calendar size={16} class="text-blue-500" />
+        Recorte por embarque
+      </div>
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Filtro rápido por data de embarque">
+        {#each periodoOptions as option}
+          <Button
+            variant={filtroPeriodo === option.value ? 'primary' : 'secondary'}
+            color="clientes"
+            size="sm"
+            ariaPressed={filtroPeriodo === option.value}
+            on:click={() => setPeriodo(option.value)}
+          >
+            <span class="flex flex-col items-start leading-tight">
+              <span>{option.label}</span>
+              <span class={filtroPeriodo === option.value ? 'text-[11px] text-white/80' : 'text-[11px] text-slate-500'}>
+                {option.helper}
+              </span>
+            </span>
+          </Button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2 xl:w-[520px]">
+      <FieldSelect
+        label="Status"
+        bind:value={filtroStatus}
+        options={statusOptions}
+        placeholder={null}
+        disabled={loading}
+        on:change={loadViagens}
+      />
+
+      <FieldSelect
+        label="Mostrar por"
+        bind:value={ordenacao}
+        options={ordenacaoOptions}
+        placeholder={null}
+        disabled={loading}
+        on:change={loadViagens}
+      />
+    </div>
+
+    <Button variant="secondary" color="clientes" on:click={loadViagens} loading={loading} class_name="xl:mb-0">
+      {#if !loading}
+        <RefreshCw size={16} class="mr-2" />
+      {/if}
+      Atualizar
+    </Button>
+  </div>
+</Card>
+
 <DataTable
   {columns}
   data={viagensFiltradas}
   color="clientes"
   {loading}
-  title="Lista de Viagens"
-  {filters}
+  title="Lista de viagens por embarque"
   searchable={true}
-  filterable={true}
+  filterable={false}
   exportable={true}
+  pageSize={25}
+  extraSearchKeys={['destino', 'responsavel', 'codigo', 'cliente']}
   onRowClick={handleRowClick}
   onExport={handleExport}
   emptyMessage="Nenhuma viagem encontrada"

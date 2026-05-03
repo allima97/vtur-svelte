@@ -18,6 +18,7 @@ import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -701,7 +702,7 @@ export async function POST(event) {
           .eq('company_id', companyId);
 
         if (fixErr) {
-          console.error('[fix-vinculos] erro ao corrigir lote:', fixErr);
+          logServerError('[fix-vinculos] erro ao corrigir lote', fixErr, { batch_size: batch.length });
         } else {
           corrigidos += batch.length;
         }

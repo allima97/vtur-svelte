@@ -8,8 +8,10 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { RefreshCw, Trash2, FileText, ExternalLink } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet } from '$lib/services/api';
   type Documento = {
     id: string;
     file_name: string;
@@ -46,8 +48,8 @@
       sortable: true,
       formatter: (v: string | null, row: Documento) => {
         const nome = v || row.file_name;
-        const titulo = row.title ? `<div class="text-xs text-slate-500">${row.title}</div>` : '';
-        return `<div><div class="font-medium text-slate-900">${nome}</div>${titulo}</div>`;
+        const titulo = row.title ? `<div class="text-xs text-slate-500">${escapeHtml(row.title)}</div>` : '';
+        return `<div><div class="font-medium text-slate-900">${escapeHtml(nome)}</div>${titulo}</div>`;
       }
     },
     {
@@ -60,7 +62,7 @@
         if (v.includes('pdf')) return '<span class="text-red-600 text-xs font-medium">PDF</span>';
         if (v.includes('word') || v.includes('document')) return '<span class="text-blue-600 text-xs font-medium">Word</span>';
         if (v.includes('text')) return '<span class="text-slate-600 text-xs font-medium">Texto</span>';
-        return `<span class="text-xs text-slate-500">${v.split('/')[1] || v}</span>`;
+        return `<span class="text-xs text-slate-500">${escapeHtml(v.split('/')[1] || v)}</span>`;
       }
     },
     {
@@ -88,9 +90,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/operacao/documentos-viagens');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Documento[] }>('/api/v1/operacao/documentos-viagens');
       documentos = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar documentos.');
@@ -103,8 +103,7 @@
     if (!(await confirmAction('Deseja excluir este documento?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/operacao/documentos-viagens?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/operacao/documentos-viagens', { id });
       toast.success('Documento excluído.');
       await load();
     } catch (err) {

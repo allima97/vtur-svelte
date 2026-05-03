@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
   ensureCanManagePermissions,
+  isRestrictedUserTypeName,
   loadManagedUserTypes,
   loadUserTypeDefaultPermissions
 } from '$lib/server/admin';
@@ -79,9 +80,13 @@ export async function POST(event) {
 
     const action = String(body.action || 'save').trim().toLowerCase();
     const id = String(body.id || '').trim();
+    const managedTypes = await loadManagedUserTypes(client, scope);
 
     if (action === 'delete') {
       if (!id) return new Response('Tipo de usuario nao informado.', { status: 400 });
+      if (!managedTypes.some((row) => row.id === id)) {
+        return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+      }
       const { error: deleteError } = await client.from('user_types').delete().eq('id', id);
       if (deleteError) throw deleteError;
       return json({ id, deleted: true });
@@ -93,8 +98,14 @@ export async function POST(event) {
     if (!name) {
       return new Response('Nome do tipo de usuario obrigatorio.', { status: 400 });
     }
+    if (!scope.isAdmin && isRestrictedUserTypeName(name)) {
+      return new Response('Sem permissao para criar ou editar perfis ADMIN/MASTER.', { status: 403 });
+    }
 
     if (id) {
+      if (!managedTypes.some((row) => row.id === id)) {
+        return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+      }
       const { error: updateError } = await client
         .from('user_types')
         .update({ name, description })

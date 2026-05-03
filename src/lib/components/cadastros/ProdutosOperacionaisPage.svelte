@@ -7,6 +7,8 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { Package, MapPin, Globe2, Hotel, Plus } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   export let mode: 'produtos' | 'destinos' = 'produtos';
 
@@ -49,15 +51,17 @@
   async function loadBase() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/produtos/base?all=1&page=1&pageSize=500');
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      const data = await apiGet<{
+        produtos?: Produto[];
+        tipos?: Option[];
+        cidades?: Option[];
+        fornecedores?: Option[];
+      }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 });
       produtos = data.produtos || [];
       tipos = data.tipos || [];
       cidades = data.cidades || [];
       fornecedores = data.fornecedores || [];
     } catch (err) {
-      console.error(err);
       toast.error('Erro ao carregar base de produtos.');
     } finally {
       loading = false;
@@ -91,10 +95,7 @@
   }
 
   function formatDate(value?: string | null) {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function statusBadge(value?: boolean | null) {

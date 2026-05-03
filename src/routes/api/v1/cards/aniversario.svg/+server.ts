@@ -1,3 +1,6 @@
+import type { RequestHandler } from './$types';
+import { checkRateLimit } from '$lib/server/rateLimit';
+
 function escapeXml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -15,7 +18,25 @@ function clampText(value: string | null, fallback: string, maxLength: number) {
   return normalized || fallback;
 }
 
-export async function GET({ request }: { request: Request }) {
+export const GET: RequestHandler = async ({ request, getClientAddress }) => {
+  const rateLimit = checkRateLimit(`cards-aniversario:${getClientAddress() || 'unknown'}`, {
+    max: 240,
+    windowMs: 60_000
+  });
+  if (!rateLimit.allowed) {
+    return new Response(
+      JSON.stringify({ error: "rate_limited", message: "Muitas requisições. Tente novamente em instantes." }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+          "Cache-Control": "no-store",
+        },
+      }
+    );
+  }
+
   const url = new URL(request.url);
   const nome = clampText(url.searchParams.get("nome"), "Cliente", 80);
   const assinatura = clampText(url.searchParams.get("assinatura"), "André Lima", 80);
@@ -93,4 +114,4 @@ export async function GET({ request }: { request: Request }) {
       "Cache-Control": "public, max-age=3600",
     },
   });
-}
+};

@@ -6,6 +6,7 @@ import {
   ensureModuloAccess,
   normalizeText,
   isUuid,
+  logServerError,
   resolveScopedVendedorIds
 } from '$lib/server/v1';
 import { getAdminClient } from '$lib/server/v1';
@@ -112,7 +113,7 @@ async function syncProductsCatalog(
       }
       const { data: existing, error: selectErr } = await query.maybeSingle();
       if (selectErr) {
-        console.warn('[Orcamentos] Falha ao buscar produto', selectErr);
+        logServerError('[Orcamentos] Falha ao buscar produto', selectErr);
         continue;
       }
       if (existing?.id) {
@@ -120,13 +121,13 @@ async function syncProductsCatalog(
           .from('produtos')
           .update(payload)
           .eq('id', existing.id);
-        if (updateErr) console.warn('[Orcamentos] Falha ao atualizar produto', updateErr);
+        if (updateErr) logServerError('[Orcamentos] Falha ao atualizar produto', updateErr);
       } else {
         const { error: insertErr } = await client.from('produtos').insert(payload);
-        if (insertErr) console.warn('[Orcamentos] Falha ao inserir produto', insertErr);
+        if (insertErr) logServerError('[Orcamentos] Falha ao inserir produto', insertErr);
       }
     } catch (err) {
-      console.warn('[Orcamentos] Erro ao sincronizar produto', err);
+      logServerError('[Orcamentos] Erro ao sincronizar produto', err);
     }
   }
 }
@@ -294,7 +295,7 @@ export async function POST(event: RequestEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
-    console.error('Erro orcamentos/save', err);
+    logServerError('[orcamentos/save] falha ao salvar orcamento', err);
     return new Response('Erro ao salvar orcamento.', { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import {
   getMonthRange,
   isRankingEligibleUser,
   isTechnicalRankingUserName,
+  logServerError,
   parseUuidList,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -14,6 +15,7 @@ import {
 } from "$lib/server/v1";
 
 import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { addDaysISODate, diffDaysISODate, monthRangeFromKey } from "$lib/date";
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
@@ -57,12 +59,6 @@ async function buildRankingSimple(
     dataFim,
     companyIds,
     vendedorIds,
-  });
-  console.log("[ranking] buildRankingSimple canonical:", {
-    periodo: `${dataInicio} - ${dataFim}`,
-    empresas: companyIds.length,
-    vendedoresNoEscopo: vendedorIds.length,
-    contributionsGeradas: canonical.contributions.length,
   });
   return canonical.contributions.map((item) => ({
     vendaKey: item.vendaKey,
@@ -210,30 +206,33 @@ export async function GET(event) {
     }
 
     if (vendedorIds.length === 0) {
-      return json({
-        items: [],
-        total: 0,
-        vendedores: [],
-        resumo: {
-          meta_mes: 0,
-          meta_seguro: 0,
-          total_receita: 0,
-          total_liquido: 0,
-          total_seguro: 0,
-          total_comissao: 0,
-          total_orcamentos: 0,
-          total_vendas: 0,
-          total_recibos: 0,
-          meta_total: 0,
+      return json(
+        {
+          items: [],
+          total: 0,
+          vendedores: [],
+          resumo: {
+            meta_mes: 0,
+            meta_seguro: 0,
+            total_receita: 0,
+            total_liquido: 0,
+            total_seguro: 0,
+            total_comissao: 0,
+            total_orcamentos: 0,
+            total_vendas: 0,
+            total_recibos: 0,
+            meta_total: 0,
+          },
+          periodo: {
+            data_inicio: dataInicio,
+            data_fim: dataFim,
+            anterior_inicio: previousPeriod.dataInicio,
+            anterior_fim: previousPeriod.dataFim,
+            referencia_mes_atual: getMonthRange(),
+          },
         },
-        periodo: {
-          data_inicio: dataInicio,
-          data_fim: dataFim,
-          anterior_inicio: previousPeriod.dataInicio,
-          anterior_fim: previousPeriod.dataFim,
-          referencia_mes_atual: getMonthRange(),
-        },
-      });
+        { headers: DYNAMIC_READ_HEADERS }
+      );
     }
 
     let conciliacaoSobrepoeVendas = false;
@@ -315,7 +314,7 @@ export async function GET(event) {
     if (quotesRes.error) throw quotesRes.error;
     if (metasRes.error) {
       // Tabela meta_vendedor pode não existir — ignora silenciosamente
-      console.warn("[ranking] Erro ao buscar metas:", metasRes.error.message);
+      logServerError("[ranking] Erro ao buscar metas", metasRes.error);
     }
 
     const rankingMap = new Map<
@@ -589,38 +588,41 @@ export async function GET(event) {
       nome: item.vendedor_nome,
     }));
 
-    return json({
-      items,
-      total: items.length,
-      vendedores,
-      resumo: {
-        meta_mes: items.reduce((sum, item) => sum + item.meta, 0),
-        meta_seguro: items.reduce((sum, item) => sum + item.meta_seguro, 0),
-        total_receita: items.reduce((sum, item) => sum + item.total_receita, 0),
-        total_liquido: items.reduce((sum, item) => sum + item.total_liquido, 0),
-        total_seguro: items.reduce((sum, item) => sum + item.total_seguro, 0),
-        total_comissao: items.reduce(
-          (sum, item) => sum + item.total_comissao,
-          0,
-        ),
-        total_orcamentos: items.reduce(
-          (sum, item) => sum + item.total_orcamentos,
-          0,
-        ),
-        total_vendas: items.reduce((sum, item) => sum + item.total_vendas, 0),
-        total_recibos: items.reduce((sum, item) => sum + item.total_recibos, 0),
-        meta_total: items.reduce((sum, item) => sum + item.meta, 0),
+    return json(
+      {
+        items,
+        total: items.length,
+        vendedores,
+        resumo: {
+          meta_mes: items.reduce((sum, item) => sum + item.meta, 0),
+          meta_seguro: items.reduce((sum, item) => sum + item.meta_seguro, 0),
+          total_receita: items.reduce((sum, item) => sum + item.total_receita, 0),
+          total_liquido: items.reduce((sum, item) => sum + item.total_liquido, 0),
+          total_seguro: items.reduce((sum, item) => sum + item.total_seguro, 0),
+          total_comissao: items.reduce(
+            (sum, item) => sum + item.total_comissao,
+            0,
+          ),
+          total_orcamentos: items.reduce(
+            (sum, item) => sum + item.total_orcamentos,
+            0,
+          ),
+          total_vendas: items.reduce((sum, item) => sum + item.total_vendas, 0),
+          total_recibos: items.reduce((sum, item) => sum + item.total_recibos, 0),
+          meta_total: items.reduce((sum, item) => sum + item.meta, 0),
+        },
+        periodo: {
+          data_inicio: dataInicio,
+          data_fim: dataFim,
+          anterior_inicio: previousPeriod.dataInicio,
+          anterior_fim: previousPeriod.dataFim,
+          referencia_mes_atual: getMonthRange(),
+        },
       },
-      periodo: {
-        data_inicio: dataInicio,
-        data_fim: dataFim,
-        anterior_inicio: previousPeriod.dataInicio,
-        anterior_fim: previousPeriod.dataFim,
-        referencia_mes_atual: getMonthRange(),
-      },
-    });
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
-    console.error("[Ranking API] Erro:", err);
+    logServerError("[ranking] erro ao carregar ranking", err);
     return toErrorResponse(err, "Erro ao carregar ranking.");
   }
 }

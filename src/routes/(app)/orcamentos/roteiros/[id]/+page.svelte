@@ -13,7 +13,11 @@
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import { FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { fetchImageAsDataUrl } from '$lib/utils/browser-images';
   import { ArrowLeft, Plus, Trash2, Save, ChevronUp, ChevronDown, FileText, DollarSign, RefreshCw } from 'lucide-svelte';
+  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
+  import { diffDaysISODate } from '$lib/date';
 
   // ─── Types ─────────────────────────────────────────────────────────────────
   type RotDia = {
@@ -282,9 +286,8 @@
   // ─── Hotel auto-calc noites ────────────────────────────────────────────────
   function calcNoites(dataInicio: string, dataFim: string): number | null {
     if (!dataInicio || !dataFim) return null;
-    const start = new Date(dataInicio);
-    const end = new Date(dataFim);
-    const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+    const diff = diffDaysISODate(dataInicio, dataFim);
+    if (diff === null) return null;
     return diff > 0 ? diff : null;
   }
 
@@ -501,33 +504,14 @@
   async function load() {
     loading = true;
     try {
-      const [roteiroRes, sugestoesRes, settingsRes] = await Promise.all([
-        fetch(`/api/v1/roteiros/${roteiroId}`),
-        fetch('/api/v1/roteiros/sugestoes-busca').catch(() => null),
-        fetch('/api/v1/parametros/orcamentos-pdf').catch(() => null),
+      const [payload, sugestoesData, settingsData] = await Promise.all([
+        apiFetch<{ roteiro: any }>(`/api/v1/roteiros/${roteiroId}`, {
+          redirectOnForbidden: false,
+          redirectOnUnauthorized: false
+        }),
+        apiGet<any>('/api/v1/roteiros/sugestoes-busca').catch(() => null),
+        apiGet<any>('/api/v1/parametros/orcamentos-pdf').catch(() => null),
       ]);
-
-      if (!roteiroRes.ok) {
-        const message = (await roteiroRes.text()) || 'Erro ao carregar roteiro.';
-        if (roteiroRes.status === 401) {
-          toast.error('Sessão expirada. Faça login novamente para continuar.');
-          const next = `${$page.url.pathname}${$page.url.search}`;
-          await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
-          return;
-        }
-        if (roteiroRes.status === 403) {
-          toast.error(message || 'Você não tem permissão para acessar este roteiro.');
-          await goto('/orcamentos/roteiros');
-          return;
-        }
-        if (roteiroRes.status === 404) {
-          toast.error(message || 'Roteiro não encontrado.');
-          await goto('/orcamentos/roteiros');
-          return;
-        }
-        throw new Error(message);
-      }
-      const payload = await roteiroRes.json();
       const r = payload.roteiro;
 
       nome = r.nome || '';
@@ -551,16 +535,32 @@
       investimentos = (r.investimentos || []).map((i: any) => ({ ...newInvestimento(i.ordem ?? 0), ...i }));
       pagamentos = (r.pagamentos || []).map((p: any) => ({ ...newPagamento(p.ordem ?? 0), ...p }));
 
-      if (sugestoesRes?.ok) {
-        const sData = await sugestoesRes.json();
-        sugestoes = sData || {};
+      if (sugestoesData) {
+        sugestoes = sugestoesData || {};
       }
 
-      if (settingsRes?.ok) {
-        const settingsData = await settingsRes.json();
+      if (settingsData) {
         pdfSettings = settingsData?.settings || {};
       }
     } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          toast.error('Sessão expirada. Faça login novamente para continuar.');
+          const next = `${$page.url.pathname}${$page.url.search}`;
+          await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
+          return;
+        }
+        if (err.status === 403) {
+          toast.error(err.message || 'Você não tem permissão para acessar este roteiro.');
+          await goto('/orcamentos/roteiros');
+          return;
+        }
+        if (err.status === 404) {
+          toast.error(err.message || 'Roteiro não encontrado.');
+          await goto('/orcamentos/roteiros');
+          return;
+        }
+      }
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiro.');
     } finally {
       loading = false;
@@ -572,27 +572,22 @@
     if (!nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/roteiros/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: roteiroId,
-          nome: nome.trim(),
-          duracao: duracao ? Number(duracao) : null,
-          inicio_cidade: inicioCidade.trim() || null,
-          fim_cidade: fimCidade.trim() || null,
-          inclui_texto: incluiTexto || null,
-          nao_inclui_texto: naoIncluiTexto || null,
-          informacoes_importantes: informacoesImportantes || null,
-          dias: dias.map((d, i) => ({ ...d, ordem: i })),
-          hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
-          passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
-          transportes: transportes.map((t, i) => ({ ...t, ordem: i })),
-          investimentos: investimentos.map((inv, i) => ({ ...inv, ordem: i })),
-          pagamentos: pagamentos.map((p, i) => ({ ...p, ordem: i })),
-        })
+      await apiPost('/api/v1/roteiros/save', {
+        id: roteiroId,
+        nome: nome.trim(),
+        duracao: duracao ? Number(duracao) : null,
+        inicio_cidade: inicioCidade.trim() || null,
+        fim_cidade: fimCidade.trim() || null,
+        inclui_texto: incluiTexto || null,
+        nao_inclui_texto: naoIncluiTexto || null,
+        informacoes_importantes: informacoesImportantes || null,
+        dias: dias.map((d, i) => ({ ...d, ordem: i })),
+        hoteis: hoteis.map((h, i) => ({ ...h, ordem: i })),
+        passeios: passeios.map((p, i) => ({ ...p, ordem: i })),
+        transportes: transportes.map((t, i) => ({ ...t, ordem: i })),
+        investimentos: investimentos.map((inv, i) => ({ ...inv, ordem: i })),
+        pagamentos: pagamentos.map((p, i) => ({ ...p, ordem: i }))
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Roteiro salvo com sucesso!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
@@ -605,12 +600,10 @@
   async function buscarDias() {
     diasBuscaLoading = true;
     try {
-      const params = new URLSearchParams();
-      if (diasBuscaQ) params.set('q', diasBuscaQ);
-      if (diasBuscaCidade) params.set('cidade', diasBuscaCidade);
-      const res = await fetch(`/api/v1/roteiros/dias-busca?${params}`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await apiGet<{ dias?: any[] }>('/api/v1/roteiros/dias-busca', {
+        q: diasBuscaQ,
+        cidade: diasBuscaCidade
+      });
       diasBuscaResults = data.dias || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao buscar dias.');
@@ -643,10 +636,10 @@
     clienteSearchTimeout = setTimeout(async () => {
       gerarClienteLoading = true;
       try {
-        const res = await fetch(`/api/v1/clientes?search=${encodeURIComponent(gerarClienteQ)}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await apiGet<any>('/api/v1/clientes', { search: gerarClienteQ });
         gerarClienteResults = data.items || data.clientes || data || [];
+      } catch {
+        gerarClienteResults = [];
       } finally {
         gerarClienteLoading = false;
       }
@@ -658,19 +651,14 @@
     if (!clientName) { toast.error('Informe o nome do cliente.'); return; }
     gerarLoading = true;
     try {
-      const res = await fetch('/api/v1/roteiros/gerar-orcamento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roteiro_id: roteiroId,
-          client_id: gerarClienteSel?.id || null,
-          client_name: clientName,
-          client_whatsapp: gerarClienteSel?.whatsapp || null,
-          client_email: gerarClienteSel?.email || null,
-        }),
+      const data = await apiPost<{ quote_id?: string }>('/api/v1/roteiros/gerar-orcamento', {
+        roteiro_id: roteiroId,
+        client_id: gerarClienteSel?.id || null,
+        client_name: clientName,
+        client_whatsapp: gerarClienteSel?.whatsapp || null,
+        client_email: gerarClienteSel?.email || null
       });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      if (!data.quote_id) throw new Error('Orçamento gerado sem identificador.');
       goto(`/orcamentos/${data.quote_id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao gerar orçamento.');
@@ -990,18 +978,6 @@
     }
   }
 
-  async function externalImageToDataUrl(url: string): Promise<string | null> {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      const dataUrl = await blobToDataUrl(blob, 'image/png');
-      return dataUrl || null;
-    } catch {
-      return null;
-    }
-  }
-
   async function resolvePreviewPdfAssets(): Promise<PreviewPdfAssets> {
     const whatsappLink = construirLinkWhatsApp(pdfSettings.whatsapp, pdfSettings.whatsapp_codigo_pais);
     const qrSource = whatsappLink
@@ -1011,7 +987,7 @@
     const [logoUrl, complementUrl, qrUrl] = await Promise.all([
       storageImageToDataUrl(pdfSettings.logo_path, pdfSettings.logo_url),
       storageImageToDataUrl(pdfSettings.imagem_complementar_path, pdfSettings.imagem_complementar_url),
-      qrSource ? externalImageToDataUrl(qrSource) : Promise.resolve(null),
+      qrSource ? fetchImageAsDataUrl(qrSource) : Promise.resolve(null),
     ]);
 
     return { logoUrl, complementUrl, qrUrl };
@@ -1284,7 +1260,7 @@
       const assets = await resolvePreviewPdfAssets();
       const html = buildRoteiroPreviewHtml(assets);
       const previewUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-      const previewWindow = window.open(previewUrl, '_blank');
+      const previewWindow = window.open(previewUrl, '_blank', 'noopener,noreferrer');
       if (!previewWindow) {
         throw new Error('Não foi possível abrir a prévia do PDF. Verifique o bloqueador de pop-up.');
       }
@@ -1300,24 +1276,6 @@
   function formatBRL(value: number | null | undefined): string {
     if (value == null) return '';
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-  }
-
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        }),
-      });
-    } catch {
-      // Falha silenciosa: a tela ainda tentará carregar e tratará 401 explicitamente.
-    }
   }
 
   onMount(async () => {

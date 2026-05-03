@@ -8,6 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
   $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
@@ -150,10 +151,7 @@
   onMount(async () => {
     loading = true;
     try {
-      const response = await fetch('/api/v1/vendas/cadastro-base');
-      if (!response.ok) throw new Error(await response.text());
-
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/vendas/cadastro-base');
       currentUser = data.user ?? null;
       vendedoresEquipe = data.vendedoresEquipe || [];
       clientes = data.clientes || [];
@@ -166,8 +164,7 @@
         ? (data.vendedoresEquipe?.[0]?.id || data.user?.id || '')
         : (data.user?.id || '');
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao carregar base do cadastro de vendas.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar base do cadastro de vendas.');
       goto('/vendas');
     }
     
@@ -181,13 +178,7 @@
   
   async function carregarOrcamento(orcamentoId: string) {
     try {
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
-      if (!response.ok) {
-        console.error('Erro ao carregar orçamento:', await response.text());
-        return;
-      }
-      
-      const orcamento = await response.json();
+      const orcamento = await apiGet<any>(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
       
       if (orcamento.client_id) {
         venda.cliente_id = orcamento.client_id;
@@ -208,7 +199,7 @@
       
       toast.success(`Dados do orçamento ${orcamento.codigo} carregados!`);
     } catch (err) {
-      console.error('Erro ao carregar orçamento:', err);
+      toast.warning(err instanceof Error ? err.message : 'Não foi possível carregar os dados do orçamento.');
     }
   }
 
@@ -448,9 +439,7 @@
     if (ensuringCidadeId === id) return;
     ensuringCidadeId = id;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?id=${encodeURIComponent(id)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { id });
       if (payload?.id) mergeCidades([payload]);
     } catch {
       // Sem impacto funcional; mantemos a tela usavel.
@@ -583,20 +572,12 @@
         })
       };
 
-      const response = await fetch('/api/v1/vendas/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(result?.error || 'Erro ao salvar venda.');
-      }
+      const result = await apiPost<{ venda_id?: string }>('/api/v1/vendas/create', payload);
 
       toast.success('Venda cadastrada com sucesso!');
+      if (!result.venda_id) throw new Error('Venda salva sem identificador de retorno.');
       goto(`/vendas/${result.venda_id}`);
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message || 'Erro ao salvar venda.');
     } finally {
       saving = false;

@@ -5,6 +5,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   // ─── Props ─────────────────────────────────────────────────────────────────
   export let open = false;
@@ -81,9 +82,9 @@
     confirmando = false;
     filtro = '';
     try {
-      const res = await fetch(`/api/v1/vendas/merge-candidates?venda_id=${vendaId}`);
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+      const data = await apiGet<{ items?: Candidato[] }>('/api/v1/vendas/merge-candidates', {
+        venda_id: vendaId
+      });
       candidatos = data.items || [];
     } catch (e: any) {
       erro = e?.message || 'Erro ao carregar vendas do cliente.';
@@ -98,18 +99,13 @@
     mesclando = true;
     erro = null;
     try {
-      const res = await fetch('/api/v1/vendas/merge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          venda_id: vendaId,
-          merge_ids: Array.from(selecionados)
-        })
+      const result = await apiPost<{ removed_pagamentos?: number }>('/api/v1/vendas/merge', {
+        venda_id: vendaId,
+        merge_ids: Array.from(selecionados)
       });
-      if (!res.ok) throw new Error(await res.text());
-      const result = await res.json();
+      const removedPagamentos = Number(result.removed_pagamentos || 0);
       toast.success(
-        `Vendas mescladas com sucesso! ${result.removed_pagamentos > 0 ? `${result.removed_pagamentos} pagamento(s) duplicado(s) removido(s).` : ''}`
+        `Vendas mescladas com sucesso! ${removedPagamentos > 0 ? `${removedPagamentos} pagamento(s) duplicado(s) removido(s).` : ''}`
       );
       onMerged();
       fechar();

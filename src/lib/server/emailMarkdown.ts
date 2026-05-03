@@ -44,7 +44,7 @@ function linkify(text: string) {
     const href = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
     const safe = sanitizeUrl(href);
     if (!safe) return raw;
-    return `<a href="${safe}" target="_blank" rel="noreferrer">${trimmed}</a>${suffix}`;
+    return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${trimmed}</a>${suffix}`;
   });
 
   return html;
@@ -55,7 +55,7 @@ function renderInline(markdown: string) {
   html = html.replace(/\[(.+?)\]\((.+?)\)/g, (_m, text, url) => {
     const safe = sanitizeUrl(String(url || ""));
     if (!safe) return text;
-    return `<a href="${safe}" target="_blank" rel="noreferrer">${text}</a>`;
+    return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   });
   html = applyInlineFormatting(html);
   html = linkify(html);

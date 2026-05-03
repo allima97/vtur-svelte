@@ -8,6 +8,8 @@
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
+  import { apiGet } from '$lib/services/api';
 
   type Cliente = {
     id: string;
@@ -49,6 +51,8 @@
   let filterValues: Record<string, string> = {};
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
+  let summaryRequestSeq = 0;
+  let lastSummaryKey = '';
   let summary = {
     total: 0,
     ativos: 0,
@@ -68,9 +72,9 @@
           ? '<span class="ml-2 rounded-full bg-pink-100 px-2 py-0.5 text-[11px] font-semibold text-pink-700">Aniversario</span>'
           : '';
         const tags = row.tags.length
-          ? `<div class="mt-1 text-xs text-slate-500">${row.tags.join(', ')}</div>`
+          ? `<div class="mt-1 text-xs text-slate-500">${row.tags.map((tag) => escapeHtml(tag)).join(', ')}</div>`
           : '';
-        return `<div><div class="font-semibold text-slate-900">${row.nome}${aniversario}</div><div class="text-xs text-slate-500">${row.email || 'Sem e-mail'}</div>${tags}</div>`;
+        return `<div><div class="font-semibold text-slate-900">${escapeHtml(row.nome)}${aniversario}</div><div class="text-xs text-slate-500">${escapeHtml(row.email || 'Sem e-mail')}</div>${tags}</div>`;
       }
     },
     {
@@ -83,7 +87,7 @@
       label: 'Contato',
       sortable: true,
       formatter: (_value: string, row: Cliente) =>
-        `<div><div>${row.whatsapp || row.telefone || '-'}</div><div class="text-xs text-slate-500">${row.email || 'Sem e-mail'}</div></div>`
+        `<div><div>${escapeHtml(row.whatsapp || row.telefone || '-')}</div><div class="text-xs text-slate-500">${escapeHtml(row.email || 'Sem e-mail')}</div></div>`
     },
     {
       key: 'cidade_uf',
@@ -96,13 +100,13 @@
       label: 'Tipo',
       sortable: true,
       formatter: (value: string, row: Cliente) =>
-        `${value === 'PJ' ? 'PJ' : 'PF'} · ${row.tipo_cliente || 'passageiro'}`
+        `<span>${value === 'PJ' ? 'PJ' : 'PF'} · ${escapeHtml(row.tipo_cliente || 'passageiro')}</span>`
     },
     {
       key: 'classificacao',
       label: 'Classificacao',
       sortable: true,
-      formatter: (value: string | null) => value || '-'
+      formatter: (value: string | null) => `<span>${escapeHtml(value || '-')}</span>`
     },
     {
       key: 'status',
@@ -201,13 +205,24 @@
     }
   ];
 
+  function getSummaryKey() {
+    return JSON.stringify({
+      busca: searchTerm,
+      status: filterValues.status || '',
+      estado: filterValues.estado || '',
+      tipo_pessoa: filterValues.tipo_pessoa || '',
+      classificacao: filterValues.classificacao || '',
+      aniversario_hoje: filterValues.aniversario_hoje || ''
+    });
+  }
+
   async function loadClientes() {
     const seq = ++requestSeq;
     loading = true;
     errorMessage = null;
 
     try {
-      const params = new URLSearchParams({
+      const query = {
         page: String(listPage),
         pageSize: String(listPageSize),
         busca: searchTerm,
@@ -216,17 +231,17 @@
         tipo_pessoa: filterValues.tipo_pessoa || '',
         classificacao: filterValues.classificacao || '',
         aniversario_hoje: filterValues.aniversario_hoje || ''
-      });
-      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      };
 
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Cliente[]; total?: number }>('/api/v1/clientes/list', query);
       if (seq !== requestSeq) return;
       clientes = Array.isArray(payload?.items) ? payload.items : [];
       totalClientes = Number(payload?.total || clientes.length || 0);
-      void loadClientesResumo(seq);
+      const summaryKey = getSummaryKey();
+      if (summaryKey !== lastSummaryKey) {
+        lastSummaryKey = summaryKey;
+        void loadClientesResumo(seq, summaryKey);
+      }
     } catch (error) {
       if (seq !== requestSeq) return;
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar clientes.';
@@ -238,10 +253,11 @@
     }
   }
 
-  async function loadClientesResumo(seq = requestSeq) {
+  async function loadClientesResumo(seq = requestSeq, summaryKey = getSummaryKey()) {
+    const summarySeq = ++summaryRequestSeq;
     loadingSummary = true;
     try {
-      const params = new URLSearchParams({
+      const payload = await apiGet<{ summary?: Partial<typeof summary> }>('/api/v1/clientes/list', {
         all: '1',
         busca: searchTerm,
         status: filterValues.status || '',
@@ -252,10 +268,7 @@
         include_summary: '1',
         summary_only: '1'
       });
-      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
-      if (!response.ok) return;
-      const payload = await response.json();
-      if (seq !== requestSeq) return;
+      if (seq !== requestSeq || summarySeq !== summaryRequestSeq || summaryKey !== getSummaryKey()) return;
       summary = {
         total: Number(payload?.summary?.total ?? totalClientes),
         ativos: Number(payload?.summary?.ativos ?? clientes.filter((item) => item.status === 'ativo').length),
@@ -265,7 +278,9 @@
         emNegociacao: Number(payload?.summary?.emNegociacao ?? clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length)
       };
     } finally {
-      loadingSummary = false;
+      if (seq === requestSeq && summarySeq === summaryRequestSeq && summaryKey === getSummaryKey()) {
+        loadingSummary = false;
+      }
     }
   }
 

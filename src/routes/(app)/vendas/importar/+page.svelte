@@ -30,12 +30,9 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { extractContratosFromText } from '$lib/vendas/contratoCvcExtractor';
-  import { extractCruzeiroFromText } from '$lib/vendas/cruzeiroExtractor';
-  import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
-  import { extractFacialCvcFromText } from '$lib/vendas/facialCvcExtractor';
   import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
   import { todayISODateLocal } from '$lib/date';
+  import { ApiError, apiGet, apiPost } from '$lib/services/api';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
   type ContratoDraftUI = ContratoDraft & {
@@ -256,9 +253,7 @@
 
   async function loadCadastroBase() {
     try {
-      const response = await fetch('/api/v1/vendas/cadastro-base');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = (await response.json()) as CadastroBasePayload;
+      const payload = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
       currentUserId = payload?.user?.id || '';
       canAssignVendedor = Boolean(payload?.user?.can_assign_vendedor);
       vendedoresEquipe = Array.isArray(payload?.vendedoresEquipe) ? payload.vendedoresEquipe : [];
@@ -274,9 +269,7 @@
 
   async function forcarCidadeIndefinida() {
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent('Indefinida')}&limite=10`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: 'Indefinida', limite: 10 });
       const items = sortCidades(parseCidadeItems(payload), 'Indefinida');
       mergeCidadesDisponiveis(items);
       const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
@@ -296,18 +289,15 @@
     if (!termo || termo.length < 2) return;
     buscandoCidade = true;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(termo)}&limite=10`);
-      if (response.ok) {
-        const payload = await response.json();
-        const items = sortCidades(parseCidadeItems(payload), termo);
-        mergeCidadesDisponiveis(items);
-        if (items.length > 0) {
-          const first = items[0] as CidadeSugestao;
-          cidadeId = first.id;
-          cidadeNome = first.nome;
-          cidadeSelecionadaLabel = getCidadeLabel(first);
-          buscaCidade = cidadeSelecionadaLabel;
-        }
+      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: termo, limite: 10 });
+      const items = sortCidades(parseCidadeItems(payload), termo);
+      mergeCidadesDisponiveis(items);
+      if (items.length > 0) {
+        const first = items[0] as CidadeSugestao;
+        cidadeId = first.id;
+        cidadeNome = first.nome;
+        cidadeSelecionadaLabel = getCidadeLabel(first);
+        buscaCidade = cidadeSelecionadaLabel;
       }
     } catch {
       // ignore
@@ -323,14 +313,9 @@
     }
     buscandoCidade = true;
     try {
-      const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(query)}&limite=20`);
-      if (response.ok) {
-        const payload = await response.json();
-        resultadosCidade = sortCidades(parseCidadeItems(payload), query);
-        mergeCidadesDisponiveis(resultadosCidade);
-      } else {
-        resultadosCidade = [];
-      }
+      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: 20 });
+      resultadosCidade = sortCidades(parseCidadeItems(payload), query);
+      mergeCidadesDisponiveis(resultadosCidade);
     } catch {
       resultadosCidade = [];
     } finally {
@@ -463,12 +448,16 @@
       let result: { contratos: ContratoDraft[]; raw_text: string } | null = null;
 
       if (tipoImportacao === 'cvc') {
+        const { extractContratosFromText } = await import('$lib/vendas/contratoCvcExtractor');
         result = await extractContratosFromText(textInput.trim());
       } else if (tipoImportacao === 'roteiro') {
+        const { extractCruzeiroFromText } = await import('$lib/vendas/cruzeiroExtractor');
         result = await extractCruzeiroFromText(textInput.trim());
       } else if (tipoImportacao === 'facial_rextur') {
+        const { extractRexturFromText } = await import('$lib/vendas/facialRexturExtractor');
         result = extractRexturFromText(textInput.trim());
       } else if (tipoImportacao === 'facial_cvc') {
+        const { extractFacialCvcFromText } = await import('$lib/vendas/facialCvcExtractor');
         result = extractFacialCvcFromText(textInput.trim());
       }
 
@@ -669,27 +658,25 @@
         clienteEmail: skipContato ? null : contatoEmail || null
       };
 
-      const response = await fetch('/api/v1/vendas/importar-contrato', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        if (response.status === 409 && (text === 'RECIBO_DUPLICADO' || text === 'RESERVA_DUPLICADA')) {
+      let result: any;
+      try {
+        result = await apiPost('/api/v1/vendas/importar-contrato', payload);
+      } catch (err) {
+        const duplicateCode =
+          err instanceof ApiError && err.status === 409
+            ? String((err.payload as any)?.error || (err.payload as any)?.message || err.message || '').trim()
+            : '';
+        if (duplicateCode === 'RECIBO_DUPLICADO' || duplicateCode === 'RESERVA_DUPLICADA') {
           duplicateModal = {
             message:
-              text === 'RECIBO_DUPLICADO'
+              duplicateCode === 'RECIBO_DUPLICADO'
                 ? 'Recibo já foi cadastrado no sistema. Só é possível cadastrar recibos novos.'
                 : 'Reserva já foi cadastrada no sistema. Só é possível cadastrar reservas novas.'
           };
           return;
         }
-        throw new Error(text);
+        throw err;
       }
-
-      const result = await response.json();
       toast.success('Venda importada com sucesso!');
       contatoModalOpen = false;
       goto(`/vendas?id=${encodeURIComponent(result.venda_id)}`);

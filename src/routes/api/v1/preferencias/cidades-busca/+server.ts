@@ -1,4 +1,4 @@
-import { buildJsonResponse, readCache, requirePreferenciasScope, writeCache } from '../_shared';
+import { buildJsonResponse, logServerError, readCache, requirePreferenciasScope, writeCache } from '../_shared';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -46,8 +46,7 @@ export async function GET(event) {
     writeCache(cacheKey, cidadesData, 10_000);
     return buildJsonResponse(cidadesData);
   } catch (err) {
-    console.error('Erro preferencias/cidades-busca', err);
+    logServerError('[preferencias/cidades-busca] falha ao buscar cidades', err);
     return new Response('Erro ao buscar cidades.', { status: 500 });
   }
 }
-

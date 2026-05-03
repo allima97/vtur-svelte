@@ -3,6 +3,7 @@ import {
   resolveViagemStatus,
   type StatusViagem
 } from '$lib/viagens/status';
+import { logServerError } from '$lib/server/v1';
 
 type ViagemStatusRow = {
   id?: string | null;
@@ -35,7 +36,7 @@ export async function syncViagemStatusIfNeeded(client: any, row: ViagemStatusRow
     .eq('id', id);
 
   if (error) {
-    console.warn('[viagens] falha ao sincronizar status', { id, error });
+    logServerError('[viagens] falha ao sincronizar status', error, { id });
   } else {
     row.status = resolvedStatus;
   }

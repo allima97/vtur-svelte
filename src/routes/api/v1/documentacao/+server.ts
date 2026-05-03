@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireAuthenticatedUser } from '$lib/server/v1';
+import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 
 export const GET: RequestHandler = async ({ locals }) => {
   try {
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ locals }) => {
         );
       }
     } catch (err) {
-      console.warn("[documentacao] Falha ao ler system_documentation_sections.", err);
+      logServerError("[documentacao] falha ao ler system_documentation_sections", err);
     }
 
     try {
@@ -51,12 +51,12 @@ export const GET: RequestHandler = async ({ locals }) => {
         );
       }
     } catch (err) {
-      console.warn("[documentacao] Falha ao ler system_documentation.", err);
+      logServerError("[documentacao] falha ao ler system_documentation", err);
     }
 
-    return json({ error: "Documentacao nao encontrada." }, { status: 404 });
+    return json({ error: "Documentacao nao encontrada." }, { status: 404, headers: { "Cache-Control": "no-store" } });
   } catch (error: any) {
-    console.error("[documentacao] falha ao carregar documentação", error);
-    return json({ error: "Erro interno ao carregar documentação." }, { status: 500 });
+    logServerError("[documentacao] falha ao carregar documentação", error);
+    return json({ error: "Erro interno ao carregar documentação." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 };

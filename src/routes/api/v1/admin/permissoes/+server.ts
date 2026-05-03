@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
+  ensureAssignablePermissionSet,
+  ensureCanManagePermissions,
   listManagedUsers,
   loadSystemModuleSettings,
   saveSystemModuleSettings,
@@ -15,6 +17,7 @@ import {
 } from '$lib/admin/modules';
 import {
   getAdminClient,
+  logServerError,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -27,9 +30,7 @@ export async function GET(event: RequestEvent) {
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return new Response('Sem permissao.', { status: 403 });
-    }
+    ensureCanManagePermissions(scope);
 
     const users = await listManagedUsers(client, scope);
     const userIds = users.map((row) => row.id);
@@ -80,7 +81,7 @@ export async function GET(event: RequestEvent) {
       )
     });
   } catch (err) {
-    console.error('[permissoes GET]', err);
+    logServerError('[admin/permissoes] falha ao carregar painel', err);
     return toErrorResponse(err, 'Erro ao carregar painel de permissoes.');
   }
 }
@@ -93,9 +94,7 @@ export async function POST(event: RequestEvent) {
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return new Response('Sem permissao.', { status: 403 });
-    }
+    ensureCanManagePermissions(scope);
 
     const body = await event.request.json().catch(() => ({}));
     const action = String(body.action || 'user').trim().toLowerCase();
@@ -122,15 +121,13 @@ export async function POST(event: RequestEvent) {
       return new Response('Usuario fora do escopo.', { status: 403 });
     }
 
-    await saveUserPermissions(
-      client,
-      userId,
-      Array.isArray(body.permissions) ? body.permissions : []
-    );
+    const permissions = Array.isArray(body.permissions) ? body.permissions : [];
+    ensureAssignablePermissionSet(scope, permissions);
+    await saveUserPermissions(client, userId, permissions);
 
     return json({ ok: true });
   } catch (err) {
-    console.error('[permissoes POST]', err);
+    logServerError('[admin/permissoes] falha ao salvar permissoes', err);
     return toErrorResponse(err, 'Erro ao salvar permissoes.');
   }
 }

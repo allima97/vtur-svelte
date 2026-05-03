@@ -1,7 +1,18 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { requireAuthenticatedUser } from '$lib/server/v1';
-import { getAdminClient } from '$lib/server/v1';
+import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { normalizeMenuPrefs } from '$lib/server/menuPrefs';
+
+const JSON_NO_STORE_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+
+const TEXT_NO_STORE_HEADERS = {
+  'Content-Type': 'text/plain; charset=utf-8',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
 
 function safeJsonParse(text: string) {
   try {
@@ -27,15 +38,11 @@ export async function GET(event: RequestEvent) {
 
     return new Response(JSON.stringify({ prefs, updated_at: data?.updated_at ?? null }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-        Vary: 'Cookie'
-      }
+      headers: JSON_NO_STORE_HEADERS
     });
   } catch (err: any) {
-    console.error('Erro menu/prefs GET', err);
-    return new Response('Erro ao carregar preferencias do menu.', { status: 500 });
+    logServerError('[menu/prefs] falha ao carregar preferencias', err);
+    return new Response('Erro ao carregar preferencias do menu.', { status: 500, headers: TEXT_NO_STORE_HEADERS });
   }
 }
 
@@ -60,10 +67,10 @@ export async function POST(event: RequestEvent) {
 
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: JSON_NO_STORE_HEADERS
     });
   } catch (err: any) {
-    console.error('Erro menu/prefs POST', err);
-    return new Response('Erro ao salvar preferencias do menu.', { status: 500 });
+    logServerError('[menu/prefs] falha ao salvar preferencias', err);
+    return new Response('Erro ao salvar preferencias do menu.', { status: 500, headers: TEXT_NO_STORE_HEADERS });
   }
 }

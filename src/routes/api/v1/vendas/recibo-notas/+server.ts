@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event: RequestEvent) {
   try {
@@ -52,7 +53,7 @@ export async function GET(event: RequestEvent) {
       .eq('venda_id', vendaId);
     if (error && String(error.code || '') !== '42P01') throw error;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar notas de recibo.');
   }

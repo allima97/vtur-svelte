@@ -1,5 +1,14 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import {
+  getAdminClient,
+  isDebugEndpointEnabled,
+  isUuid,
+  logServerError,
+  requireAuthenticatedUser,
+  resolveUserScope
+} from '$lib/server/v1';
+
+const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
 
 function toNumber(value: unknown) {
   const parsed = Number(value || 0);
@@ -8,23 +17,33 @@ function toNumber(value: unknown) {
 
 export async function GET(event: RequestEvent) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return json({ error: 'Not found' }, { status: 404, headers: DEBUG_HEADERS });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem acesso.' }, { status: 403 });
+      return json({ error: 'Sem acesso.' }, { status: 403, headers: DEBUG_HEADERS });
     }
 
     const companyId = String(event.url.searchParams.get('company_id') || '').trim();
     const inicio = String(event.url.searchParams.get('inicio') || '2026-04-01').trim();
     const fim = String(event.url.searchParams.get('fim') || '2026-04-08').trim();
 
-    if (!companyId) {
-      return json({ error: 'company_id required' }, { status: 400 });
+    if (!companyId || !isUuid(companyId)) {
+      return json({ error: 'company_id required' }, { status: 400, headers: DEBUG_HEADERS });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio) || !/^\d{4}-\d{2}-\d{2}$/.test(fim)) {
+      return json({ error: 'Periodo invalido.' }, { status: 400, headers: DEBUG_HEADERS });
     }
 
     const vendedorId = String(event.url.searchParams.get('vendedor_id') || '').trim();
+    if (vendedorId && !isUuid(vendedorId)) {
+      return json({ error: 'vendedor_id invalido.' }, { status: 400, headers: DEBUG_HEADERS });
+    }
 
     let vendasQuery = client
       .from('vendas')
@@ -116,37 +135,48 @@ export async function GET(event: RequestEvent) {
       }
     });
 
-    return json({
-      period: { inicio, fim },
-      vendas_base: {
-        total_bruto: totalVendas,
-        canceladas_status: vendasCanceladasStatus,
-        recibos_cancelados_mesmo_mes: recibosCanceladosMesmoMes,
-        count_sales: (vendasBase || []).length,
-        count_vendas_id: vendaIds.length
+    return json(
+      {
+        period: { inicio, fim },
+        vendas_base: {
+          total_bruto: totalVendas,
+          canceladas_status: vendasCanceladasStatus,
+          recibos_cancelados_mesmo_mes: recibosCanceladosMesmoMes,
+          count_sales: (vendasBase || []).length,
+          count_vendas_id: vendaIds.length
+        },
+        conciliacao: {
+          count_total: (concRecords || []).length,
+          count_baixa: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'BAIXA').length,
+          count_opfax: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'OPFAX').length,
+          count_other_status:
+            (concRecords || []).length -
+            (concRecords?.filter(
+              (r: any) =>
+                String(r.status || '').toUpperCase() === 'BAIXA' ||
+                String(r.status || '').toUpperCase() === 'OPFAX'
+            ).length || 0),
+          count_null_status: concRecords?.filter((r: any) => !r.status || String(r.status || '').trim() === '').length,
+          total_baixa: concBaixa,
+          total_opfax: concOpfax,
+          total_other_with_valor: concOther,
+          count_linked_to_venda: concLinked,
+          count_relevant_docs: relevantDocs.size
+        },
+        conciliacao_sample: (concRecords || []).slice(0, 5).map((row: any) => ({
+          id: row.id,
+          documento: String(row.documento || '').replace(/\d(?=\d{4})/g, '*'),
+          status: row.status,
+          valor_lancamentos: row.valor_lancamentos,
+          valor_venda_real: row.valor_venda_real,
+          movimento_data: row.movimento_data,
+          vinculada: Boolean(row.venda_id || row.venda_recibo_id)
+        }))
       },
-      conciliacao: {
-        count_total: (concRecords || []).length,
-        count_baixa: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'BAIXA').length,
-        count_opfax: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'OPFAX').length,
-        count_other_status:
-          (concRecords || []).length -
-          (concRecords?.filter(
-            (r: any) =>
-              String(r.status || '').toUpperCase() === 'BAIXA' ||
-              String(r.status || '').toUpperCase() === 'OPFAX'
-          ).length || 0),
-        count_null_status: concRecords?.filter((r: any) => !r.status || String(r.status || '').trim() === '').length,
-        total_baixa: concBaixa,
-        total_opfax: concOpfax,
-        total_other_with_valor: concOther,
-        count_linked_to_venda: concLinked,
-        count_relevant_docs: relevantDocs.size
-      },
-      raw_conciliacao_sample: (concRecords || []).slice(0, 5)
-    });
+      { headers: DEBUG_HEADERS }
+    );
   } catch (error) {
-    console.error('[dashboard/debug-aggregates]', error);
-    return json({ error: String(error) }, { status: 500 });
+    logServerError('[dashboard/debug-aggregates]', error);
+    return json({ error: 'Erro ao carregar diagnostico.' }, { status: 500, headers: DEBUG_HEADERS });
   }
 }

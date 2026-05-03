@@ -1,5 +1,6 @@
 import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { logServerError } from '$lib/server/v1';
 
 type TurnstileVerifyResponse = {
   success?: boolean;
@@ -58,14 +59,16 @@ export async function verifyTurnstileToken(
     if (res.ok && payload.success) return { ok: true };
 
     const codes = Array.isArray(payload['error-codes']) ? payload['error-codes'] : [];
-    console.warn('[turnstile] Verificacao rejeitada:', codes);
+    logServerError('[turnstile] Verificacao rejeitada', new Error('turnstile_rejected'), {
+      codes: codes.slice(0, 5).join(',')
+    });
     return {
       ok: false,
       message: 'Não foi possível validar o desafio de segurança. Tente novamente.',
       codes
     };
   } catch (err) {
-    console.error('[turnstile] Falha ao verificar token:', err);
+    logServerError('[turnstile] Falha ao verificar token', err);
     return {
       ok: false,
       message: 'Falha ao validar o desafio de segurança. Verifique a conexão e tente novamente.'

@@ -10,8 +10,10 @@
   import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucide-svelte';
   import { diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml, truncateText } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type SacRegistro = {
     id: string;
     recibo: string | null;
@@ -100,7 +102,8 @@
       key: 'motivo',
       label: 'Motivo',
       sortable: true,
-      formatter: (v: string | null) => v ? `<span title="${v}">${v.length > 40 ? v.slice(0, 40) + '...' : v}</span>` : '-'
+      formatter: (v: string | null) =>
+        v ? `<span title="${escapeHtml(v)}">${escapeHtml(truncateText(v, 40))}</span>` : '-'
     },
     {
       key: 'data_solicitacao',
@@ -141,9 +144,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/operacao/sac');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: SacRegistro[] }>('/api/v1/operacao/sac');
       registros = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar registros SAC.');
@@ -177,12 +178,7 @@
   async function save() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/operacao/sac', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, ...form })
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/operacao/sac', { id: editingId || undefined, ...form });
       toast.success(editingId ? 'Registro atualizado.' : 'Registro criado.');
       modalOpen = false;
       await load();
@@ -197,8 +193,7 @@
     if (!(await confirmAction('Deseja excluir este registro SAC?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/operacao/sac?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/operacao/sac', { id });
       toast.success('Registro excluído.');
       await load();
     } catch (err) {

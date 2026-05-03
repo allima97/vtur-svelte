@@ -12,6 +12,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -65,7 +66,7 @@ export async function GET(event) {
       accessibleClientIds
     });
 
-    return json({ kpis });
+    return json({ kpis }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao calcular KPIs de vendas.');
   }

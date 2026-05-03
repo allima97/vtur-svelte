@@ -8,6 +8,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { descobrirModulo } from '$lib/config/modulos';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Save, RefreshCw } from 'lucide-svelte';
 
   const MENU_PREFS_UPDATED_EVENT = 'vtur:menu-prefs-updated';
@@ -134,23 +135,12 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/menu/prefs');
-      if (response.ok) {
-        const payload = await response.json();
-        const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
-        prefs = { hidden };
-        localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
-        window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
-        setFeedback('Preferências do menu carregadas.', 'info');
-      } else {
-        // API indisponível: usa localStorage como fallback
-        setFeedback('Preferências remotas indisponíveis. Preferências locais carregadas.', 'info');
-        const stored = localStorage.getItem(MENU_PREFS_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored) as MenuPrefs;
-          prefs = { hidden: Array.isArray(parsed?.hidden) ? parsed.hidden : [] };
-        }
-      }
+      const payload = await apiGet<any>('/api/v1/menu/prefs');
+      const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
+      prefs = { hidden };
+      localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
+      window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
+      setFeedback('Preferências do menu carregadas.', 'info');
     } catch {
       const stored = localStorage.getItem(MENU_PREFS_KEY);
       if (stored) {
@@ -214,22 +204,14 @@
       const localOk = persistPrefsLocal(false);
       if (!localOk) throw new Error('Falha ao salvar preferências localmente.');
 
-      const response = await fetch('/api/v1/menu/prefs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prefs: {
-            v: 1,
-            hidden: prefs.hidden,
-            order: {},
-            section: {}
-          }
-        })
+      await apiPost('/api/v1/menu/prefs', {
+        prefs: {
+          v: 1,
+          hidden: prefs.hidden,
+          order: {},
+          section: {}
+        }
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
 
       toast.success('Preferências de menu salvas com sucesso.');
       setFeedback('Preferências de menu salvas com sucesso.', 'success');
@@ -246,19 +228,14 @@
     localStorage.removeItem(MENU_PREFS_KEY);
     window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT));
     try {
-      const response = await fetch('/api/v1/menu/prefs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prefs: {
-            v: 1,
-            hidden: [],
-            order: {},
-            section: {}
-          }
-        })
+      await apiPost('/api/v1/menu/prefs', {
+        prefs: {
+          v: 1,
+          hidden: [],
+          order: {},
+          section: {}
+        }
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Preferências resetadas para o padrão.');
       setFeedback('Preferências resetadas para o padrão.', 'success');
     } catch (err) {

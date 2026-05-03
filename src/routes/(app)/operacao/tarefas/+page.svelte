@@ -10,6 +10,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
   import {
     Archive,
     FolderKanban,
@@ -200,20 +201,12 @@
     errorMessage = null;
 
     try {
-      const response = await fetch(`/api/v1/todo/board?ts=${Date.now()}`, {
-        credentials: 'same-origin',
-        cache: 'no-store'
+      const payload = await apiGet<{ categorias?: TodoCategoria[]; itens?: TodoItem[] }>('/api/v1/todo/board', {
+        ts: Date.now()
       });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao carregar tarefas.');
-      }
-
       categorias = Array.isArray(payload?.categorias) ? payload.categorias : [];
       itens = Array.isArray(payload?.itens) ? payload.itens : [];
     } catch (error) {
-      console.error(error);
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar tarefas.';
       categorias = [];
       itens = [];
@@ -325,13 +318,7 @@
     selectedTaskId = taskId;
 
     try {
-      const response = await fetch(`/api/v1/todo/item/${taskId}`, { credentials: 'same-origin' });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao carregar tarefa.');
-      }
-
+      const payload = await apiGet<{ item?: TodoItem }>(`/api/v1/todo/item/${taskId}`);
       const item = payload?.item as TodoItem | undefined;
       if (!item) {
         throw new Error('Tarefa nao encontrada.');
@@ -350,7 +337,6 @@
         updated_at: item.updated_at || null
       };
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao carregar tarefa.');
       taskModalOpen = false;
       resetTaskModal();
@@ -367,31 +353,20 @@
 
     taskSaving = true;
     try {
-      const response = await fetch('/api/v1/todo/item', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          id: selectedTaskId || undefined,
-          titulo: taskForm.titulo,
-          descricao: taskForm.descricao || null,
-          categoria_id: taskForm.categoria_id || null,
-          prioridade: taskForm.prioridade,
-          status: taskForm.status
-        })
+      await apiPost('/api/v1/todo/item', {
+        id: selectedTaskId || undefined,
+        titulo: taskForm.titulo,
+        descricao: taskForm.descricao || null,
+        categoria_id: taskForm.categoria_id || null,
+        prioridade: taskForm.prioridade,
+        status: taskForm.status
       });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao salvar tarefa.');
-      }
 
       toast.success(selectedTaskId ? 'Tarefa atualizada.' : 'Tarefa criada.');
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar tarefa.');
     } finally {
       taskSaving = false;
@@ -409,20 +384,10 @@
 
     taskArchiving = true;
     try {
-      const response = await fetch('/api/v1/todo/item', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          id: selectedTaskId,
-          action
-        })
+      const payload = await apiPatch<{ item?: TodoItem }>('/api/v1/todo/item', {
+        id: selectedTaskId,
+        action
       });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || `Erro ao ${label} tarefa.`);
-      }
 
       const updatedItem = payload?.item as TodoItem | undefined;
       const nextArquivo = action === 'archive'
@@ -446,7 +411,6 @@
       resetTaskModal();
       await loadBoard();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao atualizar tarefa.');
     } finally {
       taskArchiving = false;
@@ -458,22 +422,12 @@
     if (!(await confirmAction('Deseja excluir esta tarefa?'))) return;
 
     try {
-      const response = await fetch(`/api/v1/todo/item?id=${selectedTaskId}`, {
-        method: 'DELETE',
-        credentials: 'same-origin'
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao excluir tarefa.');
-      }
-
+      await apiDelete('/api/v1/todo/item', { id: selectedTaskId });
       toast.success('Tarefa excluida.');
       taskModalOpen = false;
       resetTaskModal();
       await loadBoard();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao excluir tarefa.');
     }
   }
@@ -501,28 +455,17 @@
 
     categorySaving = true;
     try {
-      const response = await fetch('/api/v1/todo/category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          id: selectedCategoryId || undefined,
-          nome: categoryForm.nome,
-          cor: categoryForm.cor
-        })
+      await apiPost('/api/v1/todo/category', {
+        id: selectedCategoryId || undefined,
+        nome: categoryForm.nome,
+        cor: categoryForm.cor
       });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao salvar categoria.');
-      }
 
       toast.success(selectedCategoryId ? 'Categoria atualizada.' : 'Categoria criada.');
       categoryModalOpen = false;
       resetCategoryModal();
       await loadBoard();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar categoria.');
     } finally {
       categorySaving = false;
@@ -538,22 +481,12 @@
     if (!(await confirmAction('Deseja excluir esta categoria?'))) return;
 
     try {
-      const response = await fetch(`/api/v1/todo/category?id=${selectedCategoryId}`, {
-        method: 'DELETE',
-        credentials: 'same-origin'
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao excluir categoria.');
-      }
-
+      await apiDelete('/api/v1/todo/category', { id: selectedCategoryId });
       toast.success('Categoria excluida.');
       categoryModalOpen = false;
       resetCategoryModal();
       await loadBoard();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao excluir categoria.');
     }
   }

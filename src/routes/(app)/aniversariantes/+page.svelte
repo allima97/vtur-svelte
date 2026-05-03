@@ -7,7 +7,10 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
+  import { parseISODateParts } from '$lib/date';
   import { CalendarDays, RefreshCw, Gift } from 'lucide-svelte';
+  import { escapeHtml } from '$lib/utils/html';
 
   type Aniversariante = {
     id: string;
@@ -34,7 +37,7 @@
         const badge = row.aniversario_hoje
           ? '<span class="ml-2 inline-flex rounded-full bg-pink-100 px-2 py-0.5 text-[11px] font-semibold text-pink-700">Hoje!</span>'
           : '';
-        return `<div class="font-medium text-slate-900">${v}${badge}</div>`;
+        return `<div class="font-medium text-slate-900">${escapeHtml(v)}${badge}</div>`;
       }
     },
     {
@@ -54,9 +57,9 @@
       sortable: false,
       formatter: (v: string | null, row: Aniversariante) => {
         const contato = v || row.telefone;
-        if (!contato) return row.email || '-';
+        if (!contato) return `<span>${escapeHtml(row.email || '-')}</span>`;
         const phone = contato.replace(/\D/g, '');
-        return `<a href="https://wa.me/${phone}" target="_blank" class="inline-flex items-center gap-1 text-green-600 hover:underline text-xs">${contato}</a>`;
+        return `<a href="https://wa.me/${phone}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-green-600 hover:underline text-xs">${escapeHtml(contato)}</a>`;
       }
     }
   ];
@@ -64,9 +67,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/dashboard/aniversariantes?dias=${diasAfrente}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/dashboard/aniversariantes', { dias: diasAfrente });
       aniversariantes = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar aniversariantes.');
@@ -82,12 +83,13 @@
   $: hoje = aniversariantes.filter((a) => a.aniversario_hoje).length;
   $: proximos7 = aniversariantes.filter((a) => {
     if (!a.nascimento) return false;
-    const d = new Date(a.nascimento + 'T00:00:00');
+    const birth = parseISODateParts(a.nascimento);
+    if (!birth) return false;
     const now = new Date();
     for (let i = 0; i <= 7; i++) {
       const check = new Date(now);
       check.setDate(now.getDate() + i);
-      if (d.getMonth() === check.getMonth() && d.getDate() === check.getDate()) return true;
+      if (birth.month === check.getMonth() + 1 && birth.day === check.getDate()) return true;
     }
     return false;
   }).length;

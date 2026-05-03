@@ -63,7 +63,6 @@ declare module '$env/static/private' {
 	export const PATH: string;
 	export const ZSH_TMUX_AUTOSTART: string;
 	export const npm_package_json: string;
-	export const _: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_init_module: string;
 	export const __CFBundleIdentifier: string;
@@ -98,13 +97,8 @@ declare module '$env/static/private' {
 	export const npm_config_prefix: string;
 	export const COLORTERM: string;
 	export const CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
-	export const TEST: string;
-	export const VITEST: string;
+	export const _: string;
 	export const NODE_ENV: string;
-	export const PROD: string;
-	export const DEV: string;
-	export const BASE_URL: string;
-	export const MODE: string;
 }
 
 /**
@@ -219,7 +213,6 @@ declare module '$env/dynamic/private' {
 		PATH: string;
 		ZSH_TMUX_AUTOSTART: string;
 		npm_package_json: string;
-		_: string;
 		npm_config_userconfig: string;
 		npm_config_init_module: string;
 		__CFBundleIdentifier: string;
@@ -254,13 +247,8 @@ declare module '$env/dynamic/private' {
 		npm_config_prefix: string;
 		COLORTERM: string;
 		CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
-		TEST: string;
-		VITEST: string;
+		_: string;
 		NODE_ENV: string;
-		PROD: string;
-		DEV: string;
-		BASE_URL: string;
-		MODE: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

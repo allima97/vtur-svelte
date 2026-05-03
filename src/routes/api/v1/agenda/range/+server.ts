@@ -10,6 +10,7 @@ import {
 } from '$lib/server/agenda';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -92,7 +93,7 @@ export async function GET(event) {
           }
         });
       } catch (birthdayErr) {
-        console.warn('[agenda/range] Falha ao carregar aniversarios:', birthdayErr);
+        logServerError('[agenda/range] Falha ao carregar aniversarios', birthdayErr);
       }
     }
 

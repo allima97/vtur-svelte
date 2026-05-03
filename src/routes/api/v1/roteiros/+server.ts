@@ -3,11 +3,14 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import type { RequestEvent } from '@sveltejs/kit';
+
+const ROTEIRO_SUGESTAO_SELECT = 'id, company_id, tipo, valor, uso_count, created_at, updated_at';
 
 function applyRoteiroScope<T>(
   query: T,
@@ -57,7 +60,7 @@ export async function GET(event: RequestEvent) {
 
     return json({ roteiros: data || [] });
   } catch (err) {
-    console.error('[roteiros GET]', err);
+    logServerError('[roteiros] falha ao carregar roteiros', err);
     return toErrorResponse(err, 'Erro ao carregar roteiros.');
   }
 }
@@ -174,7 +177,7 @@ export async function POST(event: RequestEvent) {
 
     return json({ ok: true, id: roteiroId });
   } catch (err) {
-    console.error('[roteiros POST]', err);
+    logServerError('[roteiros] falha ao salvar roteiro', err);
     return toErrorResponse(err, 'Erro ao salvar roteiro.');
   }
 }
@@ -201,7 +204,7 @@ export async function DELETE(event: RequestEvent) {
 
     return json({ ok: true });
   } catch (err) {
-    console.error('[roteiros DELETE]', err);
+    logServerError('[roteiros] falha ao excluir roteiro', err);
     return toErrorResponse(err, 'Erro ao excluir roteiro.');
   }
 }
@@ -223,7 +226,11 @@ export async function PATCH(event: RequestEvent) {
 
       if (!termo && !tipo) return json({ sugestoes: [] });
 
-      let query = supabase.from('roteiro_sugestoes').select('*').order('uso_count', { ascending: false }).limit(50);
+      let query = supabase
+        .from('roteiro_sugestoes')
+        .select(ROTEIRO_SUGESTAO_SELECT)
+        .order('uso_count', { ascending: false })
+        .limit(50);
       if (termo) query = query.ilike('valor', `%${termo}%`);
       if (tipo) query = query.eq('tipo', tipo);
 
@@ -280,7 +287,7 @@ export async function PATCH(event: RequestEvent) {
 
     return json({ error: 'Acao invalida.' }, { status: 400 });
   } catch (err) {
-    console.error('[roteiros PATCH]', err);
+    logServerError('[roteiros] falha ao processar sugestoes', err);
     return toErrorResponse(err, 'Erro ao processar sugestoes.');
   }
 }

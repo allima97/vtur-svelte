@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -91,7 +92,7 @@ export async function POST(event) {
         ordem: index
       }));
       const { error: diasError } = await client.from('voucher_dias').insert(diasPayload);
-      if (diasError) console.warn('[vouchers POST] Erro ao inserir dias:', diasError.message);
+      if (diasError) logServerError('[vouchers POST] Erro ao inserir dias', diasError);
     }
 
     if (Array.isArray(body.hoteis) && body.hoteis.length > 0) {
@@ -110,7 +111,7 @@ export async function POST(event) {
         ordem: index
       }));
       const { error: hoteisError } = await client.from('voucher_hoteis').insert(hoteisPayload);
-      if (hoteisError) console.warn('[vouchers POST] Erro ao inserir hoteis:', hoteisError.message);
+      if (hoteisError) logServerError('[vouchers POST] Erro ao inserir hoteis', hoteisError);
     }
 
     return json({ success: true, item: { id: voucher.id } });

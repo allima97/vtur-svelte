@@ -6,11 +6,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { AlertMessage, FieldInput, FieldTextarea, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { extractCvcQuoteFromText } from '$lib/quote/cvcPdfExtractor';
-  import {
-    buildPassagemAereaQuoteDraftFromText,
-    type PassagemAereaFonte
-  } from '$lib/quote/passagemAereaQuoteImport';
+  import { apiGet, apiPost } from '$lib/services/api';
+  import type { PassagemAereaFonte } from '$lib/quote/passagemAereaQuoteImport';
   import type { QuoteDraft, QuoteItemDraft, QuoteSegmentDraft } from '$lib/quote/types';
   import {
     ArrowLeft,
@@ -204,8 +201,7 @@
   async function carregarClientes() {
     carregandoClientes = true;
     try {
-      const res = await fetch('/api/v1/orcamentos/clientes');
-      if (res.ok) clientes = await res.json();
+      clientes = await apiGet('/api/v1/orcamentos/clientes');
     } catch {
       toast.error('Não foi possível carregar os clientes.');
     } finally {
@@ -228,8 +224,7 @@
   async function buscarCidade(q: string) {
     buscandoCidade = true;
     try {
-      const res = await fetch(`/api/v1/orcamentos/cidades-busca?q=${encodeURIComponent(q)}&limite=15`);
-      if (res.ok) cidadeResultados = await res.json();
+      cidadeResultados = await apiGet('/api/v1/orcamentos/cidades-busca', { q, limite: 15 });
     } catch {
       cidadeResultados = [];
     } finally {
@@ -259,6 +254,7 @@
 
     try {
       if (importKind === 'passagem_aerea') {
+        const { buildPassagemAereaQuoteDraftFromText } = await import('$lib/quote/passagemAereaQuoteImport');
         const result = buildPassagemAereaQuoteDraftFromText(textInput.trim(), { fonte: passagemFonte });
         draft = result.draft;
         if (!dataEmbarque && result.dataInicio) dataEmbarque = result.dataInicio;
@@ -269,6 +265,7 @@
         return;
       }
 
+      const { extractCvcQuoteFromText } = await import('$lib/quote/cvcPdfExtractor');
       const result = await extractCvcQuoteFromText(textInput.trim(), {
         onProgress: (msg) => { statusMessage = msg; }
       });
@@ -429,23 +426,16 @@
         items: itensFiltrados.map((e) => e.item)
       };
 
-      const res = await fetch('/api/v1/orcamentos/importar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          draft: draftParaSalvar,
-          client_id: clienteId,
-          client_name: clienteSelecionado?.nome || null,
-          client_whatsapp: clienteSelecionado?.whatsapp || null,
-          client_email: clienteSelecionado?.email || null,
-          destino_cidade_id: cidadeId || null,
-          data_embarque: dataEmbarque || null,
-          data_final: dataFinal || null
-        })
+      const payload: any = await apiPost('/api/v1/orcamentos/importar', {
+        draft: draftParaSalvar,
+        client_id: clienteId,
+        client_name: clienteSelecionado?.nome || null,
+        client_whatsapp: clienteSelecionado?.whatsapp || null,
+        client_email: clienteSelecionado?.email || null,
+        destino_cidade_id: cidadeId || null,
+        data_embarque: dataEmbarque || null,
+        data_final: dataFinal || null
       });
-
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Erro ao salvar.');
 
       toast.success('Orçamento importado com sucesso!');
       goto(`/orcamentos/${payload.quote_id}`);

@@ -13,8 +13,10 @@
   } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiDelete, apiFetch, apiGet } from '$lib/services/api';
   import { ImagePlus, Pencil, RefreshCw, Save, Shield, Trash2, X } from 'lucide-svelte';
   import type { VoucherAssetRecord, VoucherAssetKind, VoucherAssetProvider } from '$lib/vouchers/types';
+  import { escapeHtml } from '$lib/utils/html';
 
   type AssetForm = {
     id: string | null;
@@ -82,7 +84,7 @@
       sortable: false,
       formatter: (value: string | null, row: VoucherAssetRecord) =>
         value
-          ? `<div class="flex items-center justify-center"><img src="${value}" alt="${row.label || row.provider}" class="h-14 w-14 rounded-xl border border-slate-200 object-contain bg-white p-1" /></div>`
+          ? `<div class="flex items-center justify-center"><img src="${escapeHtml(value)}" alt="${escapeHtml(row.label || row.provider)}" class="h-14 w-14 rounded-xl border border-slate-200 object-contain bg-white p-1" /></div>`
           : '<div class="flex h-14 w-14 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">Sem preview</div>'
     },
     {
@@ -128,9 +130,7 @@
 
   async function loadUserContext() {
     try {
-      const response = await fetch('/api/v1/user/context');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
       companyId = payload.company_id || null;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar contexto da empresa.');
@@ -145,9 +145,9 @@
 
     loading = true;
     try {
-      const response = await fetch(`/api/v1/voucher-assets?company_id=${companyId}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: VoucherAssetRecord[] }>('/api/v1/voucher-assets', {
+        company_id: companyId
+      });
       assets = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar assets de voucher.');
@@ -198,13 +198,11 @@
         body.set('file', fileList[0]);
       }
 
-      const response = await fetch('/api/v1/voucher-assets', {
+      const payload = await apiFetch<{ success?: boolean; error?: string }>('/api/v1/voucher-assets', {
         method: form.id ? 'PATCH' : 'POST',
         body
       });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload?.success === false) {
+      if (payload?.success === false) {
         throw new Error(payload?.error || 'Erro ao salvar asset.');
       }
 
@@ -222,11 +220,11 @@
     if (!deleteTarget || !companyId) return;
 
     try {
-      const response = await fetch(`/api/v1/voucher-assets?id=${deleteTarget.id}&company_id=${companyId}`, {
-        method: 'DELETE'
+      const payload = await apiDelete<{ success?: boolean; error?: string }>('/api/v1/voucher-assets', {
+        id: deleteTarget.id,
+        company_id: companyId
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload?.success === false) {
+      if (payload?.success === false) {
         throw new Error(payload?.error || 'Erro ao excluir asset.');
       }
 
@@ -332,9 +330,9 @@
         <FileInput
           label={form.id ? 'Substituir arquivo' : 'Arquivo'}
           bind:files={fileList}
-          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          accept="image/png,image/jpeg,image/webp"
           disabled={!canEdit || saving}
-          helper={form.id ? 'Opcional. Se enviar um novo arquivo, o asset atual será substituído.' : 'Envie JPG, PNG, WebP ou SVG com até 8MB.'}
+          helper={form.id ? 'Opcional. Se enviar um novo arquivo, o asset atual será substituído.' : 'Envie JPG, PNG ou WebP com até 8MB.'}
           class_name="w-full"
         />
 

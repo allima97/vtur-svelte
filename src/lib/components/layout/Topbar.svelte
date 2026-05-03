@@ -30,10 +30,21 @@
     toast.info('Mural de recados será portado na próxima etapa.');
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     if (loggingOut) return;
     loggingOut = true;
-    window.location.href = '/auth/logout';
+    try {
+      const response = await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error('logout_failed');
+      await goto('/auth/login');
+    } catch {
+      toast.error('Erro ao fazer logout.');
+      loggingOut = false;
+    }
   }
 </script>
 

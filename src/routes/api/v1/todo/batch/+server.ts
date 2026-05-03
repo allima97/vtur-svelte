@@ -1,6 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { ensureTodoAccess, normalizeTodoStatus } from '$lib/server/agenda';
-import { getAdminClient, isUuid, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import {
+  getAdminClient,
+  isUuid,
+  logServerError,
+  requireAuthenticatedUser,
+  resolveUserScope,
+  toErrorResponse
+} from '$lib/server/v1';
 
 type UpdateInput = {
   id: string;
@@ -93,7 +100,8 @@ export async function POST(event) {
 
       const { error } = await client.from('agenda_itens').update(payload).eq('id', update.id);
       if (error) {
-        errors.push({ id: update.id, message: String(error.message || error) });
+        logServerError('[todo/batch] Falha ao atualizar tarefa', error);
+        errors.push({ id: update.id, message: 'Erro ao atualizar esta tarefa.' });
         continue;
       }
       updated += 1;

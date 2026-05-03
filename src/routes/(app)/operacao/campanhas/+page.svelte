@@ -9,8 +9,10 @@
   import { Plus, Trash2, RefreshCw, Megaphone, ExternalLink } from 'lucide-svelte';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type Campanha = {
     id: string;
     titulo: string;
@@ -88,7 +90,7 @@
       sortable: false,
       width: '80px',
       formatter: (v: string | null) =>
-        v ? `<a href="${v}" target="_blank" class="text-financeiro-600 hover:underline text-xs">Abrir</a>` : '-'
+        v ? `<a href="${escapeHtml(v)}" target="_blank" rel="noopener noreferrer" class="text-financeiro-600 hover:underline text-xs">Abrir</a>` : '-'
     },
     {
       key: 'status',
@@ -102,9 +104,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/operacao/campanhas');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Campanha[]; can_write?: boolean }>('/api/v1/operacao/campanhas');
       campanhas = payload.items || [];
       canEdit = Boolean(payload.can_write);
     } catch (err) {
@@ -148,12 +148,7 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/operacao/campanhas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, ...form })
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/operacao/campanhas', { id: editingId || undefined, ...form });
       toast.success(editingId ? 'Campanha atualizada.' : 'Campanha criada.');
       modalOpen = false;
       await load();
@@ -169,8 +164,7 @@
     if (!(await confirmAction('Deseja excluir esta campanha?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/operacao/campanhas?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/operacao/campanhas', { id });
       toast.success('Campanha excluída.');
       await load();
     } catch (err) {

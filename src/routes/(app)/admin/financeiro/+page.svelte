@@ -8,6 +8,8 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type BillingRow = {
     id: string;
@@ -41,13 +43,13 @@
 
   const columns = [
     { key: 'company_nome', label: 'Empresa', sortable: true },
-    { key: 'plan_nome', label: 'Plano', sortable: true, formatter: (v: string | null) => v || '-' },
+    { key: 'plan_nome', label: 'Plano', sortable: true, formatter: (v: string | null) => `<span>${escapeHtml(v || '-')}</span>` },
     {
       key: 'status',
       label: 'Status',
       sortable: true,
       width: '120px',
-      formatter: (v: string) => `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[v] || 'bg-slate-100 text-slate-600'}">${STATUS_LABELS[v] || v}</span>`
+      formatter: (v: string) => `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLORS[v] || 'bg-slate-100 text-slate-600'}">${escapeHtml(STATUS_LABELS[v] || v)}</span>`
     },
     {
       key: 'valor_mensal',
@@ -77,9 +79,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/empresas');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: any[] }>('/api/v1/admin/empresas');
       billings = (payload.items || []).map((item: any) => ({
         id: item.id,
         company_id: item.id,
@@ -112,18 +112,13 @@
     if (!selectedBilling) return;
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/empresas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: selectedBilling.company_id,
-          billing_status: form.status,
-          billing_valor_mensal: form.valor_mensal ? Number(form.valor_mensal) : null,
-          billing_ultimo_pagamento: form.ultimo_pagamento || null,
-          billing_proximo_vencimento: form.proximo_vencimento || null
-        })
+      await apiPost('/api/v1/admin/empresas', {
+        id: selectedBilling.company_id,
+        billing_status: form.status,
+        billing_valor_mensal: form.valor_mensal ? Number(form.valor_mensal) : null,
+        billing_ultimo_pagamento: form.ultimo_pagamento || null,
+        billing_proximo_vencimento: form.proximo_vencimento || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Billing atualizado.');
       modalOpen = false;
       await load();

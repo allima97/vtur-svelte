@@ -60,7 +60,9 @@ export async function PATCH(event) {
       updateQuery = updateQuery.in('created_by', vendedorIds);
     }
 
-    const { data, error } = await updateQuery.select().single();
+    const { data, error } = await updateQuery
+      .select('id, status, status_negociacao, last_interaction_notes, last_interaction_at, updated_at')
+      .single();
     if (error) throw error;
 
     return json({ success: true, item: data });

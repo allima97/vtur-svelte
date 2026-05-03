@@ -15,6 +15,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiFetch, apiGet, apiPost, apiPut } from '$lib/services/api';
 
   interface Comissao {
     id: string;
@@ -110,17 +111,18 @@
   async function loadComissoes() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus !== 'todas') params.set('status', filtroStatus);
-      if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
+      const query: Record<string, string | undefined> = {};
+      if (filtroStatus !== 'todas') query.status = filtroStatus;
+      if (filtroVendedor) query.vendedor_id = filtroVendedor;
       if (filtroMes) {
         const range = getMonthRange(filtroMes);
-        params.set('data_inicio', range.inicio);
-        params.set('data_fim', range.fim);
+        query.data_inicio = range.inicio;
+        query.data_fim = range.fim;
       }
-      const response = await fetch(`/api/v1/financeiro/comissoes?${params.toString()}`);
-      if (!response.ok) throw new Error('Erro ao carregar comissões');
-      const data = await response.json();
+      const data = await apiGet<{ persistencia_disponivel?: boolean; items?: any[]; resumo?: ResumoVendedor[] }>(
+        '/api/v1/financeiro/comissoes',
+        query
+      );
       persistenciaDisponivel = data.persistencia_disponivel !== false;
       comissoes = (data.items || []).map((item: any) => ({
         ...item,
@@ -140,8 +142,7 @@
       }));
       resumoVendedores = data.resumo || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao carregar comissões');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comissões');
     } finally {
       loading = false;
     }
@@ -149,13 +150,10 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
-      if (response.ok) {
-        const data = await response.json();
-        vendedores = data.items || [];
-      }
+      const data = await apiGet<{ items?: typeof vendedores }>('/api/v1/financeiro/comissoes/vendedores');
+      vendedores = data.items || [];
     } catch (err) {
-      console.error(err);
+      vendedores = [];
     }
   }
 
@@ -253,19 +251,14 @@
 
     salvandoDetalhes = true;
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const data = await apiPut<{ fallback?: boolean; message?: string }>(
+        '/api/v1/financeiro/comissoes/pagamento',
+        {
           comissao_ids: [comissaoSelecionada.id],
           data_pagamento: detalhesDataPagamento,
           observacoes: detalhesObservacoes
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao atualizar pagamento');
+        }
+      );
       if (data?.fallback) {
         persistenciaDisponivel = false;
         toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
@@ -292,18 +285,13 @@
 
     salvandoDetalhes = true;
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
+      const data = await apiFetch<{ fallback?: boolean; message?: string }>('/api/v1/financeiro/comissoes/pagamento', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           comissao_ids: [comissaoSelecionada.id],
           observacoes: detalhesObservacoes
-        })
+        }
       });
-
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao cancelar comissão');
       if (data?.fallback) {
         persistenciaDisponivel = false;
         toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
@@ -328,13 +316,10 @@
       return;
     }
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comissao_ids: [comissaoSelecionada.id], data_pagamento: dataPagamento, observacoes: observacoesPagamento })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao registrar pagamento');
+      const data = await apiPost<{ fallback?: boolean; message?: string }>(
+        '/api/v1/financeiro/comissoes/pagamento',
+        { comissao_ids: [comissaoSelecionada.id], data_pagamento: dataPagamento, observacoes: observacoesPagamento }
+      );
       if (data?.fallback) {
         persistenciaDisponivel = false;
         toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');
@@ -356,13 +341,10 @@
       return;
     }
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/pagamento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comissao_ids: comissoesSelecionadas, data_pagamento: dataPagamento, observacoes: observacoesPagamento })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || data?.message || 'Erro ao registrar pagamentos');
+      const data = await apiPost<{ fallback?: boolean; message?: string; pagas?: number }>(
+        '/api/v1/financeiro/comissoes/pagamento',
+        { comissao_ids: comissoesSelecionadas, data_pagamento: dataPagamento, observacoes: observacoesPagamento }
+      );
       if (data?.fallback) {
         persistenciaDisponivel = false;
         toast.warning(data.message || 'Persistência de comissão indisponível neste ambiente.');

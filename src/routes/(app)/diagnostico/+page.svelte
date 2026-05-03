@@ -1,13 +1,16 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { browser } from "$app/environment";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
   import { supabase } from "$lib/db/supabase";
+  import { ApiError, apiFetch } from "$lib/services/api";
 
   let sessionInfo = "";
   let sessionDetails = "";
+  let running = false;
+  let hasRun = false;
   let apiTests: Array<{
     name: string;
     status: string;
@@ -16,6 +19,10 @@
   }> = [];
 
   async function runDiagnostics() {
+    running = true;
+    hasRun = true;
+    apiTests = [];
+
     // Test session
     const { data: sessionData, error: sessionError } =
       await supabase.auth.getSession();
@@ -41,50 +48,45 @@
     for (const api of apis) {
       const start = Date.now();
       try {
-        const response = await fetch(api);
+        const json: any = await apiFetch(api, {
+          redirectOnForbidden: false,
+          redirectOnUnauthorized: false,
+        });
         const time = Date.now() - start;
-        const text = await response.text();
         let detail = "";
 
-        try {
-          const json = JSON.parse(text);
-          if (json.error) {
-            detail = `Erro: ${json.error}`;
-          } else if (json.items !== undefined) {
-            detail = `OK - ${json.items?.length || 0} itens`;
-          } else {
-            detail = "OK";
-          }
-        } catch {
-          detail = text.substring(0, 100);
+        if (json?.error) {
+          detail = `Erro: ${json.error}`;
+        } else if (json?.items !== undefined) {
+          detail = `OK - ${json.items?.length || 0} itens`;
+        } else {
+          detail = "OK";
         }
 
         apiTests = [
           ...apiTests,
           {
             name: api,
-            status: response.ok ? "OK" : `Erro ${response.status}`,
+            status: "OK",
             detail,
             time,
           },
         ];
       } catch (err) {
+        const isApiError = err instanceof ApiError;
         apiTests = [
           ...apiTests,
           {
             name: api,
-            status: "Falha",
-            detail: String(err),
+            status: isApiError ? `Erro ${err.status}` : "Falha",
+            detail: err instanceof Error ? err.message : String(err),
             time: Date.now() - start,
           },
         ];
       }
     }
+    running = false;
   }
-
-  onMount(() => {
-    runDiagnostics();
-  });
 </script>
 
 <svelte:head>
@@ -100,10 +102,12 @@
 <div class="space-y-6">
   <Card header="Sessao do Usuario" color="financeiro">
     <div class="space-y-2">
-      {#if sessionInfo}
-        <p><strong>Status:</strong> {sessionInfo}</p>
-      {:else}
+        {#if sessionInfo}
+          <p><strong>Status:</strong> {sessionInfo}</p>
+      {:else if running}
         <LoadingState compact={true} />
+      {:else}
+        <p class="text-sm text-slate-500">Clique em "Executar Diagnostico" para validar a sessão.</p>
       {/if}
       {#if sessionDetails}
         <p class="text-sm text-slate-600">{sessionDetails}</p>
@@ -137,7 +141,7 @@
         {#if apiTests.length === 0}
           <tr>
             <td colspan="4" class="py-4 text-center text-slate-500">
-              Clique em "Executar Diagnostico" para testar
+              {hasRun ? "Nenhum resultado disponível" : "Clique em \"Executar Diagnostico\" para testar"}
             </td>
           </tr>
         {/if}
@@ -145,7 +149,7 @@
     </table>
 
     <div class="mt-4">
-      <Button color="financeiro" on:click={runDiagnostics}>
+      <Button color="financeiro" on:click={runDiagnostics} loading={running}>
         Executar Diagnostico
       </Button>
     </div>
@@ -155,11 +159,11 @@
     <div class="space-y-2 text-sm">
       <p>
         <strong>User Agent:</strong>
-        <span class="font-mono">{navigator.userAgent}</span>
+        <span class="font-mono">{browser ? navigator.userAgent : "Indisponivel no servidor"}</span>
       </p>
       <p>
         <strong>Cookies Habilitados:</strong>
-        {navigator.cookieEnabled ? "Sim" : "Nao"}
+        {browser && navigator.cookieEnabled ? "Sim" : "Nao"}
       </p>
     </div>
   </Card>

@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireAuthenticatedUser } from '$lib/server/v1';
+import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
@@ -51,13 +51,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .upsert(payload as any, { onConflict: "endpoint" });
 
     if (error) {
-      console.error("[push/subscribe] falha ao salvar subscription", error);
+      logServerError("[push/subscribe] falha ao salvar subscription", error);
       return json({ error: "Erro ao salvar subscription." }, { status: 500 });
     }
 
     return json({ ok: true });
   } catch (error: any) {
-    console.error("[push/subscribe] falha interna", error);
+    logServerError("[push/subscribe] falha interna", error);
     return json({ error: "Erro interno ao salvar subscription." }, { status: 500 });
   }
 };

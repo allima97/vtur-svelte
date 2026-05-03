@@ -49,6 +49,7 @@
     normalizeViagemStatus,
     type StatusViagem,
   } from "$lib/viagens/status";
+  import { ApiError, apiDelete, apiGet, apiPatch } from "$lib/services/api";
 
   interface Cliente {
     id: string;
@@ -225,17 +226,8 @@
   async function loadViagem() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/viagens/${viagemId}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          toast.error("Viagem não encontrada");
-          goto("/operacao/viagens");
-          return;
-        }
-        throw new Error("Erro ao carregar viagem");
-      }
-
-      const data = await response.json();
+      const data = await apiGet<{ viagem?: Viagem }>(`/api/v1/viagens/${viagemId}`);
+      if (!data.viagem) throw new Error("Viagem não encontrada");
       const viagemData: Viagem = data.viagem;
       viagem = viagemData;
 
@@ -251,8 +243,12 @@
         follow_up_fechado: viagemData.follow_up_fechado || false,
       };
     } catch (err) {
-      console.error("Erro:", err);
-      toast.error("Erro ao carregar viagem");
+      if (err instanceof ApiError && err.status === 404) {
+        toast.error("Viagem não encontrada");
+        goto("/operacao/viagens");
+        return;
+      }
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar viagem");
     } finally {
       loading = false;
     }
@@ -261,21 +257,13 @@
   async function saveViagem() {
     saving = true;
     try {
-      const response = await fetch(`/api/v1/viagens/${viagemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
-      });
-
-      if (!response.ok) throw new Error("Erro ao salvar");
-
+      await apiPatch(`/api/v1/viagens/${viagemId}`, editForm);
       toast.success("Viagem atualizada com sucesso");
       showEditModal = false;
       showStatusModal = false;
       await loadViagem();
     } catch (err) {
-      console.error("Erro:", err);
-      toast.error("Erro ao atualizar viagem");
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar viagem");
     } finally {
       saving = false;
     }
@@ -283,17 +271,11 @@
 
   async function deleteViagem() {
     try {
-      const response = await fetch(`/api/v1/viagens/${viagemId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Erro ao excluir");
-
+      await apiDelete(`/api/v1/viagens/${viagemId}`);
       toast.success("Viagem excluída com sucesso");
       goto("/operacao/viagens");
     } catch (err) {
-      console.error("Erro:", err);
-      toast.error("Erro ao excluir viagem");
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir viagem");
     }
   }
 
@@ -567,6 +549,7 @@
                   '',
                 )}"
                 target="_blank"
+                rel="noopener noreferrer"
                 class="text-slate-700 hover:text-clientes-600"
               >
                 {viagem.cliente.whatsapp}

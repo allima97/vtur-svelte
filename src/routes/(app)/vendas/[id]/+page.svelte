@@ -1,9 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
-  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -17,9 +15,10 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import MesclarVendasModal from '$lib/components/modais/MesclarVendasModal.svelte';
   import { Merge } from 'lucide-svelte';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { ApiError, apiDelete, apiFetch, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
 
   import { confirmAction } from '$lib/stores/confirm';
   const vendaId = $page.params.id;
@@ -30,6 +29,8 @@
   let error: string | null = null;
   let processando = false;
   let showMesclar = false;
+  let MesclarVendasModal: any = null;
+  let loadingMesclarModal = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
   let cidadesBase: Array<{ id: string; label?: string | null; nome?: string | null }> = [];
@@ -58,9 +59,7 @@
 
   async function loadReciboBaseData() {
     try {
-      const response = await fetch('/api/v1/vendas/cadastro-base');
-      if (!response.ok) return;
-      const data = await response.json();
+      const data: any = await apiGet('/api/v1/vendas/cadastro-base');
       produtosBase = (data.produtos || []).map((item: any) => ({
         id: String(item.id),
         nome: item.nome || 'Produto',
@@ -148,27 +147,18 @@
     savingRecibo = true;
     let saved = false;
     try {
-      const res = await fetch('/api/v1/vendas/recibo-edit', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          venda_id: vendaId,
-          recibo_id: reciboId,
-          numero_recibo: numero,
-          produto_id: produtoId,
-          destino_cidade_id: reciboForm.destino_cidade_id || null,
-          numero_reserva: reciboForm.numero_reserva || null,
-          data_inicio: reciboForm.data_inicio || null,
-          data_fim: reciboForm.data_fim || null,
-          valor_total: reciboForm.valor_total || null,
-          tipo_pacote: reciboForm.tipo_pacote || null
-        })
+      await apiPatch('/api/v1/vendas/recibo-edit', {
+        venda_id: vendaId,
+        recibo_id: reciboId,
+        numero_recibo: numero,
+        produto_id: produtoId,
+        destino_cidade_id: reciboForm.destino_cidade_id || null,
+        numero_reserva: reciboForm.numero_reserva || null,
+        data_inicio: reciboForm.data_inicio || null,
+        data_fim: reciboForm.data_fim || null,
+        valor_total: reciboForm.valor_total || null,
+        tipo_pacote: reciboForm.tipo_pacote || null
       });
-      if (!res.ok) {
-        const msg = await res.text();
-        toast.error(msg || 'Erro ao salvar recibo');
-        return;
-      }
       saved = true;
       // Fecha e reseta o modal imediatamente no sucesso.
       showEditReciboDialog = false;
@@ -176,8 +166,8 @@
       editingReciboId = null;
       await carregarVenda();
       toast.success('Recibo atualizado');
-    } catch {
-      toast.error('Erro ao salvar recibo');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar recibo');
     } finally {
       savingRecibo = false;
       if (saved) {
@@ -195,37 +185,31 @@
     }
   }
 
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        })
-      });
-    } catch {
-      // Falha silenciosa: a tela tratará 401 explicitamente no carregamento.
-    }
-  }
-
   async function carregarRankingRecibos() {
     if (!vendaId) return;
     rankingLoading = true;
     try {
-      const res = await fetch(`/api/v1/vendas/${vendaId}/ranking-recibos`);
-      if (!res.ok) return;
-      const data = await res.json();
+      const data: any = await apiGet(`/api/v1/vendas/${vendaId}/ranking-recibos`);
       rankingRecibos = data.recibos || [];
       rankingTotais = data.totais || null;
     } catch {
       // Não bloqueia a tela principal
     } finally {
       rankingLoading = false;
+    }
+  }
+
+  async function openMesclarModal() {
+    try {
+      if (!MesclarVendasModal) {
+        loadingMesclarModal = true;
+        MesclarVendasModal = (await import('$lib/components/modais/MesclarVendasModal.svelte')).default;
+      }
+      showMesclar = true;
+    } catch {
+      toast.error('Erro ao carregar modal de mesclagem.');
+    } finally {
+      loadingMesclarModal = false;
     }
   }
 
@@ -254,29 +238,10 @@
       loading = true;
       error = null;
 
-      const response = await fetch(`/api/v1/vendas/${vendaId}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401) {
-          toast.error('Sessão expirada. Faça login novamente para continuar.');
-          const next = `${$page.url.pathname}${$page.url.search}`;
-          await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
-          return;
-        }
-        if (response.status === 403) {
-          error = 'Você não tem permissão para acessar esta venda';
-          await goto('/vendas');
-          return;
-        }
-        if (response.status === 404) {
-          error = 'Venda não encontrada';
-          return;
-        }
-        throw new Error(`Erro ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
+      const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+        redirectOnForbidden: false,
+        redirectOnUnauthorized: false
+      });
       venda = data;
 
       if (venda?.status === 'aberto') {
@@ -292,6 +257,21 @@
         await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
       }
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente para continuar.');
+        const next = `${$page.url.pathname}${$page.url.search}`;
+        await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (err instanceof ApiError && err.status === 403) {
+        error = 'Você não tem permissão para acessar esta venda';
+        await goto('/vendas');
+        return;
+      }
+      if (err instanceof ApiError && err.status === 404) {
+        error = 'Venda não encontrada';
+        return;
+      }
       error = `Erro ao carregar dados da venda: ${err.message}`;
       toast.error('Erro ao carregar venda');
     } finally {
@@ -304,14 +284,7 @@
 
     processando = true;
     try {
-      const response = await fetch('/api/v1/vendas/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venda_id: vendaId })
-      });
-
-      if (!response.ok) throw new Error('Erro ao cancelar');
-
+      await apiPost('/api/v1/vendas/cancel', { venda_id: vendaId });
       venda.status = 'cancelada';
       venda.cancelada = true;
       toast.success('Venda cancelada com sucesso!');
@@ -326,12 +299,7 @@
     if (!(await confirmAction('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.'))) return;
 
     try {
-      const response = await fetch(`/api/v1/vendas/${vendaId}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Erro ao excluir');
-
+      await apiDelete(`/api/v1/vendas/${vendaId}`);
       toast.success('Venda excluída');
       goto('/vendas');
     } catch (err) {
@@ -459,8 +427,8 @@
         variant: 'primary' as const,
         icon: Edit
       }, {
-        label: 'Mesclar',
-        onClick: () => (showMesclar = true),
+        label: loadingMesclarModal ? 'Carregando...' : 'Mesclar',
+        onClick: openMesclarModal,
         variant: 'secondary' as const,
         icon: Merge
       }] : []),
@@ -1053,10 +1021,13 @@
   </div>
 {/if}
 
-<MesclarVendasModal
-  bind:open={showMesclar}
-  {vendaId}
-  vendaCodigo={venda?.codigo || ''}
-  onClose={() => (showMesclar = false)}
-  onMerged={() => { showMesclar = false; carregarVenda(); }}
-/>
+{#if MesclarVendasModal && showMesclar}
+  <svelte:component
+    this={MesclarVendasModal}
+    bind:open={showMesclar}
+    {vendaId}
+    vendaCodigo={venda?.codigo || ''}
+    onClose={() => (showMesclar = false)}
+    onMerged={() => { showMesclar = false; carregarVenda(); }}
+  />
+{/if}

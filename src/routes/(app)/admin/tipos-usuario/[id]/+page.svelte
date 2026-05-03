@@ -5,6 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Checkbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
 
   type PermissionEntry = {
@@ -47,9 +48,7 @@
     loading = true;
     try {
       if (isCreateMode) {
-        const permsResponse = await fetch('/api/v1/admin/permissoes');
-        if (!permsResponse.ok) throw new Error(await permsResponse.text());
-        const payload = await permsResponse.json();
+        const payload = await apiGet<any>('/api/v1/admin/permissoes');
         permissions = (payload.system_module_catalog || []).map((item: any) => ({
           label: item.label,
           modulo: item.key,
@@ -60,14 +59,10 @@
         users = [];
         form = { ...emptyForm };
       } else {
-        const [detailResponse, permsResponse] = await Promise.all([
-          fetch(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
-          fetch(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
+        const [detailPayload, permsPayload] = await Promise.all([
+          apiGet<any>(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
+          apiGet<any>(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
         ]);
-        if (!detailResponse.ok) throw new Error(await detailResponse.text());
-        if (!permsResponse.ok) throw new Error(await permsResponse.text());
-
-        const [detailPayload, permsPayload] = await Promise.all([detailResponse.json(), permsResponse.json()]);
         form = {
           id: detailPayload.tipo.id,
           name: detailPayload.tipo.name,
@@ -90,25 +85,14 @@
     try {
       if (!form.name.trim()) throw new Error('Informe o nome do tipo de usuario.');
 
-      const typeResponse = await fetch('/api/v1/admin/tipos-usuario', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: isCreateMode ? undefined : form.id,
-          name: form.name,
-          description: form.description
-        })
+      const typePayload = await apiPost<{ id?: string }>('/api/v1/admin/tipos-usuario', {
+        id: isCreateMode ? undefined : form.id,
+        name: form.name,
+        description: form.description
       });
-      if (!typeResponse.ok) throw new Error(await typeResponse.text());
-      const typePayload = await typeResponse.json();
 
       const targetId = typePayload.id || form.id;
-      const permsResponse = await fetch(`/api/v1/admin/tipos-usuario/${targetId}/permissoes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions })
-      });
-      if (!permsResponse.ok) throw new Error(await permsResponse.text());
+      await apiPost(`/api/v1/admin/tipos-usuario/${targetId}/permissoes`, { permissions });
 
       toast.success('Tipo de usuario salvo com sucesso.');
       if (isCreateMode && targetId) {
@@ -127,15 +111,10 @@
   async function deleteType() {
     deleting = true;
     try {
-      const response = await fetch('/api/v1/admin/tipos-usuario', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'delete',
-          id: form.id
-        })
+      await apiPost('/api/v1/admin/tipos-usuario', {
+        action: 'delete',
+        id: form.id
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Tipo de usuario removido.');
       await goto('/admin/tipos-usuario');
     } catch (err) {

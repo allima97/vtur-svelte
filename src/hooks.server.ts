@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '$lib/db/supabase';
+import { dev } from '$app/environment';
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle } from '@sveltejs/kit';
 import {
@@ -17,6 +18,8 @@ import {
 } from '$lib/server/admin';
 import { hasVerifiedTotpFactor, normalizeMfaRedirectPath } from '$lib/server/authMfa';
 import { resolveDashboardPathByUserType } from '$lib/server/dashboardRedirect';
+import { checkRateLimit } from '$lib/server/rateLimit';
+import { logServerError } from '$lib/server/v1';
 
 const permLevel = (p?: string | null): number => {
 	switch ((p || '').toLowerCase()) {
@@ -73,6 +76,30 @@ function normalizePathname(pathname: string) {
 	return pathname.replace(/\/+$/, '') || '/';
 }
 
+function pathMatchesPrefix(pathname: string, prefix: string) {
+	if (prefix === '/') return pathname === '/';
+	if (prefix.endsWith('/')) return pathname.startsWith(prefix);
+	if (pathname === prefix) return true;
+	return pathname.startsWith(`${prefix}/`);
+}
+
+function ensureVaryHeader(response: Response, value: string) {
+	const current = response.headers.get('Vary');
+	if (!current) {
+		response.headers.set('Vary', value);
+		return;
+	}
+	if (current.trim() === '*') return;
+	const normalized = value.toLowerCase();
+	const existing = current
+		.split(',')
+		.map((item) => item.trim().toLowerCase())
+		.filter(Boolean);
+	if (!existing.includes(normalized)) {
+		response.headers.set('Vary', `${current}, ${value}`);
+	}
+}
+
 function isDashboardCanonicalRoute(pathname: string) {
 	return (
 		pathname === '/' ||
@@ -99,32 +126,33 @@ function isUnsafeHttpMethod(method: string) {
 }
 
 const PUBLIC_AUTH_MAX_BODY_BYTES = 32 * 1024;
+const AUTHENTICATED_API_MAX_BODY_BYTES = 10 * 1024 * 1024;
+const AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES = 20 * 1024 * 1024;
 
-const CSP_REPORT_ONLY = [
-	"default-src 'self'",
-	"base-uri 'self'",
-	"object-src 'none'",
-	"frame-ancestors 'none'",
-	"img-src 'self' data: blob: https:",
-	"font-src 'self' data: https:",
-	"style-src 'self' 'unsafe-inline' https:",
-	"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
-	"connect-src 'self' https: wss:",
-	"frame-src https://challenges.cloudflare.com",
-	"worker-src 'self' blob:",
-	"form-action 'self'"
-].join('; ');
+function buildCspPolicy() {
+	return [
+		"default-src 'self'",
+		"base-uri 'self'",
+		"object-src 'none'",
+		"frame-ancestors 'none'",
+		"img-src 'self' data: blob: https:",
+		"font-src 'self' data: https:",
+		"style-src 'self' 'unsafe-inline' https:",
+		dev
+			? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com"
+			: "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+		"connect-src 'self' https: wss:",
+		"frame-src https://challenges.cloudflare.com",
+		"worker-src 'self' blob:",
+		"form-action 'self'"
+	].join('; ');
+}
 
 type RateLimitRule = {
 	prefix: string;
 	limit: number;
 	windowMs: number;
 	methods?: string[];
-};
-
-type RateLimitBucket = {
-	count: number;
-	resetAt: number;
 };
 
 const PUBLIC_API_RATE_LIMITS: RateLimitRule[] = [
@@ -143,8 +171,10 @@ const SYSTEM_ADMIN_BLOCKED_API_PREFIXES = [
 	'/api/v1/parametros/escalas'
 ];
 
-const rateLimitBuckets = new Map<string, RateLimitBucket>();
-let lastRateLimitSweep = 0;
+const AUTHENTICATED_API_UPLOAD_PREFIXES = [
+	'/api/v1/voucher-assets',
+	'/api/v1/pagamentos/upload'
+];
 
 function resolveClientAddress(event: Parameters<Handle>[0]['event']) {
 	const cloudflareIp = event.request.headers.get('cf-connecting-ip');
@@ -163,30 +193,17 @@ function resolveClientAddress(event: Parameters<Handle>[0]['event']) {
 function findPublicApiRateLimit(pathname: string, method: string) {
 	const normalizedMethod = method.toUpperCase();
 	return PUBLIC_API_RATE_LIMITS.find((rule) => {
-		if (!pathname.startsWith(rule.prefix)) return false;
+		if (!pathMatchesPrefix(pathname, rule.prefix)) return false;
 		return !rule.methods || rule.methods.includes(normalizedMethod);
 	});
 }
 
 function checkPublicApiRateLimit(event: Parameters<Handle>[0]['event'], rule: RateLimitRule) {
-	const now = Date.now();
-	if (now - lastRateLimitSweep > 60_000) {
-		for (const [key, bucket] of rateLimitBuckets.entries()) {
-			if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
-		}
-		lastRateLimitSweep = now;
-	}
-
-	const key = `${rule.prefix}:${resolveClientAddress(event)}`;
-	const bucket = rateLimitBuckets.get(key);
-	if (!bucket || bucket.resetAt <= now) {
-		rateLimitBuckets.set(key, { count: 1, resetAt: now + rule.windowMs });
-		return null;
-	}
-
-	bucket.count += 1;
-	if (bucket.count <= rule.limit) return null;
-	return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+	const result = checkRateLimit(`public-api:${rule.prefix}:${resolveClientAddress(event)}`, {
+		max: rule.limit,
+		windowMs: rule.windowMs
+	});
+	return result.allowed ? null : result.retryAfterSeconds;
 }
 
 async function isSystemAdminApiUser(event: Parameters<Handle>[0]['event'], userId: string) {
@@ -214,6 +231,13 @@ function isSameOriginMutation(event: Parameters<Handle>[0]['event']) {
 	if (fetchSite && fetchSite.toLowerCase() === 'cross-site') return false;
 
 	return true;
+}
+
+function resolveAuthenticatedApiBodyLimit(pathname: string) {
+	const isUploadRoute = AUTHENTICATED_API_UPLOAD_PREFIXES.some((prefix) =>
+		pathMatchesPrefix(pathname, prefix)
+	);
+	return isUploadRoute ? AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES : AUTHENTICATED_API_MAX_BODY_BYTES;
 }
 
 const supabaseHook: Handle = async ({ event, resolve }) => {
@@ -248,16 +272,27 @@ const securityHeadersHook: Handle = async ({ event, resolve }) => {
 
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+	response.headers.set('Origin-Agent-Cluster', '?1');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set(
 		'Permissions-Policy',
 		'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)'
 	);
-	response.headers.set('Content-Security-Policy-Report-Only', CSP_REPORT_ONLY);
+	response.headers.set(
+		dev ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy',
+		buildCspPolicy()
+	);
 
 	const forwardedProto = event.request.headers.get('x-forwarded-proto');
 	if (event.url.protocol === 'https:' || forwardedProto === 'https') {
 		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+	}
+
+	if (pathMatchesPrefix(event.url.pathname, '/api') && response.status >= 400) {
+		response.headers.set('Cache-Control', 'no-store');
+		ensureVaryHeader(response, 'Cookie');
 	}
 
 	return response;
@@ -266,7 +301,7 @@ const securityHeadersHook: Handle = async ({ event, resolve }) => {
 const authGuard: Handle = async ({ event, resolve }) => {
 	const { url } = event;
 	const pathname = url.pathname;
-	const isApiRequest = pathname.startsWith('/api/');
+	const isApiRequest = pathMatchesPrefix(pathname, '/api');
 	const apiPublicRoutes = [
 		'/api/auth/login',
 		'/api/auth/passkeys/login',
@@ -302,13 +337,13 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/calculadora'
 	];
 
-	const isPublic = rotasPublicas.some((r) => pathname.startsWith(r));
+	const isPublic = rotasPublicas.some((r) => pathMatchesPrefix(pathname, r));
 	if (isPublic) {
 		return resolve(event);
 	}
 
 	if (isApiRequest) {
-		const isApiPublic = apiPublicRoutes.some((route) => pathname.startsWith(route));
+		const isApiPublic = apiPublicRoutes.some((route) => pathMatchesPrefix(pathname, route));
 		if (isApiPublic) {
 			const rateLimitRule = findPublicApiRateLimit(pathname, event.request.method);
 			const retryAfter = rateLimitRule ? checkPublicApiRateLimit(event, rateLimitRule) : null;
@@ -324,26 +359,55 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			}
 
 			if (
-				pathname.startsWith('/api/auth/') &&
+				pathMatchesPrefix(pathname, '/api/auth') &&
 				isUnsafeHttpMethod(event.request.method) &&
 				!isSameOriginMutation(event)
 			) {
 				return new Response(JSON.stringify({ error: 'Origem da requisicao invalida.' }), {
 					status: 403,
-					headers: { 'content-type': 'application/json; charset=utf-8' }
+					headers: {
+						'content-type': 'application/json; charset=utf-8',
+						'cache-control': 'no-store'
+					}
 				});
 			}
 			if (
-				pathname.startsWith('/api/auth/') &&
+				pathMatchesPrefix(pathname, '/api/auth') &&
 				isUnsafeHttpMethod(event.request.method) &&
 				isRequestBodyTooLarge(event, PUBLIC_AUTH_MAX_BODY_BYTES)
 			) {
 				return new Response(JSON.stringify({ error: 'Corpo da requisicao muito grande.' }), {
 					status: 413,
-					headers: { 'content-type': 'application/json; charset=utf-8' }
+					headers: {
+						'content-type': 'application/json; charset=utf-8',
+						'cache-control': 'no-store'
+					}
 				});
 			}
 			return resolve(event);
+		}
+
+		if (isUnsafeHttpMethod(event.request.method) && !isSameOriginMutation(event)) {
+			return new Response(JSON.stringify({ error: 'Origem da requisicao invalida.' }), {
+				status: 403,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
+			});
+		}
+
+		if (
+			isUnsafeHttpMethod(event.request.method) &&
+			isRequestBodyTooLarge(event, resolveAuthenticatedApiBodyLimit(pathname))
+		) {
+			return new Response(JSON.stringify({ error: 'Corpo da requisicao muito grande.' }), {
+				status: 413,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
+			});
 		}
 
 		const { session, user } = await event.locals.safeGetSession();
@@ -353,17 +417,23 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		if (!session || !user) {
 			return new Response(JSON.stringify({ error: 'Sessao invalida.' }), {
 				status: 401,
-				headers: { 'content-type': 'application/json; charset=utf-8' }
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
 			});
 		}
 
 		const isSystemAdminBlockedApi = SYSTEM_ADMIN_BLOCKED_API_PREFIXES.some((prefix) =>
-			pathname.startsWith(prefix)
+			pathMatchesPrefix(pathname, prefix)
 		);
 		if (isSystemAdminBlockedApi && (await isSystemAdminApiUser(event, user.id))) {
 			return new Response(JSON.stringify({ error: 'Sem acesso.' }), {
 				status: 403,
-				headers: { 'content-type': 'application/json; charset=utf-8' }
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
 			});
 		}
 
@@ -409,7 +479,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 
 	// Verificar troca obrigatoria de senha
 	const rotasSenhaObrigatoriaPermitidas = ['/perfil', '/auth', '/api/companies', '/api/welcome-email', '/api/users'];
-	const isSenhaObrigatoriaAllowed = rotasSenhaObrigatoriaPermitidas.some((prefix) => pathname.startsWith(prefix));
+	const isSenhaObrigatoriaAllowed = rotasSenhaObrigatoriaPermitidas.some((prefix) => pathMatchesPrefix(pathname, prefix));
 
 	if (!isSenhaObrigatoriaAllowed) {
 		const missingColumn =
@@ -421,13 +491,13 @@ const authGuard: Handle = async ({ event, resolve }) => {
 				throw redirect(303, '/perfil?force_password=1');
 			}
 		} else {
-			console.error('[hooks.server] falha ao verificar troca obrigatoria de senha', userProfileRes.error);
+			logServerError('[hooks.server] falha ao verificar troca obrigatoria de senha', userProfileRes.error);
 		}
 	}
 
 	// Bloqueio de onboarding (reutiliza perfil ja carregado)
 	const rotasOnboardingPermitidas = ['/perfil', '/auth', '/api/companies', '/api/welcome-email'];
-	const isOnboardingAllowed = rotasOnboardingPermitidas.some((prefix) => pathname.startsWith(prefix));
+	const isOnboardingAllowed = rotasOnboardingPermitidas.some((prefix) => pathMatchesPrefix(pathname, prefix));
 
 	if (!isOnboardingAllowed && perfil) {
 		const precisaOnboarding =
@@ -443,7 +513,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	}
 
 	// MFA
-	const isMfaRoute = pathname.startsWith('/auth/mfa');
+	const isMfaRoute = pathMatchesPrefix(pathname, '/auth/mfa');
 	const companyId = String(perfil?.company_id || '').trim() || null;
 	try {
 		let mfaObrigatorio = false;
@@ -465,7 +535,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 
 		if (!aalError && !factorsError) {
 			const hasFactor = hasVerifiedTotpFactor(factorsData || null);
-			if (mfaObrigatorio && !hasFactor && !pathname.startsWith('/perfil')) {
+			if (mfaObrigatorio && !hasFactor && !pathMatchesPrefix(pathname, '/perfil')) {
 				throw redirect(303, buildMfaSetupRedirectUrl(url));
 			}
 			const precisaMfa = hasFactor && aalData?.nextLevel === 'aal2' && aalData?.currentLevel !== 'aal2';
@@ -475,7 +545,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			}
 		}
 	} catch (mfaError) {
-		console.error('[hooks.server] falha ao verificar MFA', mfaError);
+		logServerError('[hooks.server] falha ao verificar MFA', mfaError);
 	}
 
 	// Dashboard canonico
@@ -489,13 +559,18 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		}
 	}
 
+	const isDebugUiRoute = pathMatchesPrefix(pathname, '/debug') || pathMatchesPrefix(pathname, '/diagnostico');
+	if (isDebugUiRoute && !dev) {
+		throw redirect(303, '/negado');
+	}
+
 	if (isSystemAdmin) {
 		const isSystemAdminAllowedRoute =
-			pathname.startsWith('/admin') ||
-			pathname.startsWith('/dashboard/admin') ||
-			(pathname.startsWith('/perfil') && !pathname.startsWith('/perfil/escala')) ||
-			pathname.startsWith('/negado') ||
-			pathname.startsWith('/documentacao');
+			pathMatchesPrefix(pathname, '/admin') ||
+			pathMatchesPrefix(pathname, '/dashboard/admin') ||
+			(pathMatchesPrefix(pathname, '/perfil') && !pathMatchesPrefix(pathname, '/perfil/escala')) ||
+			pathMatchesPrefix(pathname, '/negado') ||
+			pathMatchesPrefix(pathname, '/documentacao');
 
 		if (!isSystemAdminAllowedRoute) {
 			throw redirect(303, '/dashboard/admin');
@@ -504,17 +579,17 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	if (pathname.startsWith('/admin') || pathname.startsWith('/dashboard/admin')) {
+	if (pathMatchesPrefix(pathname, '/admin') || pathMatchesPrefix(pathname, '/dashboard/admin')) {
 		throw redirect(303, '/negado');
 	}
 
 	if (
-		pathname.startsWith('/perfil') ||
-		pathname.startsWith('/negado') ||
-		pathname.startsWith('/documentacao') ||
+		pathMatchesPrefix(pathname, '/perfil') ||
+		pathMatchesPrefix(pathname, '/negado') ||
+		pathMatchesPrefix(pathname, '/documentacao') ||
 		// Dashboard é acessível a qualquer usuário autenticado — sem verificação de módulo
 		pathname === '/' ||
-		pathname.startsWith('/dashboard')
+		pathMatchesPrefix(pathname, '/dashboard')
 	) {
 		return resolve(event);
 	}
@@ -522,11 +597,11 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	// Rotas master: exclusivas do papel MASTER
 	// Exceção: /master/permissoes também é acessível para quem tem permissão MasterPermissoes
 	// (ex: Gestores com essa permissão atribuída) — igual ao vtur-app
-	if (pathname.startsWith('/master')) {
+	if (pathMatchesPrefix(pathname, '/master')) {
 		const isMaster = isMasterRole(userType);
 		if (!isMaster) {
 			const isMasterPermissoesRoute =
-				pathname === '/master/permissoes' || pathname.startsWith('/master/permissoes/');
+				pathname === '/master/permissoes' || pathMatchesPrefix(pathname, '/master/permissoes');
 			const temPermissao =
 				isMasterPermissoesRoute &&
 				['view', 'create', 'edit', 'delete', 'admin'].includes(
@@ -583,7 +658,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			}
 		}
 	} catch (disabledCheckErr) {
-		console.error('[hooks.server] falha ao validar modulos globais', disabledCheckErr);
+		logServerError('[hooks.server] falha ao validar modulos globais', disabledCheckErr);
 	}
 
 	// Reutiliza acessos ja carregados (sem segunda query a modulo_acesso)

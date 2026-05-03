@@ -5,6 +5,8 @@ import {
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
+  logServerError,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -18,7 +20,7 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['operacao_todo', 'tarefas', 'operacao', 'clientes'], 1, 'Sem acesso a Tarefas.');
     }
 
-    const search = String(event.url.searchParams.get('search') || '').trim().toLowerCase();
+    const search = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
 
     // Busca clientes para select
@@ -39,7 +41,6 @@ export async function GET(event) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('[Tarefas Clientes API] Erro:', error.message, error.code);
       throw error;
     }
 
@@ -52,7 +53,7 @@ export async function GET(event) {
 
     return json({ items, total: items.length });
   } catch (err) {
-    console.error('[Tarefas Clientes API] Erro:', err);
+    logServerError('[tarefas/clientes] falha ao carregar clientes', err);
     return toErrorResponse(err, 'Erro ao carregar clientes.');
   }
 }

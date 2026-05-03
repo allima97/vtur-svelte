@@ -16,6 +16,7 @@
   import ClienteAutocomplete from '$lib/components/vendas/ClienteAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
   import { ArrowLeft, Plane, RefreshCw } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   type ClienteOption = {
     id: string;
@@ -67,9 +68,7 @@
   async function loadClientes() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/viagens/clientes');
-      if (!response.ok) throw new Error('Erro ao carregar clientes.');
-      const payload = await response.json();
+      const payload = await apiGet<ClienteOption[]>('/api/v1/viagens/clientes');
       mergeClientes(Array.isArray(payload) ? payload : []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar clientes.');
@@ -87,9 +86,7 @@
     }
 
     try {
-      const response = await fetch(`/api/v1/viagens/cidades-busca?q=${encodeURIComponent(termo)}&limite=12`);
-      if (!response.ok) throw new Error('Erro ao buscar cidades.');
-      const payload = await response.json();
+      const payload = await apiGet<any[]>('/api/v1/viagens/cidades-busca', { q: termo, limite: 12 });
       const nomes = (Array.isArray(payload) ? payload : [])
         .map((item: any) => String(item?.nome || '').trim())
         .filter(Boolean);
@@ -139,16 +136,7 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/viagens/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(String(payload?.error || payload?.message || 'Erro ao criar viagem.'));
-      }
+      const payload = await apiPost<{ viagem?: { id?: string } }>('/api/v1/viagens/create', form);
 
       toast.success('Viagem criada com sucesso.');
 

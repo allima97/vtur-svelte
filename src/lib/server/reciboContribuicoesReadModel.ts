@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
-import { getAdminClient } from "$lib/server/v1";
+import { getAdminClient, logServerError } from "$lib/server/v1";
 import type {
   VendasKpiAgg,
   VendasKpiReciboContribution,
@@ -56,6 +56,7 @@ const TABLE_CONTRIBUICOES = "ranking_recibo_contribuicoes";
 const TABLE_STATUS = "ranking_read_model_status";
 const INSERT_CHUNK_SIZE = 500;
 const READ_PAGE_SIZE = 1000;
+const READ_FILTER_BATCH_SIZE = 100;
 
 let readModelUnavailable = false;
 let readModelUnavailableLogged = false;
@@ -73,6 +74,14 @@ function normalizeIds(values?: string[] | null) {
   return Array.from(
     new Set((values || []).map((value) => toStr(value)).filter(Boolean)),
   ).sort();
+}
+
+function chunkArray<T>(values: T[], size = READ_FILTER_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function isUnavailableError(error: unknown) {
@@ -95,7 +104,7 @@ function markUnavailable(error: unknown) {
   readModelUnavailable = true;
   if (!readModelUnavailableLogged) {
     readModelUnavailableLogged = true;
-    console.warn(
+    logServerError(
       "[read-model] ranking_recibo_contribuicoes indisponivel; usando calculo em tempo real.",
       error,
     );
@@ -413,30 +422,40 @@ async function readPersistentContributions(
   const accessibleClientIds = normalizeIds(params.accessibleClientIds);
   const rows: PersistentContributionRow[] = [];
 
-  for (let from = 0; ; from += READ_PAGE_SIZE) {
-    let query = client
-      .from(TABLE_CONTRIBUICOES)
-      .select(
-        "company_id, mes, data_recibo, vendedor_id, cliente_id, venda_id, recibo_id, venda_key, recibo_numero, produto_id, produto_nome, destino_nome, valor_bruto, valor_taxas, valor_seguro, is_seguro, fator, source_bruto, source_taxas",
-      )
-      .gte("data_recibo", params.dataInicio)
-      .lte("data_recibo", params.dataFim)
-      .order("data_recibo", { ascending: true })
-      .order("id", { ascending: true })
-      .range(from, from + READ_PAGE_SIZE - 1);
+  const readBatch = async (clientIds?: string[]) => {
+    for (let from = 0; ; from += READ_PAGE_SIZE) {
+      let query = client
+        .from(TABLE_CONTRIBUICOES)
+        .select(
+          "company_id, mes, data_recibo, vendedor_id, cliente_id, venda_id, recibo_id, venda_key, recibo_numero, produto_id, produto_nome, destino_nome, valor_bruto, valor_taxas, valor_seguro, is_seguro, fator, source_bruto, source_taxas",
+        )
+        .gte("data_recibo", params.dataInicio)
+        .lte("data_recibo", params.dataFim)
+        .order("data_recibo", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + READ_PAGE_SIZE - 1);
 
-    if (companyIds.length > 0) query = query.in("company_id", companyIds);
-    if (vendedorIds.length > 0) query = query.in("vendedor_id", vendedorIds);
-    if (vendedorIds.length === 0 && accessibleClientIds.length > 0) {
-      query = query.in("cliente_id", accessibleClientIds);
+      if (companyIds.length > 0) query = query.in("company_id", companyIds);
+      if (vendedorIds.length > 0) query = query.in("vendedor_id", vendedorIds);
+      if (clientIds && clientIds.length > 0) {
+        query = query.in("cliente_id", clientIds);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const page = (data || []) as PersistentContributionRow[];
+      rows.push(...page);
+      if (page.length < READ_PAGE_SIZE) break;
     }
+  };
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    const page = (data || []) as PersistentContributionRow[];
-    rows.push(...page);
-    if (page.length < READ_PAGE_SIZE) break;
+  if (vendedorIds.length === 0 && accessibleClientIds.length > 0) {
+    for (const batch of chunkArray(accessibleClientIds)) {
+      await readBatch(batch);
+    }
+  } else {
+    await readBatch();
   }
 
   const contributions = rows.map(rowToContribution);
@@ -473,10 +492,7 @@ export async function fetchReciboContribuicoesReadModel(
       markUnavailable(error);
       return rawLoader(params);
     }
-    console.warn(
-      "[read-model] falha ao usar ranking_recibo_contribuicoes; usando calculo em tempo real.",
-      error,
-    );
+    logServerError("[read-model] falha ao usar ranking_recibo_contribuicoes; usando calculo em tempo real.", error);
     return rawLoader(params);
   }
 }

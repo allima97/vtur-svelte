@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import {
+  ensureModuloAccess,
   getAdminClient,
+  isDebugEndpointEnabled,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -21,11 +23,30 @@ import {
   buildLegacyConciliacaoRule
 } from '$lib/utils/comissao';
 
+const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+
+function debugJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  return json(body, { ...init, headers });
+}
+
 export async function GET(event: any) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return debugJson({ error: 'Not found' }, { status: 404 });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+      return debugJson({ error: 'Sem acesso ao diagnóstico de comissão.' }, { status: 403 });
+    }
+    if (!scope.isAdmin) {
+      ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 1, 'Sem acesso ao diagnóstico de comissão.');
+    }
+
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const dataInicio = event.url.searchParams.get('inicio') || '2026-04-01';
     const dataFim = event.url.searchParams.get('fim') || '2026-04-30';
@@ -123,12 +144,14 @@ export async function GET(event: any) {
       });
     });
 
-    return json({ diag, params_summary: {
+    return debugJson({ diag, params_summary: {
       conciliacao_regra_ativa: params?.conciliacao_regra_ativa,
       conciliacao_tipo: params?.conciliacao_tipo,
       faixas: params?.conciliacao_faixas_loja?.map((f: any) => ({ faixa_loja: f.faixa_loja, ativo: f.ativo, tipo_calculo: f.tipo_calculo, meta_nao_atingida: f.meta_nao_atingida, percentual_min: f.percentual_min, percentual_max: f.percentual_max }))
     }, pctMetaGeral });
   } catch (e: any) {
-    return toErrorResponse(e, 'Erro no diagnóstico de comissão.');
+    const response = toErrorResponse(e, 'Erro no diagnóstico de comissão.');
+    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    return response;
   }
 }

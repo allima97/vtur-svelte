@@ -10,6 +10,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
+  import { apiGet, apiPatch } from '$lib/services/api';
 
   type FollowUpItem = {
     id: string;
@@ -81,24 +82,13 @@
     errorMessage = null;
 
     try {
-      const params = new URLSearchParams({
+      const payload = await apiGet<{ items?: FollowUpItem[] }>('/api/v1/dashboard/follow-ups', {
         inicio,
         fim,
         status: statusFilter
       });
-
-      const response = await fetch(`/api/v1/dashboard/follow-ups?${params.toString()}`, {
-        credentials: 'same-origin'
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao carregar follow-ups.');
-      }
-
       items = Array.isArray(payload?.items) ? payload.items : [];
     } catch (error) {
-      console.error(error);
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar follow-ups.';
       items = [];
     } finally {
@@ -153,27 +143,16 @@
 
     saving = true;
     try {
-      const response = await fetch(`/api/v1/viagens/${selectedItem.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          follow_up_text: form.texto.trim() || null,
-          follow_up_fechado: form.fechado
-        })
+      await apiPatch(`/api/v1/viagens/${selectedItem.id}`, {
+        follow_up_text: form.texto.trim() || null,
+        follow_up_fechado: form.fechado
       });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao salvar follow-up.');
-      }
 
       toast.success('Follow-up atualizado.');
       modalOpen = false;
       selectedItem = null;
       await loadFollowUps();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar follow-up.');
     } finally {
       saving = false;

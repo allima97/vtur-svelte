@@ -8,6 +8,7 @@
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
+  import { apiGet } from '$lib/services/api';
   import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-svelte';
 
   type EscalaDia = {
@@ -62,7 +63,7 @@
     return Array.from({ length: daysCount }, (_, i) => {
       const d = i + 1;
       const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      return { date, dow: new Date(date + 'T00:00:00').getDay(), day: d };
+      return { date, dow: new Date(Date.UTC(year, month - 1, d)).getUTCDay(), day: d };
     });
   }
 
@@ -81,9 +82,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/parametros/escalas?periodo=${periodoAtual}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/parametros/escalas', { periodo: periodoAtual });
       const userId = $auth.user?.id;
       diasEquipe = payload.dias || [];
       usuarios = payload.usuarios || [];

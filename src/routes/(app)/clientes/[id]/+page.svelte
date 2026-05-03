@@ -30,6 +30,7 @@
   import { toast } from '$lib/stores/ui';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { apiGet } from '$lib/services/api';
 
   type ClienteDetalhe = {
     id: string;
@@ -163,20 +164,10 @@
     errorMessage = null;
 
     try {
-      const [clienteResponse, historicoResponse] = await Promise.all([
-        fetch(`/api/v1/clientes/${clienteId}`),
-        fetch(`/api/v1/clientes/historico?cliente_id=${clienteId}`)
+      const [clientePayload, historicoPayload] = await Promise.all([
+        apiGet<any>(`/api/v1/clientes/${clienteId}`),
+        apiGet<any>('/api/v1/clientes/historico', { cliente_id: clienteId })
       ]);
-
-      const clientePayload = await clienteResponse.json().catch(() => null);
-      if (!clienteResponse.ok) {
-        throw new Error(clientePayload?.error || 'Erro ao carregar cliente.');
-      }
-
-      const historicoPayload = await historicoResponse.json().catch(() => null);
-      if (!historicoResponse.ok) {
-        throw new Error(historicoPayload?.error || 'Erro ao carregar historico.');
-      }
 
       cliente = clientePayload;
       historicoVendas = Array.isArray(historicoPayload?.vendas) ? historicoPayload.vendas : [];

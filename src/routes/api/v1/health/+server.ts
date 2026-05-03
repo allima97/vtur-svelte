@@ -2,5 +2,5 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
-  return json({ ok: true, ts: new Date().toISOString() });
+  return json({ ok: true, ts: new Date().toISOString() }, { headers: { 'Cache-Control': 'no-store' } });
 };

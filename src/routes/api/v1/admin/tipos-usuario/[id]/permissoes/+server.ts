@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
+  ensureAssignablePermissionSet,
   ensureCanManagePermissions,
+  loadManagedUserTypes,
   loadUserTypeDefaultPermissions,
   saveDefaultPermissions
 } from '$lib/server/admin';
@@ -25,6 +27,11 @@ export async function GET(event) {
 
     ensureCanManagePermissions(scope);
 
+    const userTypes = await loadManagedUserTypes(client, scope);
+    if (!userTypes.some((row) => row.id === userTypeId)) {
+      return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+    }
+
     const rows = await loadUserTypeDefaultPermissions(client, userTypeId);
     return json({
       permissions: buildPermissionMatrix(rows as any),
@@ -45,7 +52,14 @@ export async function POST(event) {
 
     ensureCanManagePermissions(scope);
 
-    await saveDefaultPermissions(client, userTypeId, Array.isArray(body.permissions) ? body.permissions : []);
+    const userTypes = await loadManagedUserTypes(client, scope);
+    if (!userTypes.some((row) => row.id === userTypeId)) {
+      return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+    }
+
+    const permissions = Array.isArray(body.permissions) ? body.permissions : [];
+    ensureAssignablePermissionSet(scope, permissions);
+    await saveDefaultPermissions(client, userTypeId, permissions);
 
     return json({ ok: true });
   } catch (err) {

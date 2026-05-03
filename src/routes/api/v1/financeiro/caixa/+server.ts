@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -84,11 +85,11 @@ export async function GET(event) {
     }
 
     const { data: pagamentos, error: pagError } = await pagamentosQuery;
-    if (pagError) console.warn('[caixa] Erro pagamentos:', pagError.message);
+    if (pagError) logServerError('[caixa] Erro pagamentos', pagError);
 
     let movQuery = client
       .from('caixa_movimentacoes')
-      .select('*, forma_pagamento:forma_pagamento_id(id, nome)')
+      .select('id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento:forma_pagamento_id(id, nome)')
       .gte('data_movimentacao', inicio)
       .lte('data_movimentacao', fim)
       .order('data_movimentacao', { ascending: false });
@@ -96,7 +97,7 @@ export async function GET(event) {
     if (companyIds.length > 0) movQuery = movQuery.in('company_id', companyIds);
 
     const { data: movimentacoes, error: movError } = await movQuery;
-    if (movError) console.warn('[caixa] caixa_movimentacoes:', movError.message);
+    if (movError) logServerError('[caixa] caixa_movimentacoes', movError);
 
     const pagItems = pagamentos || [];
     const movItems = (movError ? [] : movimentacoes) || [];
@@ -202,7 +203,7 @@ export async function POST(event) {
         observacoes: body.observacoes || null,
         user_id: user.id
       }])
-      .select()
+      .select('id, company_id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento_id, observacoes, user_id')
       .single();
 
     if (error) {

@@ -9,6 +9,7 @@
   import { ArrowLeft, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiDelete, apiFetch, apiGet } from '$lib/services/api';
 
   export let fornecedorId: string | null = null;
 
@@ -64,9 +65,7 @@
 
   async function loadFornecedor() {
     if (!fornecedorId) return;
-    const response = await fetch(`/api/v1/fornecedores/${fornecedorId}`);
-    if (!response.ok) throw new Error(await response.text());
-    const result = await response.json();
+    const result = await apiGet<{ data: any }>(`/api/v1/fornecedores/${fornecedorId}`);
     const data = result.data;
     form = {
       nome_completo: data.nome_completo || '',
@@ -133,11 +132,12 @@
       buscandoCidade = true;
       erroCidadeBusca = '';
       try {
-        const response = await fetch(`/api/v1/vendas/cidades-busca?q=${encodeURIComponent(query)}&limite=10`);
-        if (!response.ok) throw new Error(await response.text());
-        resultadosCidade = (await response.json()) || [];
+        resultadosCidade =
+          (await apiGet<CidadeBusca[]>('/api/v1/vendas/cidades-busca', {
+            q: query,
+            limite: 10
+          })) || [];
       } catch (err) {
-        console.error(err);
         resultadosCidade = [];
         erroCidadeBusca = 'Erro ao buscar cidades.';
       } finally {
@@ -161,17 +161,14 @@
 
     saving = true;
     try {
-      const response = await fetch(isCreateMode ? '/api/v1/fornecedores/create' : `/api/v1/fornecedores/${fornecedorId}`, {
+      await apiFetch(isCreateMode ? '/api/v1/fornecedores/create' : `/api/v1/fornecedores/${fornecedorId}`, {
         method: isCreateMode ? 'POST' : 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: form
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(isCreateMode ? 'Fornecedor cadastrado com sucesso.' : 'Fornecedor atualizado com sucesso.');
       goto('/cadastros/fornecedores');
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao salvar fornecedor.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar fornecedor.');
     } finally {
       saving = false;
     }
@@ -181,12 +178,10 @@
     if (!fornecedorId) return;
     deleting = true;
     try {
-      const response = await fetch(`/api/v1/fornecedores/${fornecedorId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete(`/api/v1/fornecedores/${fornecedorId}`);
       toast.success('Fornecedor excluído com sucesso.');
       goto('/cadastros/fornecedores');
     } catch (err: any) {
-      console.error(err);
       toast.error(err?.message || 'Erro ao excluir fornecedor.');
     } finally {
       deleting = false;

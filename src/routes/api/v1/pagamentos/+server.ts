@@ -119,7 +119,7 @@ export async function POST(event) {
         paga_comissao: body.paga_comissao ?? null,
         observacoes: body.observacoes || null
       }])
-      .select()
+      .select('id, company_id, venda_id, forma_pagamento_id, forma_nome, operacao, plano, valor_bruto, desconto_valor, valor_total, parcelas_qtd, parcelas_valor, vencimento_primeira, paga_comissao, observacoes, created_at, updated_at')
       .single();
 
     if (error) throw error;

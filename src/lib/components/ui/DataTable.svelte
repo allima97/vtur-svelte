@@ -58,6 +58,14 @@
     return JSON.stringify(row ?? {});
   }
 
+  function normalizeSearchText(value: unknown) {
+    return String(value ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
   export let data: any[] = [];
   export let columns: Column[] = [];
   export let color: ModuleColor = "clientes";
@@ -122,18 +130,18 @@
     let result = [...data];
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       result = result.filter((row) => {
         const matchesColumn = columns.some((col) => {
           const value = row[col.key];
           if (value == null) return false;
-          return String(value).toLowerCase().includes(query);
+          return normalizeSearchText(value).includes(query);
         });
         if (matchesColumn) return true;
         return extraSearchKeys.some((key) => {
           const value = row[key];
           if (value == null) return false;
-          return String(value).toLowerCase().includes(query);
+          return normalizeSearchText(value).includes(query);
         });
       });
     }
@@ -145,9 +153,7 @@
           if (Array.isArray(value)) {
             return value.includes(String(rowValue));
           }
-          return String(rowValue)
-            .toLowerCase()
-            .includes(String(value).toLowerCase());
+          return normalizeSearchText(rowValue).includes(normalizeSearchText(value));
         });
       }
     });
@@ -298,11 +304,13 @@
   }
 
   const allowedHtmlTags = new Set([
+    "a",
     "span",
     "div",
     "p",
     "strong",
     "em",
+    "img",
     "small",
     "br",
     "svg",
@@ -315,15 +323,20 @@
   ]);
   const allowedHtmlAttrs = new Set([
     "aria-label",
+    "alt",
     "class",
     "d",
     "fill",
     "height",
+    "href",
+    "rel",
     "role",
+    "src",
     "stroke",
     "stroke-linecap",
     "stroke-linejoin",
     "stroke-width",
+    "target",
     "title",
     "viewbox",
     "width",
@@ -337,13 +350,40 @@
       .replace(/>/g, "&gt;");
   }
 
+  function isSafeUrlAttribute(value: string, protocols: string[]) {
+    if (protocols.some((protocol) => value.toLowerCase().startsWith(protocol))) return true;
+    return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
+  }
+
   function sanitizeHtmlAttribute(name: string, value: string) {
     const normalizedName = name.toLowerCase();
     if (normalizedName.startsWith("on")) return "";
     if (!allowedHtmlAttrs.has(normalizedName)) return "";
 
-    const normalizedValue = String(value || "");
+    const normalizedValue = String(value || "").trim();
     if (/javascript:|data:text\/html|vbscript:/i.test(normalizedValue)) return "";
+
+    if (normalizedName === "href") {
+      if (!isSafeUrlAttribute(normalizedValue, ["http:", "https:", "mailto:", "tel:"])) return "";
+      return ` href="${escapeHtmlAttribute(normalizedValue)}"`;
+    }
+
+    if (normalizedName === "src") {
+      if (!isSafeUrlAttribute(normalizedValue, ["http:", "https:"])) return "";
+      return ` src="${escapeHtmlAttribute(normalizedValue)}"`;
+    }
+
+    if (normalizedName === "target") {
+      const safeTarget = ["_blank", "_self", "_parent", "_top"].includes(normalizedValue)
+        ? normalizedValue
+        : "_self";
+      return ` target="${safeTarget}"`;
+    }
+
+    if (normalizedName === "rel") {
+      const safeRel = normalizedValue.replace(/[^a-zA-Z0-9_\-\s]/g, "");
+      return safeRel ? ` rel="${escapeHtmlAttribute(safeRel)}"` : "";
+    }
 
     if (normalizedName === "class") {
       const safeClass = normalizedValue.replace(/[^a-zA-Z0-9_:\-./\s[\]()#%]/g, "");
@@ -375,7 +415,12 @@
             ),
         );
 
-        return `<${tagName}${attrs}>`;
+        const hardenedAttrs =
+          tagName === "a" && /\starget="_blank"/i.test(attrs) && !/\srel=/i.test(attrs)
+            ? `${attrs} rel="noopener noreferrer"`
+            : attrs;
+
+        return `<${tagName}${hardenedAttrs}>`;
       },
     );
   }

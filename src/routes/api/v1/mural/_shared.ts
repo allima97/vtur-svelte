@@ -7,6 +7,45 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
+export const PRIVATE_JSON_SHORT_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'private, max-age=5',
+  Vary: 'Cookie'
+};
+
+export const NO_STORE_JSON_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+
+export const NO_STORE_TEXT_HEADERS = {
+  'Content-Type': 'text/plain; charset=utf-8',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+
+export function privateJsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: PRIVATE_JSON_SHORT_HEADERS
+  });
+}
+
+export function noStoreJsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: NO_STORE_JSON_HEADERS
+  });
+}
+
+export function noStoreTextResponse(message: string, status: number) {
+  return new Response(message, {
+    status,
+    headers: NO_STORE_TEXT_HEADERS
+  });
+}
+
 export function readCache(key: string) {
   const entry = cache.get(key);
   if (!entry) return null;
@@ -38,7 +77,7 @@ export async function assertCompanyAccess(client: any, scope: UserScope, company
 
   if (!scope.isMaster) {
     if (!scope.companyId || scope.companyId !== companyId) {
-      return new Response('Sem acesso a empresa.', { status: 403 });
+      return noStoreTextResponse('Sem acesso a empresa.', 403);
     }
     return null;
   }
@@ -51,7 +90,7 @@ export async function assertCompanyAccess(client: any, scope: UserScope, company
   if (error) throw error;
 
   const allowed = (vinculos || []).some((row: any) => String(row.company_id || '') === companyId);
-  if (!allowed) return new Response('Sem acesso a empresa.', { status: 403 });
+  if (!allowed) return noStoreTextResponse('Sem acesso a empresa.', 403);
   return null;
 }
 
@@ -74,7 +113,30 @@ export async function fetchRecados(client: any, companyId: string) {
   }
   if (resp.error) throw resp.error;
 
-  return { recados: resp.data || [], supportsAttachments };
+  return { recados: await withSignedAttachmentUrls(client, resp.data || []), supportsAttachments };
+}
+
+async function withSignedAttachmentUrls(client: any, recados: any[]) {
+  const files = recados.flatMap((recado) =>
+    (recado.arquivos || [])
+      .filter((arquivo: any) => arquivo?.storage_bucket && arquivo?.storage_path)
+      .map((arquivo: any) => ({ recado, arquivo }))
+  );
+
+  await Promise.all(
+    files.map(async ({ arquivo }) => {
+      try {
+        const { data } = await client.storage
+          .from(arquivo.storage_bucket)
+          .createSignedUrl(arquivo.storage_path, 15 * 60);
+        arquivo.download_url = data?.signedUrl || null;
+      } catch {
+        arquivo.download_url = null;
+      }
+    })
+  );
+
+  return recados;
 }
 
 export async function fetchUsuariosEmpresa(client: any, companyId: string) {
@@ -88,4 +150,3 @@ export async function fetchUsuariosEmpresa(client: any, companyId: string) {
   if (error) throw error;
   return data || [];
 }
-

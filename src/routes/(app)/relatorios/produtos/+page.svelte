@@ -13,6 +13,8 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   interface ProdutoRelatorio {
     produto: string;
@@ -63,9 +65,7 @@
 
   async function loadBase() {
     try {
-      const response = await fetch('/api/v1/relatorios/base');
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
     } catch (err) {
@@ -83,7 +83,7 @@
       sortable: true,
       width: '140px',
       formatter: (value: string) =>
-        `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-financeiro-50 text-financeiro-700">${value}</span>`
+        `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-financeiro-50 text-financeiro-700">${escapeHtml(value)}</span>`
     },
     { key: 'quantidade', label: 'Qtd', sortable: true, align: 'center' as const, width: '80px' },
     {
@@ -115,20 +115,12 @@
     loading = true;
 
     try {
-      const params = new URLSearchParams({
+      const data = await apiGet<{ items?: ProdutoRelatorio[] }>('/api/v1/relatorios/produtos', {
         data_inicio: dataInicio,
-        data_fim: dataFim
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined
       });
-
-      if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
-      if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
-
-      const response = await fetch(`/api/v1/relatorios/produtos?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Erro ao carregar relatorio');
-      }
-
-      const data = await response.json();
       produtos = data.items || [];
 
       if (showSuccess) {

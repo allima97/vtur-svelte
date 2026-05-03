@@ -10,6 +10,20 @@ export interface ApiOptions {
   headers?: Record<string, string>;
   query?: Record<string, string | number | boolean | undefined | null>;
   signal?: AbortSignal;
+  redirectOnForbidden?: boolean;
+  redirectOnUnauthorized?: boolean;
+}
+
+export class ApiError extends Error {
+  status: number;
+  payload?: unknown;
+
+  constructor(message: string, status: number, payload?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
+  }
 }
 
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
@@ -33,6 +47,37 @@ function handleUnauthorized() {
 function handleForbidden() {
   if (browser) {
     goto('/negado');
+  }
+}
+
+function fallbackErrorMessage(response: Response) {
+  return `Erro ${response.status}: ${response.statusText || 'Falha na requisição'}`;
+}
+
+function safeTextMessage(value: string, fallback: string) {
+  const text = String(value || '').trim();
+  if (!text) return fallback;
+  if (text.startsWith('<!doctype') || text.startsWith('<html')) return fallback;
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
+}
+
+async function readError(response: Response) {
+  const fallback = fallbackErrorMessage(response);
+  const raw = await response.text().catch(() => '');
+  if (!raw) return { message: fallback };
+
+  try {
+    const errorData = JSON.parse(raw);
+    return {
+      message:
+        safeTextMessage(errorData?.message, '') ||
+        safeTextMessage(errorData?.error, '') ||
+        safeTextMessage(errorData?.details, '') ||
+        fallback,
+      payload: errorData
+    };
+  } catch {
+    return { message: safeTextMessage(raw, fallback) };
   }
 }
 
@@ -66,24 +111,22 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
   });
 
   if (response.status === 401) {
-    handleUnauthorized();
-    throw new Error('Sessão expirada. Faça login novamente.');
+    if (options.redirectOnUnauthorized !== false) {
+      handleUnauthorized();
+    }
+    throw new ApiError('Sessão expirada. Faça login novamente.', 401);
   }
 
   if (response.status === 403) {
-    handleForbidden();
-    throw new Error('Acesso negado.');
+    if (options.redirectOnForbidden !== false) {
+      handleForbidden();
+    }
+    throw new ApiError('Acesso negado.', 403);
   }
 
   if (!response.ok) {
-    let message = `Erro ${response.status}: ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      message = errorData?.message || errorData?.error || message;
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(message);
+    const error = await readError(response);
+    throw new ApiError(error.message, response.status, error.payload);
   }
 
   const contentLength = response.headers.get('content-length');

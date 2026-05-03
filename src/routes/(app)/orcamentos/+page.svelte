@@ -8,6 +8,8 @@
   import { toast } from '$lib/stores/ui';
   import { diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
+  import { apiGet } from '$lib/services/api';
 
   interface Orcamento {
     id: string;
@@ -34,12 +36,10 @@
 
   let filtroStatus = '';
   let filtroPeriodo = '';
-  let filtroBusca = '';
   let somenteCriticos = false;
   let somenteProntosVenda = false;
 
   let abortController: AbortController | null = null;
-  let buscaDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function getDiasSemInteracao(value: string | null | undefined) {
     if (!value) return Number.POSITIVE_INFINITY;
@@ -90,9 +90,7 @@
       const diasDiff = getDiasSemInteracao(right.last_interaction_at) - getDiasSemInteracao(left.last_interaction_at);
       if (diasDiff !== 0) return diasDiff;
 
-      const dataCriacaoLeft = left.data_criacao ? new Date(left.data_criacao).getTime() : 0;
-      const dataCriacaoRight = right.data_criacao ? new Date(right.data_criacao).getTime() : 0;
-      return dataCriacaoRight - dataCriacaoLeft;
+      return String(right.data_criacao || '').localeCompare(String(left.data_criacao || ''));
     });
   }
 
@@ -136,19 +134,14 @@
     errorMessage = null;
 
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus)  params.set('status',  filtroStatus);
-      if (filtroPeriodo) params.set('periodo', filtroPeriodo);
-      if (filtroBusca.trim()) params.set('q', filtroBusca.trim());
-
-      const response = await fetch(
-        `/api/v1/orcamentos/list?${params.toString()}`,
-        { signal: abortController.signal }
+      const payload = await apiGet<Orcamento[]>(
+        '/api/v1/orcamentos/list',
+        {
+          status: filtroStatus,
+          periodo: filtroPeriodo
+        },
+        abortController.signal
       );
-
-      if (!response.ok) throw new Error(await response.text());
-
-      const payload = await response.json();
       const items = Array.isArray(payload) ? payload : [];
       orcamentosFiltrados = sortOrcamentosPorPrioridade(items);
     } catch (err: unknown) {
@@ -168,17 +161,10 @@
     void loadOrcamentos();
   }
 
-  function handleBuscaChange(valor: string) {
-    filtroBusca = valor;
-    if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
-    buscaDebounceTimer = setTimeout(() => void loadOrcamentos(), 300);
-  }
-
   onMount(() => void loadOrcamentos());
 
   onDestroy(() => {
     abortController?.abort();
-    if (buscaDebounceTimer) clearTimeout(buscaDebounceTimer);
   });
 
   function handleRowClick(row: Orcamento) {
@@ -221,8 +207,8 @@
       sortable: true,
       formatter: (value: string, row: Orcamento) =>
         `<div class="flex flex-col">
-          <span class="font-medium text-slate-900">${value}</span>
-          <span class="text-xs text-slate-500">${row.destino || 'Sem destino'}</span>
+          <span class="font-medium text-slate-900">${escapeHtml(value)}</span>
+          <span class="text-xs text-slate-500">${escapeHtml(row.destino || 'Sem destino')}</span>
         </div>`
     },
     {
@@ -242,7 +228,7 @@
         if (!value) return '<span class="text-red-600 font-medium">Sem interação</span>';
         const diff = getDiasSemInteracao(value);
         const classe = diff >= 7 ? 'text-amber-700 font-medium' : 'text-slate-700';
-        const nota = row.last_interaction_notes ? `<div class="text-xs text-slate-500">${row.last_interaction_notes}</div>` : '';
+        const nota = row.last_interaction_notes ? `<div class="text-xs text-slate-500">${escapeHtml(row.last_interaction_notes)}</div>` : '';
         const atraso = diff >= 7 ? `<div class="text-xs text-amber-700">${diff} dias sem contato</div>` : '';
         return `<div><div class="${classe}">${formatDate(value)}</div>${atraso}${nota}</div>`;
       }
@@ -469,9 +455,9 @@
   searchable={true}
   filterable={true}
   exportable={true}
+  extraSearchKeys={['destino', 'status_negociacao', 'cliente_email']}
   onRowClick={handleRowClick}
   onExport={handleExport}
-  onSearch={handleBuscaChange}
   onFilterChange={handleFiltroChange}
   emptyMessage="Nenhum orçamento encontrado para o escopo atual"
 />

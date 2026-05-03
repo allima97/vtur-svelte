@@ -1,4 +1,4 @@
-import { getAdminClient } from '$lib/server/v1';
+import { getAdminClient, logServerError } from '$lib/server/v1';
 import { env } from '$env/dynamic/private';
 
 export type EmailSettingsRow = {
@@ -65,12 +65,12 @@ export async function getEmailSettings(): Promise<EmailSettingsRow | null> {
       .eq("singleton", true)
       .maybeSingle();
     if (error) {
-      console.warn("Falha ao carregar admin_email_settings:", error.message);
+      logServerError("Falha ao carregar admin_email_settings", error);
       return null;
     }
     return (data as EmailSettingsRow) || null;
   } catch (err) {
-    console.warn("Erro ao carregar admin_email_settings:", err);
+    logServerError("Erro ao carregar admin_email_settings", err);
     return null;
   }
 }

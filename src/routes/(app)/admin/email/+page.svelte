@@ -6,6 +6,7 @@
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Send, RefreshCw } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   let loading = true;
   let saving = false;
@@ -28,9 +29,7 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/email');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ settings: Record<string, any> }>('/api/v1/admin/email');
       form = {
         smtp_host: payload.settings.smtp_host || '',
         smtp_port: String(payload.settings.smtp_port || '465'),
@@ -45,7 +44,6 @@
         suporte_from_email: payload.settings.suporte_from_email || ''
       };
     } catch (err) {
-      console.error(err);
       toast.error('Nao foi possivel carregar as configuracoes de e-mail.');
     } finally {
       loading = false;
@@ -55,18 +53,12 @@
   async function saveEmailSettings() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          smtp_port: Number(form.smtp_port)
-        })
+      await apiPost('/api/v1/admin/email', {
+        ...form,
+        smtp_port: Number(form.smtp_port)
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Configuracoes de e-mail salvas.');
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar configuracoes.');
     } finally {
       saving = false;
@@ -76,15 +68,11 @@
   async function sendTestEmail() {
     sendingTest = true;
     try {
-      const response = await fetch('/api/v1/admin/email/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: testEmail || form.admin_from_email || form.avisos_from_email })
+      await apiPost('/api/v1/admin/email/test', {
+        to: testEmail || form.admin_from_email || form.avisos_from_email
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('E-mail de teste enviado com sucesso.');
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar teste.');
     } finally {
       sendingTest = false;

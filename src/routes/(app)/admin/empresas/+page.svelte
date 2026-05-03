@@ -6,6 +6,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw, Building2, CheckCircle, CreditCard, Network } from 'lucide-svelte';
+  import { apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type Empresa = {
     id: string;
@@ -33,7 +35,7 @@
       red: 'bg-rose-100 text-rose-700',
       gray: 'bg-slate-100 text-slate-700'
     };
-    return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${classes[tone]}">${label}</span>`;
+    return `<span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${classes[tone]}">${escapeHtml(label)}</span>`;
   }
 
   const columns = [
@@ -43,8 +45,8 @@
       sortable: true,
       formatter: (_value: unknown, row: Empresa) => `
         <div>
-          <p class="font-medium text-slate-900">${row.nome_fantasia || row.nome_empresa}</p>
-          <p class="text-xs text-slate-500">${row.cnpj || 'Sem CNPJ'}</p>
+          <p class="font-medium text-slate-900">${escapeHtml(row.nome_fantasia || row.nome_empresa)}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(row.cnpj || 'Sem CNPJ')}</p>
         </div>
       `
     },
@@ -52,7 +54,7 @@
       key: 'local',
       label: 'Cidade',
       sortable: true,
-      formatter: (_value: unknown, row: Empresa) => `${row.cidade || '-'}${row.estado ? ` / ${row.estado}` : ''}`
+      formatter: (_value: unknown, row: Empresa) => `<span>${escapeHtml(row.cidade || '-')}${row.estado ? ` / ${escapeHtml(row.estado)}` : ''}</span>`
     },
     {
       key: 'billing',
@@ -71,7 +73,7 @@
       key: 'plan',
       label: 'Plano',
       sortable: true,
-      formatter: (_value: unknown, row: Empresa) => row.billing?.plan?.nome || '-'
+      formatter: (_value: unknown, row: Empresa) => `<span>${escapeHtml(row.billing?.plan?.nome || '-')}</span>`
     },
     {
       key: 'master_links',
@@ -83,13 +85,10 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/empresas');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Empresa[] }>('/api/v1/admin/empresas');
       rows = payload.items || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar as empresas.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar as empresas.');
     } finally {
       loading = false;
     }

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   normalizeText,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
@@ -13,6 +14,7 @@ import {
   toISODateLocal
 } from '$lib/server/v1';
 import { addDaysISODate, addMonthsISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 type OrcamentoRow = {
   id: string;
@@ -127,7 +129,7 @@ export async function GET(event) {
     const shouldFilterByClientIds = vendedorIds.length === 0 && companyIds.length > 0;
 
     if (shouldFilterByClientIds && clientIds.length === 0) {
-      return json([]);
+      return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
     const joinedSelect = `
@@ -188,7 +190,7 @@ export async function GET(event) {
     const queryError = queryResult.error;
 
     if (queryError) {
-      console.error('[orcamentos/list] Erro na query com join:', queryError.message);
+      logServerError('[orcamentos/list] erro na query com join; usando fallback', queryError);
       const fallback = await fetchQuoteRows(fallbackSelect);
       if (fallback.error) throw fallback.error;
       data = (fallback.data || []) as OrcamentoRow[];
@@ -318,7 +320,7 @@ export async function GET(event) {
       items = items.filter(item => item.status === statusFilter);
     }
 
-    return json(items);
+    return json(items, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar orcamentos.');
   }

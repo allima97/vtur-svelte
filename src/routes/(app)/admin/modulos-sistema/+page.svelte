@@ -6,6 +6,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Settings, CheckCircle, XCircle } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   type ModuloItem = {
     key: string;
@@ -22,9 +23,9 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/modulos-sistema');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ table_missing?: boolean; catalog?: any[]; disabled?: string[] }>(
+        '/api/v1/admin/modulos-sistema'
+      );
 
       tableMissing = Boolean(payload.table_missing);
       const catalog = payload.catalog || [];
@@ -46,12 +47,10 @@
   async function toggleModulo(modulo: ModuloItem) {
     savingKey = modulo.key;
     try {
-      const response = await fetch('/api/v1/admin/modulos-sistema', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ module_key: modulo.key, enabled: !modulo.enabled })
+      await apiPost('/api/v1/admin/modulos-sistema', {
+        module_key: modulo.key,
+        enabled: !modulo.enabled
       });
-      if (!response.ok) throw new Error(await response.text());
       modulo.enabled = !modulo.enabled;
       modulos = [...modulos];
       toast.success(`Módulo ${modulo.label} ${modulo.enabled ? 'habilitado' : 'desabilitado'}.`);

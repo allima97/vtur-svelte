@@ -15,7 +15,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { fetchReciboContribuicoesReadModel } from "$lib/server/reciboContribuicoesReadModel";
-import { getAdminClient } from "$lib/server/v1";
+import { getAdminClient, logServerError } from "$lib/server/v1";
 import {
   fetchRateioByReciboIds,
   fetchSplitSaleIdsForDestinationVendedores,
@@ -368,10 +368,7 @@ async function carregarTermosNaoComissionaveis(
     const unique = Array.from(new Set(termos)) as string[];
     if (unique.length > 0) return unique;
   } catch (error) {
-    console.warn(
-      "[vendas-kpis] falha ao carregar termos nao comissionaveis",
-      error,
-    );
+    logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error);
   }
 
   return DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
@@ -489,10 +486,7 @@ async function fetchResolvedRowsUncached(
         vendedorIds: params.vendedorIds,
       });
     } catch (error) {
-      console.warn(
-        "[vendas-kpis] split sales indisponivel, seguindo sem rateio destino:",
-        error,
-      );
+      logServerError("[vendas-kpis] split sales indisponivel, seguindo sem rateio destino", error);
     }
 
     if (splitSaleIds.length > 0) {
@@ -539,10 +533,7 @@ async function fetchResolvedRowsUncached(
         excludeVendedorIds: baixaRacIds,
       });
     } catch (error) {
-      console.warn(
-        "[vendas-kpis] conciliacao indisponivel, seguindo sem overrides:",
-        error,
-      );
+      logServerError("[vendas-kpis] conciliacao indisponivel, seguindo sem overrides", error);
       concReceipts = [];
     }
   }
@@ -562,10 +553,7 @@ async function fetchResolvedRowsUncached(
 
     const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
     if (splitConcErr) {
-      console.warn(
-        "[vendas-kpis] split conciliation indisponivel:",
-        splitConcErr,
-      );
+      logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
     }
 
     const splitConcIdSet = new Set(
@@ -587,7 +575,7 @@ async function fetchResolvedRowsUncached(
           excludeVendedorIds: baixaRacIds,
         });
       } catch (error) {
-        console.warn("[vendas-kpis] conciliation all indisponivel:", error);
+        logServerError("[vendas-kpis] conciliation all indisponivel", error);
         concAll = [];
       }
 
@@ -624,7 +612,7 @@ async function fetchResolvedRowsUncached(
       fim: params.dataFim,
     });
   } catch (error) {
-    console.warn("[vendas-kpis] conciliacao suprimida indisponivel:", error);
+    logServerError("[vendas-kpis] conciliacao suprimida indisponivel", error);
     suppressedConcReceipts = [];
   }
   const suppressedReceiptIds = new Set(
@@ -761,10 +749,7 @@ async function fetchResolvedRowsUncached(
 
   const rateioMap = await fetchRateioByReciboIds(client, reciboIds).catch(
     (error) => {
-      console.warn(
-        "[vendas-kpis] rateio indisponivel, seguindo sem rateio:",
-        error,
-      );
+      logServerError("[vendas-kpis] rateio indisponivel, seguindo sem rateio", error);
       return new Map<string, RateioRow>();
     },
   );

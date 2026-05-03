@@ -1,15 +1,27 @@
 import { json } from '@sveltejs/kit';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import {
+  getAdminClient,
+  isDebugEndpointEnabled,
+  logServerError,
+  requireAuthenticatedUser,
+  resolveUserScope
+} from '$lib/server/v1';
+
+const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
 
 export async function GET(event) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return json({ error: 'Not found' }, { status: 404, headers: DEBUG_HEADERS });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     // ✅ Apenas administradores podem acessar este endpoint de debug
     if (!scope.isAdmin) {
-      return json({ error: 'Acesso restrito a administradores.' }, { status: 403 });
+      return json({ error: 'Acesso restrito a administradores.' }, { status: 403, headers: DEBUG_HEADERS });
     }
 
     const { data: userData } = await client
@@ -33,28 +45,32 @@ export async function GET(event) {
           .from('companies')
           .select('id, nome_fantasia');
 
-    return json({
-      usuario: {
-        id: user.id,
-        email: user.email,
-        nome: userData?.nome_completo,
-        company_id: userData?.company_id,
-        user_type_id: userData?.user_type_id,
-        uso_individual: userData?.uso_individual
+    return json(
+      {
+        usuario: {
+          id: user.id,
+          email: user.email,
+          nome: userData?.nome_completo,
+          company_id: userData?.company_id,
+          user_type_id: userData?.user_type_id,
+          uso_individual: userData?.uso_individual
+        },
+        scope: {
+          isAdmin: scope.isAdmin,
+          isMaster: scope.isMaster,
+          isGestor: scope.isGestor,
+          isVendedor: scope.isVendedor,
+          papel: scope.papel,
+          companyIds: scope.companyIds,
+          permissoes: scope.permissoes
+        },
+        permissoes_detalhadas: permissoes,
+        empresas_disponiveis: empresas
       },
-      scope: {
-        isAdmin: scope.isAdmin,
-        isMaster: scope.isMaster,
-        isGestor: scope.isGestor,
-        isVendedor: scope.isVendedor,
-        papel: scope.papel,
-        companyIds: scope.companyIds,
-        permissoes: scope.permissoes
-      },
-      permissoes_detalhadas: permissoes,
-      empresas_disponiveis: empresas
-    });
+      { headers: DEBUG_HEADERS }
+    );
   } catch (err: any) {
-    return json({ error: 'Erro interno.' }, { status: 500 });
+    logServerError('[debug/permissions]', err);
+    return json({ error: 'Erro interno.' }, { status: 500, headers: DEBUG_HEADERS });
   }
 }

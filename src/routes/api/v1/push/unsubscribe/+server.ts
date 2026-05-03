@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireAuthenticatedUser } from '$lib/server/v1';
+import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -24,13 +24,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .eq("user_id", user.id);
 
     if (error) {
-      console.error("[push/unsubscribe] falha ao desativar subscription", error);
+      logServerError("[push/unsubscribe] falha ao desativar subscription", error);
       return json({ error: "Erro ao desativar subscription." }, { status: 500 });
     }
 
     return json({ ok: true });
   } catch (error: any) {
-    console.error("[push/unsubscribe] falha interna", error);
+    logServerError("[push/unsubscribe] falha interna", error);
     return json({ error: "Erro interno ao desativar subscription." }, { status: 500 });
   }
 };

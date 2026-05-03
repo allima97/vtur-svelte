@@ -7,6 +7,7 @@
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
   import { Calculator, DollarSign, RefreshCw, TrendingUp, Users } from 'lucide-svelte';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -105,18 +106,12 @@
 
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus !== 'todas') params.set('status', filtroStatus);
-      params.set('mes', String(filtroMes));
-      params.set('ano', String(filtroAno));
-      if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
-
-      const response = await fetch(
-        `/api/v1/financeiro/comissoes/calcular?${params.toString()}`,
-        { signal: abortController.signal }
-      );
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/financeiro/comissoes/calcular', {
+        status: filtroStatus !== 'todas' ? filtroStatus : undefined,
+        mes: filtroMes,
+        ano: filtroAno,
+        vendedor_id: filtroVendedor || undefined
+      }, abortController.signal);
       comissoes = data.items ?? [];
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -128,9 +123,7 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
-      if (!response.ok) return;
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/financeiro/comissoes/vendedores');
       vendedores = Array.isArray(data.items) ? data.items : [];
     } catch { /* silencioso */ }
   }

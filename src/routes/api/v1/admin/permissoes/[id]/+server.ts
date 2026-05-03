@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
+  ensureAssignablePermissionSet,
+  ensureCanManagePermissions,
   loadManagedUser,
   loadSystemModuleSettings,
   loadUserPermissions,
@@ -16,6 +18,7 @@ import {
 import {
   getAdminClient,
   isUuid,
+  logServerError,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -28,9 +31,7 @@ export async function GET(event: RequestEvent) {
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return new Response('Sem permissao.', { status: 403 });
-    }
+    ensureCanManagePermissions(scope);
 
     const userId = String(event.params.id || '').trim();
     if (!isUuid(userId)) return new Response('ID invalido.', { status: 400 });
@@ -61,7 +62,7 @@ export async function GET(event: RequestEvent) {
       )
     });
   } catch (err) {
-    console.error('[permissoes/[id] GET]', err);
+    logServerError('[admin/permissoes/[id]] falha ao carregar permissoes', err);
     return toErrorResponse(err, 'Erro ao carregar permissoes do usuario.');
   }
 }
@@ -74,9 +75,7 @@ export async function POST(event: RequestEvent) {
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return new Response('Sem permissao.', { status: 403 });
-    }
+    ensureCanManagePermissions(scope);
 
     const userId = String(event.params.id || '').trim();
     if (!isUuid(userId)) return new Response('ID invalido.', { status: 400 });
@@ -86,15 +85,13 @@ export async function POST(event: RequestEvent) {
     const targetUser = await loadManagedUser(client, scope, userId);
     if (!targetUser) return new Response('Usuario fora do escopo.', { status: 403 });
 
-    await saveUserPermissions(
-      client,
-      userId,
-      Array.isArray(body.permissions) ? body.permissions : []
-    );
+    const permissions = Array.isArray(body.permissions) ? body.permissions : [];
+    ensureAssignablePermissionSet(scope, permissions);
+    await saveUserPermissions(client, userId, permissions);
 
     return json({ ok: true });
   } catch (err) {
-    console.error('[permissoes/[id] POST]', err);
+    logServerError('[admin/permissoes/[id]] falha ao salvar permissoes', err);
     return toErrorResponse(err, 'Erro ao salvar permissoes.');
   }
 }

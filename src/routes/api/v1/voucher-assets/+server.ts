@@ -2,15 +2,18 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 
 function canAccessVoucherAssets(scope: any, level: number) {
   if (scope.isAdmin) return true;
@@ -79,6 +82,10 @@ async function resolveTargetCompanyId(scope: any, requestedCompanyId?: string | 
   if (companyIds.length === 1) return companyIds[0];
 
   const normalizedRequested = normalizeText(requestedCompanyId);
+  if (normalizedRequested && !isUuid(normalizedRequested)) {
+    throw new Error('Empresa inválida para o voucher asset.');
+  }
+
   if (normalizedRequested && companyIds.includes(normalizedRequested)) {
     return normalizedRequested;
   }
@@ -90,21 +97,26 @@ async function resolveTargetCompanyId(scope: any, requestedCompanyId?: string | 
   throw new Error('Selecione uma empresa válida para o voucher asset.');
 }
 
-function validateFile(file: File | null, required = true) {
+async function validateFile(file: File | null, required = true) {
   if (!file || file.size <= 0) {
     if (required) throw new Error('Arquivo é obrigatório.');
     return null;
   }
 
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou SVG.');
+  const validation = await validateUploadedFile(file, {
+    allowedMimeTypes: ALLOWED_MIME_TYPES,
+    maxSizeBytes: MAX_FILE_SIZE_BYTES
+  });
+
+  if (!validation.ok) {
+    throw new Error(
+      validation.error === 'Arquivo muito grande.'
+        ? 'Arquivo muito grande. Tamanho máximo: 8MB.'
+        : 'Tipo de arquivo não permitido. Use JPG, PNG ou WebP.'
+    );
   }
 
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    throw new Error('Arquivo muito grande. Tamanho máximo: 8MB.');
-  }
-
-  return file;
+  return { file, mimeType: validation.mimeType };
 }
 
 export async function GET(event) {
@@ -145,6 +157,11 @@ export async function POST(event) {
 
     canAccessVoucherAssets(scope, 2);
 
+    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
+    if (!requestSize.ok) {
+      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 8MB.' }, { status: 413 });
+    }
+
     const formData = await event.request.formData();
     const provider = validateProvider(normalizeText(formData.get('provider')));
     const assetKind = validateAssetKind(normalizeText(formData.get('asset_kind')));
@@ -152,10 +169,11 @@ export async function POST(event) {
     const ordem = normalizeOrder(formData.get('ordem'));
     const ativo = normalizeBoolean(formData.get('ativo'), true);
     const companyId = await resolveTargetCompanyId(scope, normalizeText(formData.get('company_id')));
-    const file = validateFile(formData.get('file') as File | null, true);
-    if (!file) {
+    const validatedFile = await validateFile(formData.get('file') as File | null, true);
+    if (!validatedFile) {
       throw new Error('Arquivo é obrigatório.');
     }
+    const file = validatedFile.file;
 
     const storagePath = buildStoragePath({
       companyId,
@@ -166,7 +184,7 @@ export async function POST(event) {
 
     const { error: uploadError } = await client.storage
       .from(VOUCHER_ASSET_BUCKET)
-      .upload(storagePath, file, { contentType: file.type, upsert: false });
+      .upload(storagePath, file, { contentType: validatedFile.mimeType, upsert: false });
 
     if (uploadError) throw uploadError;
 
@@ -181,7 +199,7 @@ export async function POST(event) {
         label,
         storage_bucket: VOUCHER_ASSET_BUCKET,
         storage_path: storagePath,
-        mime_type: file.type || null,
+        mime_type: validatedFile.mimeType || null,
         size_bytes: file.size || null,
         ativo,
         ordem
@@ -208,10 +226,15 @@ export async function PATCH(event) {
 
     canAccessVoucherAssets(scope, 2);
 
+    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
+    if (!requestSize.ok) {
+      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 8MB.' }, { status: 413 });
+    }
+
     const formData = await event.request.formData();
     const id = normalizeText(formData.get('id'));
-    if (!id) {
-      return json({ success: false, error: 'ID do asset é obrigatório.' }, { status: 400 });
+    if (!isUuid(id)) {
+      return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
     }
 
     let assetQuery = client
@@ -235,13 +258,14 @@ export async function PATCH(event) {
     const label = formData.has('label') ? normalizeOptionalText(formData.get('label')) : existing.label;
     const ordem = formData.has('ordem') ? normalizeOrder(formData.get('ordem')) : existing.ordem || 0;
     const ativo = formData.has('ativo') ? normalizeBoolean(formData.get('ativo'), Boolean(existing.ativo)) : Boolean(existing.ativo);
-    const file = validateFile(formData.get('file') as File | null, false);
+    const validatedFile = await validateFile(formData.get('file') as File | null, false);
 
     let nextStoragePath = existing.storage_path;
     let nextMimeType = existing.mime_type;
     let nextSizeBytes = existing.size_bytes;
 
-    if (file) {
+    if (validatedFile) {
+      const file = validatedFile.file;
       nextStoragePath = buildStoragePath({
         companyId: existing.company_id,
         provider,
@@ -251,11 +275,11 @@ export async function PATCH(event) {
 
       const { error: uploadError } = await client.storage
         .from(VOUCHER_ASSET_BUCKET)
-        .upload(nextStoragePath, file, { contentType: file.type, upsert: false });
+        .upload(nextStoragePath, file, { contentType: validatedFile.mimeType, upsert: false });
 
       if (uploadError) throw uploadError;
 
-      nextMimeType = file.type || null;
+      nextMimeType = validatedFile.mimeType || null;
       nextSizeBytes = file.size || null;
     }
 
@@ -279,13 +303,13 @@ export async function PATCH(event) {
       .single();
 
     if (updateError) {
-      if (file) {
+      if (validatedFile) {
         await client.storage.from(VOUCHER_ASSET_BUCKET).remove([nextStoragePath]).catch(() => undefined);
       }
       throw updateError;
     }
 
-    if (file && existing.storage_path && existing.storage_path !== nextStoragePath) {
+    if (validatedFile && existing.storage_path && existing.storage_path !== nextStoragePath) {
       await client.storage.from(existing.storage_bucket).remove([existing.storage_path]).catch(() => undefined);
     }
 
@@ -305,8 +329,8 @@ export async function DELETE(event) {
 
     const id = normalizeText(event.url.searchParams.get('id'));
     const requestedCompanyId = normalizeText(event.url.searchParams.get('company_id'));
-    if (!id) {
-      return json({ success: false, error: 'ID do asset é obrigatório.' }, { status: 400 });
+    if (!isUuid(id)) {
+      return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
     }
 
     let assetQuery = client

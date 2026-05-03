@@ -14,6 +14,7 @@
     Plus,
     Trash2
   } from 'lucide-svelte';
+  import { apiFetch } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
 
   type RuleType = 'GERAL' | 'ESCALONAVEL';
@@ -124,19 +125,10 @@
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     body?: Record<string, unknown>
   ): Promise<T | null> {
-    const response = await fetch('/api/v1/parametros/commission-rules', {
+    return apiFetch<T | null>('/api/v1/parametros/commission-rules', {
       method,
-      headers: method === 'GET' ? undefined : { 'Content-Type': 'application/json' },
-      body: method === 'GET' ? undefined : JSON.stringify(body || {})
+      body: method === 'GET' ? undefined : body || {}
     });
-
-    const text = await response.text();
-
-    if (!response.ok) {
-      throw new Error(text || 'Erro ao processar regras de comissão.');
-    }
-
-    return text ? (JSON.parse(text) as T) : null;
   }
 
   async function loadRules() {

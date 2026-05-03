@@ -6,6 +6,7 @@
   import { FieldCheckbox, FieldInput, FieldSelect, SimpleTable } from "$lib/components/ui";
   import { toast } from "$lib/stores/ui";
   import { permissoes } from "$lib/stores/permissoes";
+  import { ApiError, apiFetch } from "$lib/services/api";
   import {
     createDefaultConciliacaoBandRules,
     createEmptyConciliacaoTier,
@@ -169,22 +170,22 @@
     accessDenied = false;
 
     try {
-      const response = await fetch("/api/v1/parametros/sistema");
-
-      if (response.status === 403) {
-        accessDenied = true;
-        form = createDefaultForm();
-        return;
-      }
-
-      if (!response.ok) throw new Error(await response.text());
-
-      const payload = await response.json();
+      const payload = await apiFetch<{
+        params?: Partial<ParametrosSistema>;
+        ultima_atualizacao?: string | null;
+        origem?: string | null;
+        owner_nome?: string | null;
+      }>("/api/v1/parametros/sistema", { redirectOnForbidden: false });
       form = hydrateForm(payload.params);
       ultimaAtualizacao = payload.ultima_atualizacao || null;
       origemDados = payload.origem === "banco" ? "banco" : "default";
       ownerNome = payload.owner_nome || payload.params?.owner_user_nome || null;
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        accessDenied = true;
+        form = createDefaultForm();
+        return;
+      }
       console.error(err);
       toast.error("Nao foi possivel carregar os parametros do sistema.");
     } finally {
@@ -198,19 +199,15 @@
     saving = true;
 
     try {
-      const response = await fetch("/api/v1/parametros/sistema", {
+      const payload = await apiFetch<{ id?: string | null; owner_nome?: string | null }>("/api/v1/parametros/sistema", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           ...form,
           conciliacao_tiers: form.conciliacao_tiers.map(cloneTier),
           conciliacao_faixas_loja: form.conciliacao_faixas_loja.map(cloneBand),
-        }),
+        },
       });
 
-      if (!response.ok) throw new Error(await response.text());
-
-      const payload = await response.json();
       if (payload?.id) {
         form = { ...form, id: payload.id };
       }

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -22,6 +23,7 @@ import {
   getVendaStatus,
   getVendaVendedorNome
 } from '$lib/server/relatorios';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import {
   buildConciliacaoSyntheticVendas,
   fetchEffectiveConciliacaoReceipts,
@@ -44,6 +46,25 @@ import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
 import { calcularRankingComissionavel } from '$lib/server/rankingComissionavel';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 import { normalizeReceiptNumber } from '$lib/conciliacao/receiptNumber';
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -237,7 +258,7 @@ async function carregarTermosNaoComissionaveis(client: any) {
     const unique = Array.from(new Set(termos)) as string[];
     if (unique.length > 0) return unique;
   } catch (error) {
-    console.warn('[relatorios/vendas] falha ao carregar termos nao comissionaveis', error);
+    logServerError('[relatorios/vendas] falha ao carregar termos nao comissionaveis', error);
   }
 
   return DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeTextValue(termo)).filter(Boolean);
@@ -440,7 +461,7 @@ export async function GET(event) {
             vendedorIds
           });
         } catch (error) {
-          console.warn('[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino:', error);
+          logServerError('[relatorios/vendas] split sales indisponivel, seguindo sem rateio destino', error);
         }
 
         if (splitSaleIds.length > 0) {
@@ -469,7 +490,7 @@ export async function GET(event) {
           excludeVendedorIds: undefined
         });
       } catch (error) {
-        console.warn('[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides:', error);
+        logServerError('[relatorios/vendas] conciliacao indisponivel, seguindo sem overrides', error);
         concReceipts = [];
       }
       let concReceiptsAllCache: any[] | null = null;
@@ -486,7 +507,7 @@ export async function GET(event) {
             excludeVendedorIds: undefined
           });
         } catch (error) {
-          console.warn('[relatorios/vendas] conciliation all indisponivel:', error);
+          logServerError('[relatorios/vendas] conciliation all indisponivel', error);
           concReceiptsAllCache = [];
         }
         return concReceiptsAllCache;
@@ -511,7 +532,7 @@ export async function GET(event) {
 
         const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
         if (splitConcErr) {
-          console.warn('[relatorios/vendas] split conciliation indisponivel:', splitConcErr);
+          logServerError('[relatorios/vendas] split conciliation indisponivel', splitConcErr);
         }
 
         const splitConcIdSet = new Set(
@@ -547,7 +568,7 @@ export async function GET(event) {
           fim: periodEnd
         });
       } catch (error) {
-        console.warn('[relatorios/vendas] conciliacao suprimida indisponivel:', error);
+        logServerError('[relatorios/vendas] conciliacao suprimida indisponivel', error);
         suppressedConcReceipts = [];
       }
       const suppressedReceiptIds = new Set(
@@ -629,7 +650,7 @@ export async function GET(event) {
         const rateioMap = await fetchRateioByReciboIds(client, reciboIds);
         rows = applyRateioToSalesForScopedVendedores(mergedRows, rateioMap, vendedorIds);
       } catch (error) {
-        console.warn('[relatorios/vendas] rateio indisponivel, seguindo sem rateio:', error);
+        logServerError('[relatorios/vendas] rateio indisponivel, seguindo sem rateio', error);
         rows = mergedRows;
       }
 
@@ -667,7 +688,11 @@ export async function GET(event) {
         return true;
       });
 
-    const loadConsultaRowsForPeriod = async (periodStart: string, periodEnd: string) => {
+    const loadConsultaRowsBatch = async (
+      periodStart: string,
+      periodEnd: string,
+      clientIdsFilter?: string[]
+    ) => {
       let query = client
         .from('vendas')
         .select(`
@@ -711,7 +736,7 @@ export async function GET(event) {
       if (companyIds.length > 0) query = query.in('company_id', companyIds);
       if (vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
       if (clienteId) query = query.eq('cliente_id', clienteId);
-      else if (!scope.isAdmin && accessibleClientIds.length > 0) query = query.in('cliente_id', accessibleClientIds);
+      else if (!scope.isAdmin && clientIdsFilter && clientIdsFilter.length > 0) query = query.in('cliente_id', clientIdsFilter);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -720,6 +745,28 @@ export async function GET(event) {
         ...row,
         recibos: Array.isArray(row?.recibos) ? row.recibos : []
       }));
+    };
+
+    const loadConsultaRowsForPeriod = async (periodStart: string, periodEnd: string) => {
+      if (
+        !clienteId &&
+        !scope.isAdmin &&
+        vendedorIds.length === 0 &&
+        accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE
+      ) {
+        const rows: any[] = [];
+        for (const batch of chunkArray(accessibleClientIds)) {
+          rows.push(...(await loadConsultaRowsBatch(periodStart, periodEnd, batch)));
+        }
+        return dedupeRowsById(rows);
+      }
+
+      const clientIdsFilter =
+        !clienteId && !scope.isAdmin && accessibleClientIds.length > 0
+          ? accessibleClientIds
+          : undefined;
+
+      return loadConsultaRowsBatch(periodStart, periodEnd, clientIdsFilter);
     };
 
     const computeConsultaKpiTotalFromRows = (rowsInput: any[]) => {
@@ -993,33 +1040,36 @@ export async function GET(event) {
     const totalComissao = items.reduce((sum, item) => sum + Number(item.comissao || 0), 0);
     const ticketMedio = totalVendas > 0 ? totalValor / totalVendas : 0;
 
-    return json({
-      items,
-      total: items.length,
-      vendedores,
-      resumo: {
-        total_vendas: totalVendas,
-        vendas_confirmadas: vendasConfirmadas,
-        vendas_canceladas: vendasCanceladas,
-        total_valor: totalValor,
-        total_comissao: totalComissao,
-        ticket_medio: ticketMedio
+    return json(
+      {
+        items,
+        total: items.length,
+        vendedores,
+        resumo: {
+          total_vendas: totalVendas,
+          vendas_confirmadas: vendasConfirmadas,
+          vendas_canceladas: vendasCanceladas,
+          total_valor: totalValor,
+          total_comissao: totalComissao,
+          ticket_medio: ticketMedio
+        },
+        series: {
+          mensal: monthlySeries.map((item) => ({
+            key: item.key,
+            total_valor: Number(item.total_valor.toFixed(2))
+          })),
+          diaria: dailySeries.map((item) => ({
+            date: item.date,
+            value: Number(item.value.toFixed(2))
+          }))
+        },
+        periodo: {
+          data_inicio: dataInicio,
+          data_fim: dataFim
+        }
       },
-      series: {
-        mensal: monthlySeries.map((item) => ({
-          key: item.key,
-          total_valor: Number(item.total_valor.toFixed(2))
-        })),
-        diaria: dailySeries.map((item) => ({
-          date: item.date,
-          value: Number(item.value.toFixed(2))
-        }))
-      },
-      periodo: {
-        data_inicio: dataInicio,
-        data_fim: dataFim
-      }
-    });
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar relatorio de vendas.');
   }

@@ -7,6 +7,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
   import {
     DollarSign, CheckCircle, AlertCircle, Clock,
     TrendingUp, ArrowRight, CreditCard,
@@ -131,19 +132,11 @@
   async function carregarDashboard() {
     loading = true;
     try {
-      const [sumRes, concRes, comRes] = await Promise.all([
-        fetch('/api/v1/conciliacao/summary'),
-        fetch('/api/v1/conciliacao?limit=6'),
-        fetch('/api/v1/financeiro/comissoes')
+      const [sumData, concData, comData] = await Promise.all([
+        apiGet<any>('/api/v1/conciliacao/summary'),
+        apiGet<any>('/api/v1/conciliacao', { limit: 6 }),
+        apiGet<any>('/api/v1/financeiro/comissoes')
       ]);
-
-      if (!sumRes.ok) throw new Error('Erro ao carregar resumo da conciliação');
-      if (!concRes.ok) throw new Error('Erro ao carregar conciliações recentes');
-      if (!comRes.ok) throw new Error('Erro ao carregar comissões');
-
-      const sumData = await sumRes.json();
-      const concData = await concRes.json();
-      const comData = await comRes.json();
 
       summary = {
         total: Number(sumData.total || 0),

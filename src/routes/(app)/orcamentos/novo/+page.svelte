@@ -8,6 +8,7 @@
   import { ArrowLeft, Save, Send, Plus, X, FileText, Search, User } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   // ─── Tipos ───────────────────────────────────────────────────────────────────
   interface ItemOrcamento {
@@ -100,10 +101,10 @@
     }
     loadingClientes = true;
     try {
-      const params = new URLSearchParams({ q: query, pageSize: '15' });
-      const response = await fetch(`/api/v1/clientes/list?${params.toString()}`);
-      if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
+        q: query,
+        pageSize: 15
+      });
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];
     } catch {
       clientesFiltrados = [];
@@ -213,16 +214,7 @@
         }))
       };
 
-      const response = await fetch('/api/v1/orcamentos/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao criar orçamento');
-      }
+      await apiPost('/api/v1/orcamentos/create', payload);
 
       toast.success(
         enviar

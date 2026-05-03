@@ -559,9 +559,9 @@
                         {#each recado.arquivos as arquivo}
                           <a
                             class="chat-attachment-file"
-                            href={buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                            href={arquivo.download_url || buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
                             target="_blank"
-                            rel="noreferrer"
+                            rel="noopener noreferrer"
                           >
                             <span class="chat-attachment-file-icon">•</span>
                             <span class="chat-attachment-file-info">
@@ -711,9 +711,9 @@
                       {#each recado.arquivos as arquivo}
                         <a
                           class="chat-attachment-file"
-                          href={buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                          href={arquivo.download_url || buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                         >
                           <span class="chat-attachment-file-icon">•</span>
                           <span class="chat-attachment-file-info">

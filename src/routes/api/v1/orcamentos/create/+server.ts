@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -63,11 +64,11 @@ export async function POST(event) {
         data_final: body.data_final || null,
         last_interaction_notes: body.notes || body.observacoes || null
       })
-      .select()
+      .select('id, client_id, status, status_negociacao, total, currency, created_by, data_embarque, data_final, created_at')
       .single();
 
     if (quoteError) {
-      console.error('Erro ao criar quote:', quoteError);
+      logServerError('[orcamentos/create] erro ao criar quote', quoteError);
       return json({ error: 'Erro ao criar orcamento.' }, { status: 500 });
     }
 
@@ -90,7 +91,7 @@ export async function POST(event) {
     if (itemsError) {
       // Desfaz o orcamento para nao deixar registro sem itens
       await client.from('quote').delete().eq('id', quote.id);
-      console.error('Erro ao criar itens do quote:', itemsError);
+      logServerError('[orcamentos/create] erro ao criar itens do quote', itemsError);
       return json({ error: 'Erro ao salvar itens do orcamento.' }, { status: 500 });
     }
 

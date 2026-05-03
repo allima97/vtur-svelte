@@ -8,6 +8,7 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPatch, apiPost } from '$lib/services/api';
   import { Calendar, Download, Plus, RefreshCw, Video, X } from 'lucide-svelte';
 
   type Consultoria = {
@@ -90,10 +91,9 @@
   async function loadConsultorias() {
     loading = true;
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : '';
-      const res = await fetch(`/api/v1/consultorias${params}`);
-      if (!res.ok) throw new Error(await res.text());
-      consultorias = await res.json();
+      consultorias = await apiGet<Consultoria[]>('/api/v1/consultorias', {
+        status: statusFilter || undefined
+      });
     } catch (err: any) {
       toast.error('Erro ao carregar consultorias: ' + (err?.message ?? err));
     } finally {
@@ -148,16 +148,10 @@
         notas: form.notas.trim() || null
       };
 
-      const method = editingId ? 'PATCH' : 'POST';
-      const res = await fetch('/api/v1/consultorias', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || 'Erro ao salvar consultoria');
+      if (editingId) {
+        await apiPatch('/api/v1/consultorias', payload);
+      } else {
+        await apiPost('/api/v1/consultorias', payload);
       }
 
       toast.success(editingId ? 'Consultoria atualizada.' : 'Consultoria criada.');
@@ -172,16 +166,11 @@
 
   async function toggleFechada(c: Consultoria) {
     try {
-      const res = await fetch('/api/v1/consultorias', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: c.id,
-          fechada: !c.fechada,
-          fechada_em: !c.fechada ? new Date().toISOString() : null
-        })
+      await apiPatch('/api/v1/consultorias', {
+        id: c.id,
+        fechada: !c.fechada,
+        fechada_em: !c.fechada ? new Date().toISOString() : null
       });
-      if (!res.ok) throw new Error(await res.text());
       toast.success(c.fechada ? 'Consultoria reaberta.' : 'Consultoria fechada.');
       await loadConsultorias();
     } catch (err: any) {
@@ -190,7 +179,7 @@
   }
 
   function exportIcal() {
-    window.open('/api/v1/consultorias/ics', '_blank');
+    window.open('/api/v1/consultorias/ics', '_blank', 'noopener,noreferrer');
   }
 
   // Recarrega quando o filtro muda

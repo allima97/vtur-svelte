@@ -1,10 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Calendar } from '@fullcalendar/core';
-  import interactionPlugin from '@fullcalendar/interaction';
-  import dayGridPlugin from '@fullcalendar/daygrid';
-  import timeGridPlugin from '@fullcalendar/timegrid';
-  import ptBrLocale from '@fullcalendar/core/locales/pt-br';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -15,6 +10,7 @@
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
   import {
     CalendarDays,
     Clock3,
@@ -70,13 +66,14 @@
   });
 
   let calendarEl: HTMLElement;
-  let calendar: Calendar | null = null;
+  let calendar: any | null = null;
   let loading = true;
   let refreshing = false;
   let items: AgendaItem[] = [];
   let visibleRange = { inicio: todayIso, fim: todayIso };
   let searchQuery = '';
   let currentView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' = 'timeGridDay';
+  let initializingCalendar = false;
 
   function changeView(view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') {
     currentView = view;
@@ -153,20 +150,11 @@
     refreshing = true;
 
     try {
-      const response = await fetch(`/api/v1/agenda/range?inicio=${inicio}&fim=${fim}`, {
-        credentials: 'same-origin'
-      });
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao carregar agenda.');
-      }
-
+      const payload = await apiGet<{ items?: AgendaItem[] }>('/api/v1/agenda/range', { inicio, fim });
       visibleRange = { inicio, fim };
       items = Array.isArray(payload?.items) ? payload.items : [];
       await syncCalendarEvents();
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao carregar agenda.');
       items = [];
       await syncCalendarEvents();
@@ -176,85 +164,99 @@
     }
   }
 
-  function initializeCalendar() {
-    if (!calendarEl) return;
+  async function initializeCalendar() {
+    if (!calendarEl || calendar || initializingCalendar) return;
+    initializingCalendar = true;
 
-    const isMobile = window.innerWidth < 640;
+    try {
+      const [{ Calendar }, interactionPlugin, dayGridPlugin, timeGridPlugin, ptBrLocale] = await Promise.all([
+        import('@fullcalendar/core'),
+        import('@fullcalendar/interaction'),
+        import('@fullcalendar/daygrid'),
+        import('@fullcalendar/timegrid'),
+        import('@fullcalendar/core/locales/pt-br')
+      ]);
 
-    calendar = new Calendar(calendarEl, {
-      plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-      locale: ptBrLocale,
-      initialView: isMobile ? 'timeGridDay' : 'dayGridMonth',
-      headerToolbar: isMobile
-        ? {
-            left: 'prev',
-            center: 'title',
-            right: 'next'
+      const isMobile = window.innerWidth < 640;
+      currentView = isMobile ? 'timeGridDay' : 'dayGridMonth';
+
+      calendar = new Calendar(calendarEl, {
+        plugins: [dayGridPlugin.default, timeGridPlugin.default, interactionPlugin.default],
+        locale: ptBrLocale.default,
+        initialView: currentView,
+        headerToolbar: isMobile
+          ? {
+              left: 'prev',
+              center: 'title',
+              right: 'next'
+            }
+          : {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+        footerToolbar: false,
+        height: 'auto',
+        editable: true,
+        selectable: true,
+        dayMaxEvents: true,
+        datesSet: async (info: any) => {
+          const start = formatDate(info.start);
+          const endDate = new Date(info.end.getTime());
+          endDate.setDate(endDate.getDate() - 1);
+          const end = formatDate(endDate);
+          await loadRange(start, end, true);
+        },
+        select: (info: any) => {
+          openCreateModal({
+            startDate: info.startStr.split('T')[0],
+            endDate: (info.endStr || info.startStr).split('T')[0],
+            allDay: info.allDay,
+            startTime: info.allDay ? '09:00' : info.startStr.split('T')[1]?.slice(0, 5) || '09:00',
+            endTime: info.allDay ? '10:00' : info.endStr?.split('T')[1]?.slice(0, 5) || '10:00'
+          });
+        },
+        dateClick: (info: any) => {
+          openCreateModal({
+            startDate: info.dateStr.split('T')[0],
+            endDate: info.dateStr.split('T')[0],
+            allDay: info.allDay,
+            startTime: '09:00',
+            endTime: '10:00'
+          });
+        },
+        eventClick: (info: any) => {
+          const found = items.find((item) => item.id === info.event.id);
+          if (!found) return;
+          openExistingEvent(found);
+        },
+        eventDrop: async (info: any) => {
+          try {
+            await updateFromCalendarEvent(info.event);
+            toast.success('Evento reposicionado.');
+          } catch (error) {
+            info.revert();
+            toast.error(error instanceof Error ? error.message : 'Erro ao mover evento.');
           }
-        : {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-          },
-      footerToolbar: false,
-      height: 'auto',
-      editable: true,
-      selectable: true,
-      dayMaxEvents: true,
-      datesSet: async (info) => {
-        const start = formatDate(info.start);
-        const endDate = new Date(info.end.getTime());
-        endDate.setDate(endDate.getDate() - 1);
-        const end = formatDate(endDate);
-        await loadRange(start, end, true);
-      },
-      select: (info) => {
-        openCreateModal({
-          startDate: info.startStr.split('T')[0],
-          endDate: (info.endStr || info.startStr).split('T')[0],
-          allDay: info.allDay,
-          startTime: info.allDay ? '09:00' : info.startStr.split('T')[1]?.slice(0, 5) || '09:00',
-          endTime: info.allDay ? '10:00' : info.endStr?.split('T')[1]?.slice(0, 5) || '10:00'
-        });
-      },
-      // dateClick: abre modal no mobile com toque simples em qualquer célula do dia
-      dateClick: (info) => {
-        openCreateModal({
-          startDate: info.dateStr.split('T')[0],
-          endDate: info.dateStr.split('T')[0],
-          allDay: info.allDay,
-          startTime: '09:00',
-          endTime: '10:00'
-        });
-      },
-      eventClick: (info) => {
-        const found = items.find((item) => item.id === info.event.id);
-        if (!found) return;
-        openExistingEvent(found);
-      },
-      eventDrop: async (info) => {
-        try {
-          await updateFromCalendarEvent(info.event);
-          toast.success('Evento reposicionado.');
-        } catch (error) {
-          console.error(error);
-          info.revert();
-          toast.error(error instanceof Error ? error.message : 'Erro ao mover evento.');
+        },
+        eventResize: async (info: any) => {
+          try {
+            await updateFromCalendarEvent(info.event);
+            toast.success('Periodo atualizado.');
+          } catch (error) {
+            info.revert();
+            toast.error(error instanceof Error ? error.message : 'Erro ao atualizar evento.');
+          }
         }
-      },
-      eventResize: async (info) => {
-        try {
-          await updateFromCalendarEvent(info.event);
-          toast.success('Periodo atualizado.');
-        } catch (error) {
-          console.error(error);
-          info.revert();
-          toast.error(error instanceof Error ? error.message : 'Erro ao atualizar evento.');
-        }
-      }
-    });
+      });
 
-    calendar.render();
+      calendar.render();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao carregar calendario.');
+      loading = false;
+    } finally {
+      initializingCalendar = false;
+    }
   }
 
   function eventToPayload(event: any) {
@@ -282,17 +284,10 @@
       throw new Error('Aniversarios sao somente leitura.');
     }
 
-    const response = await fetch(`/api/v1/agenda/update?id=${event.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(eventToPayload(event))
-    });
-
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(payload?.error || 'Erro ao atualizar evento.');
-    }
+    await apiPatch(
+      `/api/v1/agenda/update?id=${encodeURIComponent(String(event.id))}`,
+      eventToPayload(event)
+    );
 
     await loadRange(visibleRange.inicio, visibleRange.fim, true);
   }
@@ -349,16 +344,10 @@
         all_day: eventForm.allDay
       };
 
-      const response = await fetch(selectedEventId ? `/api/v1/agenda/update?id=${selectedEventId}` : '/api/v1/agenda/create', {
-        method: selectedEventId ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(body)
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao salvar evento.');
+      if (selectedEventId) {
+        await apiPatch(`/api/v1/agenda/update?id=${encodeURIComponent(selectedEventId)}`, body);
+      } else {
+        await apiPost('/api/v1/agenda/create', body);
       }
 
       toast.success(selectedEventId ? 'Evento atualizado.' : 'Evento criado.');
@@ -367,7 +356,6 @@
       selectedEventId = null;
       await loadRange(visibleRange.inicio, visibleRange.fim, true);
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao salvar evento.');
     } finally {
       eventSaving = false;
@@ -379,32 +367,23 @@
     if (!(await confirmAction('Deseja excluir este evento?'))) return;
 
     try {
-      const response = await fetch(`/api/v1/agenda/delete?id=${selectedEventId}`, {
-        method: 'DELETE',
-        credentials: 'same-origin'
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao excluir evento.');
-      }
-
+      await apiDelete('/api/v1/agenda/delete', { id: selectedEventId });
       toast.success('Evento excluido.');
       eventModalOpen = false;
       selectedEventId = null;
       eventForm = defaultEventForm();
       await loadRange(visibleRange.inicio, visibleRange.fim, true);
     } catch (error) {
-      console.error(error);
       toast.error(error instanceof Error ? error.message : 'Erro ao excluir evento.');
     }
   }
 
   onMount(() => {
-    initializeCalendar();
+    void initializeCalendar();
   });
 
   $: if (calendarEl && !calendar) {
-    initializeCalendar();
+    void initializeCalendar();
   }
 
   $: visibleRows = items

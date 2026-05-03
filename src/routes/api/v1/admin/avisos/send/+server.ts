@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { applyTemplate, buildFromEmails, loadAvisoTemplates, loadEmailSettings, loadManagedUser } from '$lib/server/admin';
+import { checkRateLimit } from '$lib/server/rateLimit';
+import { escapeHtml } from '$lib/utils/html';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -14,7 +17,7 @@ function canSendAvisos(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
 function renderHtml(text: string) {
   return String(text || '')
     .split(/\r?\n/)
-    .map((line) => `<p>${line || '&nbsp;'}</p>`)
+    .map((line) => `<p>${line ? escapeHtml(line) : '&nbsp;'}</p>`)
     .join('');
 }
 
@@ -22,6 +25,17 @@ export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
+    const rateLimit = checkRateLimit(
+      `admin-avisos-send:${event.getClientAddress?.() || 'unknown'}:${user.id}`,
+      { max: 20, windowMs: 60_000 }
+    );
+    if (!rateLimit.allowed) {
+      return new Response('Muitas tentativas de envio. Aguarde alguns segundos.', {
+        status: 429,
+        headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+      });
+    }
+
     const scope = await resolveUserScope(client, user.id);
     const body = await event.request.json().catch(() => ({}));
 
@@ -95,9 +109,11 @@ export async function POST(event) {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return new Response(String(payload?.message || payload?.error || 'Falha ao enviar aviso.'), {
-        status: response.status
+      logServerError('[admin/avisos/send] Falha no provedor de e-mail', {
+        status: response.status,
+        providerMessage: String(payload?.message || payload?.error || '')
       });
+      return new Response('Falha ao enviar aviso.', { status: 502 });
     }
 
     return json({

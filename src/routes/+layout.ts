@@ -31,7 +31,9 @@ export const load = async () => {
           try {
             await permissoes.init(supabase);
           } catch (err) {
-            console.error('[layout.ts] Erro ao reinicializar permissoes:', err);
+            console.error('[layout.ts] Erro ao reinicializar permissoes', {
+              message: String((err as any)?.message || err || '')
+            });
           }
           return;
         }

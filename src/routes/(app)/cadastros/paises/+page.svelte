@@ -6,6 +6,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -37,9 +38,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/paises');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/paises');
       paises = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar países.');
@@ -64,12 +63,12 @@
     if (!form.nome.trim()) { toast.error('Nome obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/paises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, nome: form.nome, codigo_iso: form.codigo_iso || null, continente: form.continente || null })
+      await apiPost('/api/v1/paises', {
+        id: editingId || undefined,
+        nome: form.nome,
+        codigo_iso: form.codigo_iso || null,
+        continente: form.continente || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'País atualizado.' : 'País criado.');
       modalOpen = false;
       await load();
@@ -84,8 +83,7 @@
     if (!(await confirmAction('Deseja excluir este país?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/paises?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/paises', { id });
       toast.success('País excluído.');
       await load();
     } catch (err) {

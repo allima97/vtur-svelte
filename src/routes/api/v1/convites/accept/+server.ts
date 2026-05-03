@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getAdminClient, isUuid } from '$lib/server/v1';
-import { requireAuthenticatedUser } from '$lib/server/v1';
+import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 
 function isTableMissing(error: any) {
   const code = String(error?.code || "");
@@ -138,7 +137,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ ok: true });
   } catch (error: any) {
-    console.error("[convites/accept] falha ao aceitar convite", error);
+    logServerError("[convites/accept] falha ao aceitar convite", error);
     return json({ error: "Erro interno ao aceitar convite." }, { status: 500 });
   }
 };

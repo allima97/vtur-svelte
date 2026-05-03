@@ -9,6 +9,13 @@ import { ensureReciboReservaUnicos } from './reciboReservaValidator';
 import { criarVinculosViajaComAutomaticos } from './viagaComManager';
 
 const STORAGE_BUCKET = "viagens";
+const CONTRATO_ALLOWED_MIME_EXTENSIONS: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+const CONTRATO_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function isISODate(value?: string | null) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
@@ -93,8 +100,16 @@ function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   }, 0);
 }
 
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "-");
+function validateContratoUploadFile(file: File) {
+  const mimeType = String(file.type || "").toLowerCase();
+  const extension = CONTRATO_ALLOWED_MIME_EXTENSIONS[mimeType];
+  if (!extension) {
+    throw new Error("Contrato com tipo de arquivo inválido. Use PDF, JPG, PNG ou WebP.");
+  }
+  if (file.size > CONTRATO_MAX_FILE_SIZE_BYTES) {
+    throw new Error("Contrato muito grande. Tamanho máximo: 10MB.");
+  }
+  return { mimeType, extension };
 }
 
 function truncateText(value: string, max = 200) {
@@ -806,16 +821,16 @@ export async function saveContratoImport(params: {
     if (!arquivo) return { path: null, url: null };
     const cached = contratoUploadCache.get(arquivo);
     if (cached) return cached;
-    const safeName = sanitizeFileName(arquivo.name || "contrato.pdf");
-    const path = `contratos/${venda.id}/${Date.now()}-${safeName}`;
+    const uploadFile = validateContratoUploadFile(arquivo);
+    const path = `contratos/${venda.id}/${Date.now()}-${crypto.randomUUID()}.${uploadFile.extension}`;
     const upload = await supabaseBrowser.storage.from(STORAGE_BUCKET).upload(path, arquivo, {
       cacheControl: "3600",
       upsert: false,
-      contentType: arquivo.type || "application/pdf",
+      contentType: uploadFile.mimeType,
     });
     if (upload.error) throw upload.error;
-    const url = supabaseBrowser.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl || null;
-    const result = { path, url };
+    // O contrato fica referenciado pelo path interno. A leitura deve gerar URL assinada no servidor.
+    const result = { path, url: null };
     contratoUploadCache.set(arquivo, result);
     return result;
   }

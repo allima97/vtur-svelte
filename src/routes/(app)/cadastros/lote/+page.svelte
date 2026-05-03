@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Upload, FileText, CheckCircle, AlertCircle, Download } from 'lucide-svelte';
 
   type TipoProduto = { id: string; nome: string };
@@ -22,12 +23,12 @@
   let textoProdutos = '';
 
   async function loadBase() {
-    const [tiposRes, subRes] = await Promise.all([
-      fetch('/api/v1/tipo-produtos?all=1'),
-      fetch('/api/v1/subdivisoes')
+    const [tiposPayload, subPayload] = await Promise.all([
+      apiGet<any>('/api/v1/tipo-produtos', { all: 1 }),
+      apiGet<any>('/api/v1/subdivisoes')
     ]);
-    if (tiposRes.ok) { const d = await tiposRes.json(); tipos = d.items || []; }
-    if (subRes.ok) { const d = await subRes.json(); subdivisoes = d.items || []; }
+    tipos = tiposPayload.items || [];
+    subdivisoes = subPayload.items || [];
   }
 
   async function importarLote() {
@@ -49,14 +50,10 @@
         ativo: true
       }));
 
-      const response = await fetch('/api/v1/produtos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ produtos, subdivisao_id: subdivisaoId || null })
+      const data = await apiPost<any>('/api/v1/produtos', {
+        produtos,
+        subdivisao_id: subdivisaoId || null
       });
-
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
 
       resultado = {
         criados: data.criados || linhas.length,

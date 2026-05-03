@@ -7,6 +7,11 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+const CIDADE_SELECT_FIELDS = `
+  id, nome, subdivisao_id, descricao, created_at,
+  subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id, pais:paises!pais_id(id, nome))
+`;
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -21,7 +26,7 @@ export async function GET(event) {
 
     const { data, error } = await client
       .from('cidades')
-      .select('*')
+      .select(CIDADE_SELECT_FIELDS)
       .eq('id', cidadeId)
       .single();
 
@@ -64,13 +69,10 @@ export async function PATCH(event) {
       .from('cidades')
       .update(updateData)
       .eq('id', cidadeId)
-      .select()
+      .select(CIDADE_SELECT_FIELDS)
       .single();
 
-    if (error) {
-      console.error('[Cidades API] Erro ao atualizar:', error);
-      return json({ error: 'Erro ao atualizar cidade.' }, { status: 500 });
-    }
+    if (error) throw error;
 
     return json({ success: true, data });
   } catch (err) {
@@ -95,10 +97,7 @@ export async function DELETE(event) {
       .delete()
       .eq('id', cidadeId);
 
-    if (error) {
-      console.error('[Cidades API] Erro ao excluir:', error);
-      return json({ error: 'Erro ao excluir cidade.' }, { status: 500 });
-    }
+    if (error) throw error;
 
     return json({ success: true });
   } catch (err) {

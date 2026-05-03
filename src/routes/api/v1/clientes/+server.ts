@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -42,7 +43,7 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['clientes', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Clientes.');
     }
 
-    const search = String(event.url.searchParams.get('search') || '').trim().toLowerCase();
+    const search = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
     const accessibleClientIds = await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
@@ -91,7 +92,10 @@ export async function GET(event) {
     const { data, error } = await fetchClientes();
     if (error) throw error;
 
-    return json({ items: data || [], total: data?.length || 0 });
+    return json(
+      { items: data || [], total: data?.length || 0 },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar clientes.');
   }

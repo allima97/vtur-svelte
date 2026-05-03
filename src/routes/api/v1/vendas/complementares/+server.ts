@@ -10,6 +10,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 type SaleScopeRow = {
   id: string;
@@ -303,11 +304,14 @@ export async function GET(event: RequestEvent) {
         .slice(0, 10);
     }
 
-    return json({
-      current_receipt_ids: currentReceiptIds,
-      current,
-      suggestions
-    });
+    return json(
+      {
+        current_receipt_ids: currentReceiptIds,
+        current,
+        suggestions
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar recibos complementares.');
   }

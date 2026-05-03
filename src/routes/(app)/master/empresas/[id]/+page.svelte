@@ -1,12 +1,12 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { browser } from '$app/environment';
-  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
+  import { ApiError, apiFetch, apiPost } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
 
   const emptyForm = {
@@ -41,24 +41,6 @@
 
   $: isCreateMode = $page.params.id === 'nova';
 
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        })
-      });
-    } catch {
-      // Falha silenciosa: o carregamento tratará 401 explicitamente.
-    }
-  }
-
   async function loadPage() {
     loading = true;
     try {
@@ -68,28 +50,34 @@
         await goto('/master/empresas');
         return;
       } else {
-        const response = await fetch(`/api/v1/admin/empresas/${$page.params.id}`);
-        if (!response.ok) {
-          const message = (await response.text()) || 'Nao foi possivel carregar a empresa.';
-          if (response.status === 401) {
+        let payload: any;
+        try {
+          payload = await apiFetch(`/api/v1/admin/empresas/${$page.params.id}`, {
+            redirectOnForbidden: false,
+            redirectOnUnauthorized: false
+          });
+        } catch (err) {
+          if (err instanceof ApiError) {
+            const message = err.message || 'Nao foi possivel carregar a empresa.';
+            if (err.status === 401) {
             toast.error('Sessão expirada. Faça login novamente para continuar.');
             const next = `${$page.url.pathname}${$page.url.search}`;
             await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
             return;
-          }
-          if (response.status === 403) {
+            }
+            if (err.status === 403) {
             toast.error(message || 'Você não tem permissão para acessar esta empresa.');
             await goto('/master/empresas');
             return;
-          }
-          if (response.status === 404) {
+            }
+            if (err.status === 404) {
             toast.error(message || 'Empresa não encontrada.');
             await goto('/master/empresas');
             return;
+            }
           }
-          throw new Error(message);
+          throw err;
         }
-        const payload = await response.json();
 
         form = {
           id: payload.empresa.id,
@@ -123,13 +111,7 @@
   async function saveCompany() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/empresas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiPost<{ id?: string }>('/api/v1/admin/empresas', form);
       toast.success('Empresa salva com sucesso.');
 
       if (isCreateMode && payload.id) {
@@ -148,16 +130,11 @@
   async function saveMasterLink() {
     linkSaving = true;
     try {
-      const response = await fetch('/api/v1/admin/master-empresas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          master_id: newLink.master_id,
-          company_id: form.id,
-          status: newLink.status
-        })
+      await apiPost('/api/v1/admin/master-empresas', {
+        master_id: newLink.master_id,
+        company_id: form.id,
+        status: newLink.status
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Vinculo master criado.');
       newLink = { master_id: '', status: 'approved' };
       await loadPage();
@@ -171,16 +148,11 @@
 
   async function updateMasterLink(id: string, status: string) {
     try {
-      const response = await fetch('/api/v1/admin/master-empresas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update',
-          id,
-          status
-        })
+      await apiPost('/api/v1/admin/master-empresas', {
+        action: 'update',
+        id,
+        status
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Vinculo master atualizado.');
       await loadPage();
     } catch (err) {
@@ -191,15 +163,10 @@
 
   async function deleteMasterLink(id: string) {
     try {
-      const response = await fetch('/api/v1/admin/master-empresas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'delete',
-          id
-        })
+      await apiPost('/api/v1/admin/master-empresas', {
+        action: 'delete',
+        id
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Vinculo master removido.');
       await loadPage();
     } catch (err) {

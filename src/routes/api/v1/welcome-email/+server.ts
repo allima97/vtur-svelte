@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { requireAuthenticatedUser } from '$lib/server/v1';
-import { getAdminClient } from '$lib/server/v1';
+import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { resolveResendApiKey, resolveFromEmails, resolveSmtpConfig } from '$lib/server/emailSettings';
 
@@ -81,6 +80,10 @@ function applyTemplate(text: string, vars: Record<string, string>) {
     .replace(/{{\s*empresa\s*}}/gi, vars.empresa || "");
 }
 
+function providerPayloadMessage(payload: any) {
+  return String(payload?.message || payload?.error || payload?.name || "").slice(0, 240);
+}
+
 async function enviarEmailResend(params: {
   to: string[];
   subject: string;
@@ -110,11 +113,17 @@ async function enviarEmailResend(params: {
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    console.error("Erro Resend:", resp.status, data);
+    logServerError("[welcome-email] falha no Resend", new Error("Resend provider error"), {
+      status: resp.status,
+      message: providerPayloadMessage(data),
+    });
     return { ok: false, status: String(resp.status), error: data };
   }
   if (!data?.id) {
-    console.error("Resposta Resend sem ID:", data);
+    logServerError("[welcome-email] Resend sem id de mensagem", new Error("Resend invalid response"), {
+      status: resp.status,
+      message: providerPayloadMessage(data),
+    });
     return { ok: false, status: "resend_invalid_response", error: data };
   }
   return { ok: true, status: String(resp.status), id: data?.id };
@@ -137,7 +146,7 @@ async function marcarEmailEnviado(userId: string) {
     .update({ welcome_email_sent: true })
     .eq("id", userId);
   if (error) {
-    console.warn("Falha ao marcar welcome_email_sent:", error.message);
+    logServerError("Falha ao marcar welcome_email_sent", error);
   }
 }
 
@@ -155,7 +164,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .maybeSingle();
 
     if (perfilErr) {
-      return json({ error: `Falha ao carregar perfil: ${perfilErr.message}` }, { status: 500 });
+      logServerError("[welcome-email] falha ao carregar perfil", perfilErr);
+      return json({ error: "Falha ao carregar perfil." }, { status: 500 });
     }
 
     if (!perfil) {
@@ -180,7 +190,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           await client.from("users").update({ email: recipientEmail }).eq("id", user.id);
         }
       } catch (err) {
-        console.warn("Falha ao recuperar email via auth admin:", err);
+        logServerError("[welcome-email] falha ao recuperar email via auth admin", err);
       }
     }
 
@@ -205,7 +215,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (templateResp.error) {
-      return json({ error: `Falha ao carregar template: ${templateResp.error.message}` }, { status: 500 });
+      logServerError("[welcome-email] falha ao carregar template", templateResp.error);
+      return json({ error: "Falha ao carregar template." }, { status: 500 });
     }
 
     const template = templateResp.data;
@@ -265,7 +276,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ error: "Nenhum provedor de e-mail configurado." }, { status: 500 });
   } catch (error: any) {
-    console.error("[welcome-email] falha ao enviar boas-vindas", error);
+    logServerError("[welcome-email] falha ao enviar boas-vindas", error);
     return json({ error: "Erro interno ao enviar e-mail de boas-vindas." }, { status: 500 });
   }
 };

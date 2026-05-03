@@ -1,4 +1,13 @@
-import { getAdminClient, ensureModuloAccess, requireAuthenticatedUser, resolveUserScope, type UserScope } from '$lib/server/v1';
+import {
+  getAdminClient,
+  ensureModuloAccess,
+  logServerError,
+  requireAuthenticatedUser,
+  resolveUserScope,
+  type UserScope
+} from '$lib/server/v1';
+
+export { logServerError };
 
 type CacheEntry = {
   expiresAt: number;
@@ -25,6 +34,28 @@ export function buildJsonResponse(payload: unknown, status = 200, maxAge = 10) {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': `private, max-age=${maxAge}`,
+      Vary: 'Cookie'
+    }
+  });
+}
+
+export function buildNoStoreJsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      Vary: 'Cookie'
+    }
+  });
+}
+
+export function buildNoStoreTextResponse(message: string, status = 500) {
+  return new Response(message, {
+    status,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
       Vary: 'Cookie'
     }
   });
@@ -104,4 +135,3 @@ export async function fetchPreferenciasBase(client: any, scope: UserScope, curre
     usuarios
   };
 }
-

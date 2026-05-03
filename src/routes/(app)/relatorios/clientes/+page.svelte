@@ -14,6 +14,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiGet } from '$lib/services/api';
 
   interface ClienteRelatorio {
     cliente_id?: string;
@@ -67,9 +68,7 @@
 
   async function loadBase() {
     try {
-      const response = await fetch('/api/v1/relatorios/base');
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
       empresas = data.empresas || [];
       vendedores = data.vendedores || [];
     } catch (err) {
@@ -125,20 +124,12 @@
     loading = true;
 
     try {
-      const params = new URLSearchParams({
+      const data = await apiGet<{ items?: ClienteRelatorio[] }>('/api/v1/relatorios/clientes', {
         data_inicio: dataInicio,
-        data_fim: dataFim
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined
       });
-
-      if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
-      if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
-
-      const response = await fetch(`/api/v1/relatorios/clientes?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Erro ao carregar relatorio');
-      }
-
-      const data = await response.json();
       clientes = data.items || [];
 
       if (showSuccess) {

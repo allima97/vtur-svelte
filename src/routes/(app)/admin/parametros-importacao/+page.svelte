@@ -10,6 +10,7 @@
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   type Termo = {
     id: string;
     termo: string;
@@ -44,9 +45,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/nao-comissionaveis');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Termo[] }>('/api/v1/parametros/nao-comissionaveis');
       termos = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar termos.');
@@ -71,12 +70,10 @@
     if (!form.termo.trim()) { toast.error('Termo obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/parametros/nao-comissionaveis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, ...form })
+      await apiPost('/api/v1/parametros/nao-comissionaveis', {
+        id: editingId || undefined,
+        ...form
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Termo atualizado.' : 'Termo criado.');
       modalOpen = false;
       await load();
@@ -91,8 +88,7 @@
     if (!(await confirmAction('Deseja excluir este termo?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/parametros/nao-comissionaveis?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/parametros/nao-comissionaveis', { id });
       toast.success('Termo excluído.');
       await load();
     } catch (err) {

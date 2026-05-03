@@ -10,6 +10,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -71,7 +72,7 @@ export async function GET(event) {
 
     return json(snapshot);
   } catch (err: any) {
-    console.error('[ranking-recibos] GET error:', JSON.stringify(err), err?.message, err?.stack);
+    logServerError('[ranking-recibos] erro ao carregar snapshot', err);
     return toErrorResponse(err, 'Erro ao carregar ranking de recibos.');
   }
 }

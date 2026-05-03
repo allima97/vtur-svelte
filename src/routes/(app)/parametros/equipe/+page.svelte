@@ -6,6 +6,7 @@
   import { FieldInput, LoadingState, SimpleTable } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Users, RefreshCw, UserCheck, UserX, Search } from 'lucide-svelte';
   import { formatDate } from '$lib/utils/formatters';
 
@@ -46,9 +47,11 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/equipe');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{
+        usuarios?: Usuario[];
+        relacoes?: Relacao[];
+        convites?: Convite[];
+      }>('/api/v1/parametros/equipe');
       usuarios = payload.usuarios || [];
       relacoes = payload.relacoes || [];
       convites = payload.convites || [];
@@ -67,12 +70,11 @@
     const ativo = !isNaEquipe(vendedorId);
     savingId = vendedorId;
     try {
-      const response = await fetch('/api/v1/parametros/equipe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'toggle_relacao', vendedor_id: vendedorId, ativo })
+      await apiPost('/api/v1/parametros/equipe', {
+        action: 'toggle_relacao',
+        vendedor_id: vendedorId,
+        ativo
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(ativo ? 'Vendedor adicionado à equipe.' : 'Vendedor removido da equipe.');
       await load();
     } catch (err) {

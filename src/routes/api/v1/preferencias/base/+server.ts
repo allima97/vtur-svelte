@@ -1,4 +1,4 @@
-import { buildJsonResponse, fetchPreferenciasBase, requirePreferenciasScope } from '../_shared';
+import { buildJsonResponse, buildNoStoreTextResponse, fetchPreferenciasBase, logServerError, requirePreferenciasScope } from '../_shared';
 
 export async function GET(event) {
   try {
@@ -6,8 +6,7 @@ export async function GET(event) {
     const payload = await fetchPreferenciasBase(client, scope, user.id);
     return buildJsonResponse(payload, 200, 30);
   } catch (err) {
-    console.error('Erro preferencias/base', err);
-    return new Response('Erro ao carregar base.', { status: 500 });
+    logServerError('[preferencias/base] falha ao carregar base', err);
+    return buildNoStoreTextResponse('Erro ao carregar base.', 500);
   }
 }
-

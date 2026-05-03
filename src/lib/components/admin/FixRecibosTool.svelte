@@ -8,6 +8,7 @@
   import SimpleTable from '$lib/components/ui/SimpleTable.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   type ConcRow = {
     id: string;
@@ -63,10 +64,7 @@
     rows = [];
 
     try {
-      const res = await fetch(`/api/v1/relatorios/ranking-debug?docs=${encodeURIComponent(docs)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-
+      const data: any = await apiGet('/api/v1/relatorios/ranking-debug', { docs });
       rows = data.conciliacao_rows || [];
       message = `${rows.length} linha(s) encontrada(s)`;
     } catch (err: any) {
@@ -83,8 +81,7 @@
     userResults = [];
 
     try {
-      const res = await fetch(`/api/v1/relatorios/ranking-debug?busca_usuario=${encodeURIComponent(userSearch)}`);
-      const data = await res.json();
+      const data: any = await apiGet('/api/v1/relatorios/ranking-debug', { busca_usuario: userSearch });
       userResults = data.usuarios || [];
     } finally {
       userSearchLoading = false;
@@ -116,14 +113,7 @@
         if (fixValorVendaReal) body.valor_venda_real = parseFloat(fixValorVendaReal);
       }
 
-      const res = await fetch('/api/v1/relatorios/ranking-debug', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-
+      const data: any = await apiPost('/api/v1/relatorios/ranking-debug', body);
       message = `Correção aplicada. Registro atualizado: ${JSON.stringify(data.updated)}`;
       await fetchDocs();
     } catch (err: any) {

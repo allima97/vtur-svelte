@@ -28,6 +28,12 @@ function isCancelledStatus(value?: string | null) {
   return normalizeViagemStatus(value) === 'cancelada';
 }
 
+function clampIntParam(value: string | null, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
+
 async function fetchDashboardViagens(params: {
   client: any;
   companyIds: string[];
@@ -143,6 +149,8 @@ export async function GET(event) {
     const requestedVendedorIds = parseUuidList(
       searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
     );
+    const proximasLimit = clampIntParam(searchParams.get('limit'), 100, 1, 100);
+    const emAndamentoLimit = clampIntParam(searchParams.get('em_andamento_limit'), 50, 1, 50);
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
 
     const hoje = todayISODateLocal();
@@ -169,7 +177,7 @@ export async function GET(event) {
         vendedorIds,
         from: hoje,
         to: em30dias,
-        limit: 100
+        limit: proximasLimit
       }),
       fetchDashboardViagens({
         client,
@@ -177,7 +185,7 @@ export async function GET(event) {
         vendedorIds,
         from: hoje,
         ongoing: true,
-        limit: 50
+        limit: emAndamentoLimit
       })
     ]);
 

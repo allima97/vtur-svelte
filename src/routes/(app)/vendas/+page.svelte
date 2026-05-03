@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
@@ -361,16 +360,14 @@
   </div>
 {/if}
 
-{#if loadingKpis}
-  <LoadingState className="mb-6" />
-{:else}
-  <KPIGrid className="mb-6" columns={4}>
+<KPIGrid className="mb-6" columns={4} loading={loadingKpis}>
+  {#if !loadingKpis}
     <KPICard title="Total de vendas (mês corrente)" value={kpisMesCorrente.countAtivas} color="vendas" icon={ShoppingCart} />
     <KPICard title="Valor total (mês corrente)" value={formatCurrency(kpisMesCorrente.totalVendas)} color="vendas" icon={DollarSign} />
     <KPICard title="Taxas (mês corrente)" value={formatCurrency(kpisMesCorrente.totalTaxas)} color="clientes" icon={Calendar} />
     <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
-  </KPIGrid>
-{/if}
+  {/if}
+</KPIGrid>
 
 <DataTable
   {columns}

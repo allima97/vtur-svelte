@@ -1,4 +1,4 @@
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import {
   OFFICIAL_CARD_THEMES,
   buildOfficialTemplateRows,
@@ -254,23 +254,11 @@ async function resolveBrandingLogo(client: any, settings: BrandingSettingsRow) {
     } catch {
       // Fallback silencioso para URL já persistida.
     }
-    try {
-      const publicUrl = cleanUrl(client.storage.from(LOGO_BUCKET).getPublicUrl(logoPath).data.publicUrl);
-      if (publicUrl) {
-        return {
-          ...settings,
-          logo_url: publicUrl,
-          logo_path: logoPath,
-        };
-      }
-    } catch {
-      // Fallback silencioso para URL já persistida.
-    }
   }
 
   return {
     ...settings,
-    logo_url: rawUrl,
+    logo_url: logoPath ? null : rawUrl,
     logo_path: logoPath || null,
   };
 }
@@ -316,7 +304,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         .order("nome"),
       authClient
         .from("user_crm_assinaturas")
-        .select("*")
+        .select("id, user_id, is_default, linha1, linha1_font_size, linha1_italic, linha2, linha2_font_size, linha2_italic, linha3, linha3_font_size, linha3_italic, updated_at")
         .eq("user_id", userId)
         .eq("is_default", true)
         .maybeSingle(),
@@ -328,17 +316,20 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
     ]);
 
     if (catsResp.error) {
-      return new Response(JSON.stringify({ error: catsResp.error.message || "Erro ao carregar categorias." }), {
+      logServerError("[crm/library] erro ao carregar categorias", catsResp.error);
+      return new Response(JSON.stringify({ error: "Erro ao carregar categorias." }), {
         status: 500,
       });
     }
     if (themesResp.error) {
-      return new Response(JSON.stringify({ error: themesResp.error.message || "Erro ao carregar modelos." }), {
+      logServerError("[crm/library] erro ao carregar modelos", themesResp.error);
+      return new Response(JSON.stringify({ error: "Erro ao carregar modelos." }), {
         status: 500,
       });
     }
     if (messagesResp.error) {
-      return new Response(JSON.stringify({ error: messagesResp.error.message || "Erro ao carregar textos." }), {
+      logServerError("[crm/library] erro ao carregar textos", messagesResp.error);
+      return new Response(JSON.stringify({ error: "Erro ao carregar textos." }), {
         status: 500,
       });
     }
@@ -412,9 +403,10 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }
     );
   } catch (error: any) {
+    logServerError("[crm/library] Falha ao carregar biblioteca", error);
     return new Response(
       JSON.stringify({
-        error: error?.message || "Falha ao carregar biblioteca CRM.",
+        error: "Falha ao carregar biblioteca CRM.",
       }),
       {
         status: 500,

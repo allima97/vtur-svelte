@@ -8,6 +8,7 @@
   import { FieldCheckbox, FieldDatalistInput, FieldInput, FieldSelect, FieldTextarea, FieldToggle, LoadingState } from '$lib/components/ui';
   import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
 
   export let mode: 'produtos' | 'destinos' = 'produtos';
   export let produtoId: string | null = null;
@@ -97,9 +98,12 @@
   }
 
   async function loadBase() {
-    const response = await fetch('/api/v1/produtos/base?all=1&page=1&pageSize=500');
-    if (!response.ok) throw new Error(await response.text());
-    const data = await response.json();
+    const data = await apiGet<{
+      tipos?: Option[];
+      cidades?: Option[];
+      fornecedores?: Option[];
+      destinosProdutos?: any[];
+    }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 });
     tipos = data.tipos || [];
     cidades = data.cidades || [];
     fornecedores = data.fornecedores || [];
@@ -116,9 +120,7 @@
 
   async function loadProduto() {
     if (!produtoId) return;
-    const response = await fetch(`/api/v1/produtos/${produtoId}`);
-    if (!response.ok) throw new Error(await response.text());
-    const data = await response.json();
+    const data = await apiGet<any>(`/api/v1/produtos/${produtoId}`);
     const fornecedorLabel = data?.fornecedor?.nome_fantasia || data?.fornecedor?.nome_completo || '';
     form = {
       nome: data.nome || '',
@@ -235,15 +237,10 @@
   }
 
   async function saveTarifas(savedId: string) {
-    const response = await fetch('/api/v1/produtos/tarifas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        produto_id: savedId,
-        tarifas
-      })
+    await apiPost('/api/v1/produtos/tarifas', {
+      produto_id: savedId,
+      tarifas
     });
-    if (!response.ok) throw new Error(await response.text());
   }
 
   async function handleSubmit() {
@@ -261,14 +258,10 @@
         margem: form.margem === 0 ? null : form.margem
       };
 
-      const response = await fetch(isCreateMode ? '/api/v1/produtos/create' : `/api/v1/produtos/${produtoId}`, {
-        method: isCreateMode ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const data = isCreateMode
+        ? await apiPost<any>('/api/v1/produtos/create', payload)
+        : await apiPatch<any>(`/api/v1/produtos/${produtoId}`, payload);
 
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
       const savedId = String(data?.data?.id || data?.data?.data?.id || data?.data?.produto?.id || data?.data?.id || produtoId || '');
       if (savedId) await saveTarifas(savedId);
 
@@ -286,13 +279,11 @@
     if (!produtoId) return;
     deleting = true;
     try {
-      const response = await fetch(`/api/v1/produtos/${produtoId}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete(`/api/v1/produtos/${produtoId}`);
       toast.success('Registro excluído com sucesso.');
       goto(routeBase);
     } catch (err) {
-      console.error(err);
-      toast.error('Erro ao excluir registro.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir registro.');
     } finally {
       deleting = false;
       showDeleteDialog = false;

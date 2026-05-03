@@ -72,7 +72,7 @@ export async function POST(event) {
         super_meta: Number(super_meta) || 0,
         ativo
       })
-      .select()
+      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, created_at, updated_at')
       .single();
 
     if (regraError) throw regraError;
@@ -106,10 +106,10 @@ export async function PUT(event) {
       ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 3, 'Sem permissão.');
     }
 
-    const id = event.url.searchParams.get('id') || (await event.request.json().catch(() => ({}))).id;
+    const body = await event.request.json().catch(() => ({}));
+    const id = event.url.searchParams.get('id') || body.id;
     if (!id || !isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
 
-    const body = await event.request.json().catch(() => ({}));
     const payload: Record<string, any> = {};
     if ('nome' in body) payload.nome = body.nome;
     if ('ativo' in body) payload.ativo = body.ativo;

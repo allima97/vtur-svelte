@@ -6,6 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldRadioGroup, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPatch } from '$lib/services/api';
   import { Save, CheckCircle, User, Phone, MapPin } from 'lucide-svelte';
 
   let loading = true;
@@ -31,9 +32,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/user/profile');
-      if (!response.ok) throw new Error(await response.text());
-      const perfil = await response.json();
+      const perfil = await apiGet<any>('/api/v1/user/profile');
       form = {
         nome_completo: perfil.nome_completo || '',
         cpf: perfil.cpf || '',
@@ -59,9 +58,7 @@
     if (digits.length !== 8) { cepStatus = null; return; }
     cepStatus = 'Buscando CEP...';
     try {
-      const response = await fetch(`/api/v1/enderecos/cep?cep=${digits}`);
-      if (!response.ok) throw new Error('CEP não encontrado.');
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
       form = { ...form, endereco: data.logradouro || form.endereco, cidade: data.localidade || form.cidade, estado: data.uf || form.estado };
       cepStatus = 'Endereço carregado.';
     } catch {
@@ -76,12 +73,7 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPatch('/api/v1/user/profile', form);
       toast.success('Perfil completado com sucesso!');
       goto('/');
     } catch (err) {

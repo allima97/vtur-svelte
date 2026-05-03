@@ -14,6 +14,7 @@
   import { Plus, Pencil, Trash2, RefreshCw, Image, MessageSquare, Tag } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiGet, apiPost } from '$lib/services/api';
   type Categoria = { id: string; nome: string; icone: string; sort_order: number; ativo: boolean };
   type Tema = { id: string; nome: string; categoria_id: string | null; asset_url: string; scope: string; ativo: boolean };
   type Template = { id: string; nome: string; categoria: string | null; titulo: string; corpo: string; scope: string; ativo: boolean };
@@ -43,9 +44,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/crm');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ categorias?: Categoria[]; temas?: Tema[]; templates?: Template[] }>('/api/v1/admin/crm');
       categorias = payload.categorias || [];
       temas = payload.temas || [];
       templates = payload.templates || [];
@@ -63,12 +62,12 @@
         : editingEntity === 'tema' ? { ...formTema, categoria_id: formTema.categoria_id || null }
         : { ...formTemplate, categoria: formTemplate.categoria || null };
 
-      const response = await fetch('/api/v1/admin/crm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity: editingEntity, action: 'upsert', id: editingId || undefined, data })
+      await apiPost('/api/v1/admin/crm', {
+        entity: editingEntity,
+        action: 'upsert',
+        id: editingId || undefined,
+        data
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Atualizado.' : 'Criado.');
       modalOpen = false;
       await load();
@@ -83,12 +82,7 @@
     if (!(await confirmAction('Deseja excluir este item?'))) return;
     deletingId = id;
     try {
-      const response = await fetch('/api/v1/admin/crm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entity, action: 'delete', id })
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/admin/crm', { entity, action: 'delete', id });
       toast.success('Excluído.');
       await load();
     } catch (err) {

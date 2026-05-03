@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function safeJsonParse(text: string) {
   try {
@@ -65,7 +66,7 @@ export async function POST(event) {
     const { error: cancelError } = await cancelQuery;
     if (cancelError) throw cancelError;
 
-    return json({ ok: true, cancelled: true });
+    return json({ ok: true, cancelled: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao cancelar venda.');
   }

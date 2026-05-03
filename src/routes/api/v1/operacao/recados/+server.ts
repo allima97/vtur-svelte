@@ -15,6 +15,9 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const receiverId = String(searchParams.get('receiver_id') || '').trim();
+    if (receiverId && !isUuid(receiverId)) {
+      return json({ error: 'receiver_id invalido.' }, { status: 400 });
+    }
 
     // Busca recados enviados ou recebidos pelo usuário atual
     let query = client

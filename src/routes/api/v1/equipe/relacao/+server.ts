@@ -4,6 +4,7 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   isUuid,
+  logServerError,
   resolveUserScope
 } from '$lib/server/v1';
 
@@ -57,13 +58,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     });
 
     if (error) {
-      console.error("Erro equipe/relacao RPC", error);
+      logServerError("[equipe/relacao] falha na RPC", error);
       return json({ error: "Erro ao atualizar equipe." }, { status: 400 });
     }
 
     return json(data || { ok: true, ativo });
   } catch (error: any) {
-    console.error("Erro equipe/relacao", error);
+    logServerError("[equipe/relacao] falha ao atualizar equipe", error);
     return json({ error: "Erro ao atualizar equipe." }, { status: 500 });
   }
 };

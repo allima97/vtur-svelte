@@ -48,10 +48,13 @@ type ClienteRow = {
   updated_at: string | null;
 };
 
+const CLIENTE_SELECT_FIELDS =
+  'id, nome, cpf, rg, telefone, email, whatsapp, nascimento, genero, nacionalidade, tipo_pessoa, tipo_cliente, classificacao, cep, endereco, numero, complemento, cidade, estado, notas, tags, ativo, active, company_id, created_by, created_at, updated_at';
+
 async function fetchCliente(client: ReturnType<typeof getAdminClient>, id: string) {
   const { data, error } = await client
     .from('clientes')
-    .select('*')
+    .select(CLIENTE_SELECT_FIELDS)
     .eq('id', id)
     .maybeSingle();
 
@@ -207,9 +210,7 @@ export async function PATCH(event) {
       .from('clientes')
       .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select(
-        'id, nome, cpf, rg, telefone, email, whatsapp, nascimento, genero, nacionalidade, tipo_pessoa, tipo_cliente, classificacao, cep, endereco, numero, complemento, cidade, estado, notas, tags, ativo, active, company_id, created_by, created_at, updated_at'
-      )
+      .select(CLIENTE_SELECT_FIELDS)
       .single();
 
     if (updateError) throw updateError;

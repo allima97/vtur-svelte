@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -30,7 +31,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       updated_at: data?.updated_at ?? null,
     });
   } catch (err) {
-    console.error('Erro admin maintenance GET', err);
+    logServerError('[admin/maintenance] falha ao carregar estado', err);
     return toErrorResponse(err, 'Erro ao carregar manutencao.');
   }
 };
@@ -61,7 +62,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     return json({ ok: true });
   } catch (err) {
-    console.error('Erro admin maintenance POST', err);
+    logServerError('[admin/maintenance] falha ao salvar estado', err);
     return toErrorResponse(err, 'Erro ao salvar manutencao.');
   }
 };

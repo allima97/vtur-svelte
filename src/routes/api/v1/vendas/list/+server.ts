@@ -4,6 +4,7 @@ import {
   fetchMasterEmpresas,
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  logServerError,
   normalizeText,
   parseIntSafe,
   requireAuthenticatedUser,
@@ -14,6 +15,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -292,7 +294,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         .limit(Math.max(500, batch.length));
 
       if (vendaDestinosError) {
-        console.warn('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
+        logServerError('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
         return;
       }
       vendaDestinos.push(...((data || []) as any[]));
@@ -325,7 +327,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         .in('id', batch)
         .limit(Math.max(500, batch.length));
       if (error) {
-        console.warn('[vendas/list] could not load produtos for destino hydration', error);
+        logServerError('[vendas/list] could not load produtos for destino hydration', error);
         break;
       }
       produtosData.push(...((data || []) as any[]));
@@ -339,7 +341,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         .in('id', batch)
         .limit(Math.max(500, batch.length));
       if (error) {
-        console.warn('[vendas/list] could not load cidades for destino hydration', error);
+        logServerError('[vendas/list] could not load cidades for destino hydration', error);
         break;
       }
       cidadesData.push(...((data || []) as any[]));
@@ -386,7 +388,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
       }
     });
   } catch (err) {
-    console.warn('[vendas/list] destino hydration skipped due to runtime error', err);
+    logServerError('[vendas/list] destino hydration skipped due to runtime error', err);
   }
 }
 
@@ -401,6 +403,7 @@ async function fetchVendaRowsWithFallback(
     clienteId: string;
     scopeIsAdmin: boolean;
     accessibleClientIds: string[];
+    statusQuery?: string;
     useRange?: boolean;
     page?: number;
     pageSize?: number;
@@ -430,6 +433,25 @@ async function fetchVendaRowsWithFallback(
     if (params.clienteId) query = query.eq('cliente_id', params.clienteId);
     else if (!params.scopeIsAdmin && params.accessibleClientIds.length > 0) {
       query = query.in('cliente_id', accessibleClientIdsOverride || params.accessibleClientIds);
+    }
+
+    const todayIso = todayISODateLocal();
+    switch (params.statusQuery) {
+      case 'cancelada':
+        query = query.eq('cancelada', true);
+        break;
+      case 'concluida':
+        query = query.eq('cancelada', false).lt('data_final', todayIso);
+        break;
+      case 'confirmada':
+        query = query.eq('cancelada', false).gte('data_embarque', todayIso);
+        break;
+      case 'pendente':
+        query = query
+          .eq('cancelada', false)
+          .or(`data_final.is.null,data_final.gte.${todayIso}`)
+          .or(`data_embarque.is.null,data_embarque.lt.${todayIso}`);
+        break;
     }
 
     return query;
@@ -499,7 +521,7 @@ async function fetchVendaRowsWithFallback(
     };
   }
 
-  console.warn('[vendas/list] enriched select failed, falling back to minimal select', enrichedResult.error);
+  logServerError('[vendas/list] enriched select failed, falling back to minimal select', enrichedResult.error);
 
   const fallbackSelect = `
     id,
@@ -538,7 +560,7 @@ async function fetchVendaRowsWithFallback(
     };
   }
 
-  console.warn('[vendas/list] FK fallback failed, trying legacy fallback select', fallbackResult.error);
+  logServerError('[vendas/list] FK fallback failed, trying legacy fallback select', fallbackResult.error);
 
   const legacyFallbackSelect = `
     id,
@@ -569,7 +591,7 @@ async function fetchVendaRowsWithFallback(
 
   const legacyFallbackResult = await runBaseQuery(legacyFallbackSelect);
   if (legacyFallbackResult.error) {
-    console.error('[vendas/list] legacy fallback failed, returning empty list', legacyFallbackResult.error);
+    logServerError('[vendas/list] legacy fallback failed, returning empty list', legacyFallbackResult.error);
     return { rows: [], count: 0 };
   }
 
@@ -628,12 +650,13 @@ export async function GET(event) {
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds: effectiveVendedorIds })
         : [];
 
+    const canPushStatusToDb = !statusQuery || ['cancelada', 'concluida', 'confirmada', 'pendente'].includes(statusQuery);
     const canUseDbPagination =
       !all &&
       !openId &&
       !includeKpis &&
       !searchQuery &&
-      !statusQuery &&
+      canPushStatusToDb &&
       !tipoQuery &&
       accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE;
 
@@ -646,6 +669,7 @@ export async function GET(event) {
       clienteId,
       scopeIsAdmin: scope.isAdmin,
       accessibleClientIds,
+      statusQuery,
       useRange: canUseDbPagination,
       page,
       pageSize
@@ -680,14 +704,17 @@ export async function GET(event) {
         .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, 'pt-BR'));
     }
 
-    return json({
-      page,
-      pageSize,
-      total,
-      items: payloadItems,
-      ...(includeKpis ? { kpis: computeKpisFromRows(data as VendaRow[]) } : {}),
-      ...(includeVendedores ? { vendedores } : {})
-    });
+    return json(
+      {
+        page,
+        pageSize,
+        total,
+        items: payloadItems,
+        ...(includeKpis ? { kpis: computeKpisFromRows(data as VendaRow[]) } : {}),
+        ...(includeVendedores ? { vendedores } : {})
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vendas.');
   }

@@ -8,6 +8,7 @@
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiDelete, apiGet, apiPost, apiPut } from '$lib/services/api';
 
   interface Tier {
     id?: string;
@@ -133,17 +134,13 @@
   async function loadRegras() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/regras');
-      if (!response.ok) throw new Error('Erro ao carregar regras');
-      
-      const data = await response.json();
+      const data = await apiGet<{ items?: Regra[] }>('/api/v1/financeiro/comissoes/regras');
       regras = data.items || [];
       
       // Carrega contagem de vendedores para cada regra
       await loadVendedoresCount();
     } catch (err) {
-      toast.error('Erro ao carregar regras de comissão');
-      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar regras de comissão');
     } finally {
       loading = false;
     }
@@ -159,10 +156,7 @@
 
   async function loadVendedoresCount() {
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
-      if (!response.ok) return;
-      
-      const data = await response.json();
+      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores');
       const vendedoresPorRegra = (data.items || []).reduce((acc: any, item: any) => {
         if (!acc[item.regra_id]) acc[item.regra_id] = 0;
         if (item.vigente) acc[item.regra_id]++;
@@ -174,28 +168,22 @@
         vendedores_count: vendedoresPorRegra[r.id] || 0
       }));
     } catch (err) {
-      console.error('Erro ao carregar contagem de vendedores:', err);
+      regras = regras.map((r) => ({ ...r, vendedores_count: r.vendedores_count || 0 }));
     }
   }
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
-      if (response.ok) {
-        const data = await response.json();
-        vendedoresDisponiveis = data.items || [];
-      }
+      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores');
+      vendedoresDisponiveis = data.items || [];
     } catch (err) {
-      console.error('Erro ao carregar vendedores:', err);
+      vendedoresDisponiveis = [];
     }
   }
 
   async function loadVendedoresRegra(regraId: string) {
     try {
-      const response = await fetch(`/api/v1/financeiro/comissoes/vendedores?regra_id=${regraId}`);
-      if (!response.ok) throw new Error('Erro ao carregar vendedores');
-      
-      const data = await response.json();
+      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores', { regra_id: regraId });
       vendedoresRegra = data.items || [];
     } catch (err) {
       toast.error('Erro ao carregar vendedores da regra');
@@ -261,22 +249,8 @@
 
   async function handleSave() {
     try {
-      const url = editingRegra 
-        ? `/api/v1/financeiro/comissoes/regras/${editingRegra.id}`
-        : '/api/v1/financeiro/comissoes/regras';
-      
-      const method = editingRegra ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
+      if (editingRegra) await apiPut(`/api/v1/financeiro/comissoes/regras/${editingRegra.id}`, formData);
+      else await apiPost('/api/v1/financeiro/comissoes/regras', formData);
 
       toast.success(editingRegra ? 'Regra atualizada com sucesso' : 'Regra criada com sucesso');
       showDialog = false;
@@ -290,14 +264,7 @@
     if (!deletingRegra) return;
 
     try {
-      const response = await fetch(`/api/v1/financeiro/comissoes/regras/${deletingRegra.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
+      await apiDelete(`/api/v1/financeiro/comissoes/regras/${deletingRegra.id}`);
 
       toast.success('Regra excluída com sucesso');
       showDeleteDialog = false;
@@ -312,19 +279,10 @@
     if (!selectedRegra || !selectedVendedor) return;
 
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vendedor_id: selectedVendedor,
-          regra_id: selectedRegra.id
-        })
+      await apiPost('/api/v1/financeiro/comissoes/vendedores', {
+        vendedor_id: selectedVendedor,
+        regra_id: selectedRegra.id
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
 
       toast.success('Vendedor associado com sucesso');
       selectedVendedor = '';

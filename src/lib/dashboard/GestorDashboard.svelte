@@ -280,7 +280,11 @@
     await Promise.allSettled([
       (async () => {
         try {
-          const data = await apiGet<{ items: Viagem[] }>('/api/v1/dashboard/viagens', params);
+          const data = await apiGet<{ items: Viagem[] }>('/api/v1/dashboard/viagens', {
+            ...params,
+            limit: 8,
+            em_andamento_limit: 8
+          });
           viagens = data.items || [];
         } catch {
           viagens = [];
@@ -288,7 +292,10 @@
       })(),
       (async () => {
         try {
-          const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', params);
+          const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
+            ...params,
+            limit: 8
+          });
           followUps = data.items || [];
         } catch {
           followUps = [];

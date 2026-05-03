@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { Calculator, TrendingDown, Download, Smartphone, X } from 'lucide-svelte';
   import CalculatorBody from '$lib/components/calculadora/CalculatorBody.svelte';
@@ -42,7 +43,9 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw-calculadora.js', { scope: '/calculadora' })
-        .then((reg) => console.log('[SW Calculadora] registrado:', reg.scope))
+        .then((reg) => {
+          if (dev) console.info('[SW Calculadora] registrado:', reg.scope);
+        })
         .catch((err) => console.error('[SW Calculadora] erro:', err));
     }
   });

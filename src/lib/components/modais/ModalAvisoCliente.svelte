@@ -2,8 +2,11 @@
   import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime } from '$lib/utils/formatters';
+  import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
+  import { parseISODateParts, todayISODateLocal } from '$lib/date';
 
   export let open: boolean = false;
   export let clienteId: string = '';
@@ -193,13 +196,7 @@
     carregandoTemplates = true;
     erroTemplates = '';
     try {
-      const libraryResponse = await fetch('/api/v1/crm/library');
-      if (!libraryResponse.ok) {
-        const errorPayload = await libraryResponse.json().catch(() => ({}));
-        throw new Error(errorPayload?.error || 'Erro ao carregar biblioteca CRM');
-      }
-
-      const libraryData = await libraryResponse.json();
+      const libraryData: any = await apiGet('/api/v1/crm/library');
       const categorias = Array.isArray(libraryData?.categories) ? libraryData.categories : [];
       const temas = Array.isArray(libraryData?.themes) ? libraryData.themes : [];
       const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
@@ -325,9 +322,7 @@
     carregandoHistorico = true;
     historicoIndisponivel = false;
     try {
-      const response = await fetch(`/api/v1/clientes/avisos/history?cliente_id=${clienteId}`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || 'Erro ao carregar histórico');
+      const data: any = await apiGet('/api/v1/clientes/avisos/history', { cliente_id: clienteId });
       historico = Array.isArray(data?.items) ? data.items : [];
       historicoIndisponivel = data?.unavailable === true;
     } catch (err) {
@@ -368,70 +363,15 @@
 
   function openPreviewSvg() {
     if (!previewCardUrl) return;
-    window.open(previewCardUrl, '_blank');
-  }
-
-  function downloadBlob(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  async function renderSvgToPngBlob(svgText: string): Promise<Blob> {
-    const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    try {
-      const img = document.createElement('img');
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Falha ao carregar SVG para conversão de PNG.'));
-        img.src = svgUrl;
-      });
-
-      const width = Math.max(1, img.naturalWidth || 1080);
-      const height = Math.max(1, img.naturalHeight || 1080);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Falha ao inicializar canvas para conversão PNG.');
-
-      ctx.drawImage(img, 0, 0, width, height);
-      const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!pngBlob) throw new Error('Falha ao gerar blob PNG da prévia.');
-      return pngBlob;
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
+    window.open(previewCardUrl, '_blank', 'noopener,noreferrer');
   }
 
   async function downloadPreviewPng() {
     if (!previewCardUrl) return;
     try {
-      const pngUrl = previewCardUrl.replace('/render.svg', '/render.png');
-      const pngResp = await fetch(pngUrl, { headers: { Accept: 'image/png' } });
-
-      if (pngResp.ok) {
-        const contentType = String(pngResp.headers.get('content-type') || '').toLowerCase();
-        if (contentType.includes('image/png')) {
-          const blob = await pngResp.blob();
-          downloadBlob(blob, `crm-cliente-${Date.now()}.png`);
-          return;
-        }
-      }
-
-      const svgResp = await fetch(previewCardUrl, { headers: { Accept: 'image/svg+xml,text/plain,*/*' } });
-      if (!svgResp.ok) throw new Error('Falha ao carregar SVG para gerar PNG local.');
-      const svgText = await svgResp.text();
-      const pngBlob = await renderSvgToPngBlob(svgText);
-      downloadBlob(pngBlob, `crm-cliente-${Date.now()}.png`);
-      toast.info('PNG gerado localmente no navegador.');
+      const { blob, generatedLocally } = await fetchPreviewPngBlob(previewCardUrl);
+      downloadBlob(blob, `crm-cliente-${Date.now()}.png`);
+      if (generatedLocally) toast.info('PNG gerado localmente no navegador.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Falha ao baixar PNG.');
     }
@@ -442,7 +382,7 @@
     const pngUrl = previewCardUrl.replace('/render.svg', '/render.png');
     const primeiroNome = getPrimeiroNome(clienteNome);
     const text = `Segue seu cartao, ${primeiroNome || 'cliente'}: ${pngUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   }
 
   function clearPreviewActions() {
@@ -453,10 +393,10 @@
   }
 
   function isBirthdayToday(nascimento: string): boolean {
-    if (!nascimento) return false;
-    const today = new Date();
-    const birth = new Date(nascimento);
-    return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
+    const today = parseISODateParts(todayISODateLocal());
+    const birth = parseISODateParts(nascimento);
+    if (!today || !birth) return false;
+    return today.month === birth.month && today.day === birth.day;
   }
 
   async function enviarMensagem() {
@@ -467,22 +407,13 @@
 
     enviando = true;
     try {
-      const response = await fetch('/api/v1/clientes/avisos/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const payload: any = await apiPost('/api/v1/clientes/avisos/send', {
           cliente_id: clienteId,
           canal: canalAtivo,
           template_id: templateSelecionado || null,
           assunto: assuntoAtual,
           mensagem: mensagemPersonalizada
-        })
       });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Erro ao enviar mensagem');
-      }
 
       if (payload?.canal === 'whatsapp' && payload?.whatsapp_url) {
         window.open(payload.whatsapp_url, '_blank', 'noopener,noreferrer');

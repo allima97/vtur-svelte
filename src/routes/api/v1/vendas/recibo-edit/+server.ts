@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function safeJsonParse(text: string) {
   try {
@@ -148,7 +149,7 @@ export async function PATCH(event: RequestEvent) {
 
     if (updateError) throw updateError;
 
-    return json({ ok: true, recibo: updated });
+    return json({ ok: true, recibo: updated }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao editar recibo.');
   }

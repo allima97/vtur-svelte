@@ -7,6 +7,7 @@
   import { formatDate } from '$lib/utils/formatters';
 
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiFetch, apiGet } from '$lib/services/api';
   type Acompanhante = {
     id: string;
     nome_completo: string;
@@ -94,12 +95,7 @@
     errorMessage = null;
 
     try {
-      const response = await fetch(`/api/v1/clientes/${clienteId}/acompanhantes`);
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Acompanhante[] }>(`/api/v1/clientes/${clienteId}/acompanhantes`);
       acompanhantes = Array.isArray(payload?.items) ? payload.items : [];
 
       if (selectedId) {
@@ -147,17 +143,10 @@
         ? `/api/v1/clientes/${clienteId}/acompanhantes/${selectedId}`
         : `/api/v1/clientes/${clienteId}/acompanhantes`;
 
-      const response = await fetch(url, {
+      await apiFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(form)
+        body: form
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
 
       toast.success(selectedId ? 'Acompanhante atualizado.' : 'Acompanhante cadastrado.');
       await loadAcompanhantes();
@@ -180,16 +169,7 @@
     errorMessage = null;
 
     try {
-      const response = await fetch(
-        `/api/v1/clientes/${clienteId}/acompanhantes/${selectedId}`,
-        {
-          method: 'DELETE'
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
+      await apiFetch(`/api/v1/clientes/${clienteId}/acompanhantes/${selectedId}`, { method: 'DELETE' });
 
       toast.success('Acompanhante removido.');
       novoAcompanhante();

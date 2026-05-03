@@ -2,7 +2,9 @@
   import { MessageCircle, Phone, Mail, Calendar, Send, Clock } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { apiFetch, apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import { onMount } from 'svelte';
   
   // Props
@@ -50,13 +52,10 @@
   async function carregarInteracoes() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/orcamentos/interacao?quote_id=${orcamentoId}`);
-      if (response.ok) {
-        const data = await response.json();
-        interacoes = data.interacoes || [];
-      }
+      const data: any = await apiGet('/api/v1/orcamentos/interacao', { quote_id: orcamentoId });
+      interacoes = data.interacoes || [];
     } catch (err) {
-      console.error('Erro ao carregar interações:', err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar interações.');
     } finally {
       loading = false;
     }
@@ -70,18 +69,16 @@
     
     salvando = true;
     try {
-      const response = await fetch(`/api/v1/orcamentos/interacao?quote_id=${orcamentoId}`, {
+      await apiFetch('/api/v1/orcamentos/interacao', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        query: { quote_id: orcamentoId },
+        body: {
           ...novaInteracao,
           agendar_proximo_contato: !!novaInteracao.data_agendamento,
           data_proximo_contato: novaInteracao.data_agendamento ? novaInteracao.data_agendamento.split('T')[0] : null,
           hora_proximo_contato: novaInteracao.data_agendamento ? novaInteracao.data_agendamento.split('T')[1]?.substring(0, 5) : null
-        })
+        }
       });
-      
-      if (!response.ok) throw new Error('Erro ao salvar');
       
       toast.success('Interação registrada!');
       await carregarInteracoes();
@@ -104,14 +101,7 @@
   }
   
   function formatDate(dateString: string): string {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateTimeValue(dateString);
   }
   
   function getTipoIcon(tipo: string) {

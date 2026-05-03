@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { Button, FieldInput } from '$lib/components/ui';
+  import { apiGet } from '$lib/services/api';
 
   type ClienteOption = {
     id: string;
@@ -114,9 +115,7 @@
 
     loading = true;
     try {
-      const response = await fetch(`/api/v1/clientes?search=${encodeURIComponent(query)}`);
-      if (!response.ok) return;
-      const payload = await response.json();
+      const payload = await apiGet('/api/v1/clientes', { search: query });
       const items = uniqueClients(parseItems(payload)).slice(0, maxResults);
       searchResults = items;
       dispatch('loaded', items);

@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { parseISODateParts, todayISODateLocal } from '$lib/date';
 
 export async function GET(event) {
   try {
@@ -29,12 +30,12 @@ export async function GET(event) {
     const { data, error: queryError } = await query;
     if (queryError) throw queryError;
 
-    const hoje = new Date();
+    const hoje = parseISODateParts(todayISODateLocal());
     const items = (data || [])
       .filter((u: any) => {
         if (!u.data_nascimento) return false;
-        const d = new Date(u.data_nascimento + 'T00:00:00');
-        return d.getMonth() + 1 === month;
+        const d = parseISODateParts(u.data_nascimento);
+        return d?.month === month;
       })
       .map((u: any) => ({
         id: u.id,
@@ -45,13 +46,13 @@ export async function GET(event) {
         company_id: u.company_id,
         company_nome: (u.companies as any)?.nome_fantasia || null,
         aniversario_hoje: (() => {
-          const d = new Date(u.data_nascimento + 'T00:00:00');
-          return d.getMonth() === hoje.getMonth() && d.getDate() === hoje.getDate();
+          const d = parseISODateParts(u.data_nascimento);
+          return Boolean(d && hoje && d.month === hoje.month && d.day === hoje.day);
         })()
       }))
       .sort((a: any, b: any) => {
-        const da = new Date(a.data_nascimento + 'T00:00:00').getDate();
-        const db = new Date(b.data_nascimento + 'T00:00:00').getDate();
+        const da = parseISODateParts(a.data_nascimento)?.day || 0;
+        const db = parseISODateParts(b.data_nascimento)?.day || 0;
         return da - db;
       });
 

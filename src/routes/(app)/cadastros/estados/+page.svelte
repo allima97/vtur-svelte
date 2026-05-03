@@ -7,6 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -41,21 +42,20 @@
   ];
 
   async function loadPaises() {
-    const response = await fetch('/api/v1/paises');
-    if (response.ok) {
-      const payload = await response.json();
+    try {
+      const payload = await apiGet<any>('/api/v1/paises');
       paises = payload.items || [];
+    } catch {
+      paises = [];
     }
   }
 
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroPais) params.set('pais_id', filtroPais);
-      const response = await fetch(`/api/v1/subdivisoes?${params.toString()}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/subdivisoes', {
+        pais_id: filtroPais || undefined
+      });
       subdivisoes = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar estados.');
@@ -81,12 +81,13 @@
     if (!form.pais_id) { toast.error('País obrigatório.'); return; }
     saving = true;
     try {
-      const response = await fetch('/api/v1/subdivisoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId || undefined, nome: form.nome, pais_id: form.pais_id, codigo_admin1: form.codigo_admin1 || null, tipo: form.tipo || null })
+      await apiPost('/api/v1/subdivisoes', {
+        id: editingId || undefined,
+        nome: form.nome,
+        pais_id: form.pais_id,
+        codigo_admin1: form.codigo_admin1 || null,
+        tipo: form.tipo || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success(editingId ? 'Estado atualizado.' : 'Estado criado.');
       modalOpen = false;
       await load();
@@ -101,8 +102,7 @@
     if (!(await confirmAction('Deseja excluir este estado/província?'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/subdivisoes?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/subdivisoes', { id });
       toast.success('Estado excluído.');
       await load();
     } catch (err) {

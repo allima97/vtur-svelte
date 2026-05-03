@@ -6,6 +6,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw } from 'lucide-svelte';
+  import { apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type TipoUsuario = {
     id: string;
@@ -26,8 +28,8 @@
       sortable: true,
       formatter: (_value: unknown, row: TipoUsuario) => `
         <div>
-          <p class="font-medium text-slate-900">${row.nome}</p>
-          <p class="text-xs text-slate-500">${row.descricao || 'Sem descricao'}</p>
+          <p class="font-medium text-slate-900">${escapeHtml(row.nome)}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(row.descricao || 'Sem descricao')}</p>
         </div>
       `
     },
@@ -38,13 +40,10 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/tipos-usuario');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: TipoUsuario[] }>('/api/v1/admin/tipos-usuario');
       rows = payload.items || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar os tipos de usuario.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar os tipos de usuario.');
     } finally {
       loading = false;
     }

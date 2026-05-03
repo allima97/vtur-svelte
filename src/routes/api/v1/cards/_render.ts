@@ -14,6 +14,7 @@ import {
   buildCardClientGreeting,
   DEFAULT_CARD_FOOTER_LEAD,
 } from '$lib/cards/templateRuntime';
+import { isUuid } from '$lib/server/v1';
 
 export type CardStyle = {
   x?: number;
@@ -542,8 +543,10 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const mensagemRaw = limitText(url.searchParams.get("mensagem"), MAX_TEXT_PARAM_LENGTH);
   const photoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("photo_url") || url.searchParams.get("photo") || ""), url.origin);
   const logoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("logo_url") || url.searchParams.get("logo") || ""), url.origin);
-  const templateId = limitText(url.searchParams.get("template_id"), 80);
-  let themeId = limitText(url.searchParams.get("theme_id"), 80);
+  const templateIdRaw = limitText(url.searchParams.get("template_id"), 80);
+  const templateId = isUuid(templateIdRaw) ? templateIdRaw : "";
+  const themeIdRaw = limitText(url.searchParams.get("theme_id"), 80);
+  let themeId = isUuid(themeIdRaw) ? themeIdRaw : "";
   const themeName = limitText(url.searchParams.get("theme_name") || url.searchParams.get("theme_key"), MAX_SHORT_TEXT_PARAM_LENGTH);
   const themeAssetUrlFromQuery = sanitizeImageUrl(String(url.searchParams.get("theme_asset_url") || ""), url.origin);
 

@@ -33,6 +33,7 @@
     createBlankAppInfo 
   } from '$lib/vouchers/extraData';
   import { addDaysISODate, diffDaysISODate } from '$lib/date';
+  import { apiGet, apiPost } from '$lib/services/api';
   import type { 
     VoucherProvider, 
     VoucherDia, 
@@ -149,13 +150,10 @@
 
   async function loadUserContext() {
     try {
-      const response = await fetch('/api/v1/user/context');
-      if (response.ok) {
-        const data = await response.json();
-        companyId = data.company_id;
-      }
+      const data = await apiGet<{ company_id?: string | null }>('/api/v1/user/context');
+      companyId = data.company_id || null;
     } catch (err) {
-      console.error('Erro ao carregar contexto:', err);
+      companyId = null;
     }
   }
 
@@ -509,24 +507,12 @@
         hoteis: form.hoteis
       };
 
-      const response = await fetch('/api/v1/vouchers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao salvar voucher');
-      }
-
-      const result = await response.json();
+      await apiPost('/api/v1/vouchers', payload);
       
       toast.success(finalizar ? 'Voucher finalizado com sucesso!' : 'Rascunho salvo com sucesso!');
       goto('/operacao/vouchers');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar voucher');
-      console.error(err);
     } finally {
       saving = false;
     }

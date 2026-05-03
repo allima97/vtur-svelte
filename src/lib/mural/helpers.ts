@@ -30,6 +30,7 @@ export type RecadoArquivoRow = {
   mime_type: string | null;
   size_bytes: number | null;
   created_at: string;
+  download_url?: string | null;
 };
 
 export type RecadoRow = {

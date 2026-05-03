@@ -16,6 +16,7 @@
   import { extractRexturFromText } from '$lib/vendas/facialRexturExtractor';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
+  import { apiGet, apiPost } from '$lib/services/api';
   import type { ConciliacaoLinhaInput } from '../../../api/v1/conciliacao/_types';
   import {
     AlertCircle,
@@ -347,6 +348,8 @@
   let importDiferencas: Array<{ documento: string; movimento_data: string; valor_importacao: number; valor_sistema: number; taxas_importacao: number; taxas_sistema: number; diff_total: number; diff_taxas: number; severidade: 'warning' | 'critical' }> = [];
   let importDiferencasConfirmadas = false;
   let importParseError = '';
+  let importParseCacheKey = '';
+  let importParseCacheResult: { linhas: ConciliacaoLinhaInput[]; ignored: number } | null = null;
 
   // Dias sem movimento
   let diasSemMovimento: string[] = [];
@@ -635,6 +638,8 @@
     importDiferencasConfirmadas = false;
     importDiferencas = [];
     importParseError = '';
+    importParseCacheKey = '';
+    importParseCacheResult = null;
   }
 
   function setImportMode(mode: 'movimento' | 'rextur') {
@@ -679,18 +684,28 @@
   }
 
   function parseImportTextForPreview() {
-    if (importMode !== 'rextur') {
-      importParseError = '';
-      return parseConciliacaoImportText(importText, null);
+    const cacheKey = `${importMode}::${importFallbackDate || ''}::${importText}`;
+    if (importParseCacheResult && importParseCacheKey === cacheKey) {
+      return importParseCacheResult;
     }
 
-    try {
+    let result: { linhas: ConciliacaoLinhaInput[]; ignored: number };
+    if (importMode !== 'rextur') {
       importParseError = '';
-      return parseRexturConciliacaoImportText(importText, importFallbackDate || todayISODateLocal());
-    } catch (error: any) {
-      importParseError = error?.message || 'Não foi possível ler a Reserva Fácil Rextur.';
-      return { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
+      result = parseConciliacaoImportText(importText, null);
+    } else {
+      try {
+        importParseError = '';
+        result = parseRexturConciliacaoImportText(importText, importFallbackDate || todayISODateLocal());
+      } catch (error: any) {
+        importParseError = error?.message || 'Não foi possível ler a Reserva Fácil Rextur.';
+        result = { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
+      }
     }
+
+    importParseCacheKey = cacheKey;
+    importParseCacheResult = result;
+    return result;
   }
 
   $: {
@@ -796,10 +811,9 @@
   }
 
   async function loadSummary() {
-    const params = new URLSearchParams();
-    if (monthFilter) params.set('mes', monthFilter);
-    const response = await fetch(`/api/v1/conciliacao/summary?${params.toString()}`);
-    const data = await parseJson(response, 'Erro ao carregar resumo da conciliação.');
+    const data = await apiGet<any>('/api/v1/conciliacao/summary', {
+      mes: monthFilter || undefined
+    });
     summary = {
       total: Number(data.total || 0),
       efetivados: Number(data.efetivados || 0),
@@ -814,16 +828,14 @@
 
   async function loadRegistros() {
     registrosLoading = true;
-    const params = new URLSearchParams();
     try {
-      if (monthFilter) params.set('month', monthFilter);
-      if (dayFilter) params.set('day', dayFilter);
-      if (showPendingOnly) params.set('pending', '1');
-      if (showBaixaRac) params.set('baixa_rac', '1');
-      if (rankingStatus !== 'all') params.set('ranking_status', rankingStatus);
-
-      const response = await fetch(`/api/v1/conciliacao/list?${params.toString()}`);
-      const data = await parseJson(response, 'Erro ao carregar registros de conciliação.');
+      const data = await apiGet<any[]>('/api/v1/conciliacao/list', {
+        month: monthFilter || undefined,
+        day: dayFilter || undefined,
+        pending: showPendingOnly ? '1' : undefined,
+        baixa_rac: showBaixaRac ? '1' : undefined,
+        ranking_status: rankingStatus !== 'all' ? rankingStatus : undefined
+      });
       registros = Array.isArray(data) ? data : [];
     } finally {
       registrosLoading = false;
@@ -833,8 +845,7 @@
   async function loadOptions() {
     optionsLoading = true;
     try {
-      const response = await fetch('/api/v1/conciliacao/options');
-      const data = await parseJson(response, 'Erro ao carregar opções da conciliação.');
+      const data = await apiGet<any>('/api/v1/conciliacao/options');
       vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
       produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
     } finally {
@@ -844,11 +855,10 @@
 
   async function loadChanges() {
     changesLoading = true;
-    const params = new URLSearchParams();
     try {
-      if (monthFilter) params.set('month', monthFilter);
-      const response = await fetch(`/api/v1/conciliacao/changes?${params.toString()}`);
-      const data = await parseJson(response, 'Erro ao carregar alterações da conciliação.');
+      const data = await apiGet<any[]>('/api/v1/conciliacao/changes', {
+        month: monthFilter || undefined
+      });
       changes = Array.isArray(data) ? data : [];
     } finally {
       changesLoading = false;
@@ -858,8 +868,7 @@
   async function loadExecutions() {
     executionsLoading = true;
     try {
-      const response = await fetch('/api/v1/conciliacao/executions?limit=20');
-      const data = await parseJson(response, 'Erro ao carregar execuções da conciliação.');
+      const data = await apiGet<any[]>('/api/v1/conciliacao/executions', { limit: 20 });
       executions = Array.isArray(data) ? data : [];
     } finally {
       executionsLoading = false;
@@ -1008,15 +1017,13 @@
 
     detalheRateioLoading = true;
     try {
-      const params = new URLSearchParams({
+      const data = await apiGet<any>('/api/v1/conciliacao/rateio-info', {
         venda_recibo_id: vendaReciboId,
         conciliacao_recibo_id: String(row.id || '')
       });
-      const response = await fetch(`/api/v1/conciliacao/rateio-info?${params.toString()}`);
-      const data = await response.json().catch(() => null);
       const rateio = data?.rateio;
 
-      if (!response.ok || !rateio || rateio.ativo === false) {
+      if (!rateio || rateio.ativo === false) {
         detalheRateioInfo = null;
         return;
       }
@@ -1047,30 +1054,25 @@
     if (!selectedRow) return;
     saving = true;
     try {
-      const response = await fetch('/api/v1/conciliacao/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conciliacaoId: selectedRow.id,
-          rankingVendedorId: rankingVendedorId || null,
-          rankingProdutoId: rankingProdutoId || null,
-          vendaId: selectedRow.venda_id || null,
-          vendaReciboId: selectedRow.venda_recibo_id || null,
-          isBaixaRac,
-          conciliado: marcadoConciliado,
-          valorLancamentos: parsePtBrNullable(detalheValorLancamentos),
-          valorTaxas: parsePtBrNullable(detalheValorTaxas),
-          valorDescontos: parsePtBrNullable(detalheValorDescontos),
-          valorAbatimentos: parsePtBrNullable(detalheValorAbatimentos),
-          valorNaoComissionavel: parsePtBrNullable(detalheValorNaoComissionavel),
-          valorCalculadaLoja: parsePtBrNullable(detalheValorCalculadaLoja),
-          valorVisaoMaster: parsePtBrNullable(detalheValorVisaoMaster),
-          valorOpfax: parsePtBrNullable(detalheValorOpfax),
-          valorSaldo: parsePtBrNullable(detalheValorSaldo),
-          valorComissaoLoja: parsePtBrNullable(detalheValorComissaoLoja)
-        })
+      await apiPost('/api/v1/conciliacao/assign', {
+        conciliacaoId: selectedRow.id,
+        rankingVendedorId: rankingVendedorId || null,
+        rankingProdutoId: rankingProdutoId || null,
+        vendaId: selectedRow.venda_id || null,
+        vendaReciboId: selectedRow.venda_recibo_id || null,
+        isBaixaRac,
+        conciliado: marcadoConciliado,
+        valorLancamentos: parsePtBrNullable(detalheValorLancamentos),
+        valorTaxas: parsePtBrNullable(detalheValorTaxas),
+        valorDescontos: parsePtBrNullable(detalheValorDescontos),
+        valorAbatimentos: parsePtBrNullable(detalheValorAbatimentos),
+        valorNaoComissionavel: parsePtBrNullable(detalheValorNaoComissionavel),
+        valorCalculadaLoja: parsePtBrNullable(detalheValorCalculadaLoja),
+        valorVisaoMaster: parsePtBrNullable(detalheValorVisaoMaster),
+        valorOpfax: parsePtBrNullable(detalheValorOpfax),
+        valorSaldo: parsePtBrNullable(detalheValorSaldo),
+        valorComissaoLoja: parsePtBrNullable(detalheValorComissaoLoja)
       });
-      await parseJson(response, 'Erro ao salvar atribuição de conciliação.');
       toast.success('Atribuição salva com sucesso.');
       detailsReadOnly = true;
       showDetailsDialog = false;
@@ -1089,15 +1091,10 @@
       ? 'Reprocessando vínculo e valores do recibo selecionado.'
       : 'Executando conciliação automática dos recibos pendentes.';
     try {
-      const response = await fetch('/api/v1/conciliacao/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          limit: reciboId ? 1 : 200,
-          conciliacaoReciboId: reciboId || null
-        })
+      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        limit: reciboId ? 1 : 200,
+        conciliacaoReciboId: reciboId || null
       });
-      const data = await parseJson(response, 'Erro ao executar a conciliação automática.');
       const erros = Number(data.updateErrors || 0);
       const reconciled = Number(data.reconciled || data.reconciliados || 0);
       const recalculated = Number(data.recalculated || 0);
@@ -1141,15 +1138,10 @@
     running = true;
     operationMessage = 'Forçando recálculo dos recibos da conciliação no mês selecionado.';
     try {
-      const response = await fetch('/api/v1/conciliacao/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recalculateAllMonth: true,
-          recalculateMonth: monthFilter
-        })
+      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        recalculateAllMonth: true,
+        recalculateMonth: monthFilter
       });
-      const data = await parseJson(response, 'Erro ao forçar recálculo da conciliação.');
       const recalculated = Number(data.recalculated || 0);
       const scanned = Number(data.recalculatedChecked || 0);
       const erros = Number(data.updateErrors || 0);
@@ -1192,15 +1184,10 @@
     running = true;
     operationMessage = 'Saneando recibos duplicados da conciliação no mês selecionado.';
     try {
-      const response = await fetch('/api/v1/conciliacao/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cleanupDuplicatesOnly: true,
-          recalculateMonth: monthFilter
-        })
+      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        cleanupDuplicatesOnly: true,
+        recalculateMonth: monthFilter
       });
-      const data = await parseJson(response, 'Erro ao sanear duplicados da conciliação.');
       const duplicatesRemoved = Number(data.duplicatesRemoved || 0);
       const duplicateGroups = Number(data.duplicateGroups || 0);
       addOperationLog({
@@ -1246,17 +1233,12 @@
         : 'Auditando vínculos da conciliação no mês selecionado.';
 
     try {
-      const response = await fetch('/api/v1/conciliacao/fix-vinculos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dryRun: !apply,
-          limit: conciliacaoId ? 1 : 2000,
-          month: conciliacaoId ? null : monthFilter || null,
-          conciliacaoReciboId: conciliacaoId
-        })
+      const data = await apiPost<any>('/api/v1/conciliacao/fix-vinculos', {
+        dryRun: !apply,
+        limit: conciliacaoId ? 1 : 2000,
+        month: conciliacaoId ? null : monthFilter || null,
+        conciliacaoReciboId: conciliacaoId
       });
-      const data = await parseJson(response, apply ? 'Erro ao corrigir vínculos.' : 'Erro ao auditar vínculos.');
       vinculosAuditResult = data as VinculoAuditResult;
       const checked = Number(data.checked || 0);
       const critical = Number(data.critical || data.incorretos || 0);
@@ -1300,12 +1282,7 @@
     reverting = true;
     operationMessage = 'Revertendo alterações pendentes da conciliação.';
     try {
-      const response = await fetch('/api/v1/conciliacao/revert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ revertAll: true, limit: 500 })
-      });
-      const data = await parseJson(response, 'Erro ao reverter alterações.');
+      const data = await apiPost<any>('/api/v1/conciliacao/revert', { revertAll: true, limit: 500 });
       toast.success(`Alterações revertidas: ${Number(data.reverted || 0)} recibos atualizados.`);
       await Promise.all([loadRegistros(), loadChanges()]);
     } catch (error: any) {
@@ -1353,34 +1330,29 @@
     importing = true;
     operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
     try {
-      const response = await fetch('/api/v1/conciliacao/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          linhas: importPreparedRows.map((row) => ({
-            documento: row.documento,
-            numero_reserva: row.numero_reserva || null,
-            movimento_data: row.movimento_data,
-            status: row.status,
-            descricao: row.descricao,
-            valor_lancamentos: row.valor_lancamentos,
-            valor_taxas: row.valor_taxas,
-            valor_descontos: row.valor_descontos,
-            valor_abatimentos: row.valor_abatimentos,
-            valor_nao_comissionavel: row.valor_nao_comissionavel,
-            valor_saldo: row.valor_saldo,
-            valor_comissao_loja: row.valor_comissao_loja,
-            percentual_comissao_loja: row.percentual_comissao_loja,
-            faixa_comissao: row.faixa_comissao,
-            ranking_vendedor_id: row.ranking_vendedor_id,
-            ranking_produto_id: row.ranking_produto_id,
-            venda_id: row.venda_id,
-            venda_recibo_id: row.venda_recibo_id,
-            origem: row.origem || (importMode === 'rextur' ? 'rextur' : importFileName ? `arquivo:${importFileName}` : 'arquivo')
-          }))
-        })
+      const data = await apiPost<any>('/api/v1/conciliacao/import', {
+        linhas: importPreparedRows.map((row) => ({
+          documento: row.documento,
+          numero_reserva: row.numero_reserva || null,
+          movimento_data: row.movimento_data,
+          status: row.status,
+          descricao: row.descricao,
+          valor_lancamentos: row.valor_lancamentos,
+          valor_taxas: row.valor_taxas,
+          valor_descontos: row.valor_descontos,
+          valor_abatimentos: row.valor_abatimentos,
+          valor_nao_comissionavel: row.valor_nao_comissionavel,
+          valor_saldo: row.valor_saldo,
+          valor_comissao_loja: row.valor_comissao_loja,
+          percentual_comissao_loja: row.percentual_comissao_loja,
+          faixa_comissao: row.faixa_comissao,
+          ranking_vendedor_id: row.ranking_vendedor_id,
+          ranking_produto_id: row.ranking_produto_id,
+          venda_id: row.venda_id,
+          venda_recibo_id: row.venda_recibo_id,
+          origem: row.origem || (importMode === 'rextur' ? 'rextur' : importFileName ? `arquivo:${importFileName}` : 'arquivo')
+        }))
       });
-      const data = await parseJson(response, 'Erro ao importar arquivo de conciliação.');
       const statusCronologico = data.status_cronologico || null;
       if (statusCronologico?.aviso) {
         if (statusCronologico.ok === false) {
@@ -1452,8 +1424,9 @@
   async function loadDiasSemMovimento() {
     try {
       const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
-      const response = await fetch(`/api/v1/conciliacao/sem-movimento?companyId=${companyId || ''}`);
-      const data = await parseJson(response, 'Erro ao carregar dias sem movimento.');
+      const data = await apiGet<any>('/api/v1/conciliacao/sem-movimento', {
+        companyId: companyId || undefined
+      });
       diasSemMovimento = (data.dias || []).map((d: any) => String(d.data || '')).filter(Boolean);
     } catch {
       diasSemMovimento = [];
@@ -1468,12 +1441,11 @@
     semMovimentoLoading = true;
     try {
       const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
-      const response = await fetch('/api/v1/conciliacao/sem-movimento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, data: semMovimentoData, observacao: semMovimentoObservacao })
+      await apiPost('/api/v1/conciliacao/sem-movimento', {
+        companyId,
+        data: semMovimentoData,
+        observacao: semMovimentoObservacao
       });
-      await parseJson(response, 'Erro ao marcar dia sem movimento.');
       toast.success(`Dia ${formatDate(semMovimentoData)} marcado como sem movimento.`);
       semMovimentoModalOpen = false;
       semMovimentoData = '';
@@ -1504,12 +1476,7 @@
     importLookupLoading = true;
     try {
       const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
-      const response = await fetch('/api/v1/conciliacao/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, documentos: docs })
-      });
-      const data = await parseJson(response, 'Erro ao buscar vendedores no sistema.');
+      const data = await apiPost<any>('/api/v1/conciliacao/lookup', { companyId, documentos: docs });
       importLookupMatches = data?.matches && typeof data.matches === 'object' ? data.matches : {};
     } catch {
       importLookupMatches = {};
@@ -1817,13 +1784,6 @@
     return `<div class="flex flex-wrap gap-1">${chips.join('')}</div>`;
   }
 
-  async function parseJson(response: Response, fallbackMessage: string) {
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data?.error || fallbackMessage);
-    }
-    return data;
-  }
 </script>
 
 <svelte:head>

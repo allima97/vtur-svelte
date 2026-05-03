@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { PageHeader, Card, Button, Dialog, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
   import {
     RefreshCw,
     Image as ImageIcon,
@@ -430,9 +432,7 @@
   async function load() {
     loading = true;
     try {
-      const resp = await fetch('/api/v1/crm/library');
-      if (!resp.ok) throw new Error(await resp.text());
-      const data: LibraryData = await resp.json();
+      const data = await apiGet<LibraryData>('/api/v1/crm/library');
       categories = data.categories || [];
       themes = data.themes || [];
       messages = data.messages || [];
@@ -476,9 +476,7 @@
     }
     searchingClientes = true;
     try {
-      const resp = await fetch(`/api/v1/clientes/search?q=${encodeURIComponent(busca)}&limit=10`);
-      if (!resp.ok) return;
-      const data = await resp.json();
+      const data: any = await apiGet('/api/v1/clientes/search', { q: busca, limit: 10 });
       clienteResults = (data.clientes || data.items || data || []).slice(0, 10);
       showClienteDropdown = clienteResults.length > 0;
     } catch {
@@ -615,12 +613,7 @@
   async function saveSignature() {
     savingSig = true;
     try {
-      const resp = await fetch('/api/v1/crm/signature', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assinatura }),
-      });
-      if (!resp.ok) throw new Error(await resp.text());
+      await apiPost('/api/v1/crm/signature', { assinatura });
       toast.success('Assinatura salva com sucesso.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar assinatura.');
@@ -682,71 +675,16 @@
 
   function openPreviewSvg() {
     if (!previewUrl) return;
-    window.open(previewUrl, '_blank');
-  }
-
-  function downloadBlob(blob: Blob, filename: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  async function renderSvgToPngBlob(svgText: string): Promise<Blob> {
-    const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    try {
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Falha ao carregar SVG para conversão de PNG.'));
-        img.src = svgUrl;
-      });
-
-      const width = Math.max(1, img.naturalWidth || 1080);
-      const height = Math.max(1, img.naturalHeight || 1080);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Falha ao inicializar canvas para conversão PNG.');
-
-      ctx.drawImage(img, 0, 0, width, height);
-      const pngBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!pngBlob) throw new Error('Falha ao gerar blob PNG da prévia.');
-      return pngBlob;
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
+    window.open(previewUrl, '_blank', 'noopener,noreferrer');
   }
 
   async function openPreviewPng() {
     if (!previewUrl) return;
     previewLoading = true;
     try {
-      const pngUrl = previewUrl.replace('/render.svg', '/render.png');
-      const pngResp = await fetch(pngUrl, { headers: { Accept: 'image/png' } });
-
-      if (pngResp.ok) {
-        const contentType = String(pngResp.headers.get('content-type') || '').toLowerCase();
-        if (contentType.includes('image/png')) {
-          const blob = await pngResp.blob();
-          downloadBlob(blob, `crm-${Date.now()}.png`);
-          return;
-        }
-      }
-
-      const svgResp = await fetch(previewUrl, { headers: { Accept: 'image/svg+xml,text/plain,*/*' } });
-      if (!svgResp.ok) throw new Error('Falha ao carregar SVG para gerar PNG local.');
-      const svgText = await svgResp.text();
-      const pngBlob = await renderSvgToPngBlob(svgText);
-      downloadBlob(pngBlob, `crm-${Date.now()}.png`);
-      toast.info('PNG gerado localmente no navegador.');
+      const { blob, generatedLocally } = await fetchPreviewPngBlob(previewUrl);
+      downloadBlob(blob, `crm-${Date.now()}.png`);
+      if (generatedLocally) toast.info('PNG gerado localmente no navegador.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao baixar PNG.';
       toast.error(message);
@@ -760,7 +698,7 @@
     const pngUrl = previewUrl.replace('/render.svg', '/render.png');
     const cliente = primeiroNome || clienteNome || 'cliente';
     const text = `Segue o seu cartao, ${cliente}: ${pngUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   }
 
   function clearPreviewSelection() {
@@ -1310,7 +1248,7 @@
             color="crm"
             disabled={palavrasExcedido || linhasExcedido || !selectedTheme}
             on:click={() => {
-              if (previewUrl) window.open(previewUrl, '_blank');
+              if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer');
             }}
           >
             <Eye size={16} class="mr-2" />

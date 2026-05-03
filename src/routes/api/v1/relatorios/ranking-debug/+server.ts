@@ -17,7 +17,10 @@ import { json } from '@sveltejs/kit';
 import {
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  isDebugEndpointEnabled,
   isRankingEligibleUser,
+  logServerError,
+  parseIntSafe,
   parseUuidList,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
@@ -27,8 +30,24 @@ import {
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 
+const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const MAX_DEBUG_CONTRIBUICOES = 2000;
+
+function debugJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  return json(body, {
+    ...init,
+    headers
+  });
+}
+
 function canUseRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return scope.isAdmin || scope.isMaster || scope.isGestor;
+}
+
+function canMutateRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return scope.isAdmin || scope.isMaster;
 }
 
 function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId: string | null | undefined) {
@@ -57,21 +76,30 @@ function applyCompanyScope<T extends { in: (column: string, values: string[]) =>
 
 export async function GET(event) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return debugJson({ error: 'Not found' }, { status: 404 });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     if (!canUseRankingDebug(scope)) {
-      return json({ error: 'Sem acesso.' }, { status: 403 });
+      return debugJson({ error: 'Sem acesso.' }, { status: 403 });
     }
 
     // Modo contribuições canônicas do ranking/KPIs:
     // ?contribuicoes_mes=2026-04
     const contribuicoesMes = event.url.searchParams.get('contribuicoes_mes');
     if (contribuicoesMes) {
+      if (!/^\d{4}-\d{2}$/.test(String(contribuicoesMes))) {
+        return debugJson({ error: 'Mes invalido.' }, { status: 400 });
+      }
       const [ano, mes] = String(contribuicoesMes).split('-');
       const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
       const inicio = `${ano}-${mes}-01`;
       const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
+      const requestedLimit = parseIntSafe(event.url.searchParams.get('limit'), MAX_DEBUG_CONTRIBUICOES);
+      const maxContribuicoes = Math.max(1, Math.min(requestedLimit, MAX_DEBUG_CONTRIBUICOES));
       const companyIds = resolveDebugCompanyIds(scope, event.url.searchParams.get('empresa_id'));
       let vendedorIds = parseUuidList(
         event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
@@ -128,7 +156,7 @@ export async function GET(event) {
         porVendedor.set(vendedorId, current);
       });
 
-      return json({
+      return debugJson({
         periodo: `${inicio} a ${fim}`,
         empresas: companyIds,
         vendedores_considerados: vendedorIds.length,
@@ -141,7 +169,9 @@ export async function GET(event) {
             seguro: Math.round(row.seguro * 100) / 100
           }))
           .sort((a, b) => b.total - a.total),
-        contribuicoes: canonical.contributions.map((item) => ({
+        total_contribuicoes: canonical.contributions.length,
+        contribuicoes_truncadas: canonical.contributions.length > maxContribuicoes,
+        contribuicoes: canonical.contributions.slice(0, maxContribuicoes).map((item) => ({
           ...item,
           vendedorNome: vendedorMap.get(String(item.vendedorId || '')) || item.vendedorId
         }))
@@ -168,7 +198,7 @@ export async function GET(event) {
       const userIds = (usersData || []).map((u: any) => u.id);
       const userNomes: Record<string, string> = Object.fromEntries((usersData || []).map((u: any) => [u.id, u.nome_completo]));
 
-      if (userIds.length === 0) return json({ erro: `Nenhum usuário encontrado com nome "${vendedorBusca}"` });
+      if (userIds.length === 0) return debugJson({ erro: `Nenhum usuário encontrado com nome "${vendedorBusca}"` });
 
       // 2. Buscar todos os registros de conciliação atribuídos a esse(s) vendedor(es)
       const { data: concRows, error: concErr } = await client
@@ -249,7 +279,7 @@ export async function GET(event) {
         }));
       }
 
-      return json({
+      return debugJson({
         vendedor_buscado: vendedorBusca,
         periodo: `${inicio} a ${fim}`,
         usuarios_encontrados: usersData,
@@ -302,7 +332,7 @@ export async function GET(event) {
           return { status, descricao, count };
         })
         .sort((a, b) => b.count - a.count);
-      return json({ descricoes_distintas: result, total_linhas: descRows?.length });
+      return debugJson({ descricoes_distintas: result, total_linhas: descRows?.length });
     }
 
     // Modo busca de usuário: ?busca_usuario=Sandra
@@ -316,7 +346,7 @@ export async function GET(event) {
       usuariosQuery = applyCompanyScope(usuariosQuery, scope, event.url.searchParams.get('empresa_id'));
       const { data: usuarios, error: userErr } = await usuariosQuery;
       if (userErr) throw userErr;
-      return json({ usuarios: usuarios || [] });
+      return debugJson({ usuarios: usuarios || [] });
     }
 
     // ── Modo auditoria por mês: ?auditoria_mes=2026-04&empresa_id=<uuid> ──
@@ -470,7 +500,7 @@ export async function GET(event) {
         })
         .sort((a, b) => (b.total_bruto_conciliacao - a.total_bruto_conciliacao));
 
-      return json({
+      return debugJson({
         periodo: `${inicio} a ${fim}`,
         total_recibos_ativos: recibosAtivos.length,
         total_sem_vendedor: semVendedorQtd,
@@ -502,7 +532,7 @@ export async function GET(event) {
       usersQuery2 = applyCompanyScope(usersQuery2, scope, event.url.searchParams.get('empresa_id'));
       const { data: usersData2 } = await usersQuery2;
       const userIds2 = (usersData2 || []).map((u: any) => u.id);
-      if (userIds2.length === 0) return json({ erro: `Nenhum usuário encontrado com nome "${docsPorVendedor}"` });
+      if (userIds2.length === 0) return debugJson({ erro: `Nenhum usuário encontrado com nome "${docsPorVendedor}"` });
 
       // Buscar TODOS os registros de conciliação do período com ranking_vendedor_id desse usuário
       const { data: concRows2, error: concErr2 } = await client
@@ -557,7 +587,7 @@ export async function GET(event) {
 
       const totalBruto2 = resultado.reduce((s: number, r: any) => s + r.valor_bruto_calculado, 0);
 
-      return json({
+      return debugJson({
         vendedor_buscado: docsPorVendedor,
         usuarios_encontrados: usersData2,
         periodo: `${inicio2} a ${fim2}`,
@@ -608,33 +638,42 @@ export async function GET(event) {
       ranking_vendedor_nome: vendedorNomes[r.ranking_vendedor_id] || r.ranking_vendedor_id || '(sem vendedor)',
     }));
 
-    return json({
-      docs_pesquisados: docVariants,
-      conciliacao_rows: enrichedRows,
-      resumo: {
-        linhas_encontradas: enrichedRows.length,
-      }
-    });
+    return debugJson(
+      {
+        docs_pesquisados: docVariants,
+        conciliacao_rows: enrichedRows,
+        resumo: {
+          linhas_encontradas: enrichedRows.length,
+        }
+      },
+      { headers: DEBUG_HEADERS }
+    );
   } catch (err) {
-    console.error('[ranking-debug] Erro GET:', err);
-    return toErrorResponse(err, 'Erro no diagnóstico do ranking.');
+    logServerError('[ranking-debug] erro GET', err);
+    const response = toErrorResponse(err, 'Erro no diagnóstico do ranking.');
+    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    return response;
   }
 }
 
 export async function POST(event) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return debugJson({ error: 'Not found' }, { status: 404 });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    if (!canUseRankingDebug(scope)) {
-      return json({ error: 'Sem acesso.' }, { status: 403 });
+    if (!canMutateRankingDebug(scope)) {
+      return debugJson({ error: 'Sem acesso.' }, { status: 403 });
     }
 
     const body = await event.request.json();
     const { action, id } = body;
 
     if (!id || typeof id !== 'string') {
-      return json({ error: 'id é obrigatório' }, { status: 400 });
+      return debugJson({ error: 'id é obrigatório' }, { status: 400 });
     }
 
     const { data: registroRec, error: registroError } = await client
@@ -643,21 +682,21 @@ export async function POST(event) {
       .eq('id', id)
       .maybeSingle();
     if (registroError) throw registroError;
-    if (!registroRec) return json({ error: 'Registro não encontrado.' }, { status: 404 });
+    if (!registroRec) return debugJson({ error: 'Registro não encontrado.' }, { status: 404 });
 
     const companyIdRec = String(registroRec?.company_id || '').trim() || null;
     if (!canAccessCompany(scope, companyIdRec)) {
-      return json({ error: 'Sem acesso à empresa do recibo.' }, { status: 403 });
+      return debugJson({ error: 'Sem acesso à empresa do recibo.' }, { status: 403 });
     }
 
     if (action === 'fix_vendor') {
       const { vendedor_id } = body;
-      if (!vendedor_id) return json({ error: 'vendedor_id é obrigatório' }, { status: 400 });
+      if (!vendedor_id) return debugJson({ error: 'vendedor_id é obrigatório' }, { status: 400 });
 
       // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
       const equipeVturVendedor = await findEquipeVturVendedor(client, companyIdRec);
       if (equipeVturVendedor?.id && vendedor_id === equipeVturVendedor.id) {
-        return json({ error: 'Não é permitido atribuir "Equipe vtur" como vendedor de um recibo.' }, { status: 422 });
+        return debugJson({ error: 'Não é permitido atribuir "Equipe vtur" como vendedor de um recibo.' }, { status: 422 });
       }
       const { data: vendedorRow, error: vendedorError } = await client
         .from('users')
@@ -666,7 +705,7 @@ export async function POST(event) {
         .maybeSingle();
       if (vendedorError) throw vendedorError;
       if (!vendedorRow || vendedorRow.company_id !== companyIdRec || !isRankingEligibleUser(vendedorRow)) {
-        return json({ error: 'Vendedor fora do escopo da empresa ou inelegível para ranking.' }, { status: 422 });
+        return debugJson({ error: 'Vendedor fora do escopo da empresa ou inelegível para ranking.' }, { status: 422 });
       }
 
       const { data, error } = await client
@@ -675,14 +714,14 @@ export async function POST(event) {
         .eq('id', id)
         .select('id, documento, ranking_vendedor_id');
       if (error) throw error;
-      return json({ ok: true, updated: data });
+      return debugJson({ ok: true, updated: data });
 
     } else if (action === 'fix_valor') {
       const updates: Record<string, any> = {};
       if (body.valor_lancamentos != null) updates.valor_lancamentos = Number(body.valor_lancamentos);
       if (body.valor_venda_real != null) updates.valor_venda_real = Number(body.valor_venda_real);
       if (Object.keys(updates).length === 0) {
-        return json({ error: 'Nenhum valor fornecido para atualizar' }, { status: 400 });
+        return debugJson({ error: 'Nenhum valor fornecido para atualizar' }, { status: 400 });
       }
 
       const { data, error } = await client
@@ -691,13 +730,15 @@ export async function POST(event) {
         .eq('id', id)
         .select('id, documento, valor_lancamentos, valor_venda_real');
       if (error) throw error;
-      return json({ ok: true, updated: data });
+      return debugJson({ ok: true, updated: data });
 
     } else {
-      return json({ error: `Ação desconhecida: ${action}` }, { status: 400 });
+      return debugJson({ error: `Ação desconhecida: ${action}` }, { status: 400 });
     }
   } catch (err) {
-    console.error('[ranking-debug] Erro POST:', err);
-    return toErrorResponse(err, 'Erro na correção.');
+    logServerError('[ranking-debug] erro POST', err);
+    const response = toErrorResponse(err, 'Erro na correção.');
+    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    return response;
   }
 }

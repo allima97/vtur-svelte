@@ -4,6 +4,7 @@ import {
   requireAuthenticatedUser,
   resolveUserScope,
   ensureModuloAccess,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -29,8 +30,8 @@ export async function GET(event: RequestEvent) {
 
     ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Roteiros.');
 
-    const q = event.url.searchParams.get('q') || '';
-    const cidade = event.url.searchParams.get('cidade') || '';
+    const q = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'));
+    const cidade = sanitizePostgrestSearchTerm(event.url.searchParams.get('cidade'));
     const companyId = scope.companyId;
 
     const runQuery = async (withPercurso: boolean) => {

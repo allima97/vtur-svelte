@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPatch } from '$lib/services/api';
   import { Save, User, Phone, MapPin, Mail, Building2 } from 'lucide-svelte';
 
   type Perfil = {
@@ -62,9 +63,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/user/profile');
-      if (!response.ok) throw new Error(await response.text());
-      perfil = await response.json();
+      perfil = await apiGet<Perfil>('/api/v1/user/profile');
       if (perfil) {
         form = {
           nome_completo: perfil.nome_completo || '',
@@ -96,9 +95,7 @@
     if (digits.length !== 8) { cepStatus = null; return; }
     cepStatus = 'Buscando CEP...';
     try {
-      const response = await fetch(`/api/v1/enderecos/cep?cep=${digits}`);
-      if (!response.ok) throw new Error('CEP não encontrado.');
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
       form = {
         ...form,
         endereco: data.logradouro || form.endereco,
@@ -117,12 +114,7 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPatch('/api/v1/user/profile', form);
       toast.success('Perfil atualizado com sucesso.');
       await load();
     } catch (err) {

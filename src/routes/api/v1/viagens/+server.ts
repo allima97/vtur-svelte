@@ -5,11 +5,9 @@ import {
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
-  toErrorResponse,
-  getMonthRange,
-  toISODateLocal
+  toErrorResponse
 } from '$lib/server/v1';
-import { addDaysISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
+import { addDaysISODate, todayISODateLocal } from '$lib/date';
 import { normalizeViagemStatus } from '$lib/viagens/status';
 import { syncViagensStatus } from '$lib/server/viagensStatus';
 
@@ -17,22 +15,19 @@ function getPeriodoFilter(periodo: string | null): { from?: string; to?: string 
   if (!periodo) return null;
 
   const hojeStr = todayISODateLocal();
-  const hoje = parseISODateLocal(hojeStr) || new Date();
 
   switch (periodo) {
     case 'hoje': {
       return { from: hojeStr, to: hojeStr };
     }
     case 'semana': {
-      const inicioSemana = new Date(hoje);
-      inicioSemana.setDate(hoje.getDate() - hoje.getDay());
-      const fimSemana = new Date(inicioSemana);
-      fimSemana.setDate(inicioSemana.getDate() + 6);
-      return { from: toISODateLocal(inicioSemana), to: toISODateLocal(fimSemana) };
+      return { from: hojeStr, to: addDaysISODate(hojeStr, 7) };
+    }
+    case 'quinzena': {
+      return { from: hojeStr, to: addDaysISODate(hojeStr, 15) };
     }
     case 'mes': {
-      const { inicio, fim } = monthRangeFromKey(hojeStr.slice(0, 7)) || getMonthRange(hoje);
-      return { from: inicio, to: fim };
+      return { from: hojeStr, to: addDaysISODate(hojeStr, 30) };
     }
     case 'proximos_30': {
       return { from: hojeStr, to: addDaysISODate(hojeStr, 30) };
@@ -55,6 +50,7 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const status = searchParams.get('status');
     const periodo = searchParams.get('periodo');
+    const ordenar = String(searchParams.get('ordenar') || 'embarque_asc').trim().toLowerCase();
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
     // Guard: sem empresa identificada, retorna vazio (exceto admin)
@@ -83,8 +79,25 @@ export async function GET(event) {
         created_at,
         updated_at
       `)
-      .order('data_inicio', { ascending: true })
       .limit(1000);
+
+    if (ordenar === 'embarque_desc') {
+      query = query
+        .order('data_inicio', { ascending: false, nullsFirst: false })
+        .order('data_fim', { ascending: false, nullsFirst: false });
+    } else if (ordenar === 'retorno_asc') {
+      query = query
+        .order('data_fim', { ascending: true, nullsFirst: false })
+        .order('data_inicio', { ascending: true, nullsFirst: false });
+    } else if (ordenar === 'cadastro_desc') {
+      query = query
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .order('data_inicio', { ascending: true, nullsFirst: false });
+    } else {
+      query = query
+        .order('data_inicio', { ascending: true, nullsFirst: false })
+        .order('data_fim', { ascending: true, nullsFirst: false });
+    }
 
     // Filtro por empresa — igual ao vtur-app
     if (companyIds.length > 0) {

@@ -6,8 +6,6 @@
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
-  import VoucherEditorModal from "$lib/components/modais/VoucherEditorModal.svelte";
-  import VoucherPreviewModal from "$lib/components/modais/VoucherPreviewModal.svelte";
   import {
     ArrowLeft,
     Edit,
@@ -33,6 +31,7 @@
   import { fade } from "svelte/transition";
   import { formatDate as formatDateValue } from "$lib/utils/formatters";
   import type { VoucherRecord, VoucherAssetRecord } from "$lib/vouchers/types";
+  import { apiDelete, apiGet, apiPatch, apiPost } from "$lib/services/api";
 
   let voucher: VoucherRecord | null = null;
   let assets: VoucherAssetRecord[] = [];
@@ -41,6 +40,11 @@
   let showEditor = false;
   let showPreview = false;
   let companyId: string | null = null;
+  let VoucherEditorModal: any = null;
+  let VoucherPreviewModal: any = null;
+  let loadingEditorModal = false;
+  let loadingPreviewModal = false;
+  let assetsLoaded = false;
 
   const providerConfig: Record<
     string,
@@ -85,36 +89,30 @@
       await Promise.all([
         loadUserContext(),
         carregarVoucher(id),
-        carregarAssets(),
       ]);
     }
   });
 
   async function loadUserContext() {
     try {
-      const response = await fetch("/api/v1/user/context");
-      if (response.ok) {
-        const data = await response.json();
-        companyId = data.company_id;
-      }
+      const data = await apiGet<{ company_id?: string | null }>("/api/v1/user/context");
+      companyId = data.company_id || null;
     } catch (err) {
-      console.error("Erro ao carregar contexto:", err);
+      companyId = null;
     }
   }
 
   async function carregarVoucher(id: string) {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/vouchers/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        voucher = data.item;
-      } else {
+      const data = await apiGet<{ item?: VoucherRecord }>(`/api/v1/vouchers/${id}`);
+      voucher = data.item || null;
+      if (!voucher) {
         toast.error("Voucher não encontrado");
         goto("/operacao/vouchers");
       }
     } catch (err) {
-      toast.error("Erro ao carregar voucher");
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar voucher");
       goto("/operacao/vouchers");
     } finally {
       loading = false;
@@ -122,14 +120,13 @@
   }
 
   async function carregarAssets() {
+    if (assetsLoaded) return;
     try {
-      const response = await fetch("/api/v1/voucher-assets");
-      if (response.ok) {
-        const data = await response.json();
-        assets = data.items || [];
-      }
+      const data = await apiGet<{ items?: VoucherAssetRecord[] }>("/api/v1/voucher-assets");
+      assets = data.items || [];
+      assetsLoaded = true;
     } catch (err) {
-      console.error("Erro ao carregar assets:", err);
+      assets = [];
     }
   }
 
@@ -137,18 +134,11 @@
     const formData = event.detail;
 
     try {
-      const url = formData.id
-        ? `/api/v1/vouchers/${formData.id}`
-        : "/api/v1/vouchers";
-      const method = formData.id ? "PATCH" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) throw new Error("Erro ao salvar");
+      if (formData.id) {
+        await apiPatch(`/api/v1/vouchers/${formData.id}`, formData);
+      } else {
+        await apiPost("/api/v1/vouchers", formData);
+      }
 
       toast.success(formData.id ? "Voucher atualizado!" : "Voucher criado!");
       showEditor = false;
@@ -156,7 +146,45 @@
         await carregarVoucher($page.params.id);
       }
     } catch (err) {
-      toast.error("Erro ao salvar voucher");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar voucher");
+    }
+  }
+
+  async function loadEditorModal() {
+    if (VoucherEditorModal || loadingEditorModal) return;
+    loadingEditorModal = true;
+    try {
+      VoucherEditorModal = (await import("$lib/components/modais/VoucherEditorModal.svelte")).default;
+    } finally {
+      loadingEditorModal = false;
+    }
+  }
+
+  async function loadPreviewModal() {
+    if (VoucherPreviewModal || loadingPreviewModal) return;
+    loadingPreviewModal = true;
+    try {
+      VoucherPreviewModal = (await import("$lib/components/modais/VoucherPreviewModal.svelte")).default;
+    } finally {
+      loadingPreviewModal = false;
+    }
+  }
+
+  async function openEditor() {
+    try {
+      await Promise.all([loadEditorModal(), carregarAssets()]);
+      showEditor = true;
+    } catch {
+      toast.error("Erro ao carregar editor de voucher.");
+    }
+  }
+
+  async function openPreview() {
+    try {
+      await Promise.all([loadPreviewModal(), carregarAssets()]);
+      showPreview = true;
+    } catch {
+      toast.error("Erro ao carregar prévia do voucher.");
     }
   }
 
@@ -164,16 +192,11 @@
     if (!voucher) return;
 
     try {
-      const response = await fetch(`/api/v1/vouchers/${voucher.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Erro ao excluir");
-
+      await apiDelete(`/api/v1/vouchers/${voucher.id}`);
       toast.success("Voucher excluído com sucesso!");
       goto("/operacao/vouchers");
     } catch (err) {
-      toast.error("Erro ao excluir voucher");
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir voucher");
     }
   }
 
@@ -273,11 +296,11 @@
         </div>
 
         <div class="flex items-center gap-3">
-          <Button variant="secondary" on:click={() => (showPreview = true)}>
+          <Button variant="secondary" on:click={openPreview} loading={loadingPreviewModal}>
             <FileText size={18} class="mr-2" />
             Visualizar
           </Button>
-          <Button variant="primary" on:click={() => (showEditor = true)}>
+          <Button variant="primary" on:click={openEditor} loading={loadingEditorModal}>
             <Edit size={18} class="mr-2" />
             Editar
           </Button>
@@ -727,7 +750,8 @@
             <Button
               variant="primary"
               class_name="w-full justify-center"
-              on:click={() => (showEditor = true)}
+              loading={loadingEditorModal}
+              on:click={openEditor}
             >
               <Edit size={18} class="mr-2" />
               Editar Voucher
@@ -736,7 +760,8 @@
             <Button
               variant="secondary"
               class_name="w-full justify-center"
-              on:click={() => (showPreview = true)}
+              loading={loadingPreviewModal}
+              on:click={openPreview}
             >
               <FileText size={18} class="mr-2" />
               Visualizar PDF
@@ -820,25 +845,31 @@
 {/if}
 
 <!-- Editor Modal -->
-<VoucherEditorModal
-  bind:open={showEditor}
-  {voucher}
-  {companyId}
-  {assets}
-  on:save={handleSave}
-  on:close={() => (showEditor = false)}
-/>
+{#if VoucherEditorModal && showEditor}
+  <svelte:component
+    this={VoucherEditorModal}
+    bind:open={showEditor}
+    {voucher}
+    {companyId}
+    {assets}
+    on:save={handleSave}
+    on:close={() => (showEditor = false)}
+  />
+{/if}
 
 <!-- Preview Modal -->
-<VoucherPreviewModal
-  bind:open={showPreview}
-  {voucher}
-  {assets}
-  on:edit={() => {
-    showPreview = false;
-    showEditor = true;
-  }}
-/>
+{#if VoucherPreviewModal && showPreview}
+  <svelte:component
+    this={VoucherPreviewModal}
+    bind:open={showPreview}
+    {voucher}
+    {assets}
+    on:edit={async () => {
+      showPreview = false;
+      await openEditor();
+    }}
+  />
+{/if}
 
 <!-- Delete Dialog -->
 <Dialog

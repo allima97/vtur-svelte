@@ -1,14 +1,14 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { browser } from '$app/environment';
-  import { supabase } from '$lib/db/supabase';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput, FieldSelect, FieldCheckbox } from '$lib/components/ui';
+  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
+  import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
   import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from 'lucide-svelte';
 
@@ -64,40 +64,12 @@
     }).format(date);
   }
 
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch('/api/auth/set-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token
-        })
-      });
-    } catch {
-      // Falha silenciosa: o carregamento tratará 401 explicitamente.
-    }
-  }
-
   async function loadCreateReference() {
     await ensureServerSessionCookie();
-    const [typesResponse, companiesResponse, templatesResponse] = await Promise.all([
-      fetch('/api/v1/admin/tipos-usuario'),
-      fetch('/api/v1/admin/empresas'),
-      fetch('/api/v1/admin/avisos')
-    ]);
-
-    if (!typesResponse.ok) throw new Error(await typesResponse.text());
-    if (!companiesResponse.ok) throw new Error(await companiesResponse.text());
-    if (!templatesResponse.ok) throw new Error(await templatesResponse.text());
-
     const [typesPayload, companiesPayload, templatesPayload] = await Promise.all([
-      typesResponse.json(),
-      companiesResponse.json(),
-      templatesResponse.json()
+      apiGet<any>('/api/v1/admin/tipos-usuario'),
+      apiGet<any>('/api/v1/admin/empresas'),
+      apiGet<any>('/api/v1/admin/avisos')
     ]);
 
     userTypes = typesPayload.items || [];
@@ -111,19 +83,12 @@
   }
 
   async function loadMfaStatus(userId: string) {
-    const response = await fetch('/api/v1/admin/auth/mfa-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_ids: [userId] })
-    });
-
-    if (!response.ok) {
+    try {
+      const payload = await apiPost<any>('/api/v1/admin/auth/mfa-status', { user_ids: [userId] });
+      mfaStatus = payload?.statuses?.[userId] || null;
+    } catch {
       mfaStatus = null;
-      return;
     }
-
-    const payload = await response.json();
-    mfaStatus = payload?.statuses?.[userId] || null;
   }
 
   async function loadDetail() {
@@ -133,28 +98,34 @@
         await loadCreateReference();
       } else {
         await ensureServerSessionCookie();
-        const response = await fetch(`/api/v1/admin/usuarios/${currentId}`);
-        if (!response.ok) {
-          const message = (await response.text()) || 'Nao foi possivel carregar o detalhe do usuario.';
-          if (response.status === 401) {
+        let payload: any;
+        try {
+          payload = await apiFetch(`/api/v1/admin/usuarios/${currentId}`, {
+            redirectOnForbidden: false,
+            redirectOnUnauthorized: false
+          });
+        } catch (err) {
+          if (err instanceof ApiError) {
+            const message = err.message || 'Nao foi possivel carregar o detalhe do usuario.';
+            if (err.status === 401) {
             toast.error('Sessão expirada. Faça login novamente para continuar.');
             const next = `${$page.url.pathname}${$page.url.search}`;
             await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
             return;
-          }
-          if (response.status === 403) {
+            }
+            if (err.status === 403) {
             toast.error(message || 'Você não tem permissão para acessar este usuário.');
             await goto('/admin/usuarios');
             return;
-          }
-          if (response.status === 404) {
+            }
+            if (err.status === 404) {
             toast.error(message || 'Usuário não encontrado.');
             await goto('/admin/usuarios');
             return;
+            }
           }
-          throw new Error(message);
+          throw err;
         }
-        const payload = await response.json();
 
         userMeta = payload.user;
         permissionsSummary = payload.permissions || [];
@@ -208,25 +179,17 @@
         throw new Error('Defina a senha inicial do usuario.');
       }
 
-      const response = await fetch('/api/v1/admin/usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: isCreateMode ? undefined : userForm.id,
-          nome_completo: userForm.nome_completo,
-          email: userForm.email,
-          password: isCreateMode ? userForm.password : undefined,
-          user_type_id: userForm.user_type_id,
-          company_id: userForm.uso_individual ? null : userForm.company_id,
-          uso_individual: userForm.uso_individual,
-          active: userForm.active,
-          participa_ranking: userForm.participa_ranking
-        })
+      const payload = await apiPost<{ id?: string }>('/api/v1/admin/usuarios', {
+        id: isCreateMode ? undefined : userForm.id,
+        nome_completo: userForm.nome_completo,
+        email: userForm.email,
+        password: isCreateMode ? userForm.password : undefined,
+        user_type_id: userForm.user_type_id,
+        company_id: userForm.uso_individual ? null : userForm.company_id,
+        uso_individual: userForm.uso_individual,
+        active: userForm.active,
+        participa_ranking: userForm.participa_ranking
       });
-
-      if (!response.ok) throw new Error(await response.text());
-
-      const payload = await response.json();
       toast.success(isCreateMode ? 'Usuario criado com sucesso.' : 'Usuario atualizado com sucesso.');
 
       if (isCreateMode && payload.id) {
@@ -243,15 +206,10 @@
 
   async function sendAviso() {
     try {
-      const response = await fetch('/api/v1/admin/avisos/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userForm.id,
-          template_id: avisoTemplateId
-        })
+      await apiPost('/api/v1/admin/avisos/send', {
+        user_id: userForm.id,
+        template_id: avisoTemplateId
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Aviso disparado com sucesso.');
       showAvisoDialog = false;
       avisoTemplateId = '';
@@ -270,16 +228,11 @@
         throw new Error('A confirmacao da senha nao confere.');
       }
 
-      const response = await fetch('/api/v1/admin/auth/set-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userForm.id,
-          password: novaSenha,
-          confirm_email: true
-        })
+      await apiPost('/api/v1/admin/auth/set-password', {
+        user_id: userForm.id,
+        password: novaSenha,
+        confirm_email: true
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Senha atualizada com sucesso.');
       showSenhaDialog = false;
       novaSenha = '';
@@ -292,12 +245,7 @@
 
   async function resetarMfa() {
     try {
-      const response = await fetch('/api/v1/admin/auth/reset-mfa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userForm.id })
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/admin/auth/reset-mfa', { user_id: userForm.id });
       toast.success('2FA resetado com sucesso.');
       showMfaDialog = false;
       await loadMfaStatus(userForm.id);

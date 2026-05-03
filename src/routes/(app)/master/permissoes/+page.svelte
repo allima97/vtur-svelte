@@ -6,6 +6,8 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
+  import { apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type UserPermissionRow = {
     id: string;
@@ -28,8 +30,8 @@
       sortable: true,
       formatter: (_value: unknown, row: UserPermissionRow) => `
         <div>
-          <p class="font-medium text-slate-900">${row.nome}</p>
-          <p class="text-xs text-slate-500">${row.email || '-'}</p>
+          <p class="font-medium text-slate-900">${escapeHtml(row.nome)}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(row.email || '-')}</p>
         </div>
       `
     },
@@ -52,9 +54,7 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/permissoes');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>('/api/v1/admin/permissoes');
       rows = payload.items || [];
       globalModules = (payload.global_modules || []).map((item: any) => ({
         module_key: item.module_key,
@@ -62,8 +62,7 @@
       }));
       systemModuleCatalog = payload.system_module_catalog || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar o painel de permissoes do master.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o painel de permissoes do master.');
       rows = [];
       globalModules = [];
       systemModuleCatalog = [];
@@ -142,4 +141,3 @@
     </p>
   </Card>
 </div>
-

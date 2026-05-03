@@ -55,7 +55,7 @@ export async function POST(event) {
       .from('vendas_pagamentos')
       .update(updateData)
       .eq('id', pagamentoId)
-      .select()
+      .select('id, company_id, venda_id, forma_pagamento_id, forma_nome, operacao, plano, valor_bruto, desconto_valor, valor_total, parcelas_qtd, parcelas_valor, vencimento_primeira, paga_comissao, venda_recibo_id, observacoes, created_at, updated_at')
       .single();
 
     if (pagError) throw pagError;

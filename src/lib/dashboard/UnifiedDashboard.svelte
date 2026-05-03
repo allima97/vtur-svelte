@@ -12,7 +12,7 @@
   import DashboardCustomizeDialog from './DashboardCustomizeDialog.svelte';
   import ModalAvisoCliente from '$lib/components/modais/ModalAvisoCliente.svelte';
   import { monthRangeFromKey, parseISODateParts, todayISODateLocal } from '$lib/date';
-  import { formatDate as formatDateValue } from '$lib/utils/formatters';
+  import { formatDate as formatDateValue, formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import {
     TrendingUp,
     ShoppingCart,
@@ -31,7 +31,7 @@
     Clock
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
-  import { apiGet } from '$lib/services/api';
+  import { apiGet, apiPost } from '$lib/services/api';
   import {
     buildDashboardPrefsPayload,
     createVisibilityMap,
@@ -215,9 +215,7 @@
   }
 
   function formatDateTime(value: string | null | undefined): string {
-    if (!value) return '-';
-    const d = new Date(value);
-    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return formatDateTimeValue(value);
   }
 
   function formatAgeFromBirthDate(value: string | null | undefined): number | null {
@@ -551,7 +549,10 @@
     await Promise.allSettled([
       (async () => {
         try {
-          const d = await apiGet<{ items: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', params);
+          const d = await apiGet<{ items: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
+            ...params,
+            limit: 8
+          });
           aniversariantes = d.items || [];
         } catch {
           aniversariantes = [];
@@ -559,7 +560,11 @@
       })(),
       (async () => {
         try {
-          const d = await apiGet<{ items?: Viagem[]; proximas?: any[] }>('/api/v1/dashboard/viagens', params);
+          const d = await apiGet<{ items?: Viagem[]; proximas?: any[] }>('/api/v1/dashboard/viagens', {
+            ...params,
+            limit: 8,
+            em_andamento_limit: 8
+          });
           if (Array.isArray(d.items)) {
             viagens = d.items;
           } else {
@@ -580,7 +585,10 @@
       })(),
       (async () => {
         try {
-          const d = await apiGet<{ items: any[] }>('/api/v1/dashboard/follow-ups', params);
+          const d = await apiGet<{ items: any[] }>('/api/v1/dashboard/follow-ups', {
+            ...params,
+            limit: 8
+          });
           followUps = (d.items || []).map((item: any) => ({
             id: String(item.id || ''),
             venda_id: item.venda_id ? String(item.venda_id) : null,
@@ -598,7 +606,10 @@
       })(),
       (async () => {
         try {
-          const d = await apiGet<{ items: Consultoria[] }>('/api/v1/dashboard/consultorias', params);
+          const d = await apiGet<{ items: Consultoria[] }>('/api/v1/dashboard/consultorias', {
+            ...params,
+            limit: 8
+          });
           consultorias = d.items || [];
         } catch {
           consultorias = [];
@@ -620,12 +631,7 @@
       const payload = {
         items: buildDashboardPrefsPayload(widgetOrder, widgetVisible, kpiOrder, kpiVisible)
       };
-      const response = await fetch('/api/v1/dashboard/widgets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/dashboard/widgets', payload);
       saveDashboardPrefsToStorage('dashboard_widgets', widgetOrder, widgetVisible);
       saveDashboardPrefsToStorage('dashboard_kpis', kpiOrder, kpiVisible);
       toast.success('Preferências do dashboard salvas.');

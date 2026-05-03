@@ -1,10 +1,19 @@
-import { assertCompanyAccess, fetchRecados, readCache, requireMuralScope, writeCache } from '../_shared';
-import { isUuid } from '$lib/server/v1';
+import {
+  assertCompanyAccess,
+  fetchRecados,
+  noStoreJsonResponse,
+  noStoreTextResponse,
+  privateJsonResponse,
+  readCache,
+  requireMuralScope,
+  writeCache
+} from '../_shared';
+import { isUuid, logServerError } from '$lib/server/v1';
 
 export async function GET(event) {
   try {
     const companyId = String(event.url.searchParams.get('company_id') || '').trim();
-    if (!companyId) return new Response('company_id obrigatorio.', { status: 400 });
+    if (!companyId) return noStoreTextResponse('company_id obrigatorio.', 400);
 
     const { client, user, scope } = await requireMuralScope(event);
     const denied = await assertCompanyAccess(client, scope, companyId);
@@ -13,10 +22,7 @@ export async function GET(event) {
     const cacheKey = ['v1', 'muralRecados', user.id, companyId].join('|');
     const cached = readCache(cacheKey);
     if (cached) {
-      return new Response(JSON.stringify(cached), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=5', Vary: 'Cookie' }
-      });
+      return privateJsonResponse(cached);
     }
 
     const recadosResp = await fetchRecados(client, companyId);
@@ -27,13 +33,10 @@ export async function GET(event) {
 
     writeCache(cacheKey, payload, 5_000);
 
-    return new Response(JSON.stringify(payload), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=5', Vary: 'Cookie' }
-    });
+    return privateJsonResponse(payload);
   } catch (e: any) {
-    console.error('Erro mural recados:', e);
-    return new Response('Erro ao carregar recados.', { status: 500 });
+    logServerError('[mural/recados] falha ao carregar recados', e);
+    return noStoreTextResponse('Erro ao carregar recados.', 500);
   }
 }
 
@@ -44,7 +47,7 @@ export async function POST(event) {
 
     const rawCompanyId = String(body?.company_id || '').trim();
     const companyId = rawCompanyId || String(scope.companyId || '').trim();
-    if (!companyId) return new Response('company_id obrigatorio.', { status: 400 });
+    if (!companyId) return noStoreTextResponse('company_id obrigatorio.', 400);
 
     const denied = await assertCompanyAccess(client, scope, companyId);
     if (denied) return denied;
@@ -53,8 +56,8 @@ export async function POST(event) {
     const conteudo = String(body?.conteudo || '').trim().slice(0, 4000);
     const assunto = String(body?.assunto || '').trim().slice(0, 160);
 
-    if (!conteudo) return new Response('Conteúdo obrigatório.', { status: 400 });
-    if (receiverId && !isUuid(receiverId)) return new Response('Destinatário inválido.', { status: 400 });
+    if (!conteudo) return noStoreTextResponse('Conteúdo obrigatório.', 400);
+    if (receiverId && !isUuid(receiverId)) return noStoreTextResponse('Destinatário inválido.', 400);
 
     if (receiverId) {
       const { data: receiver, error: receiverError } = await client
@@ -65,7 +68,7 @@ export async function POST(event) {
         .eq('active', true)
         .maybeSingle();
       if (receiverError) throw receiverError;
-      if (!receiver) return new Response('Destinatário fora do escopo da empresa.', { status: 403 });
+      if (!receiver) return noStoreTextResponse('Destinatário fora do escopo da empresa.', 403);
     }
 
     const payload = {
@@ -81,20 +84,17 @@ export async function POST(event) {
     const { data, error } = await client.from('mural_recados').insert(payload).select('id').single();
     if (error) throw error;
 
-    return new Response(JSON.stringify({ ok: true, id: data?.id || null }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return noStoreJsonResponse({ ok: true, id: data?.id || null });
   } catch (e: any) {
-    console.error('Erro mural recados POST:', e);
-    return new Response('Erro ao enviar recado.', { status: 500 });
+    logServerError('[mural/recados] falha ao enviar recado', e);
+    return noStoreTextResponse('Erro ao enviar recado.', 500);
   }
 }
 
 export async function DELETE(event) {
   try {
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return new Response('ID inválido.', { status: 400 });
+    if (!isUuid(id)) return noStoreTextResponse('ID inválido.', 400);
 
     const { client, scope } = await requireMuralScope(event);
     const { data: recado, error } = await client
@@ -103,7 +103,7 @@ export async function DELETE(event) {
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
-    if (!recado) return new Response('Recado não encontrado.', { status: 404 });
+    if (!recado) return noStoreTextResponse('Recado não encontrado.', 404);
 
     const denied = await assertCompanyAccess(client, scope, String(recado.company_id || '').trim());
     if (denied) return denied;
@@ -112,7 +112,7 @@ export async function DELETE(event) {
     const isReceiver = recado.receiver_id === scope.userId;
 
     if (!isSender && !isReceiver && !scope.isAdmin) {
-      return new Response('Sem permissão para excluir este recado.', { status: 403 });
+      return noStoreTextResponse('Sem permissão para excluir este recado.', 403);
     }
 
     if (scope.isAdmin && !isSender && !isReceiver) {
@@ -124,12 +124,9 @@ export async function DELETE(event) {
       if (updateError) throw updateError;
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return noStoreJsonResponse({ ok: true });
   } catch (e: any) {
-    console.error('Erro mural recados DELETE:', e);
-    return new Response('Erro ao excluir recado.', { status: 500 });
+    logServerError('[mural/recados] falha ao excluir recado', e);
+    return noStoreTextResponse('Erro ao excluir recado.', 500);
   }
 }

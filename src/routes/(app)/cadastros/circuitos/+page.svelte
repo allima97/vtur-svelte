@@ -7,6 +7,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { apiDelete, apiGet } from '$lib/services/api';
   import { Plus, Route, MapPin, Calendar, DollarSign, Search, Trash2 } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
 
@@ -54,21 +55,15 @@
   async function carregarCircuitos() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroTipo) params.append('tipo', filtroTipo);
-      if (filtroStatus) params.append('ativo', filtroStatus === 'ativo' ? 'true' : 'false');
-
-      const response = await fetch(`/api/v1/circuitos?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        circuitos = (data.items || []).map((c: any) => ({
-          ...c,
-          destinos: c.destinos || [],
-          destinos_str: Array.isArray(c.destinos) ? c.destinos.join(', ') : c.destinos || ''
-        }));
-      } else {
-        toast.error('Erro ao carregar circuitos');
-      }
+      const data: any = await apiGet('/api/v1/circuitos', {
+        tipo: filtroTipo || undefined,
+        ativo: filtroStatus ? filtroStatus === 'ativo' : undefined
+      });
+      circuitos = (data.items || []).map((c: any) => ({
+        ...c,
+        destinos: c.destinos || [],
+        destinos_str: Array.isArray(c.destinos) ? c.destinos.join(', ') : c.destinos || ''
+      }));
     } catch (err) {
       console.error('Erro ao carregar circuitos:', err);
       toast.error('Erro ao carregar circuitos');
@@ -99,12 +94,7 @@
     if (!circuitoToDelete) return;
     
     try {
-      const response = await fetch(`/api/v1/circuitos/${circuitoToDelete.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Erro ao excluir');
-
+      await apiDelete(`/api/v1/circuitos/${circuitoToDelete.id}`);
       toast.success('Circuito excluído com sucesso!');
       await carregarCircuitos();
     } catch (err) {

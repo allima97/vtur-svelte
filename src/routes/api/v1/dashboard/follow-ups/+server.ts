@@ -10,6 +10,12 @@ function normalizeStatusFilter(value: string | null) {
   return 'abertos';
 }
 
+function clampIntParam(value: string | null, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
+
 function getVendaFromRow(row: any) {
   const venda = Array.isArray(row?.venda) ? row.venda[0] : row?.venda;
   return venda && typeof venda === 'object' ? venda : null;
@@ -45,6 +51,10 @@ export async function GET(event) {
     const inicio = String(event.url.searchParams.get('inicio') || defaults.inicio).trim();
     const fim = String(event.url.searchParams.get('fim') || defaults.fim).trim();
     const statusFilter = normalizeStatusFilter(event.url.searchParams.get('status'));
+    const hasExplicitLimit = event.url.searchParams.has('limit');
+    const outputLimit = clampIntParam(event.url.searchParams.get('limit'), 500, 1, 500);
+    const candidateLimit = hasExplicitLimit ? Math.max(40, outputLimit * 8) : 500;
+    const detailLimit = hasExplicitLimit ? Math.max(80, outputLimit * 12) : 5000;
 
     if (!isIsoDate(inicio) || !isIsoDate(fim)) {
       return json({ error: 'inicio e fim devem estar no formato YYYY-MM-DD.' }, { status: 400 });
@@ -84,7 +94,7 @@ export async function GET(event) {
       .or('status.is.null,status.neq.Fechado')
       .eq('venda.cancelada', false)
       .order('data_fim', { ascending: false })
-      .limit(500);
+      .limit(candidateLimit);
 
     if (statusFilter === 'abertos') {
       candidatasQuery = candidatasQuery.or('follow_up_fechado.is.null,follow_up_fechado.eq.false');
@@ -149,7 +159,7 @@ export async function GET(event) {
         .or('status.is.null,status.neq.Fechado')
         .eq('venda.cancelada', false)
         .order('data_fim', { ascending: false })
-        .limit(5000);
+        .limit(detailLimit);
 
       if (companyIds.length > 0) {
         detalhadasQuery = detalhadasQuery.in('company_id', companyIds);
@@ -215,6 +225,7 @@ export async function GET(event) {
         return Boolean(retorno) && retorno >= inicio && retorno <= fim;
       })
       .sort((a: any, b: any) => String(b?.data_fim || '').localeCompare(String(a?.data_fim || '')))
+      .slice(0, outputLimit)
       .map((item: any) => ({
         id: String(item.id),
         venda_id: item?.venda_id ? String(item.venda_id) : item?.venda?.id ? String(item.venda.id) : null,

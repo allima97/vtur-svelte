@@ -1,8 +1,27 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { checkRateLimit } from '$lib/server/rateLimit';
+import { logServerError } from '$lib/server/v1';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_FIELD_CHARS = 1200;
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
+function isSameOriginRequest(request: Request) {
+  const requestUrl = new URL(request.url);
+  const origin = request.headers.get('origin');
+  if (origin) {
+    try {
+      return new URL(origin).origin === requestUrl.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (!fetchSite) return true;
+  return ['same-origin', 'same-site', 'none'].includes(fetchSite);
+}
 
 function trimField(value: unknown) {
   const text = String(value ?? '').trim();
@@ -24,11 +43,27 @@ function sanitizePayload(payload: any) {
   };
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   try {
+    if (!isSameOriginRequest(request)) {
+      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+
+    const clientAddress = getClientAddress();
+    const rateLimit = checkRateLimit(`client-error:${clientAddress || 'unknown'}`, {
+      max: 30,
+      windowMs: 60_000
+    });
+    if (!rateLimit.allowed) {
+      return json(
+        { error: 'Muitas requisições.' },
+        { status: 429, headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rateLimit.retryAfterSeconds) } }
+      );
+    }
+
     const contentLength = Number(request.headers.get('content-length') || 0);
     if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-      return json({ error: 'Payload muito grande.' }, { status: 413 });
+      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
     }
 
     const payload = await request.json().catch(() => null);
@@ -40,8 +75,8 @@ export const POST: RequestHandler = async ({ request }) => {
       payload: safePayload
     });
   } catch (err: any) {
-    console.error('CLIENT_ERROR_PARSE', { message: err?.message ?? String(err) });
+    logServerError('CLIENT_ERROR_PARSE', err);
   }
 
-  return json(null, { status: 204 });
+  return json(null, { status: 204, headers: NO_STORE_HEADERS });
 };

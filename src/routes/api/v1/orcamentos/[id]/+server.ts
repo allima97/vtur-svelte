@@ -9,6 +9,12 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+const QUOTE_SELECT_FIELDS =
+  'id, created_at, updated_at, created_by, client_id, status, status_negociacao, currency, total, data_embarque, data_final, last_interaction_at, last_interaction_notes';
+
+const QUOTE_ITEM_SELECT_FIELDS =
+  'id, quote_id, item_type, title, product_name, city_name, cidade_id, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, confidence, raw, order_index, created_at, updated_at';
+
 // quote nao tem company_id — scoping usa created_by (FK auth.users)
 function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
   if (scope.isAdmin) return query;
@@ -31,7 +37,7 @@ export async function GET(event) {
 
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
 
-    let quoteQuery = client.from('quote').select('*').eq('id', id);
+    let quoteQuery = client.from('quote').select(QUOTE_SELECT_FIELDS).eq('id', id);
     quoteQuery = applyQuoteScope(quoteQuery, scope, user, vendedorIds);
 
     const { data: quote, error: quoteError } = await quoteQuery.maybeSingle();
@@ -40,7 +46,7 @@ export async function GET(event) {
 
     const { data: items } = await client
       .from('quote_item')
-      .select('*')
+      .select(QUOTE_ITEM_SELECT_FIELDS)
       .eq('quote_id', id)
       .order('order_index', { ascending: true });
 
@@ -141,7 +147,7 @@ export async function PATCH(event) {
     let updateQuery = client.from('quote').update(updateData).eq('id', id);
     updateQuery = applyQuoteScope(updateQuery, scope, user, vendedorIds);
 
-    const { data, error } = await updateQuery.select().single();
+    const { data, error } = await updateQuery.select(QUOTE_SELECT_FIELDS).single();
     if (error) throw error;
 
     if (body.itens && Array.isArray(body.itens)) {

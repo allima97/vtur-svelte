@@ -11,6 +11,8 @@
   import { RefreshCw, RotateCcw, Search } from 'lucide-svelte';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { escapeHtml } from '$lib/utils/html';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   type AjusteItem = {
     id: string;
@@ -103,7 +105,7 @@
       formatter: (_: any, row: AjusteItem) => {
         if (!row.rateio || !row.rateio.ativo) return '<span class="text-slate-400 text-xs">Sem rateio</span>';
         const nome = row.rateio.vendedor_destino_nome || row.rateio.vendedor_destino?.nome_completo || 'Vendedor';
-        return `<span class="text-xs">${nome} · ${row.rateio.percentual_destino}%</span>`;
+        return `<span class="text-xs">${escapeHtml(nome)} · ${Number(row.rateio.percentual_destino || 0).toFixed(2).replace('.', ',')}%</span>`;
       }
     }
   ];
@@ -111,14 +113,16 @@
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams({ inicio, fim });
-      if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
-      if (filtroApenasRateados === 'true') params.set('apenas_rateados', 'true');
-      if (busca.trim()) params.set('q', busca.trim());
-
-      const response = await fetch(`/api/v1/financeiro/ajustes-vendas/list?${params.toString()}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: AjusteItem[]; vendedores?: Vendedor[] }>(
+        '/api/v1/financeiro/ajustes-vendas/list',
+        {
+          inicio,
+          fim,
+          vendedor_id: filtroVendedor || undefined,
+          apenas_rateados: filtroApenasRateados === 'true' ? 'true' : undefined,
+          q: busca.trim() || undefined
+        }
+      );
       items = payload.items || [];
       vendedores = payload.vendedores || [];
     } catch (err) {
@@ -144,17 +148,12 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/financeiro/ajustes-vendas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ajuste_id: selectedItem.id,
-          vendedor_destino_id: form.vendedor_destino_id,
-          percentual_destino: Number(form.percentual_destino),
-          observacao: form.observacao
-        })
+      await apiPost('/api/v1/financeiro/ajustes-vendas', {
+        ajuste_id: selectedItem.id,
+        vendedor_destino_id: form.vendedor_destino_id,
+        percentual_destino: Number(form.percentual_destino),
+        observacao: form.observacao
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Rateio salvo com sucesso.');
       modalOpen = false;
       await load();
@@ -170,16 +169,11 @@
 
     clearing = true;
     try {
-      const response = await fetch('/api/v1/financeiro/ajustes-vendas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ajuste_id: selectedItem.id,
-          percentual_destino: 0,
-          observacao: form.observacao || 'Rateio desfeito'
-        })
+      await apiPost('/api/v1/financeiro/ajustes-vendas', {
+        ajuste_id: selectedItem.id,
+        percentual_destino: 0,
+        observacao: form.observacao || 'Rateio desfeito'
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Rateio desfeito. O recibo voltou ao valor integral do vendedor de origem.');
       modalOpen = false;
       await load();

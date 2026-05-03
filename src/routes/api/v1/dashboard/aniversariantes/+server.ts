@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { addDaysISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
 
 /** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
  *  evitando qualquer problema de timezone/DST. */
@@ -20,13 +21,11 @@ function isBirthdayInRange(nascimento: string | null, diasAfrente = 30): boolean
   const parts = extractMonthDay(nascimento);
   if (!parts) return false;
 
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
+  const hojeIso = todayISODateLocal();
 
   for (let i = 0; i <= diasAfrente; i++) {
-    const check = new Date(hoje);
-    check.setDate(hoje.getDate() + i);
-    if (parts.month === check.getMonth() + 1 && parts.day === check.getDate()) {
+    const check = parseISODateParts(addDaysISODate(hojeIso, i));
+    if (check && parts.month === check.month && parts.day === check.day) {
       return true;
     }
   }
@@ -36,8 +35,14 @@ function isBirthdayInRange(nascimento: string | null, diasAfrente = 30): boolean
 function isToday(nascimento: string | null): boolean {
   const parts = extractMonthDay(nascimento);
   if (!parts) return false;
-  const hoje = new Date();
-  return parts.month === hoje.getMonth() + 1 && parts.day === hoje.getDate();
+  const hoje = parseISODateParts(todayISODateLocal());
+  return Boolean(hoje && parts.month === hoje.month && parts.day === hoje.day);
+}
+
+function clampIntParam(value: string | null, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
 export async function GET(event) {
@@ -48,6 +53,8 @@ export async function GET(event) {
 
     const { searchParams } = event.url;
     const diasAfrente = Math.min(90, Math.max(1, Number(searchParams.get('dias') || 30)));
+    const hasExplicitLimit = searchParams.has('limit');
+    const outputLimit = clampIntParam(searchParams.get('limit'), 500, 1, 500);
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
 
     // Busca clientes com aniversário
@@ -61,7 +68,7 @@ export async function GET(event) {
 
     const { data: clientes } = await clientesQuery;
 
-    const aniversariantes = (clientes || [])
+    const aniversariantesFiltrados = (clientes || [])
       .filter((c: any) => isBirthdayInRange(c.nascimento, diasAfrente))
       .map((c: any) => ({
         id: c.id,
@@ -74,23 +81,26 @@ export async function GET(event) {
         pessoa_tipo: 'cliente' as const
       }))
       .sort((a: any, b: any) => {
-        const hoje = new Date();
-        // Normaliza para meia-noite para que aniversários de hoje não sejam
-        // enviados para o próximo ano pela comparação com horário atual
-        hoje.setHours(0, 0, 0, 0);
+        const hoje = parseISODateParts(todayISODateLocal());
+        if (!hoje) return 0;
+        const hojeMs = Date.UTC(hoje.year, hoje.month - 1, hoje.day);
         const getNextBirthday = (nascimento: string) => {
-          const d = new Date(nascimento + 'T00:00:00');
-          const next = new Date(hoje.getFullYear(), d.getMonth(), d.getDate());
-          if (next < hoje) next.setFullYear(hoje.getFullYear() + 1);
-          return next.getTime();
+          const birth = parseISODateParts(nascimento);
+          if (!birth) return Number.POSITIVE_INFINITY;
+          let nextMs = Date.UTC(hoje.year, birth.month - 1, birth.day);
+          if (nextMs < hojeMs) nextMs = Date.UTC(hoje.year + 1, birth.month - 1, birth.day);
+          return nextMs;
         };
         return getNextBirthday(a.nascimento) - getNextBirthday(b.nascimento);
       });
+    const aniversariantes = hasExplicitLimit
+      ? aniversariantesFiltrados.slice(0, outputLimit)
+      : aniversariantesFiltrados;
 
     return json({
       items: aniversariantes,
-      hoje: aniversariantes.filter((a: any) => a.aniversario_hoje).length,
-      proximos: aniversariantes.length
+      hoje: aniversariantesFiltrados.filter((a: any) => a.aniversario_hoje).length,
+      proximos: aniversariantesFiltrados.length
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar aniversariantes.');

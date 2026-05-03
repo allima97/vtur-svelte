@@ -1,5 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { checkRateLimit } from '$lib/server/rateLimit';
+import { logServerError } from '$lib/server/v1';
+
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
 
 type ViaCepResponse = {
   cep?: string;
@@ -11,31 +15,54 @@ type ViaCepResponse = {
   erro?: boolean;
 };
 
-export const GET: RequestHandler = async ({ url, fetch }) => {
+export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
+  const rateLimit = checkRateLimit(`cep:${getClientAddress() || 'unknown'}`, {
+    max: 120,
+    windowMs: 60_000
+  });
+  if (!rateLimit.allowed) {
+    return json(
+      { error: 'Muitas requisições. Tente novamente em instantes.' },
+      {
+        status: 429,
+        headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rateLimit.retryAfterSeconds) }
+      }
+    );
+  }
+
   const cep = String(url.searchParams.get('cep') || '').replace(/\D/g, '');
 
   if (cep.length !== 8) {
-    return json({ error: 'CEP invalido.' }, { status: 400 });
+    return json({ error: 'CEP invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
   }
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4_000);
-    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
-      signal: controller.signal,
-      headers: {
-        accept: 'application/json'
-      }
-    });
-    clearTimeout(timeout);
+    let response: Response;
+    try {
+      response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+        signal: controller.signal,
+        headers: {
+          accept: 'application/json'
+        }
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
-      return json({ error: 'CEP indisponivel.' }, { status: 502 });
+      return json({ error: 'CEP indisponivel.' }, { status: 502, headers: NO_STORE_HEADERS });
+    }
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (contentType && !contentType.includes('application/json')) {
+      return json({ error: 'Resposta invalida do provedor de CEP.' }, { status: 502, headers: NO_STORE_HEADERS });
     }
 
     const data = (await response.json()) as ViaCepResponse;
     if (data?.erro) {
-      return json({ error: 'CEP nao encontrado.' }, { status: 404 });
+      return json({ error: 'CEP nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     return json(
@@ -54,7 +81,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
       }
     );
   } catch (err) {
-    console.error('[enderecos/cep] falha ao consultar CEP', err);
-    return json({ error: 'Nao foi possivel consultar o CEP.' }, { status: 502 });
+    logServerError('[enderecos/cep] falha ao consultar CEP', err);
+    return json({ error: 'Nao foi possivel consultar o CEP.' }, { status: 502, headers: NO_STORE_HEADERS });
   }
 };

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isDebugEndpointEnabled,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -12,12 +13,28 @@ import {
 } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 
+const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const MAX_DEBUG_ITEMS = 500;
+
+function debugJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  return json(body, { ...init, headers });
+}
+
 export async function GET(event) {
   try {
+    if (!isDebugEndpointEnabled(event)) {
+      return debugJson({ error: 'Not found' }, { status: 404 });
+    }
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+      return debugJson({ error: 'Sem acesso ao diagnóstico de vendas.' }, { status: 403 });
+    }
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
@@ -35,7 +52,8 @@ export async function GET(event) {
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 
-    const maxItems = parseIntSafe(searchParams.get('limit'), 3000);
+    const requestedLimit = parseIntSafe(searchParams.get('limit'), MAX_DEBUG_ITEMS);
+    const maxItems = Math.max(1, Math.min(requestedLimit, MAX_DEBUG_ITEMS));
 
     const payload = await fetchVendasKpiReciboContributions(client, {
       dataInicio: inicio,
@@ -47,13 +65,16 @@ export async function GET(event) {
 
     const sorted = [...payload.contributions].sort((a, b) => b.bruto - a.bruto);
 
-    return json({
+    return debugJson({
       periodo: { inicio, fim },
       agg: payload.agg,
       totalContribuicoes: payload.contributions.length,
+      contribuicoesTruncadas: payload.contributions.length > maxItems,
       contribuicoes: sorted.slice(0, maxItems)
     });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao gerar diff de recibos de vendas.');
+    const response = toErrorResponse(err, 'Erro ao gerar diff de recibos de vendas.');
+    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    return response;
   }
 }

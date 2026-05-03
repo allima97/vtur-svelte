@@ -16,8 +16,6 @@ export function checkSupabaseConfig() {
                !anonKey.includes('sua-anon-key'))
   };
   
-  console.log('🔍 [Supabase Check] Configuração:', config);
-  
   return config;
 }
 

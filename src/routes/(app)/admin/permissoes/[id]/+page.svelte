@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import { Checkbox, FieldSelect } from '$lib/components/ui';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
 
   type PermissionEntry = {
@@ -38,9 +39,7 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/admin/permissoes/${$page.params.id}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<any>(`/api/v1/admin/permissoes/${$page.params.id}`);
       userInfo = payload.user;
       permissions = payload.permissions || [];
       sections = payload.sections || [];
@@ -55,16 +54,11 @@
   async function savePermissions() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/permissoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'user',
-          user_id: userInfo?.id,
-          permissions
-        })
+      await apiPost('/api/v1/admin/permissoes', {
+        action: 'user',
+        user_id: userInfo?.id,
+        permissions
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Permissoes atualizadas com sucesso.');
       await loadPage();
     } catch (err) {

@@ -43,12 +43,65 @@ const DEFAULT_PARAMS = {
   exportacao_excel: false,
 };
 
+const PARAMETROS_COMISSAO_COLUMNS = [
+  "id",
+  "company_id",
+  "owner_user_id",
+  "usar_taxas_na_meta",
+  "foco_valor",
+  "modo_corporativo",
+  "politica_cancelamento",
+  "foco_faturamento",
+  "conciliacao_sobrepoe_vendas",
+  "conciliacao_regra_ativa",
+  "conciliacao_tipo",
+  "conciliacao_meta_nao_atingida",
+  "conciliacao_meta_atingida",
+  "conciliacao_super_meta",
+  "conciliacao_tiers",
+  "conciliacao_faixas_loja",
+  "mfa_obrigatorio",
+  "exportacao_pdf",
+  "exportacao_excel",
+  "created_at",
+  "updated_at",
+];
+
 function isMissingColumn(error: any) {
   const message = String(error?.message || "");
   const match =
     message.match(/column ["']?([a-zA-Z0-9_]+)["']? does not exist/i) ||
     message.match(/Could not find the ['"]([a-zA-Z0-9_]+)['"] column/i);
   return match?.[1] || null;
+}
+
+async function selectParametrosComissao(
+  client: ReturnType<typeof getAdminClient>,
+  companyId: string | null,
+) {
+  let columns = [...PARAMETROS_COMISSAO_COLUMNS];
+
+  for (let attempt = 0; attempt <= PARAMETROS_COMISSAO_COLUMNS.length; attempt += 1) {
+    const result = await client
+      .from("parametros_comissao")
+      .select(columns.join(", "))
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    const missingColumn = isMissingColumn(result.error);
+    if (missingColumn && columns.includes(missingColumn)) {
+      columns = columns.filter((column) => column !== missingColumn);
+      continue;
+    }
+
+    return result;
+  }
+
+  return client
+    .from("parametros_comissao")
+    .select("id, company_id, owner_user_id, created_at, updated_at")
+    .eq("company_id", companyId)
+    .maybeSingle();
 }
 
 async function upsertWithFallback(
@@ -132,11 +185,7 @@ export async function GET(event) {
     const ownerNome =
       String((userRow as any)?.nome_completo || "").trim() || null;
 
-    const { data, error: queryError } = await client
-      .from("parametros_comissao")
-      .select("*")
-      .eq("company_id", companyId)
-      .maybeSingle();
+    const { data, error: queryError } = await selectParametrosComissao(client, companyId);
 
     if (queryError) throw queryError;
 

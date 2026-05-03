@@ -9,6 +9,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+const TEMPLATE_DISPATCH_SELECT =
+  'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
+
 export const GET: RequestHandler = async ({ locals, url }) => {
   try {
     const client = getAdminClient();
@@ -24,7 +27,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
     let query = client
       .from('cliente_template_dispatches')
-      .select('*')
+      .select(TEMPLATE_DISPATCH_SELECT)
       .order('sent_at', { ascending: false })
       .limit(limit);
 
@@ -85,7 +88,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const { data, error } = await client
       .from('cliente_template_dispatches')
       .insert(payload)
-      .select()
+      .select(TEMPLATE_DISPATCH_SELECT)
       .single();
 
     if (error) throw error;

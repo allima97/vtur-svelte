@@ -6,6 +6,7 @@
   import { FieldInput, FieldTextarea, FileDropzone, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
 
   const LOGO_BUCKET = 'quotes';
@@ -48,6 +49,20 @@
     return 'png';
   }
 
+  function validateImageFile(file: File | null) {
+    if (!file) return null;
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowedTypes.has(file.type)) {
+      toast.error('Use apenas JPG, PNG ou WebP.');
+      return null;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Tamanho máximo: 5MB.');
+      return null;
+    }
+    return file;
+  }
+
   function extractStoragePath(value?: string | null): string | null {
     if (!value) return null;
     const marker = '/quotes/';
@@ -57,7 +72,12 @@
   }
 
   function onLogoChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0] || null;
+    const input = e.target as HTMLInputElement;
+    const file = validateImageFile(input.files?.[0] || null);
+    if (!file) {
+      logoFiles = undefined;
+      input.value = '';
+    }
     logoFile = file;
     if (file) {
       if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
@@ -66,7 +86,12 @@
   }
 
   function onComplementoChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0] || null;
+    const input = e.target as HTMLInputElement;
+    const file = validateImageFile(input.files?.[0] || null);
+    if (!file) {
+      complementoFiles = undefined;
+      input.value = '';
+    }
     complementoFile = file;
     if (file) {
       if (complementoPreview && complementoPreview.startsWith('blob:')) URL.revokeObjectURL(complementoPreview);
@@ -95,9 +120,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/orcamentos-pdf');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ settings?: Partial<typeof settings> }>('/api/v1/parametros/orcamentos-pdf');
       if (payload.settings) {
         const s = payload.settings;
         settings = {
@@ -170,8 +193,8 @@
 
     if (uploadErr) throw uploadErr;
 
-    const publicUrl = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
-    return { url: publicUrl || null, path };
+    // O bucket de orçamentos é privado; a URL pública não deve ser persistida.
+    return { url: null, path };
   }
 
   async function save() {
@@ -186,20 +209,15 @@
       const logoInfo = await uploadImagem(supabase, userId, logoFile, settings.logo_url, settings.logo_path, 'logo');
       const complementoInfo = await uploadImagem(supabase, userId, complementoFile, settings.imagem_complementar_url, settings.imagem_complementar_path, 'imagem-complementar');
 
-      const response = await fetch('/api/v1/parametros/orcamentos-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          settings: {
-            ...settings,
-            logo_url: logoInfo.url,
-            logo_path: logoInfo.path,
-            imagem_complementar_url: complementoInfo.url,
-            imagem_complementar_path: complementoInfo.path
-          }
-        })
+      await apiPost('/api/v1/parametros/orcamentos-pdf', {
+        settings: {
+          ...settings,
+          logo_url: logoInfo.url,
+          logo_path: logoInfo.path,
+          imagem_complementar_url: complementoInfo.url,
+          imagem_complementar_path: complementoInfo.path
+        }
       });
-      if (!response.ok) throw new Error(await response.text());
 
       // Atualiza preview com URL assinada após salvar
       if (logoInfo.path) {
@@ -298,7 +316,7 @@
           <FileDropzone
             id="orcamento-logo-file"
             title={logoFile ? logoFile.name : 'Escolher imagem'}
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             icon={Upload}
             bind:files={logoFiles}
             class_name="w-fit"
@@ -344,7 +362,7 @@
           <FileDropzone
             id="orcamento-complemento-file"
             title={complementoFile ? complementoFile.name : 'Escolher imagem'}
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             icon={Upload}
             bind:files={complementoFiles}
             class_name="w-fit"

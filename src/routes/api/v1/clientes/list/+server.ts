@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   parseIntSafe,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
@@ -16,6 +17,7 @@ import {
   isBirthdayToday,
   matchesClienteBusca
 } from '$lib/server/clientes';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 type ClienteBaseRow = {
   id: string;
@@ -50,6 +52,10 @@ type QuoteResumoRow = {
 };
 
 const SUPABASE_IN_BATCH_SIZE = 100;
+const CLIENT_SELECT_FULL =
+  'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at';
+const CLIENT_SELECT_SUMMARY =
+  'id, cpf, nascimento, active, ativo, company_id, created_at';
 
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
@@ -82,7 +88,7 @@ export async function GET(event) {
     const page = parseIntSafe(searchParams.get('page'), 1);
     const pageSize = Math.min(200, parseIntSafe(searchParams.get('pageSize'), 20));
     const all = String(searchParams.get('all') || '').trim() === '1';
-    const busca = String(searchParams.get('busca') || '').trim();
+    const busca = String(searchParams.get('busca') || searchParams.get('q') || '').trim();
     const statusQuery = String(searchParams.get('status') || '').trim().toLowerCase();
     const estadoQuery = String(searchParams.get('estado') || '').trim().toUpperCase();
     const tipoPessoaQuery = String(searchParams.get('tipo_pessoa') || '').trim().toUpperCase();
@@ -90,6 +96,7 @@ export async function GET(event) {
     const aniversarioHojeQuery = String(searchParams.get('aniversario_hoje') || '').trim().toLowerCase();
     const includeSummary = String(searchParams.get('include_summary') || '').trim() === '1';
     const summaryOnly = String(searchParams.get('summary_only') || '').trim() === '1';
+    const summaryFastPath = summaryOnly && !busca;
 
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
@@ -106,12 +113,15 @@ export async function GET(event) {
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
 
     if (accessibleClientIds && accessibleClientIds.length === 0) {
-      return json({
-        page,
-        pageSize,
-        total: 0,
-        items: []
-      });
+      return json(
+        {
+          page,
+          pageSize,
+          total: 0,
+          items: []
+        },
+        { headers: DYNAMIC_READ_HEADERS }
+      );
     }
 
     const canUseDbPagination =
@@ -122,8 +132,7 @@ export async function GET(event) {
       (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE);
 
     const buildClientsQuery = (clientIds?: string[], useRange = false) => {
-      const selectFields =
-        'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at';
+      const selectFields = summaryFastPath ? CLIENT_SELECT_SUMMARY : CLIENT_SELECT_FULL;
       let clientsQuery = (useRange
         ? client.from('clientes').select(selectFields, { count: 'exact' })
         : client.from('clientes').select(selectFields)
@@ -177,7 +186,6 @@ export async function GET(event) {
     const { data: clientsData, error: clientsError } = clientsResult;
     const clientsCount = typeof clientsResult?.count === 'number' ? clientsResult.count : null;
     if (clientsError) {
-      console.error('[clientes/list] Erro na query de clientes:', clientsError);
       throw clientsError;
     }
 
@@ -228,7 +236,6 @@ export async function GET(event) {
 
     const { data: salesData, error: salesError } = await fetchSales();
     if (salesError) {
-      console.error('[clientes/list] Erro na query de vendas:', salesError);
       throw salesError;
     }
 
@@ -273,7 +280,7 @@ export async function GET(event) {
     const { data: quotesData, error: quotesError } = await fetchQuotes();
     if (quotesError) {
       // Tabela quote pode não existir em todos os ambientes — não bloqueia
-      console.warn('[clientes/list] Erro ao buscar quotes:', quotesError.message);
+      logServerError('[clientes/list] Erro ao buscar quotes', quotesError);
     }
 
     let creatorCompanyMap = new Map<string, string>();
@@ -358,6 +365,18 @@ export async function GET(event) {
         const sales = salesByClient.get(row.id);
         const quotes = quotesByClient.get(row.id);
         const ultimaCompra = sales?.lastSale || null;
+
+        if (summaryFastPath) {
+          return {
+            id: row.id,
+            status: deriveClienteStatus(row, ultimaCompra),
+            total_gasto: Number(sales?.total || 0),
+            total_viagens: Number(sales?.count || 0),
+            total_orcamentos: Number(quotes?.total || 0),
+            aniversario_hoje: isBirthdayToday(row.nascimento)
+          };
+        }
+
         const tags = Array.isArray(row.tags) ? row.tags.filter(Boolean) : [];
         const contato = [row.whatsapp, row.telefone, row.email].filter(Boolean).join(' | ');
         const cidadeUf = [row.cidade, row.estado].filter(Boolean).join('/');
@@ -391,11 +410,13 @@ export async function GET(event) {
         };
       })
       .filter((item) =>
-        matchesClienteBusca(item, busca, [item.documento, item.contato, item.cidade_uf])
+        summaryFastPath ? true : matchesClienteBusca(item, busca, [item.documento, item.contato, item.cidade_uf])
       )
       .filter((item) => (statusQuery ? item.status === statusQuery : true))
       .filter((item) => (aniversarioHojeQuery ? String(item.aniversario_hoje) === aniversarioHojeQuery : true))
-      .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
+      .sort((left, right) =>
+        summaryFastPath ? 0 : String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR')
+      );
 
     const paginatedItems = all
       ? items
@@ -420,22 +441,28 @@ export async function GET(event) {
       : undefined;
 
     if (summaryOnly) {
-      return json({
+      return json(
+        {
+          page,
+          pageSize,
+          total,
+          items: [],
+          ...(summaryBase ? { summary: summaryBase } : {})
+        },
+        { headers: DYNAMIC_READ_HEADERS }
+      );
+    }
+
+    return json(
+      {
         page,
         pageSize,
         total,
-        items: [],
+        items: paginatedItems,
         ...(summaryBase ? { summary: summaryBase } : {})
-      });
-    }
-
-    return json({
-      page,
-      pageSize,
-      total,
-      items: paginatedItems,
-      ...(summaryBase ? { summary: summaryBase } : {})
-    });
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar clientes.');
   }

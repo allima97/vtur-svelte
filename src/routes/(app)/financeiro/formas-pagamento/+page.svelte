@@ -11,6 +11,8 @@
     CheckCircle, XCircle
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   interface FormaPagamento {
     id: string;
@@ -53,7 +55,7 @@
         const detalhes: string[] = [];
         if (row.permite_desconto) detalhes.push('Permite desconto');
         if (row.paga_comissao === false) detalhes.push('Sem comissão');
-        return `<div class="flex flex-col"><span class="font-medium text-slate-900">${value}</span><span class="text-xs text-slate-500">${detalhes.join(' · ') || (row.descricao || '-')}</span></div>`;
+        return `<div class="flex flex-col"><span class="font-medium text-slate-900">${escapeHtml(value)}</span><span class="text-xs text-slate-500">${escapeHtml(detalhes.join(' · ') || (row.descricao || '-'))}</span></div>`;
       }
     },
     { 
@@ -97,16 +99,10 @@
   async function carregarFormasPagamento() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/financeiro/formas-pagamento');
-      if (response.ok) {
-        const data = await response.json();
-        formasPagamento = data.items || [];
-      } else {
-        toast.error('Erro ao carregar formas de pagamento');
-      }
+      const data = await apiGet<{ items?: FormaPagamento[] }>('/api/v1/financeiro/formas-pagamento');
+      formasPagamento = data.items || [];
     } catch (err) {
-      console.error('Erro:', err);
-      toast.error('Erro ao carregar dados');
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
       loading = false;
     }
@@ -156,16 +152,8 @@
         ? { ...form, id: editando.id }
         : form;
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao salvar');
-      }
+      if (method === 'PATCH') await apiPatch(url, body);
+      else await apiPost(url, body);
 
       toast.success(editando ? 'Forma de pagamento atualizada!' : 'Forma de pagamento criada!');
       showFormDialog = false;
@@ -182,16 +170,7 @@
 
     processando = true;
     try {
-      const response = await fetch(`/api/v1/financeiro/formas-pagamento?id=${excluindo.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao excluir');
-      }
-
-      const result = await response.json();
+      const result = await apiDelete<{ message?: string }>('/api/v1/financeiro/formas-pagamento', { id: excluindo.id });
       toast.success(result.message || 'Forma de pagamento excluída!');
       showDeleteDialog = false;
       excluindo = null;

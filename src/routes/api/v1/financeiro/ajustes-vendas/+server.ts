@@ -5,9 +5,11 @@ import {
   fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -31,7 +33,7 @@ export async function GET(event) {
     const inicio = String(searchParams.get('inicio') || '').trim();
     const fim = String(searchParams.get('fim') || '').trim();
     const vendedorId = String(searchParams.get('vendedor_id') || '').trim();
-    const q = String(searchParams.get('q') || '').trim();
+    const q = sanitizePostgrestSearchTerm(searchParams.get('q'));
     const limit = 120;
 
     // Query principal: vendas_recibos com vendas!inner para filtrar corretamente
@@ -132,7 +134,7 @@ export async function GET(event) {
 
     return json({ items, vendedores: (vendedoresData || []).map((v: any) => ({ id: v.id, nome_completo: v.nome_completo })) });
   } catch (err: any) {
-    console.error('[ajustes-vendas] GET error:', err);
+    logServerError('[ajustes-vendas] falha ao carregar ajustes', err);
     return toErrorResponse(err, 'Erro ao carregar ajustes de vendas.');
   }
 }

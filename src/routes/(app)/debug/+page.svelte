@@ -4,6 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { apiGet } from '$lib/services/api';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
   let debugData: any = null;
@@ -18,11 +19,7 @@
     loading = true;
     error = null;
     try {
-      const response = await fetch('/api/v1/debug/permissions');
-      if (!response.ok) {
-        throw new Error('Erro ao carregar dados de debug');
-      }
-      debugData = await response.json();
+      debugData = await apiGet('/api/v1/debug/permissions');
     } catch (err: any) {
       error = err.message;
     } finally {

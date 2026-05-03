@@ -9,6 +9,8 @@
   import Checkbox from '$lib/components/ui/Checkbox.svelte';
   import { toast } from '$lib/stores/ui';
   import { RefreshCw, Users, LayoutGrid, XCircle } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type UserPermissionRow = {
     id: string;
@@ -32,8 +34,8 @@
       sortable: true,
       formatter: (_value: unknown, row: UserPermissionRow) => `
         <div>
-          <p class="font-medium text-slate-900">${row.nome}</p>
-          <p class="text-xs text-slate-500">${row.email || '-'}</p>
+          <p class="font-medium text-slate-900">${escapeHtml(row.nome)}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(row.email || '-')}</p>
         </div>
       `
     },
@@ -56,9 +58,11 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/permissoes');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{
+        items?: UserPermissionRow[];
+        global_modules?: Array<{ module_key: string; enabled?: boolean }>;
+        system_module_catalog?: Array<{ key: string; label: string }>;
+      }>('/api/v1/admin/permissoes');
       rows = payload.items || [];
       globalModules = (payload.global_modules || []).map((item: any) => ({
         module_key: item.module_key,
@@ -66,8 +70,7 @@
       }));
       systemModuleCatalog = payload.system_module_catalog || [];
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar o painel de permissoes.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o painel de permissoes.');
       rows = [];
       globalModules = [];
       systemModuleCatalog = [];
@@ -79,23 +82,16 @@
   async function saveGlobalModules() {
     savingGlobal = true;
     try {
-      const response = await fetch('/api/v1/admin/permissoes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'global',
-          settings: systemModuleCatalog.map((item) => ({
-            module_key: item.key,
-            enabled: getGlobalEnabled(item.key)
-          }))
-        })
+      await apiPost('/api/v1/admin/permissoes', {
+        action: 'global',
+        settings: systemModuleCatalog.map((item) => ({
+          module_key: item.key,
+          enabled: getGlobalEnabled(item.key)
+        }))
       });
-
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Modulos globais atualizados.');
       await loadPage();
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar modulos globais.');
     } finally {
       savingGlobal = false;

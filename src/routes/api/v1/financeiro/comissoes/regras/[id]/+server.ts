@@ -56,7 +56,12 @@ export async function PUT(event) {
     if ('super_meta' in body) updateData.super_meta = Number(body.super_meta);
     if ('ativo' in body) updateData.ativo = body.ativo;
 
-    const { data, error } = await client.from('commission_rule').update(updateData).eq('id', id).select().single();
+    const { data, error } = await client
+      .from('commission_rule')
+      .update(updateData)
+      .eq('id', id)
+      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, created_at, updated_at')
+      .single();
     if (error) throw error;
 
     if (body.tiers !== undefined) {

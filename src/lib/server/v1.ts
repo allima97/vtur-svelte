@@ -63,10 +63,25 @@ type HttpErrorLike = {
   };
 };
 
-function isProductionRuntime() {
+export function isProductionRuntime() {
   return [publicEnv.PUBLIC_ENVIRONMENT, privateEnv.VTUR_ENV, privateEnv.NODE_ENV].some(
     (value) => String(value || "").trim().toLowerCase() === "production",
   );
+}
+
+export function isDebugEndpointEnabled(event?: RequestEvent) {
+  const explicitEnabled = ["1", "true", "yes", "on"].includes(
+    String(privateEnv.VTUR_ENABLE_DEBUG_ENDPOINTS || "")
+      .trim()
+      .toLowerCase(),
+  );
+  if (explicitEnabled) return true;
+
+  const hostname = String(event?.url?.hostname || "").toLowerCase();
+  const isLocalhost =
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+  return !isProductionRuntime() || isLocalhost;
 }
 
 type UsersProfileRow = {
@@ -147,6 +162,15 @@ export function normalizeText(value?: string | null) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .trim();
+}
+
+export function sanitizePostgrestSearchTerm(value?: string | null, maxLength = 80) {
+  return String(value || "")
+    .trim()
+    .replace(/[%_*(),{}[\]"'\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, maxLength)
     .trim();
 }
 
@@ -649,12 +673,44 @@ function isHttpErrorLike(value: unknown): value is HttpErrorLike {
   return Boolean(value && typeof value === "object" && "status" in value);
 }
 
-export function toErrorResponse(err: unknown, fallbackMessage: string) {
-  // Log detalhado do erro para debug
-  console.error("[toErrorResponse] Erro capturado:", err);
-  console.error("[toErrorResponse] Tipo:", typeof err);
+export function errorLogDetails(err: unknown) {
+  if (!err || typeof err !== "object") {
+    return { message: String(err || "") };
+  }
 
-  if (err && typeof err === "object") {
+  const error = err as Record<string, unknown>;
+  return {
+    name: String(error.name || ""),
+    message: String(error.message || ""),
+    code: String(error.code || ""),
+    status: typeof error.status === "number" ? error.status : undefined,
+  };
+}
+
+export function logServerError(context: string, err: unknown, extra?: Record<string, unknown>) {
+  console.error(context, {
+    ...(extra || {}),
+    error: errorLogDetails(err),
+  });
+}
+
+const ERROR_RESPONSE_HEADERS = {
+  "Cache-Control": "no-store",
+  Vary: "Cookie",
+};
+
+export function toErrorResponse(err: unknown, fallbackMessage: string) {
+  const production = isProductionRuntime();
+
+  if (production) {
+    logServerError("[toErrorResponse]", err, { fallbackMessage });
+  } else {
+    // Log detalhado apenas fora de produção para não vazar payloads sensíveis em logs.
+    console.error("[toErrorResponse] Erro capturado:", err);
+    console.error("[toErrorResponse] Tipo:", typeof err);
+  }
+
+  if (!production && err && typeof err === "object") {
     const errObj = err as Record<string, unknown>;
     console.error("[toErrorResponse] Propriedades:", Object.keys(errObj));
     console.error("[toErrorResponse] Status:", errObj.status);
@@ -663,10 +719,14 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
   }
 
   if (isHttpErrorLike(err)) {
-    console.error("[toErrorResponse] Erro HTTP detectado:", err.status);
+    if (!production) {
+      console.error("[toErrorResponse] Erro HTTP detectado:", err.status);
+    }
+    const status = Number(err.status || 500);
+    const message = production && status >= 500 ? fallbackMessage : err.body?.message || fallbackMessage;
     return json(
-      { error: err.body?.message || fallbackMessage },
-      { status: err.status },
+      { error: message },
+      { status, headers: ERROR_RESPONSE_HEADERS },
     );
   }
 
@@ -674,22 +734,34 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
   if (err && typeof err === "object") {
     const errObj = err as Record<string, unknown>;
     if (typeof errObj.status === "number") {
-      console.error(
-        "[toErrorResponse] Erro com status detectado:",
-        errObj.status,
-      );
+      if (!production) {
+        console.error(
+          "[toErrorResponse] Erro com status detectado:",
+          errObj.status,
+        );
+      }
       const body = errObj.body as { message?: string } | undefined;
+      const status = Number(errObj.status || 500);
+      const message =
+        production && status >= 500
+          ? fallbackMessage
+          : String(body?.message || errObj.message || fallbackMessage);
       return json(
-        { error: String(body?.message || errObj.message || fallbackMessage) },
-        { status: errObj.status },
+        { error: message },
+        { status, headers: ERROR_RESPONSE_HEADERS },
       );
     }
   }
 
-  console.error(fallbackMessage, err);
+  if (!production) {
+    console.error(fallbackMessage, err);
+  }
 
-  if (isProductionRuntime()) {
-    return json({ error: fallbackMessage }, { status: 500 });
+  if (production) {
+    return json(
+      { error: fallbackMessage },
+      { status: 500, headers: ERROR_RESPONSE_HEADERS },
+    );
   }
 
   const errDetails =
@@ -702,5 +774,8 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
         }
       : { message: fallbackMessage };
 
-  return json({ error: fallbackMessage, ...errDetails }, { status: 500 });
+  return json(
+    { error: fallbackMessage, ...errDetails },
+    { status: 500, headers: ERROR_RESPONSE_HEADERS },
+  );
 }

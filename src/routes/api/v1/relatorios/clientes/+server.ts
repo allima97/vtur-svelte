@@ -16,6 +16,7 @@ import {
   getVendaClienteNome,
   monthSpanInclusive
 } from '$lib/server/relatorios';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -103,14 +104,17 @@ export async function GET(event) {
       })
       .sort((left, right) => right.total_gasto - left.total_gasto);
 
-    return json({
-      items,
-      total: items.length,
-      periodo: {
-        data_inicio: dataInicio,
-        data_fim: dataFim
-      }
-    });
+    return json(
+      {
+        items,
+        total: items.length,
+        periodo: {
+          data_inicio: dataInicio,
+          data_fim: dataFim
+        }
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar relatorio de clientes.');
   }

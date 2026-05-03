@@ -7,6 +7,8 @@
   import { FieldInput, FieldSelect, FieldTextarea, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Plus, RefreshCw } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   type Template = {
     id: string;
@@ -39,8 +41,8 @@
       sortable: true,
       formatter: (_value: unknown, row: Template) => `
         <div>
-          <p class="font-medium text-slate-900">${row.nome}</p>
-          <p class="text-xs text-slate-500">${row.assunto}</p>
+          <p class="font-medium text-slate-900">${escapeHtml(row.nome)}</p>
+          <p class="text-xs text-slate-500">${escapeHtml(row.assunto)}</p>
         </div>
       `
     },
@@ -59,15 +61,12 @@
   async function loadPage() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/avisos');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: Template[] }>('/api/v1/admin/avisos');
       templates = payload.items || [];
       if (!form.id && templates.length > 0) {
         form = { ...templates[0] };
       }
     } catch (err) {
-      console.error(err);
       toast.error('Nao foi possivel carregar os templates de aviso.');
       templates = [];
     } finally {
@@ -78,17 +77,11 @@
   async function saveTemplate() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/avisos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) throw new Error(await response.text());
+      const payload = await apiPost<{ id?: string }>('/api/v1/admin/avisos', form);
       toast.success('Template salvo com sucesso.');
-      form = { ...form, id: form.id || (await response.json()).id };
+      form = { ...form, id: form.id || payload.id || '' };
       await loadPage();
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar template.');
     } finally {
       saving = false;
@@ -99,20 +92,14 @@
     deleting = true;
     try {
       if (!form.id) throw new Error('Nenhum template selecionado.');
-      const response = await fetch('/api/v1/admin/avisos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'delete',
-          id: form.id
-        })
+      await apiPost('/api/v1/admin/avisos', {
+        action: 'delete',
+        id: form.id
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Template removido.');
       form = { ...emptyTemplate };
       await loadPage();
     } catch (err) {
-      console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao remover template.');
     } finally {
       deleting = false;

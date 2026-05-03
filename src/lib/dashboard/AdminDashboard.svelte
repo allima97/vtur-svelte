@@ -23,6 +23,7 @@
     UserRoundCog,
     Users
   } from 'lucide-svelte';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   type SummaryPayload = {
     counts?: {
@@ -144,15 +145,11 @@
   }
 
   async function loadSummary() {
-    const response = await fetch('/api/v1/admin/summary');
-    if (!response.ok) throw new Error(await response.text());
-    summary = await response.json();
+    summary = await apiGet<SummaryPayload>('/api/v1/admin/summary');
   }
 
   async function loadMaintenance() {
-    const response = await fetch('/api/v1/admin/maintenance');
-    if (!response.ok) throw new Error(await response.text());
-    const payload = await response.json();
+    const payload = await apiGet<MaintenancePayload>('/api/v1/admin/maintenance');
     maintenance = {
       maintenance_enabled: payload.maintenance_enabled === true,
       maintenance_message: payload.maintenance_message || '',
@@ -165,7 +162,6 @@
     try {
       await Promise.all([loadSummary(), loadMaintenance()]);
     } catch (err) {
-      console.error(err);
       toast.error('Não foi possível carregar o dashboard administrativo.');
     } finally {
       loading = false;
@@ -175,17 +171,10 @@
   async function saveMaintenance() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/admin/maintenance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(maintenance)
-      });
-
-      if (!response.ok) throw new Error(await response.text());
+      await apiPost('/api/v1/admin/maintenance', maintenance);
       toast.success('Modo de manutenção atualizado.');
       await loadMaintenance();
     } catch (err) {
-      console.error(err);
       toast.error('Não foi possível salvar a manutenção.');
     } finally {
       saving = false;

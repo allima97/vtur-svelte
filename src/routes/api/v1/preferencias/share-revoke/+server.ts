@@ -1,12 +1,12 @@
 import { isUuid } from '$lib/server/v1';
-import { requirePreferenciasScope, safeJsonParse } from '../_shared';
+import { buildNoStoreJsonResponse, buildNoStoreTextResponse, logServerError, requirePreferenciasScope, safeJsonParse } from '../_shared';
 
 export async function POST(event) {
   try {
     const { client, user } = await requirePreferenciasScope(event, 1);
     const body = safeJsonParse(await event.request.text()) as any;
     const shareId = String(body?.share_id || '').trim();
-    if (!isUuid(shareId)) return new Response('share_id invalido.', { status: 400 });
+    if (!isUuid(shareId)) return buildNoStoreTextResponse('share_id invalido.', 400);
 
     const { data, error } = await client
       .from('minhas_preferencias_shares')
@@ -16,15 +16,11 @@ export async function POST(event) {
       .select('id, status, revoked_at')
       .maybeSingle();
     if (error) throw error;
-    if (!data) return new Response('Compartilhamento não encontrado.', { status: 404 });
+    if (!data) return buildNoStoreTextResponse('Compartilhamento não encontrado.', 404);
 
-    return new Response(JSON.stringify({ ok: true, share: data }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return buildNoStoreJsonResponse({ ok: true, share: data });
   } catch (err) {
-    console.error('Erro preferencias/share-revoke', err);
-    return new Response('Erro ao revogar compartilhamento.', { status: 500 });
+    logServerError('[preferencias/share-revoke] falha ao revogar compartilhamento', err);
+    return buildNoStoreTextResponse('Erro ao revogar compartilhamento.', 500);
   }
 }
-

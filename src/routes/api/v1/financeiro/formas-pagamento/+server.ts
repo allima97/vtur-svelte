@@ -8,6 +8,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
+const FORMA_PAGAMENTO_SELECT =
+  'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
+
 // GET - Listar formas de pagamento
 export async function GET(event) {
   try {
@@ -25,7 +28,7 @@ export async function GET(event) {
 
     let query = client
       .from('formas_pagamento')
-      .select('*')
+      .select(FORMA_PAGAMENTO_SELECT)
       .order('nome', { ascending: true });
 
     if (ativas === 'true') {
@@ -82,7 +85,7 @@ export async function POST(event) {
         desconto_padrao_pct: body.desconto_padrao_pct || null,
         ativo: body.ativo !== undefined ? body.ativo : true
       }])
-      .select()
+      .select(FORMA_PAGAMENTO_SELECT)
       .single();
 
     if (error) {
@@ -134,7 +137,7 @@ export async function PATCH(event) {
       .from('formas_pagamento')
       .update(updateData)
       .eq('id', body.id)
-      .select()
+      .select(FORMA_PAGAMENTO_SELECT)
       .single();
 
     if (error) throw error;
@@ -167,7 +170,7 @@ export async function DELETE(event) {
     // Verificar se há pagamentos associados (tabela vendas_pagamentos)
     const { count, error: countError } = await client
       .from('vendas_pagamentos')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('forma_pagamento_id', id);
 
     if (countError) {
@@ -178,7 +181,7 @@ export async function DELETE(event) {
         .from('formas_pagamento')
         .update({ ativo: false, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .select()
+        .select(FORMA_PAGAMENTO_SELECT)
         .single();
 
       if (error) throw error;

@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
+  import { apiGet, apiPost } from '$lib/services/api';
 
   interface VendaCalculada {
     id?: string;
@@ -84,23 +85,19 @@
   async function loadComissoes() {
     loading = true;
     try {
-      const params = new URLSearchParams();
-      if (filtroStatus !== 'todas') {
-        params.set('status', filtroStatus);
-      }
-      params.set('mes', String(filtroMes));
-      params.set('ano', String(filtroAno));
-      if (filtroVendedor) params.set('vendedor_id', filtroVendedor);
-
-      const response = await fetch(`/api/v1/financeiro/comissoes/calcular?${params}`);
-      if (!response.ok) throw new Error('Erro ao carregar comissões');
-      
-      const data = await response.json();
+      const data = await apiGet<{ items?: any[]; persistencia_disponivel?: boolean }>(
+        '/api/v1/financeiro/comissoes/calcular',
+        {
+          status: filtroStatus !== 'todas' ? filtroStatus : undefined,
+          mes: filtroMes,
+          ano: filtroAno,
+          vendedor_id: filtroVendedor || undefined
+        }
+      );
       comissoesPendentes = data.items || [];
       persistenciaDisponivel = data.persistencia_disponivel !== false;
     } catch (err) {
-      toast.error('Erro ao carregar comissões pendentes');
-      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comissões pendentes');
     } finally {
       loading = false;
     }
@@ -108,37 +105,23 @@
 
   async function loadVendedores() {
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/vendedores');
-      if (response.ok) {
-        const data = await response.json();
-        vendedores = data.items || [];
-      }
+      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores');
+      vendedores = data.items || [];
     } catch (err) {
-      console.error('Erro ao carregar vendedores:', err);
+      vendedores = [];
     }
   }
 
   async function handleCalcular() {
     calculando = true;
     try {
-      const response = await fetch('/api/v1/financeiro/comissoes/calcular', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data_inicio: filtroDataInicio,
-          data_fim: filtroDataFim,
-          mes_referencia: Number(filtroMes),
-          ano_referencia: filtroAno,
-          vendedor_ids: filtroVendedor ? [filtroVendedor] : undefined
-        })
+      const data = await apiPost<typeof resultadoCalculo>('/api/v1/financeiro/comissoes/calcular', {
+        data_inicio: filtroDataInicio,
+        data_fim: filtroDataFim,
+        mes_referencia: Number(filtroMes),
+        ano_referencia: filtroAno,
+        vendedor_ids: filtroVendedor ? [filtroVendedor] : undefined
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
-
-      const data = await response.json();
       resultadoCalculo = data;
       showResultDialog = true;
       

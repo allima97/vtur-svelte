@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
+  import { apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
 
@@ -60,9 +61,7 @@
   async function loadPasskeys() {
     passkeysLoading = true;
     try {
-      const response = await fetch('/api/auth/passkeys');
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'Erro ao carregar passkeys.');
+      const payload: any = await apiGet('/api/auth/passkeys');
       passkeys = payload.passkeys || [];
     } catch (err: any) {
       error = err.message || 'Erro ao carregar passkeys.';
@@ -158,29 +157,14 @@
     error = null;
 
     try {
-      const optionsResponse = await fetch('/api/auth/passkeys/register/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const optionsPayload = await optionsResponse.json().catch(() => ({}));
-      if (!optionsResponse.ok) {
-        throw new Error(optionsPayload.error || 'Erro ao preparar cadastro da passkey.');
-      }
+      const optionsPayload: any = await apiPost('/api/auth/passkeys/register/options', null);
 
       const registration = await startRegistration({ optionsJSON: optionsPayload.options });
-      const verifyResponse = await fetch('/api/auth/passkeys/register/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          challengeId: optionsPayload.challengeId,
-          response: registration,
-          name: 'Passkey VTUR'
-        })
+      await apiPost('/api/auth/passkeys/register/verify', {
+        challengeId: optionsPayload.challengeId,
+        response: registration,
+        name: 'Passkey VTUR'
       });
-      const payload = await verifyResponse.json().catch(() => ({}));
-      if (!verifyResponse.ok) {
-        throw new Error(payload.error || 'Não foi possível cadastrar a passkey.');
-      }
 
       toast.success('Passkey cadastrada com sucesso.');
       await loadPasskeys();
@@ -198,15 +182,10 @@
     error = null;
 
     try {
-      const response = await fetch('/api/auth/passkeys', {
+      await apiFetch('/api/auth/passkeys', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: passkeyId })
+        body: { id: passkeyId }
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || 'Erro ao remover passkey.');
-      }
 
       toast.success('Passkey removida.');
       await loadPasskeys();

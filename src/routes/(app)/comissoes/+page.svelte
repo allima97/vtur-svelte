@@ -6,6 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
   import {
     Calculator, DollarSign, TrendingUp, Users,
     RefreshCw, FileText, ChevronRight
@@ -78,15 +79,10 @@
 
     loading = true;
     try {
-      const params = new URLSearchParams({ ano: String(filtroAno) });
-      if (filtroStatus !== 'todas') params.set('status', filtroStatus);
-
-      const response = await fetch(`/api/v1/financeiro/comissoes?${params.toString()}`, {
-        signal: abortController.signal
-      });
-
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/financeiro/comissoes', {
+        ano: filtroAno,
+        status: filtroStatus !== 'todas' ? filtroStatus : undefined
+      }, abortController.signal);
       items   = data.items   ?? [];
       resumo  = data.resumo  ?? [];
     } catch (err: unknown) {

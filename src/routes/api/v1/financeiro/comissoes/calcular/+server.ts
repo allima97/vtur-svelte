@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
@@ -151,7 +152,7 @@ export async function POST(event) {
     });
 
   } catch (err) {
-    console.error('[Calcular Comissões POST] Erro:', err);
+    logServerError('[financeiro/comissoes/calcular] falha ao calcular comissoes', err);
     return toErrorResponse(err, 'Erro ao calcular comissões.');
   }
 }
@@ -286,7 +287,7 @@ export async function GET(event) {
     });
 
   } catch (err) {
-    console.error('[Comissões Calculadas GET] Erro:', err);
+    logServerError('[financeiro/comissoes/calcular] falha ao carregar comissoes', err);
     return toErrorResponse(err, 'Erro ao carregar comissões.');
   }
 }

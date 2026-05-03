@@ -8,6 +8,7 @@ import {
   resolveScopedVendedorIds,
   type UserScope
 } from '$lib/server/v1';
+import { diffDaysISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
 
 export type ClienteScopedFilters = {
   companyIds: string[];
@@ -16,9 +17,8 @@ export type ClienteScopedFilters = {
 };
 
 export function diffDays(fromDateIso: string, toDate = new Date()) {
-  const from = new Date(fromDateIso);
-  const diff = toDate.getTime() - from.getTime();
-  return Math.floor(diff / 86400000);
+  const diff = diffDaysISODate(fromDateIso, todayISODateLocal(toDate));
+  return diff ?? Number.POSITIVE_INFINITY;
 }
 
 export function deriveClienteStatus(
@@ -62,7 +62,9 @@ export function extractBirthMonthDay(value?: string | null) {
 export function isBirthdayToday(value?: string | null, today = new Date()) {
   const parts = extractBirthMonthDay(value);
   if (!parts) return false;
-  return parts.day === today.getDate() && parts.month === today.getMonth() + 1;
+  const todayParts = parseISODateParts(todayISODateLocal(today));
+  if (!todayParts) return false;
+  return parts.day === todayParts.day && parts.month === todayParts.month;
 }
 
 export function formatDocumentoDisplay(value?: string | null) {

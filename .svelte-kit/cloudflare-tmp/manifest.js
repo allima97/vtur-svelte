@@ -10,7 +10,7 @@ return {
 	assets: new Set(["apple-touch-icon-v2.png","apple-touch-icon-v3.png","apple-touch-icon-v4.png","apple-touch-icon.png","assets/cards/themes-master/anniversary-purchase.svg","assets/cards/themes-master/anniversary-trip.svg","assets/cards/themes-master/birthday-elegant.png","assets/cards/themes-master/birthday-elegant.svg","assets/cards/themes-master/christmas-gold.png","assets/cards/themes-master/christmas-gold.svg","assets/cards/themes-master/client-day-premium.svg","assets/cards/themes-master/countdown-travel.svg","assets/cards/themes-master/document-reminder-clean.svg","assets/cards/themes-master/easter-pastel.png","assets/cards/themes-master/easter-pastel.svg","assets/cards/themes-master/exclusive-offer.svg","assets/cards/themes-master/fathers-day-classic.svg","assets/cards/themes-master/inactive-soft-recovery.svg","assets/cards/themes-master/long-holiday.svg","assets/cards/themes-master/mothers-day-floral.png","assets/cards/themes-master/mothers-day-floral.svg","assets/cards/themes-master/new-year-celebration.png","assets/cards/themes-master/new-year-celebration.svg","assets/cards/themes-master/post-trip-light.svg","assets/cards/themes-master/pre-embark-clean.svg","assets/cards/themes-master/premium-elegant.svg","assets/cards/themes-master/referral-soft.svg","assets/cards/themes-master/repurchase-soft.svg","assets/cards/themes-master/seasonal-campaign.svg","assets/cards/themes-master/special-date-soft.svg","assets/cards/themes-master/surprise-soft.svg","assets/cards/themes-master/travel-opportunity.svg","assets/cards/themes-master/travel-return-soft.svg","assets/cards/themes-master/valentines-romantic.svg","assets/cards/themes-master/vip-gold.svg","assets/cards/themes-master/vip-upgrade.svg","assets/cards/themes-master/welcome-clean.svg","assets/cards/themes-master/womens-day-soft.png","assets/cards/themes-master/womens-day-soft.svg","brand/vtur-symbol.png","brand/vtur-symbol.svg","data/airports-iata-city.json","favicon.ico","favicon.png","favicon.svg","icon-192-v2.png","icon-192-v3.png","icon-192-v4.png","icon-192.png","icon-512-v2.png","icon-512-v3.png","icon-512-v4.png","icon-512.png","icon-source-v3.png","icon-source-v4.png","icons/icon-192x192.png","icons/icon-512x512.png","icons/maskable-192x192.png","icons/maskable-512x512.png","manifest-calculadora.webmanifest","manifest.webmanifest","sw-calculadora.js"]),
 	mimeTypes: {".png":"image/png",".svg":"image/svg+xml",".json":"application/json",".webmanifest":"application/manifest+json",".js":"text/javascript",".ttf":"font/ttf"},
 	_: {
-		client: {start:"_app/immutable/entry/start.BvFMi6Er.js",app:"_app/immutable/entry/app.YtOWLPXu.js",imports:["_app/immutable/entry/start.BvFMi6Er.js","_app/immutable/chunks/CbI501kU.js","_app/immutable/chunks/DKlAcxQM.js","_app/immutable/chunks/BWAAyTM7.js","_app/immutable/chunks/Dqzgx3g5.js","_app/immutable/entry/app.YtOWLPXu.js","_app/immutable/chunks/DKlAcxQM.js","_app/immutable/chunks/DY6h5P17.js","_app/immutable/chunks/DvxNBRlk.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/Dqzgx3g5.js","_app/immutable/chunks/C-CDgHXT.js","_app/immutable/chunks/BjAfxWe2.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
+		client: {start:"_app/immutable/entry/start.i8H76NiX.js",app:"_app/immutable/entry/app.DbVur75F.js",imports:["_app/immutable/entry/start.i8H76NiX.js","_app/immutable/chunks/Bl7okMZY.js","_app/immutable/chunks/BLsyQOr-.js","_app/immutable/chunks/DpWZM5Hq.js","_app/immutable/chunks/BDWRrAxF.js","_app/immutable/entry/app.DbVur75F.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/BLsyQOr-.js","_app/immutable/chunks/CM4zWxaI.js","_app/immutable/chunks/D4pCqudo.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/BDWRrAxF.js","_app/immutable/chunks/DrNY4_Ba.js","_app/immutable/chunks/C-78u8dQ.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
 		nodes: [
 			__memo(() => import('../output/server/nodes/0.js')),
 			__memo(() => import('../output/server/nodes/1.js')),
@@ -978,13 +978,6 @@ return {
 				params: [],
 				page: null,
 				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/debug/vendas-recibos-diff/_server.ts.js'))
-			},
-			{
-				id: "/api/v1/debug/viagens-diag",
-				pattern: /^\/api\/v1\/debug\/viagens-diag\/?$/,
-				params: [],
-				page: null,
-				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/debug/viagens-diag/_server.ts.js'))
 			},
 			{
 				id: "/api/v1/documentacao",

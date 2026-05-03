@@ -3,6 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -84,7 +85,7 @@ export async function POST(event: RequestEvent) {
       .single();
 
     if (quoteError || !quote) {
-      console.error('[orcamentos/importar] Erro ao criar quote:', quoteError);
+      logServerError('[orcamentos/importar] erro ao criar quote', quoteError);
       return json({ error: 'Erro ao criar orçamento importado.' }, { status: 500 });
     }
 
@@ -115,7 +116,7 @@ export async function POST(event: RequestEvent) {
 
     if (itemsError) {
       await client.from('quote').delete().eq('id', quote.id);
-      console.error('[orcamentos/importar] Erro ao inserir itens:', itemsError);
+      logServerError('[orcamentos/importar] erro ao inserir itens', itemsError);
       return json({ error: 'Erro ao salvar itens do orçamento.' }, { status: 500 });
     }
 
@@ -137,7 +138,7 @@ export async function POST(event: RequestEvent) {
     if (segmentPayloads.length > 0) {
       const { error: segError } = await client.from('quote_item_segment').insert(segmentPayloads);
       if (segError) {
-        console.warn('[orcamentos/importar] Erro ao inserir segmentos:', segError);
+        logServerError('[orcamentos/importar] Erro ao inserir segmentos', segError);
       }
     }
 

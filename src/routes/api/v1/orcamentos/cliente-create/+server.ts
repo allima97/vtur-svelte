@@ -1,5 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, getAdminClient } from '$lib/server/v1';
+import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, getAdminClient, logServerError } from '$lib/server/v1';
 import { titleCaseNome } from '$lib/normalizeText';
 
 export async function POST(event: RequestEvent) {
@@ -36,7 +36,7 @@ export async function POST(event: RequestEvent) {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (err) {
-    console.error('Erro orcamentos/cliente-create', err);
+    logServerError('[orcamentos/cliente-create] falha ao criar cliente', err);
     return new Response('Erro ao criar cliente.', { status: 500 });
   }
 }

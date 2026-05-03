@@ -46,6 +46,30 @@ type DashboardQuoteRow = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+const DASHBOARD_QUOTES_LIMIT = 20;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
+  const map = new Map<string, DashboardQuoteRow>();
+  rows.forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values())
+    .sort((left, right) =>
+      String(right.created_at || "").localeCompare(String(left.created_at || "")),
+    )
+    .slice(0, DASHBOARD_QUOTES_LIMIT);
+}
+
 function toNum(value: unknown): number {
   const n = Number(value || 0);
   return Number.isFinite(n) ? n : 0;
@@ -312,77 +336,55 @@ export async function GET(event) {
         let orcamentos: DashboardQuoteRow[] = [];
 
         if (includeOrcamentos) {
-          let quotesQuery = client
-            .from("quote")
-            .select(
-              `
+          const buildQuotesQuery = () =>
+            client
+              .from("quote")
+              .select(
+                `
           id, created_at, status, status_negociacao, total, client_id,
           cliente:client_id (id, nome),
           quote_item (id, title, product_name, item_type, city_name)
         `,
-            )
-            .gte("created_at", `${inicio}T00:00:00`)
-            .lte("created_at", `${fim}T23:59:59.999`)
-            .order("created_at", { ascending: false })
-            .limit(20);
+              )
+              .gte("created_at", `${inicio}T00:00:00`)
+              .lte("created_at", `${fim}T23:59:59.999`)
+              .order("created_at", { ascending: false })
+              .limit(DASHBOARD_QUOTES_LIMIT);
+
+          const fetchQuotesByIds = async (field: "created_by" | "client_id", ids: string[]) => {
+            const normalizedIds = Array.from(
+              new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
+            );
+            if (normalizedIds.length === 0) return [] as DashboardQuoteRow[];
+
+            if (normalizedIds.length <= SUPABASE_IN_BATCH_SIZE) {
+              const { data, error } = await buildQuotesQuery().in(field, normalizedIds);
+              if (error) throw error;
+              return (data || []) as DashboardQuoteRow[];
+            }
+
+            const rows: DashboardQuoteRow[] = [];
+            for (const batch of chunkArray(normalizedIds)) {
+              const { data, error } = await buildQuotesQuery().in(field, batch);
+              if (error) throw error;
+              rows.push(...((data || []) as DashboardQuoteRow[]));
+            }
+            return dedupeDashboardQuotes(rows);
+          };
 
           if (vendedorIds.length > 0) {
-            quotesQuery = quotesQuery.in("created_by", vendedorIds);
+            orcamentos = await fetchQuotesByIds("created_by", vendedorIds);
           } else if (companyIds.length > 0) {
             const clientIds = await resolveAccessibleClientIds(client, {
               companyIds,
               vendedorIds: [],
             });
-
-            if (clientIds.length === 0) {
-              return {
-                inicio,
-                fim,
-                userCtx: {
-                  usuarioId: user.id,
-                  nome: scope.nome,
-                  papel: responsePapel,
-                  vendedorIds,
-                },
-                podeVerOperacao: canOperacao,
-                podeVerConsultoria: canConsultoria,
-                vendasAgg: {
-                  totalVendas: vendasKpis.totalVendas,
-                  totalTaxas: vendasKpis.totalTaxas,
-                  totalLiquido: vendasKpis.totalLiquido,
-                  totalSeguro: vendasKpis.totalSeguro,
-                  qtdVendas: vendasKpis.countAtivas,
-                  ticketMedio:
-                    vendasKpis.countAtivas > 0
-                      ? vendasKpis.totalVendas / vendasKpis.countAtivas
-                      : 0,
-                  timeline: Array.from(timelineMap.entries()).map(
-                    ([date, value]) => ({ date, value }),
-                  ),
-                  topDestinos: Array.from(destinoMap.entries())
-                    .map(([name, value]) => ({
-                      name,
-                      value,
-                      count: destinoCountMap.get(name) || 0,
-                    }))
-                    .sort((a, b) => b.value - a.value)
-                    .slice(0, 5),
-                  porProduto: Array.from(produtoMap.values())
-                    .sort((a, b) => b.value - a.value)
-                    .slice(0, 6),
-                },
-                metas: metasData || [],
-                orcamentos: [],
-                widgetPrefs: [],
-              };
-            }
-
-            quotesQuery = quotesQuery.in("client_id", clientIds);
+            orcamentos = await fetchQuotesByIds("client_id", clientIds);
+          } else {
+            const { data: quotesData, error: quotesError } = await buildQuotesQuery();
+            if (quotesError) throw quotesError;
+            orcamentos = (quotesData || []) as DashboardQuoteRow[];
           }
-
-          const { data: quotesData, error: quotesError } = await quotesQuery;
-          if (quotesError) throw quotesError;
-          orcamentos = (quotesData || []) as DashboardQuoteRow[];
         }
 
         // -------------------------------------------------------------------------
@@ -438,7 +440,12 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, {
+      headers: {
+        "Cache-Control": "private, max-age=5, stale-while-revalidate=20",
+        Vary: "Cookie",
+      },
+    });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar dashboard.");
   }

@@ -7,6 +7,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet } from '$lib/services/api';
   import {
     BookOpen,
     Building2,
@@ -118,12 +119,9 @@
   async function loadSummary() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/admin/summary');
-      if (!response.ok) throw new Error(await response.text());
-      summary = await response.json();
+      summary = await apiGet('/api/v1/admin/summary');
     } catch (err) {
-      console.error(err);
-      toast.error('Nao foi possivel carregar o resumo administrativo.');
+      toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o resumo administrativo.');
       summary = null;
     } finally {
       loading = false;

@@ -1,18 +1,18 @@
 import { isUuid } from '$lib/server/v1';
-import { requirePreferenciasScope, safeJsonParse } from '../_shared';
+import { buildNoStoreJsonResponse, buildNoStoreTextResponse, logServerError, requirePreferenciasScope, safeJsonParse } from '../_shared';
 
 export async function POST(event) {
   try {
     const { client, user, scope } = await requirePreferenciasScope(event, 3);
     const companyId = scope.companyId;
-    if (!companyId) return new Response('Empresa inválida.', { status: 400 });
+    if (!companyId) return buildNoStoreTextResponse('Empresa inválida.', 400);
 
     const body = safeJsonParse(await event.request.text()) as any;
     const preferenciaId = String(body?.preferencia_id || '').trim();
     const sharedWith = String(body?.shared_with || '').trim();
 
-    if (!isUuid(preferenciaId)) return new Response('preferencia_id invalido.', { status: 400 });
-    if (!isUuid(sharedWith)) return new Response('shared_with invalido.', { status: 400 });
+    if (!isUuid(preferenciaId)) return buildNoStoreTextResponse('preferencia_id invalido.', 400);
+    if (!isUuid(sharedWith)) return buildNoStoreTextResponse('shared_with invalido.', 400);
 
     let preferenciaQuery = client
       .from('minhas_preferencias')
@@ -23,7 +23,7 @@ export async function POST(event) {
 
     const { data: preferencia, error: prefError } = await preferenciaQuery.maybeSingle();
     if (prefError) throw prefError;
-    if (!preferencia) return new Response('Preferência não encontrada.', { status: 404 });
+    if (!preferencia) return buildNoStoreTextResponse('Preferência não encontrada.', 404);
 
     const { data: targetUser, error: targetError } = await client
       .from('users')
@@ -33,7 +33,7 @@ export async function POST(event) {
       .eq('active', true)
       .maybeSingle();
     if (targetError) throw targetError;
-    if (!targetUser) return new Response('Usuário fora do escopo da empresa.', { status: 403 });
+    if (!targetUser) return buildNoStoreTextResponse('Usuário fora do escopo da empresa.', 403);
 
     const payload = {
       company_id: companyId,
@@ -52,12 +52,9 @@ export async function POST(event) {
       .single();
     if (error) throw error;
 
-    return new Response(JSON.stringify({ ok: true, share: data }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return buildNoStoreJsonResponse({ ok: true, share: data });
   } catch (err) {
-    console.error('Erro preferencias/share', err);
-    return new Response('Erro ao compartilhar preferência.', { status: 500 });
+    logServerError('[preferencias/share] falha ao compartilhar preferencia', err);
+    return buildNoStoreTextResponse('Erro ao compartilhar preferência.', 500);
   }
 }

@@ -162,7 +162,9 @@ export function shouldUseMock(): boolean {
     
     return false;
   } catch (e) {
-    console.error('🔍 [Supabase] Erro ao verificar mock:', e);
+    console.error('[Supabase] Erro ao verificar mock', {
+      message: String((e as any)?.message || e || '')
+    });
     return dev;
   }
 }

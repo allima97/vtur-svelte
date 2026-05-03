@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getAdminClient, isUuid, resolveUserScope } from '$lib/server/v1';
-import { requireAuthenticatedUser } from '$lib/server/v1';
+import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/server/emailSettings';
 
@@ -42,6 +41,10 @@ function isAuthAlreadyRegisteredError(error: any) {
     message.includes("already exists") ||
     message.includes("user already registered")
   );
+}
+
+function providerPayloadMessage(payload: any) {
+  return String(payload?.message || payload?.error || payload?.name || '').slice(0, 240);
 }
 
 async function getUserTypeNameById(client: ReturnType<typeof getAdminClient>, userTypeId: string) {
@@ -101,11 +104,17 @@ async function enviarEmailResend(params: {
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
-    console.error("Erro Resend:", resp.status, data);
+    logServerError("[convites/send] falha no Resend", new Error("Resend provider error"), {
+      status: resp.status,
+      message: providerPayloadMessage(data)
+    });
     return { ok: false, status: String(resp.status), error: data };
   }
   if (!data?.id) {
-    console.error("Resposta Resend sem ID:", data);
+    logServerError("[convites/send] Resend sem id de mensagem", new Error("Resend invalid response"), {
+      status: resp.status,
+      message: providerPayloadMessage(data)
+    });
     return { ok: false, status: "resend_invalid_response", error: data };
   }
   return { ok: true, status: String(resp.status), id: data?.id };
@@ -271,7 +280,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         authUserId = String((inviteData as any)?.user?.id || "") || null;
       }
     } catch (err: any) {
-      console.error("Falha ao gerar link de convite:", err);
+      logServerError("[convites/send] falha ao gerar link de convite", err);
       return json({ error: "Falha ao gerar link de convite." }, { status: 500 });
     }
 
@@ -377,7 +386,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .from("gestor_vendedor")
           .insert({ gestor_id: gestorEquipeId, vendedor_id: authUserId, ativo: true } as any);
       } catch (relErr) {
-        console.warn("Falha ao pre-atribuir vendedor na equipe:", relErr);
+        logServerError("[convites/send] falha ao pre-atribuir vendedor na equipe", relErr);
       }
     }
 
@@ -386,7 +395,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       expires_at: expiresAt,
     });
   } catch (error: any) {
-    console.error("[convites/send] falha ao enviar convite", error);
+    logServerError("[convites/send] falha ao enviar convite", error);
     return json({ error: "Erro interno ao enviar convite." }, { status: 500 });
   }
 };

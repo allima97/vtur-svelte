@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  parseIntSafe,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -21,21 +22,29 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const q = String(searchParams.get('q') || '').trim();
     const subdivisaoId = String(searchParams.get('subdivisao_id') || '').trim();
-    const page = Math.max(1, Number(searchParams.get('page') || 1));
-    const pageSize = Math.min(100, Number(searchParams.get('pageSize') || 50));
+    const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
+    const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));
+    const canUseDbPagination = !q;
 
-    let query = client
-      .from('cidades')
-      .select(`
+    const selectFields = `
         id, nome, subdivisao_id, descricao, created_at,
         subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id, pais:paises!pais_id(id, nome))
-      `)
-      .order('nome')
-      .limit(5000);
+      `;
+
+    let query = (canUseDbPagination
+      ? client.from('cidades').select(selectFields, { count: 'exact' })
+      : client.from('cidades').select(selectFields)
+    ).order('nome');
+
+    if (canUseDbPagination) {
+      query = query.range((page - 1) * pageSize, page * pageSize - 1);
+    } else {
+      query = query.limit(5000);
+    }
 
     if (subdivisaoId) query = query.eq('subdivisao_id', subdivisaoId);
 
-    const { data, error: queryError } = await query;
+    const { data, count, error: queryError } = await query;
     if (queryError) throw queryError;
 
     let items = data || [];
@@ -46,8 +55,8 @@ export async function GET(event) {
       );
     }
 
-    const total = items.length;
-    const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize);
+    const total = canUseDbPagination ? Number(count ?? data?.length ?? 0) : items.length;
+    const paginatedItems = canUseDbPagination ? items : items.slice((page - 1) * pageSize, page * pageSize);
 
     return json({ items: paginatedItems, total, page, pageSize });
   } catch (err) {

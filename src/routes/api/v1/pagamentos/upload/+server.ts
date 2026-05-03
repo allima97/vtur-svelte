@@ -7,6 +7,10 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
+
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 
 // POST - Upload de comprovante de pagamento (armazena no bucket viagens-documentos)
 export async function POST(event) {
@@ -16,6 +20,11 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissão para anexar comprovantes.');
+
+    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
+    if (!requestSize.ok) {
+      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 5MB.' }, { status: 413 });
+    }
 
     const formData = await event.request.formData();
     const file = formData.get('file') as File;
@@ -28,29 +37,6 @@ export async function POST(event) {
     if (!isUuid(String(pagamentoId || '').trim())) {
       return json({ success: false, error: 'ID do pagamento inválido.' }, { status: 400 });
     }
-
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      return json({ success: false, error: 'Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.' }, { status: 400 });
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 5MB.' }, { status: 400 });
-    }
-
-    const timestamp = Date.now();
-    const extension = file.name.split('.').pop() || 'jpg';
-    const fileName = `comprovantes/${pagamentoId}/${timestamp}.${extension}`;
-
-    // Usa bucket viagens-documentos (existe no schema)
-    const { data: uploadData, error: uploadError } = await client.storage
-      .from('viagens-documentos')
-      .upload(fileName, file, { contentType: file.type, upsert: false });
-
-    if (uploadError) throw uploadError;
-
-    const { data: urlData } = client.storage.from('viagens-documentos').getPublicUrl(fileName);
-    const comprovanteUrl = urlData?.publicUrl || null;
 
     const { data: pagamentoAtual, error: pagamentoAtualError } = await client
       .from('vendas_pagamentos')
@@ -72,15 +58,45 @@ export async function POST(event) {
       }
     }
 
-    // Atualiza observações do pagamento com a URL do comprovante
+    const validation = await validateUploadedFile(file, {
+      allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+      maxSizeBytes: MAX_FILE_SIZE_BYTES
+    });
+    if (!validation.ok) {
+      const error =
+        validation.error === 'Arquivo muito grande.'
+          ? 'Arquivo muito grande. Tamanho máximo: 5MB.'
+          : 'Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.';
+      return json({ success: false, error }, { status: 400 });
+    }
+
+    const timestamp = Date.now();
+    const fileName = `comprovantes/${pagamentoId}/${timestamp}-${crypto.randomUUID()}.${validation.extension}`;
+
+    const { error: uploadError } = await client.storage
+      .from('viagens-documentos')
+      .upload(fileName, file, { contentType: validation.mimeType, upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: signedData } = await client.storage
+      .from('viagens-documentos')
+      .createSignedUrl(fileName, 60 * 60);
+    const comprovanteUrl = signedData?.signedUrl || null;
+    const comprovanteRef = `storage://viagens-documentos/${fileName}`;
+
+    // Guarda uma referência interna; o acesso real deve ocorrer por URL assinada.
     const { data: pagamento, error: updateError } = await client
       .from('vendas_pagamentos')
-      .update({ observacoes: comprovanteUrl, updated_at: new Date().toISOString() })
+      .update({ observacoes: comprovanteRef, updated_at: new Date().toISOString() })
       .eq('id', pagamentoId)
-      .select()
+      .select('id, venda_id, company_id, observacoes, updated_at')
       .single();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      await client.storage.from('viagens-documentos').remove([fileName]).catch(() => undefined);
+      throw updateError;
+    }
 
     return json({ success: true, item: pagamento, comprovante_url: comprovanteUrl });
   } catch (err) {

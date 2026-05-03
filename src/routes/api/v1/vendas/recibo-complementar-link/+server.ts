@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function safeJsonParse(text: string) {
   try {
@@ -77,7 +78,7 @@ export async function POST(event: RequestEvent) {
         .upsert(links, { onConflict: 'venda_id,recibo_id', ignoreDuplicates: true });
       if (batchError) throw batchError;
 
-      return json({ ok: true, total: links.length });
+      return json({ ok: true, total: links.length }, { headers: NO_STORE_HEADERS });
     }
 
     const vendaId = String(body?.venda_id || '').trim();
@@ -131,7 +132,7 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao vincular recibo complementar.');
   }

@@ -1,6 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -11,6 +12,25 @@ import {
 const LOCAL_CACHE_TTL_MS = 300_000;
 const MAX_FILTER_IDS = 300;
 const cache = new Map<string, { expiresAt: number; payload: unknown }>();
+const PRIVATE_CACHE_HEADERS = {
+  'Cache-Control': 'private, max-age=300',
+  Vary: 'Cookie'
+};
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+const NO_STORE_TEXT_HEADERS = {
+  'Content-Type': 'text/plain; charset=utf-8',
+  'Cache-Control': 'no-store',
+  Vary: 'Cookie'
+};
+
+function clampIntParam(value: string | null, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
 
 function readCache(key: string) {
   const entry = cache.get(key);
@@ -55,14 +75,18 @@ export async function GET(event: RequestEvent) {
 
     if (!canConsultoria) {
       // Retorna lista vazia em vez de 403 — o dashboard apenas não mostrará o widget
-      return json({ items: [] });
+      return json({ items: [] }, { headers: NO_STORE_HEADERS });
     }
 
     const mode = String(event.url.searchParams.get('mode') || 'geral').trim().toLowerCase();
     const noCache = String(event.url.searchParams.get('no_cache') || '').trim() === '1';
+    const limit = clampIntParam(event.url.searchParams.get('limit'), 50, 1, 50);
 
     if (mode !== 'geral' && mode !== 'gestor') {
-      return new Response('mode invalido (use mode=geral ou mode=gestor).', { status: 400 });
+      return new Response('mode invalido (use mode=geral ou mode=gestor).', {
+        status: 400,
+        headers: NO_STORE_TEXT_HEADERS
+      });
     }
 
     const companyIds = mode === 'gestor'
@@ -87,18 +111,14 @@ export async function GET(event: RequestEvent) {
       user.id,
       scope.papel,
       companyId || 'all',
-      vendedorIds.length === 0 ? 'all' : vendedorIds.join(',')
+      vendedorIds.length === 0 ? 'all' : vendedorIds.join(','),
+      limit
     ].join('|');
 
     if (!noCache) {
       const cached = readCache(cacheKey);
       if (cached) {
-        return json(cached, {
-          headers: {
-            'Cache-Control': 'private, max-age=300',
-            Vary: 'Cookie'
-          }
-        });
+        return json(cached, { headers: PRIVATE_CACHE_HEADERS });
       }
     }
 
@@ -111,13 +131,10 @@ export async function GET(event: RequestEvent) {
       });
       if (rpcErr) throw rpcErr;
 
-      const payload = { items: rpcData || [] };
+      const payload = { items: (rpcData || []).slice(0, limit) };
       if (!noCache) writeCache(cacheKey, payload);
       return json(payload, {
-        headers: {
-          'Cache-Control': noCache ? 'no-store' : 'private, max-age=300',
-          Vary: 'Cookie'
-        }
+        headers: noCache ? NO_STORE_HEADERS : PRIVATE_CACHE_HEADERS
       });
     } catch (rpcError: any) {
       if (!isRpcMissing(rpcError, 'rpc_dashboard_consultorias')) throw rpcError;
@@ -132,10 +149,7 @@ export async function GET(event: RequestEvent) {
 
     if (companyId && vendedorIds.length === 0 && clientIds.length === 0) {
       return json({ items: [] }, {
-        headers: {
-          'Cache-Control': noCache ? 'no-store' : 'private, max-age=300',
-          Vary: 'Cookie'
-        }
+        headers: noCache ? NO_STORE_HEADERS : PRIVATE_CACHE_HEADERS
       });
     }
 
@@ -146,7 +160,7 @@ export async function GET(event: RequestEvent) {
       .gte('data_hora', agoraIso)
       .lte('data_hora', limiteIso)
       .order('data_hora', { ascending: true })
-      .limit(50);
+      .limit(limit);
 
     if (companyId && clientIds.length > 0 && vendedorIds.length > 0) {
       const clienteSlice = clientIds.slice(0, MAX_FILTER_IDS).join(',');
@@ -165,13 +179,13 @@ export async function GET(event: RequestEvent) {
     if (!noCache) writeCache(cacheKey, payload);
 
     return json(payload, {
-      headers: {
-        'Cache-Control': noCache ? 'no-store' : 'private, max-age=300',
-        Vary: 'Cookie'
-      }
+      headers: noCache ? NO_STORE_HEADERS : PRIVATE_CACHE_HEADERS
     });
   } catch (error: any) {
-    console.error('[api/v1/dashboard/consultorias] erro:', error);
-    return json({ error: 'Erro interno ao carregar consultorias.' }, { status: 500 });
+    logServerError('[dashboard/consultorias] falha ao carregar consultorias', error);
+    return json(
+      { error: 'Erro interno ao carregar consultorias.' },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
 }

@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  logServerError,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -34,7 +35,6 @@ export async function GET(event) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('[Tarefas Usuarios API] Erro:', error.message, error.code);
       throw error;
     }
 
@@ -46,7 +46,7 @@ export async function GET(event) {
 
     return json({ items, total: items.length });
   } catch (err) {
-    console.error('[Tarefas Usuarios API] Erro:', err);
+    logServerError('[tarefas/usuarios] falha ao carregar usuarios', err);
     return toErrorResponse(err, 'Erro ao carregar usuários.');
   }
 }

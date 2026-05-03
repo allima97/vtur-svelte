@@ -29,7 +29,7 @@ export async function POST(event) {
         tipo_acomodacao: body.tipo_acomodacao || null,
         extra_data: body.extra_data || {}
       }])
-      .select()
+      .select('id, company_id, created_by, provider, nome, codigo_systur, codigo_fornecedor, reserva_online, operador, resumo, data_inicio, data_fim, ativo, passageiros, tipo_acomodacao, extra_data, created_at, updated_at')
       .single();
 
     if (error) throw error;

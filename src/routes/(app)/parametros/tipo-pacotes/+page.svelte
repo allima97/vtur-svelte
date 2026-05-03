@@ -8,6 +8,7 @@
   import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -85,9 +86,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/tipo-pacotes');
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{ items?: TipoPacote[]; regras?: Regra[] }>('/api/v1/parametros/tipo-pacotes');
       tipos = payload.items || [];
       regras = payload.regras || [];
     } catch (err) {
@@ -131,30 +130,15 @@
         }
         return parsed;
       };
-      const response = await fetch('/api/v1/parametros/tipo-pacotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId || undefined,
-          nome: form.nome.trim(),
-          ativo: form.ativo,
-          rule_id: form.rule_id || null,
-          fix_meta_nao_atingida: toNum(form.fix_meta_nao_atingida, '% Meta nao batida'),
-          fix_meta_atingida: toNum(form.fix_meta_atingida, '% Meta batida'),
-          fix_super_meta: toNum(form.fix_super_meta, '% Super meta')
-        })
+      await apiPost('/api/v1/parametros/tipo-pacotes', {
+        id: editingId || undefined,
+        nome: form.nome.trim(),
+        ativo: form.ativo,
+        rule_id: form.rule_id || null,
+        fix_meta_nao_atingida: toNum(form.fix_meta_nao_atingida, '% Meta nao batida'),
+        fix_meta_atingida: toNum(form.fix_meta_atingida, '% Meta batida'),
+        fix_super_meta: toNum(form.fix_super_meta, '% Super meta')
       });
-      if (!response.ok) {
-        const raw = await response.text();
-        let message = raw;
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed?.error) message = String(parsed.error);
-        } catch {
-          // resposta nao-json
-        }
-        throw new Error(message || 'Erro ao salvar tipo de pacote.');
-      }
       toast.success(editingId ? 'Tipo de pacote atualizado.' : 'Tipo de pacote criado.');
       modalOpen = false;
       await load();
@@ -169,8 +153,7 @@
     if (!(await confirmAction('Deseja excluir este tipo de pacote? Ele não pode estar vinculado a vendas.'))) return;
     deletingId = id;
     try {
-      const response = await fetch(`/api/v1/parametros/tipo-pacotes?id=${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await response.text());
+      await apiDelete('/api/v1/parametros/tipo-pacotes', { id });
       toast.success('Tipo de pacote excluído.');
       await load();
     } catch (err) {

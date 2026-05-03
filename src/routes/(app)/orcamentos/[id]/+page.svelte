@@ -3,7 +3,6 @@
   import { goto } from "$app/navigation";
   import { browser } from "$app/environment";
   import { onMount } from "svelte";
-  import { supabase } from "$lib/db/supabase";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
@@ -39,8 +38,10 @@
     formatDate as formatDateValue,
     formatDateTime as formatDateTimeValue,
   } from "$lib/utils/formatters";
+  import { ensureServerSessionCookie } from "$lib/services/session";
 
   import { confirmAction } from "$lib/stores/confirm";
+  import { ApiError, apiDelete, apiFetch, apiPatch } from "$lib/services/api";
   const orcamentoId = $page.params.id;
   let previewingPdf = false;
 
@@ -51,26 +52,6 @@
   let processando = false;
   let showInteracaoModal = false;
   let loadingInteracoes = false;
-
-  async function ensureServerSessionCookie() {
-    if (!browser) return;
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
-      await fetch("/api/auth/set-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        }),
-      });
-    } catch {
-      // Falha silenciosa: a tela tratará 401 explicitamente no carregamento.
-    }
-  }
 
   onMount(async () => {
     await ensureServerSessionCookie();
@@ -83,33 +64,29 @@
       loading = true;
       error = null;
 
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 401) {
-          toast.error("Sessão expirada. Faça login novamente para continuar.");
-          const next = `${$page.url.pathname}${$page.url.search}`;
-          await goto(
-            `/auth/login?session_expired=1&next=${encodeURIComponent(next)}`,
-          );
-          return;
-        }
-        if (response.status === 403) {
-          error = "Você não tem permissão para acessar este orçamento";
-          await goto("/orcamentos");
-          return;
-        }
-        if (response.status === 404) {
-          error = "Orçamento não encontrado";
-          return;
-        }
-        throw new Error(`Erro ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
+      const data = await apiFetch<any>(`/api/v1/orcamentos/${orcamentoId}`, {
+        redirectOnUnauthorized: false,
+        redirectOnForbidden: false,
+      });
       orcamento = data;
     } catch (err: any) {
+      if (err instanceof ApiError && err.status === 401) {
+        toast.error("Sessão expirada. Faça login novamente para continuar.");
+        const next = `${$page.url.pathname}${$page.url.search}`;
+        await goto(
+          `/auth/login?session_expired=1&next=${encodeURIComponent(next)}`,
+        );
+        return;
+      }
+      if (err instanceof ApiError && err.status === 403) {
+        error = "Você não tem permissão para acessar este orçamento";
+        await goto("/orcamentos");
+        return;
+      }
+      if (err instanceof ApiError && err.status === 404) {
+        error = "Orçamento não encontrado";
+        return;
+      }
       error = `Erro ao carregar dados do orçamento: ${err.message}`;
       toast.error("Erro ao carregar orçamento");
     } finally {
@@ -120,18 +97,13 @@
   async function carregarInteracoes() {
     loadingInteracoes = true;
     try {
-      const response = await fetch(
-        `/api/v1/orcamentos/interacao?quote_id=${orcamentoId}`,
-      );
-      if (response.status === 401) {
-        return;
-      }
-      if (response.ok) {
-        const data = await response.json();
-        interacoes = data.interacoes || [];
-      }
+      const data = await apiFetch<{ interacoes?: any[] }>("/api/v1/orcamentos/interacao", {
+        query: { quote_id: orcamentoId },
+        redirectOnUnauthorized: false,
+      });
+      interacoes = data.interacoes || [];
     } catch (err) {
-      console.error("Erro ao carregar interações:", err);
+      if (err instanceof ApiError && err.status === 401) return;
     } finally {
       loadingInteracoes = false;
     }
@@ -140,16 +112,10 @@
   async function atualizarStatus(novoStatus: string, redirectToVenda = false) {
     processando = true;
     try {
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: novoStatus,
-          status_negociacao: novoStatus,
-        }),
+      await apiPatch(`/api/v1/orcamentos/${orcamentoId}`, {
+        status: novoStatus,
+        status_negociacao: novoStatus,
       });
-
-      if (!response.ok) throw new Error("Erro ao atualizar status");
 
       orcamento.status = novoStatus;
       orcamento.status_negociacao = novoStatus;
@@ -219,11 +185,7 @@
       return;
 
     try {
-      const response = await fetch(`/api/v1/orcamentos/${orcamentoId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Erro ao excluir");
+      await apiDelete(`/api/v1/orcamentos/${orcamentoId}`);
 
       toast.success("Orçamento excluído");
       goto("/orcamentos");

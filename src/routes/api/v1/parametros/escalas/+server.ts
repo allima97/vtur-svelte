@@ -5,11 +5,15 @@ import {
   fetchVendedorIdsByCompanyIds,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { monthRangeFromKey } from '$lib/date';
+
+const ESCALA_HORARIO_SELECT =
+  'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
 
 function normalizePeriod(value: unknown) {
   const raw = String(value || '').trim();
@@ -49,7 +53,7 @@ async function fetchFeriadosNacionais(ano: number, periodo: string) {
       }))
       .filter((item) => item.data.startsWith(periodo) && item.nome);
   } catch (err) {
-    console.warn('[parametros/escalas] falha ao carregar feriados nacionais', err);
+    logServerError('[parametros/escalas] falha ao carregar feriados nacionais', err);
     return [];
   } finally {
     clearTimeout(timeout);
@@ -212,7 +216,7 @@ export async function GET(event) {
     if (equipeIds.length > 0) {
       const { data: horariosData } = await client
         .from('escala_horario_usuario')
-        .select('*')
+        .select(ESCALA_HORARIO_SELECT)
         .in('usuario_id', equipeIds)
         .limit(500);
       horariosUsuario = horariosData || [];

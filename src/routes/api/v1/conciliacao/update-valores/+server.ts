@@ -121,7 +121,7 @@ export async function POST(event: RequestEvent) {
       .update({ ...updatePayload, updated_at: new Date().toISOString() })
       .eq("id", conciliacaoId)
       .eq("company_id", companyId)
-      .select()
+      .select("id, company_id, documento, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_venda_real, valor_comissao_loja, percentual_comissao_loja, valor_nao_comissionavel, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id, updated_at")
       .maybeSingle();
 
     if (updateErr) throw updateErr;

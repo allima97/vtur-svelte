@@ -6,6 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { Building2, Save } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { apiGet, apiPatch } from '$lib/services/api';
 
   type Empresa = {
     id: string;
@@ -54,9 +55,7 @@
   async function load() {
     loading = true;
     try {
-      const response = await fetch('/api/v1/parametros/empresa');
-      if (!response.ok) throw new Error(await response.text());
-      empresa = await response.json();
+      empresa = await apiGet<Empresa>('/api/v1/parametros/empresa');
       if (empresa) {
         form = {
           nome_empresa: empresa.nome_empresa || '',
@@ -86,12 +85,7 @@
   async function handleSubmit() {
     saving = true;
     try {
-      const response = await fetch('/api/v1/parametros/empresa', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      if (!response.ok) throw new Error(await response.text());
+      await apiPatch('/api/v1/parametros/empresa', form);
       toast.success('Dados da empresa atualizados com sucesso.');
       await load();
     } catch (err) {

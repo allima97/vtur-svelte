@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserScope } from '$lib/server/v1';
-import { isUuid, normalizeText, parseIntSafe } from '$lib/server/v1';
+import { isUuid, normalizeText, parseIntSafe, sanitizePostgrestSearchTerm } from '$lib/server/v1';
 
 type QueryResult<T> = { data: T[] | null; error: any };
 
@@ -85,7 +85,7 @@ export async function fetchProdutosBase(
   const page = parseIntSafe(params.get('page'), 1);
   const pageSize = Math.min(200, parseIntSafe(params.get('pageSize'), 20));
   const all = String(params.get('all') || '').trim() === '1';
-  const search = String(params.get('search') || '').trim();
+  const search = sanitizePostgrestSearchTerm(params.get('search'));
   const tipoProdutoId = String(params.get('tipo_produto') || '').trim();
   const ativoRaw = String(params.get('ativo') || '').trim();
   const fornecedorId = String(params.get('fornecedor_id') || '').trim();

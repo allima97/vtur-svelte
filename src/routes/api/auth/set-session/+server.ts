@@ -1,13 +1,26 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
+import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    const { access_token, refresh_token } = await request.json();
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 16 * 1024) {
+      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
+    }
+
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
     
     if (!access_token || !refresh_token) {
-      return json({ error: 'Tokens obrigatorios' }, { status: 400 });
+      return json({ error: 'Tokens obrigatorios' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const supabase = createSupabaseServerClient({
@@ -25,7 +38,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     // Nesses casos, não quebra a navegação e retorna sucesso lógico.
     if (typeof supabase?.auth?.setSession !== 'function') {
       console.warn('[set-session] auth.setSession indisponivel (mock mode ativo).');
-      return json({ ok: true, mock: true, storageKey: getSupabaseAuthStorageKey() });
+      return json({ ok: true, mock: true, storageKey: getSupabaseAuthStorageKey() }, { headers: NO_STORE_HEADERS });
     }
 
     // Chama diretamente em supabase.auth para preservar o contexto 'this' do GoTrueClient
@@ -35,19 +48,17 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     });
 
     if (error) {
-      console.error('[set-session] Falha ao sincronizar sessao:', error);
-      return json({ error: 'Sessao invalida ou expirada.' }, { status: 401 });
+      logServerError('[set-session] falha ao sincronizar sessao', error);
+      return json({ error: 'Sessao invalida ou expirada.' }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
     // Limpa cookies legados que nao sao lidos pelo @supabase/ssr.
     cookies.delete('sb-access-token', { path: '/' });
     cookies.delete('sb-refresh-token', { path: '/' });
 
-    console.log('[set-session] Sessao sincronizada com sucesso');
-
-    return json({ ok: true, storageKey: getSupabaseAuthStorageKey() });
+    return json({ ok: true, storageKey: getSupabaseAuthStorageKey() }, { headers: NO_STORE_HEADERS });
   } catch (err) {
-    console.error('[set-session] Erro:', err);
-    return json({ error: 'Erro ao definir sessao' }, { status: 500 });
+    logServerError('[set-session] erro ao definir sessao', err);
+    return json({ error: 'Erro ao definir sessao' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };

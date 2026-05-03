@@ -1,4 +1,11 @@
-import { buildJsonResponse, matchesBusca, normalizeTerm, requirePreferenciasScope } from '../_shared';
+import {
+  buildJsonResponse,
+  buildNoStoreTextResponse,
+  logServerError,
+  matchesBusca,
+  normalizeTerm,
+  requirePreferenciasScope
+} from '../_shared';
 
 export async function GET(event) {
   try {
@@ -87,8 +94,7 @@ export async function GET(event) {
 
     return buildJsonResponse({ items: all });
   } catch (err) {
-    console.error('Erro preferencias/list', err);
-    return new Response('Erro ao listar preferências.', { status: 500 });
+    logServerError('[preferencias/list] falha ao listar preferencias', err);
+    return buildNoStoreTextResponse('Erro ao listar preferências.', 500);
   }
 }
-

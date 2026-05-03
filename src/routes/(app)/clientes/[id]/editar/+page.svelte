@@ -27,6 +27,7 @@
     Users
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
+  import { ApiError, apiGet, apiPatch } from '$lib/services/api';
   import {
     buildClientePayload,
     classificacaoOptions,
@@ -76,12 +77,7 @@
     errorMessage = null;
 
     try {
-      const response = await fetch(`/api/v1/clientes/${clienteId}`);
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const data = await response.json();
+      const data = await apiGet<Record<string, any>>(`/api/v1/clientes/${clienteId}`);
       formData = fillClienteFormFromApi(data);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar cliente.';
@@ -138,12 +134,7 @@
 
     try {
       cepStatus = 'Buscando CEP...';
-      const response = await fetch(`/api/v1/enderecos/cep?cep=${digits}`);
-      if (!response.ok) {
-        throw new Error('CEP invalido ou indisponivel.');
-      }
-
-      const data = await response.json();
+      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
       if (data?.erro) {
         throw new Error('CEP nao encontrado.');
       }
@@ -156,7 +147,6 @@
       };
       cepStatus = 'Endereco carregado pelo CEP.';
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
       cepStatus = 'Nao foi possivel carregar o CEP.';
     }
   }
@@ -173,25 +163,17 @@
     saving = true;
 
     try {
-      const response = await fetch(`/api/v1/clientes/${clienteId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildClientePayload(formData))
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        if (payload?.errors && typeof payload.errors === 'object') {
-          errors = payload.errors;
-        }
-        throw new Error(payload?.error || 'Erro ao atualizar cliente.');
-      }
+      await apiPatch(`/api/v1/clientes/${clienteId}`, buildClientePayload(formData));
 
       toast.success('Cliente atualizado com sucesso.');
       goto(`/clientes/${clienteId}`);
     } catch (error) {
+      if (error instanceof ApiError) {
+        const payload = error.payload as { errors?: Record<string, string> } | undefined;
+        if (payload?.errors && typeof payload.errors === 'object') {
+          errors = payload.errors;
+        }
+      }
       toast.error(error instanceof Error ? error.message : 'Erro ao atualizar cliente.');
     } finally {
       saving = false;

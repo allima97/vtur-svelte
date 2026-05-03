@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
   getAdminClient,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -56,12 +57,13 @@ export const GET: RequestHandler = async ({ locals }) => {
       const tableMissing = code === '42P01' || message.includes('does not exist') || code === '42501';
 
       if (tableMissing) {
+        logServerError('[admin/system-modules] tabela ausente ou sem permissao', error);
         return json({
           table_missing: true,
           disabled: [],
           rows: [],
           catalog: SYSTEM_MODULES_CATALOG,
-          setup_error: error.message
+          setup_error: 'Tabela system_module_settings nao disponivel.'
         });
       }
       throw error;
@@ -77,7 +79,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       catalog: SYSTEM_MODULES_CATALOG
     });
   } catch (err) {
-    console.error('Erro admin/system-modules GET', err);
+    logServerError('[admin/system-modules] falha ao carregar modulos globais', err);
     return toErrorResponse(err, 'Erro ao carregar modulos globais.');
   }
 };
@@ -139,7 +141,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     return json({ ok: true, disabled: normalized.map((item: any) => item.module_key) });
   } catch (err) {
-    console.error('Erro admin/system-modules POST', err);
+    logServerError('[admin/system-modules] falha ao salvar modulos globais', err);
     return toErrorResponse(err, 'Erro ao salvar modulos globais.');
   }
 };

@@ -9,6 +9,7 @@
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
+  import { apiGet, apiPost } from '$lib/services/api';
   import { Calendar, ChevronLeft, ChevronRight, Eraser, RefreshCw } from 'lucide-svelte';
 
   type EscalaDia = {
@@ -207,22 +208,23 @@
   }
 
   async function ensureMes() {
-    const response = await fetch('/api/v1/parametros/escalas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'ensure_mes', periodo: periodoAtual })
+    const payload = await apiPost<{ id: string }>('/api/v1/parametros/escalas', {
+      action: 'ensure_mes',
+      periodo: periodoAtual
     });
-    if (!response.ok) throw new Error(await response.text());
-    const payload = await response.json();
     return payload.id;
   }
 
   async function load() {
     loading = true;
     try {
-      const response = await fetch(`/api/v1/parametros/escalas?periodo=${periodoAtual}`);
-      if (!response.ok) throw new Error(await response.text());
-      const payload = await response.json();
+      const payload = await apiGet<{
+        meses?: EscalaMes[];
+        dias?: EscalaDia[];
+        usuarios?: Usuario[];
+        feriados?: Feriado[];
+        horariosUsuario?: HorarioUsuario[];
+      }>('/api/v1/parametros/escalas', { periodo: periodoAtual });
       meses = payload.meses || [];
       dias = payload.dias || [];
       usuarios = payload.usuarios || [];
@@ -282,21 +284,16 @@
         horaFim = auto?.fim || null;
       }
 
-      const response = await fetch('/api/v1/parametros/escalas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'upsert_dia',
-          escala_mes_id: mesId,
-          usuario_id: selectedCell.usuario.id,
-          data: selectedCell.data,
-          tipo: cellForm.tipo || null,
-          hora_inicio: horaInicio,
-          hora_fim: horaFim,
-          observacao: cellForm.observacao || null
-        })
+      await apiPost('/api/v1/parametros/escalas', {
+        action: 'upsert_dia',
+        escala_mes_id: mesId,
+        usuario_id: selectedCell.usuario.id,
+        data: selectedCell.data,
+        tipo: cellForm.tipo || null,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim,
+        observacao: cellForm.observacao || null
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Escala salva.');
       modalOpen = false;
       await load();
@@ -362,21 +359,16 @@
         horaFim = firstAuto?.fim || null;
       }
 
-      const response = await fetch('/api/v1/parametros/escalas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'apply_batch',
-          escala_mes_id: mesAtualId || undefined,
-          periodo: periodoAtual,
-          usuario_id: multiUsuarioId,
-          datas: multiDatas,
-          tipo: multiTipo || null,
-          hora_inicio: horaInicio,
-          hora_fim: horaFim
-        })
+      await apiPost('/api/v1/parametros/escalas', {
+        action: 'apply_batch',
+        escala_mes_id: mesAtualId || undefined,
+        periodo: periodoAtual,
+        usuario_id: multiUsuarioId,
+        datas: multiDatas,
+        tipo: multiTipo || null,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim
       });
-      if (!response.ok) throw new Error(await response.text());
       toast.success('Escala aplicada em lote.');
       clearMulti(true);
       await load();

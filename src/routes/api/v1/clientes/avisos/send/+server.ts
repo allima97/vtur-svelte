@@ -1,9 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
+import { checkRateLimit } from '$lib/server/rateLimit';
+import { escapeHtml } from '$lib/utils/html';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
@@ -23,7 +26,7 @@ function applyVars(text: string, vars: Record<string, string>) {
 function renderHtml(text: string) {
   return String(text || '')
     .split(/\r?\n/)
-    .map((line) => `<p>${line || '&nbsp;'}</p>`)
+    .map((line) => `<p>${line ? escapeHtml(line) : '&nbsp;'}</p>`)
     .join('');
 }
 
@@ -79,6 +82,17 @@ export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
+    const rateLimit = checkRateLimit(
+      `clientes-avisos-send:${event.getClientAddress?.() || 'unknown'}:${user.id}`,
+      { max: 20, windowMs: 60_000 }
+    );
+    if (!rateLimit.allowed) {
+      return json(
+        { error: 'Muitas tentativas de envio. Aguarde alguns segundos.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } }
+      );
+    }
+
     const scope = await resolveUserScope(client, user.id);
     const body = await event.request.json().catch(() => ({}));
 
@@ -151,7 +165,11 @@ export async function POST(event) {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        return json({ error: String(payload?.message || payload?.error || 'Falha ao enviar e-mail.') }, { status: response.status });
+        logServerError('[clientes/avisos/send] Falha no provedor de e-mail', {
+          status: response.status,
+          providerMessage: String(payload?.message || payload?.error || '')
+        });
+        return json({ error: 'Falha ao enviar e-mail.' }, { status: 502 });
       }
 
       const historicoDisponivel = await tryInsertHistorico(client, {

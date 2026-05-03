@@ -10,6 +10,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { confirmAction } from '$lib/stores/confirm';
+  import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { CopyCheck, Pencil, Plus, RefreshCw, Target, Trash2 } from 'lucide-svelte';
 
   type Produto = {
@@ -178,24 +179,17 @@
       .join(' | ');
   }
 
-  async function readError(response: Response, fallback: string) {
-    try {
-      const payload = await response.json();
-      return String(payload?.error || payload?.message || fallback);
-    } catch {
-      return (await response.text()) || fallback;
-    }
-  }
-
   async function load() {
     loading = true;
     try {
-      const params = new URLSearchParams({ periodo });
-      if (vendedorFiltro) params.set('vendedor_id', vendedorFiltro);
-      const response = await fetch(`/api/v1/parametros/metas?${params.toString()}`);
-      if (!response.ok) throw new Error(await readError(response, 'Erro ao carregar metas.'));
-
-      const payload = await response.json();
+      const payload = await apiGet<{
+        items?: Meta[];
+        vendedores?: Vendedor[];
+        produtos?: Produto[];
+      }>('/api/v1/parametros/metas', {
+        periodo,
+        vendedor_id: vendedorFiltro || undefined
+      });
       metas = payload.items || [];
       vendedores = payload.vendedores || [];
       produtos = payload.produtos || [];
@@ -280,20 +274,14 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/parametros/metas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: form.id || undefined,
-          vendedor_id: form.vendedor_id,
-          periodo: form.periodo,
-          meta_geral: parseMoney(form.meta_geral),
-          ativo: form.ativo,
-          meta_produtos: normalizedProdutoRows(form.meta_produtos)
-        })
+      await apiPost('/api/v1/parametros/metas', {
+        id: form.id || undefined,
+        vendedor_id: form.vendedor_id,
+        periodo: form.periodo,
+        meta_geral: parseMoney(form.meta_geral),
+        ativo: form.ativo,
+        meta_produtos: normalizedProdutoRows(form.meta_produtos)
       });
-
-      if (!response.ok) throw new Error(await readError(response, 'Erro ao salvar meta.'));
       toast.success(form.id ? 'Meta atualizada.' : 'Meta criada.');
       modalOpen = false;
       await load();
@@ -326,23 +314,17 @@
 
     saving = true;
     try {
-      const response = await fetch('/api/v1/parametros/metas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await apiPost('/api/v1/parametros/metas', {
+        periodo,
+        items: rows.map((row) => ({
+          id: row.meta?.id || undefined,
+          vendedor_id: row.vendedor.id,
           periodo,
-          items: rows.map((row) => ({
-            id: row.meta?.id || undefined,
-            vendedor_id: row.vendedor.id,
-            periodo,
-            meta_geral: metaGeral,
-            ativo: bulkForm.ativo,
-            meta_produtos: metaProdutos
-          }))
-        })
+          meta_geral: metaGeral,
+          ativo: bulkForm.ativo,
+          meta_produtos: metaProdutos
+        }))
       });
-
-      if (!response.ok) throw new Error(await readError(response, 'Erro ao aplicar metas.'));
       toast.success('Metas aplicadas ao mês.');
       bulkOpen = false;
       await load();
@@ -357,8 +339,7 @@
     if (!(await confirmAction(`Excluir a meta de ${formatYearMonthLabel(meta.periodo.slice(0, 7))}?`))) return;
     deletingId = meta.id;
     try {
-      const response = await fetch(`/api/v1/parametros/metas?id=${meta.id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error(await readError(response, 'Erro ao excluir meta.'));
+      await apiDelete('/api/v1/parametros/metas', { id: meta.id });
       toast.success('Meta excluída.');
       await load();
     } catch (err) {

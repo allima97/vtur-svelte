@@ -100,7 +100,7 @@ export async function POST(event) {
         marcado_em: new Date().toISOString(),
         observacao
       }, { onConflict: 'company_id,data' })
-      .select()
+      .select('id, company_id, data, marcado_por, marcado_em, observacao')
       .single();
 
     if (error) {

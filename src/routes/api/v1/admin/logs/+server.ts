@@ -21,24 +21,24 @@ export async function GET(event) {
     const pageSize = Math.min(100, Number(searchParams.get('pageSize') || 50));
     const tipo = String(searchParams.get('tipo') || '').trim();
     const userId = String(searchParams.get('user_id') || '').trim();
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
     let query = client
       .from('logs')
-      .select('id, modulo, acao, detalhes, user_id, ip, created_at, usuario:users!user_id(nome_completo, email)')
+      .select('id, modulo, acao, detalhes, user_id, ip, created_at, usuario:users!user_id(nome_completo, email)', {
+        count: 'exact'
+      })
       .order('created_at', { ascending: false })
-      .limit(5000);
+      .range(from, to);
 
     if (tipo) query = query.eq('modulo', tipo);
     if (userId) query = query.eq('user_id', userId);
 
-    const { data, error: queryError } = await query;
+    const { data, count, error: queryError } = await query;
     if (queryError) throw queryError;
 
-    const items = data || [];
-    const total = items.length;
-    const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize);
-
-    return json({ items: paginatedItems, total, page, pageSize });
+    return json({ items: data || [], total: Number(count || 0), page, pageSize });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar logs.');
   }
