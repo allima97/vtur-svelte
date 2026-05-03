@@ -1839,30 +1839,30 @@
 
 <Card color="financeiro" class="mb-4">
   <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'visao_geral' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('visao_geral')}>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'visao_geral' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('visao_geral')}>
       <p class="text-xs {activeKpiView === 'visao_geral' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Visão geral</p>
       <p class="text-lg font-semibold {activeKpiView === 'visao_geral' ? 'text-orange-700' : 'text-slate-900'}">{registros.length}</p>
-    </button>
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'conciliados' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('conciliados')}>
+    </Button>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'conciliados' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('conciliados')}>
       <p class="text-xs {activeKpiView === 'conciliados' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Conciliados</p>
       <p class="text-lg font-semibold {activeKpiView === 'conciliados' ? 'text-orange-700' : 'text-slate-900'}">{summary.efetivados}</p>
-    </button>
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes')}>
+    </Button>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes')}>
       <p class="text-xs {activeKpiView === 'pendentes' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Pendentes conciliação</p>
       <p class="text-lg font-semibold {activeKpiView === 'pendentes' ? 'text-orange-700' : 'text-slate-900'}">{summary.pendentes}</p>
-    </button>
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes_ranking' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes_ranking')}>
+    </Button>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'pendentes_ranking' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('pendentes_ranking')}>
       <p class="text-xs {activeKpiView === 'pendentes_ranking' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Pendentes ranking</p>
       <p class="text-lg font-semibold {activeKpiView === 'pendentes_ranking' ? 'text-orange-700' : 'text-slate-900'}">{summary.semRanking}</p>
-    </button>
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'baixa_rac' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('baixa_rac')}>
+    </Button>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'baixa_rac' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('baixa_rac')}>
       <p class="text-xs {activeKpiView === 'baixa_rac' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Baixa RAC</p>
       <p class="text-lg font-semibold {activeKpiView === 'baixa_rac' ? 'text-orange-700' : 'text-slate-900'}">{summary.baixaRac}</p>
-    </button>
-    <button type="button" class="rounded-xl border p-3 text-center transition {activeKpiView === 'execucoes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('execucoes')}>
+    </Button>
+    <Button type="button" variant="unstyled" class_name="rounded-xl border p-3 text-center transition {activeKpiView === 'execucoes' ? 'border-orange-300 bg-orange-50 ring-1 ring-orange-200' : 'border-slate-200 bg-slate-50 hover:border-orange-200 hover:bg-orange-50/50'}" on:click={() => aplicarKpiView('execucoes')}>
       <p class="text-xs {activeKpiView === 'execucoes' ? 'font-semibold text-orange-600' : 'text-slate-500'}">Execuções</p>
       <p class="text-lg font-semibold {activeKpiView === 'execucoes' ? 'text-orange-700' : 'text-slate-900'}">{executions.length}</p>
-    </button>
+    </Button>
   </div>
   <div class="mt-3 flex flex-wrap gap-2">
     <Button variant="secondary" on:click={abrirImportacao}>
@@ -1877,12 +1877,13 @@
       <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
     </Button>
     <div class="flex items-center gap-1">
-      <label for="month-filter-input" class="text-xs text-slate-500 whitespace-nowrap">Mês:</label>
-      <input
+      <FieldInput
         id="month-filter-input"
+        label="Mês"
+        srLabel
         type="month"
         bind:value={monthFilter}
-        class="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300"
+        class_name="w-[150px]"
       />
     </div>
     <Button variant="secondary" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
@@ -2128,35 +2129,46 @@
                   <td class="px-3 py-2">{row.descricao || '-'}</td>
                   <td class="px-3 py-2">
                     {#if exigeRanking(row.status)}
-                      <select class="vtur-input w-[210px] text-sm" value={row.ranking_vendedor_id || ''} on:change={(event) => handleImportVendedorChange(index, event)}>
-                        <option value="">Selecione...</option>
-                        {#each vendedores as vendedor}
-                          <option value={vendedor.id}>{vendedor.nome_completo}</option>
-                        {/each}
-                      </select>
+                      <FieldSelect
+                        id={`import-vendedor-${index}`}
+                        label="Vendedor"
+                        srLabel
+                        value={row.ranking_vendedor_id || ''}
+                        options={vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome_completo }))}
+                        placeholder="Selecione..."
+                        class_name="w-[210px]"
+                        on:change={(event) => handleImportVendedorChange(index, event)}
+                      />
                     {:else}
                       <span class="text-slate-500">Ignorado</span>
                     {/if}
                   </td>
                   <td class="px-3 py-2">
                     {#if exigeRanking(row.status) && produtosMeta.length > 0}
-                      <select class="vtur-input w-[170px] text-sm" value={row.ranking_produto_id || ''} on:change={(event) => handleImportProdutoChange(index, event)}>
-                        <option value="">Não</option>
-                        {#each produtosMeta as produto}
-                          <option value={produto.id}>{produto.nome}</option>
-                        {/each}
-                      </select>
+                      <FieldSelect
+                        id={`import-produto-${index}`}
+                        label="Produto diferenciado"
+                        srLabel
+                        value={row.ranking_produto_id || ''}
+                        options={[
+                          { value: '', label: 'Não' },
+                          ...produtosMeta.map((produto) => ({ value: produto.id, label: produto.nome }))
+                        ]}
+                        placeholder={null}
+                        class_name="w-[170px]"
+                        on:change={(event) => handleImportProdutoChange(index, event)}
+                      />
                     {:else}
                       <span>{row.meta_dif || '-'}</span>
                     {/if}
                   </td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[130px] text-right text-sm" value={String(row.valor_lancamentos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_lancamentos', event)} /></td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[130px] text-right text-sm" value={String(row.valor_taxas ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_taxas', event)} /></td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[130px] text-right text-sm" value={String(row.valor_descontos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_descontos', event)} /></td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[130px] text-right text-sm" value={String(row.valor_abatimentos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_abatimentos', event)} /></td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[150px] text-right text-sm" value={String(row.valor_nao_comissionavel ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_nao_comissionavel', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Lançamentos" srLabel class_name="w-[130px]" value={String(row.valor_lancamentos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_lancamentos', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Taxas" srLabel class_name="w-[130px]" value={String(row.valor_taxas ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_taxas', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Descontos" srLabel class_name="w-[130px]" value={String(row.valor_descontos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_descontos', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Abatimentos" srLabel class_name="w-[130px]" value={String(row.valor_abatimentos ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_abatimentos', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Não comissionável" srLabel class_name="w-[150px]" value={String(row.valor_nao_comissionavel ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_nao_comissionavel', event)} /></td>
                   <td class="px-3 py-2 text-right">{formatMoney(row.valor_venda_real)}</td>
-                  <td class="px-3 py-2"><input class="vtur-input w-[130px] text-right text-sm" value={String(row.valor_comissao_loja ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_comissao_loja', event)} /></td>
+                  <td class="px-3 py-2"><FieldInput label="Comissão loja" srLabel class_name="w-[130px]" value={String(row.valor_comissao_loja ?? 0).replace('.', ',')} on:change={(event) => handleImportMoneyChange(index, 'valor_comissao_loja', event)} /></td>
                   <td class="px-3 py-2 text-right">{formatPercent(row.percentual_comissao_loja)}</td>
                 </tr>
               {/each}

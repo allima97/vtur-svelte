@@ -551,9 +551,10 @@
                 {@const feriadoTitle = formatFeriadosTitle(feriadosDia)}
                 {@const selected = multiAtivo && multiUsuarioId === usuario.id && multiDatas.includes(date)}
                 <td class="p-0.5 text-center {dow === 0 || dow === 6 ? 'bg-slate-50/50' : ''}">
-                  <button
+                  <Button
                     type="button"
-                    class="flex h-8 w-full items-center justify-center rounded transition-colors hover:bg-orange-50 {selected ? 'bg-orange-100 ring-2 ring-orange-300' : ''}"
+                    variant="unstyled"
+                    class_name="flex h-8 w-full items-center justify-center rounded transition-colors hover:bg-orange-50 {selected ? 'bg-orange-100 ring-2 ring-orange-300' : ''}"
                     on:click={() => handleCellClick(usuario, date)}
                     title={registro ? `${registro.tipo}${registro.hora_inicio ? ' ' + formatTimeRange(registro.hora_inicio, registro.hora_fim) : ''}` : feriadoTitle}
                   >
@@ -569,7 +570,7 @@
                     {:else}
                       <span class="inline-flex h-7 w-7 items-center justify-center rounded text-[12px] text-slate-300">·</span>
                     {/if}
-                  </button>
+                  </Button>
                 </td>
               {/each}
               <td class="px-2 py-2 text-center font-semibold text-slate-700">{resumoPorUsuario[usuario.id]?.trabalhados || 0}</td>

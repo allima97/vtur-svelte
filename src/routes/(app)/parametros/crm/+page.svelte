@@ -896,15 +896,16 @@
       <div class="mt-3 flex justify-center">
         <div class="inline-flex flex-wrap items-center gap-2">
           {#each CARD_TEXT_COLOR_PRESETS.filter((color) => color.value) as color}
-            <button
+            <Button
               type="button"
-              class={`h-9 w-9 rounded-lg border-2 transition ${textColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
+              variant="unstyled"
+              class_name={`h-9 w-9 rounded-lg border-2 transition ${textColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
               style={`background-color: ${color.value}`}
               title={`Aplicar ${color.label}`}
-              aria-label={`Aplicar ${color.label}`}
-              aria-pressed={textColor === color.value}
+              ariaLabel={`Aplicar ${color.label}`}
+              ariaPressed={textColor === color.value}
               on:click={() => (textColor = color.value)}
-            ></button>
+            />
           {/each}
         </div>
       </div>

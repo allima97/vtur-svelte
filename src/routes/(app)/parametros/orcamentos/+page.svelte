@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { FieldInput, FieldTextarea, FileDropzone, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
   import { Save, RefreshCw, FileText, Upload, ImageIcon, X } from 'lucide-svelte';
@@ -34,14 +34,12 @@
   // Arquivos selecionados para upload
   let logoFile: File | null = null;
   let complementoFile: File | null = null;
+  let logoFiles: FileList | undefined = undefined;
+  let complementoFiles: FileList | undefined = undefined;
 
   // URLs de preview (signed URL ou blob URL)
   let logoPreview: string | null = null;
   let complementoPreview: string | null = null;
-
-  // Referências dos inputs de arquivo
-  let logoInput: HTMLInputElement;
-  let complementoInput: HTMLInputElement;
 
   function getFileExtension(file: File): string {
     const match = file.name.match(/\.([a-z0-9]+)$/i);
@@ -82,7 +80,7 @@
     logoPreview = null;
     settings.logo_url = null;
     settings.logo_path = null;
-    if (logoInput) logoInput.value = '';
+    logoFiles = undefined;
   }
 
   function removeComplemento() {
@@ -91,7 +89,7 @@
     complementoPreview = null;
     settings.imagem_complementar_url = null;
     settings.imagem_complementar_path = null;
-    if (complementoInput) complementoInput.value = '';
+    complementoFiles = undefined;
   }
 
   async function load() {
@@ -222,8 +220,8 @@
       // Limpa arquivos selecionados
       logoFile = null;
       complementoFile = null;
-      if (logoInput) logoInput.value = '';
-      if (complementoInput) complementoInput.value = '';
+      logoFiles = undefined;
+      complementoFiles = undefined;
 
       toast.success('Parâmetros de orçamento salvos.');
     } catch (err) {
@@ -277,14 +275,16 @@
                 alt="Logo do orçamento"
                 class="max-h-20 max-w-full rounded border border-slate-200 bg-white object-contain p-1"
               />
-              <button
+              <Button
                 type="button"
+                variant="unstyled"
                 on:click={removeLogo}
-                class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600"
+                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow hover:bg-red-600"
                 title="Remover logo"
+                ariaLabel="Remover logo"
               >
                 <X size={12} />
-              </button>
+              </Button>
             </div>
           {:else}
             <div class="flex h-20 w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400">
@@ -295,17 +295,15 @@
             </div>
           {/if}
 
-          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50 w-fit">
-            <Upload size={14} />
-            {logoFile ? logoFile.name : 'Escolher imagem'}
-            <input
-              bind:this={logoInput}
-              type="file"
-              accept="image/*"
-              class="hidden"
-              on:change={onLogoChange}
-            />
-          </label>
+          <FileDropzone
+            id="orcamento-logo-file"
+            title={logoFile ? logoFile.name : 'Escolher imagem'}
+            accept="image/*"
+            icon={Upload}
+            bind:files={logoFiles}
+            class_name="w-fit"
+            on:change={onLogoChange}
+          />
         </div>
 
         <!-- Imagem Complementar -->
@@ -323,14 +321,16 @@
                 alt="Imagem complementar do orçamento"
                 class="max-h-28 max-w-full rounded border border-slate-200 bg-white object-contain p-1"
               />
-              <button
+              <Button
                 type="button"
+                variant="unstyled"
                 on:click={removeComplemento}
-                class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600"
+                class_name="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 p-0 text-white shadow hover:bg-red-600"
                 title="Remover imagem"
+                ariaLabel="Remover imagem"
               >
                 <X size={12} />
-              </button>
+              </Button>
             </div>
           {:else}
             <div class="flex h-28 w-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400">
@@ -341,17 +341,15 @@
             </div>
           {/if}
 
-          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition hover:bg-slate-50 w-fit">
-            <Upload size={14} />
-            {complementoFile ? complementoFile.name : 'Escolher imagem'}
-            <input
-              bind:this={complementoInput}
-              type="file"
-              accept="image/*"
-              class="hidden"
-              on:change={onComplementoChange}
-            />
-          </label>
+          <FileDropzone
+            id="orcamento-complemento-file"
+            title={complementoFile ? complementoFile.name : 'Escolher imagem'}
+            accept="image/*"
+            icon={Upload}
+            bind:files={complementoFiles}
+            class_name="w-fit"
+            on:change={onComplementoChange}
+          />
         </div>
 
       </div>

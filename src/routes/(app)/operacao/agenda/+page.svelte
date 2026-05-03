@@ -487,18 +487,24 @@
   <!-- Seletor de visão customizado — só mobile, aparece ABAIXO do header do FC -->
   <div class="fc-mobile-view-switcher sm:hidden px-4 pb-4 pt-1">
     <div class="view-switcher-bar">
-      <button
-        class="view-btn {currentView === 'dayGridMonth' ? 'active' : ''}"
+      <Button
+        type="button"
+        variant="unstyled"
+        class_name="view-btn {currentView === 'dayGridMonth' ? 'active' : ''}"
         on:click={() => changeView('dayGridMonth')}
-      >Mês</button>
-      <button
-        class="view-btn {currentView === 'timeGridWeek' ? 'active' : ''}"
+      >Mês</Button>
+      <Button
+        type="button"
+        variant="unstyled"
+        class_name="view-btn {currentView === 'timeGridWeek' ? 'active' : ''}"
         on:click={() => changeView('timeGridWeek')}
-      >Semana</button>
-      <button
-        class="view-btn {currentView === 'timeGridDay' ? 'active' : ''}"
+      >Semana</Button>
+      <Button
+        type="button"
+        variant="unstyled"
+        class_name="view-btn {currentView === 'timeGridDay' ? 'active' : ''}"
         on:click={() => changeView('timeGridDay')}
-      >Dia</button>
+      >Dia</Button>
     </div>
   </div>
 

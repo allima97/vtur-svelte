@@ -1046,11 +1046,12 @@
                 {@const iniciais = aniv.nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
                 {@const idade = formatAgeFromBirthDate(aniv.nascimento)}
                 {@const contexto = formatBirthdayContext(aniv.nascimento)}
-                <button
+                <Button
                   type="button"
                   on:click={() => abrirAvisoAniversario(aniv)}
                   title="Enviar aviso de aniversário"
-                  class="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-green-50 transition-colors group text-left"
+                  variant="unstyled"
+                  class_name="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-green-50 transition-colors group text-left"
                 >
                   <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white group-hover:bg-green-600 transition-colors">{iniciais}</div>
                   <div class="min-w-0 flex-1">
@@ -1060,7 +1061,7 @@
                   <span class="shrink-0 text-slate-300 group-hover:text-green-500 transition-colors" title="Enviar aviso">
                     <Send size={15} />
                   </span>
-                </button>
+                </Button>
               {/each}
             </div>
           {/if}
@@ -1144,9 +1145,10 @@
               {#each orcamentos.slice(0, 5) as orc}
                 {@const statusLabel = orc.status === 'aprovado' ? 'Aprovado' : orc.status === 'enviado' ? 'Enviado' : orc.status === 'aguardando' ? 'Aguardando' : orc.status || '-'}
                 {@const statusClass = orc.status === 'aprovado' ? 'bg-green-100 text-green-700' : orc.status === 'enviado' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}
-                <button
+                <Button
                   type="button"
-                  class="w-full rounded-xl border border-slate-100 p-3 text-left hover:bg-slate-50 transition-colors"
+                  variant="unstyled"
+                  class_name="w-full rounded-xl border border-slate-100 p-3 text-left hover:bg-slate-50 transition-colors"
                   on:click={() => handleOrcamentoClick(orc)}
                 >
                   <div class="flex items-start justify-between gap-2">
@@ -1162,7 +1164,7 @@
                     </div>
                     <span class="shrink-0 text-sm font-bold text-slate-900">{formatCurrency(orc.total || 0)}</span>
                   </div>
-                </button>
+                </Button>
               {/each}
             </div>
           {/if}

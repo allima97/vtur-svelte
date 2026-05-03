@@ -422,14 +422,15 @@
                 : key.variant === 'function'
                   ? 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
                   : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'}
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             on:click={() => handleCalculatorAction(key)}
-            class={`flex items-center justify-center rounded-xl border font-semibold shadow-sm transition-colors ${buttonClass}`}
+            class_name={`flex items-center justify-center rounded-xl border font-semibold shadow-sm transition-colors ${buttonClass}`}
             style={`grid-column: ${key.gridColumn}; grid-row: ${key.gridRow}; font-size: ${key.label.length > 2 ? 'clamp(0.76rem, 2.2vw, 0.88rem)' : 'clamp(0.95rem, 2.8vw, 1.05rem)'};`}
           >
             {key.label}
-          </button>
+          </Button>
         {/each}
       </div>
     </div>

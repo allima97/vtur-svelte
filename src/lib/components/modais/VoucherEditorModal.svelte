@@ -11,7 +11,8 @@
     Button,
     FieldInput,
     FieldSelect,
-    FieldTextarea
+    FieldTextarea,
+    OverlayModal
   } from '../ui';
   import { toast } from '../../stores/ui';
   import {
@@ -574,16 +575,7 @@
   }
 </script>
 
-{#if open}
-  <div 
-    class="fixed inset-0 bg-slate-900/50 z-[100] flex items-start justify-center pt-4 pb-4 px-4"
-    style="overflow-y: auto;"
-    on:click|self={close}
-    on:keydown={(event) => event.key === 'Escape' && close()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-  >
+<OverlayModal bind:open position="top" zIndex="z-[100]" padding="pt-4 pb-4 px-4" scroll onclose={close}>
     <div 
       class="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden flex flex-col"
       style="max-height: calc(100vh - 32px);"
@@ -1572,5 +1564,4 @@
         </div>
       </div>
     </div>
-  </div>
-{/if}
+</OverlayModal>

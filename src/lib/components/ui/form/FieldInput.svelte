@@ -6,6 +6,7 @@
   import { uniqueFieldId } from './fieldId';
 
   export let label: string | null = null;
+  export let srLabel = false;
   export let value: string | number = '';
   export let placeholder: string = '';
   export let type: 'text' | 'email' | 'password' | 'number' | 'date' | 'datetime-local' | 'month' | 'tel' | 'time' | 'url' = 'text';
@@ -48,7 +49,7 @@
 
 <div class={class_name}>
   {#if label}
-    <Label for={fieldId} class="mb-1.5 block text-sm font-medium text-slate-700">
+    <Label for={fieldId} class={srLabel ? 'sr-only' : 'mb-1.5 block text-sm font-medium text-slate-700'}>
       {label}{#if required}<span class="ml-0.5 text-red-500">*</span>{/if}
     </Label>
   {/if}

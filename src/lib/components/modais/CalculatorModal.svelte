@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X, Calculator, TrendingDown } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import OverlayModal from '$lib/components/ui/OverlayModal.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import CalculatorBody from '$lib/components/calculadora/CalculatorBody.svelte';
   import ConcorrenciaTab from '$lib/components/modais/ConcorrenciaTab.svelte';
@@ -120,15 +121,7 @@
   }
 }} on:pointermove={handleDragMove} on:pointerup={handleDragEnd} on:pointercancel={handleDragEnd} />
 
-{#if open}
-  <div 
-    class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-    on:click|self={onClose}
-    on:keydown={(event) => event.key === 'Escape' && onClose()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="0"
-  >
+<OverlayModal bind:open position="center" zIndex="z-50" padding="p-4" onclose={onClose}>
     <div 
       bind:this={modalEl}
       class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden will-change-transform"
@@ -199,5 +192,4 @@
         </div>
       </div>
     </div>
-  </div>
-{/if}
+</OverlayModal>

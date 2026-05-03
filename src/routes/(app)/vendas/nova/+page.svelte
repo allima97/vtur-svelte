@@ -648,30 +648,33 @@
   <LoadingState />
 {:else}
   <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-    <button
+    <Button
       type="button"
-      class="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      variant="unstyled"
+      class_name="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 0 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(0)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 1</p>
       <p class="font-semibold">Dados da venda</p>
-    </button>
-    <button
+    </Button>
+    <Button
       type="button"
-      class="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      variant="unstyled"
+      class_name="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 1 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(1)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 2</p>
       <p class="font-semibold">Recibos</p>
-    </button>
-    <button
+    </Button>
+    <Button
       type="button"
-      class="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
+      variant="unstyled"
+      class_name="min-h-[76px] w-full rounded-xl border px-4 py-3 text-left transition-colors duration-150 {currentStep === 2 ? 'border-vendas-400 bg-vendas-50 text-vendas-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}"
       on:click={() => goStep(2)}
     >
       <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Etapa 3</p>
       <p class="font-semibold">Forma de pagamento</p>
-    </button>
+    </Button>
   </div>
 
   <form class="space-y-6" on:submit|preventDefault={handleSubmit}>

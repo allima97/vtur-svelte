@@ -1,7 +1,7 @@
 <script lang="ts">
   import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { formatDateTime } from '$lib/utils/formatters';
 
@@ -611,29 +611,16 @@
 
 </script>
 
-{#if open}
-  <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" on:click|self={onClose} on:keydown={(event) => event.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="-1">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" role="document">
-      <div class="vtur-modal-header border-b border-slate-100" class:bg-pink-50={isAniversariante} class:bg-clientes-50={!isAniversariante}>
-        <div class="vtur-modal-header__lead">
-          <div class="vtur-modal-header__icon" class:bg-pink-100={isAniversariante} class:bg-clientes-100={!isAniversariante}>
-            {#if isAniversariante}<span class="text-2xl">🎉</span>{:else}<MessageCircle size={24} class="text-clientes-600" />{/if}
-          </div>
-          <div class="vtur-modal-header__copy"><h3 class="vtur-modal-header__title">{isAniversariante ? '🎂 Aniversariante!' : 'Enviar Aviso'}</h3><p class="vtur-modal-header__subtitle">{clienteNome}</p></div>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          ariaLabel="Fechar aviso"
-          class_name="vtur-modal-header__close !p-0 text-slate-400 hover:!bg-slate-100 hover:!text-slate-600"
-          on:click={onClose}
-        >
-          <X size={20} />
-        </Button>
-      </div>
-
-      <div class="vtur-modal-body-dense space-y-4">
+<Dialog
+  bind:open
+  title={isAniversariante ? 'Aniversariante' : 'Enviar aviso'}
+  description={clienteNome}
+  color="clientes"
+  size="xl"
+  showCancel={false}
+  onclose={onClose}
+>
+  <div class="vtur-modal-body-dense space-y-4">
         <div class="vtur-modal-section-compact bg-slate-50 rounded-lg p-3 flex items-center gap-4 flex-wrap">
           <div class="flex items-center gap-2"><Phone size={16} class="text-slate-400" /><span class="text-sm text-slate-600">{clienteTelefone || 'Sem telefone'}</span></div>
           <div class="flex items-center gap-2"><Mail size={16} class="text-slate-400" /><span class="text-sm text-slate-600">{clienteEmail || 'Sem email'}</span></div>
@@ -765,15 +752,16 @@
             <div class="flex justify-center">
               <div class="inline-flex flex-wrap items-center justify-center gap-2">
                 {#each CARD_TEXT_COLOR_PRESETS.filter((color) => color.value) as color}
-                  <button
+                  <Button
                     type="button"
-                    class={`h-8 w-8 rounded-lg border-2 transition ${previewTextColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
+                    variant="unstyled"
+                    class_name={`h-8 w-8 rounded-lg border-2 transition ${previewTextColor === color.value ? 'scale-105 border-slate-900 shadow-md' : 'border-white shadow-sm'}`}
                     style={`background-color: ${color.value}`}
                     title={`Aplicar ${color.label}`}
-                    aria-label={`Aplicar ${color.label}`}
-                    aria-pressed={previewTextColor === color.value}
+                    ariaLabel={`Aplicar ${color.label}`}
+                    ariaPressed={previewTextColor === color.value}
                     on:click={() => (previewTextColor = color.value)}
-                  ></button>
+                  />
                 {/each}
               </div>
             </div>
@@ -803,10 +791,11 @@
         </div>
       </div>
 
-      <div class="vtur-modal-footer vtur-modal-footer--between">
-        <Button variant="secondary" on:click={onClose}>Cancelar</Button>
-        <Button variant="primary" color={canalAtivo === 'whatsapp' ? 'green' : 'orange'} on:click={enviarMensagem} loading={enviando}><Send size={16} class="mr-2" />Enviar por {canalAtivo === 'whatsapp' ? 'WhatsApp' : 'Email'}</Button>
-      </div>
-    </div>
-  </div>
-{/if}
+  <svelte:fragment slot="actions">
+    <Button variant="secondary" on:click={onClose}>Cancelar</Button>
+    <Button variant="primary" color={canalAtivo === 'whatsapp' ? 'green' : 'orange'} on:click={enviarMensagem} loading={enviando}>
+      <Send size={16} class="mr-2" />
+      Enviar por {canalAtivo === 'whatsapp' ? 'WhatsApp' : 'Email'}
+    </Button>
+  </svelte:fragment>
+</Dialog>

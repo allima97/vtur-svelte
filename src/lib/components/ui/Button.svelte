@@ -38,6 +38,8 @@
   export let ariaExpanded: boolean | null = null;
   export let role: string | null = null;
   export let ariaSelected: boolean | null = null;
+  export let ariaPressed: boolean | null = null;
+  export let style: string | null = null;
   export let class_name = '';
 
   const colorAlias: Record<string, string> = {
@@ -103,6 +105,8 @@
     aria-expanded={ariaExpanded ?? undefined}
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
+    aria-pressed={ariaPressed ?? undefined}
+    style={style ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click
@@ -127,6 +131,8 @@
     aria-expanded={ariaExpanded ?? undefined}
     role={role ?? undefined}
     aria-selected={ariaSelected ?? undefined}
+    aria-pressed={ariaPressed ?? undefined}
+    style={style ?? undefined}
     disabled={disabled || loading}
     class={buttonClasses}
     on:click

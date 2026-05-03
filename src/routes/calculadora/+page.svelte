@@ -122,9 +122,16 @@
               <span class="sm:hidden">Toque em ⋮ (Chrome) ou Compartilhar e depois Adicionar à Tela de Início (Safari).</span>
             </p>
           </div>
-          <button type="button" on:click={() => showInstallHint = false} class="text-amber-500 hover:text-amber-700" aria-label="Fechar dica de instalação">
+          <Button
+            type="button"
+            variant="unstyled"
+            size="xs"
+            class_name="p-0 text-amber-500 hover:text-amber-700"
+            ariaLabel="Fechar dica de instalação"
+            on:click={() => showInstallHint = false}
+          >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       {/if}
 

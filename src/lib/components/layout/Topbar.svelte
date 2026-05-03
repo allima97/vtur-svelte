@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
+  import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from '$lib/components/ui';
   import { auth } from '$lib/stores/auth';
   import { sidebar, isMobile, toast } from '$lib/stores/ui';
-  import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from 'flowbite-svelte';
   import { Bell, Calendar, Calculator, LogOut, User, Settings, Shield } from 'lucide-svelte';
   import CalculatorModal from '$lib/components/modais/CalculatorModal.svelte';
 
@@ -121,7 +121,7 @@
         <Dropdown
           triggeredBy="#user-menu-btn"
           bind:open={userDropdownOpen}
-          class="z-[1100] min-w-[200px]"
+          class_name="z-[1100] min-w-[200px]"
         >
           <div class="px-4 py-3">
             <p class="truncate text-xs font-medium text-slate-800">{userDisplayName}</p>
@@ -147,7 +147,7 @@
           <DropdownDivider />
           <DropdownItem
             on:click={() => { userDropdownOpen = false; handleLogout(); }}
-            class="text-red-600 hover:bg-red-50"
+            class_name="text-red-600 hover:bg-red-50"
           >
             <LogOut size={15} class="mr-2" />
             {loggingOut ? 'Saindo...' : 'Sair'}

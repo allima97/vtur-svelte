@@ -304,11 +304,16 @@
               {#if forma.tipo === 'simples'}
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-slate-500">Desconto:</span>
-                  <input
-                    type="number" min="0" max="100" step="0.5"
+                  <FieldInput
+                    label="Desconto"
+                    srLabel
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
                     value={forma.desconto}
                     on:change={(e) => atualizarDesconto(forma.id, abaConfig, Number((e.target as HTMLInputElement).value))}
-                    class="w-20 text-base text-center border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    class_name="w-20 [&_input]:text-center"
                   />
                   <span class="text-sm text-slate-500">%</span>
                 </div>
@@ -325,11 +330,16 @@
                 {#each forma.faixas as faixa, fi}
                   <div class="flex items-center gap-2 text-sm text-slate-600">
                     <span class="w-24">{faixa.de === faixa.ate ? `${faixa.de}x` : `${faixa.de}–${faixa.ate}x`}:</span>
-                    <input
-                      type="number" min="0" max="100" step="0.5"
+                    <FieldInput
+                      label="Desconto da faixa"
+                      srLabel
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
                       value={faixa.desconto}
                       on:change={(e) => atualizarFaixa(forma.id, abaConfig, fi, Number((e.target as HTMLInputElement).value))}
-                      class="w-16 text-center border border-slate-200 rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      class_name="w-16 [&_input]:text-center"
                     />
                     <span>%</span>
                   </div>
@@ -343,27 +353,35 @@
       <div class="border-t border-indigo-100 pt-3 space-y-2">
         <p class="text-sm font-semibold text-indigo-700">Adicionar nova forma de pagamento:</p>
         <div class="flex gap-2 items-end flex-wrap">
-          <div class="flex-1 min-w-40">
-            <input
-              type="text"
-              bind:value={novaForma.label}
-              placeholder="Nome da forma (ex: Transferência)"
-              class="w-full text-base border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-            />
-          </div>
-          <select
+          <FieldInput
+            label="Nome da forma"
+            srLabel
+            bind:value={novaForma.label}
+            placeholder="Nome da forma (ex: Transferência)"
+            class_name="min-w-40 flex-1"
+          />
+          <FieldSelect
+            label="Tipo da forma"
+            srLabel
             bind:value={novaForma.tipo}
-            class="text-base border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          >
-            <option value="simples">Desconto fixo</option>
-            <option value="credito">Crédito (faixas)</option>
-          </select>
+            options={[
+              { value: 'simples', label: 'Desconto fixo' },
+              { value: 'credito', label: 'Crédito (faixas)' }
+            ]}
+            placeholder={null}
+            class_name="min-w-40"
+          />
           {#if novaForma.tipo === 'simples'}
             <div class="flex items-center gap-1">
-              <input
-                type="number" min="0" max="100" step="0.5"
+              <FieldInput
+                label="Desconto"
+                srLabel
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
                 bind:value={novaForma.desconto}
-                class="w-20 text-base text-center border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                class_name="w-20 [&_input]:text-center"
               />
               <span class="text-sm text-slate-500">%</span>
             </div>
@@ -485,10 +503,11 @@
                       : valorFinalConcorrencia - valorFinalConcorrencia * descontoP / 100}
                     {@const parcelaP = p > 1 ? totalP / p : totalP}
                     {@const ativo = calc.parcelas === p}
-                    <button
+                    <Button
                       type="button"
+                      variant="unstyled"
                       on:click={() => calc.parcelas = p}
-                      class="rounded-lg border px-3 py-2 text-left transition-all
+                      class_name="rounded-lg border px-3 py-2 text-left transition-all
                         {ativo ? 'border-indigo-400 bg-indigo-50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'}"
                     >
                       <p class="text-sm font-semibold {ativo ? 'text-indigo-700' : 'text-slate-600'}">
@@ -500,7 +519,7 @@
                       <p class="text-sm font-bold {ativo ? 'text-green-700' : 'text-slate-500'} mt-0.5">
                         {p > 1 ? `${p}x ${fmt(parcelaP)}` : fmt(totalP)}
                       </p>
-                    </button>
+                    </Button>
                   {/each}
                 {/each}
               </div>
