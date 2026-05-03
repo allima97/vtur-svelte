@@ -1,45 +1,49 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
-  import { supabase } from '$lib/db/supabase';
-  import { permissoes } from '$lib/stores/permissoes';
-  import Button from '$lib/components/ui/Button.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
-  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
-  import { AlertCircle, KeyRound } from 'lucide-svelte';
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { supabase } from "$lib/db/supabase";
+  import { permissoes } from "$lib/stores/permissoes";
+  import Button from "$lib/components/ui/Button.svelte";
+  import Card from "$lib/components/ui/Card.svelte";
+  import LoadingState from "$lib/components/ui/LoadingState.svelte";
+  import FieldInput from "$lib/components/ui/form/FieldInput.svelte";
+  import { AlertCircle, KeyRound } from "lucide-svelte";
 
-  let codigo = '';
+  let codigo = "";
   let loading = true;
   let verificando = false;
   let error: string | null = null;
-  let factorId = '';
-  let nextPath = '/';
+  let factorId = "";
+  let nextPath = "/";
 
   onMount(async () => {
     try {
       const params = new URLSearchParams(window.location.search);
-      nextPath = params.get('next') || '/';
+      nextPath = params.get("next") || "/";
 
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.user) {
-        goto('/auth/login');
+        goto("/auth/login");
         return;
       }
 
       // Verifica se já está em AAL2
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (aalData?.currentLevel === 'aal2') {
+      const { data: aalData } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData?.currentLevel === "aal2") {
         goto(nextPath);
         return;
       }
 
       // Busca fatores TOTP verificados
       const { data: factorsData } = await supabase.auth.mfa.listFactors();
-      const verifiedFactor = factorsData?.totp?.find((f: any) => f.status === 'verified');
+      const verifiedFactor = factorsData?.totp?.find(
+        (f: any) => f.status === "verified",
+      );
 
       if (!verifiedFactor) {
         // Sem fator 2FA configurado — verifica política
-        const policyResp = await fetch('/api/v1/admin/auth/mfa-status');
+        const policyResp = await fetch("/api/v1/admin/auth/mfa-status");
         if (policyResp.ok) {
           const policy = await policyResp.json();
           if (policy?.required) {
@@ -54,32 +58,39 @@
 
       factorId = verifiedFactor.id;
     } catch (err: any) {
-      error = err.message || 'Erro ao carregar verificação 2FA.';
+      error = err.message || "Erro ao carregar verificação 2FA.";
     } finally {
       loading = false;
     }
   });
 
   function normalizeCodigo(value: string) {
-    return value.replace(/\D/g, '').slice(0, 6);
+    return value.replace(/\D/g, "").slice(0, 6);
   }
 
   async function verificar() {
     const code = normalizeCodigo(codigo);
-    if (code.length !== 6) { error = 'Informe o código de 6 dígitos.'; return; }
-    if (!factorId) { error = 'Fator 2FA não encontrado.'; return; }
+    if (code.length !== 6) {
+      error = "Informe o código de 6 dígitos.";
+      return;
+    }
+    if (!factorId) {
+      error = "Fator 2FA não encontrado.";
+      return;
+    }
 
     verificando = true;
     error = null;
 
     try {
-      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+      const { data: challengeData, error: challengeError } =
+        await supabase.auth.mfa.challenge({ factorId });
       if (challengeError) throw challengeError;
 
       const { error: verifyError } = await supabase.auth.mfa.verify({
         factorId,
         challengeId: challengeData.id,
-        code
+        code,
       });
       if (verifyError) throw verifyError;
 
@@ -88,20 +99,25 @@
       await permissoes.refresh(supabaseClient);
       goto(nextPath);
     } catch (err: any) {
-      const msg = String(err?.message || '').toLowerCase();
-      if (msg.includes('invalid') || msg.includes('incorrect') || msg.includes('expired')) {
-        error = 'Código inválido ou expirado. Verifique o aplicativo autenticador.';
+      const msg = String(err?.message || "").toLowerCase();
+      if (
+        msg.includes("invalid") ||
+        msg.includes("incorrect") ||
+        msg.includes("expired")
+      ) {
+        error =
+          "Código inválido ou expirado. Verifique o aplicativo autenticador.";
       } else {
-        error = err.message || 'Erro ao verificar código.';
+        error = err.message || "Erro ao verificar código.";
       }
-      codigo = '';
+      codigo = "";
     } finally {
       verificando = false;
     }
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') verificar();
+    if (e.key === "Enter") verificar();
   }
 </script>
 
@@ -114,7 +130,11 @@
     <div class="vtur-auth-brand">
       <div class="vtur-auth-brand-lockup">
         <div class="vtur-auth-brand-row">
-          <img src="/brand/vtur-symbol.png" alt="VTUR" class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]" />
+          <img
+            src="/brand/vtur-symbol.png"
+            alt="VTUR"
+            class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]"
+          />
           <h1 class="vtur-auth-brand-title text-3xl font-bold">VTUR</h1>
         </div>
         <p class="vtur-auth-brand-subtitle">Sistema de Gestão de Viagens</p>
@@ -123,10 +143,12 @@
 
     <Card padding="lg">
       {#if loading}
-        <div class="text-center py-8 text-slate-500">Carregando...</div>
+        <LoadingState compact={true} />
       {:else}
         {#if error}
-          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+          <div
+            class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm"
+          >
             <AlertCircle size={18} />
             <span>{error}</span>
           </div>
@@ -138,7 +160,11 @@
             bind:value={codigo}
             type="text"
             autocomplete="one-time-code"
-            on:input={(e) => { codigo = normalizeCodigo((e.currentTarget as HTMLInputElement).value); }}
+            on:input={(e) => {
+              codigo = normalizeCodigo(
+                (e.currentTarget as HTMLInputElement).value,
+              );
+            }}
             on:keydown={handleKeydown}
             placeholder="000000"
             maxlength={6}
