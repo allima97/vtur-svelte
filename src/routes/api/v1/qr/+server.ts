@@ -26,17 +26,30 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     upstream.searchParams.set('margin', String(margin));
     upstream.searchParams.set('text', text);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4_000);
     const response = await fetch(upstream, {
+      signal: controller.signal,
       headers: {
         accept: 'image/png'
       }
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       return json({ error: 'QR Code indisponivel.' }, { status: 502 });
     }
 
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > 1024 * 1024) {
+      return json({ error: 'QR Code excede o tamanho permitido.' }, { status: 502 });
+    }
+
     const image = await response.arrayBuffer();
+    if (image.byteLength > 1024 * 1024) {
+      return json({ error: 'QR Code excede o tamanho permitido.' }, { status: 502 });
+    }
+
     return new Response(image, {
       headers: {
         'content-type': response.headers.get('content-type') || 'image/png',

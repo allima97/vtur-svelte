@@ -172,6 +172,6 @@ export async function GET(event: RequestEvent) {
     });
   } catch (error: any) {
     console.error('[api/v1/dashboard/consultorias] erro:', error);
-    return new Response(`Erro interno: ${error?.message ?? error}`, { status: 500 });
+    return json({ error: 'Erro interno ao carregar consultorias.' }, { status: 500 });
   }
 }

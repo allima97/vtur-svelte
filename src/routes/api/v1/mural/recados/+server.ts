@@ -50,15 +50,28 @@ export async function POST(event) {
     if (denied) return denied;
 
     const receiverId = String(body?.receiver_id || '').trim();
-    const conteudo = String(body?.conteudo || '').trim();
-    const assunto = String(body?.assunto || '').trim();
+    const conteudo = String(body?.conteudo || '').trim().slice(0, 4000);
+    const assunto = String(body?.assunto || '').trim().slice(0, 160);
 
     if (!conteudo) return new Response('Conteúdo obrigatório.', { status: 400 });
+    if (receiverId && !isUuid(receiverId)) return new Response('Destinatário inválido.', { status: 400 });
+
+    if (receiverId) {
+      const { data: receiver, error: receiverError } = await client
+        .from('users')
+        .select('id, company_id, active')
+        .eq('id', receiverId)
+        .eq('company_id', companyId)
+        .eq('active', true)
+        .maybeSingle();
+      if (receiverError) throw receiverError;
+      if (!receiver) return new Response('Destinatário fora do escopo da empresa.', { status: 403 });
+    }
 
     const payload = {
       company_id: companyId,
       sender_id: scope.userId,
-      receiver_id: receiverId && isUuid(receiverId) ? receiverId : null,
+      receiver_id: receiverId || null,
       assunto: assunto || null,
       conteudo,
       sender_deleted: false,
@@ -74,7 +87,7 @@ export async function POST(event) {
     });
   } catch (e: any) {
     console.error('Erro mural recados POST:', e);
-    return new Response(e?.message || 'Erro ao enviar recado.', { status: 500 });
+    return new Response('Erro ao enviar recado.', { status: 500 });
   }
 }
 
@@ -117,6 +130,6 @@ export async function DELETE(event) {
     });
   } catch (e: any) {
     console.error('Erro mural recados DELETE:', e);
-    return new Response(e?.message || 'Erro ao excluir recado.', { status: 500 });
+    return new Response('Erro ao excluir recado.', { status: 500 });
   }
 }

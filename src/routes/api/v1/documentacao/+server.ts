@@ -56,6 +56,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
     return json({ error: "Documentacao nao encontrada." }, { status: 404 });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[documentacao] falha ao carregar documentação", error);
+    return json({ error: "Erro interno ao carregar documentação." }, { status: 500 });
   }
 };

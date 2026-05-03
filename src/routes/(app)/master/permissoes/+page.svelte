@@ -91,15 +91,15 @@
 
 <div class="space-y-6">
   <div class="vtur-kpi-grid vtur-kpi-grid-3">
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Usuarios no painel</p><p class="text-2xl font-bold text-slate-900">{rows.length}</p></div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><LayoutGrid size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Modulos globais</p><p class="text-2xl font-bold text-slate-900">{systemModuleCatalog.length}</p></div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><XCircle size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Modulos desabilitados</p><p class="text-2xl font-bold text-slate-900">{systemModuleCatalog.filter((item) => !getGlobalEnabled(item.key)).length}</p></div>
     </div>

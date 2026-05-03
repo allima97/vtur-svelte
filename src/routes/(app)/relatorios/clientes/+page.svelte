@@ -381,19 +381,19 @@
 </FilterPanel>
 
 <div class="vtur-kpi-grid mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Users size={20} /></div>
     <div><p class="text-sm font-medium text-slate-500">Total de Clientes</p><p class="text-2xl font-bold text-slate-900">{totalClientes}</p></div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Wallet size={20} /></div>
     <div><p class="text-sm font-medium text-slate-500">Receita Total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p></div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><TrendingUp size={20} /></div>
     <div><p class="text-sm font-medium text-slate-500">Ticket Médio</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedioGeral)}</p></div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-violet-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Star size={20} /></div>
     <div><p class="text-sm font-medium text-slate-500">Clientes VIP</p><p class="text-2xl font-bold text-slate-900">{clientesVIP}</p></div>
   </div>

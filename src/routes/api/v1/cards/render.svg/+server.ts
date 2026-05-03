@@ -11,6 +11,19 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       },
     });
   } catch (e: any) {
-    return new Response(e?.message || "Erro ao renderizar cartão.", { status: 500 });
+    console.error("[cards/render.svg] falha ao renderizar cartão", e);
+    return new Response(
+      JSON.stringify({
+        error: "card_render_error",
+        message: "Erro ao renderizar cartão.",
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   }
 }

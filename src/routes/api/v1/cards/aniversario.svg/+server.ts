@@ -7,10 +7,18 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
+function clampText(value: string | null, fallback: string, maxLength: number) {
+  const normalized = String(value || "")
+    .replace(/\0/g, "")
+    .trim()
+    .slice(0, maxLength);
+  return normalized || fallback;
+}
+
 export async function GET({ request }: { request: Request }) {
   const url = new URL(request.url);
-  const nome = String(url.searchParams.get("nome") || "Cliente").trim() || "Cliente";
-  const assinatura = String(url.searchParams.get("assinatura") || "André Lima").trim() || "André Lima";
+  const nome = clampText(url.searchParams.get("nome"), "Cliente", 80);
+  const assinatura = clampText(url.searchParams.get("assinatura"), "André Lima", 80);
 
   const nomeEsc = escapeXml(nome);
   const assinaturaEsc = escapeXml(assinatura);

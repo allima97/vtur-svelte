@@ -10,9 +10,9 @@ import {
 } from '$lib/server/v1';
 
 function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
-  if (scope.isAdmin || scope.isMaster) return query;
-  if (scope.isGestor && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
-  if (scope.isGestor) return query;
+  if (scope.isAdmin) return query;
+  if ((scope.isMaster || scope.isGestor) && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
+  if (scope.isMaster || scope.isGestor) return query.eq('created_by', user.id);
   return query.eq('created_by', user.id);
 }
 

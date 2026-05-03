@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     if (error) {
       console.error('[set-session] Falha ao sincronizar sessao:', error);
-      return json({ error: error.message || 'Erro ao definir sessao' }, { status: 401 });
+      return json({ error: 'Sessao invalida ou expirada.' }, { status: 401 });
     }
 
     // Limpa cookies legados que nao sao lidos pelo @supabase/ssr.

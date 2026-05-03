@@ -483,7 +483,7 @@
   <div class="vtur-kpi-grid mb-6">
     <Button
       variant="unstyled"
-      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${vendaPendente ? 'border-t-amber-400' : venda?.status === 'cancelada' ? 'border-t-red-400' : venda?.status === 'concluida' ? 'border-t-blue-400' : 'border-t-green-400'}`}
+      class_name="vtur-kpi-card w-full text-left"
       on:click={() => goto('/vendas')}
     >
       <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${vendaPendente ? 'bg-amber-50 text-amber-500' : venda?.status === 'cancelada' ? 'bg-red-50 text-red-500' : venda?.status === 'concluida' ? 'bg-blue-50 text-blue-500' : 'bg-green-50 text-green-500'}`}><FileText size={18} /></div>
@@ -495,7 +495,7 @@
 
     <Button
       variant="unstyled"
-      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${conciliacaoPendente ? 'border-t-red-400' : 'border-t-green-400'}`}
+      class_name="vtur-kpi-card w-full text-left"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${conciliacaoPendente ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}><Shield size={18} /></div>
@@ -507,7 +507,7 @@
 
     <Button
       variant="unstyled"
-      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-amber-400'}`}
+      class_name="vtur-kpi-card w-full text-left"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-amber-50 text-amber-500'}`}><AlertCircle size={18} /></div>
@@ -519,7 +519,7 @@
 
     <Button
       variant="unstyled"
-      class_name={`vtur-kpi-card w-full border-t-[3px] text-left ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'border-t-green-400' : 'border-t-slate-400'}`}
+      class_name="vtur-kpi-card w-full text-left"
       on:click={() => goto('/vendas')}
     >
       <div class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${!vendaPendente && !conciliacaoPendente && fechamentoFinanceiroOk ? 'bg-green-50 text-green-500' : 'bg-slate-100 text-slate-500'}`}><CheckCircle size={18} /></div>

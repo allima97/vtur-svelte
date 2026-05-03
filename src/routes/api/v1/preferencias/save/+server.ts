@@ -51,10 +51,13 @@ export async function POST(event) {
 
     if (!isUuid(id)) return new Response('id invalido.', { status: 400 });
 
-    const { data, error } = await client
+    let updateQuery = client
       .from('minhas_preferencias')
       .update(payload)
-      .eq('id', id)
+      .eq('id', id);
+    if (!scope.isAdmin) updateQuery = updateQuery.eq('created_by', user.id);
+
+    const { data, error } = await updateQuery
       .select('id, company_id, created_by, tipo_produto_id, cidade_id, nome, localizacao, classificacao, observacao, created_at, updated_at')
       .maybeSingle();
     if (error) throw error;
@@ -69,4 +72,3 @@ export async function POST(event) {
     return new Response('Erro ao salvar preferência.', { status: 500 });
   }
 }
-

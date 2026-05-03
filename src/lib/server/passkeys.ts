@@ -98,6 +98,10 @@ export function toPasskeyErrorResponse(err: unknown, fallbackMessage: string) {
   const status = typeof (err as any)?.status === 'number' ? (err as any).status : 500;
   const message = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
 
+  if (status === 404) {
+    return json({ error: fallbackMessage }, { status: 400 });
+  }
+
   return json({ error: message }, { status });
 }
 

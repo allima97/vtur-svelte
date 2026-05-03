@@ -1,4 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import { env as publicEnv } from '$env/dynamic/public';
 import { buildCardFontFaceCss } from '$lib/cards/cardFonts';
 import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
 import {
@@ -39,6 +40,12 @@ export type CardRenderResult = {
 const MASTER_WIDTH = 1080;
 const MASTER_HEIGHT = 1080;
 const MASTER_LAYOUT_KEY = "master-card-v1";
+const MAX_CARD_DIMENSION = 2160;
+const MAX_TEXT_PARAM_LENGTH = 900;
+const MAX_SHORT_TEXT_PARAM_LENGTH = 180;
+const MAX_URL_PARAM_LENGTH = 2048;
+const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024;
+const INLINE_IMAGE_FETCH_TIMEOUT_MS = 2500;
 const DEFAULT_LOGO_SLOT_MASTER = {
   x: 848,
   y: 848,
@@ -63,6 +70,11 @@ function parseNum(v: string | null | undefined, fallback: number) {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+function parseDimension(v: string | null | undefined, fallback: number) {
+  const parsed = parseNum(v, fallback);
+  return Math.max(320, Math.min(MAX_CARD_DIMENSION, Math.round(parsed)));
+}
+
 function parseOffset(v: string | null | undefined, fallback = 0) {
   if (v == null) return fallback;
   const raw = String(v).trim();
@@ -70,6 +82,66 @@ function parseOffset(v: string | null | undefined, fallback = 0) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(-240, Math.min(240, Math.round(n)));
+}
+
+function limitText(value: string | null | undefined, maxLength = MAX_TEXT_PARAM_LENGTH) {
+  return String(value || "")
+    .replace(/\0/g, "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function trustedImageOrigins(appOrigin: string) {
+  const origins = new Set<string>([appOrigin]);
+  const supabaseUrl = String(publicEnv.PUBLIC_SUPABASE_URL || "").trim();
+  if (supabaseUrl) {
+    try {
+      origins.add(new URL(supabaseUrl).origin);
+    } catch {
+      // Ignora configuração inválida; a validação abaixo permanece fechada para externos.
+    }
+  }
+  return origins;
+}
+
+function isTrustedImageUrl(parsed: URL, appOrigin: string) {
+  if (!trustedImageOrigins(appOrigin).has(parsed.origin)) return false;
+
+  if (parsed.origin === appOrigin) {
+    const pathname = parsed.pathname.toLowerCase();
+    if (pathname.startsWith("/api/") || pathname.startsWith("/auth/")) return false;
+    if (
+      pathname.startsWith("/brand/") ||
+      pathname.startsWith("/assets/") ||
+      pathname.startsWith("/icons/") ||
+      pathname.startsWith("/_app/") ||
+      pathname.startsWith("/public/") ||
+      /\.(png|jpe?g|webp|gif|svg)$/.test(pathname)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  return true;
+}
+
+function sanitizeImageUrl(rawValue: string, appOrigin: string) {
+  const raw = limitText(rawValue, MAX_URL_PARAM_LENGTH);
+  if (!raw) return "";
+
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(raw) && raw.length <= MAX_INLINE_IMAGE_BYTES) {
+    return raw;
+  }
+
+  try {
+    const parsed = raw.startsWith("/") ? new URL(raw, appOrigin) : new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    if (!isTrustedImageUrl(parsed, appOrigin)) return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
 }
 
 function parseBooleanParam(v: string | null | undefined): boolean | undefined {
@@ -350,7 +422,7 @@ function fixedMasterStyle(params: {
   queryItalic?: boolean | null;
 }) {
   const { base, queryFontSize, queryColor, queryItalic } = params;
-  const fontSize = parseNum(queryFontSize, Number(base.fontSize || 48));
+  const fontSize = Math.max(8, Math.min(160, parseNum(queryFontSize, Number(base.fontSize || 48))));
   const lineHeightRaw = Number(base.lineHeight || 1.2);
   const lineHeight = Number.isFinite(lineHeightRaw) && lineHeightRaw > 0 ? lineHeightRaw : Number(base.lineHeight || 1.2);
   const fontFamily = String(base.fontFamily || "Alegreya Sans, Arial, sans-serif");
@@ -383,11 +455,10 @@ function isVisible(flag: boolean | undefined, fallback = true) {
 }
 
 function absoluteAssetUrl(origin: string, assetUrl: string) {
-  const raw = String(assetUrl || "").trim();
+  const raw = limitText(assetUrl, MAX_URL_PARAM_LENGTH);
   if (!raw) return "";
-  if (/^(https?:|data:|blob:)/i.test(raw)) return raw;
-  if (raw.startsWith("/")) return `${origin}${raw}`;
-  return `${origin}/${raw.replace(/^\.?\//, "")}`;
+  if (/^(https?:|data:)/i.test(raw) || raw.startsWith("/")) return sanitizeImageUrl(raw, origin);
+  return sanitizeImageUrl(`/${raw.replace(/^\.?\//, "")}`, origin);
 }
 
 function toBase64(buffer: ArrayBuffer) {
@@ -405,23 +476,28 @@ function toBase64(buffer: ArrayBuffer) {
   return btoa(binary);
 }
 
-async function resolveInlineImageHref(sourceUrl: string) {
-  const raw = String(sourceUrl || "").trim();
+async function resolveInlineImageHref(sourceUrl: string, appOrigin: string) {
+  const raw = sanitizeImageUrl(sourceUrl, appOrigin);
   if (!raw) return "";
   if (raw.startsWith("data:")) return raw;
-  if (!/^https?:/i.test(raw)) return raw;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), INLINE_IMAGE_FETCH_TIMEOUT_MS);
   try {
-    const resp = await fetch(raw);
+    const resp = await fetch(raw, { signal: controller.signal });
     if (!resp.ok) return raw;
     const contentType = String(resp.headers.get("content-type") || "").toLowerCase();
-    if (!contentType.startsWith("image/")) return raw;
+    if (!contentType.startsWith("image/") || contentType.includes("svg")) return raw;
+    const contentLength = Number(resp.headers.get("content-length") || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_INLINE_IMAGE_BYTES) return raw;
     const payload = await resp.arrayBuffer();
-    if (!payload.byteLength) return raw;
+    if (!payload.byteLength || payload.byteLength > MAX_INLINE_IMAGE_BYTES) return raw;
     const base64 = toBase64(payload);
     return `data:${contentType};base64,${base64}`;
   } catch {
     return raw;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -429,23 +505,23 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const url = new URL(event.request.url);
   const client = event.locals.supabase;
 
-  const nome = String(url.searchParams.get("nome") || "Cliente").trim() || "Cliente";
-  const clienteNomeLiteralRaw = String(url.searchParams.get("cliente_nome_literal") || "").trim();
-  const tituloRaw = String(url.searchParams.get("titulo") || "").trim();
-  const corpoRaw = String(url.searchParams.get("corpo") || "").trim();
+  const nome = limitText(url.searchParams.get("nome"), MAX_SHORT_TEXT_PARAM_LENGTH) || "Cliente";
+  const clienteNomeLiteralRaw = limitText(url.searchParams.get("cliente_nome_literal"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const tituloRaw = limitText(url.searchParams.get("titulo"), 240);
+  const corpoRaw = limitText(url.searchParams.get("corpo"), MAX_TEXT_PARAM_LENGTH);
   const hasFooterLeadParam = url.searchParams.has("footer_lead");
   const hasCargoConsultorParam = url.searchParams.has("cargo_consultor");
-  const footerLeadRaw = String(url.searchParams.get("footer_lead") || "").trim();
-  const assinaturaRaw = String(url.searchParams.get("assinatura") || "").trim();
-  const consultorRaw = String(url.searchParams.get("consultor") || "").trim();
-  const cargoConsultorRaw = String(url.searchParams.get("cargo_consultor") || "").trim();
+  const footerLeadRaw = limitText(url.searchParams.get("footer_lead"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const assinaturaRaw = limitText(url.searchParams.get("assinatura"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const consultorRaw = limitText(url.searchParams.get("consultor"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const cargoConsultorRaw = limitText(url.searchParams.get("cargo_consultor"), MAX_SHORT_TEXT_PARAM_LENGTH);
   const footerLeadFontSizeRaw = url.searchParams.get("footer_lead_font_size");
   const consultantFontSizeRaw = url.searchParams.get("consultant_font_size") || url.searchParams.get("signature_font_size");
   const consultantRoleFontSizeRaw = url.searchParams.get("consultant_role_font_size");
   const footerLeadItalic = parseBooleanParam(url.searchParams.get("footer_lead_italic"));
   const consultantItalic = parseBooleanParam(url.searchParams.get("consultant_italic"));
   const consultantRoleItalic = parseBooleanParam(url.searchParams.get("consultant_role_italic"));
-  const textColorRaw = String(url.searchParams.get("text_color") || "").trim();
+  const textColorRaw = limitText(url.searchParams.get("text_color"), 32);
   const titleOffsetX = parseOffset(url.searchParams.get("title_offset_x"));
   const titleOffsetY = parseOffset(url.searchParams.get("title_offset_y"));
   const clientOffsetX = parseOffset(url.searchParams.get("client_offset_x"));
@@ -456,20 +532,20 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const signatureOffsetY = parseOffset(url.searchParams.get("signature_offset_y"));
   const logoOffsetX = parseOffset(url.searchParams.get("logo_offset_x"));
   const logoOffsetY = parseOffset(url.searchParams.get("logo_offset_y"));
-  const empresaRaw = String(url.searchParams.get("empresa") || "").trim();
-  const origemRaw = String(url.searchParams.get("origem") || "").trim();
-  const destinoRaw = String(url.searchParams.get("destino") || "").trim();
-  const dataViagemRaw = String(url.searchParams.get("data_viagem") || "").trim();
-  const dataEmbarqueRaw = String(url.searchParams.get("data_embarque") || "").trim();
-  const dataRetornoRaw = String(url.searchParams.get("data_retorno") || "").trim();
-  const ctaRaw = String(url.searchParams.get("cta") || "").trim();
-  const mensagemRaw = String(url.searchParams.get("mensagem") || "").trim();
-  const photoUrlRaw = String(url.searchParams.get("photo_url") || url.searchParams.get("photo") || "").trim();
-  const logoUrlRaw = String(url.searchParams.get("logo_url") || url.searchParams.get("logo") || "").trim();
-  const templateId = String(url.searchParams.get("template_id") || "").trim();
-  let themeId = String(url.searchParams.get("theme_id") || "").trim();
-  const themeName = String(url.searchParams.get("theme_name") || url.searchParams.get("theme_key") || "").trim();
-  const themeAssetUrlFromQuery = String(url.searchParams.get("theme_asset_url") || "").trim();
+  const empresaRaw = limitText(url.searchParams.get("empresa"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const origemRaw = limitText(url.searchParams.get("origem"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const destinoRaw = limitText(url.searchParams.get("destino"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const dataViagemRaw = limitText(url.searchParams.get("data_viagem"), 40);
+  const dataEmbarqueRaw = limitText(url.searchParams.get("data_embarque"), 40);
+  const dataRetornoRaw = limitText(url.searchParams.get("data_retorno"), 40);
+  const ctaRaw = limitText(url.searchParams.get("cta"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const mensagemRaw = limitText(url.searchParams.get("mensagem"), MAX_TEXT_PARAM_LENGTH);
+  const photoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("photo_url") || url.searchParams.get("photo") || ""), url.origin);
+  const logoUrlRaw = sanitizeImageUrl(String(url.searchParams.get("logo_url") || url.searchParams.get("logo") || ""), url.origin);
+  const templateId = limitText(url.searchParams.get("template_id"), 80);
+  let themeId = limitText(url.searchParams.get("theme_id"), 80);
+  const themeName = limitText(url.searchParams.get("theme_name") || url.searchParams.get("theme_key"), MAX_SHORT_TEXT_PARAM_LENGTH);
+  const themeAssetUrlFromQuery = sanitizeImageUrl(String(url.searchParams.get("theme_asset_url") || ""), url.origin);
 
   let templateRow: Record<string, any> | null = null;
   if (templateId) {
@@ -509,8 +585,8 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   );
   const themeLayout = getCardThemeLayout(activeThemeName);
   // Layout técnico oficial: sempre 1080x1080 para manter posições/zonas fixas.
-  const width = parseNum(url.searchParams.get("width"), MASTER_WIDTH);
-  const height = parseNum(url.searchParams.get("height"), MASTER_HEIGHT);
+  const width = parseDimension(url.searchParams.get("width"), MASTER_WIDTH);
+  const height = parseDimension(url.searchParams.get("height"), MASTER_HEIGHT);
   // Metodologia técnica padronizada: estilos fixos para todas as artes.
   const resolvedStyleMap = resolveCardStyleMap();
 
@@ -641,12 +717,13 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const hideClientName = Boolean(showPhoto && themeLayout?.photo?.hideClientNameWhenPhoto);
   const hideBody = Boolean(showPhoto && themeLayout?.photo?.hideBodyWhenPhoto);
   const visibility = themeLayout?.visibility;
-  const logoUrl = await resolveInlineImageHref(absoluteAssetUrl(url.origin, logoUrlRaw));
+  const logoUrl = await resolveInlineImageHref(absoluteAssetUrl(url.origin, logoUrlRaw), url.origin);
   const backgroundUrl = await resolveInlineImageHref(
     absoluteAssetUrl(
       url.origin,
       themeAssetUrlFromQuery || resolvedThemeAsset.asset_url,
     ),
+    url.origin,
   );
   const logoSlotBase = resolveLogoSlot(themeLayout, width, height);
   const logoSlot = {

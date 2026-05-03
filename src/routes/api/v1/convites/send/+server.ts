@@ -272,7 +272,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     } catch (err: any) {
       console.error("Falha ao gerar link de convite:", err);
-      return json({ error: `Falha ao gerar link de convite: ${err?.message || "erro desconhecido"}` }, { status: 500 });
+      return json({ error: "Falha ao gerar link de convite." }, { status: 500 });
     }
 
     if (!actionLink) {
@@ -386,6 +386,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       expires_at: expiresAt,
     });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[convites/send] falha ao enviar convite", error);
+    return json({ error: "Erro interno ao enviar convite." }, { status: 500 });
   }
 };

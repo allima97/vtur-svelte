@@ -91,21 +91,21 @@
 {/if}
 
 <div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Settings size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Total de módulos</p>
       <p class="text-2xl font-bold text-slate-900">{modulos.length}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Habilitados</p>
       <p class="text-2xl font-bold text-slate-900">{habilitados}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><XCircle size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Desabilitados</p>

@@ -14,6 +14,27 @@ export async function POST(event) {
     if (!isUuid(preferenciaId)) return new Response('preferencia_id invalido.', { status: 400 });
     if (!isUuid(sharedWith)) return new Response('shared_with invalido.', { status: 400 });
 
+    let preferenciaQuery = client
+      .from('minhas_preferencias')
+      .select('id, company_id, created_by')
+      .eq('id', preferenciaId)
+      .eq('company_id', companyId);
+    if (!scope.isAdmin) preferenciaQuery = preferenciaQuery.eq('created_by', user.id);
+
+    const { data: preferencia, error: prefError } = await preferenciaQuery.maybeSingle();
+    if (prefError) throw prefError;
+    if (!preferencia) return new Response('Preferência não encontrada.', { status: 404 });
+
+    const { data: targetUser, error: targetError } = await client
+      .from('users')
+      .select('id, company_id, active')
+      .eq('id', sharedWith)
+      .eq('company_id', companyId)
+      .eq('active', true)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!targetUser) return new Response('Usuário fora do escopo da empresa.', { status: 403 });
+
     const payload = {
       company_id: companyId,
       preferencia_id: preferenciaId,
@@ -40,4 +61,3 @@ export async function POST(event) {
     return new Response('Erro ao compartilhar preferência.', { status: 500 });
   }
 }
-

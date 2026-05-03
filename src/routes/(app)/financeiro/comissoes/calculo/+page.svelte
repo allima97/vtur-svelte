@@ -403,7 +403,7 @@
 
 <!-- Resumo -->
 <div class="vtur-kpi-grid mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">{labelComissao}</p>
@@ -411,7 +411,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calculator size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Comissão total</p>
@@ -421,7 +421,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Wallet size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">{labelSeguro}</p>
@@ -431,7 +431,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><TrendingUp size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Comissão + seguro</p>

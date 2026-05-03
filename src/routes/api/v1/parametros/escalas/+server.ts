@@ -31,8 +31,13 @@ function normalizeTime(value: unknown) {
 async function fetchFeriadosNacionais(ano: number, periodo: string) {
   if (!Number.isInteger(ano) || ano < 1900 || ano > 2200) return [];
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4_000);
+
   try {
-    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`, {
+      signal: controller.signal
+    });
     if (!response.ok) return [];
     const data = await response.json();
     return (Array.isArray(data) ? data : [])
@@ -46,6 +51,8 @@ async function fetchFeriadosNacionais(ano: number, periodo: string) {
   } catch (err) {
     console.warn('[parametros/escalas] falha ao carregar feriados nacionais', err);
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

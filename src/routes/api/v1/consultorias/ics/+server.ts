@@ -8,6 +8,14 @@ function toIcsDate(value: Date) {
   return `${iso}Z`;
 }
 
+function escapeIcsText(value: string) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,");
+}
+
 export const GET: RequestHandler = async ({ url, locals }) => {
   try {
     await requireAuthenticatedUser({ locals } as any);
@@ -45,8 +53,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       .map((item: any) => {
         const start = new Date(item.data_hora);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const summary = `Consultoria - ${item.cliente_nome || "Cliente"}`;
-        const description = item.destino ? `Destino: ${item.destino}` : "Consultoria";
+        const summary = escapeIcsText(`Consultoria - ${item.cliente_nome || "Cliente"}`);
+        const description = escapeIcsText(item.destino ? `Destino: ${item.destino}` : "Consultoria");
 
         return [
           "BEGIN:VEVENT",
@@ -83,6 +91,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       },
     });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[consultorias/ics] falha ao exportar ICS", error);
+    return json({ error: "Erro interno ao exportar consultorias." }, { status: 500 });
   }
 };

@@ -2,6 +2,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput } from '$lib/components/ui';
   import { Plug, Save, Check, AlertTriangle, RefreshCw, ExternalLink } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
@@ -87,12 +88,12 @@
     }
   ];
 
-  function getStatusBadge(status: string) {
-    const styles: Record<string, string> = {
-      conectado: 'bg-green-100 text-green-700',
-      desconectado: 'bg-red-100 text-red-700',
-      configurar: 'bg-amber-100 text-amber-700',
-      erro: 'bg-red-100 text-red-700'
+  function getStatusBadge(status: string): { label: string; color: 'green' | 'red' | 'yellow' } {
+    const colors: Record<string, 'green' | 'red' | 'yellow'> = {
+      conectado: 'green',
+      desconectado: 'red',
+      configurar: 'yellow',
+      erro: 'red'
     };
     const labels: Record<string, string> = {
       conectado: 'Conectado',
@@ -100,7 +101,15 @@
       configurar: 'Configurar',
       erro: 'Erro'
     };
-    return `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${styles[status]}">${labels[status]}</span>`;
+    return { label: labels[status] || 'Desconhecido', color: colors[status] || 'yellow' };
+  }
+
+  function getStatusLabel(status: string) {
+    return getStatusBadge(status).label;
+  }
+
+  function getStatusColor(status: string) {
+    return getStatusBadge(status).color;
   }
 
   async function testarConexao(id: string) {
@@ -143,7 +152,7 @@
           <div>
             <div class="flex items-center gap-2">
               <h3 class="text-lg font-semibold text-slate-900">{int.nome}</h3>
-              {@html getStatusBadge(int.status)}
+              <Badge color={getStatusColor(int.status)} size="sm">{getStatusLabel(int.status)}</Badge>
             </div>
             <p class="text-sm text-slate-500">{int.descricao}</p>
           </div>

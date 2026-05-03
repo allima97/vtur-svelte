@@ -2753,7 +2753,7 @@
       Isso pode indicar erro na leitura do arquivo ou divergência real. Confira abaixo:
     </p>
     <div class="overflow-x-auto rounded-xl border border-slate-200">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm table-mobile-cards">
         <thead class="bg-slate-50 text-slate-700">
           <tr>
             <th class="px-3 py-2 text-left">Documento</th>

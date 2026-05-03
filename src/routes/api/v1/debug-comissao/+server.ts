@@ -1,5 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope } from '$lib/server/v1';
+import {
+  getAdminClient,
+  requireAuthenticatedUser,
+  resolveScopedCompanyIds,
+  resolveUserScope,
+  toErrorResponse
+} from '$lib/server/v1';
 import { fetchCommissionContext, calcularComissaoRows } from '$lib/server/comissoes';
 import {
   fetchEffectiveConciliacaoReceipts,
@@ -123,6 +129,6 @@ export async function GET(event: any) {
       faixas: params?.conciliacao_faixas_loja?.map((f: any) => ({ faixa_loja: f.faixa_loja, ativo: f.ativo, tipo_calculo: f.tipo_calculo, meta_nao_atingida: f.meta_nao_atingida, percentual_min: f.percentual_min, percentual_max: f.percentual_max }))
     }, pctMetaGeral });
   } catch (e: any) {
-    return json({ error: String(e?.message || e), stack: e?.stack }, { status: 500 });
+    return toErrorResponse(e, 'Erro no diagnóstico de comissão.');
   }
 }

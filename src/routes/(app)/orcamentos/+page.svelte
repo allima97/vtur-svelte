@@ -373,14 +373,14 @@
 {/if}
 
 <div class="vtur-kpi-grid mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><FileText size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Total</p>
       <p class="text-2xl font-bold text-slate-900">{resumo.total}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-sky-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-500"><Send size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Enviados</p>
@@ -388,7 +388,7 @@
       <p class="mt-0.5 text-xs text-slate-400">Aguardando cliente</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><AlertCircle size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Sem interação</p>
@@ -396,7 +396,7 @@
       <p class="mt-0.5 text-xs text-slate-400">Prioridade máxima</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Convertidos</p>

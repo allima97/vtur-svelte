@@ -21,7 +21,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json({ status: "ok", message: "Cron alerta-comissao placeholder - implementar quando necessario" });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[cron/alerta-comissao] falha na execução", error);
+    return json({ error: "Erro interno ao executar rotina." }, { status: 500 });
   }
 };
 

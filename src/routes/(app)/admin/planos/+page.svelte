@@ -141,7 +141,7 @@
 />
 
 <div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <DollarSign size={20} />
     </div>
@@ -150,7 +150,7 @@
       <p class="text-2xl font-bold text-slate-900">{planos.length}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
       <DollarSign size={20} />
     </div>
@@ -159,7 +159,7 @@
       <p class="text-2xl font-bold text-slate-900">{planos.filter((p) => p.ativo).length}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
       <DollarSign size={20} />
     </div>

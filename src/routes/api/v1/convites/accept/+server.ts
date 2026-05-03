@@ -138,6 +138,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ ok: true });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[convites/accept] falha ao aceitar convite", error);
+    return json({ error: "Erro interno ao aceitar convite." }, { status: 500 });
   }
 };

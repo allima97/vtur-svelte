@@ -409,7 +409,7 @@
   columns={5}
   {loading}
 >
-  <div class="vtur-kpi-card border-t-[3px] border-t-cyan-500">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><TrendingUp size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{salesLabel}</p>
@@ -433,7 +433,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-emerald-500">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Wallet size={18} /></div>
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{countLabel}</p>
@@ -447,7 +447,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-violet-500">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><Target size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{metaLabel}</p>
@@ -470,7 +470,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-500">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600"><Users size={18} /></div>
     <div class="min-w-0 flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">{scopeLabel}</p>
@@ -484,7 +484,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Wallet size={18} /></div>
     <div class="min-w-0 w-full flex-1">
       <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>

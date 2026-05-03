@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { getAdminClient, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 
 function toNumber(value: unknown) {
   const parsed = Number(value || 0);
@@ -13,7 +13,7 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['dashboard'], 1, 'Sem acesso ao Dashboard.');
+      return json({ error: 'Sem acesso.' }, { status: 403 });
     }
 
     const companyId = String(event.url.searchParams.get('company_id') || '').trim();

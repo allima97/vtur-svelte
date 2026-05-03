@@ -403,7 +403,7 @@
   <div class="vtur-kpi-grid mb-6">
     <Button
       variant="unstyled"
-      class_name="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card text-left hover:shadow-lg transition-all duration-200"
       on:click={() => goto("/orcamentos")}
     >
       <div
@@ -421,7 +421,7 @@
 
     <Button
       variant="unstyled"
-      class_name="vtur-kpi-card border-t-[3px] border-t-blue-400 text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card text-left hover:shadow-lg transition-all duration-200"
       on:click={() => (showInteracaoModal = true)}
     >
       <div
@@ -439,7 +439,7 @@
 
     <Button
       variant="unstyled"
-      class_name="vtur-kpi-card border-t-[3px] border-t-amber-400 text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card text-left hover:shadow-lg transition-all duration-200"
       on:click={() => goto("/orcamentos")}
     >
       <div
@@ -457,7 +457,7 @@
 
     <Button
       variant="unstyled"
-      class_name="vtur-kpi-card border-t-[3px] border-t-green-400 text-left hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card text-left hover:shadow-lg transition-all duration-200"
       on:click={() =>
         podeCriarVenda
           ? goto(`/vendas/nova?orcamento=${orcamentoId}`)
@@ -590,7 +590,7 @@
   </div>
 
   <div class="vtur-kpi-grid mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="vtur-kpi-card">
       <div
         class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"
       >
@@ -603,7 +603,7 @@
         </p>
       </div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="vtur-kpi-card">
       <div
         class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"
       >
@@ -615,7 +615,7 @@
       </div>
     </div>
     <div
-      class="vtur-kpi-card border-t-[3px] {isExpirado
+      class="vtur-kpi-card {isExpirado
         ? 'border-t-amber-400'
         : 'border-t-blue-400'}"
     >
@@ -633,7 +633,7 @@
         </p>
       </div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="vtur-kpi-card">
       <div
         class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"
       >

@@ -94,6 +94,128 @@ function buildMfaSetupRedirectUrl(url: URL) {
 	return `/perfil?setup_2fa=1&next=${encodeURIComponent(nextPath)}`;
 }
 
+function isUnsafeHttpMethod(method: string) {
+	return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+}
+
+const PUBLIC_AUTH_MAX_BODY_BYTES = 32 * 1024;
+
+const CSP_REPORT_ONLY = [
+	"default-src 'self'",
+	"base-uri 'self'",
+	"object-src 'none'",
+	"frame-ancestors 'none'",
+	"img-src 'self' data: blob: https:",
+	"font-src 'self' data: https:",
+	"style-src 'self' 'unsafe-inline' https:",
+	"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+	"connect-src 'self' https: wss:",
+	"frame-src https://challenges.cloudflare.com",
+	"worker-src 'self' blob:",
+	"form-action 'self'"
+].join('; ');
+
+type RateLimitRule = {
+	prefix: string;
+	limit: number;
+	windowMs: number;
+	methods?: string[];
+};
+
+type RateLimitBucket = {
+	count: number;
+	resetAt: number;
+};
+
+const PUBLIC_API_RATE_LIMITS: RateLimitRule[] = [
+	{ prefix: '/api/auth/login', methods: ['POST'], limit: 8, windowMs: 60_000 },
+	{ prefix: '/api/auth/passkeys/login', methods: ['POST'], limit: 12, windowMs: 60_000 },
+	{ prefix: '/api/auth/set-session', methods: ['POST'], limit: 40, windowMs: 60_000 },
+	{ prefix: '/api/auth/turnstile/verify', methods: ['POST'], limit: 20, windowMs: 60_000 },
+	{ prefix: '/api/v1/cards', limit: 60, windowMs: 60_000 },
+	{ prefix: '/api/v1/client-error', methods: ['POST'], limit: 30, windowMs: 60_000 },
+	{ prefix: '/api/v1/cron/', limit: 30, windowMs: 60_000 }
+];
+
+const SYSTEM_ADMIN_BLOCKED_API_PREFIXES = [
+	'/api/v1/conciliacao',
+	'/api/v1/financeiro/ajustes-vendas',
+	'/api/v1/parametros/escalas'
+];
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+let lastRateLimitSweep = 0;
+
+function resolveClientAddress(event: Parameters<Handle>[0]['event']) {
+	const cloudflareIp = event.request.headers.get('cf-connecting-ip');
+	if (cloudflareIp) return cloudflareIp;
+
+	const forwardedFor = event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+	if (forwardedFor) return forwardedFor;
+
+	try {
+		return event.getClientAddress();
+	} catch {
+		return 'unknown';
+	}
+}
+
+function findPublicApiRateLimit(pathname: string, method: string) {
+	const normalizedMethod = method.toUpperCase();
+	return PUBLIC_API_RATE_LIMITS.find((rule) => {
+		if (!pathname.startsWith(rule.prefix)) return false;
+		return !rule.methods || rule.methods.includes(normalizedMethod);
+	});
+}
+
+function checkPublicApiRateLimit(event: Parameters<Handle>[0]['event'], rule: RateLimitRule) {
+	const now = Date.now();
+	if (now - lastRateLimitSweep > 60_000) {
+		for (const [key, bucket] of rateLimitBuckets.entries()) {
+			if (bucket.resetAt <= now) rateLimitBuckets.delete(key);
+		}
+		lastRateLimitSweep = now;
+	}
+
+	const key = `${rule.prefix}:${resolveClientAddress(event)}`;
+	const bucket = rateLimitBuckets.get(key);
+	if (!bucket || bucket.resetAt <= now) {
+		rateLimitBuckets.set(key, { count: 1, resetAt: now + rule.windowMs });
+		return null;
+	}
+
+	bucket.count += 1;
+	if (bucket.count <= rule.limit) return null;
+	return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+}
+
+async function isSystemAdminApiUser(event: Parameters<Handle>[0]['event'], userId: string) {
+	const { data, error } = await event.locals.supabase
+		.from('users')
+		.select('user_types(name)')
+		.eq('id', userId)
+		.maybeSingle();
+	if (error) return false;
+	return isSystemAdminRole(normalizeUserType(extractUserTypeName(data as any)));
+}
+
+function isRequestBodyTooLarge(event: Parameters<Handle>[0]['event'], limitBytes: number) {
+	const raw = event.request.headers.get('content-length');
+	if (!raw) return false;
+	const length = Number(raw);
+	return Number.isFinite(length) && length > limitBytes;
+}
+
+function isSameOriginMutation(event: Parameters<Handle>[0]['event']) {
+	const origin = event.request.headers.get('origin');
+	if (origin && origin !== event.url.origin) return false;
+
+	const fetchSite = event.request.headers.get('sec-fetch-site');
+	if (fetchSite && fetchSite.toLowerCase() === 'cross-site') return false;
+
+	return true;
+}
+
 const supabaseHook: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabaseServerClient({
 		get: (name) => event.cookies.get(name),
@@ -119,6 +241,26 @@ const supabaseHook: Handle = async ({ event, resolve }) => {
 			return name === 'content-range' || name === 'x-supabase-api-version';
 		}
 	});
+};
+
+const securityHeadersHook: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+
+	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	response.headers.set(
+		'Permissions-Policy',
+		'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)'
+	);
+	response.headers.set('Content-Security-Policy-Report-Only', CSP_REPORT_ONLY);
+
+	const forwardedProto = event.request.headers.get('x-forwarded-proto');
+	if (event.url.protocol === 'https:' || forwardedProto === 'https') {
+		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+	}
+
+	return response;
 };
 
 const authGuard: Handle = async ({ event, resolve }) => {
@@ -157,7 +299,6 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/assets',
 		'/public',
 		'/pdfs',
-		'/api/v1/cards',
 		'/calculadora'
 	];
 
@@ -169,6 +310,39 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	if (isApiRequest) {
 		const isApiPublic = apiPublicRoutes.some((route) => pathname.startsWith(route));
 		if (isApiPublic) {
+			const rateLimitRule = findPublicApiRateLimit(pathname, event.request.method);
+			const retryAfter = rateLimitRule ? checkPublicApiRateLimit(event, rateLimitRule) : null;
+			if (retryAfter) {
+				return new Response(JSON.stringify({ error: 'Muitas tentativas. Aguarde e tente novamente.' }), {
+					status: 429,
+					headers: {
+						'content-type': 'application/json; charset=utf-8',
+						'retry-after': String(retryAfter),
+						'cache-control': 'no-store'
+					}
+				});
+			}
+
+			if (
+				pathname.startsWith('/api/auth/') &&
+				isUnsafeHttpMethod(event.request.method) &&
+				!isSameOriginMutation(event)
+			) {
+				return new Response(JSON.stringify({ error: 'Origem da requisicao invalida.' }), {
+					status: 403,
+					headers: { 'content-type': 'application/json; charset=utf-8' }
+				});
+			}
+			if (
+				pathname.startsWith('/api/auth/') &&
+				isUnsafeHttpMethod(event.request.method) &&
+				isRequestBodyTooLarge(event, PUBLIC_AUTH_MAX_BODY_BYTES)
+			) {
+				return new Response(JSON.stringify({ error: 'Corpo da requisicao muito grande.' }), {
+					status: 413,
+					headers: { 'content-type': 'application/json; charset=utf-8' }
+				});
+			}
 			return resolve(event);
 		}
 
@@ -179,6 +353,16 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		if (!session || !user) {
 			return new Response(JSON.stringify({ error: 'Sessao invalida.' }), {
 				status: 401,
+				headers: { 'content-type': 'application/json; charset=utf-8' }
+			});
+		}
+
+		const isSystemAdminBlockedApi = SYSTEM_ADMIN_BLOCKED_API_PREFIXES.some((prefix) =>
+			pathname.startsWith(prefix)
+		);
+		if (isSystemAdminBlockedApi && (await isSystemAdminApiUser(event, user.id))) {
+			return new Response(JSON.stringify({ error: 'Sem acesso.' }), {
+				status: 403,
 				headers: { 'content-type': 'application/json; charset=utf-8' }
 			});
 		}
@@ -309,9 +493,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isSystemAdminAllowedRoute =
 			pathname.startsWith('/admin') ||
 			pathname.startsWith('/dashboard/admin') ||
-			pathname.startsWith('/financeiro/conciliacao') ||
-			pathname.startsWith('/financeiro/ajustes-vendas') ||
-			pathname.startsWith('/perfil') ||
+			(pathname.startsWith('/perfil') && !pathname.startsWith('/perfil/escala')) ||
 			pathname.startsWith('/negado') ||
 			pathname.startsWith('/documentacao');
 
@@ -464,4 +646,4 @@ const cacheControlHook: Handle = async ({ event, resolve }) => {
 	return response;
 };
 
-export const handle = sequence(supabaseHook, authGuard, cacheControlHook);
+export const handle = sequence(supabaseHook, securityHeadersHook, authGuard, cacheControlHook);

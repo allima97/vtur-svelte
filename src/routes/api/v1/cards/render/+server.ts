@@ -47,10 +47,11 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       },
     });
   } catch (e: any) {
+    console.error("[cards/render] falha ao renderizar cartão", e);
     return new Response(
       JSON.stringify({
         error: "card_render_error",
-        message: e?.message || "Erro ao renderizar cartão.",
+        message: "Erro ao renderizar cartão.",
       }),
       {
         status: 500,

@@ -286,8 +286,8 @@
   }
 
   .vtur-topbar__brand-image {
-    width: 2.6rem;
-    height: 2rem;
+    width: 3.64rem;
+    height: 2.8rem;
     object-fit: contain;
   }
 
@@ -1830,8 +1830,8 @@ thead.bg-slate-50 td {
   }
 
   .vtur-topbar__brand-image {
-    width: 2.15rem;
-    height: 1.6rem;
+    width: 3rem;
+    height: 2.25rem;
   }
 
   .vtur-topbar__actions {

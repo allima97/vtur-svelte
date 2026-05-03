@@ -2,6 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireAuthenticatedUser } from '$lib/server/v1';
 
+const MAX_ENDPOINT_LENGTH = 2048;
+const MAX_KEY_LENGTH = 512;
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = await requireAuthenticatedUser({ locals } as any);
@@ -16,6 +19,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (!endpoint || !p256dh || !auth) {
       return json({ error: "Subscription invalida." }, { status: 400 });
+    }
+    if (
+      String(endpoint).length > MAX_ENDPOINT_LENGTH ||
+      String(p256dh).length > MAX_KEY_LENGTH ||
+      String(auth).length > MAX_KEY_LENGTH
+    ) {
+      return json({ error: "Subscription muito grande." }, { status: 413 });
+    }
+    try {
+      const parsedEndpoint = new URL(String(endpoint));
+      if (parsedEndpoint.protocol !== "https:") {
+        return json({ error: "Endpoint invalido." }, { status: 400 });
+      }
+    } catch {
+      return json({ error: "Endpoint invalido." }, { status: 400 });
     }
 
     const payload = {
@@ -33,11 +51,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .upsert(payload as any, { onConflict: "endpoint" });
 
     if (error) {
-      return json({ error: `Erro ao salvar subscription: ${error.message}` }, { status: 500 });
+      console.error("[push/subscribe] falha ao salvar subscription", error);
+      return json({ error: "Erro ao salvar subscription." }, { status: 500 });
     }
 
     return json({ ok: true });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[push/subscribe] falha interna", error);
+    return json({ error: "Erro interno ao salvar subscription." }, { status: 500 });
   }
 };

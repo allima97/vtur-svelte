@@ -794,7 +794,7 @@
 
             {#if getFlightSegments(item).length > 0}
               <div class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <table class="min-w-full divide-y divide-slate-200 text-sm table-mobile-cards">
                   <thead class="bg-blue-50 text-xs font-semibold uppercase tracking-wide text-blue-900">
                     <tr>
                       <th class="px-3 py-2 text-left">Cia</th>

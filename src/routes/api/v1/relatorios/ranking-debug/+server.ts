@@ -27,11 +27,42 @@ import {
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 
+function canUseRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
+  return scope.isAdmin || scope.isMaster || scope.isGestor;
+}
+
+function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId: string | null | undefined) {
+  const normalizedCompanyId = String(companyId || '').trim();
+  if (scope.isAdmin) return true;
+  return Boolean(normalizedCompanyId && scope.companyIds.includes(normalizedCompanyId));
+}
+
+function resolveDebugCompanyIds(
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  requestedCompanyId?: string | null
+) {
+  const ids = resolveScopedCompanyIds(scope, requestedCompanyId);
+  if (!scope.isAdmin && ids.length === 0) return scope.companyIds;
+  return ids;
+}
+
+function applyCompanyScope<T extends { in: (column: string, values: string[]) => T }>(
+  query: T,
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  requestedCompanyId?: string | null
+) {
+  const companyIds = resolveDebugCompanyIds(scope, requestedCompanyId);
+  return companyIds.length > 0 ? query.in('company_id', companyIds) : query;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    if (!canUseRankingDebug(scope)) {
+      return json({ error: 'Sem acesso.' }, { status: 403 });
+    }
 
     // Modo contribuições canônicas do ranking/KPIs:
     // ?contribuicoes_mes=2026-04
@@ -41,7 +72,7 @@ export async function GET(event) {
       const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
       const inicio = `${ano}-${mes}-01`;
       const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
-      const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
+      const companyIds = resolveDebugCompanyIds(scope, event.url.searchParams.get('empresa_id'));
       let vendedorIds = parseUuidList(
         event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
       );
@@ -127,11 +158,13 @@ export async function GET(event) {
       const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
 
       // 1. Encontrar o(s) user(s) com esse nome
-      const { data: usersData } = await client
+      let usersQuery = client
         .from('users')
         .select('id, nome_completo')
         .ilike('nome_completo', `%${vendedorBusca}%`)
         .limit(5);
+      usersQuery = applyCompanyScope(usersQuery, scope, event.url.searchParams.get('empresa_id'));
+      const { data: usersData } = await usersQuery;
       const userIds = (usersData || []).map((u: any) => u.id);
       const userNomes: Record<string, string> = Object.fromEntries((usersData || []).map((u: any) => [u.id, u.nome_completo]));
 
@@ -250,12 +283,11 @@ export async function GET(event) {
     // Modo listagem de descrições distintas no banco: ?descricoes=1
     const listarDescricoes = event.url.searchParams.get('descricoes');
     if (listarDescricoes) {
-      const companyId = event.url.searchParams.get('empresa_id');
       let q = client
         .from('conciliacao_recibos')
         .select('descricao, status')
         .limit(2000);
-      if (companyId) q = q.eq('company_id', companyId);
+      q = applyCompanyScope(q, scope, event.url.searchParams.get('empresa_id'));
       const { data: descRows, error: descErr } = await q;
       if (descErr) throw descErr;
       // Agrupa por (descricao, status) com contagem
@@ -276,11 +308,13 @@ export async function GET(event) {
     // Modo busca de usuário: ?busca_usuario=Sandra
     const buscaUsuario = event.url.searchParams.get('busca_usuario');
     if (buscaUsuario) {
-      const { data: usuarios, error: userErr } = await client
+      let usuariosQuery = client
         .from('users')
         .select('id, nome_completo')
         .ilike('nome_completo', `%${buscaUsuario}%`)
         .limit(10);
+      usuariosQuery = applyCompanyScope(usuariosQuery, scope, event.url.searchParams.get('empresa_id'));
+      const { data: usuarios, error: userErr } = await usuariosQuery;
       if (userErr) throw userErr;
       return json({ usuarios: usuarios || [] });
     }
@@ -314,7 +348,7 @@ export async function GET(event) {
         .lte('movimento_data', fim)
         .neq('is_baixa_rac', true)
         .limit(5000);
-      if (empresaId) concQ = concQ.eq('company_id', empresaId);
+      concQ = applyCompanyScope(concQ, scope, empresaId);
       const { data: concRows, error: concErr } = await concQ;
       if (concErr) throw concErr;
 
@@ -460,11 +494,13 @@ export async function GET(event) {
       const fim2 = `${ano2}-${mes2}-${String(ultimoDia2).padStart(2, '0')}`;
 
       // Encontrar usuário
-      const { data: usersData2 } = await client
+      let usersQuery2 = client
         .from('users')
         .select('id, nome_completo')
         .ilike('nome_completo', `%${docsPorVendedor}%`)
         .limit(5);
+      usersQuery2 = applyCompanyScope(usersQuery2, scope, event.url.searchParams.get('empresa_id'));
+      const { data: usersData2 } = await usersQuery2;
       const userIds2 = (usersData2 || []).map((u: any) => u.id);
       if (userIds2.length === 0) return json({ erro: `Nenhum usuário encontrado com nome "${docsPorVendedor}"` });
 
@@ -542,11 +578,13 @@ export async function GET(event) {
     }
 
     // 1. Buscar linhas de conciliacao_recibos
-    const { data: concRows, error: concErr } = await client
+    let concRowsQuery = client
       .from('conciliacao_recibos')
       .select('id, documento, status, descricao, movimento_data, valor_lancamentos, valor_venda_real, venda_id, venda_recibo_id, ranking_vendedor_id, company_id')
       .in('documento', docVariants)
       .order('movimento_data', { ascending: true });
+    concRowsQuery = applyCompanyScope(concRowsQuery, scope, event.url.searchParams.get('empresa_id'));
+    const { data: concRows, error: concErr } = await concRowsQuery;
     if (concErr) throw concErr;
 
     // 2. Resolver nomes dos vendedores atribuídos
@@ -586,7 +624,11 @@ export async function GET(event) {
 export async function POST(event) {
   try {
     const client = getAdminClient();
-    await requireAuthenticatedUser(event);
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+    if (!canUseRankingDebug(scope)) {
+      return json({ error: 'Sem acesso.' }, { status: 403 });
+    }
 
     const body = await event.request.json();
     const { action, id } = body;
@@ -595,17 +637,24 @@ export async function POST(event) {
       return json({ error: 'id é obrigatório' }, { status: 400 });
     }
 
+    const { data: registroRec, error: registroError } = await client
+      .from('conciliacao_recibos')
+      .select('company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (registroError) throw registroError;
+    if (!registroRec) return json({ error: 'Registro não encontrado.' }, { status: 404 });
+
+    const companyIdRec = String(registroRec?.company_id || '').trim() || null;
+    if (!canAccessCompany(scope, companyIdRec)) {
+      return json({ error: 'Sem acesso à empresa do recibo.' }, { status: 403 });
+    }
+
     if (action === 'fix_vendor') {
       const { vendedor_id } = body;
       if (!vendedor_id) return json({ error: 'vendedor_id é obrigatório' }, { status: 400 });
 
       // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
-      const { data: registroRec } = await client
-        .from('conciliacao_recibos')
-        .select('company_id')
-        .eq('id', id)
-        .maybeSingle();
-      const companyIdRec = String(registroRec?.company_id || '').trim() || null;
       const equipeVturVendedor = await findEquipeVturVendedor(client, companyIdRec);
       if (equipeVturVendedor?.id && vendedor_id === equipeVturVendedor.id) {
         return json({ error: 'Não é permitido atribuir "Equipe vtur" como vendedor de um recibo.' }, { status: 422 });

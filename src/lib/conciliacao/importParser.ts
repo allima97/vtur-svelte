@@ -1,4 +1,12 @@
+import { strFromU8, unzipSync } from 'fflate';
 import type { ConciliacaoLinhaInput } from '../../routes/api/v1/conciliacao/_types';
+
+const MAX_IMPORT_FILE_BYTES = 8 * 1024 * 1024;
+const MAX_EXCEL_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_SPREADSHEET_SHEETS = 8;
+const MAX_SPREADSHEET_ROWS = 6000;
+const MAX_SPREADSHEET_COLUMNS = 80;
+const MAX_SPREADSHEET_CELL_CHARS = 500;
 
 const HEADER_ALIASES: Record<string, keyof ConciliacaoLinhaInput> = {
   documento: 'documento',
@@ -48,6 +56,11 @@ type ParsedImportFileResult = ParsedImportResult & {
   movimentoData: string | null;
 };
 
+type XlsxSheet = {
+  name: string;
+  rows: unknown[][];
+};
+
 function normalizeHeader(value: string) {
   return String(value || '')
     .trim()
@@ -74,35 +87,6 @@ function parseMoney(value: unknown): number | null {
 
   const parsed = Number(cleaned);
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseLegacyXlsNumber(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? parseLegacyXlsNumber(String(value)) : null;
-  }
-
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-
-  if (raw.includes(',') || /[A-Za-z]/.test(raw)) {
-    return parseMoney(raw);
-  }
-
-  const sign = raw.startsWith('-') ? -1 : 1;
-  const unsigned = raw.replace(/^-/, '');
-  const parts = unsigned.split('.');
-  const digits = parts.join('');
-  if (!digits || /\D/.test(digits)) return parseMoney(raw);
-
-  let scaledDigits = digits;
-  if (parts.length > 1) {
-    const fracLength = parts[parts.length - 1]?.length ?? 0;
-    if (fracLength === 4) scaledDigits = `${digits}0`;
-  }
-
-  const parsed = Number(scaledDigits);
-  if (!Number.isFinite(parsed)) return null;
-  return (sign * parsed) / 100;
 }
 
 function decodeHtmlEntities(value: string) {
@@ -133,14 +117,195 @@ function extractHtmlTableRows(text: string) {
   const rows: string[][] = [];
   const rowMatches = String(text || '').matchAll(/<tr\b[\s\S]*?<\/tr>/gi);
   for (const rowMatch of rowMatches) {
+    if (rows.length >= MAX_SPREADSHEET_ROWS) {
+      throw new Error(`Planilha muito extensa. Limite máximo: ${MAX_SPREADSHEET_ROWS} linhas.`);
+    }
     const rowHtml = rowMatch[0];
     const cells = Array.from(rowHtml.matchAll(/<t[dh]\b[\s\S]*?<\/t[dh]>/gi)).map((cellMatch) =>
       htmlCellText(cellMatch[0])
-    );
+    ).slice(0, MAX_SPREADSHEET_COLUMNS).map((cell) => cell.slice(0, MAX_SPREADSHEET_CELL_CHARS));
     if (cells.some((cell) => cell.trim())) rows.push(cells);
   }
 
   return rows;
+}
+
+function normalizeSpreadsheetRows(rows: unknown[][], context = 'planilha') {
+  if (rows.length > MAX_SPREADSHEET_ROWS) {
+    throw new Error(`${context} muito extensa. Limite máximo: ${MAX_SPREADSHEET_ROWS} linhas.`);
+  }
+
+  return rows.map((row) =>
+    (Array.isArray(row) ? row : [])
+      .slice(0, MAX_SPREADSHEET_COLUMNS)
+      .map((cell) =>
+        typeof cell === 'string'
+          ? cell.slice(0, MAX_SPREADSHEET_CELL_CHARS)
+          : cell
+      )
+  );
+}
+
+function parseXmlAttributes(value: string) {
+  const attrs: Record<string, string> = {};
+  for (const match of String(value || '').matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)) {
+    attrs[match[1]] = decodeHtmlEntities(match[2]);
+  }
+  return attrs;
+}
+
+function extractXmlTextTags(value: string) {
+  return Array.from(String(value || '').matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g))
+    .map((match) => decodeHtmlEntities(match[1]))
+    .join('');
+}
+
+function parseSharedStrings(xml: string) {
+  return Array.from(String(xml || '').matchAll(/<si\b[\s\S]*?<\/si>/g)).map((match) =>
+    extractXmlTextTags(match[0]).slice(0, MAX_SPREADSHEET_CELL_CHARS)
+  );
+}
+
+function resolveZipPath(baseDir: string, target: string) {
+  const rawTarget = String(target || '').trim();
+  const raw = rawTarget.startsWith('/') ? rawTarget.slice(1) : `${baseDir}/${rawTarget}`;
+  const parts: string[] = [];
+  raw.split('/').forEach((part) => {
+    if (!part || part === '.') return;
+    if (part === '..') {
+      parts.pop();
+      return;
+    }
+    parts.push(part);
+  });
+  return parts.join('/');
+}
+
+function parseWorkbookSheetTargets(workbookXml: string, relsXml: string) {
+  const rels = new Map<string, string>();
+  for (const relMatch of String(relsXml || '').matchAll(/<Relationship\b([^>]*)\/?>/g)) {
+    const attrs = parseXmlAttributes(relMatch[1]);
+    if (attrs.Id && attrs.Target) {
+      rels.set(attrs.Id, resolveZipPath('xl', attrs.Target));
+    }
+  }
+
+  return Array.from(String(workbookXml || '').matchAll(/<sheet\b([^>]*)\/?>/g))
+    .slice(0, MAX_SPREADSHEET_SHEETS)
+    .map((sheetMatch, index) => {
+      const attrs = parseXmlAttributes(sheetMatch[1]);
+      return {
+        name: attrs.name || `Planilha ${index + 1}`,
+        path: rels.get(attrs['r:id']) || `xl/worksheets/sheet${index + 1}.xml`
+      };
+    });
+}
+
+function columnNameToIndex(name: string) {
+  let index = 0;
+  for (const char of String(name || '').toUpperCase()) {
+    const code = char.charCodeAt(0);
+    if (code < 65 || code > 90) continue;
+    index = index * 26 + (code - 64);
+  }
+  return Math.max(0, index - 1);
+}
+
+function parseXlsxCellValue(cellBody: string, type: string, sharedStrings: string[]) {
+  if (type === 'inlineStr') {
+    return extractXmlTextTags(cellBody).slice(0, MAX_SPREADSHEET_CELL_CHARS);
+  }
+
+  const value = decodeHtmlEntities(String(cellBody || '').match(/<v\b[^>]*>([\s\S]*?)<\/v>/)?.[1] || '');
+  if (type === 's') {
+    const index = Number(value);
+    return Number.isInteger(index) ? sharedStrings[index] || '' : '';
+  }
+  if (type === 'str') return value.slice(0, MAX_SPREADSHEET_CELL_CHARS);
+  if (type === 'b') return value === '1';
+
+  const numeric = Number(value);
+  if (value !== '' && Number.isFinite(numeric)) return numeric;
+  return value.slice(0, MAX_SPREADSHEET_CELL_CHARS);
+}
+
+function parseXlsxSheetRows(xml: string, sharedStrings: string[]) {
+  const rows: unknown[][] = [];
+  for (const rowMatch of String(xml || '').matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    if (rows.length >= MAX_SPREADSHEET_ROWS) {
+      throw new Error(`Planilha muito extensa. Limite máximo: ${MAX_SPREADSHEET_ROWS} linhas.`);
+    }
+
+    const cells: unknown[] = [];
+    let nextIndex = 0;
+    for (const cellMatch of rowMatch[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const attrs = parseXmlAttributes(cellMatch[1]);
+      const ref = String(attrs.r || '');
+      const colLetters = ref.match(/[A-Z]+/i)?.[0] || '';
+      const colIndex = colLetters ? columnNameToIndex(colLetters) : nextIndex;
+      nextIndex = colIndex + 1;
+      if (colIndex >= MAX_SPREADSHEET_COLUMNS) continue;
+      cells[colIndex] = parseXlsxCellValue(cellMatch[2] || '', attrs.t || '', sharedStrings);
+    }
+
+    rows.push(cells);
+  }
+  return normalizeSpreadsheetRows(rows, 'Planilha XLSX');
+}
+
+function rowsToDelimitedText(rows: unknown[][]) {
+  return rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const value = String(cell ?? '');
+          const escaped = value.replace(/"/g, '""');
+          return /[;"\n\r]/.test(value) ? `"${escaped}"` : value;
+        })
+        .join(';')
+    )
+    .join('\n');
+}
+
+async function readXlsxWorkbook(file: File) {
+  const buffer = await file.arrayBuffer();
+  const zip = unzipSync(new Uint8Array(buffer), {
+    filter(fileInfo) {
+      const name = fileInfo.name.replace(/^\/+/, '');
+      const isAllowed =
+        name === 'xl/workbook.xml' ||
+        name === 'xl/_rels/workbook.xml.rels' ||
+        name === 'xl/sharedStrings.xml' ||
+        name.startsWith('xl/worksheets/');
+      return isAllowed && fileInfo.originalSize <= 5 * 1024 * 1024;
+    }
+  });
+
+  const entryText = (name: string) => {
+    const entry = zip[name];
+    return entry ? strFromU8(entry) : '';
+  };
+
+  const workbookXml = entryText('xl/workbook.xml');
+  if (!workbookXml) throw new Error('Planilha XLSX inválida: workbook ausente.');
+
+  const sheetTargets = parseWorkbookSheetTargets(workbookXml, entryText('xl/_rels/workbook.xml.rels'));
+  if (sheetTargets.length > MAX_SPREADSHEET_SHEETS) {
+    throw new Error(`Planilha com abas demais. Limite máximo: ${MAX_SPREADSHEET_SHEETS} abas.`);
+  }
+
+  const sharedStrings = parseSharedStrings(entryText('xl/sharedStrings.xml'));
+  const sheets: XlsxSheet[] = sheetTargets
+    .map((sheet) => {
+      const sheetXml = entryText(sheet.path);
+      return {
+        name: sheet.name,
+        rows: sheetXml ? parseXlsxSheetRows(sheetXml, sharedStrings) : []
+      };
+    })
+    .filter((sheet) => sheet.rows.length > 0);
+
+  return { sheets };
 }
 
 function parseDate(value: unknown, fallbackDate?: string | null) {
@@ -409,20 +574,11 @@ async function parseConciliacaoXlsLayout(
   file: File,
   fallbackDate?: string | null
 ): Promise<ParsedImportFileResult> {
-  const module = await import('xlsx');
-  const XLSX = (module as any).default ?? module;
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const isLegacyXls = /\.xls$/i.test(file.name) && !/\.xlsx$/i.test(file.name);
+  const workbook = await readXlsxWorkbook(file);
 
-  const sheets = (workbook.SheetNames || [])
-    .map((sheetName: string) => {
-      const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(worksheet, {
-        header: 1,
-        defval: '',
-        raw: !isLegacyXls
-      }) as unknown[][];
+  const sheets = workbook.sheets
+    .map((sheet) => {
+      const rows = normalizeSpreadsheetRows(sheet.rows, `Aba ${sheet.name}`);
       const headerIndex = rows.findIndex((row) =>
         row.some((cell) => normalizeHeader(String(cell || '')).includes('documento'))
       );
@@ -478,8 +634,6 @@ async function parseConciliacaoXlsLayout(
   const cOpfax = colIndex(['opfax'], 11);
   const cSaldo = colIndex(['saldo'], 12);
 
-  const parseSheetNumber = (value: unknown) => (isLegacyXls ? parseLegacyXlsNumber(value) : parseMoney(value));
-
   let ignored = 0;
   const linhas: ConciliacaoLinhaInput[] = [];
 
@@ -493,7 +647,7 @@ async function parseConciliacaoXlsLayout(
       continue;
     }
 
-    const pick = (index: number) => (index >= 0 ? parseSheetNumber(row[index]) : null);
+    const pick = (index: number) => (index >= 0 ? parseMoney(row[index]) : null);
 
     linhas.push({
       documento,
@@ -597,11 +751,25 @@ export async function parseConciliacaoImportFile(
   file: File,
   fallbackDate?: string | null
 ): Promise<ParsedImportFileResult> {
+  if (file.size > MAX_IMPORT_FILE_BYTES) {
+    throw new Error('Arquivo muito grande para importação. Limite máximo: 8 MB.');
+  }
+
   const fileName = String(file.name || '').toLowerCase();
-  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.xlxs');
+  if (fileName.endsWith('.xlxs')) {
+    throw new Error('Extensão de planilha inválida. Use .xlsx, .txt ou .csv.');
+  }
+
+  const isXlsx = fileName.endsWith('.xlsx');
+  const isLegacyXls = fileName.endsWith('.xls') && !isXlsx;
+  const isExcel = isXlsx || isLegacyXls;
 
   if (isExcel) {
-    if (fileName.endsWith('.xls') && !fileName.endsWith('.xlsx')) {
+    if (file.size > MAX_EXCEL_FILE_BYTES) {
+      throw new Error('Planilha muito grande para importação. Limite máximo: 4 MB.');
+    }
+
+    if (isLegacyXls) {
       const buffer = await file.arrayBuffer();
       const utf8Text = new TextDecoder('utf-8').decode(buffer);
       const latin1Text = new TextDecoder('iso-8859-1').decode(buffer);
@@ -611,22 +779,20 @@ export async function parseConciliacaoImportFile(
 
       const parsedHtml = htmlCandidates.sort((a, b) => b.linhas.length - a.linhas.length)[0];
       if (parsedHtml?.linhas.length) return parsedHtml;
+
+      throw new Error('Arquivos .xls binários não são aceitos. Exporte como .xlsx, .txt ou CSV antes de importar.');
     }
 
     const parsedXls = await parseConciliacaoXlsLayout(file, fallbackDate);
     if (parsedXls.linhas.length > 0) return parsedXls;
 
-    const module = await import('xlsx');
-    const XLSX = (module as any).default ?? module;
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) {
+    const workbook = await readXlsxWorkbook(file);
+    const firstSheet = workbook.sheets[0];
+    if (!firstSheet) {
       return { linhas: [], ignored: 0, text: '', movimentoData: fallbackDate || null };
     }
 
-    const sheet = workbook.Sheets[firstSheetName];
-    const text = XLSX.utils.sheet_to_csv(sheet, { FS: ';', blankrows: false });
+    const text = rowsToDelimitedText(firstSheet.rows);
     const parsed = parseConciliacaoImportText(text, fallbackDate);
     return {
       ...parsed,

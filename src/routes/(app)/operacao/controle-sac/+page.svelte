@@ -234,7 +234,7 @@
 />
 
 <div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <AlertCircle size={20} />
     </div>
@@ -243,7 +243,7 @@
       <p class="text-2xl font-bold text-slate-900">{abertos}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <Clock size={20} />
     </div>
@@ -252,7 +252,7 @@
       <p class="text-2xl font-bold text-slate-900">{emAndamento}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <CheckCircle size={20} />
     </div>

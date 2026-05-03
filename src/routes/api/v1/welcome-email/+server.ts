@@ -265,6 +265,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ error: "Nenhum provedor de e-mail configurado." }, { status: 500 });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[welcome-email] falha ao enviar boas-vindas", error);
+    return json({ error: "Erro interno ao enviar e-mail de boas-vindas." }, { status: 500 });
   }
 };

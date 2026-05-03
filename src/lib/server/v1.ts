@@ -63,6 +63,12 @@ type HttpErrorLike = {
   };
 };
 
+function isProductionRuntime() {
+  return [publicEnv.PUBLIC_ENVIRONMENT, privateEnv.VTUR_ENV, privateEnv.NODE_ENV].some(
+    (value) => String(value || "").trim().toLowerCase() === "production",
+  );
+}
+
 type UsersProfileRow = {
   id: string;
   company_id: string | null;
@@ -682,6 +688,10 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
 
   console.error(fallbackMessage, err);
 
+  if (isProductionRuntime()) {
+    return json({ error: fallbackMessage }, { status: 500 });
+  }
+
   const errDetails =
     err && typeof err === "object"
       ? {
@@ -689,10 +699,6 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
           code: String((err as any).code || ""),
           details: String((err as any).details || ""),
           hint: String((err as any).hint || ""),
-          stack:
-            typeof (err as any).stack === "string"
-              ? (err as any).stack
-              : undefined,
         }
       : { message: fallbackMessage };
 

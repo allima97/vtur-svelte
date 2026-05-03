@@ -158,21 +158,21 @@
 />
 
 <div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Building2 size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Empresas ativas</p>
       <p class="text-2xl font-bold text-slate-900">{ativas}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Building2 size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">Atrasadas</p>
       <p class="text-2xl font-bold text-slate-900">{atrasadas}</p>
     </div>
   </div>
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">MRR (ativas)</p>

@@ -69,7 +69,7 @@ export async function PATCH(event) {
 
     if (error) {
       console.error('[Cidades API] Erro ao atualizar:', error);
-      return json({ error: 'Erro ao atualizar cidade', details: error.message }, { status: 500 });
+      return json({ error: 'Erro ao atualizar cidade.' }, { status: 500 });
     }
 
     return json({ success: true, data });
@@ -97,7 +97,7 @@ export async function DELETE(event) {
 
     if (error) {
       console.error('[Cidades API] Erro ao excluir:', error);
-      return json({ error: 'Erro ao excluir cidade', details: error.message }, { status: 500 });
+      return json({ error: 'Erro ao excluir cidade.' }, { status: 500 });
     }
 
     return json({ success: true });

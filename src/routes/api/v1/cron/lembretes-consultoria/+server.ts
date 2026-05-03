@@ -21,6 +21,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     return json({ status: "ok", message: "Cron lembretes-consultoria placeholder - implementar quando necessario" });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[cron/lembretes-consultoria] falha na execução", error);
+    return json({ error: "Erro interno ao executar rotina." }, { status: 500 });
   }
 };

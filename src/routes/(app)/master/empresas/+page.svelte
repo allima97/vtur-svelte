@@ -123,19 +123,19 @@
 
 <div class="space-y-6">
   <div class="vtur-kpi-grid mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Building2 size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Total</p><p class="text-2xl font-bold text-slate-900">{stats.total}</p></div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><CheckCircle size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Ativas</p><p class="text-2xl font-bold text-slate-900">{stats.ativas}</p></div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><CreditCard size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Billing ativo</p><p class="text-2xl font-bold text-slate-900">{stats.billingAtivo}</p></div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-violet-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Network size={20} /></div>
       <div><p class="text-sm font-medium text-slate-500">Vínculos master</p><p class="text-2xl font-bold text-slate-900">{stats.masters}</p></div>
     </div>

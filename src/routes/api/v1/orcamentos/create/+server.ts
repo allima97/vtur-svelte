@@ -24,6 +24,22 @@ export async function POST(event) {
       return json({ error: 'Cliente valido e obrigatorio.' }, { status: 400 });
     }
 
+    const { data: cliente, error: clienteError } = await client
+      .from('clientes')
+      .select('id, company_id')
+      .eq('id', body.client_id)
+      .maybeSingle();
+    if (clienteError) throw clienteError;
+    if (!cliente?.id) {
+      return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+    }
+    if (!scope.isAdmin) {
+      const clienteCompanyId = String((cliente as any).company_id || '').trim();
+      if (clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+        return json({ error: 'Cliente fora do seu escopo.' }, { status: 403 });
+      }
+    }
+
     if (!body.itens || !Array.isArray(body.itens) || body.itens.length === 0) {
       return json({ error: 'Adicione pelo menos um item.' }, { status: 400 });
     }
@@ -52,7 +68,7 @@ export async function POST(event) {
 
     if (quoteError) {
       console.error('Erro ao criar quote:', quoteError);
-      return json({ error: 'Erro ao criar orcamento.', details: quoteError.message }, { status: 500 });
+      return json({ error: 'Erro ao criar orcamento.' }, { status: 500 });
     }
 
     const itensParaInserir = body.itens.map((item: any, index: number) => ({
@@ -75,7 +91,7 @@ export async function POST(event) {
       // Desfaz o orcamento para nao deixar registro sem itens
       await client.from('quote').delete().eq('id', quote.id);
       console.error('Erro ao criar itens do quote:', itemsError);
-      return json({ error: 'Erro ao salvar itens do orcamento.', details: itemsError.message }, { status: 500 });
+      return json({ error: 'Erro ao salvar itens do orcamento.' }, { status: 500 });
     }
 
     return json(

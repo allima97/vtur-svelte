@@ -170,7 +170,7 @@
 
 <!-- Resumo -->
 <div class="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-5">
-  <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
       <Ticket size={20} />
     </div>
@@ -180,7 +180,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
       <Ticket size={20} />
     </div>
@@ -192,7 +192,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
       <Ticket size={20} />
     </div>
@@ -204,7 +204,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-emerald-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
       <Ticket size={20} />
     </div>
@@ -216,7 +216,7 @@
     </div>
   </div>
 
-  <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+  <div class="vtur-kpi-card">
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500">
       <FileText size={20} />
     </div>

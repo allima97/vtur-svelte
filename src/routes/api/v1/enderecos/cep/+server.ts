@@ -19,11 +19,15 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
   }
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4_000);
     const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
+      signal: controller.signal,
       headers: {
         accept: 'application/json'
       }
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       return json({ error: 'CEP indisponivel.' }, { status: 502 });

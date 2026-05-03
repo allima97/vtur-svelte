@@ -1,4 +1,5 @@
-import { env } from '$env/dynamic/private';
+import { env as privateEnv } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 
 type TurnstileVerifyResponse = {
   success?: boolean;
@@ -10,15 +11,28 @@ type TurnstileVerifyResponse = {
 };
 
 export function isTurnstileServerConfigured() {
-  return Boolean(String(env.TURNSTILE_SECRET_KEY || '').trim());
+  return Boolean(String(privateEnv.TURNSTILE_SECRET_KEY || '').trim());
+}
+
+function isProductionRuntime() {
+  return [publicEnv.PUBLIC_ENVIRONMENT, privateEnv.VTUR_ENV, privateEnv.NODE_ENV]
+    .some((value) => String(value || '').trim().toLowerCase() === 'production');
 }
 
 export async function verifyTurnstileToken(
   token: string | null | undefined,
   remoteIp?: string | null
 ): Promise<{ ok: true; skipped?: boolean } | { ok: false; message: string; codes?: string[] }> {
-  const secret = String(env.TURNSTILE_SECRET_KEY || '').trim();
-  if (!secret) return { ok: true, skipped: true };
+  const secret = String(privateEnv.TURNSTILE_SECRET_KEY || '').trim();
+  if (!secret) {
+    if (isProductionRuntime()) {
+      return {
+        ok: false,
+        message: 'Desafio de segurança indisponível. Configure o Turnstile no ambiente de produção.'
+      };
+    }
+    return { ok: true, skipped: true };
+  }
 
   const response = String(token || '').trim();
   if (!response) {

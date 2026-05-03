@@ -11,9 +11,9 @@ import {
 
 // quote nao tem company_id — scoping usa created_by (FK auth.users)
 function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
-  if (scope.isAdmin || scope.isMaster) return query;
-  if (scope.isGestor && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
-  if (scope.isGestor) return query; // gestor ve todos da sua empresa (sem filtro de company em quote)
+  if (scope.isAdmin) return query;
+  if ((scope.isMaster || scope.isGestor) && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
+  if (scope.isMaster || scope.isGestor) return query.eq('created_by', user.id);
   return query.eq('created_by', user.id); // vendedor ve apenas os seus
 }
 
@@ -115,7 +115,26 @@ export async function PATCH(event) {
     if (body.status_negociacao !== undefined) updateData.status_negociacao = body.status_negociacao;
     if (body.total !== undefined) updateData.total = body.total;
     if (body.currency !== undefined) updateData.currency = body.currency;
-    if (body.client_id !== undefined) updateData.client_id = body.client_id;
+    if (body.client_id !== undefined) {
+      const nextClientId = String(body.client_id || '').trim();
+      if (nextClientId && !isUuid(nextClientId)) {
+        return json({ error: 'Cliente invalido.' }, { status: 400 });
+      }
+      if (nextClientId) {
+        const { data: cliente, error: clienteErr } = await client
+          .from('clientes')
+          .select('id, company_id')
+          .eq('id', nextClientId)
+          .maybeSingle();
+        if (clienteErr) throw clienteErr;
+        if (!cliente?.id) return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+          return json({ error: 'Cliente fora do seu escopo.' }, { status: 403 });
+        }
+      }
+      updateData.client_id = nextClientId || null;
+    }
     if (body.data_embarque !== undefined) updateData.data_embarque = body.data_embarque;
     if (body.data_final !== undefined) updateData.data_final = body.data_final;
 

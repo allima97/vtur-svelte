@@ -11,7 +11,10 @@ function mask(value?: string) {
 
 export async function GET(event) {
   const environment = String(publicEnv.PUBLIC_ENVIRONMENT || '').toLowerCase();
-  if (environment === 'production') {
+  const hostname = event.url.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  const isAllowedDebugEnv = ['development', 'local', 'test'].includes(environment) || isLocalhost;
+  if (!isAllowedDebugEnv) {
     return json({ error: 'Not found' }, { status: 404 });
   }
 

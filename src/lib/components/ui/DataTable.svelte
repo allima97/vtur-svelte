@@ -297,6 +297,89 @@
     return /<[^>]+>/.test(value);
   }
 
+  const allowedHtmlTags = new Set([
+    "span",
+    "div",
+    "p",
+    "strong",
+    "em",
+    "small",
+    "br",
+    "svg",
+    "path",
+    "circle",
+    "rect",
+    "line",
+    "polyline",
+    "polygon",
+  ]);
+  const allowedHtmlAttrs = new Set([
+    "aria-label",
+    "class",
+    "d",
+    "fill",
+    "height",
+    "role",
+    "stroke",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-width",
+    "title",
+    "viewbox",
+    "width",
+  ]);
+
+  function escapeHtmlAttribute(value: string) {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function sanitizeHtmlAttribute(name: string, value: string) {
+    const normalizedName = name.toLowerCase();
+    if (normalizedName.startsWith("on")) return "";
+    if (!allowedHtmlAttrs.has(normalizedName)) return "";
+
+    const normalizedValue = String(value || "");
+    if (/javascript:|data:text\/html|vbscript:/i.test(normalizedValue)) return "";
+
+    if (normalizedName === "class") {
+      const safeClass = normalizedValue.replace(/[^a-zA-Z0-9_:\-./\s[\]()#%]/g, "");
+      return safeClass ? ` class="${escapeHtmlAttribute(safeClass)}"` : "";
+    }
+
+    return ` ${normalizedName}="${escapeHtmlAttribute(normalizedValue)}"`;
+  }
+
+  function sanitizeHtmlContent(value: string) {
+    const withoutDangerousBlocks = String(value || "")
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta|base)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta|base)\b[^>]*\/?>/gi, "");
+
+    return withoutDangerousBlocks.replace(
+      /<\/?([a-zA-Z0-9:-]+)([^>]*)>/g,
+      (match, rawTagName, rawAttrs) => {
+        const tagName = String(rawTagName || "").toLowerCase();
+        if (!allowedHtmlTags.has(tagName)) return "";
+        if (match.startsWith("</")) return `</${tagName}>`;
+        if (tagName === "br") return "<br>";
+
+        const attrs = String(rawAttrs || "").replace(
+          /([^\s=/"'>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>`]+)))?/g,
+          (_attrMatch, rawName, doubleValue, singleValue, bareValue) =>
+            sanitizeHtmlAttribute(
+              String(rawName || ""),
+              String(doubleValue ?? singleValue ?? bareValue ?? ""),
+            ),
+        );
+
+        return `<${tagName}${attrs}>`;
+      },
+    );
+  }
+
   $: pageSizeValue = String(currentPageSize);
   $: skeletonRowCount = Math.max(4, Math.min(Number(currentPageSize) || 6, 8));
   $: tableColumnCount =
@@ -513,7 +596,7 @@
                     {:else}
                       {@const cellValue = getCellValue(row, column)}
                       {#if isHtmlContent(cellValue)}
-                        {@html cellValue}
+                        {@html sanitizeHtmlContent(cellValue)}
                       {:else}
                         {cellValue}
                       {/if}

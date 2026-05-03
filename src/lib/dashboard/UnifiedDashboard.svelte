@@ -777,7 +777,7 @@
   >
     {#each activeKpiOrder as kpiId}
       {#if kpiId === 'vendas_periodo'}
-        <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+        <div class="vtur-kpi-card">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><TrendingUp size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Vendas no período</p>
@@ -787,7 +787,7 @@
           </div>
         </div>
       {:else if kpiId === 'qtd_vendas'}
-        <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+        <div class="vtur-kpi-card">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-500"><ShoppingCart size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Qtd. vendas</p>
@@ -797,7 +797,7 @@
           </div>
         </div>
       {:else if kpiId === 'meta_mes'}
-        <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+        <div class="vtur-kpi-card">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-500"><Target size={18} /></div>
           <div class="min-w-0 w-full flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Meta do mês</p>
@@ -815,7 +815,7 @@
           </div>
         </div>
       {:else if kpiId === 'dias_mes'}
-        <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+        <div class="vtur-kpi-card">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={18} /></div>
           <div class="min-w-0 flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Dias no mês</p>
@@ -828,7 +828,7 @@
           </div>
         </div>
       {:else if kpiId === 'seguro_viagem' && (loading || vendasAgg.totalSeguro > 0)}
-        <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+        <div class="vtur-kpi-card">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-500"><Award size={18} /></div>
           <div class="min-w-0 w-full flex-1">
             <p class="text-xs font-medium text-slate-500 sm:text-sm">Seguro viagem</p>

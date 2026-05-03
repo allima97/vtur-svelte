@@ -13,6 +13,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (!endpoint) {
       return json({ error: "Endpoint invalido." }, { status: 400 });
     }
+    if (String(endpoint).length > 2048) {
+      return json({ error: "Endpoint muito grande." }, { status: 413 });
+    }
 
     const { error } = await client
       .from("push_subscriptions")
@@ -21,11 +24,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .eq("user_id", user.id);
 
     if (error) {
-      return json({ error: `Erro ao desativar subscription: ${error.message}` }, { status: 500 });
+      console.error("[push/unsubscribe] falha ao desativar subscription", error);
+      return json({ error: "Erro ao desativar subscription." }, { status: 500 });
     }
 
     return json({ ok: true });
   } catch (error: any) {
-    return json({ error: `Erro interno: ${error?.message ?? error}` }, { status: 500 });
+    console.error("[push/unsubscribe] falha interna", error);
+    return json({ error: "Erro interno ao desativar subscription." }, { status: 500 });
   }
 };

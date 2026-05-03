@@ -4,6 +4,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
@@ -181,25 +182,33 @@
     return `${label} (${unique.length} faixas)`;
   }
 
-  function getStatusBadge(status: string) {
+  function getStatusBadge(status: string): { label: string; color: 'green' | 'red' | 'blue' | 'yellow' } {
     const key = (status || '').toLowerCase();
-    const cls =
+    const color =
       key === 'pago'
-        ? 'bg-green-100 text-green-700'
+        ? 'green'
         : key === 'cancelada'
-          ? 'bg-red-100 text-red-700'
+          ? 'red'
           : key === 'processando'
-            ? 'bg-blue-100 text-blue-700'
-            : 'bg-amber-100 text-amber-700';
+            ? 'blue'
+            : 'yellow';
     const label =
       key === 'pago'
         ? 'Pago'
         : key === 'cancelada'
           ? 'Cancelada'
           : key === 'processando'
-            ? 'Processando'
-            : 'Pendente';
-    return `<span class=\"inline-flex px-2 py-1 text-xs font-medium rounded-full ${cls}\">${label}</span>`;
+          ? 'Processando'
+          : 'Pendente';
+    return { label, color };
+  }
+
+  function getStatusLabel(status: string) {
+    return getStatusBadge(status).label;
+  }
+
+  function getStatusColor(status: string) {
+    return getStatusBadge(status).color;
   }
 
   const columns = [
@@ -213,7 +222,7 @@
     { key: 'percentual_aplicado', label: '%', sortable: true, width: '80px', align: 'center' as const, formatter: (value: number) => `${Number(value || 0).toFixed(2)}%` },
     { key: 'valor_comissao', label: 'Comissão', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
     { key: 'valor_pago', label: 'Pago', sortable: true, align: 'right' as const, formatter: (value: number) => formatCurrency(value) },
-    { key: 'status', label: 'Status', sortable: true, width: '110px', formatter: (value: string) => getStatusBadge(value) }
+    { key: 'status', label: 'Status', sortable: true, width: '110px', formatter: (value: string) => getStatusLabel(value) }
   ];
 
   function abrirPagamento(comissao: Comissao) {
@@ -554,7 +563,12 @@
       <div class="grid grid-cols-2 gap-4 text-sm">
         <div><p class="text-slate-500">Recibo</p><p class="font-medium">{comissaoSelecionada.numero_recibo || comissaoSelecionada.id}</p></div>
         <div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div>
-        <div><p class="text-slate-500">Status</p><p class="font-medium">{@html getStatusBadge(comissaoSelecionada.status)}</p></div>
+        <div>
+          <p class="text-slate-500">Status</p>
+          <p class="font-medium">
+            <Badge color={getStatusColor(comissaoSelecionada.status)} size="sm">{getStatusLabel(comissaoSelecionada.status)}</Badge>
+          </p>
+        </div>
         <div><p class="text-slate-500">Vendedor</p><p class="font-medium">{comissaoSelecionada.vendedor}</p></div>
         <div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div>
         <div><p class="text-slate-500">Produto</p><p class="font-medium">{comissaoSelecionada.produto || '-'}</p></div>

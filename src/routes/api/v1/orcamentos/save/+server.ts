@@ -1,6 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
-import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, normalizeText } from '$lib/server/v1';
+import {
+  requireAuthenticatedUser,
+  resolveUserScope,
+  ensureModuloAccess,
+  normalizeText,
+  isUuid,
+  resolveScopedVendedorIds
+} from '$lib/server/v1';
 import { getAdminClient } from '$lib/server/v1';
 
 const EXCLUDED_PRODUTO_TIPOS = new Set(
@@ -134,7 +141,7 @@ export async function POST(event: RequestEvent) {
 
     const body = await event.request.json().catch(() => null);
     const quoteId = String(body?.quote_id || '').trim();
-    if (!quoteId) return new Response('Quote invalido.', { status: 400 });
+    if (!isUuid(quoteId)) return new Response('Quote invalido.', { status: 400 });
 
     const items = Array.isArray(body?.items) ? (body.items as QuoteItemPayload[]) : [];
     const removedItemIds = Array.isArray(body?.removed_item_ids)
@@ -142,8 +149,52 @@ export async function POST(event: RequestEvent) {
       : [];
     const clienteId = String(body?.client_id || '').trim() || null;
 
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
+    let quoteCheckQuery = client.from('quote').select('id').eq('id', quoteId);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      quoteCheckQuery = quoteCheckQuery.eq('created_by', user.id);
+    } else if (vendedorIds.length > 0) {
+      quoteCheckQuery = quoteCheckQuery.in('created_by', vendedorIds);
+    }
+    const { data: existingQuote, error: quoteCheckError } = await quoteCheckQuery.maybeSingle();
+    if (quoteCheckError) throw quoteCheckError;
+    if (!existingQuote?.id) {
+      return new Response('Orcamento nao encontrado.', { status: 404 });
+    }
+    if (clienteId) {
+      if (!isUuid(clienteId)) return new Response('Cliente invalido.', { status: 400 });
+      const { data: cliente, error: clienteErr } = await client
+        .from('clientes')
+        .select('id, company_id')
+        .eq('id', clienteId)
+        .maybeSingle();
+      if (clienteErr) throw clienteErr;
+      if (!cliente?.id) return new Response('Cliente nao encontrado.', { status: 404 });
+      const clienteCompanyId = String((cliente as any).company_id || '').trim();
+      if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+        return new Response('Cliente fora do seu escopo.', { status: 403 });
+      }
+    }
+
+    const requestedItemIds = Array.from(
+      new Set([
+        ...items.map((item) => String(item.id || '').trim()),
+        ...removedItemIds.map((id) => String(id || '').trim())
+      ].filter(isUuid))
+    );
+    const allowedExistingItemIds = new Set<string>();
+    if (requestedItemIds.length) {
+      const { data: existingItems, error: existingItemsError } = await client
+        .from('quote_item')
+        .select('id')
+        .eq('quote_id', quoteId)
+        .in('id', requestedItemIds);
+      if (existingItemsError) throw existingItemsError;
+      (existingItems || []).forEach((row: any) => allowedExistingItemIds.add(String(row.id)));
+    }
+
     const payload = items.map((item, index) => ({
-      id: item.id || undefined,
+      id: item.id && allowedExistingItemIds.has(String(item.id)) ? item.id : undefined,
       quote_id: quoteId,
       item_type: item.item_type,
       title: item.title,
@@ -166,17 +217,22 @@ export async function POST(event: RequestEvent) {
       .upsert(payload, { onConflict: 'id' });
     if (itemError) throw itemError;
 
-    if (removedItemIds.length) {
+    const scopedRemovedItemIds = removedItemIds
+      .map((id) => String(id || '').trim())
+      .filter((id) => isUuid(id) && allowedExistingItemIds.has(id));
+
+    if (scopedRemovedItemIds.length) {
       const { error: deleteRemovedSegs } = await client
         .from('quote_item_segment')
         .delete()
-        .in('quote_item_id', removedItemIds);
+        .in('quote_item_id', scopedRemovedItemIds);
       if (deleteRemovedSegs) throw deleteRemovedSegs;
 
       const { error: deleteRemovedItems } = await client
         .from('quote_item')
         .delete()
-        .in('id', removedItemIds);
+        .eq('quote_id', quoteId)
+        .in('id', scopedRemovedItemIds);
       if (deleteRemovedItems) throw deleteRemovedItems;
     }
 
@@ -239,6 +295,6 @@ export async function POST(event: RequestEvent) {
     });
   } catch (err: any) {
     console.error('Erro orcamentos/save', err);
-    return new Response(err?.message || 'Erro ao salvar orcamento.', { status: 500 });
+    return new Response('Erro ao salvar orcamento.', { status: 500 });
   }
 }

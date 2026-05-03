@@ -276,7 +276,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-orange-400 !p-0 !text-left"
+      class_name="vtur-kpi-card !flex !w-full !p-0 !text-left"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
@@ -291,7 +291,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-amber-400 !p-0 !text-left"
+      class_name="vtur-kpi-card !flex !w-full !p-0 !text-left"
       on:click={() => goto('/financeiro/comissoes')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
@@ -306,7 +306,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-teal-400 !p-0 !text-left"
+      class_name="vtur-kpi-card !flex !w-full !p-0 !text-left"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
@@ -321,7 +321,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !border-t-[3px] !border-t-blue-400 !p-0 !text-left"
+      class_name="vtur-kpi-card !flex !w-full !p-0 !text-left"
       on:click={() => goto('/financeiro/regras')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
@@ -335,7 +335,7 @@
   </KPIGrid>
 
   <KPIGrid className="mb-8" columns={5}>
-    <div class="vtur-kpi-card border-t-[3px] border-t-teal-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
         <TrendingUp size={20} />
       </div>
@@ -345,7 +345,7 @@
       </div>
     </div>
 
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
         <TrendingDown size={20} />
       </div>
@@ -355,7 +355,7 @@
       </div>
     </div>
 
-    <div class="vtur-kpi-card border-t-[3px] border-t-amber-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-500">
         <Clock size={20} />
       </div>
@@ -365,7 +365,7 @@
       </div>
     </div>
 
-    <div class="vtur-kpi-card border-t-[3px] border-t-orange-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
         <AlertCircle size={20} />
       </div>
@@ -375,7 +375,7 @@
       </div>
     </div>
 
-    <div class="vtur-kpi-card border-t-[3px] border-t-blue-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
         <Clock size={20} />
       </div>

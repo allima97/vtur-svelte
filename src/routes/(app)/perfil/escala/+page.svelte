@@ -155,28 +155,28 @@
 
 {#if activeTab === 'minha_escala'}
   <div class="vtur-kpi-grid mb-6">
-    <div class="vtur-kpi-card border-t-[3px] border-t-green-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Calendar size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Dias trabalhados</p>
         <p class="text-2xl font-bold text-slate-900">{diasTrabalhados}</p>
       </div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-slate-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><Calendar size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Folgas / Ferias</p>
         <p class="text-2xl font-bold text-slate-900">{diasFolga}</p>
       </div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-red-400">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><Calendar size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Feriados no mes</p>
         <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
       </div>
     </div>
-    <div class="vtur-kpi-card border-t-[3px] border-t-slate-300">
+    <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-400"><Calendar size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Sem registro</p>
