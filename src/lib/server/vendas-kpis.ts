@@ -14,6 +14,8 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { fetchReciboContribuicoesReadModel } from "$lib/server/reciboContribuicoesReadModel";
+import { getAdminClient } from "$lib/server/v1";
 import {
   fetchRateioByReciboIds,
   fetchSplitSaleIdsForDestinationVendedores,
@@ -65,17 +67,24 @@ export type VendasTimelinePoint = {
 };
 
 export type VendasKpiReciboContribution = {
+  companyId?: string | null;
+  clienteId?: string | null;
+  vendaId?: string | null;
   vendaKey: string;
   reciboId: string;
   reciboNumero: string;
   reciboDate: string;
   vendedorId: string;
+  produtoId?: string | null;
+  produtoNome?: string | null;
+  destinoNome?: string | null;
   bruto: number;
   taxas: number;
   isSeguro: boolean;
   factor: number;
   sourceBruto: number;
   sourceTaxas: number;
+  origem?: string | null;
 };
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
@@ -815,6 +824,20 @@ export async function fetchAndComputeVendasKpis(
     accessibleClientIds?: string[];
   },
 ): Promise<VendasKpiAgg> {
+  const { agg } = await fetchVendasKpiReciboContributions(client, params);
+  return agg;
+}
+
+async function fetchAndComputeVendasKpisLegacy(
+  client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    accessibleClientIds?: string[];
+  },
+): Promise<VendasKpiAgg> {
   const { rows, rateioMap } = await fetchResolvedRows(client, params);
 
   const vendaIds = Array.from(
@@ -1032,7 +1055,7 @@ export async function fetchAndComputeVendasKpis(
   };
 }
 
-export async function fetchVendasKpiReciboContributions(
+export async function fetchVendasKpiReciboContributionsRaw(
   client: SupabaseClient,
   params: {
     dataInicio: string;
@@ -1253,18 +1276,42 @@ export async function fetchVendasKpiReciboContributions(
           totalSeguro += brutoAlloc;
         }
 
+        const produtoId = toStr(
+          recibo?.tipo_produtos?.id ||
+            recibo?.produto_id ||
+            recibo?.produto_resolvido?.id,
+        );
+        const produtoNome = toStr(
+          recibo?.tipo_produtos?.nome ||
+            recibo?.produto_resolvido?.nome ||
+            "Produto",
+        );
+        const destinoNome = toStr(
+          recibo?.destino_cidade?.nome ||
+            (vendaPrincipal as any)?.destino_cidade?.nome ||
+            (vendaPrincipal as any)?.destinos?.nome ||
+            "Destino nao informado",
+        );
+
         contributions.push({
+          companyId: toStr((vendaPrincipal as any)?.company_id),
+          clienteId: toStr((vendaPrincipal as any)?.cliente_id),
+          vendaId: isUuid(vendaKey) ? vendaKey : null,
           vendaKey,
           reciboId,
           reciboNumero: toStr(recibo?.numero_recibo),
           reciboDate: toDateKey(recibo?.data_venda) || vendaDate,
           vendedorId: allocation.vendedorId,
+          produtoId,
+          produtoNome,
+          destinoNome,
           bruto: Number(brutoAlloc.toFixed(2)),
           taxas: Number(taxasAlloc.toFixed(2)),
           isSeguro: seguro,
           factor: Number((fatorRecibo * allocation.fator).toFixed(6)),
           sourceBruto: Number(sourceBruto.toFixed(2)),
           sourceTaxas: Number(sourceTaxas.toFixed(2)),
+          origem: hasConciliacaoOverride(recibo) ? "conciliacao" : "venda",
         });
       });
     });
@@ -1281,6 +1328,29 @@ export async function fetchVendasKpiReciboContributions(
     },
     contributions,
   };
+}
+
+export async function fetchVendasKpiReciboContributions(
+  client: SupabaseClient,
+  params: {
+    dataInicio: string;
+    dataFim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    accessibleClientIds?: string[];
+  },
+): Promise<{
+  agg: VendasKpiAgg;
+  contributions: VendasKpiReciboContribution[];
+}> {
+  return fetchReciboContribuicoesReadModel(
+    client,
+    params,
+    (loaderParams) =>
+      fetchVendasKpiReciboContributionsRaw(client, loaderParams),
+    (loaderParams) =>
+      fetchVendasKpiReciboContributionsRaw(getAdminClient(), loaderParams),
+  );
 }
 
 export async function fetchAndComputeVendasTimeline(
