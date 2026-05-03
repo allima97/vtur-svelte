@@ -178,6 +178,9 @@
 
   const adminItems: MenuItem[] = [
     { key: 'admin_dashboard', name: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard, systemOnly: true },
+    { key: 'admin_conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet, systemOnly: true },
+    { key: 'admin_ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings, systemOnly: true },
+    { key: 'admin_minha_escala', name: 'Minha Escala', href: '/perfil/escala', icon: Calendar, systemOnly: true },
     { key: 'admin_planos', name: 'Planos', href: '/admin/planos', icon: CreditCard },
     { key: 'admin_financeiro', name: 'Financeiro', href: '/admin/financeiro', icon: Wallet },
     { key: 'admin_empresas', name: 'Empresas', href: '/admin/empresas', icon: Building2 },
@@ -229,6 +232,8 @@
       if (item.href === '/') return false;
       if (item.href.startsWith('/dashboard/admin')) return true;
       if (item.href.startsWith('/dashboard/logs')) return true;
+      if (item.href.startsWith('/financeiro/conciliacao')) return true;
+      if (item.href.startsWith('/financeiro/ajustes-vendas')) return true;
       if (item.href.startsWith('/admin')) return true;
       if (item.href.startsWith('/perfil')) return true;
       if (item.href.startsWith('/documentacao')) return true;

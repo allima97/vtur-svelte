@@ -309,6 +309,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isSystemAdminAllowedRoute =
 			pathname.startsWith('/admin') ||
 			pathname.startsWith('/dashboard/admin') ||
+			pathname.startsWith('/financeiro/conciliacao') ||
+			pathname.startsWith('/financeiro/ajustes-vendas') ||
 			pathname.startsWith('/perfil') ||
 			pathname.startsWith('/negado') ||
 			pathname.startsWith('/documentacao');
