@@ -7,7 +7,8 @@
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode } from 'lucide-svelte';
+  import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
+  import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
   type MfaFactor = {
@@ -17,11 +18,26 @@
     status?: string | null;
   };
 
+  type Passkey = {
+    id: string;
+    name: string;
+    transports?: string[] | null;
+    device_type?: string | null;
+    backed_up?: boolean | null;
+    last_used_at?: string | null;
+    created_at: string;
+  };
+
   let loading = true;
   let factors: MfaFactor[] = [];
+  let passkeys: Passkey[] = [];
   let enrolling = false;
   let verifying = false;
   let removing = false;
+  let passkeysLoading = false;
+  let registeringPasskey = false;
+  let removingPasskeyId: string | null = null;
+  let passkeySupported = false;
   let error: string | null = null;
 
   // Enrollment state
@@ -38,6 +54,20 @@
       error = err.message || 'Erro ao carregar fatores 2FA.';
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadPasskeys() {
+    passkeysLoading = true;
+    try {
+      const response = await fetch('/api/auth/passkeys');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Erro ao carregar passkeys.');
+      passkeys = payload.passkeys || [];
+    } catch (err: any) {
+      error = err.message || 'Erro ao carregar passkeys.';
+    } finally {
+      passkeysLoading = false;
     }
   }
 
@@ -118,13 +148,96 @@
     }
   }
 
+  async function registerPasskey() {
+    if (!browserSupportsWebAuthn()) {
+      error = 'Este navegador não suporta passkeys.';
+      return;
+    }
+
+    registeringPasskey = true;
+    error = null;
+
+    try {
+      const optionsResponse = await fetch('/api/auth/passkeys/register/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const optionsPayload = await optionsResponse.json().catch(() => ({}));
+      if (!optionsResponse.ok) {
+        throw new Error(optionsPayload.error || 'Erro ao preparar cadastro da passkey.');
+      }
+
+      const registration = await startRegistration({ optionsJSON: optionsPayload.options });
+      const verifyResponse = await fetch('/api/auth/passkeys/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeId: optionsPayload.challengeId,
+          response: registration,
+          name: 'Passkey VTUR'
+        })
+      });
+      const payload = await verifyResponse.json().catch(() => ({}));
+      if (!verifyResponse.ok) {
+        throw new Error(payload.error || 'Não foi possível cadastrar a passkey.');
+      }
+
+      toast.success('Passkey cadastrada com sucesso.');
+      await loadPasskeys();
+    } catch (err: any) {
+      error = err.message || 'Erro ao cadastrar passkey.';
+    } finally {
+      registeringPasskey = false;
+    }
+  }
+
+  async function removePasskey(passkeyId: string) {
+    if (!(await confirmAction('Deseja remover esta passkey? Ela não poderá mais ser usada para entrar no sistema.'))) return;
+
+    removingPasskeyId = passkeyId;
+    error = null;
+
+    try {
+      const response = await fetch('/api/auth/passkeys', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: passkeyId })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Erro ao remover passkey.');
+      }
+
+      toast.success('Passkey removida.');
+      await loadPasskeys();
+    } catch (err: any) {
+      error = err.message || 'Erro ao remover passkey.';
+    } finally {
+      removingPasskeyId = null;
+    }
+  }
+
   function cancelEnrollment() {
     enrollmentData = null;
     verificationCode = '';
     error = null;
   }
 
-  onMount(loadFactors);
+  function formatDateTime(value?: string | null) {
+    if (!value) return 'Nunca usada';
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
+
+  onMount(async () => {
+    passkeySupported = browserSupportsWebAuthn();
+    await Promise.all([loadFactors(), loadPasskeys()]);
+  });
 
   $: verifiedFactors = factors.filter((f) => f.status === 'verified');
   $: pendingFactors = factors.filter((f) => f.status !== 'verified');
@@ -174,6 +287,68 @@
           <CheckCircle size={12} />
           Protegido
         </span>
+      {/if}
+    </div>
+  </Card>
+
+  <Card title="Passkeys" class="mb-6">
+    <div class="space-y-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-sm text-slate-600">
+            Cadastre Face ID, Touch ID, Windows Hello ou chave de segurança para entrar sem senha.
+          </p>
+          {#if !passkeySupported}
+            <p class="mt-1 text-xs font-medium text-amber-700">
+              Este navegador não informou suporte a passkeys.
+            </p>
+          {/if}
+        </div>
+        <Button
+          variant="primary"
+          loading={registeringPasskey}
+          disabled={!passkeySupported || passkeysLoading}
+          on:click={registerPasskey}
+        >
+          <Fingerprint size={16} class="mr-2" />
+          Adicionar passkey
+        </Button>
+      </div>
+
+      {#if passkeysLoading}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+          Carregando passkeys...
+        </div>
+      {:else if passkeys.length === 0}
+        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+          Nenhuma passkey cadastrada para esta conta.
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each passkeys as passkey}
+            <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div class="flex items-center gap-3">
+                <Fingerprint size={18} class="text-blue-600" />
+                <div>
+                  <p class="font-medium text-slate-900">{passkey.name || 'Passkey'}</p>
+                  <p class="text-xs text-slate-500">
+                    Criada em {formatDateTime(passkey.created_at)} · Último uso: {formatDateTime(passkey.last_used_at)}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={removingPasskeyId === passkey.id}
+                disabled={removingPasskeyId !== null && removingPasskeyId !== passkey.id}
+                on:click={() => removePasskey(passkey.id)}
+              >
+                <Trash2 size={14} class="mr-1" />
+                Remover
+              </Button>
+            </div>
+          {/each}
+        </div>
       {/if}
     </div>
   </Card>

@@ -92,6 +92,21 @@
 	"/api/auth/login": [
 		"src/routes/api/auth/login/+server.ts"
 	],
+	"/api/auth/passkeys": [
+		"src/routes/api/auth/passkeys/+server.ts"
+	],
+	"/api/auth/passkeys/login/options": [
+		"src/routes/api/auth/passkeys/login/options/+server.ts"
+	],
+	"/api/auth/passkeys/login/verify": [
+		"src/routes/api/auth/passkeys/login/verify/+server.ts"
+	],
+	"/api/auth/passkeys/register/options": [
+		"src/routes/api/auth/passkeys/register/options/+server.ts"
+	],
+	"/api/auth/passkeys/register/verify": [
+		"src/routes/api/auth/passkeys/register/verify/+server.ts"
+	],
 	"/api/auth/set-session": [
 		"src/routes/api/auth/set-session/+server.ts"
 	],
