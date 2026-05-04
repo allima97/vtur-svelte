@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
 
 export async function GET(event) {
   try {
@@ -28,7 +29,7 @@ export async function GET(event) {
     // Temas
     const { data: temas } = await client
       .from('user_message_template_themes')
-      .select('id, nome, categoria_id, asset_url, scope, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, ativo')
+      .select('id, nome, categoria_id, asset_url, storage_path, scope, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, ativo')
       .order('nome')
       .limit(200);
 
@@ -41,7 +42,10 @@ export async function GET(event) {
 
     return json({
       categorias: categorias || [],
-      temas: temas || [],
+      temas: (temas || []).map((tema) => ({
+        ...tema,
+        asset_url: resolveThemeAssetMeta(tema).asset_url
+      })),
       templates: templates || []
     });
   } catch (err) {

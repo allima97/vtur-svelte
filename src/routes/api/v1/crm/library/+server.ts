@@ -4,13 +4,14 @@ import {
   buildOfficialTemplateRows,
   buildOfficialThemeRows,
 } from '$lib/cards/officialLibrary';
+import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
 
 type ScopeValue = "system" | "master" | "gestor" | "user";
 const LOGO_BUCKET = "quotes";
 const THEME_SELECT_WITH_LOGO =
-  "id, user_id, nome, categoria, categoria_id, asset_url, logo_url, logo_path, width_px, height_px, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, title_style, body_style, signature_style, scope, company_id, ativo";
+  "id, user_id, nome, categoria, categoria_id, asset_url, storage_path, logo_url, logo_path, width_px, height_px, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, title_style, body_style, signature_style, scope, company_id, ativo";
 const THEME_SELECT_LEGACY =
-  "id, user_id, nome, categoria, categoria_id, asset_url, width_px, height_px, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, title_style, body_style, signature_style, scope, company_id, ativo";
+  "id, user_id, nome, categoria, categoria_id, asset_url, storage_path, width_px, height_px, greeting_text, mensagem_max_linhas, mensagem_max_palavras, assinatura_max_linhas, assinatura_max_palavras, title_style, body_style, signature_style, scope, company_id, ativo";
 
 type ThemeRow = {
   id: string;
@@ -19,6 +20,7 @@ type ThemeRow = {
   categoria: string | null;
   categoria_id: string | null;
   asset_url: string;
+  storage_path?: string | null;
   logo_url: string | null;
   logo_path: string | null;
   width_px: number | null;
@@ -115,6 +117,7 @@ function mergeThemesWithOfficial(userId: string, companyId: string | null, rows:
       categoria: theme.categoria,
       categoria_id: null,
       asset_url: theme.asset_url,
+      storage_path: theme.storage_path,
       logo_url: null,
       logo_path: null,
       width_px: theme.width_px,
@@ -134,6 +137,16 @@ function mergeThemesWithOfficial(userId: string, companyId: string | null, rows:
   });
 
   return Array.from(merged.values());
+}
+
+function normalizeThemeAsset(row: ThemeRow): ThemeRow {
+  const resolved = resolveThemeAssetMeta(row);
+  return {
+    ...row,
+    asset_url: resolved.asset_url,
+    width_px: resolved.width_px || row.width_px,
+    height_px: resolved.height_px || row.height_px,
+  };
 }
 
 function mergeMessagesWithOfficial(userId: string, companyId: string | null, themes: ThemeRow[], rows: MessageRow[]) {
@@ -224,6 +237,7 @@ async function fetchThemesWithLogoFallback(client: any) {
 
   const normalized = ((legacyResp.data || []) as any[]).map((row) => ({
     ...row,
+    storage_path: row.storage_path ?? null,
     logo_url: null,
     logo_path: null,
   })) as ThemeRow[];
@@ -347,7 +361,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         return inCompany(row.company_id, masterCompanyIds);
       }
       return false;
-    });
+    }).map(normalizeThemeAsset);
 
     const visibleMessages = ((messagesResp.data || []) as MessageRow[]).filter((row) => {
       const rowScope = normalizeScope(row.scope);

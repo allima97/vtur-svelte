@@ -97,18 +97,18 @@ begin
     true
   from (
     values
-      ('aniversario', 'aniversario_base_clean', 'themes/aniversario/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/aniversario/base-clean.png'),
-      ('natal', 'natal_base_clean', 'themes/natal/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/natal/base-clean.png'),
-      ('ano_novo', 'ano_novo_base_clean', 'themes/ano-novo/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/ano-novo/base-clean.png'),
-      ('pascoa', 'pascoa_base_clean', 'themes/pascoa/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/pascoa/base-clean.png'),
-      ('dia_das_maes', 'dia_das_maes_base_clean', 'themes/dia-das-maes/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/dia-das-maes/base-clean.png'),
-      ('dia_dos_pais', 'dia_dos_pais_base_clean', 'themes/dia-dos-pais/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/dia-dos-pais/base-clean.png'),
-      ('boas_vindas', 'boas_vindas_base_clean', 'themes/boas-vindas/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/boas-vindas/base-clean.png'),
-      ('pos_viagem', 'pos_viagem_base_clean', 'themes/pos-viagem/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/pos-viagem/base-clean.png'),
-      ('cliente_vip', 'cliente_vip_base_clean', 'themes/cliente-vip/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/cliente-vip/base-clean.png'),
-      ('cliente_inativo', 'cliente_inativo_base_clean', 'themes/cliente-inativo/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/cliente-inativo/base-clean.png'),
-      ('aniversario_primeira_compra', 'aniversario_primeira_compra_base_clean', 'themes/aniversario-primeira-compra/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/aniversario-primeira-compra/base-clean.png'),
-      ('ferias', 'ferias_base_clean', 'themes/ferias/base-clean.png', 'https://ggqmvruerbaqxthhnxrm.supabase.co/storage/v1/object/public/message-template-themes/themes/ferias/base-clean.png')
+      ('aniversario', 'aniversario_base_clean', 'themes/aniversario/base-clean.png', 'themes/aniversario/base-clean.png'),
+      ('natal', 'natal_base_clean', 'themes/natal/base-clean.png', 'themes/natal/base-clean.png'),
+      ('ano_novo', 'ano_novo_base_clean', 'themes/ano-novo/base-clean.png', 'themes/ano-novo/base-clean.png'),
+      ('pascoa', 'pascoa_base_clean', 'themes/pascoa/base-clean.png', 'themes/pascoa/base-clean.png'),
+      ('dia_das_maes', 'dia_das_maes_base_clean', 'themes/dia-das-maes/base-clean.png', 'themes/dia-das-maes/base-clean.png'),
+      ('dia_dos_pais', 'dia_dos_pais_base_clean', 'themes/dia-dos-pais/base-clean.png', 'themes/dia-dos-pais/base-clean.png'),
+      ('boas_vindas', 'boas_vindas_base_clean', 'themes/boas-vindas/base-clean.png', 'themes/boas-vindas/base-clean.png'),
+      ('pos_viagem', 'pos_viagem_base_clean', 'themes/pos-viagem/base-clean.png', 'themes/pos-viagem/base-clean.png'),
+      ('cliente_vip', 'cliente_vip_base_clean', 'themes/cliente-vip/base-clean.png', 'themes/cliente-vip/base-clean.png'),
+      ('cliente_inativo', 'cliente_inativo_base_clean', 'themes/cliente-inativo/base-clean.png', 'themes/cliente-inativo/base-clean.png'),
+      ('aniversario_primeira_compra', 'aniversario_primeira_compra_base_clean', 'themes/aniversario-primeira-compra/base-clean.png', 'themes/aniversario-primeira-compra/base-clean.png'),
+      ('ferias', 'ferias_base_clean', 'themes/ferias/base-clean.png', 'themes/ferias/base-clean.png')
   ) as s(categoria, nome, storage_path, asset_url)
   where not exists (
     select 1

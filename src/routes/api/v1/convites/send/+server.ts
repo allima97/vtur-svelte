@@ -5,6 +5,7 @@ import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/server/emailSettings';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
 function titleCaseWithExceptions(input: string): string {
   if (!input) return "";
@@ -136,6 +137,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = await requireAuthenticatedUser({ locals } as any);
     const adminClient = getAdminClient();
+
+    const rl = await checkPersistentRateLimit('convites-send', user.id, { max: 10, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return json(
+        { error: 'Muitas requisicoes. Tente novamente em instantes.' },
+        { status: 429, headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
 
     const body = await request.json().catch(() => ({}));
     const email = String(body.email || "").trim().toLowerCase();

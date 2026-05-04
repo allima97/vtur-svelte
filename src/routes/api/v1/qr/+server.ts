@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
@@ -16,7 +16,7 @@ function clampInt(value: string | null, fallback: number, min: number, max: numb
 }
 
 export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
-  const rateLimit = checkRateLimit(`qr:${getClientAddress() || 'unknown'}`, {
+  const rateLimit = await checkPersistentRateLimit('qr', getClientAddress() || 'unknown', {
     max: 120,
     windowMs: 60_000
   });

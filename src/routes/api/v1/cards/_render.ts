@@ -567,7 +567,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   if (themeId || themeName) {
     let themeQuery = client
       .from("user_message_template_themes")
-      .select("id, nome, asset_url, width_px, height_px, title_style, body_style, signature_style");
+      .select("id, nome, asset_url, storage_path, width_px, height_px, title_style, body_style, signature_style");
     if (themeId) themeQuery = themeQuery.eq("id", themeId);
     else themeQuery = themeQuery.eq("nome", themeName);
     const themeResp = await themeQuery.maybeSingle();
@@ -581,6 +581,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
       ? {
           nome: themeRow.nome,
           asset_url: themeRow.asset_url,
+          storage_path: themeRow.storage_path,
           width_px: themeRow.width_px,
           height_px: themeRow.height_px,
         }

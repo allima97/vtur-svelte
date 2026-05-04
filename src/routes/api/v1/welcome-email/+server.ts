@@ -5,6 +5,7 @@ import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { resolveResendApiKey, resolveFromEmails, resolveSmtpConfig } from '$lib/server/emailSettings';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
 const TEMPLATE_NOME = "Bem-Vindo!";
 const TEMPLATE_ASSUNTO = "Bem-Vindo!";
@@ -156,6 +157,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
+
+    const rl = await checkPersistentRateLimit('welcome-email', user.id, { max: 5, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return json(
+        { error: 'Muitas requisicoes. Tente novamente em instantes.' },
+        { status: 429, headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
 
     const { data: perfil, error: perfilErr } = await client
       .from("users")

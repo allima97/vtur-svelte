@@ -51,7 +51,7 @@ export async function GET(event) {
   } catch (err) {
     logServerError('[test-env] erro ao carregar ambiente', err);
     const response = toErrorResponse(err, 'Erro ao carregar ambiente.');
-    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   }
 }

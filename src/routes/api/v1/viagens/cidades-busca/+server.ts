@@ -33,6 +33,10 @@ export async function GET(event: RequestEvent) {
       return json((data || []).map((item: any) => ({ nome: item.nome })));
     }
 
+    if (query.length < 2) {
+      return json([]);
+    }
+
     try {
       const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
       if (error) throw error;

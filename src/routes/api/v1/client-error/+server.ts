@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import type { RequestHandler } from './$types';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -51,7 +51,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     }
 
     const clientAddress = getClientAddress();
-    const rateLimit = checkRateLimit(`client-error:${clientAddress || 'unknown'}`, {
+    const rateLimit = await checkPersistentRateLimit('client-error', clientAddress || 'unknown', {
       max: 30,
       windowMs: 60_000
     });

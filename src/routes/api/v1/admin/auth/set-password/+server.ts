@@ -11,7 +11,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
 export async function POST(event) {
   try {
@@ -21,7 +21,7 @@ export async function POST(event) {
     const body = await event.request.json().catch(() => ({}));
 
     ensureCanManageUsers(scope);
-    const rateLimit = checkRateLimit(`admin-set-password:${user.id}`, {
+    const rateLimit = await checkPersistentRateLimit('admin-set-password', user.id, {
       max: 20,
       windowMs: 60_000
     });

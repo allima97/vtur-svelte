@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import {
   getAdminClient,
   logServerError,
@@ -15,8 +15,9 @@ export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
-    const rateLimit = checkRateLimit(
-      `admin-email-test:${event.getClientAddress?.() || 'unknown'}:${user.id}`,
+    const rateLimit = await checkPersistentRateLimit(
+      'admin-email-test',
+      `${event.getClientAddress?.() || 'unknown'}:${user.id}`,
       { max: 10, windowMs: 60_000 }
     );
     if (!rateLimit.allowed) {

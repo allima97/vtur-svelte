@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { applyTemplate, buildFromEmails, loadAvisoTemplates, loadEmailSettings, loadManagedUser } from '$lib/server/admin';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { escapeHtml } from '$lib/utils/html';
 import {
   getAdminClient,
@@ -26,8 +26,9 @@ export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
-    const rateLimit = checkRateLimit(
-      `admin-avisos-send:${event.getClientAddress?.() || 'unknown'}:${user.id}`,
+    const rateLimit = await checkPersistentRateLimit(
+      'admin-avisos-send',
+      `${event.getClientAddress?.() || 'unknown'}:${user.id}`,
       { max: 20, windowMs: 60_000 }
     );
     if (!rateLimit.allowed) {

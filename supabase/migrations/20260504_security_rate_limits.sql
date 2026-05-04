@@ -46,6 +46,11 @@ declare
   v_count integer;
   v_reset_at timestamptz;
 begin
+  if random() < 0.01 then
+    delete from public.security_rate_limits
+    where reset_at < now() - interval '1 day';
+  end if;
+
   insert into public.security_rate_limits as rl (
     id,
     scope,
@@ -73,7 +78,7 @@ begin
       else rl.reset_at
     end,
     updated_at = now()
-  returning count, reset_at
+  returning rl.count, rl.reset_at
   into v_count, v_reset_at;
 
   return query

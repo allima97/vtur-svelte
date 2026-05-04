@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
@@ -16,7 +16,7 @@ type ViaCepResponse = {
 };
 
 export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
-  const rateLimit = checkRateLimit(`cep:${getClientAddress() || 'unknown'}`, {
+  const rateLimit = await checkPersistentRateLimit('cep', getClientAddress() || 'unknown', {
     max: 120,
     windowMs: 60_000
   });

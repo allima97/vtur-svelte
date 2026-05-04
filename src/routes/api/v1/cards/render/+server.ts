@@ -1,6 +1,6 @@
 import { isWasmCodegenBlockedError, renderSvgToPng } from '$lib/cards/svgToPng';
 import { logServerError } from '$lib/server/v1';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { renderCardSvg } from '../_render';
 
 const CARD_IMAGE_HEADERS = {
@@ -20,8 +20,9 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
   try {
     const url = new URL(event.request.url);
     const format = String(url.searchParams.get("format") || "svg").trim().toLowerCase();
-    const rateLimit = checkRateLimit(
-      `cards-render:${format}:${event.getClientAddress?.() || 'unknown'}`,
+    const rateLimit = await checkPersistentRateLimit(
+      `cards-render-${format}`,
+      event.getClientAddress?.() || 'unknown',
       { max: format === "png" ? 80 : 240, windowMs: 60_000 }
     );
     if (!rateLimit.allowed) {

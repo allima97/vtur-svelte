@@ -9,6 +9,8 @@ import {
 } from "$lib/server/v1";
 import { fetchWithTimeout } from "$lib/server/fetchWithTimeout";
 import { escapeHtml } from "$lib/utils/html";
+import { env } from "$env/dynamic/private";
+import { checkPersistentRateLimit } from "$lib/server/persistentRateLimit";
 
 type Body = {
   clienteId?: string;
@@ -153,9 +155,9 @@ async function enviarEmailSendGrid(params: {
   text: string;
   fromEmail?: string;
 }) {
-  const SENDGRID_API_KEY = import.meta.env.SENDGRID_API_KEY;
-  const SENDGRID_FROM_EMAIL = import.meta.env.SENDGRID_FROM_EMAIL;
-  const ALERTA_FROM_EMAIL = import.meta.env.ALERTA_FROM_EMAIL;
+  const SENDGRID_API_KEY = env.SENDGRID_API_KEY;
+  const SENDGRID_FROM_EMAIL = env.SENDGRID_FROM_EMAIL;
+  const ALERTA_FROM_EMAIL = env.ALERTA_FROM_EMAIL;
   const fromEmail =
     params.fromEmail || SENDGRID_FROM_EMAIL || ALERTA_FROM_EMAIL;
   if (!SENDGRID_API_KEY || !fromEmail) {
@@ -328,8 +330,20 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     const text = corpo;
     const html = `<pre>${escapeHtml(corpo)}</pre>`;
 
-    const ALERTA_FROM_EMAIL = import.meta.env.ALERTA_FROM_EMAIL;
+    const ALERTA_FROM_EMAIL = env.ALERTA_FROM_EMAIL;
     const fromEmail = ALERTA_FROM_EMAIL || "noreply@vtur.com.br";
+
+    const rl = await checkPersistentRateLimit(
+      "email-template-send",
+      user.id,
+      { max: 10, windowMs: 60_000 },
+    );
+    if (!rl.allowed) {
+      return json(
+        { error: "Muitas requisicoes de envio de e-mail. Tente novamente em instantes." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds), "Cache-Control": "no-store" } },
+      );
+    }
 
     let sentProvider: "resend" | "sendgrid" | "smtp" | null = null;
 
@@ -339,7 +353,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
       html,
       text,
       fromEmail,
-      apiKey: import.meta.env.RESEND_API_KEY,
+      apiKey: env.RESEND_API_KEY,
     });
     if (resendResp.ok) {
       sentProvider = "resend";

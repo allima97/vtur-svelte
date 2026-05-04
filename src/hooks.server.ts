@@ -321,7 +321,7 @@ const securityHeadersHook: Handle = async ({ event, resolve }) => {
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set(
 		'Permissions-Policy',
-		'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)'
+		'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self), clipboard-read=(), clipboard-write=(), bluetooth=()'
 	);
 	response.headers.set(
 		dev ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy',
@@ -330,7 +330,7 @@ const securityHeadersHook: Handle = async ({ event, resolve }) => {
 
 	const forwardedProto = event.request.headers.get('x-forwarded-proto');
 	if (event.url.protocol === 'https:' || forwardedProto === 'https') {
-		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
 	}
 
 	if (

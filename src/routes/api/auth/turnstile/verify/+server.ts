@@ -1,4 +1,4 @@
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { verifyTurnstileToken } from '$lib/server/turnstile';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       remoteIp = null;
     }
 
-    const rateLimit = checkRateLimit(`turnstile:${remoteIp || 'unknown'}`, {
+    const rateLimit = await checkPersistentRateLimit('turnstile-verify', remoteIp || 'unknown', {
       max: 120,
       windowMs: 60_000
     });

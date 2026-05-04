@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
 const SVG_HEADERS = {
   "Content-Type": "image/svg+xml; charset=utf-8",
@@ -31,7 +31,7 @@ function clampText(value: string | null, fallback: string, maxLength: number) {
 }
 
 export const GET: RequestHandler = async ({ request, getClientAddress }) => {
-  const rateLimit = checkRateLimit(`cards-aniversario:${getClientAddress() || 'unknown'}`, {
+  const rateLimit = await checkPersistentRateLimit('cards-aniversario', getClientAddress() || 'unknown', {
     max: 240,
     windowMs: 60_000
   });

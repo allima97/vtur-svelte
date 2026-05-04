@@ -1,4 +1,4 @@
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 import { renderCardSvg } from '../_render';
 
@@ -18,7 +18,7 @@ const CARD_ERROR_HEADERS = {
 
 export async function GET(event: import('@sveltejs/kit').RequestEvent) {
   try {
-    const rateLimit = checkRateLimit(`cards-render-svg:${event.getClientAddress?.() || 'unknown'}`, {
+    const rateLimit = await checkPersistentRateLimit('cards-render-svg', event.getClientAddress?.() || 'unknown', {
       max: 240,
       windowMs: 60_000
     });
