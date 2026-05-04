@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateUserReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_EQUIPE_BODY_BYTES = 64 * 1024;
@@ -125,6 +125,11 @@ export async function POST(event) {
         if (insertError) throw insertError;
       }
 
+      invalidateUserReadModels({
+        companyIds: scope.companyIds,
+        vendedorIds: [gestorId, vendedor_id],
+        userId: user.id
+      });
       return json({ ok: true });
     }
 

@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PROFILE_SIGNATURE_BODY_BYTES = 32 * 1024;
@@ -82,9 +83,13 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
           consultor_nome: signature,
         },
         { onConflict: 'owner_user_id' }
-      );
+    );
     if (error) throw error;
 
+    invalidateQuoteReadModels({
+      companyIds: userRow?.company_id ? [String(userRow.company_id)] : null,
+      userId: user.id
+    });
     return json({ ok: true, signature });
   } catch (err) {
     logServerError('[profile/signature] falha ao salvar assinatura', err);

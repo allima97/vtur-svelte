@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_ORCAMENTOS_PDF_BODY_BYTES = 128 * 1024;
@@ -115,6 +116,10 @@ export async function POST(event) {
       if (insertError) throw insertError;
     }
 
+    invalidateQuoteReadModels({
+      companyIds: scope.companyId ? [scope.companyId] : null,
+      userId: user.id
+    });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar parâmetros do orçamento.');

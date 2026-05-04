@@ -2,11 +2,11 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
-  isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateUserReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_EMPRESA_BODY_BYTES = 64 * 1024;
@@ -78,6 +78,10 @@ export async function PATCH(event) {
     const { error: updateError } = await client.from('companies').update(payload).eq('id', companyId);
     if (updateError) throw updateError;
 
+    invalidateUserReadModels({
+      companyIds: [companyId],
+      userId: user.id
+    });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar dados da empresa.');

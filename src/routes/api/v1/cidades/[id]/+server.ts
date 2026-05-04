@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CIDADE_UPDATE_BODY_BYTES = 64 * 1024;
@@ -85,6 +86,7 @@ export async function PATCH(event) {
 
     if (error) throw error;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ success: true, data });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar cidade.');
@@ -113,6 +115,7 @@ export async function DELETE(event) {
 
     if (error) throw error;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ success: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir cidade.');

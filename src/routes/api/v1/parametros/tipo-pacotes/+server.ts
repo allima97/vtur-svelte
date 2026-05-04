@@ -3,12 +3,17 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
-  normalizeText,
   requireAuthenticatedUser,
   resolveUserScope,
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateCatalogReadModels,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
@@ -32,22 +37,31 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['parametros'], 1, 'Sem acesso a Parâmetros.');
     }
 
-    const { data, error: queryError } = await client
-      .from('tipo_pacotes')
-      .select('id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta')
-      .order('nome');
+    const { items, regras } = await getCachedReadModel<{ items: any[]; regras: any[] }>({
+      key: buildReadModelCacheKey('parametros:tipo-pacotes:list', {}),
+      tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.comissoes],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        const [{ data, error: queryError }, { data: regras }] = await Promise.all([
+          client
+            .from('tipo_pacotes')
+            .select('id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta')
+            .order('nome'),
+          client
+            .from('commission_rule')
+            .select('id, nome, tipo')
+            .eq('ativo', true)
+            .order('nome')
+            .limit(100)
+        ]);
 
-    if (queryError) throw queryError;
+        if (queryError) throw queryError;
+        return { items: data || [], regras: regras || [] };
+      }
+    });
 
-    // Busca regras de comissão para o formulário
-    const { data: regras } = await client
-      .from('commission_rule')
-      .select('id, nome, tipo')
-      .eq('ativo', true)
-      .order('nome')
-      .limit(100);
-
-    return json({ items: data || [], regras: regras || [] });
+    return json({ items, regras });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tipos de pacote.');
   }
@@ -117,6 +131,7 @@ export async function POST(event) {
       result = inserted;
     }
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tipo de pacote.');
@@ -142,6 +157,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('tipo_pacotes').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir tipo de pacote.');

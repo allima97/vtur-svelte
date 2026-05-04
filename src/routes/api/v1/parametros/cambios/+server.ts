@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_CAMBIOS_BODY_BYTES = 32 * 1024;
@@ -85,6 +86,10 @@ export async function POST(event) {
       result = inserted;
     }
 
+    invalidateQuoteReadModels({
+      companyIds: scope.companyId ? [scope.companyId] : null,
+      userId: user.id
+    });
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar câmbio.');
@@ -110,6 +115,10 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('parametros_cambios').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateQuoteReadModels({
+      companyIds: scope.companyId ? [scope.companyId] : null,
+      userId: user.id
+    });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir câmbio.');

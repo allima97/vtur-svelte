@@ -7,6 +7,12 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateCatalogReadModels,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PAISES_BODY_BYTES = 64 * 1024;
@@ -24,22 +30,31 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const q = String(searchParams.get('q') || '').trim();
 
-    const { data, error: queryError } = await client
-      .from('paises')
-      .select('id, nome, codigo_iso, continente, created_at')
-      .order('nome')
-      .limit(300);
+    const items = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('paises:list', { q }),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        const { data, error: queryError } = await client
+          .from('paises')
+          .select('id, nome, codigo_iso, continente, created_at')
+          .order('nome')
+          .limit(300);
 
-    if (queryError) throw queryError;
+        if (queryError) throw queryError;
 
-    let items = data || [];
-    if (q) {
-      const qLower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      items = items.filter((item: any) =>
-        String(item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qLower) ||
-        String(item.codigo_iso || '').toLowerCase().includes(qLower)
-      );
-    }
+        let items = data || [];
+        if (q) {
+          const qLower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          items = items.filter((item: any) =>
+            String(item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qLower) ||
+            String(item.codigo_iso || '').toLowerCase().includes(qLower)
+          );
+        }
+        return items;
+      }
+    });
 
     return json({ items });
   } catch (err) {
@@ -87,6 +102,7 @@ export async function POST(event) {
       result = data;
     }
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar país.');
@@ -112,6 +128,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('paises').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir país.');
