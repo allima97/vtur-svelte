@@ -10,6 +10,7 @@ import {
 import { fetchWithTimeout } from "$lib/server/fetchWithTimeout";
 import { escapeHtml } from "$lib/utils/html";
 import { env } from "$env/dynamic/private";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { checkPersistentRateLimit } from "$lib/server/persistentRateLimit";
 
 type Body = {
@@ -239,10 +240,10 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     if (!templateId || !clienteId)
       return json(
         { error: "templateId e clienteId sao obrigatorios." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     if (canal !== "email")
-      return json({ error: "Canal invalido para esta rota." }, { status: 400 });
+      return json({ error: "Canal invalido para esta rota." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: userRow } = await client
       .from("users")
@@ -269,7 +270,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
       .eq("id", templateId)
       .maybeSingle();
     if (tplErr || !tpl)
-      return json({ error: "Template nao encontrado." }, { status: 404 });
+      return json({ error: "Template nao encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
     if (
       !canAccessScopedRow({
         isAdmin,
@@ -280,10 +281,10 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         rowScope: (tpl as any)?.scope || null,
       })
     ) {
-      return json({ error: "Template nao encontrado." }, { status: 404 });
+      return json({ error: "Template nao encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
     }
     if (!tpl.ativo)
-      return json({ error: "Template inativo." }, { status: 400 });
+      return json({ error: "Template inativo." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const nomeDestinatario =
       String(body.nomeDestinatario || "").trim() || "Cliente";
@@ -291,7 +292,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
       .trim()
       .toLowerCase();
     if (!emailDestinatario)
-      return json({ error: "Destinatario sem e-mail." }, { status: 400 });
+      return json({ error: "Destinatario sem e-mail." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const assinatura = tpl.assinatura || assinaturaPadrao;
     const assuntoPadrao = String(
@@ -341,7 +342,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     if (!rl.allowed) {
       return json(
         { error: "Muitas requisicoes de envio de e-mail. Tente novamente em instantes." },
-        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds), "Cache-Control": "no-store" } },
+        { status: 429, headers: { ...NO_STORE_HEADERS, "Retry-After": String(rl.retryAfterSeconds) } },
       );
     }
 
@@ -392,13 +393,13 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
                 smtp: smtpResp.status,
               },
             },
-            { status: 200 },
+            { status: 200, headers: NO_STORE_HEADERS },
           );
         }
       }
     }
 
-    return json({ status: "sent", provider: sentProvider, clienteId });
+    return json({ status: "sent", provider: sentProvider, clienteId }, { headers: NO_STORE_HEADERS });
   } catch (e: any) {
     return toErrorResponse(e, "Erro ao enviar template.");
   }

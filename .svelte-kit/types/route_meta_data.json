@@ -89,6 +89,9 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/api/auth/convite/activate": [
+		"src/routes/api/auth/convite/activate/+server.ts"
+	],
 	"/api/auth/login": [
 		"src/routes/api/auth/login/+server.ts"
 	],
@@ -987,6 +990,10 @@
 	],
 	"/(app)/dashboard/gestor": [
 		"src/routes/(app)/dashboard/gestor/+page.server.ts",
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/dashboard/logs": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

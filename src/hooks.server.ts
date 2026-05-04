@@ -131,7 +131,7 @@ const AUTHENTICATED_API_MAX_BODY_BYTES = 10 * 1024 * 1024;
 const AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES = 20 * 1024 * 1024;
 
 function buildCspPolicy() {
-	const connectSrc = ["'self'", 'https://challenges.cloudflare.com'];
+	const connectSrc = ["'self'", 'https://challenges.cloudflare.com', 'https://cloudflareinsights.com'];
 	const supabaseUrl = String(publicEnv.PUBLIC_SUPABASE_URL || '').trim();
 	if (supabaseUrl) {
 		try {
@@ -156,8 +156,8 @@ function buildCspPolicy() {
 		"font-src 'self' data: https:",
 		"style-src 'self' 'unsafe-inline' https:",
 		dev
-			? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com"
-			: "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+			? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com"
+			: "script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
 		`connect-src ${Array.from(new Set(connectSrc)).join(' ')}`,
 		"frame-src https://challenges.cloudflare.com",
 		"worker-src 'self' blob:",
@@ -173,6 +173,7 @@ type RateLimitRule = {
 };
 
 const PUBLIC_API_RATE_LIMITS: RateLimitRule[] = [
+	{ prefix: '/api/auth/convite/activate', methods: ['POST'], limit: 8, windowMs: 60_000 },
 	{ prefix: '/api/auth/login', methods: ['POST'], limit: 8, windowMs: 60_000 },
 	{ prefix: '/api/auth/passkeys/login', methods: ['POST'], limit: 12, windowMs: 60_000 },
 	{ prefix: '/api/auth/set-session', methods: ['POST'], limit: 40, windowMs: 60_000 },
@@ -350,6 +351,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	const isApiRequest = pathMatchesPrefix(pathname, '/api');
 	const apiPublicRoutes = [
 		'/api/auth/login',
+		'/api/auth/convite/activate',
 		'/api/auth/passkeys/login',
 		'/api/auth/set-session',
 		'/api/auth/turnstile/verify',
@@ -500,6 +502,20 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isSystemAdminBlockedApi = SYSTEM_ADMIN_BLOCKED_API_PREFIXES.some((prefix) =>
 			pathMatchesPrefix(pathname, prefix)
 		);
+		const { data: apiProfile, error: apiProfileError } = await event.locals.supabase
+			.from('users')
+			.select('id, active')
+			.eq('id', user.id)
+			.maybeSingle();
+		if (!apiProfileError && apiProfile && apiProfile.active === false) {
+			return new Response(JSON.stringify({ error: 'Usuario inativo.' }), {
+				status: 403,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
+			});
+		}
 		if (isSystemAdminBlockedApi && (await isSystemAdminApiUser(event, user.id))) {
 			return new Response(JSON.stringify({ error: 'Sem acesso.' }), {
 				status: 403,
@@ -532,7 +548,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		// Consolida: tipo, must_change_password, perfil e company_id numa unica query
 		supabase
 			.from('users')
-			.select('id, company_id, nome_completo, telefone, cidade, estado, uso_individual, must_change_password, user_types(name)')
+			.select('id, company_id, nome_completo, telefone, cidade, estado, uso_individual, active, must_change_password, user_types(name)')
 			.eq('id', user.id)
 			.maybeSingle()
 	]);
@@ -549,6 +565,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	event.locals.userType = userType;
 	event.locals.isSystemAdmin = isSystemAdmin;
 	event.locals.acessos = acessos;
+
+	if (perfil && perfil.active === false) {
+		throw redirect(303, '/negado');
+	}
 
 	// Verificar troca obrigatoria de senha
 	const rotasSenhaObrigatoriaPermitidas = ['/perfil', '/auth', '/api/companies', '/api/welcome-email', '/api/users'];

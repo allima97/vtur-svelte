@@ -7,6 +7,7 @@ import {
   requirePreferenciasScope,
   writeCache
 } from '../_shared';
+import { sanitizePostgrestSearchTerm } from '$lib/server/v1';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -40,7 +41,7 @@ export async function GET(event) {
       if (error) throw error;
       cidadesData = data || [];
     } catch {
-      const fallback = await client.from('cidades').select('id, nome').ilike('nome', `%${query}%`).order('nome').limit(limite);
+      const fallback = await client.from('cidades').select('id, nome').ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`).order('nome').limit(limite);
       if (fallback.error) throw fallback.error;
       cidadesData = fallback.data || [];
     }

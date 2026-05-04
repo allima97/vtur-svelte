@@ -1,3 +1,5 @@
+import { sanitizePostgrestSearchTerm } from '$lib/server/v1';
+
 type CidadeBuscaRow = {
   id: string;
   nome: string;
@@ -194,7 +196,7 @@ async function fetchFromTable(client: any, term: string, limit: number) {
     .order("nome")
     .limit(limit);
   if (term) {
-    query = query.ilike("nome", `%${term}%`);
+    query = query.ilike("nome", `%${sanitizePostgrestSearchTerm(term)}%`);
   }
   const { data, error } = await query;
   if (error) throw error;

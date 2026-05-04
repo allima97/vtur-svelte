@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { applyTemplate, buildFromEmails, loadAvisoTemplates, loadEmailSettings, loadManagedUser } from '$lib/server/admin';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { escapeHtml } from '$lib/utils/html';
 import {
@@ -34,7 +35,7 @@ export async function POST(event) {
     if (!rateLimit.allowed) {
       return new Response('Muitas tentativas de envio. Aguarde alguns segundos.', {
         status: 429,
-        headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) }
+        headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rateLimit.retryAfterSeconds) }
       });
     }
 
@@ -42,31 +43,31 @@ export async function POST(event) {
     const body = await event.request.json().catch(() => ({}));
 
     if (!canSendAvisos(scope)) {
-      return new Response('Sem acesso para disparar avisos.', { status: 403 });
+      return new Response('Sem acesso para disparar avisos.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const userId = String(body.user_id || '').trim();
     const templateId = String(body.template_id || '').trim();
 
     if (!userId || !templateId) {
-      return new Response('Usuario e template sao obrigatorios.', { status: 400 });
+      return new Response('Usuario e template sao obrigatorios.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const targetUser = await loadManagedUser(client, scope, userId);
     if (!targetUser.email) {
-      return new Response('Usuario sem e-mail cadastrado.', { status: 400 });
+      return new Response('Usuario sem e-mail cadastrado.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const templates = await loadAvisoTemplates(client);
     const template = templates.find((item: any) => String(item.id) === templateId);
     if (!template) {
-      return new Response('Template nao encontrado.', { status: 404 });
+      return new Response('Template nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const settings = await loadEmailSettings(client);
     const apiKey = String(settings?.resend_api_key || '').trim();
     if (!apiKey) {
-      return new Response('Resend nao configurado para disparo de avisos.', { status: 400 });
+      return new Response('Resend nao configurado para disparo de avisos.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const fromEmails = buildFromEmails(settings);
@@ -115,14 +116,14 @@ export async function POST(event) {
         status: response.status,
         providerMessage: String(payload?.message || payload?.error || '')
       });
-      return new Response('Falha ao enviar aviso.', { status: 502 });
+      return new Response('Falha ao enviar aviso.', { status: 502, headers: NO_STORE_HEADERS });
     }
 
     return json({
       ok: true,
       provider: 'resend',
       id: payload?.id || null
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao enviar aviso.');
   }

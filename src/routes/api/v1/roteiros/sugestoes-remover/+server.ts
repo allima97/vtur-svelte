@@ -27,7 +27,7 @@ export async function POST(event: RequestEvent) {
       .from('roteiro_sugestoes')
       .delete()
       .eq('tipo', tipo)
-      .ilike('valor', valor);
+      .eq('valor', valor);
 
     if (companyId) {
       query = query.eq('company_id', companyId);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
   import {
     ChevronLeft,
     ChevronRight,
@@ -303,126 +304,22 @@
     return /<[^>]+>/.test(value);
   }
 
-  const allowedHtmlTags = new Set([
-    "a",
-    "span",
-    "div",
-    "p",
-    "strong",
-    "em",
-    "img",
-    "small",
-    "br",
-    "svg",
-    "path",
-    "circle",
-    "rect",
-    "line",
-    "polyline",
-    "polygon",
-  ]);
-  const allowedHtmlAttrs = new Set([
-    "aria-label",
-    "alt",
-    "class",
-    "d",
-    "fill",
-    "height",
-    "href",
-    "rel",
-    "role",
-    "src",
-    "stroke",
-    "stroke-linecap",
-    "stroke-linejoin",
-    "stroke-width",
-    "target",
-    "title",
-    "viewbox",
-    "width",
-  ]);
+  const DOMPURIFY_CONFIG: DOMPurifyConfig = {
+    ALLOWED_TAGS: ['a', 'span', 'div', 'p', 'strong', 'em', 'img', 'small', 'br', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'],
+    ALLOWED_ATTR: ['aria-label', 'alt', 'class', 'd', 'fill', 'height', 'href', 'rel', 'role', 'src', 'stroke', 'stroke-linecap', 'stroke-linejoin', 'stroke-width', 'target', 'title', 'viewBox', 'width'],
+    ALLOW_DATA_ATTR: false,
+    ADD_ATTR: ['target'],
+    FORCE_BODY: false,
+  };
 
-  function escapeHtmlAttribute(value: string) {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/"/g, "&quot;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  function isSafeUrlAttribute(value: string, protocols: string[]) {
-    if (protocols.some((protocol) => value.toLowerCase().startsWith(protocol))) return true;
-    return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
-  }
-
-  function sanitizeHtmlAttribute(name: string, value: string) {
-    const normalizedName = name.toLowerCase();
-    if (normalizedName.startsWith("on")) return "";
-    if (!allowedHtmlAttrs.has(normalizedName)) return "";
-
-    const normalizedValue = String(value || "").trim();
-    if (/javascript:|data:text\/html|vbscript:/i.test(normalizedValue)) return "";
-
-    if (normalizedName === "href") {
-      if (!isSafeUrlAttribute(normalizedValue, ["http:", "https:", "mailto:", "tel:"])) return "";
-      return ` href="${escapeHtmlAttribute(normalizedValue)}"`;
-    }
-
-    if (normalizedName === "src") {
-      if (!isSafeUrlAttribute(normalizedValue, ["http:", "https:"])) return "";
-      return ` src="${escapeHtmlAttribute(normalizedValue)}"`;
-    }
-
-    if (normalizedName === "target") {
-      const safeTarget = ["_blank", "_self", "_parent", "_top"].includes(normalizedValue)
-        ? normalizedValue
-        : "_self";
-      return ` target="${safeTarget}"`;
-    }
-
-    if (normalizedName === "rel") {
-      const safeRel = normalizedValue.replace(/[^a-zA-Z0-9_\-\s]/g, "");
-      return safeRel ? ` rel="${escapeHtmlAttribute(safeRel)}"` : "";
-    }
-
-    if (normalizedName === "class") {
-      const safeClass = normalizedValue.replace(/[^a-zA-Z0-9_:\-./\s[\]()#%]/g, "");
-      return safeClass ? ` class="${escapeHtmlAttribute(safeClass)}"` : "";
-    }
-
-    return ` ${normalizedName}="${escapeHtmlAttribute(normalizedValue)}"`;
-  }
-
-  function sanitizeHtmlContent(value: string) {
-    const withoutDangerousBlocks = String(value || "")
-      .replace(/<\s*(script|style|iframe|object|embed|link|meta|base)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
-      .replace(/<\s*(script|style|iframe|object|embed|link|meta|base)\b[^>]*\/?>/gi, "");
-
-    return withoutDangerousBlocks.replace(
-      /<\/?([a-zA-Z0-9:-]+)([^>]*)>/g,
-      (match, rawTagName, rawAttrs) => {
-        const tagName = String(rawTagName || "").toLowerCase();
-        if (!allowedHtmlTags.has(tagName)) return "";
-        if (match.startsWith("</")) return `</${tagName}>`;
-        if (tagName === "br") return "<br>";
-
-        const attrs = String(rawAttrs || "").replace(
-          /([^\s=/"'>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>`]+)))?/g,
-          (_attrMatch, rawName, doubleValue, singleValue, bareValue) =>
-            sanitizeHtmlAttribute(
-              String(rawName || ""),
-              String(doubleValue ?? singleValue ?? bareValue ?? ""),
-            ),
-        );
-
-        const hardenedAttrs =
-          tagName === "a" && /\starget="_blank"/i.test(attrs) && !/\srel=/i.test(attrs)
-            ? `${attrs} rel="noopener noreferrer"`
-            : attrs;
-
-        return `<${tagName}${hardenedAttrs}>`;
-      },
-    );
+  function sanitizeHtmlContent(value: string): string {
+    if (typeof window === 'undefined') return '';
+    const clean = String(DOMPurify.sanitize(String(value || ''), DOMPURIFY_CONFIG));
+    // Hardening: garante rel="noopener noreferrer" em links com target="_blank"
+    return clean.replace(/<a([^>]*\starget="_blank"[^>]*)>/gi, (match: string, attrs: string) => {
+      if (/\srel=/i.test(attrs)) return match;
+      return `<a${attrs} rel="noopener noreferrer">`;
+    });
   }
 
   $: pageSizeValue = String(currentPageSize);

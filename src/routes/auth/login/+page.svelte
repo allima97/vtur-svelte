@@ -121,9 +121,9 @@
   }
   
   onMount(() => {
-    mockMode = isMockMode();
+    mockMode = dev && isMockMode();
     passkeySupported = !mockMode && window.isSecureContext && browserSupportsWebAuthn();
-    // Auto-login no modo mock para facilitar testes
+    // Auto-preenchimento somente no dev local; preview/producao nunca exibem credencial padrao.
     if (mockMode) {
       email = 'admin@vtur.com';
       password = 'admin123';

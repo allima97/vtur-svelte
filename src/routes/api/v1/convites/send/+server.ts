@@ -7,6 +7,12 @@ import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
+function noStoreJson(data: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  return json(data, { ...init, headers });
+}
+
 function titleCaseWithExceptions(input: string): string {
   if (!input) return "";
   const words = input.split(/\s+/);
@@ -140,9 +146,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const rl = await checkPersistentRateLimit('convites-send', user.id, { max: 10, windowMs: 60_000 });
     if (!rl.allowed) {
-      return json(
+      return noStoreJson(
         { error: 'Muitas requisicoes. Tente novamente em instantes.' },
-        { status: 429, headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } }
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
       );
     }
 
@@ -153,20 +159,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const nomeCompletoRaw = String(body.nome_completo || "").trim();
     const activeRaw = body.active;
 
-    if (!email) return json({ error: "E-mail e obrigatorio." }, { status: 400 });
-    if (!companyId) return json({ error: "Empresa e obrigatoria." }, { status: 400 });
-    if (!userTypeId) return json({ error: "Cargo e obrigatorio." }, { status: 400 });
-    if (!isUuid(companyId)) return json({ error: "Empresa invalida." }, { status: 400 });
-    if (!isUuid(userTypeId)) return json({ error: "Cargo invalido." }, { status: 400 });
+    if (!email) return noStoreJson({ error: "E-mail e obrigatorio." }, { status: 400 });
+    if (!companyId) return noStoreJson({ error: "Empresa e obrigatoria." }, { status: 400 });
+    if (!userTypeId) return noStoreJson({ error: "Cargo e obrigatorio." }, { status: 400 });
+    if (!isUuid(companyId)) return noStoreJson({ error: "Empresa invalida." }, { status: 400 });
+    if (!isUuid(userTypeId)) return noStoreJson({ error: "Cargo invalido." }, { status: 400 });
 
     const scope = await resolveUserScope(adminClient, user.id);
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return json({ error: "Sem permissao para enviar convites." }, { status: 403 });
+      return noStoreJson({ error: "Sem permissao para enviar convites." }, { status: 403 });
     }
 
     if (!scope.isAdmin) {
       if (await isRestrictedUserType(adminClient, userTypeId)) {
-        return json({ error: "Tipo de usuario nao permitido." }, { status: 403 });
+        return noStoreJson({ error: "Tipo de usuario nao permitido." }, { status: 403 });
       }
     }
 
@@ -174,16 +180,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const podeAcessar =
         (scope.companyId && scope.companyId === companyId) ||
         (await masterCanAccessCompany(adminClient, user.id, companyId));
-      if (!podeAcessar) return json({ error: "Empresa fora do seu portfolio." }, { status: 403 });
+      if (!podeAcessar) return noStoreJson({ error: "Empresa fora do seu portfolio." }, { status: 403 });
     }
 
     if (scope.isGestor) {
       if (!scope.companyId || scope.companyId !== companyId) {
-        return json({ error: "Gestor so pode convidar usuarios da propria empresa." }, { status: 403 });
+        return noStoreJson({ error: "Gestor so pode convidar usuarios da propria empresa." }, { status: 403 });
       }
       const tipoNome = await getUserTypeNameById(adminClient, userTypeId);
       if (!tipoNome.includes("VENDEDOR")) {
-        return json({ error: "Gestor so pode convidar usuarios do tipo VENDEDOR." }, { status: 403 });
+        return noStoreJson({ error: "Gestor so pode convidar usuarios do tipo VENDEDOR." }, { status: 403 });
       }
     }
 
@@ -207,7 +213,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (existingErr) {
       if (isTableMissing(existingErr)) {
-        return json(
+        return noStoreJson(
           { error: "Tabela public.user_convites nao existe. Aplique a migration." },
           { status: 500 }
         );
@@ -229,7 +235,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .eq("id", inviteId);
       if (updateErr) {
         if (isMissingColumn(updateErr, "expires_at")) {
-          return json(
+          return noStoreJson(
             { error: "Coluna public.user_convites.expires_at ausente. Aplique a migration." },
             { status: 500 }
           );
@@ -253,7 +259,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .single();
       if (insertErr) {
         if (isMissingColumn(insertErr, "expires_at")) {
-          return json(
+          return noStoreJson(
             { error: "Coluna public.user_convites.expires_at ausente. Aplique a migration." },
             { status: 500 }
           );
@@ -292,11 +298,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     } catch (err: any) {
       logServerError("[convites/send] falha ao gerar link de convite", err);
-      return json({ error: "Falha ao gerar link de convite." }, { status: 500 });
+      return noStoreJson({ error: "Falha ao gerar link de convite." }, { status: 500 });
     }
 
     if (!actionLink) {
-      return json({ error: "Falha ao gerar link de convite." }, { status: 500 });
+      return noStoreJson({ error: "Falha ao gerar link de convite." }, { status: 500 });
     }
 
     if (authUserId) {
@@ -369,7 +375,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (!resendResp.ok) {
       const sendgridResp = await enviarEmailSendGrid({ to, subject, html, text, fromEmail });
       if (!sendgridResp.ok) {
-        return json(
+        return noStoreJson(
           { error: "Convite criado, mas falha ao enviar e-mail (Resend/SendGrid)." },
           { status: 500 }
         );
@@ -401,15 +407,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
 
-    return json(
+    return noStoreJson(
       {
         id: inviteId,
         expires_at: expiresAt,
-      },
-      { headers: NO_STORE_HEADERS }
+      }
     );
   } catch (error: any) {
     logServerError("[convites/send] falha ao enviar convite", error);
-    return json({ error: "Erro interno ao enviar convite." }, { status: 500 });
+    return noStoreJson({ error: "Erro interno ao enviar convite." }, { status: 500 });
   }
 };

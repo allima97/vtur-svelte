@@ -15,13 +15,15 @@
     CreditCard,
     DollarSign,
     FileText,
+    Gift,
     Mail,
     Megaphone,
     Settings2,
     SlidersHorizontal,
     Shield,
     UserRoundCog,
-    Users
+    Users,
+    Wrench
   } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
 
@@ -130,12 +132,14 @@
     { title: 'Empresas', href: '/admin/empresas', icon: Building2, description: 'Cadastro e status de contas' },
     { title: 'Usuários', href: '/admin/usuarios', icon: Users, description: 'Perfis, cargos e acesso' },
     { title: 'Tipos de usuário', href: '/admin/tipos-usuario', icon: UserRoundCog, description: 'Perfis padrão e escopos' },
+    { title: 'Aniversariantes', href: '/admin/aniversariantes', icon: Gift, description: 'Calendário de colaboradores' },
     { title: 'Avisos', href: '/admin/avisos', icon: Megaphone, description: 'Templates e notificações' },
     { title: 'CRM', href: '/admin/crm', icon: BellRing, description: 'Templates administrativos' },
     { title: 'E-mail', href: '/admin/email', icon: Mail, description: 'Configurar envio' },
     { title: 'Módulos', href: '/admin/modulos-sistema', icon: SlidersHorizontal, description: 'Disponibilidade global' },
     { title: 'Permissões', href: '/admin/permissoes', icon: Shield, description: 'Módulos e níveis de acesso' },
     { title: 'Parâmetros importação', href: '/admin/parametros-importacao', icon: Settings2, description: 'Termos e parser' },
+    { title: 'Correção de recibos', href: '/admin/fix-recibos', icon: Wrench, description: 'Auditoria e ajustes pontuais' },
     { title: 'Logs', href: '/dashboard/logs', icon: FileText, description: 'Auditoria do sistema' },
     { title: 'Documentação', href: '/documentacao', icon: BookOpen, description: 'Guias e instruções' }
   ];

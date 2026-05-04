@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dev } from '$app/environment';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -12,11 +12,12 @@
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { ArrowLeft, Filter, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
+  import { ArrowLeft, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import {
     addMonthsISODate,
+    monthRangeFromKey,
     monthRangeFromYearMonth,
     parseISODateParts,
     todayISODateLocal
@@ -130,12 +131,10 @@
     forma_pagamento: string;
   }
 
+  type PeriodoModo = 'mes' | 'periodo';
+
   function getDefaultRange() {
-    const today = todayISODateLocal();
-    return {
-      start: `${today.slice(0, 4)}-01-01`,
-      end: today
-    };
+    return getCurrentMonthRange();
   }
 
   function getCurrentMonthRange() {
@@ -143,6 +142,16 @@
     return {
       start: `${today.slice(0, 7)}-01`,
       end: today
+    };
+  }
+
+  function getReportMonthRange(monthKey: string) {
+    const today = todayISODateLocal();
+    const range = monthRangeFromKey(monthKey);
+    if (!range) return getCurrentMonthRange();
+    return {
+      start: range.inicio,
+      end: monthKey === today.slice(0, 7) ? today : range.fim
     };
   }
 
@@ -245,6 +254,7 @@
 
 
   const defaultRange = getDefaultRange();
+  const defaultMonth = todayISODateLocal().slice(0, 7);
 
   let vendas: VendaRelatorio[] = [];
   let vendedores: VendedorFiltro[] = [];
@@ -259,6 +269,8 @@
   };
   let loading = true;
   let loadingBase = true;
+  let filtroPeriodoModo: PeriodoModo = 'mes';
+  let mesSelecionado = defaultMonth;
   let dataInicio = defaultRange.start;
   let dataFim = defaultRange.end;
   let vendedorSelecionado = '';
@@ -272,6 +284,9 @@
     mensal: [],
     diaria: []
   };
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   const columnsBase = [
     { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
@@ -338,8 +353,11 @@
   function syncUrl() {
     const params = new URLSearchParams({
       data_inicio: dataInicio,
-      data_fim: dataFim
+      data_fim: dataFim,
+      periodo: filtroPeriodoModo
     });
+
+    if (filtroPeriodoModo === 'mes') params.set('mes', mesSelecionado);
 
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
     if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
@@ -371,6 +389,29 @@
     if (tipoProdutoFiltro) params.set('tipo_produto', tipoProdutoFiltro);
 
     return params;
+  }
+
+  function buildAutoReloadKey() {
+    return [
+      filtroPeriodoModo,
+      mesSelecionado,
+      dataInicio,
+      dataFim,
+      empresaSelecionada,
+      vendedorSelecionado,
+      statusSelecionado,
+      clienteIdFiltro,
+      destinoFiltro,
+      produtoFiltro,
+      tipoProdutoFiltro
+    ].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void loadRelatorio();
+    }, 250);
   }
 
   async function fetchRelatorioRange(start: string, end: string): Promise<RelatorioPayload> {
@@ -412,20 +453,39 @@
     const params = new URLSearchParams(window.location.search);
     const hasDataInicio = Boolean(params.get('data_inicio'));
     const hasDataFim = Boolean(params.get('data_fim'));
+    const periodoParam = params.get('periodo');
+    const mesParam = params.get('mes');
     const monthRange = getCurrentMonthRange();
     const vendedorDefaultRange =
       $permissoes.ready && ($permissoes.isVendedor || $permissoes.usoIndividual);
 
-    dataInicio = hasDataInicio
-      ? String(params.get('data_inicio'))
-      : vendedorDefaultRange
-        ? monthRange.start
-        : defaultRange.start;
-    dataFim = hasDataFim
-      ? String(params.get('data_fim'))
-      : vendedorDefaultRange
-        ? monthRange.end
-        : defaultRange.end;
+    if (periodoParam === 'mes' || (mesParam && periodoParam !== 'periodo')) {
+      filtroPeriodoModo = 'mes';
+      mesSelecionado = mesParam || defaultMonth;
+      const range = getReportMonthRange(mesSelecionado);
+      dataInicio = range.start;
+      dataFim = range.end;
+    } else if (hasDataInicio || hasDataFim) {
+      filtroPeriodoModo = 'periodo';
+      dataInicio = hasDataInicio
+        ? String(params.get('data_inicio'))
+        : vendedorDefaultRange
+          ? monthRange.start
+          : defaultRange.start;
+      dataFim = hasDataFim
+        ? String(params.get('data_fim'))
+        : vendedorDefaultRange
+          ? monthRange.end
+          : defaultRange.end;
+      mesSelecionado = dataInicio.slice(0, 7) || defaultMonth;
+    } else {
+      filtroPeriodoModo = 'mes';
+      mesSelecionado = defaultMonth;
+      const range = getReportMonthRange(mesSelecionado);
+      dataInicio = range.start;
+      dataFim = range.end;
+    }
+
     vendedorSelecionado = params.get('vendedor_id') || '';
     empresaSelecionada = params.get('empresa_id') || '';
     statusSelecionado = params.get('status') || '';
@@ -436,6 +496,12 @@
 
     await loadBase();
     await loadRelatorio();
+    lastAutoReloadKey = buildAutoReloadKey();
+    autoReloadEnabled = true;
+  });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
   });
 
   function formatCurrency(value: number): string {
@@ -500,16 +566,11 @@
     toast.success('Relatório exportado com sucesso');
   }
 
-  async function gerarRelatorio() {
-    await loadRelatorio(true);
-  }
-
   function clearContextFilters() {
     clienteIdFiltro = '';
     destinoFiltro = '';
     produtoFiltro = '';
     tipoProdutoFiltro = '';
-    void loadRelatorio(true);
   }
 
   function handleRowClick(row: ReciboLinha) {
@@ -530,6 +591,19 @@
 
   $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) {
     vendedorSelecionado = '';
+  }
+
+  $: if (filtroPeriodoModo === 'mes') {
+    const range = getReportMonthRange(mesSelecionado);
+    if (dataInicio !== range.start) dataInicio = range.start;
+    if (dataFim !== range.end) dataFim = range.end;
+  }
+
+  $: autoReloadKey = buildAutoReloadKey();
+
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
   }
 
   function buildReciboLinhas(
@@ -654,8 +728,29 @@
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-col gap-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      <FieldInput id="rel-vendas-data-inicio" label="Data início" type="date" bind:value={dataInicio} class_name="w-full" />
-      <FieldInput id="rel-vendas-data-fim" label="Data fim" type="date" bind:value={dataFim} min={dataInicio || null} class_name="w-full" />
+      <FieldSelect
+        id="rel-vendas-periodo-modo"
+        label="Período"
+        bind:value={filtroPeriodoModo}
+        options={[
+          { value: 'mes', label: 'Mês' },
+          { value: 'periodo', label: 'Data específica' }
+        ]}
+        placeholder={null}
+        class_name="w-full"
+      />
+      {#if filtroPeriodoModo === 'mes'}
+        <FieldInput
+          id="rel-vendas-mes"
+          label="Mês"
+          type="month"
+          bind:value={mesSelecionado}
+          class_name="w-full"
+        />
+      {:else}
+        <FieldInput id="rel-vendas-data-inicio" label="Data início" type="date" bind:value={dataInicio} class_name="w-full" />
+        <FieldInput id="rel-vendas-data-fim" label="Data fim" type="date" bind:value={dataFim} min={dataInicio || null} class_name="w-full" />
+      {/if}
       {#if showEmpresaFiltro}
         <FieldSelect
           id="rel-vendas-empresa"
@@ -690,12 +785,6 @@
         placeholder={null}
         class_name="w-full"
       />
-      <div class="flex items-end">
-        <Button variant="primary" color="financeiro" class_name="w-full" on:click={gerarRelatorio} loading={loading}>
-          <Filter size={16} class="mr-2" />
-          Aplicar
-        </Button>
-      </div>
     </div>
 
     {#if clienteIdFiltro || destinoFiltro || produtoFiltro || tipoProdutoFiltro}

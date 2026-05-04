@@ -125,7 +125,8 @@
             srcdoc={docHtml}
             class="w-full flex-1 bg-white shadow-lg rounded-lg border border-slate-200"
             title="Voucher Preview"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-modals"
+            referrerpolicy="no-referrer"
             style="min-height: 0;"
           ></iframe>
         {:else}

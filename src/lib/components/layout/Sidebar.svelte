@@ -179,18 +179,21 @@
   ];
 
   const adminItems: MenuItem[] = [
-    { key: 'admin_dashboard', name: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard, systemOnly: true },
+    { key: 'admin_central', name: 'Central Admin', href: '/admin', icon: Shield, systemOnly: true },
+    { key: 'admin_dashboard', name: 'Dashboard Admin', href: '/dashboard/admin', icon: LayoutDashboard, systemOnly: true },
     { key: 'admin_planos', name: 'Planos', href: '/admin/planos', icon: CreditCard },
     { key: 'admin_financeiro', name: 'Financeiro', href: '/admin/financeiro', icon: Wallet },
     { key: 'admin_empresas', name: 'Empresas', href: '/admin/empresas', icon: Building2 },
     { key: 'admin_usuarios', name: 'Usuários', href: '/admin/usuarios', icon: Users },
     { key: 'admin_tipos', name: 'Tipos de usuário', href: '/admin/tipos-usuario', icon: Users },
+    { key: 'admin_aniversariantes', name: 'Aniversariantes', href: '/admin/aniversariantes', icon: Gift },
     { key: 'admin_avisos', name: 'Avisos', href: '/admin/avisos', icon: Megaphone },
     { key: 'admin_crm', name: 'CRM — Templates', href: '/admin/crm', icon: MessageSquare },
     { key: 'admin_email', name: 'E-mail', href: '/admin/email', icon: Mail },
     { key: 'admin_modulos', name: 'Módulos do sistema', href: '/admin/modulos-sistema', icon: Settings },
     { key: 'admin_permissoes', name: 'Permissões', href: '/admin/permissoes', icon: Shield },
     { key: 'admin_parametros_importacao', name: 'Parâmetros importação', href: '/admin/parametros-importacao', icon: Settings },
+    { key: 'admin_fix_recibos', name: 'Correção de recibos', href: '/admin/fix-recibos', icon: RefreshCw },
     { key: 'admin_logs', name: 'Logs', href: '/dashboard/logs', icon: FileText, systemOnly: true },
     { key: 'admin_documentacao', name: 'Documentação', href: '/documentacao', icon: FileText, systemOnly: true }
   ];
@@ -215,8 +218,21 @@
     }
   }
 
+  function isSystemAdminMenuItem(item: MenuItem) {
+    const href = item.href || '';
+    return (
+      item.systemOnly ||
+      href === '/admin' ||
+      href.startsWith('/admin/') ||
+      href.startsWith('/dashboard/admin') ||
+      href.startsWith('/dashboard/logs') ||
+      href.startsWith('/documentacao')
+    );
+  }
+
   function isHiddenByUserPreference(item: MenuItem) {
     if (!item.key) return false;
+    if ($permissoes.isSystemAdmin && isSystemAdminMenuItem(item)) return false;
     return hiddenMenuSet.has(item.key);
   }
 

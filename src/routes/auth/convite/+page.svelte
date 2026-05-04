@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { supabase } from '$lib/db/supabase';
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldInput } from '$lib/components/ui';
@@ -16,6 +16,11 @@
   let success = false;
   let showPassword = false;
   let showConfirmPassword = false;
+
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    token = params.get('invite') || params.get('token') || token;
+  });
   
   async function handleSubmit() {
     if (!email || !password || !nome || !token) {
@@ -37,19 +42,19 @@
     error = null;
 
     try {
-      // Verificar convite e criar conta
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nome,
-            invite_token: token
-          }
-        }
+      const response = await fetch('/api/auth/convite/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invite_id: token,
+          email,
+          password,
+          nome
+        })
       });
 
-      if (signUpError) throw signUpError;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Erro ao ativar conta');
 
       success = true;
 
@@ -148,7 +153,7 @@
             label="Senha"
             type={showPassword ? 'text' : 'password'}
             bind:value={password}
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
             icon={Lock}
             actionIcon={showPassword ? EyeOff : Eye}
             actionLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}

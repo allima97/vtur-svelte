@@ -27,15 +27,20 @@ export async function loadAirportCodeCityLookup(): Promise<AirportCodeCityLookup
   if (typeof window === "undefined") return {};
 
   airportLookupPromise = (async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 4_000);
     try {
       const response = await fetch(AIRPORT_CODE_CITY_LOOKUP_URL, {
         cache: "force-cache",
+        signal: controller.signal,
       });
       if (!response.ok) return {};
       const json = await response.json();
       return normalizeAirportLookup(json);
     } catch {
       return {};
+    } finally {
+      window.clearTimeout(timeout);
     }
   })();
 

@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 
 const ESCALA_HORARIO_SELECT =
   'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
@@ -41,15 +42,26 @@ function normalizeTime(value: unknown) {
 async function fetchFeriadosNacionais(ano: number, periodo: string) {
   if (!Number.isInteger(ano) || ano < 1900 || ano > 2200) return [];
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4_000);
-
   try {
-    const response = await fetch(`https://brasilapi.com.br/api/feriados/v1/${ano}`, {
-      signal: controller.signal
-    });
+    const response = await fetchWithTimeout(
+      `https://brasilapi.com.br/api/feriados/v1/${ano}`,
+      { headers: { Accept: 'application/json' } },
+      4_000
+    );
     if (!response.ok) return [];
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) return [];
+
+    const raw = await response.text();
+    if (raw.length > 250_000) {
+      logServerError('[parametros/escalas] payload de feriados nacionais excedeu limite', new Error('BrasilAPI payload too large'), {
+        ano,
+        tamanho: raw.length
+      });
+      return [];
+    }
+
+    const data = JSON.parse(raw);
     return (Array.isArray(data) ? data : [])
       .map((item: any) => ({
         id: `nacional-${String(item?.date || '').trim()}`,
@@ -61,8 +73,6 @@ async function fetchFeriadosNacionais(ano: number, periodo: string) {
   } catch (err) {
     logServerError('[parametros/escalas] falha ao carregar feriados nacionais', err);
     return [];
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

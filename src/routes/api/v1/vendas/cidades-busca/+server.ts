@@ -4,6 +4,7 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -122,7 +123,7 @@ export async function GET(event) {
       const fallbackWithSubdivisao = await client
         .from('cidades')
         .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
-        .ilike('nome', `%${query}%`)
+        .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
         .order('grau_importancia', { ascending: true, nullsFirst: false })
         .order('nome', { ascending: true })
         .limit(limite);
@@ -131,7 +132,7 @@ export async function GET(event) {
         const fallbackBase = await client
           .from('cidades')
           .select('id, nome, grau_importancia')
-          .ilike('nome', `%${query}%`)
+          .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
           .order('grau_importancia', { ascending: true, nullsFirst: false })
           .order('nome', { ascending: true })
           .limit(limite);

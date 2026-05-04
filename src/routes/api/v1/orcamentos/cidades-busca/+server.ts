@@ -5,6 +5,7 @@ import {
   normalizeText,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -39,7 +40,7 @@ export async function GET(event: RequestEvent) {
       return json(data || []);
     } catch {
       const normalizedQuery = normalizeText(query);
-      const { data, error } = await client.from('cidades').select('nome').ilike('nome', `%${query}%`).order('nome').limit(limite);
+      const { data, error } = await client.from('cidades').select('nome').ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`).order('nome').limit(limite);
       if (error) throw error;
       const filtered = (data || []).filter((item: any) => normalizeText(item?.nome || '').includes(normalizedQuery));
       return json(filtered.map((item: any) => ({ nome: item.nome })));

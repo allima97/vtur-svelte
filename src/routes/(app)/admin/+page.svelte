@@ -14,6 +14,7 @@
     CreditCard,
     DollarSign,
     FileText,
+    Gift,
     Mail,
     MessageSquare,
     Settings2,
@@ -21,6 +22,7 @@
     SlidersHorizontal,
     Users,
     UserRoundCog,
+    Wrench,
     BellRing,
     CheckCircle2,
     AlertCircle
@@ -79,6 +81,12 @@
       countKey: 'avisos_ativos'
     },
     {
+      title: 'Aniversariantes',
+      description: 'Calendário administrativo de aniversários dos colaboradores.',
+      href: '/admin/aniversariantes',
+      icon: Gift
+    },
+    {
       title: 'CRM',
       description: 'Templates administrativos e biblioteca de mensagens.',
       href: '/admin/crm',
@@ -101,6 +109,12 @@
       description: 'Termos auxiliares usados pelos parsers de importação.',
       href: '/admin/parametros-importacao',
       icon: Settings2
+    },
+    {
+      title: 'Correção de recibos',
+      description: 'Ferramenta restrita para auditoria e correções pontuais de recibos.',
+      href: '/admin/fix-recibos',
+      icon: Wrench
     },
     {
       title: 'Logs',
