@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
   import { browser, dev } from '$app/environment';
-  import { goto } from '$app/navigation';
   import { supabase } from '$lib/db/supabase';
   import { auth, sessionSynced } from '$lib/stores/auth';
   import { toast } from '$lib/stores/ui';
@@ -39,8 +38,9 @@
       isRedirecting = true;
       lastRedirectAt = now;
       if (dev) console.warn(`[Auth] ${reason}. Redirecionando para login.`);
-      toast.warning('Sua sessão expirou. Você será redirecionado para o login.', 6000);
-      goto('/auth/login?session_expired=1', { replaceState: true });
+      // Usa window.location em vez de goto() para evitar uncaught promise
+      // quando o documento já está sendo descarregado (ex: após window.location.href no logout)
+      window.location.assign('/auth/login?session_expired=1');
     }
   }
 
@@ -113,16 +113,20 @@
             auth.clear();
             sessionSynced.set(true);
             // Aguarda um momento para verificar se realmente não há sessão
-            // (pode ser uma race condition durante refresh automático)
+            // (pode ser uma race condition durante refresh automático do token)
+            // Não redireciona se o logout foi intencional (já estamos na rota pública
+            // ou a página está sendo descarregada via window.location)
             setTimeout(async () => {
               if (cancelled) return;
+              // Se já estamos em rota pública (ex: logout intencional já redirecionou), encerra
+              if (browser && isPublicRoute(window.location.pathname)) return;
               const {
                 data: { session: currentSession }
               } = await supabase.auth.getSession();
               if (!currentSession && get(auth).user) {
                 redirectToLogin('Sessão encerrada pelo servidor (SIGNED_OUT)');
               }
-            }, 500);
+            }, 800);
           }
         }
       );
