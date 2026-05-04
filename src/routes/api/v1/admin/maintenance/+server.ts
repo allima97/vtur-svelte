@@ -1,21 +1,21 @@
 import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import {
   getAdminClient,
-  logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { checkRateLimit } from '$lib/server/rateLimit';
 
-export const GET: RequestHandler = async ({ locals }) => {
+export async function GET(event) {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem acesso.' }, { status: 403 });
+      return json({ error: 'Sem acesso.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -25,33 +25,43 @@ export const GET: RequestHandler = async ({ locals }) => {
       .maybeSingle();
     if (error) throw error;
 
-    return json({
-      maintenance_enabled: Boolean(data?.maintenance_enabled),
-      maintenance_message: data?.maintenance_message ?? null,
-      updated_at: data?.updated_at ?? null,
-    });
+    return json(
+      {
+        maintenance_enabled: Boolean(data?.maintenance_enabled),
+        maintenance_message: data?.maintenance_message ?? null,
+        updated_at: data?.updated_at ?? null,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
-    logServerError('[admin/maintenance] falha ao carregar estado', err);
     return toErrorResponse(err, 'Erro ao carregar manutencao.');
   }
-};
+}
 
-export const POST: RequestHandler = async ({ locals, request }) => {
+export async function POST(event) {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem acesso.' }, { status: 403 });
+      return json({ error: 'Sem acesso.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body = await request.json();
+    const rl = checkRateLimit(`admin-maintenance:${user.id}`, { max: 20, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return json(
+        { error: 'Muitas requisicoes. Aguarde e tente novamente.' },
+        { status: 429, headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
+    const body = await event.request.json().catch(() => ({}));
 
     const payload = {
       singleton: true,
-      maintenance_enabled: Boolean(body?.maintenance_enabled ?? body?.enabled),
-      maintenance_message: body?.maintenance_message ?? body?.message ?? null,
+      maintenance_enabled: Boolean(body?.maintenance_enabled),
+      maintenance_message: body?.maintenance_message ?? null,
       updated_by: user.id,
     };
 
@@ -60,9 +70,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       .upsert(payload, { onConflict: 'singleton' });
     if (error) throw error;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
-    logServerError('[admin/maintenance] falha ao salvar estado', err);
     return toErrorResponse(err, 'Erro ao salvar manutencao.');
   }
-};
+}

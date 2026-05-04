@@ -7,7 +7,7 @@
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, Plane, Calendar, FileText, Clock, CreditCard, RefreshCw } from 'lucide-svelte';
+  import { Plus, Plane, Calendar, FileText, Clock, CreditCard } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -389,13 +389,6 @@
         on:change={loadViagens}
       />
     </div>
-
-    <Button variant="secondary" color="clientes" on:click={loadViagens} loading={loading} class_name="xl:mb-0">
-      {#if !loading}
-        <RefreshCw size={16} class="mr-2" />
-      {/if}
-      Atualizar
-    </Button>
   </div>
 </Card>
 

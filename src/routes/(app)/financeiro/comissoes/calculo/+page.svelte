@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect } from '$lib/components/ui';
   import { 
@@ -56,6 +56,9 @@
   let filtroVendedor = '';
   let filtroStatus = 'todas';
   let vendedores: any[] = [];
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   function getVendedorId(vendedor: any) {
     return String(vendedor?.vendedor_id || vendedor?.id || '');
@@ -78,9 +81,27 @@
     filtroDataInicio = range.inicio;
     filtroDataFim = range.fim;
     
-    loadComissoes();
-    loadVendedores();
+    void (async () => {
+      await Promise.all([loadComissoes(), loadVendedores()]);
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    })();
   });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void loadComissoes();
+    }, 250);
+  }
 
   async function loadComissoes() {
     loading = true;
@@ -288,6 +309,11 @@
     { value: 'paga', label: 'Pagas' },
     { value: 'cancelada', label: 'Canceladas' }
   ];
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -359,14 +385,6 @@
   </div>
 
   <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
-    <Button
-      variant="secondary"
-      on:click={loadComissoes}
-      disabled={loading}
-    >
-      <RefreshCw size={16} class="mr-2" />
-      Atualizar
-    </Button>
     <Button
       variant="primary"
       color="financeiro"
