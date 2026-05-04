@@ -1,15 +1,14 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { ArrowLeft, Filter, MapPin } from 'lucide-svelte';
+  import { ArrowLeft, MapPin } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
@@ -59,6 +58,9 @@
   let vendedorSelecionado = '';
   let ordenacao = 'receita';
   let recorte = 'todos';
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function loadBase() {
     try {
@@ -127,8 +129,32 @@
     void (async () => {
       await loadBase();
       await loadRelatorio();
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
     })();
   });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [
+      filtroPeriodoModo,
+      mesSelecionado,
+      dataInicio,
+      dataFim,
+      empresaSelecionada,
+      vendedorSelecionado
+    ].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void loadRelatorio();
+    }, 250);
+  }
 
   function formatCurrency(value: number): string {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -156,10 +182,6 @@
     link.download = `relatorio_destinos_${todayISODateLocal()}.csv`;
     link.click();
     toast.success('Relatório exportado com sucesso');
-  }
-
-  async function gerarRelatorio() {
-    await loadRelatorio(true);
   }
 
   function handleRowClick(row: DestinoRelatorio) {
@@ -239,6 +261,13 @@
 
   $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
   $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
+
+  $: autoReloadKey = buildAutoReloadKey();
+
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -337,12 +366,6 @@
     placeholder={null}
     class_name="w-full"
   />
-  <svelte:fragment slot="actions">
-    <Button variant="primary" color="financeiro" on:click={gerarRelatorio}>
-      <Filter size={16} class="mr-2" />
-      Gerar
-    </Button>
-  </svelte:fragment>
 </FilterPanel>
 
 {#if destinoTop}
