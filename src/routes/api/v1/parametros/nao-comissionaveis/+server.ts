@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_NAO_COMISSIONAVEIS_BODY_BYTES = 32 * 1024;
@@ -76,6 +77,7 @@ export async function POST(event) {
       result = data;
     }
 
+    invalidateSalesReadModels();
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar termo.');
@@ -101,6 +103,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('parametros_pagamentos_nao_comissionaveis').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateSalesReadModels();
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir termo.');

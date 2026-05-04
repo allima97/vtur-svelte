@@ -12,6 +12,7 @@ import {
   sanitizeConciliacaoTiers,
   type ParametrosConciliacaoShape,
 } from "$lib/utils/conciliacao";
+import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_PARAMETROS_SISTEMA_BODY_BYTES = 256 * 1024;
@@ -387,6 +388,10 @@ export async function POST(event) {
     };
 
     const result = await upsertWithFallback(client, payload);
+    invalidateSalesReadModels({
+      companyIds: companyId ? [companyId] : [],
+      userId: user.id,
+    });
 
     return json({
       id: result?.id || null,

@@ -7,6 +7,7 @@ import {
 } from '$lib/server/v1';
 import { ensureClienteAccess } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ACOMPANHANTE_CREATE_BODY_BYTES = 64 * 1024;
@@ -85,6 +86,11 @@ export async function POST(event) {
       .single();
 
     if (error) throw error;
+
+    invalidateClientReadModels({
+      companyIds: data?.company_id ? [data.company_id] : scope.companyIds,
+      userId: user.id
+    });
 
     return json({
       item: data,

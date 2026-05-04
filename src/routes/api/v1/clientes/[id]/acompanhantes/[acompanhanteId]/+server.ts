@@ -7,6 +7,7 @@ import {
 } from '$lib/server/v1';
 import { ensureClienteAccess } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const MAX_ACOMPANHANTE_UPDATE_BODY_BYTES = 64 * 1024;
@@ -56,6 +57,11 @@ export async function PATCH(event) {
 
     if (error) throw error;
 
+    invalidateClientReadModels({
+      companyIds: data?.company_id ? [data.company_id] : scope.companyIds,
+      userId: user.id
+    });
+
     return json({
       item: data,
       message: 'Acompanhante atualizado com sucesso.'
@@ -80,13 +86,20 @@ export async function DELETE(event) {
 
     await ensureClienteAccess(client, scope, clienteId, null, null, 3);
 
-    const { error } = await client
+    const { data: deleted, error } = await client
       .from('cliente_acompanhantes')
       .delete()
       .eq('id', acompanhanteId)
-      .eq('cliente_id', clienteId);
+      .eq('cliente_id', clienteId)
+      .select('company_id')
+      .maybeSingle();
 
     if (error) throw error;
+
+    invalidateClientReadModels({
+      companyIds: deleted?.company_id ? [deleted.company_id] : scope.companyIds,
+      userId: user.id
+    });
 
     return json({
       message: 'Acompanhante removido com sucesso.'
