@@ -1,4 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
@@ -9,8 +10,15 @@ import {
 import { todayISODateLocal } from '$lib/date';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
+const MAX_ROTEIRO_GERAR_ORCAMENTO_BODY_BYTES = 64 * 1024;
+
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_GERAR_ORCAMENTO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

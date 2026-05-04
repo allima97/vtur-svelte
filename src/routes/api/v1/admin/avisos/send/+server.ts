@@ -11,6 +11,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_AVISO_SEND_BODY_BYTES = 16 * 1024;
 
 function canSendAvisos(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return scope.isAdmin || scope.isMaster || scope.isGestor || Boolean(scope.permissoes.admin_users);
@@ -25,6 +28,11 @@ function renderHtml(text: string) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_AVISO_SEND_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const rateLimit = await checkPersistentRateLimit(

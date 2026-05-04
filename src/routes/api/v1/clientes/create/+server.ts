@@ -1,10 +1,9 @@
 import { json } from '@sveltejs/kit';
 import {
-  ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -15,23 +14,30 @@ import {
   type ClienteFormData,
   validateClienteForm
 } from '$lib/features/clientes/form';
+import { ensureClienteModuloAccess } from '$lib/server/clientes';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CLIENTE_CREATE_BODY_BYTES = 128 * 1024;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes'], 2, 'Sem permissao para criar clientes.');
-    }
+    if (!scope.isAdmin) ensureClienteModuloAccess(scope, 2, 'Sem permissao para criar clientes.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     // ✅ Valida company_id contra o escopo do usuário
     const requestedCompanyId = String(body?.company_id || '').trim();
-    const allowedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
 
     // Para admin sem company_id explícito, usa o primeiro disponível ou null
     let companyId: string | null = null;
@@ -39,15 +45,13 @@ export async function POST(event) {
       companyId = isUuid(requestedCompanyId) ? requestedCompanyId : null;
     } else {
       // Não-admin: company_id deve estar no escopo
-      companyId = allowedCompanyIds[0] ?? null;
+      companyId = resolveScopedCompanyId(scope, requestedCompanyId || null);
       if (!companyId) {
-        return json({ error: 'Empresa não identificada para criar cliente.' }, { status: 400 });
+        return json(
+          { error: requestedCompanyId ? 'company_id fora do escopo.' : 'Empresa não identificada para criar cliente.' },
+          { status: requestedCompanyId ? 403 : 400, headers: NO_STORE_HEADERS }
+        );
       }
-      // Se passou company_id explícito, confirma que está no escopo
-      if (isUuid(requestedCompanyId) && !allowedCompanyIds.includes(requestedCompanyId)) {
-        return json({ error: 'company_id fora do escopo.' }, { status: 403 });
-      }
-      if (isUuid(requestedCompanyId)) companyId = requestedCompanyId;
     }
 
     const form: ClienteFormData = {
@@ -80,7 +84,7 @@ export async function POST(event) {
     if (!validation.valid) {
       return json(
         { error: validation.firstError || 'Dados invalidos.', errors: validation.errors },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -100,7 +104,7 @@ export async function POST(event) {
       userId: user.id
     });
 
-    return json({ success: true, data, message: 'Cliente criado com sucesso.' });
+    return json({ success: true, data, message: 'Cliente criado com sucesso.' }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar cliente.');
   }

@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
 import { buildOfficialTemplateRows } from '$lib/cards/officialLibrary';
 import {
-  ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { ensureClienteModuloAccess } from '$lib/server/clientes';
 
 function inferTipo(nome: string) {
   const value = String(nome || '').trim().toLowerCase();
@@ -62,7 +62,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'vendas'], 1, 'Sem acesso aos avisos do cliente.');
+      ensureClienteModuloAccess(scope, 1, 'Sem acesso aos avisos do cliente.');
     }
 
     const companyIds = new Set<string>();

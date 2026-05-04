@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -6,11 +7,13 @@ import {
   logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 import type { RequestEvent } from '@sveltejs/kit';
 
 const ROTEIRO_SUGESTAO_SELECT = 'id, company_id, tipo, valor, uso_count, created_at, updated_at';
+const MAX_ROTEIRO_BODY_BYTES = 512 * 1024;
 
 function applyRoteiroScope<T>(
   query: T,
@@ -67,13 +70,18 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
       return new Response('Sessao invalida.', { status: 401 });
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, duracao, inicio_cidade, fim_cidade, dias, itinerario_config } = body;
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
@@ -184,6 +192,9 @@ export async function POST(event: RequestEvent) {
 
 export async function DELETE(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
@@ -211,18 +222,23 @@ export async function DELETE(event: RequestEvent) {
 
 export async function PATCH(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
       return new Response('Sessao invalida.', { status: 401 });
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { action } = body;
 
     if (action === 'sugestoes-busca') {
-      const termo = String(body.termo || '').trim();
-      const tipo = String(body.tipo || '').trim();
+      const termo = sanitizePostgrestSearchTerm(body.termo, 80);
+      const tipo = String(body.tipo || '').trim().slice(0, 60);
 
       if (!termo && !tipo) return json({ sugestoes: [] });
 
@@ -231,7 +247,7 @@ export async function PATCH(event: RequestEvent) {
         .select(ROTEIRO_SUGESTAO_SELECT)
         .order('uso_count', { ascending: false })
         .limit(50);
-      if (termo) query = query.ilike('valor', `%${termo}%`);
+      if (termo.length >= 2) query = query.ilike('valor', `%${termo}%`);
       if (tipo) query = query.eq('tipo', tipo);
 
       const { data, error } = await query;
@@ -243,7 +259,11 @@ export async function PATCH(event: RequestEvent) {
       const { tipo, valor } = body;
       if (!tipo || !valor) return json({ error: 'tipo e valor obrigatorios.' }, { status: 400 });
 
-      const normalizedValor = String(valor).trim().toLowerCase();
+      const safeTipo = String(tipo).trim().slice(0, 60);
+      const safeValor = String(valor).trim().slice(0, 160);
+      if (!safeTipo || !safeValor) return json({ error: 'tipo e valor obrigatorios.' }, { status: 400 });
+
+      const normalizedValor = safeValor.toLowerCase();
 
       // Buscar company_id
       const { data: userProfile } = await supabase
@@ -256,7 +276,7 @@ export async function PATCH(event: RequestEvent) {
       const { data: existing } = await supabase
         .from('roteiro_sugestoes')
         .select('id, uso_count')
-        .eq('tipo', tipo)
+        .eq('tipo', safeTipo)
         .eq('valor_normalizado', normalizedValor)
         .maybeSingle();
 
@@ -270,7 +290,7 @@ export async function PATCH(event: RequestEvent) {
 
       const { data: inserted, error: insertError } = await supabase
         .from('roteiro_sugestoes')
-        .insert({ tipo, valor: String(valor).trim(), company_id: companyId, valor_normalizado: normalizedValor })
+        .insert({ tipo: safeTipo, valor: safeValor, company_id: companyId, valor_normalizado: normalizedValor })
         .select('id')
         .single();
 

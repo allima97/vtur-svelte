@@ -9,7 +9,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
 
 function safeJsonParse(text: string) {
   try {
@@ -21,6 +24,11 @@ function safeJsonParse(text: string) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -52,7 +60,7 @@ export async function POST(event: RequestEvent) {
     if (Array.isArray(body?.links)) {
       const primaryVendaId = String(body?.primary_venda_id || '').trim();
       if (!isUuid(primaryVendaId)) {
-        return new Response('primary_venda_id invalido.', { status: 400 });
+        return new Response('primary_venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       const links = body.links

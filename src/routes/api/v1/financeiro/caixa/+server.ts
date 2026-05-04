@@ -4,6 +4,7 @@ import {
   getAdminClient,
   logServerError,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse,
@@ -18,6 +19,19 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CAIXA_MOVIMENTACAO_BODY_BYTES = 32 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event) {
   try {
@@ -53,64 +67,9 @@ export async function GET(event) {
       fim = range.fim;
     }
 
-    let vendaIds: string[] = [];
-    if (companyIds.length > 0) {
-      vendaIds = await getCachedReadModel<string[]>({
-        key: buildReadModelCacheKey('caixa:venda-ids', {
-          companyIds,
-          inicio,
-          fim
-        }),
-        tags: [
-          READ_MODEL_TAGS.finance,
-          READ_MODEL_TAGS.sales,
-          ...scopeCacheTags({ companyIds, userId: user.id })
-        ],
-        ttlMs: 10_000,
-        staleTtlMs: 45_000,
-        loader: async () => {
-          const { data: vendasScope } = await client
-            .from('vendas')
-            .select('id')
-            .in('company_id', companyIds)
-            .gte('data_venda', inicio)
-            .lte('data_venda', fim)
-            .limit(5000);
-          return (vendasScope || []).map((v: any) => String(v.id || '').trim()).filter(Boolean);
-        }
-      });
-      if (vendaIds.length === 0) {
-        return json({
-          success: true,
-          periodo: { inicio, fim },
-          resumo: {
-            totalEntradas: 0,
-            totalSaidas: 0,
-            totalPendente: 0,
-            totalDivergente: 0,
-            totalMovimentacoes: 0,
-            saldo: 0
-          },
-          porFormaPagamento: [],
-          movimentacoes: []
-        });
-      }
-    }
-
-    let pagamentosQuery = client
-      .from('vendas_pagamentos')
-      .select('id, venda_id, forma_nome, valor_total, created_at, venda:vendas!venda_id(numero_venda, cliente_id, data_venda, company_id)')
-      .gte('created_at', inicio + 'T00:00:00')
-      .lte('created_at', fim + 'T23:59:59');
-
-    if (vendaIds.length > 0) {
-      pagamentosQuery = pagamentosQuery.in('venda_id', vendaIds);
-    }
-
     const pagamentos = await getCachedReadModel<any[]>({
       key: buildReadModelCacheKey('caixa:pagamentos', {
         companyIds,
-        vendaIds,
         inicio,
         fim
       }),
@@ -123,23 +82,27 @@ export async function GET(event) {
       ttlMs: 10_000,
       staleTtlMs: 45_000,
       loader: async () => {
-        const { data, error: pagError } = await pagamentosQuery;
-        if (pagError) {
-          logServerError('[caixa] Erro pagamentos', pagError);
-          return [];
+        const rows: any[] = [];
+        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+        for (const companyBatch of companyBatches) {
+          let pagamentosQuery = client
+            .from('vendas_pagamentos')
+            .select('id, venda_id, forma_nome, valor_total, created_at, venda:vendas!venda_id(numero_venda, cliente_id, data_venda, company_id)')
+            .gte('created_at', inicio + 'T00:00:00')
+            .lte('created_at', fim + 'T23:59:59');
+
+          if (companyBatch) pagamentosQuery = pagamentosQuery.in('company_id', companyBatch);
+
+          const { data, error: pagError } = await pagamentosQuery;
+          if (pagError) {
+            logServerError('[caixa] Erro pagamentos', pagError);
+            continue;
+          }
+          rows.push(...(data || []));
         }
-        return data || [];
+        return rows;
       }
     });
-
-    let movQuery = client
-      .from('caixa_movimentacoes')
-      .select('id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento:forma_pagamento_id(id, nome)')
-      .gte('data_movimentacao', inicio)
-      .lte('data_movimentacao', fim)
-      .order('data_movimentacao', { ascending: false });
-
-    if (companyIds.length > 0) movQuery = movQuery.in('company_id', companyIds);
 
     const movimentacoes = await getCachedReadModel<any[]>({
       key: buildReadModelCacheKey('caixa:movimentacoes', {
@@ -151,12 +114,26 @@ export async function GET(event) {
       ttlMs: 10_000,
       staleTtlMs: 45_000,
       loader: async () => {
-        const { data, error: movError } = await movQuery;
-        if (movError) {
-          logServerError('[caixa] caixa_movimentacoes', movError);
-          return [];
+        const rows: any[] = [];
+        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+        for (const companyBatch of companyBatches) {
+          let movQuery = client
+            .from('caixa_movimentacoes')
+            .select('id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento:forma_pagamento_id(id, nome)')
+            .gte('data_movimentacao', inicio)
+            .lte('data_movimentacao', fim)
+            .order('data_movimentacao', { ascending: false });
+
+          if (companyBatch) movQuery = movQuery.in('company_id', companyBatch);
+
+          const { data, error: movError } = await movQuery;
+          if (movError) {
+            logServerError('[caixa] caixa_movimentacoes', movError);
+            continue;
+          }
+          rows.push(...(data || []));
         }
-        return data || [];
+        return rows;
       }
     });
 
@@ -219,20 +196,23 @@ export async function GET(event) {
       }))
     ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-    return json({
-      success: true,
-      periodo: { inicio, fim },
-      resumo: {
-        totalEntradas,
-        totalSaidas,
-        totalPendente: 0,
-        totalDivergente: 0,
-        totalMovimentacoes: movimentacoesUnificadas.length,
-        saldo
+    return json(
+      {
+        success: true,
+        periodo: { inicio, fim },
+        resumo: {
+          totalEntradas,
+          totalSaidas,
+          totalPendente: 0,
+          totalDivergente: 0,
+          totalMovimentacoes: movimentacoesUnificadas.length,
+          saldo
+        },
+        porFormaPagamento: Array.from(porFormaPagamento.values()),
+        movimentacoes: movimentacoesUnificadas
       },
-      porFormaPagamento: Array.from(porFormaPagamento.values()),
-      movimentacoes: movimentacoesUnificadas
-    });
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar resumo do caixa.');
   }
@@ -240,21 +220,36 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CAIXA_MOVIMENTACAO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissao para criar movimentacoes.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     if (!body.tipo || !body.descricao || body.valor === undefined || !body.data_movimentacao) {
-      return json({ success: false, error: 'Tipo, descricao, valor e data sao obrigatorios.' }, { status: 400 });
+      return json(
+        { success: false, error: 'Tipo, descricao, valor e data sao obrigatorios.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+    const companyId = resolveScopedCompanyId(scope, body.empresa_id || body.company_id);
+    if (!companyId) {
+      return json(
+        { success: false, error: 'Selecione uma empresa para criar movimentação.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
 
     const { data, error } = await client
       .from('caixa_movimentacoes')
       .insert([{
-        company_id: scope.companyId,
+        company_id: companyId,
         tipo: body.tipo,
         categoria: body.categoria || 'outro',
         descricao: body.descricao,
@@ -269,7 +264,10 @@ export async function POST(event) {
 
     if (error) {
       if (String(error.code || '').includes('42P01') || String(error.message || '').includes('does not exist')) {
-        return json({ success: true, item: { id: crypto.randomUUID(), ...body, company_id: scope.companyId } });
+        return json(
+          { success: true, item: { id: crypto.randomUUID(), ...body, company_id: companyId } },
+          { headers: NO_STORE_HEADERS }
+        );
       }
       throw error;
     }
@@ -285,7 +283,7 @@ export async function POST(event) {
       scopeTags: financeScopeTags
     });
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar movimentacao.');
   }

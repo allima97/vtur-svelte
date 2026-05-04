@@ -6,6 +6,10 @@ import {
   privateJsonResponse,
   requireMuralScope,
 } from "../_shared";
+import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
 import { isUuid, logServerError } from "$lib/server/v1";
 import {
   buildReadModelCacheKey,
@@ -14,6 +18,8 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+
+const MAX_MURAL_RECADO_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -55,8 +61,13 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_MURAL_RECADO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const { client, scope } = await requireMuralScope(event, 2);
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const rawCompanyId = String(body?.company_id || "").trim();
     const companyId = rawCompanyId || String(scope.companyId || "").trim();
@@ -128,6 +139,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const id = String(event.url.searchParams.get("id") || "").trim();
     if (!isUuid(id)) return noStoreTextResponse("ID inválido.", 400);
 

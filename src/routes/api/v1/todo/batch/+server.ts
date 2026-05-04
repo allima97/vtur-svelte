@@ -1,5 +1,9 @@
 import { json } from "@sveltejs/kit";
 import { ensureTodoAccess, normalizeTodoStatus } from "$lib/server/agenda";
+import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
 import { invalidateTodoReadModels } from "$lib/server/readModelCache";
 import {
   getAdminClient,
@@ -16,6 +20,8 @@ type UpdateInput = {
   categoria_id?: string | null;
   done?: boolean;
 };
+
+const MAX_TODO_BATCH_BODY_BYTES = 128 * 1024;
 
 function normalizeUpdates(raw: unknown): UpdateInput[] {
   if (!Array.isArray(raw)) return [];
@@ -59,12 +65,17 @@ function normalizeUpdates(raw: unknown): UpdateInput[] {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_TODO_BATCH_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     ensureTodoAccess(scope, 2, "Sem permissao para atualizar tarefas.");
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const updates = normalizeUpdates(body?.updates).slice(0, 120);
     if (updates.length === 0) {
       return json({ error: "updates obrigatorio." }, { status: 400 });

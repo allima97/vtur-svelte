@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess, isIsoDate } from '$lib/server/agenda';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -29,14 +30,21 @@ function normalizePayload(body: any) {
   };
 }
 
+const MAX_AGENDA_CREATE_BODY_BYTES = 32 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_AGENDA_CREATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     ensureAgendaAccess(scope, 2, 'Sem permissao para criar eventos.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const payload = normalizePayload(body);
 
     if (!payload.titulo) {
@@ -47,11 +55,17 @@ export async function POST(event) {
       return json({ error: 'start_date e end_date devem estar no formato YYYY-MM-DD.' }, { status: 400 });
     }
 
-    const scopedCompanyIds = resolveScopedCompanyIds(scope, body?.company_id);
-    const companyId =
-      scopedCompanyIds[0] ||
-      (isUuid(scope.companyId) ? scope.companyId : null) ||
-      (scope.companyIds[0] && isUuid(scope.companyIds[0]) ? scope.companyIds[0] : null);
+    const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
+    const companyId = scope.isAdmin
+      ? (isUuid(requestedCompanyId) ? requestedCompanyId : null)
+      : resolveScopedCompanyId(scope, requestedCompanyId || null);
+
+    if (!scope.isAdmin && !companyId) {
+      return json(
+        { error: requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa não identificada para criar evento.' },
+        { status: requestedCompanyId ? 403 : 400 }
+      );
+    }
 
     const insertData = {
       tipo: 'evento',

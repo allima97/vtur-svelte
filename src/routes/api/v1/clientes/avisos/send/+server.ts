@@ -3,9 +3,9 @@ import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { escapeHtml } from '$lib/utils/html';
 import {
-  ensureModuloAccess,
   getAdminClient,
   isUuid,
   logServerError,
@@ -13,6 +13,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { ensureClienteModuloAccess } from '$lib/server/clientes';
+
+const MAX_CLIENTE_AVISO_SEND_BODY_BYTES = 128 * 1024;
 
 function normalizePhone(value: string) {
   return String(value || '').replace(/\D+/g, '');
@@ -51,7 +54,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'vendas'], 1, 'Sem acesso ao historico de avisos.');
+      ensureClienteModuloAccess(scope, 1, 'Sem acesso ao historico de avisos.');
     }
 
     const clienteId = String(event.url.searchParams.get('cliente_id') || '').trim();
@@ -82,6 +85,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_AVISO_SEND_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const rateLimit = await checkPersistentRateLimit(
@@ -100,7 +108,7 @@ export async function POST(event) {
     const body = await event.request.json().catch(() => ({}));
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'vendas'], 2, 'Sem permissao para enviar avisos.');
+      ensureClienteModuloAccess(scope, 2, 'Sem permissao para enviar avisos.');
     }
 
     const clienteId = String(body.cliente_id || '').trim();

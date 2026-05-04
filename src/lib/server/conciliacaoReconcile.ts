@@ -1,7 +1,7 @@
 import { buildConciliacaoMetrics, isConciliacaoEfetivada } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
-import { fetchRankingVendedoresByCompanyIds, logServerError } from '$lib/server/v1';
+import { fetchRankingVendedoresByCompanyIds, isUuid, logServerError } from '$lib/server/v1';
 import {
   addDaysISODate,
   currentMonthRangeISODate,
@@ -11,6 +11,15 @@ import {
 } from '$lib/date';
 
 const EPS = 0.01;
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 type Actor = 'cron' | 'user';
 
@@ -207,6 +216,7 @@ function buildDuplicateWinnerPatch(winner: any, losers: any[]) {
     'ranking_produto_id',
     'venda_id',
     'venda_recibo_id',
+    'ranking_assigned_by',
     'ranking_assigned_at',
     'conciliado_em'
   ]) {
@@ -355,7 +365,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
   let query = client
     .from('conciliacao_recibos')
     .select(
-      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_opfax, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, ranking_vendedor_id, ranking_produto_id, ranking_assigned_at, conciliado, conciliado_em, venda_id, venda_recibo_id, is_baixa_rac, created_at, updated_at'
+      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_saldo, valor_opfax, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, ranking_vendedor_id, ranking_produto_id, ranking_assigned_by, ranking_assigned_at, conciliado, conciliado_em, venda_id, venda_recibo_id, is_baixa_rac, created_at, updated_at'
     )
     .eq('company_id', params.companyId)
     .order('movimento_data', { ascending: false, nullsFirst: false });
@@ -850,7 +860,7 @@ async function reconcilePendentesCompany(params: {
   let query = client
     .from('conciliacao_recibos')
     .select(
-      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, ranking_vendedor_id, conciliado, venda_recibo_id, venda_id'
+      'id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, valor_saldo, valor_calculada_loja, valor_visao_master, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, ranking_vendedor_id, ranking_assigned_by, conciliado, venda_recibo_id, venda_id'
     )
     .eq('company_id', params.companyId)
     // Ordem cronológica: processa do dia mais antigo para o mais recente,
@@ -1052,10 +1062,13 @@ async function reconcilePendentesCompany(params: {
     const vendedorIdDaVenda = String(recibo.vendedor_id || '').trim() || null;
     // Nunca atribuir "Equipe vtur" como vendedor de um recibo de conciliação
     const vendedorIdDaVendaValido = sanitizeRankingVendedorId(vendedorIdDaVenda);
-    // Quando o recibo foi linkado a uma venda, o vendedor da venda é a fonte de verdade.
-    // ranking_vendedor_id manual só prevalece quando NÃO há venda linkada (recibos
-    // de vendedores que lançam apenas via conciliação, sem venda no sistema).
-    const rankingVendedorResolvido = vendedorIdDaVendaValido || rankingVendedorAtual || null;
+    const temRankingManual =
+      Boolean(rankingVendedorAtual) && isUuid(String(row.ranking_assigned_by || '').trim());
+    // Quando há correção/atribuição manual registrada por usuário, ela prevalece
+    // também em recibos vinculados. Sem isso, uma reconciliação posterior desfaz
+    // a correção administrativa e volta para o vendedor da venda.
+    const rankingVendedorResolvido =
+      temRankingManual ? rankingVendedorAtual : vendedorIdDaVendaValido || rankingVendedorAtual || null;
     const updatePayload: Record<string, any> = {
       venda_id: recibo.venda_id,
       venda_recibo_id: recibo.id,
@@ -1179,19 +1192,22 @@ async function recalculateConciliacaoMetricsCompany(params: {
       .map((row: any) => String(row.venda_recibo_id || '').trim())
       .filter((id: string) => id && !reciboCache.has(id));
 
-    if (reciboIdsToFetch.length > 0) {
-      const { data: recibos } = await client
-        .from('vendas_recibos')
-        .select('id, valor_total, valor_taxas')
-        .in('id', Array.from(new Set(reciboIdsToFetch)));
-      (recibos || []).forEach((recibo: any) => {
-        const id = String(recibo.id || '').trim();
-        if (!id) return;
-        reciboCache.set(id, {
-          valor_total: Number(recibo.valor_total || 0),
-          valor_taxas: Number(recibo.valor_taxas || 0)
+    const uniqueReciboIdsToFetch = Array.from(new Set(reciboIdsToFetch));
+    if (uniqueReciboIdsToFetch.length > 0) {
+      for (const batch of chunkArray(uniqueReciboIdsToFetch)) {
+        const { data: recibos } = await client
+          .from('vendas_recibos')
+          .select('id, valor_total, valor_taxas')
+          .in('id', batch);
+        (recibos || []).forEach((recibo: any) => {
+          const id = String(recibo.id || '').trim();
+          if (!id) return;
+          reciboCache.set(id, {
+            valor_total: Number(recibo.valor_total || 0),
+            valor_taxas: Number(recibo.valor_taxas || 0)
+          });
         });
-      });
+      }
     }
 
     for (const row of page) {

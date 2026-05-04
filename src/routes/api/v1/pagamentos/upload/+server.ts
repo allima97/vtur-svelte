@@ -1,21 +1,42 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 
+function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.payments,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: scopeCacheTags({ companyIds: companyId ? [companyId] : [], userId })
+  });
+}
+
 // POST - Upload de comprovante de pagamento (armazena no bucket viagens-documentos)
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -24,7 +45,7 @@ export async function POST(event) {
 
     const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
     if (!requestSize.ok) {
-      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 5MB.' }, { status: 413 });
+      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 5MB.' }, { status: 413, headers: NO_STORE_HEADERS });
     }
 
     const formData = await event.request.formData();
@@ -32,11 +53,11 @@ export async function POST(event) {
     const pagamentoId = formData.get('pagamento_id') as string;
 
     if (!file || !pagamentoId) {
-      return json({ success: false, error: 'Arquivo e ID do pagamento são obrigatórios.' }, { status: 400 });
+      return json({ success: false, error: 'Arquivo e ID do pagamento são obrigatórios.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!isUuid(String(pagamentoId || '').trim())) {
-      return json({ success: false, error: 'ID do pagamento inválido.' }, { status: 400 });
+      return json({ success: false, error: 'ID do pagamento inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: pagamentoAtual, error: pagamentoAtualError } = await client
@@ -46,16 +67,14 @@ export async function POST(event) {
       .maybeSingle();
     if (pagamentoAtualError) throw pagamentoAtualError;
     if (!pagamentoAtual) {
-      return json({ success: false, error: 'Pagamento não encontrado.' }, { status: 404 });
+      return json({ success: false, error: 'Pagamento não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
+    const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
     if (!scope.isAdmin) {
-      const allowedCompanyIds = new Set(
-        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
-      );
-      const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
-      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
-        return json({ success: false, error: 'Pagamento fora do escopo da empresa.' }, { status: 403 });
+      const allowedCompanyIds = new Set(resolveScopedCompanyIds(scope, null));
+      if (!targetCompanyId || allowedCompanyIds.size === 0 || !allowedCompanyIds.has(targetCompanyId)) {
+        return json({ success: false, error: 'Pagamento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -68,7 +87,7 @@ export async function POST(event) {
         validation.error === 'Arquivo muito grande.'
           ? 'Arquivo muito grande. Tamanho máximo: 5MB.'
           : 'Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.';
-      return json({ success: false, error }, { status: 400 });
+      return json({ success: false, error }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const timestamp = Date.now();
@@ -99,6 +118,7 @@ export async function POST(event) {
       throw updateError;
     }
 
+    invalidatePagamentoReadModels(targetCompanyId, user.id);
     return json(
       { success: true, item: pagamento, comprovante_url: comprovanteUrl },
       { headers: NO_STORE_HEADERS }

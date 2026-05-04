@@ -10,7 +10,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_RECIBO_EDIT_BODY_BYTES = 64 * 1024;
 
 function safeJsonParse(text: string) {
   try {
@@ -35,6 +38,11 @@ function parseOptionalMoney(value: unknown): number | null {
 
 export async function PATCH(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_EDIT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -90,7 +98,7 @@ export async function PATCH(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     // Verifica se a venda pertence ao escopo do usuário
     let saleQuery = client.from('vendas').select('id').eq('id', vendaId);

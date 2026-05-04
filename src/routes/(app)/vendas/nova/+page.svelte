@@ -34,6 +34,7 @@
     desconto_padrao_pct?: number | null;
     ativo?: boolean | null;
     nome_completo?: string | null;
+    company_id?: string | null;
   };
 
   type Cliente = {
@@ -61,6 +62,12 @@
   let tiposPacote: Option[] = [];
   let formasPagamento: Option[] = [];
   let vendedoresEquipe: Option[] = [];
+  let empresas: Option[] = [];
+  let empresaId = '';
+  $: canSelectEmpresa = empresas.length > 1;
+  $: vendedoresEmpresa = empresaId
+    ? vendedoresEquipe.filter((vendedorEquipe) => !vendedorEquipe.company_id || vendedorEquipe.company_id === empresaId)
+    : vendedoresEquipe;
 
   let venda = {
     vendedor_id: '',
@@ -160,8 +167,10 @@
       tipos = data.tipos || [];
       tiposPacote = (data.tiposPacote || []).filter((item: Option) => item.ativo !== false);
       formasPagamento = data.formasPagamento || [];
+      empresas = data.empresas || [];
+      empresaId = data.user?.company_id || empresas[0]?.id || '';
       venda.vendedor_id = data.user?.can_assign_vendedor
-        ? (data.vendedoresEquipe?.[0]?.id || data.user?.id || '')
+        ? (getDefaultVendedorIdForEmpresa(empresaId) || data.user?.id || '')
         : (data.user?.id || '');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar base do cadastro de vendas.');
@@ -206,6 +215,20 @@
   function addRecibo() {
     recibos = [...recibos, createRecibo(false)];
     ensurePrincipalRecibo();
+  }
+
+  function getDefaultVendedorIdForEmpresa(companyId: string) {
+    const vendedores = companyId
+      ? vendedoresEquipe.filter((vendedorEquipe) => !vendedorEquipe.company_id || vendedorEquipe.company_id === companyId)
+      : vendedoresEquipe;
+    return vendedores[0]?.id || '';
+  }
+
+  function handleEmpresaChange() {
+    if (!canAssignVendedor) return;
+    const vendedorAtual = vendedoresEquipe.find((vendedorEquipe) => vendedorEquipe.id === venda.vendedor_id);
+    if (vendedorAtual && (!vendedorAtual.company_id || vendedorAtual.company_id === empresaId)) return;
+    venda.vendedor_id = getDefaultVendedorIdForEmpresa(empresaId);
   }
 
   function removeRecibo(index: number) {
@@ -452,6 +475,7 @@
     errors = {};
 
     if (step >= 0) {
+      if (canSelectEmpresa && !empresaId) errors.empresa_id = 'Selecione a empresa.';
       if (!venda.vendedor_id) errors.vendedor_id = 'Informe o vendedor.';
       if (!venda.cliente_id) errors.cliente_id = 'Informe o cliente.';
       const possuiProdutoLocalPadrao = recibos.some((recibo) => {
@@ -538,6 +562,7 @@
 
       const vendaPayload = {
         ...venda,
+        company_id: empresaId || undefined,
         destino_id: destinoId,
         valor_total: venda.valor_total || String(Math.max(0, totalPago - totalNaoComissionado).toFixed(2)),
         valor_total_bruto: venda.valor_total_bruto || String(totalRecibos.toFixed(2)),
@@ -663,6 +688,25 @@
       <FormPanel title="Dados da venda" description="Preencha as informações básicas da venda" class_name="border-green-200">
         <div slot="header-actions"></div>
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {#if canSelectEmpresa}
+          <div>
+            <FieldSelect
+              label="Empresa *"
+              bind:value={empresaId}
+              options={[
+                { value: '', label: 'Selecione uma opção' },
+                ...empresas.map((empresa) => ({
+                  value: empresa.id,
+                  label: empresa.nome || empresa.label || 'Empresa'
+                }))
+              ]}
+              class_name="w-full"
+              error={errors.empresa_id}
+              on:change={handleEmpresaChange}
+            />
+          </div>
+          {/if}
+
           {#if canAssignVendedor}
           <div>
             <FieldSelect
@@ -670,7 +714,7 @@
               bind:value={venda.vendedor_id}
               options={[
                 { value: '', label: 'Selecione uma opção' },
-                ...vendedoresEquipe.map((vendedorEquipe) => ({
+                ...vendedoresEmpresa.map((vendedorEquipe) => ({
                   value: vendedorEquipe.id,
                   label: vendedorEquipe.nome_completo || 'Vendedor'
                 }))

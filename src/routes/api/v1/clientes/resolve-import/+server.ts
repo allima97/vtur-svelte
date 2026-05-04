@@ -1,14 +1,20 @@
 import { json } from '@sveltejs/kit';
 import {
+  ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { titleCaseNome } from '$lib/normalizeText';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES = 128 * 1024;
 
 function normalizeCpf(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
@@ -16,9 +22,23 @@ function normalizeCpf(value?: string | null) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+
+    if (!scope.isAdmin) {
+      ensureModuloAccess(
+        scope,
+        ['clientes', 'clientes_consulta', 'vendas_importar', 'Importar Contratos', 'vendas_cadastro', 'vendas'],
+        2,
+        'Sem permissão para criar cliente pela importação.'
+      );
+    }
 
     const body = await event.request.json().catch(() => ({}));
     const cpf = normalizeCpf(body.cpf);
@@ -32,16 +52,14 @@ export async function POST(event) {
     const rg = String(body.rg || '').trim() || null;
 
     if (!cpf || cpf.length !== 11) {
-      return new Response('CPF inválido.', { status: 400 });
+      return new Response('CPF inválido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const formattedCpf = `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9, 11)}`;
 
     // ✅ Filtra clientes pelo escopo da empresa do usuário
-    const allowedCompanyIds = resolveScopedCompanyIds(scope, null);
-    if (!scope.isAdmin && allowedCompanyIds.length === 0) {
-      return json({ error: 'Empresa não identificada.' }, { status: 400 });
-    }
+    const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
+    const allowedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
 
     let existingQuery = client
       .from('clientes')
@@ -81,11 +99,14 @@ export async function POST(event) {
 
     // ✅ company_id compatível com MASTER (usa primeiro do escopo)
     const companyId = scope.isAdmin
-      ? (String(body?.company_id || '').trim() || null)
-      : (allowedCompanyIds[0] ?? null);
+      ? (requestedCompanyId || null)
+      : resolveScopedCompanyId(scope, requestedCompanyId || null);
 
     if (!scope.isAdmin && !companyId) {
-      return json({ error: 'Empresa não identificada.' }, { status: 400 });
+      return json(
+        { error: requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa não identificada.' },
+        { status: requestedCompanyId ? 403 : 400 }
+      );
     }
 
     const { data: created, error: insertError } = await client
@@ -116,7 +137,7 @@ export async function POST(event) {
       userId: user.id
     });
 
-    return json({ cliente: created, created: true });
+    return json({ cliente: created, created: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao resolver cliente.');
   }

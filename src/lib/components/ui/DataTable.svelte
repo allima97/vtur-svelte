@@ -307,6 +307,7 @@
   const DOMPURIFY_CONFIG: DOMPurifyConfig = {
     ALLOWED_TAGS: ['a', 'span', 'div', 'p', 'strong', 'em', 'img', 'small', 'br', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'],
     ALLOWED_ATTR: ['aria-label', 'alt', 'class', 'd', 'fill', 'height', 'href', 'rel', 'role', 'src', 'stroke', 'stroke-linecap', 'stroke-linejoin', 'stroke-width', 'target', 'title', 'viewBox', 'width'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|blob):|\/|data:image\/(?:png|jpeg|jpg|gif|webp);base64,)/i,
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ['target'],
     FORCE_BODY: false,

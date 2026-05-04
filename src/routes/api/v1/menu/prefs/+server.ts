@@ -1,17 +1,17 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { normalizeMenuPrefs } from '$lib/server/menuPrefs';
 
 const JSON_NO_STORE_HEADERS = {
   'Content-Type': 'application/json',
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
+  ...NO_STORE_HEADERS
 };
 
 const TEXT_NO_STORE_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
+  ...NO_STORE_HEADERS
 };
 
 const MAX_PREFS_BODY_BYTES = 16 * 1024;
@@ -50,6 +50,9 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
 

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
@@ -9,8 +10,15 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+const MAX_EQUIPE_RELACAO_BODY_BYTES = 16 * 1024;
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(request, MAX_EQUIPE_RELACAO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
     const adminClient = getAdminClient();

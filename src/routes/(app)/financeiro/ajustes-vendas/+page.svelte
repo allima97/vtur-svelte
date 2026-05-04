@@ -40,9 +40,12 @@
   };
 
   type Vendedor = { id: string; nome_completo: string | null };
+  type EmpresaOption = { id: string; nome: string };
 
   let items: AjusteItem[] = [];
   let vendedores: Vendedor[] = [];
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let loading = true;
   let modalOpen = false;
   let saving = false;
@@ -63,7 +66,14 @@
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
 
-  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor;
+  $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isFinanceiro || $permissoes.isGestor;
+
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome
+  }));
+
+  $: canSelectEmpresa = empresaOptions.length > 1;
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -121,6 +131,7 @@
         {
           inicio,
           fim,
+          company_id: empresaId || undefined,
           vendedor_id: filtroVendedor || undefined,
           apenas_rateados: filtroApenasRateados === 'true' ? 'true' : undefined,
           q: busca.trim() || undefined
@@ -153,6 +164,7 @@
     try {
       await apiPost('/api/v1/financeiro/ajustes-vendas', {
         ajuste_id: selectedItem.id,
+        company_id: empresaId || undefined,
         vendedor_destino_id: form.vendedor_destino_id,
         percentual_destino: Number(form.percentual_destino),
         observacao: form.observacao
@@ -174,6 +186,7 @@
     try {
       await apiPost('/api/v1/financeiro/ajustes-vendas', {
         ajuste_id: selectedItem.id,
+        company_id: empresaId || undefined,
         percentual_destino: 0,
         observacao: form.observacao || 'Rateio desfeito'
       });
@@ -187,8 +200,39 @@
     }
   }
 
+  async function loadUserContext() {
+    try {
+      const payload = await apiGet<{
+        company_id?: string | null;
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      empresas = Array.isArray(payload.empresas)
+        ? payload.empresas
+            .map((empresa) => ({
+              id: String(empresa?.id || '').trim(),
+              nome: String(empresa?.nome || 'Empresa sem nome').trim() || 'Empresa sem nome'
+            }))
+            .filter((empresa) => empresa.id)
+        : [];
+      empresaId = String(payload.company_id || '').trim() || empresas[0]?.id || '';
+    } catch (err) {
+      empresas = [];
+      empresaId = '';
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+    }
+  }
+
+  async function handleEmpresaChange() {
+    filtroVendedor = '';
+    selectedItem = null;
+    modalOpen = false;
+    await load();
+  }
+
   onMount(() => {
     void (async () => {
+      await loadUserContext();
       await load();
       lastAutoReloadKey = buildAutoReloadKey();
       autoReloadEnabled = true;
@@ -200,7 +244,7 @@
   });
 
   function buildAutoReloadKey() {
-    return [inicio, fim, filtroVendedor, filtroApenasRateados, busca.trim()].join('|');
+    return [empresaId, inicio, fim, filtroVendedor, filtroApenasRateados, busca.trim()].join('|');
   }
 
   function scheduleAutoReload() {
@@ -236,6 +280,17 @@
 
 <Card color="financeiro" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="aj-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="min-w-[240px]"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
     <FieldInput
       id="aj-inicio"
       label="Data início"

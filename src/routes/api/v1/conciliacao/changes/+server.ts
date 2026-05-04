@@ -7,7 +7,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
@@ -53,4 +53,3 @@ export async function GET(event) {
     return toErrorResponse(err, 'Erro ao listar alteracoes.');
   }
 }
-

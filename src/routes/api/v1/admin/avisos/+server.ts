@@ -7,6 +7,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_AVISO_TEMPLATE_BODY_BYTES = 64 * 1024;
 
 function canManageTemplates(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return scope.isAdmin || scope.isMaster || scope.isGestor || Boolean(scope.permissoes.admin) || Boolean(scope.permissoes.admin_users);
@@ -31,6 +34,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_AVISO_TEMPLATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

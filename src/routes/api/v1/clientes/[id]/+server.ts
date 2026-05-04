@@ -18,7 +18,21 @@ import {
   formatDocumentoDisplay,
   type ClienteScopedFilters
 } from '$lib/server/clientes';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CLIENTE_UPDATE_BODY_BYTES = 128 * 1024;
+const MAX_CLIENTE_DELETE_BODY_BYTES = 8 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 type ClienteRow = {
   id: string;
@@ -69,35 +83,65 @@ async function fetchResumoRelacionamentos(
   clienteId: string,
   filters: ClienteScopedFilters
 ) {
-  let vendasQuery = client
-    .from('vendas')
-    .select('id, data_venda, valor_total', { count: 'exact' })
-    .eq('cliente_id', clienteId)
-    .eq('cancelada', false);
+  const buildVendasQuery = (vendedorIds?: string[]) => {
+    let vendasQuery = client
+      .from('vendas')
+      .select('id, data_venda, valor_total')
+      .eq('cliente_id', clienteId)
+      .eq('cancelada', false);
 
-  if (filters.companyIds.length > 0) {
-    vendasQuery = vendasQuery.in('company_id', filters.companyIds);
+    if (filters.companyIds.length > 0) {
+      vendasQuery = vendasQuery.in('company_id', filters.companyIds);
+    }
+    if (vendedorIds && vendedorIds.length > 0) {
+      vendasQuery = vendasQuery.in('vendedor_id', vendedorIds);
+    }
+
+    return vendasQuery;
+  };
+
+  let vendasData: any[] = [];
+  if (filters.vendedorIds.length > SUPABASE_IN_BATCH_SIZE) {
+    for (const batch of chunkArray(filters.vendedorIds)) {
+      const { data, error: vendasError } = await buildVendasQuery(batch);
+      if (vendasError) throw vendasError;
+      vendasData.push(...(data || []));
+    }
+  } else {
+    const { data, error: vendasError } = await buildVendasQuery(
+      filters.vendedorIds.length > 0 ? filters.vendedorIds : undefined
+    );
+    if (vendasError) throw vendasError;
+    vendasData = data || [];
   }
-  if (filters.vendedorIds.length > 0) {
-    vendasQuery = vendasQuery.in('vendedor_id', filters.vendedorIds);
+
+  const buildQuotesQuery = (creatorIds?: string[]) => {
+    let quotesQuery = client
+      .from('quote')
+      .select('id, created_at')
+      .eq('client_id', clienteId);
+
+    if (creatorIds && creatorIds.length > 0) {
+      quotesQuery = quotesQuery.in('created_by', creatorIds);
+    }
+
+    return quotesQuery;
+  };
+
+  let quotesData: any[] = [];
+  if (filters.vendedorIds.length > SUPABASE_IN_BATCH_SIZE) {
+    for (const batch of chunkArray(filters.vendedorIds)) {
+      const { data, error: quotesError } = await buildQuotesQuery(batch);
+      if (quotesError) throw quotesError;
+      quotesData.push(...(data || []));
+    }
+  } else {
+    const { data, error: quotesError } = await buildQuotesQuery(
+      filters.vendedorIds.length > 0 ? filters.vendedorIds : undefined
+    );
+    if (quotesError) throw quotesError;
+    quotesData = data || [];
   }
-
-  const { data: vendasData, error: vendasError } = await vendasQuery;
-
-  if (vendasError) throw vendasError;
-
-  let quotesQuery = client
-    .from('quote')
-    .select('id, created_at', { count: 'exact' })
-    .eq('client_id', clienteId);
-
-  if (filters.vendedorIds.length > 0) {
-    quotesQuery = quotesQuery.in('created_by', filters.vendedorIds);
-  }
-
-  const { data: quotesData, error: quotesError } = await quotesQuery;
-
-  if (quotesError) throw quotesError;
 
   const { count, error: acompanhantesError } = await client
     .from('cliente_acompanhantes')
@@ -163,6 +207,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_UPDATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -178,9 +227,9 @@ export async function PATCH(event) {
     );
 
     const existing = await fetchCliente(client, id);
-    if (!existing) return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+    if (!existing) return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const form: ClienteFormData = {
       ...createInitialClienteForm(),
       ...fillClienteFormFromApi(existing),
@@ -219,7 +268,7 @@ export async function PATCH(event) {
     if (!validation.valid) {
       return json(
         { error: validation.firstError || 'Dados invalidos.', errors: validation.errors },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -238,7 +287,7 @@ export async function PATCH(event) {
       userId: user.id
     });
 
-    return json({ cliente: data, message: 'Cliente atualizado com sucesso.' });
+    return json({ cliente: data, message: 'Cliente atualizado com sucesso.' }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar cliente.');
   }
@@ -246,6 +295,11 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_DELETE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -268,7 +322,7 @@ export async function DELETE(event) {
       userId: user.id
     });
 
-    return json({ message: 'Cliente excluido com sucesso.' });
+    return json({ message: 'Cliente excluido com sucesso.' }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir cliente.');
   }

@@ -1,11 +1,15 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+const MAX_CIRCUITO_UPDATE_BODY_BYTES = 128 * 1024;
 
 export async function GET(event) {
   try {
@@ -17,6 +21,9 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['Circuitos'], 1, 'Sem acesso a Circuitos.');
     }
 
+    const id = String(event.params.id || '').trim();
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+
     const { data, error } = await client
       .from('circuitos')
       .select(`
@@ -24,7 +31,7 @@ export async function GET(event) {
         circuito_dias(id, dia_numero, titulo, descricao),
         circuito_datas(id, data_inicio, cidade_inicio_id, dias_extra_antes, dias_extra_depois)
       `)
-      .eq('id', event.params.id)
+      .eq('id', id)
       .maybeSingle();
 
     if (error) throw error;
@@ -38,6 +45,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_CIRCUITO_UPDATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -46,7 +58,10 @@ export async function PATCH(event) {
       ensureModuloAccess(scope, ['Circuitos'], 3, 'Sem permissão para editar circuitos.');
     }
 
-    const body = await event.request.json();
+    const id = String(event.params.id || '').trim();
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+
+    const body = await event.request.json().catch(() => ({}));
 
     // Apenas colunas reais da tabela circuitos
     const allowed = ['nome', 'codigo', 'operador', 'resumo', 'ativo'];
@@ -58,7 +73,7 @@ export async function PATCH(event) {
     const { data, error } = await client
       .from('circuitos')
       .update(payload)
-      .eq('id', event.params.id)
+      .eq('id', id)
       .select('id, nome, codigo, operador, resumo, ativo, created_at')
       .single();
 
@@ -72,6 +87,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -80,10 +98,13 @@ export async function DELETE(event) {
       ensureModuloAccess(scope, ['Circuitos'], 4, 'Sem permissão para excluir circuitos.');
     }
 
+    const id = String(event.params.id || '').trim();
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+
     const { error } = await client
       .from('circuitos')
       .delete()
-      .eq('id', event.params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

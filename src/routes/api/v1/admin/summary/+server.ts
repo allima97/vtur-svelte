@@ -14,16 +14,11 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-const PRIVATE_ADMIN_HEADERS = {
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
-};
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const TEXT_NO_STORE_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
+  ...NO_STORE_HEADERS
 };
 
 export async function GET(event) {
@@ -165,7 +160,7 @@ export async function GET(event) {
           scope_company_ids: scope.companyIds
         }
       },
-      { headers: PRIVATE_ADMIN_HEADERS }
+      { headers: NO_STORE_HEADERS }
     );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar resumo administrativo.');

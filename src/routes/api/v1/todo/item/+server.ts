@@ -5,6 +5,10 @@ import {
   normalizeTodoPriority,
   normalizeTodoStatus,
 } from "$lib/server/agenda";
+import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
 import { invalidateTodoReadModels } from "$lib/server/readModelCache";
 import {
   getAdminClient,
@@ -48,12 +52,19 @@ async function loadTodoOwnership(
   return data;
 }
 
+const MAX_TODO_ITEM_BODY_BYTES = 32 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_TODO_ITEM_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const id = String(body?.id || "").trim();
     const isEdit = Boolean(id);
@@ -152,12 +163,17 @@ export async function POST(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_TODO_ITEM_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     ensureTodoAccess(scope, 3, "Sem permissao para arquivar tarefa.");
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const id = String(body?.id || "").trim();
     const action = String(body?.action || "").trim();
 
@@ -201,6 +217,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

@@ -32,6 +32,10 @@ function debugJson(body: unknown, init?: ResponseInit) {
   return json(body, { ...init, headers });
 }
 
+function isISODate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+}
+
 export async function GET(event: any) {
   try {
     if (!isDebugEndpointEnabled(event)) {
@@ -51,6 +55,9 @@ export async function GET(event: any) {
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const dataInicio = event.url.searchParams.get('inicio') || '2026-04-01';
     const dataFim = event.url.searchParams.get('fim') || '2026-04-30';
+    if (!isISODate(dataInicio) || !isISODate(dataFim) || dataInicio > dataFim) {
+      return debugJson({ error: 'Informe um período válido em inicio/fim.' }, { status: 400 });
+    }
 
     const concReceipts = await fetchEffectiveConciliacaoReceipts({
       client,

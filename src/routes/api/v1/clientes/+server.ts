@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
+import { getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { ensureClienteModuloAccess } from '$lib/server/clientes';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -40,19 +41,21 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Clientes.');
+      ensureClienteModuloAccess(scope, 1, 'Sem acesso a Clientes.');
     }
 
     const rawSearch = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
     const search = rawSearch.length >= 2 ? rawSearch : '';
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
+    const requestedVendedorRaw = event.url.searchParams.get('vendedor_id');
+    const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const canUseCompanyScope =
       scope.isAdmin ||
       scope.isMaster ||
       tipoNome.includes('MASTER') ||
-      tipoNome.includes('GESTOR');
+      (tipoNome.includes('FINANCEIRO') && !String(requestedVendedorRaw || '').trim()) ||
+      (tipoNome.includes('GESTOR') && !String(requestedVendedorRaw || '').trim());
     const accessibleClientIds = canUseCompanyScope
       ? null
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
@@ -64,7 +67,7 @@ export async function GET(event) {
       );
     }
 
-    const buildQuery = (clientIds?: string[]) => {
+    const buildQuery = (clientIds?: string[], companyIdsFilter = companyIds) => {
       let query = client
         .from('clientes')
         .select('id, nome, cpf, telefone, email, whatsapp, company_id')
@@ -73,8 +76,8 @@ export async function GET(event) {
 
       if (clientIds) {
         query = query.in('id', clientIds);
-      } else if (companyIds.length > 0) {
-        query = query.in('company_id', companyIds);
+      } else if (companyIdsFilter.length > 0) {
+        query = query.in('company_id', companyIdsFilter);
       }
 
       if (search) {
@@ -97,6 +100,20 @@ export async function GET(event) {
             return { data: null, error: result.error } as typeof result;
           }
           rows.push(...(((result.data || []) as unknown) as ClienteLookupRow[]));
+        }
+
+        return { data: dedupeClientes(rows).slice(0, search ? 50 : 300), error: null };
+      }
+
+      if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+        const rows: ClienteLookupRow[] = [];
+        for (const batch of chunkArray(companyIds)) {
+          const result = await buildQuery(undefined, batch);
+          if (result.error) {
+            return { data: null, error: result.error } as typeof result;
+          }
+          rows.push(...(((result.data || []) as unknown) as ClienteLookupRow[]));
+          if (dedupeClientes(rows).length >= (search ? 50 : 300)) break;
         }
 
         return { data: dedupeClientes(rows).slice(0, search ? 50 : 300), error: null };

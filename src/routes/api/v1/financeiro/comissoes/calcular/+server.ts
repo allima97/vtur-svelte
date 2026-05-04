@@ -13,6 +13,16 @@ import { resolveGroupedReceiptCommissions } from '$lib/server/comissoes';
 import { applyPersistedComissao, buildPersistedReciboComissaoKey, fetchPersistedComissoes } from '$lib/server/comissoes-registro';
 import { fetchSalesReportRows, getVendaClienteNome, getVendaVendedorNome } from '$lib/server/relatorios';
 import { monthRangeFromYearMonth, parseISODateParts, todayISODateLocal } from '$lib/date';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_COMISSOES_CALCULAR_BODY_BYTES = 128 * 1024;
 
 function toNum(value: unknown) {
   const parsed = Number(value || 0);
@@ -51,11 +61,16 @@ function normalizeRowsToReceiptPeriod(rows: any[]) {
 }
 
 function canViewTeamCommissions(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
-  return scope.isAdmin || scope.isMaster || scope.isGestor;
+  return scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor;
 }
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_CALCULAR_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -65,7 +80,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 2, 'Sem permissão para calcular comissões.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { venda_ids, vendedor_ids, data_inicio, data_fim, mes_referencia, ano_referencia } = body;
 
     const hoje = parseISODateParts(todayISODateLocal());
@@ -92,7 +107,10 @@ export async function POST(event) {
     }
 
     if (!vendas || vendas.length === 0) {
-      return json({ success: true, message: 'Nenhum recibo encontrado', processadas: 0, erro: 0, detalhes: [] });
+      return json(
+        { success: true, message: 'Nenhum recibo encontrado', processadas: 0, erro: 0, detalhes: [] },
+        { headers: NO_STORE_HEADERS }
+      );
     }
     const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, {
       companyIds,
@@ -142,14 +160,17 @@ export async function POST(event) {
       }
     }
 
-    return json({
-      success: true,
-      message: `${processadas} comissões calculadas`,
-      processadas,
-      erro: 0,
-      total_recibos: processadas,
-      detalhes: resultados
-    });
+    return json(
+      {
+        success: true,
+        message: `${processadas} comissões calculadas`,
+        processadas,
+        erro: 0,
+        total_recibos: processadas,
+        detalhes: resultados
+      },
+      { headers: NO_STORE_HEADERS }
+    );
 
   } catch (err) {
     logServerError('[financeiro/comissoes/calcular] falha ao calcular comissoes', err);
@@ -183,108 +204,133 @@ export async function GET(event) {
     const dataInicio = range.inicio;
     const dataFim = range.fim;
 
-    const vendas = await fetchSalesReportRows(client, {
-      dataInicio,
-      dataFim,
-      companyIds,
-      vendedorIds,
-      filterByReceiptDate: true
-    });
-    const vendasForComissao = normalizeRowsToReceiptPeriod(vendas as any);
-    const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, {
-      companyIds,
-      rows: vendasForComissao as any
-    });
-    const reciboIds = vendasForComissao
-      .flatMap((v: any) => (Array.isArray(v?.recibos) ? v.recibos : []))
-      .map((recibo: any) => String(recibo?.id || '').trim())
-      .filter(Boolean);
-    const persistedSnapshot = await fetchPersistedComissoes(client, {
-      companyIds,
-      vendaIds: (vendas || []).map((row) => row.id),
-      reciboIds,
-      vendedorIds: (vendas || []).map((row) => String(row.vendedor_id || '')).filter(Boolean)
-    });
-    const persistedByKey = new Map(
-      persistedSnapshot.rows.map((row) => [
-        buildPersistedReciboComissaoKey(row.recibo_id, row.vendedor_id, row.venda_id),
-        row
-      ] as const)
-    );
+    const payload = await getCachedReadModel({
+      key: buildReadModelCacheKey('financeiro:comissoes:calcular:get', {
+        companyIds,
+        vendedorIds,
+        dataInicio,
+        dataFim,
+        status: statusParam || null,
+        podeVerEquipe,
+        userId: scope.userId
+      }),
+      tags: [
+        READ_MODEL_TAGS.comissoes,
+        READ_MODEL_TAGS.sales,
+        READ_MODEL_TAGS.finance,
+        READ_MODEL_TAGS.users,
+        READ_MODEL_TAGS.metas,
+        ...scopeCacheTags({ companyIds, vendedorIds, userId: scope.userId })
+      ],
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const vendas = await fetchSalesReportRows(client, {
+          dataInicio,
+          dataFim,
+          companyIds,
+          vendedorIds,
+          filterByReceiptDate: true
+        });
+        const vendasForComissao = normalizeRowsToReceiptPeriod(vendas as any);
+        const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, {
+          companyIds,
+          rows: vendasForComissao as any
+        });
+        const reciboIds = vendasForComissao
+          .flatMap((v: any) => (Array.isArray(v?.recibos) ? v.recibos : []))
+          .map((recibo: any) => String(recibo?.id || '').trim())
+          .filter(Boolean);
+        const persistedSnapshot = await fetchPersistedComissoes(client, {
+          companyIds,
+          vendaIds: (vendas || []).map((row) => row.id),
+          reciboIds,
+          vendedorIds: (vendas || []).map((row) => String(row.vendedor_id || '')).filter(Boolean)
+        });
+        const persistedByKey = new Map(
+          persistedSnapshot.rows.map((row) => [
+            buildPersistedReciboComissaoKey(row.recibo_id, row.vendedor_id, row.venda_id),
+            row
+          ] as const)
+        );
 
-    let items = (vendasForComissao || []).flatMap((v: any) =>
-      (Array.isArray(v?.recibos) ? v.recibos : []).map((recibo: any) => {
-        const reciboId = String(recibo?.id || '').trim();
-        const resolved = reciboId ? resolvedByReceiptId.get(reciboId) : undefined;
-        if (!resolved) return null;
-        const persisted = persistedByKey.get(buildPersistedReciboComissaoKey(reciboId, v.vendedor_id, v.id));
-        const persistedApplied = applyPersistedComissao(
-          {
-            valor_venda: getReciboValor(recibo),
-            valor_comissionavel: resolved.valorComissionavel,
-            percentual_aplicado: resolved.percentual,
-            valor_comissao: resolved.valorComissao,
-            valor_pago: 0,
-            status: 'pendente'
-          },
-          persisted
-        );
-        const valorComissaoSeguro = scaleCommissionPart(
-          resolved.valorComissaoSeguro,
-          resolved.valorComissao,
-          persistedApplied.valor_comissao
-        );
-        const valorComissaoGeral = roundMoney(Math.max(0, persistedApplied.valor_comissao - valorComissaoSeguro));
+        let items = (vendasForComissao || []).flatMap((v: any) =>
+          (Array.isArray(v?.recibos) ? v.recibos : []).map((recibo: any) => {
+            const reciboId = String(recibo?.id || '').trim();
+            const resolved = reciboId ? resolvedByReceiptId.get(reciboId) : undefined;
+            if (!resolved) return null;
+            const persisted = persistedByKey.get(buildPersistedReciboComissaoKey(reciboId, v.vendedor_id, v.id));
+            const persistedApplied = applyPersistedComissao(
+              {
+                valor_venda: getReciboValor(recibo),
+                valor_comissionavel: resolved.valorComissionavel,
+                percentual_aplicado: resolved.percentual,
+                valor_comissao: resolved.valorComissao,
+                valor_pago: 0,
+                status: 'pendente'
+              },
+              persisted
+            );
+            const valorComissaoSeguro = scaleCommissionPart(
+              resolved.valorComissaoSeguro,
+              resolved.valorComissao,
+              persistedApplied.valor_comissao
+            );
+            const valorComissaoGeral = roundMoney(Math.max(0, persistedApplied.valor_comissao - valorComissaoSeguro));
+            return {
+              id: reciboId,
+              venda_id: v.id,
+              recibo_id: reciboId,
+              numero_venda: v.numero_venda || `VD-${v.id.slice(0, 8)}`,
+              numero_recibo: getReciboCodigo(recibo) || `REC-${reciboId.slice(0, 8)}`,
+              produto: getReciboProduto(recibo),
+              data_venda: recibo?.data_venda || v.data_venda,
+              cliente: getVendaClienteNome(v),
+              vendedor_id: v.vendedor_id,
+              vendedor: getVendaVendedorNome(v),
+              valor_venda: persistedApplied.valor_venda,
+              valor_comissionavel: persistedApplied.valor_comissionavel,
+              percentual_aplicado: persistedApplied.percentual_aplicado,
+              valor_comissao: persistedApplied.valor_comissao,
+              percentual_comissao_geral: resolved.percentualComissaoGeral,
+              percentual_seguro: resolved.percentualSeguro,
+              valor_comissao_geral: valorComissaoGeral,
+              valor_comissao_seguro: valorComissaoSeguro,
+              valor_pago: persistedApplied.valor_pago,
+              regra_nome: resolved.regraNome,
+              status: persistedApplied.status.toUpperCase(),
+              mes_referencia: mesNum,
+              ano_referencia: anoNum,
+              data_pagamento: persisted?.data_pagamento || null
+            };
+          })
+        ).filter(Boolean) as any[];
+
+        if (!podeVerEquipe) {
+          items = items.filter((item: any) => String(item.vendedor_id || '').trim() === scope.userId);
+        }
+
+        if (statusParam && statusParam !== 'todas') {
+          items = items.filter((item: any) => String(item.status || '').toLowerCase() === statusParam);
+        }
+
+        const totalPendente = items
+          .filter((item: any) => String(item.status || '').toLowerCase() !== 'paga')
+          .reduce((acc: number, i: any) => acc + Number(i.valor_comissao || 0), 0);
+        const totalPago = items
+          .filter((item: any) => String(item.status || '').toLowerCase() === 'paga')
+          .reduce((acc: number, i: any) => acc + Number(i.valor_pago || i.valor_comissao || 0), 0);
+
         return {
-          id: reciboId,
-          venda_id: v.id,
-          recibo_id: reciboId,
-          numero_venda: v.numero_venda || `VD-${v.id.slice(0, 8)}`,
-          numero_recibo: getReciboCodigo(recibo) || `REC-${reciboId.slice(0, 8)}`,
-          produto: getReciboProduto(recibo),
-          data_venda: recibo?.data_venda || v.data_venda,
-          cliente: getVendaClienteNome(v),
-          vendedor_id: v.vendedor_id,
-          vendedor: getVendaVendedorNome(v),
-          valor_venda: persistedApplied.valor_venda,
-          valor_comissionavel: persistedApplied.valor_comissionavel,
-          percentual_aplicado: persistedApplied.percentual_aplicado,
-          valor_comissao: persistedApplied.valor_comissao,
-          percentual_comissao_geral: resolved.percentualComissaoGeral,
-          percentual_seguro: resolved.percentualSeguro,
-          valor_comissao_geral: valorComissaoGeral,
-          valor_comissao_seguro: valorComissaoSeguro,
-          valor_pago: persistedApplied.valor_pago,
-          regra_nome: resolved.regraNome,
-          status: persistedApplied.status.toUpperCase(),
-          mes_referencia: mesNum,
-          ano_referencia: anoNum,
-          data_pagamento: persisted?.data_pagamento || null
+          items,
+          total: items.length,
+          resumo: { total_pendente: totalPendente, total_pago: totalPago, total_geral: totalPendente + totalPago },
+          persistencia_disponivel: persistedSnapshot.available
         };
-      })
-    ).filter(Boolean) as any[];
-
-    if (!podeVerEquipe) {
-      items = items.filter((item: any) => String(item.vendedor_id || '').trim() === scope.userId);
-    }
-
-    if (statusParam && statusParam !== 'todas') {
-      items = items.filter((item: any) => String(item.status || '').toLowerCase() === statusParam);
-    }
-
-    const totalPendente = items
-      .filter((item: any) => String(item.status || '').toLowerCase() !== 'paga')
-      .reduce((acc: number, i: any) => acc + Number(i.valor_comissao || 0), 0);
-    const totalPago = items
-      .filter((item: any) => String(item.status || '').toLowerCase() === 'paga')
-      .reduce((acc: number, i: any) => acc + Number(i.valor_pago || i.valor_comissao || 0), 0);
-
-    return json({
-      items,
-      total: items.length,
-      resumo: { total_pendente: totalPendente, total_pago: totalPago, total_geral: totalPendente + totalPago },
-      persistencia_disponivel: persistedSnapshot.available
+      }
     });
+
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
 
   } catch (err) {
     logServerError('[financeiro/comissoes/calcular] falha ao carregar comissoes', err);

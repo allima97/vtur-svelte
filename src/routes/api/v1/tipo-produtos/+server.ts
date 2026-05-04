@@ -7,6 +7,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_TIPO_PRODUTOS_BODY_BYTES = 64 * 1024;
 
 function isMissingColumnError(err: any) {
   const code = String(err?.code || '');
@@ -95,6 +98,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_TIPO_PRODUTOS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -103,7 +111,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros'], 2, 'Sem permissão para salvar tipos de produto.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, tipo, descricao, ativo, soma_na_meta, regra_comissionamento,
       usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct,
       descontar_meta_geral, exibe_kpi_comissao } = body;
@@ -184,6 +192,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

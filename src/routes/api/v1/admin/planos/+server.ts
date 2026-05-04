@@ -6,6 +6,10 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PLAN_BODY_BYTES = 16 * 1024;
 
 export async function GET(event) {
   try {
@@ -14,7 +18,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Somente administradores podem acessar planos.' }, { status: 403 });
+      return json({ error: 'Somente administradores podem acessar planos.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { data, error: queryError } = await client
@@ -24,7 +28,7 @@ export async function GET(event) {
 
     if (queryError) throw queryError;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar planos.');
   }
@@ -32,18 +36,23 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PLAN_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Somente administradores podem gerenciar planos.' }, { status: 403 });
+      return json({ error: 'Somente administradores podem gerenciar planos.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, descricao, valor_mensal, moeda, ativo } = body;
 
-    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       nome: String(nome).trim(),
@@ -64,7 +73,7 @@ export async function POST(event) {
       result = data;
     }
 
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar plano.');
   }
@@ -72,21 +81,24 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem permissão.' }, { status: 403 });
+      return json({ error: 'Sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('plans').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir plano.');
   }

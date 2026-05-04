@@ -7,8 +7,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const MAX_MFA_STATUS_USERS = 200;
+const MAX_MFA_STATUS_BODY_BYTES = 16 * 1024;
 
 function normalizeUserIds(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -23,6 +25,11 @@ function normalizeUserIds(value: unknown) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_MFA_STATUS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

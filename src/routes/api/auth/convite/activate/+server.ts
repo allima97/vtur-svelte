@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { isSameOriginRequest } from '$lib/server/requestGuards';
 
 function errorJson(message: string, status: number) {
   return json({ error: message }, { status, headers: NO_STORE_HEADERS });
@@ -25,6 +26,10 @@ function authAlreadyExists(error: unknown) {
 
 export const POST: RequestHandler = async (event) => {
   try {
+    if (!isSameOriginRequest(event.request)) {
+      return errorJson('Origem inválida.', 403);
+    }
+
     const body = await event.request.json().catch(() => ({}));
     const inviteId = String(body.invite_id || '').trim();
     const email = normalizeEmail(body.email);

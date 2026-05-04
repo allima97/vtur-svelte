@@ -52,6 +52,16 @@ type VendaAggregateRow = ReportVendaRow & {
 
 type NonNullReceiptRow = Exclude<ReportReceiptRow, null>;
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export type VendasKpiAgg = {
   totalVendas: number;
   totalTaxas: number;
@@ -303,22 +313,26 @@ async function fetchBaixaRacVendedorIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  let query = client
-    .from("users")
-    .select("id")
-    .eq("active", true)
-    .ilike("nome_completo", "Baixa RAC");
+  const rows: any[] = [];
+  for (const companyBatch of chunkArray(companyIds)) {
+    let query = client
+      .from("users")
+      .select("id")
+      .eq("active", true)
+      .ilike("nome_completo", "Baixa RAC");
 
-  query =
-    companyIds.length === 1
-      ? query.eq("company_id", companyIds[0])
-      : query.in("company_id", companyIds);
+    query =
+      companyBatch.length === 1
+        ? query.eq("company_id", companyBatch[0])
+        : query.in("company_id", companyBatch);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
 
   return Array.from(
-    new Set((data || []).map((row: any) => toStr(row?.id)).filter(Boolean)),
+    new Set(rows.map((row: any) => toStr(row?.id)).filter(Boolean)),
   );
 }
 
@@ -328,22 +342,26 @@ async function fetchConciliacaoCompanyIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  let query = client
-    .from("parametros_comissao")
-    .select("company_id")
-    .eq("conciliacao_sobrepoe_vendas", true);
+  const rows: any[] = [];
+  for (const companyBatch of chunkArray(companyIds)) {
+    let query = client
+      .from("parametros_comissao")
+      .select("company_id")
+      .eq("conciliacao_sobrepoe_vendas", true);
 
-  query =
-    companyIds.length === 1
-      ? query.eq("company_id", companyIds[0])
-      : query.in("company_id", companyIds);
+    query =
+      companyBatch.length === 1
+        ? query.eq("company_id", companyBatch[0])
+        : query.in("company_id", companyBatch);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
 
   return Array.from(
     new Set(
-      (data || []).map((row: any) => toStr(row?.company_id)).filter(Boolean),
+      rows.map((row: any) => toStr(row?.company_id)).filter(Boolean),
     ),
   );
 }
@@ -539,25 +557,28 @@ async function fetchResolvedRowsUncached(
   }
 
   if (params.vendedorIds.length > 0 && normalizedCompanyIds.length > 0) {
-    let splitConcQuery = client
-      .from("vendas_recibos_rateio")
-      .select("conciliacao_recibo_id")
-      .eq("ativo", true)
-      .gt("percentual_destino", 0)
-      .in("vendedor_destino_id", params.vendedorIds)
-      .not("conciliacao_recibo_id", "is", null);
+    const splitConcRows: any[] = [];
+    for (const vendedorBatch of chunkArray(params.vendedorIds)) {
+      for (const companyBatch of chunkArray(normalizedCompanyIds)) {
+        const { data, error: splitConcErr } = await client
+          .from("vendas_recibos_rateio")
+          .select("conciliacao_recibo_id")
+          .eq("ativo", true)
+          .gt("percentual_destino", 0)
+          .in("vendedor_destino_id", vendedorBatch)
+          .not("conciliacao_recibo_id", "is", null)
+          .in("company_id", companyBatch);
 
-    if (normalizedCompanyIds.length > 0) {
-      splitConcQuery = splitConcQuery.in("company_id", normalizedCompanyIds);
-    }
-
-    const { data: splitConcRows, error: splitConcErr } = await splitConcQuery;
-    if (splitConcErr) {
-      logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
+        if (splitConcErr) {
+          logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
+        } else {
+          splitConcRows.push(...(data || []));
+        }
+      }
     }
 
     const splitConcIdSet = new Set(
-      ((splitConcRows as any[]) || [])
+      splitConcRows
         .map((row: any) => String(row?.conciliacao_recibo_id || "").trim())
         .filter(Boolean),
     );

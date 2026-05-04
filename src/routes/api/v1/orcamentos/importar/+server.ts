@@ -9,7 +9,11 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ORCAMENTO_IMPORTAR_BODY_BYTES = 4 * 1024 * 1024;
 
 function sanitizeNumber(value: unknown, fallback = 0): number {
   const num = typeof value === 'number' ? value : Number(value);
@@ -31,6 +35,11 @@ const EXCLUDED_TIPO_KEYS = new Set(
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ORCAMENTO_IMPORTAR_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -39,7 +48,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para importar orcamentos.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const clientId: string | null = body.client_id || null;
     const clientName: string | null = body.client_name || null;
@@ -51,14 +60,14 @@ export async function POST(event: RequestEvent) {
     const draft = body.draft;
 
     if (!draft || !Array.isArray(draft.items) || draft.items.length === 0) {
-      return json({ error: 'Nenhum item encontrado no rascunho.' }, { status: 400 });
+      return json({ error: 'Nenhum item encontrado no rascunho.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!clientId) {
-      return json({ error: 'Selecione um cliente antes de salvar.' }, { status: 400 });
+      return json({ error: 'Selecione um cliente antes de salvar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!isUuid(clientId)) {
-      return json({ error: 'Cliente invalido.' }, { status: 400 });
+      return json({ error: 'Cliente invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: cliente, error: clienteError } = await client
@@ -68,11 +77,11 @@ export async function POST(event: RequestEvent) {
       .maybeSingle();
     if (clienteError) throw clienteError;
     if (!cliente?.id) {
-      return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+      return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
     const clienteCompanyId = String((cliente as any).company_id || '').trim();
     if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-      return json({ error: 'Cliente fora do seu escopo.' }, { status: 403 });
+      return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const items = draft.items as Array<Record<string, unknown>>;
@@ -105,7 +114,7 @@ export async function POST(event: RequestEvent) {
 
     if (quoteError || !quote) {
       logServerError('[orcamentos/importar] erro ao criar quote', quoteError);
-      return json({ error: 'Erro ao criar orçamento importado.' }, { status: 500 });
+      return json({ error: 'Erro ao criar orçamento importado.' }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     // 2. Inserir itens
@@ -136,7 +145,7 @@ export async function POST(event: RequestEvent) {
     if (itemsError) {
       await client.from('quote').delete().eq('id', quote.id);
       logServerError('[orcamentos/importar] erro ao inserir itens', itemsError);
-      return json({ error: 'Erro ao salvar itens do orçamento.' }, { status: 500 });
+      return json({ error: 'Erro ao salvar itens do orçamento.' }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     // 3. Inserir segmentos (se houver)
@@ -228,7 +237,7 @@ export async function POST(event: RequestEvent) {
       userId: user.id
     });
 
-    return json({ ok: true, quote_id: quote.id, status: nextStatus }, { status: 201 });
+    return json({ ok: true, quote_id: quote.id, status: nextStatus }, { status: 201, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao importar orçamento.');
   }

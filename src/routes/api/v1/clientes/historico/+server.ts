@@ -20,6 +20,29 @@ function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
   );
 }
 
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchBatched<T>(
+  values: string[],
+  loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
+) {
+  const rows: T[] = [];
+  for (const batch of chunkArray(values)) {
+    const { data, error } = await loader(batch);
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -59,17 +82,30 @@ export async function GET(event) {
       loader: async () => {
         const vendaSelect =
           'id, cliente_id, vendedor_id, company_id, data_lancamento, data_embarque, destino_cidade_id, destino:produtos!vendas_destino_id_fkey(nome, cidade_id)';
+        const fetchScopedVendas = async (buildBaseQuery: () => any) => {
+          const rows: any[] = [];
+          const companyBatches =
+            filters.companyIds.length > 0 ? chunkArray(filters.companyIds) : [null];
+          const vendedorBatches =
+            filters.vendedorIds.length > 0 ? chunkArray(filters.vendedorIds) : [null];
 
-        let vendasTitularQuery = client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId);
-        if (filters.companyIds.length > 0) {
-          vendasTitularQuery = vendasTitularQuery.in('company_id', filters.companyIds);
-        }
-        if (filters.vendedorIds.length > 0) {
-          vendasTitularQuery = vendasTitularQuery.in('vendedor_id', filters.vendedorIds);
-        }
+          for (const companyBatch of companyBatches) {
+            for (const vendedorBatch of vendedorBatches) {
+              let query = buildBaseQuery();
+              if (companyBatch) query = query.in('company_id', companyBatch);
+              if (vendedorBatch) query = query.in('vendedor_id', vendedorBatch);
 
-        const { data: vendasTitular, error: vendasTitularError } = await vendasTitularQuery;
-        if (vendasTitularError) throw vendasTitularError;
+              const { data, error } = await query;
+              if (error) throw error;
+              rows.push(...(data || []));
+            }
+          }
+          return rows;
+        };
+
+        const vendasTitular = await fetchScopedVendas(() =>
+          client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId)
+        );
 
         let vendasPassageiro: any[] = [];
         try {
@@ -87,29 +123,28 @@ export async function GET(event) {
           );
 
           if (viagemIds.length > 0) {
-            const { data: viagensRows } = await client
-              .from('viagens')
-              .select('id, venda_id')
-              .in('id', viagemIds);
+            const viagensRows = await fetchBatched<any>(viagemIds, (batch) =>
+              client
+                .from('viagens')
+                .select('id, venda_id')
+                .in('id', batch)
+            );
 
             const vendaIds = Array.from(
               new Set(
-                (viagensRows || [])
+                viagensRows
                   .map((row: any) => String(row?.venda_id || '').trim())
                   .filter(Boolean)
               )
             );
 
             if (vendaIds.length > 0) {
-              let vendasPassageiroQuery = client.from('vendas').select(vendaSelect).in('id', vendaIds);
-              if (filters.companyIds.length > 0) {
-                vendasPassageiroQuery = vendasPassageiroQuery.in('company_id', filters.companyIds);
-              }
-              if (filters.vendedorIds.length > 0) {
-                vendasPassageiroQuery = vendasPassageiroQuery.in('vendedor_id', filters.vendedorIds);
-              }
-              const { data } = await vendasPassageiroQuery;
-              vendasPassageiro = data || [];
+              vendasPassageiro = await fetchBatched<any>(vendaIds, async (batch) => ({
+                data: await fetchScopedVendas(() =>
+                  client.from('vendas').select(vendaSelect).in('id', batch)
+                ),
+                error: null
+              }));
             }
           }
         } catch {
@@ -137,10 +172,12 @@ export async function GET(event) {
         const [{ data: recibosData, error: recibosError }, { data: quoteRows, error: quotesError }] =
           await Promise.all([
             vendaIds.length > 0
-              ? client
-                  .from('vendas_recibos')
-                  .select('venda_id, valor_total, valor_taxas')
-                  .in('venda_id', vendaIds)
+              ? fetchBatched<any>(vendaIds, (batch) =>
+                  client
+                    .from('vendas_recibos')
+                    .select('venda_id, valor_total, valor_taxas')
+                    .in('venda_id', batch)
+                ).then((data) => ({ data, error: null }))
               : Promise.resolve({ data: [], error: null }),
             client
               .from('quote')
@@ -166,13 +203,14 @@ export async function GET(event) {
 
         let cidadesMap = new Map<string, string>();
         if (cidadeIds.length > 0) {
-          const { data: cidadesData, error: cidadesError } = await client
-            .from('cidades')
-            .select('id, nome')
-            .in('id', cidadeIds);
-          if (cidadesError) throw cidadesError;
+          const cidadesData = await fetchBatched<any>(cidadeIds, (batch) =>
+            client
+              .from('cidades')
+              .select('id, nome')
+              .in('id', batch)
+          );
           cidadesMap = new Map(
-            (cidadesData || []).map((row: { id?: string | null; nome?: string | null }) => [
+            cidadesData.map((row: { id?: string | null; nome?: string | null }) => [
               String(row?.id || '').trim(),
               String(row?.nome || '').trim()
             ])
@@ -189,14 +227,15 @@ export async function GET(event) {
         );
 
         if (filters.companyIds.length > 0 && creatorIds.length > 0) {
-          const { data: creators } = await client
-            .from('users')
-            .select('id, company_id')
-            .in('id', creatorIds)
-            .limit(5000);
+          const creators = await fetchBatched<any>(creatorIds, (batch) =>
+            client
+              .from('users')
+              .select('id, company_id')
+              .in('id', batch)
+          );
 
           creatorCompanyMap = new Map(
-            (creators || []).map((row: { id?: string | null; company_id?: string | null }) => [
+            creators.map((row: { id?: string | null; company_id?: string | null }) => [
               String(row?.id || '').trim(),
               String(row?.company_id || '').trim()
             ])

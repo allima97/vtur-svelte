@@ -10,8 +10,8 @@
 /.wrangler
 /.svelte-kit
 /public/pdfs
+/supabase/.temp
 
 # Environment files
 .env
 .env.*
-

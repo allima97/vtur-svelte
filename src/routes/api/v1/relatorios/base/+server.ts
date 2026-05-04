@@ -11,6 +11,16 @@ import {
 } from '$lib/server/v1';
 import { SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -45,19 +55,30 @@ export async function GET(event) {
       scopedTeamIds = [scope.userId];
     }
 
-    let companiesQuery = client
-      .from('companies')
-      .select('id, nome_fantasia, nome_empresa, active')
-      .order('nome_fantasia', { ascending: true })
-      .limit(500);
+    const fetchCompanies = async () => {
+      const rows: any[] = [];
+      const companyBatches =
+        !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
-    if (!scope.isAdmin && scope.companyIds.length > 0) {
-      companiesQuery = companiesQuery.in('id', scope.companyIds);
-    }
+      for (const companyBatch of companyBatches) {
+        let query = client
+          .from('companies')
+          .select('id, nome_fantasia, nome_empresa, active')
+          .order('nome_fantasia', { ascending: true })
+          .limit(500);
 
-    const [companiesRes, usersRes] = await Promise.all([
-      companiesQuery,
-      (async () => {
+        if (companyBatch) query = query.in('id', companyBatch);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
+      return rows;
+    };
+
+    const fetchUsers = async () => {
+      const rows: any[] = [];
+      const runQuery = async (filters?: { ids?: string[] | null; companyIds?: string[] | null }) => {
         let query = client
           .from('users')
           .select(`
@@ -72,33 +93,43 @@ export async function GET(event) {
           `)
           .limit(1000);
 
-        if (!scope.isAdmin && scopedTeamIds.length > 0) {
-          query = query.in('id', scopedTeamIds);
-          return query;
-        }
-
-        if (!scope.isAdmin && companyIdsForUsers.length > 0) {
-          query = query.in('company_id', companyIdsForUsers);
-        }
+        if (filters?.ids && filters.ids.length > 0) query = query.in('id', filters.ids);
+        if (filters?.companyIds && filters.companyIds.length > 0)
+          query = query.in('company_id', filters.companyIds);
 
         if (enforceCorporateOnly) {
           query = query.eq('uso_individual', false).eq('active', true);
         }
 
-        return query;
-      })()
-    ]);
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...(data || []));
+      };
 
-    if (companiesRes.error) throw companiesRes.error;
-    if (usersRes.error) throw usersRes.error;
+      if (!scope.isAdmin && scopedTeamIds.length > 0) {
+        for (const idBatch of chunkArray(scopedTeamIds)) {
+          await runQuery({ ids: idBatch });
+        }
+      } else if (!scope.isAdmin && companyIdsForUsers.length > 0) {
+        for (const companyBatch of chunkArray(companyIdsForUsers)) {
+          await runQuery({ companyIds: companyBatch });
+        }
+      } else {
+        await runQuery();
+      }
 
-    const empresas = (companiesRes.data || []).map((row: any) => ({
+      return rows;
+    };
+
+    const [companiesRows, usersRows] = await Promise.all([fetchCompanies(), fetchUsers()]);
+
+    const empresas = companiesRows.map((row: any) => ({
       id: String(row.id || ''),
       nome: String(row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'),
       active: row.active !== false
     }));
 
-    const vendedores = (usersRes.data || [])
+    const vendedores = usersRows
       .filter((row: any) => {
         if (row?.active === false) return false;
         if (row?.uso_individual === true) return false;

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -8,24 +9,48 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
+
+const MAX_PAGAMENTO_CONCILIAR_BODY_BYTES = 16 * 1024;
+
+function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.payments,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: scopeCacheTags({ companyIds: companyId ? [companyId] : [], userId })
+  });
+}
 
 // Concilia um pagamento de venda com um recibo de conciliação
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_PAGAMENTO_CONCILIAR_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 3, 'Sem permissao para conciliar pagamento.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const pagamentoId = String(event.params.id || '').trim();
     if (!isUuid(pagamentoId)) {
-      return json({ success: false, error: 'ID invalido.' }, { status: 400 });
+      return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (body.venda_recibo_id && !isUuid(String(body.venda_recibo_id))) {
-      return json({ success: false, error: 'ID do recibo invalido.' }, { status: 400 });
+      return json({ success: false, error: 'ID do recibo invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: pagamentoAtual, error: pagamentoAtualError } = await client
@@ -35,14 +60,14 @@ export async function POST(event) {
       .maybeSingle();
     if (pagamentoAtualError) throw pagamentoAtualError;
     if (!pagamentoAtual) {
-      return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404 });
+      return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
+    const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
     if (!scope.isAdmin) {
       const companyIds = resolveScopedCompanyIds(scope, null);
-      const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
-      if (companyIds.length > 0 && targetCompanyId && !companyIds.includes(targetCompanyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403 });
+      if (!targetCompanyId || companyIds.length === 0 || !companyIds.includes(targetCompanyId)) {
+        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -60,7 +85,8 @@ export async function POST(event) {
 
     if (pagError) throw pagError;
 
-    return json({ success: true, item: pagamento });
+    invalidatePagamentoReadModels(targetCompanyId, user.id);
+    return json({ success: true, item: pagamento }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao conciliar pagamento.');
   }

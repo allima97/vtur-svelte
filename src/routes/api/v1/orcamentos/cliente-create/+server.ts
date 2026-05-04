@@ -1,18 +1,26 @@
 import type { RequestEvent } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   requireAuthenticatedUser,
   resolveUserScope,
   ensureModuloAccess,
   getAdminClient,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   toErrorResponse
 } from '$lib/server/v1';
 import { titleCaseNome } from '$lib/normalizeText';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
+const MAX_ORCAMENTO_CLIENTE_CREATE_BODY_BYTES = 32 * 1024;
+
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_CLIENTE_CREATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
@@ -25,10 +33,12 @@ export async function POST(event: RequestEvent) {
     if (!nome || !telefone) return new Response('Nome e telefone obrigatorios.', { status: 400 });
 
     const requestedCompanyId = String(body?.company_id || '').trim();
-    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
-    const companyId = scope.isAdmin ? requestedCompanyId || null : companyIds[0] || null;
+    const companyId = scope.isAdmin ? requestedCompanyId || null : resolveScopedCompanyId(scope, requestedCompanyId || null);
     if (!scope.isAdmin && !companyId) {
-      return new Response('Empresa nao identificada.', { status: 400, headers: NO_STORE_HEADERS });
+      return new Response(requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa nao identificada.', {
+        status: requestedCompanyId ? 403 : 400,
+        headers: NO_STORE_HEADERS
+      });
     }
 
     const payload: Record<string, any> = {

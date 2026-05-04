@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || "")
@@ -63,6 +64,16 @@ function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
   return vendedorIds.length === 0;
 }
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -98,7 +109,7 @@ export async function GET(event) {
     if (!isIsoDate(inicio) || !isIsoDate(fim)) {
       return json(
         { error: "inicio e fim devem estar no formato YYYY-MM-DD." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -132,10 +143,11 @@ export async function GET(event) {
       ttlMs: 20_000,
       staleTtlMs: 90_000,
       loader: async () => {
-        let candidatasQuery = client
-          .from("viagens")
-          .select(
-            `
+        const buildBaseQuery = (limit: number) =>
+          client
+            .from("viagens")
+            .select(
+              `
           id,
           venda_id,
           company_id,
@@ -156,37 +168,55 @@ export async function GET(event) {
             destino_cidade:cidades!destino_cidade_id (id, nome)
           )
         `,
-          )
-          .not("data_fim", "is", null)
-          .gte("data_fim", inicio)
-          .lte("data_fim", fim)
-          .or("status.is.null,status.neq.Fechado")
-          .eq("venda.cancelada", false)
-          .order("data_fim", { ascending: false })
-          .limit(candidateLimit);
+            )
+            .not("data_fim", "is", null)
+            .or("status.is.null,status.neq.Fechado")
+            .eq("venda.cancelada", false)
+            .order("data_fim", { ascending: false })
+            .limit(limit);
 
-        if (statusFilter === "abertos") {
-          candidatasQuery = candidatasQuery.or(
-            "follow_up_fechado.is.null,follow_up_fechado.eq.false",
-          );
-        } else if (statusFilter === "fechados") {
-          candidatasQuery = candidatasQuery.eq("follow_up_fechado", true);
+        const applyCommonFilters = (
+          query: any,
+          options: {
+            companyBatch?: string[] | null;
+            vendedorBatch?: string[] | null;
+            vendaBatch?: string[] | null;
+            usePeriod?: boolean;
+          },
+        ) => {
+          let scopedQuery = query;
+          if (options.usePeriod !== false) {
+            scopedQuery = scopedQuery.gte("data_fim", inicio).lte("data_fim", fim);
+          }
+          if (statusFilter === "abertos") {
+            scopedQuery = scopedQuery.or(
+              "follow_up_fechado.is.null,follow_up_fechado.eq.false",
+            );
+          } else if (statusFilter === "fechados") {
+            scopedQuery = scopedQuery.eq("follow_up_fechado", true);
+          }
+          if (options.companyBatch) scopedQuery = scopedQuery.in("company_id", options.companyBatch);
+          if (options.vendedorBatch)
+            scopedQuery = scopedQuery.in("venda.vendedor_id", options.vendedorBatch);
+          if (options.vendaBatch) scopedQuery = scopedQuery.in("venda_id", options.vendaBatch);
+          return scopedQuery;
+        };
+
+        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+        const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+        const candidatasData: any[] = [];
+
+        for (const companyBatch of companyBatches) {
+          for (const vendedorBatch of vendedorBatches) {
+            const { data, error: candidatasError } = await applyCommonFilters(
+              buildBaseQuery(candidateLimit),
+              { companyBatch, vendedorBatch },
+            );
+            if (candidatasError) throw candidatasError;
+            candidatasData.push(...(data || []));
+          }
         }
 
-        if (companyIds.length > 0) {
-          candidatasQuery = candidatasQuery.in("company_id", companyIds);
-        }
-
-        if (vendedorIds.length > 0) {
-          candidatasQuery = candidatasQuery.in(
-            "venda.vendedor_id",
-            vendedorIds,
-          );
-        }
-
-        const { data: candidatasData, error: candidatasError } =
-          await candidatasQuery;
-        if (candidatasError) throw candidatasError;
         const candidatas = ((candidatasData || []) as any[]).filter((row) =>
           isFollowUpAllowedForVendedores(row, vendedorIds),
         );
@@ -206,53 +236,20 @@ export async function GET(event) {
 
         let detalhadas: any[] = [];
         if (vendaIds.length > 0) {
-          let detalhadasQuery = client
-            .from("viagens")
-            .select(
-              `
-            id,
-            venda_id,
-            company_id,
-            data_inicio,
-            data_fim,
-            status,
-            follow_up_text,
-            follow_up_fechado,
-            updated_at,
-            ${vendaJoin} (
-              id,
-              data_embarque,
-              data_final,
-              vendedor_id,
-              cancelada,
-              cliente_id,
-              clientes:clientes (id, nome, whatsapp, telefone),
-              destino_cidade:cidades!destino_cidade_id (id, nome)
-            )
-          `,
-            )
-            .in("venda_id", vendaIds)
-            .not("data_fim", "is", null)
-            .or("status.is.null,status.neq.Fechado")
-            .eq("venda.cancelada", false)
-            .order("data_fim", { ascending: false })
-            .limit(detailLimit);
-
-          if (companyIds.length > 0) {
-            detalhadasQuery = detalhadasQuery.in("company_id", companyIds);
+          const detalheRows: any[] = [];
+          for (const vendaBatch of chunkArray(vendaIds)) {
+            for (const companyBatch of companyBatches) {
+              for (const vendedorBatch of vendedorBatches) {
+                const { data, error: detalhadasError } = await applyCommonFilters(
+                  buildBaseQuery(detailLimit),
+                  { companyBatch, vendedorBatch, vendaBatch, usePeriod: false },
+                );
+                if (detalhadasError) throw detalhadasError;
+                detalheRows.push(...(data || []));
+              }
+            }
           }
-
-          if (vendedorIds.length > 0) {
-            detalhadasQuery = detalhadasQuery.in(
-              "venda.vendedor_id",
-              vendedorIds,
-            );
-          }
-
-          const { data: detalhadasData, error: detalhadasError } =
-            await detalhadasQuery;
-          if (detalhadasError) throw detalhadasError;
-          detalhadas = ((detalhadasData || []) as any[]).filter((row) =>
+          detalhadas = detalheRows.filter((row) =>
             isFollowUpAllowedForVendedores(row, vendedorIds),
           );
           await syncViagensStatus(client, detalhadas);
@@ -365,7 +362,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar follow-ups.");
   }

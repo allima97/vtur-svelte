@@ -1,4 +1,5 @@
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 
 const SVG_HEADERS = {
@@ -9,8 +10,7 @@ const SVG_HEADERS = {
 
 const ERROR_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff",
+  ...NO_STORE_HEADERS,
 } as const;
 
 function escapeXml(value: string) {

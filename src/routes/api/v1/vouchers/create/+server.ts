@@ -1,14 +1,26 @@
 import { json } from '@sveltejs/kit';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_VOUCHER_CREATE_BODY_BYTES = 512 * 1024;
 
 // Cria um voucher usando as colunas reais da tabela vouchers
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VOUCHER_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await event.request.json();
+    if (!scope.isAdmin) {
+      ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 2, 'Sem permissão para criar vouchers.');
+    }
+
+    const body = await event.request.json().catch(() => ({}));
 
     const { data, error } = await client
       .from('vouchers')

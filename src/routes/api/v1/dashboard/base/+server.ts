@@ -9,6 +9,13 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 function companyLabel(row: any) {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa sem nome');
@@ -18,10 +25,21 @@ function vendedorLabel(row: any) {
   return String(row?.nome_completo || row?.email || 'Usuario sem nome');
 }
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 function canUseDashboardFilters(scope: any) {
   return (
     scope?.isAdmin ||
     scope?.isMaster ||
+    scope?.isFinanceiro ||
     scope?.isGestor ||
     hasModuloAccess(scope, ['dashboard'], 1)
   );
@@ -34,7 +52,10 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!canUseDashboardFilters(scope)) {
-      return json({ error: 'Sem acesso aos filtros do dashboard.' }, { status: 403 });
+      return json(
+        { error: 'Sem acesso aos filtros do dashboard.' },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
     }
 
     const requestedCompanyId = String(event.url.searchParams.get('empresa_id') || '').trim();
@@ -44,26 +65,50 @@ export async function GET(event) {
       scopedCompanyIds = [scope.companyId];
     }
 
-    let companiesQuery = client
-      .from('companies')
-      .select('id, nome_fantasia, nome_empresa, active')
-      .order('nome_fantasia', { ascending: true })
-      .limit(500);
+    const empresas = await getCachedReadModel({
+      key: buildReadModelCacheKey('dashboard:base:empresas', {
+        scopeCompanyIds: scope.companyIds,
+        requestedCompanyId,
+        scopedCompanyIds,
+        isAdmin: scope.isAdmin,
+        userId: user.id
+      }),
+      tags: [
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.users,
+        READ_MODEL_TAGS.catalog,
+        ...scopeCacheTags({ companyIds: scope.companyIds, userId: user.id })
+      ],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () => {
+        const rows: any[] = [];
+        const companyBatches =
+          !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
-    if (!scope.isAdmin && scope.companyIds.length > 0) {
-      companiesQuery = companiesQuery.in('id', scope.companyIds);
-    }
+        for (const companyBatch of companyBatches) {
+          let companiesQuery = client
+            .from('companies')
+            .select('id, nome_fantasia, nome_empresa, active')
+            .order('nome_fantasia', { ascending: true })
+            .limit(500);
 
-    const { data: companiesData, error: companiesError } = await companiesQuery;
-    if (companiesError) throw companiesError;
+          if (companyBatch) companiesQuery = companiesQuery.in('id', companyBatch);
 
-    const empresas = (companiesData || [])
-      .map((row: any) => ({
-        id: String(row?.id || ''),
-        nome: companyLabel(row),
-        active: row?.active !== false
-      }))
-      .filter((row) => row.id);
+          const { data: companiesData, error: companiesError } = await companiesQuery;
+          if (companiesError) throw companiesError;
+          rows.push(...(companiesData || []));
+        }
+
+        return rows
+          .map((row: any) => ({
+            id: String(row?.id || ''),
+            nome: companyLabel(row),
+            active: row?.active !== false
+          }))
+          .filter((row) => row.id);
+      }
+    });
 
     const companyIdsForVendedores = (() => {
       if (scopedCompanyIds.length > 0) return scopedCompanyIds;
@@ -72,7 +117,7 @@ export async function GET(event) {
     })();
 
     let vendedores: any[] = [];
-    if (scope.isAdmin || scope.isMaster || scope.isGestor) {
+    if (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor) {
       vendedores = await fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores);
     } else {
       const { data: currentUser, error: userError } = await client
@@ -98,7 +143,7 @@ export async function GET(event) {
     return json({
       empresas,
       vendedores: vendedoresFiltro
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar filtros do dashboard.');
   }

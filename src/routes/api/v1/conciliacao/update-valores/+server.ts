@@ -2,10 +2,13 @@ import { json, type RequestEvent } from "@sveltejs/kit";
 import {
   getAdminClient,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse,
   isUuid,
 } from "$lib/server/v1";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 // Espelha: vtur-app/src/pages/api/v1/conciliacao/update-valores.ts
@@ -23,8 +26,15 @@ const ALLOWED_FIELDS = [
   "valor_nao_comissionavel",
 ] as const;
 
+const MAX_UPDATE_VALORES_BODY_BYTES = 16 * 1024;
+
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_UPDATE_VALORES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -33,35 +43,24 @@ export async function POST(event: RequestEvent) {
     if (
       !scope.isAdmin &&
       scope.papel !== "GESTOR" &&
-      scope.papel !== "MASTER"
+      scope.papel !== "MASTER" &&
+      scope.papel !== "FINANCEIRO"
     ) {
       return json(
         {
-          error: "Sem permissão. Apenas Gestor ou Master podem editar valores.",
+          error: "Sem permissão. Apenas Financeiro, Gestor ou Master podem editar valores.",
         },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 
     const body = await event.request.json().catch(() => null);
 
-    // Resolver company_id: admin pode passar qualquer um; demais usam o próprio
-    const requestedCompanyId = String(body?.companyId || "").trim();
-    const companyId = scope.isAdmin
-      ? isUuid(requestedCompanyId)
-        ? requestedCompanyId
-        : null
-      : scope.companyId;
-
-    if (!companyId) {
-      return json({ error: "Company inválida." }, { status: 400 });
-    }
-
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
     if (!isUuid(conciliacaoId)) {
       return json(
         { error: "Registro de conciliação inválido." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -69,7 +68,7 @@ export async function POST(event: RequestEvent) {
     if (!valores || typeof valores !== "object") {
       return json(
         { error: "Nenhum valor fornecido para atualizar." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -85,7 +84,7 @@ export async function POST(event: RequestEvent) {
           if (!Number.isFinite(num)) {
             return json(
               { error: `Valor inválido para o campo ${field}.` },
-              { status: 400 },
+              { status: 400, headers: NO_STORE_HEADERS },
             );
           }
           updatePayload[field] = num;
@@ -96,23 +95,37 @@ export async function POST(event: RequestEvent) {
     if (Object.keys(updatePayload).length === 0) {
       return json(
         { error: "Nenhum campo editável encontrado no payload." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
-    // Verificar que o registro pertence à empresa
+    const requestedCompanyId = String(body?.companyId || "").trim();
+    const allowedCompanyIds = resolveScopedCompanyIds(
+      scope,
+      isUuid(requestedCompanyId) ? requestedCompanyId : null,
+    );
+
+    // Verificar que o registro pertence ao escopo permitido. Para Admin, a empresa
+    // é inferida do próprio registro quando não vier explicitamente no payload.
     const { data: existing, error: existErr } = await client
       .from("conciliacao_recibos")
       .select("id, company_id")
       .eq("id", conciliacaoId)
-      .eq("company_id", companyId)
       .maybeSingle();
 
     if (existErr) throw existErr;
     if (!existing) {
       return json(
         { error: "Registro não encontrado ou sem permissão." },
-        { status: 404 },
+        { status: 404, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    const companyId = String(existing.company_id || "").trim();
+    if (!companyId || (!scope.isAdmin && !allowedCompanyIds.includes(companyId))) {
+      return json(
+        { error: "Registro não encontrado ou sem permissão." },
+        { status: 404, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -128,7 +141,7 @@ export async function POST(event: RequestEvent) {
 
     invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
 
-    return json({ ok: true, item: updated });
+    return json({ ok: true, item: updated }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao atualizar valores da conciliação.");
   }

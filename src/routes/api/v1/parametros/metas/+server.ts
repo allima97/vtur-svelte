@@ -17,6 +17,10 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+
+const MAX_PARAMETROS_METAS_BODY_BYTES = 512 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
 
 type MetaProdutoInput = {
   produto_id?: string | null;
@@ -69,6 +73,14 @@ function normalizePeriod(value?: string | null) {
   if (dateKey) return `${dateKey.slice(0, 7)}-01`;
 
   return currentMonthRangeISODate().inicio;
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
@@ -197,18 +209,22 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
     ttlMs: 15_000,
     staleTtlMs: 60_000,
     loader: async () => {
-      const { data, error } = await client
-        .from("metas_vendedor_produto")
-        .select(
-          "id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)",
-        )
-        .in("meta_vendedor_id", metaIds);
+      const rows: any[] = [];
+      for (const metaBatch of chunkArray(metaIds)) {
+        const { data, error } = await client
+          .from("metas_vendedor_produto")
+          .select(
+            "id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)",
+          )
+          .in("meta_vendedor_id", metaBatch);
 
-      if (error) {
-        if (isMissingSchemaError(error)) return [];
-        throw error;
+        if (error) {
+          if (isMissingSchemaError(error)) return [];
+          throw error;
+        }
+        rows.push(...(data || []));
       }
-      return data || [];
+      return rows;
     },
   });
 
@@ -366,31 +382,33 @@ export async function GET(event) {
 
     let metas: any[] = [];
     if (vendedorIds.length > 0) {
-      const { data, error: queryError } = await client
-        .from("metas_vendedor")
-        .select(
-          "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
-        )
-        .in("vendedor_id", vendedorIds)
-        .eq("scope", "vendedor")
-        .gte("periodo", monthRange.inicio)
-        .lte("periodo", monthRange.fim)
-        .order("periodo", { ascending: false })
-        .limit(1000);
+      for (const vendedorBatch of chunkArray(vendedorIds)) {
+        const { data, error: queryError } = await client
+          .from("metas_vendedor")
+          .select(
+            "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
+          )
+          .in("vendedor_id", vendedorBatch)
+          .eq("scope", "vendedor")
+          .gte("periodo", monthRange.inicio)
+          .lte("periodo", monthRange.fim)
+          .order("periodo", { ascending: false })
+          .limit(1000);
 
-      if (queryError) {
-        if (isMissingSchemaError(queryError)) {
-          return json({
-            items: [],
-            vendedores: scopedVendedores,
-            produtos: [],
-            periodo: periodo.slice(0, 7),
-          });
+        if (queryError) {
+          if (isMissingSchemaError(queryError)) {
+            return json({
+              items: [],
+              vendedores: scopedVendedores,
+              produtos: [],
+              periodo: periodo.slice(0, 7),
+            });
+          }
+          throw queryError;
         }
-        throw queryError;
-      }
 
-      metas = data || [];
+        metas.push(...(data || []));
+      }
     }
 
     const metaIds = metas
@@ -425,6 +443,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_METAS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -438,7 +461,7 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const inputs: MetaInput[] = Array.isArray(body?.items)
       ? body.items
       : [body];
@@ -494,6 +517,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

@@ -9,6 +9,24 @@ import {
 
 type RowsResult<T> = { data: T[] | null; error: any };
 type SingleResult<T> = { data: T | null; error: any };
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 function isMissingColumnOrRelation(err: any) {
   const code = String(err?.code || '');
@@ -91,51 +109,65 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
     ttlMs: 30_000,
     staleTtlMs: 120_000,
     loader: async () => {
-      let query = client
-        .from('fornecedores')
-        .select('id', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(5000);
-      if (companyIds.length > 0) {
-        query = query.in('company_id', companyIds);
+      const buildBaseQuery = (companyIdsFilter = companyIds) => {
+        let query = client
+          .from('fornecedores')
+          .select('id', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .limit(5000);
+        if (companyIdsFilter.length > 0) {
+          query = query.in('company_id', companyIdsFilter);
+        }
+        return query;
+      };
+
+      const baseRows: Array<{ id?: string | null }> = [];
+      let totalCount = 0;
+      const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
+      for (const batch of companyBatches) {
+        const base = await buildBaseQuery(batch);
+        if (base.error) throw base.error;
+        totalCount += Number(base.count ?? base.data?.length ?? 0);
+        baseRows.push(...((base.data || []) as Array<{ id?: string | null }>));
       }
 
-      const base = await query;
-      if (base.error) throw base.error;
-
-      const ids = (base.data || []).map((row: any) => String(row.id || '')).filter(Boolean);
+      const ids = dedupeById(baseRows).map((row: any) => String(row.id || '')).filter(Boolean);
       if (ids.length === 0) return { items: [], total: 0 };
 
-      const detailRows = await optionalRows<any>(
-        client
-          .from('fornecedores')
-          .select(
-            [
-              'id',
-              'company_id',
-              'nome_completo',
-              'nome_fantasia',
-              'localizacao',
-              'cnpj',
-              'cep',
-              'cidade',
-              'estado',
-              'telefone',
-              'whatsapp',
-              'telefone_emergencia',
-              'responsavel',
-              'tipo_faturamento',
-              'principais_servicos',
-              'created_at',
-              'updated_at'
-            ].join(', ')
-          )
-          .in('id', ids)
-      );
+      const detailRows: any[] = [];
+      const products: any[] = [];
+      const fornecedorSelect = [
+        'id',
+        'company_id',
+        'nome_completo',
+        'nome_fantasia',
+        'localizacao',
+        'cnpj',
+        'cep',
+        'cidade',
+        'estado',
+        'telefone',
+        'whatsapp',
+        'telefone_emergencia',
+        'responsavel',
+        'tipo_faturamento',
+        'principais_servicos',
+        'created_at',
+        'updated_at'
+      ].join(', ');
 
-      const products = await optionalRows<any>(
-        client.from('produtos').select('id, fornecedor_id').in('fornecedor_id', ids).limit(10000)
-      );
+      for (const batch of chunkArray(ids)) {
+        detailRows.push(
+          ...(await optionalRows<any>(
+            client.from('fornecedores').select(fornecedorSelect).in('id', batch)
+          ))
+        );
+        products.push(
+          ...(await optionalRows<any>(
+            client.from('produtos').select('id, fornecedor_id').in('fornecedor_id', batch).limit(10000)
+          ))
+        );
+      }
 
       const productsCount = new Map<string, number>();
       products.forEach((row: any) => {
@@ -160,7 +192,7 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
 
       return {
         items,
-        total: base.count ?? items.length
+        total: totalCount || items.length
       };
     }
   });

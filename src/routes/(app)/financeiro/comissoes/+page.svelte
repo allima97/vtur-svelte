@@ -55,9 +55,13 @@
     total_pendente: number;
   }
 
+  type EmpresaOption = { id: string; nome: string };
+
   let comissoes: Comissao[] = [];
   let resumoVendedores: ResumoVendedor[] = [];
   let vendedores: { id: string; vendedor_id?: string; vendedor_nome?: string; nome?: string; nome_completo?: string; email?: string }[] = [];
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let loading = true;
   let filtroStatus = 'todas';
   let filtroVendedor = '';
@@ -89,6 +93,13 @@
     }))
   ];
 
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome
+  }));
+
+  $: canSelectEmpresa = empresaOptions.length > 1;
+
   function getCurrentMonthValue() {
     return todayISODateLocal().slice(0, 7);
   }
@@ -103,10 +114,39 @@
     };
   }
 
-  onMount(() => {
-    loadComissoes();
-    loadVendedores();
+  onMount(async () => {
+    await loadUserContext();
+    await Promise.all([loadComissoes(), loadVendedores()]);
   });
+
+  async function loadUserContext() {
+    try {
+      const data = await apiGet<{
+        company_id?: string | null;
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      empresas = Array.isArray(data.empresas)
+        ? data.empresas
+            .map((empresa) => ({
+              id: String(empresa?.id || '').trim(),
+              nome: String(empresa?.nome || 'Empresa sem nome').trim() || 'Empresa sem nome'
+            }))
+            .filter((empresa) => empresa.id)
+        : [];
+      empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
+    } catch (err) {
+      empresas = [];
+      empresaId = '';
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+    }
+  }
+
+  async function handleEmpresaChange() {
+    filtroVendedor = '';
+    comissoesSelecionadas = [];
+    await Promise.all([loadComissoes(), loadVendedores()]);
+  }
 
   async function loadComissoes() {
     loading = true;
@@ -114,6 +154,7 @@
       const query: Record<string, string | undefined> = {};
       if (filtroStatus !== 'todas') query.status = filtroStatus;
       if (filtroVendedor) query.vendedor_id = filtroVendedor;
+      if (empresaId) query.empresa_id = empresaId;
       if (filtroMes) {
         const range = getMonthRange(filtroMes);
         query.data_inicio = range.inicio;
@@ -150,7 +191,9 @@
 
   async function loadVendedores() {
     try {
-      const data = await apiGet<{ items?: typeof vendedores }>('/api/v1/financeiro/comissoes/vendedores');
+      const data = await apiGet<{ items?: typeof vendedores }>('/api/v1/financeiro/comissoes/vendedores', {
+        empresa_id: empresaId || undefined
+      });
       vendedores = data.items || [];
     } catch (err) {
       vendedores = [];
@@ -254,6 +297,7 @@
       const data = await apiPut<{ fallback?: boolean; message?: string }>(
         '/api/v1/financeiro/comissoes/pagamento',
         {
+          empresa_id: empresaId || undefined,
           comissao_ids: [comissaoSelecionada.id],
           data_pagamento: detalhesDataPagamento,
           observacoes: detalhesObservacoes
@@ -288,6 +332,7 @@
       const data = await apiFetch<{ fallback?: boolean; message?: string }>('/api/v1/financeiro/comissoes/pagamento', {
         method: 'DELETE',
         body: {
+          empresa_id: empresaId || undefined,
           comissao_ids: [comissaoSelecionada.id],
           observacoes: detalhesObservacoes
         }
@@ -318,7 +363,12 @@
     try {
       const data = await apiPost<{ fallback?: boolean; message?: string }>(
         '/api/v1/financeiro/comissoes/pagamento',
-        { comissao_ids: [comissaoSelecionada.id], data_pagamento: dataPagamento, observacoes: observacoesPagamento }
+        {
+          empresa_id: empresaId || undefined,
+          comissao_ids: [comissaoSelecionada.id],
+          data_pagamento: dataPagamento,
+          observacoes: observacoesPagamento
+        }
       );
       if (data?.fallback) {
         persistenciaDisponivel = false;
@@ -343,7 +393,12 @@
     try {
       const data = await apiPost<{ fallback?: boolean; message?: string; pagas?: number }>(
         '/api/v1/financeiro/comissoes/pagamento',
-        { comissao_ids: comissoesSelecionadas, data_pagamento: dataPagamento, observacoes: observacoesPagamento }
+        {
+          empresa_id: empresaId || undefined,
+          comissao_ids: comissoesSelecionadas,
+          data_pagamento: dataPagamento,
+          observacoes: observacoesPagamento
+        }
       );
       if (data?.fallback) {
         persistenciaDisponivel = false;
@@ -390,7 +445,7 @@
   $: valorSelecionado = comissoes.filter((c) => comissoesSelecionadas.includes(c.id)).reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
   $: comissoesVisiveis = somentePendentes ? pendentes : comissoes;
   $: podeFiltrarVendedor =
-    $permissoes.ready && ($permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isGestor);
+    $permissoes.ready && ($permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isFinanceiro || $permissoes.isGestor);
   $: if ($permissoes.ready && !podeFiltrarVendedor && filtroVendedor) {
     filtroVendedor = '';
   }
@@ -450,6 +505,17 @@
 
   <Card header="Filtros" color="financeiro" class="mb-6">
     <div class="flex flex-wrap gap-4 items-end">
+      {#if canSelectEmpresa}
+        <FieldSelect
+          id="comissoes-empresa"
+          label="Empresa"
+          bind:value={empresaId}
+          options={empresaOptions}
+          placeholder={null}
+          class_name="min-w-[240px]"
+          on:change={handleEmpresaChange}
+        />
+      {/if}
       <FieldInput id="comissoes-mes" label="Mês" type="month" bind:value={filtroMes} class_name="min-w-[180px]" on:change={loadComissoes} />
       <FieldSelect id="comissoes-status" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="min-w-[180px]" on:change={loadComissoes} />
       {#if podeFiltrarVendedor}

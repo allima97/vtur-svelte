@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   isUuid,
@@ -6,6 +7,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+const MAX_OPERACAO_RECADO_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -70,21 +73,41 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_OPERACAO_RECADO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { receiver_id, assunto, conteudo } = body;
 
     if (!String(conteudo || '').trim()) {
       return json({ error: 'Conteúdo obrigatório.' }, { status: 400 });
     }
 
+    const receiverId = receiver_id && isUuid(receiver_id) ? String(receiver_id) : null;
+    if (receiverId) {
+      const { data: receiver, error: receiverError } = await client
+        .from('users')
+        .select('id, company_id, active')
+        .eq('id', receiverId)
+        .eq('active', true)
+        .maybeSingle();
+      if (receiverError) throw receiverError;
+      if (!receiver) return json({ error: 'Destinatário não encontrado.' }, { status: 404 });
+      if (!scope.isAdmin && String((receiver as any)?.company_id || '') !== String(scope.companyId || '')) {
+        return json({ error: 'Destinatário fora do escopo da empresa.' }, { status: 403 });
+      }
+    }
+
     const payload = {
       company_id: scope.companyId,
       sender_id: scope.userId,
-      receiver_id: receiver_id && isUuid(receiver_id) ? receiver_id : null,
+      receiver_id: receiverId,
       assunto: String(assunto || '').trim() || null,
       conteudo: String(conteudo).trim(),
       sender_deleted: false,
@@ -102,6 +125,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

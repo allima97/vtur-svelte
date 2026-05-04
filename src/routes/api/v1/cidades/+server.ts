@@ -15,6 +15,9 @@ import {
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CIDADES_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -78,6 +81,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CIDADES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -86,7 +94,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Cidades'], 2, 'Sem permissão para salvar cidades.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, subdivisao_id, descricao } = body;
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
@@ -118,6 +126,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

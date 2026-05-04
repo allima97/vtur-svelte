@@ -39,6 +39,16 @@ function isConciliacaoEfetivada(params: { status?: string | null; descricao?: st
   return resolveConciliacaoStatus(params) === 'BAIXA';
 }
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 // ── GET — lista registros de conciliação ──
 export async function GET(event) {
   try {
@@ -46,7 +56,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
@@ -60,9 +70,16 @@ export async function GET(event) {
     const pageSize = Math.min(200, Math.max(10, Number(searchParams.get('pageSize') || 50)));
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
 
-    let query = client
-      .from('conciliacao_recibos')
-      .select(`
+    if (!scope.isAdmin && companyIds.length === 0) {
+      return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    }
+
+    const rows: any[] = [];
+    const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+    for (const companyBatch of companyBatches) {
+      let query = client
+        .from('conciliacao_recibos')
+        .select(`
         id, company_id, documento, numero_reserva, movimento_data, status, descricao,
         valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos,
         valor_nao_comissionavel, valor_calculada_loja, valor_visao_master,
@@ -75,18 +92,20 @@ export async function GET(event) {
         ranking_vendedor:users!ranking_vendedor_id(id, nome_completo),
         ranking_produto:tipo_produtos!ranking_produto_id(id, nome)
       `)
-      .order('movimento_data', { ascending: false })
-      .limit(5000);
+        .order('movimento_data', { ascending: false })
+        .limit(5000);
 
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
-    if (inicio) query = query.gte('movimento_data', inicio);
-    if (fim) query = query.lte('movimento_data', fim);
-    if (status) query = query.eq('status', status);
-    if (conciliado === 'true') query = query.eq('conciliado', true);
-    if (conciliado === 'false') query = query.eq('conciliado', false);
+      if (companyBatch) query = query.in('company_id', companyBatch);
+      if (inicio) query = query.gte('movimento_data', inicio);
+      if (fim) query = query.lte('movimento_data', fim);
+      if (status) query = query.eq('status', status);
+      if (conciliado === 'true') query = query.eq('conciliado', true);
+      if (conciliado === 'false') query = query.eq('conciliado', false);
 
-    const { data, error: queryError } = await query;
-    if (queryError) throw queryError;
+      const { data, error: queryError } = await query;
+      if (queryError) throw queryError;
+      rows.push(...(data || []));
+    }
 
     // Add parity-friendly display field for status
     const formatStatusLabel = (s?: string | null) => {
@@ -99,7 +118,7 @@ export async function GET(event) {
       }
     };
     // Parity: add readable status label and mirror status as status_label for templates
-    let items = (data || []).map((row: any) => ({
+    let items = rows.map((row: any) => ({
       ...row,
       status_display: formatStatusLabel(row.status),
       status_label: formatStatusLabel(row.status),

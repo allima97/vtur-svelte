@@ -19,7 +19,22 @@ import {
   normalizeModuloKey,
   toModuloDbKey
 } from '$lib/admin/modules';
+import {
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 import { getAdminClient, isUuid, permLevel, type UserScope } from '$lib/server/v1';
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export type ManagedUserRow = {
   id: string;
@@ -97,9 +112,31 @@ export const DEFAULT_FROM_EMAILS = {
   suporte: 'suporte@vtur.com.br'
 };
 
+const ACCESS_CHANGE_CACHE_TAGS = [
+  READ_MODEL_TAGS.users,
+  READ_MODEL_TAGS.finance,
+  READ_MODEL_TAGS.dashboard,
+  READ_MODEL_TAGS.sales,
+  READ_MODEL_TAGS.payments,
+  READ_MODEL_TAGS.conciliacao,
+  READ_MODEL_TAGS.vendasKpis,
+  READ_MODEL_TAGS.ranking,
+  READ_MODEL_TAGS.comissoes
+];
+
 function normalizePermissionValue(value?: string | null) {
   const normalized = String(value || 'none').trim().toLowerCase();
   return PERMISSION_VALUES.has(normalized) ? normalized : 'none';
+}
+
+function invalidateAccessReadModels(params?: {
+  userId?: string | null;
+  companyIds?: string[] | null;
+}) {
+  invalidateReadModelCache({
+    tags: ACCESS_CHANGE_CACHE_TAGS,
+    scopeTags: scopeCacheTags(params || {})
+  });
 }
 
 function firstEmbedded<T>(value: T | T[] | null | undefined) {
@@ -130,6 +167,10 @@ export function isGestorRole(role?: string | null) {
 
 export function isSellerRole(role?: string | null) {
   return String(role || '').trim().toUpperCase().includes('VENDEDOR');
+}
+
+export function isFinanceiroRole(role?: string | null) {
+  return String(role || '').trim().toUpperCase().includes('FINANCEIRO');
 }
 
 export function normalizeUserType(role?: string | null) {
@@ -268,6 +309,10 @@ export function ensureAssignableCompany(scope: UserScope, companyId?: string | n
   if (scope.isGestor && targetCompanyId !== scope.companyId) {
     throw error(403, 'Gestor so pode operar na propria empresa.');
   }
+
+  if (scope.isGestor) return;
+
+  throw error(403, 'Sem permissao para atribuir empresa a usuarios.');
 }
 
 export function ensureAssignableUserType(scope: UserScope, typeName?: string | null) {
@@ -276,13 +321,21 @@ export function ensureAssignableUserType(scope: UserScope, typeName?: string | n
 
   if (scope.isAdmin) return;
 
-  if (scope.isMaster && isRestrictedUserTypeName(normalized)) {
-    throw error(403, 'Master nao pode atribuir perfis ADMIN ou MASTER.');
+  if (scope.isMaster) {
+    if (isRestrictedUserTypeName(normalized)) {
+      throw error(403, 'Master nao pode atribuir perfis ADMIN ou MASTER.');
+    }
+    return;
   }
 
-  if (scope.isGestor && !isSellerRole(normalized)) {
-    throw error(403, 'Gestor so pode atribuir perfil de vendedor.');
+  if (scope.isGestor) {
+    if (!isSellerRole(normalized)) {
+      throw error(403, 'Gestor so pode atribuir perfil de vendedor.');
+    }
+    return;
   }
+
+  throw error(403, 'Somente ADMIN, MASTER ou GESTOR podem atribuir tipo de usuario.');
 }
 
 export function ensureAssignablePermissionSet(
@@ -324,10 +377,12 @@ export function ensureAssignablePermissionSet(
 }
 
 export async function listManagedUsers(client: SupabaseClient, scope: UserScope) {
-  let query = client
-    .from('users')
-    .select(
-      `
+  const rows: ManagedUserRow[] = [];
+  const fetchUsers = async (filters?: { companyIds?: string[] | null; ownUserId?: string | null }) => {
+    let query = client
+      .from('users')
+      .select(
+        `
         id,
         nome_completo,
         email,
@@ -345,9 +400,20 @@ export async function listManagedUsers(client: SupabaseClient, scope: UserScope)
         user_types(name),
         companies(nome_fantasia, nome_empresa)
       `
-    )
-    .order('nome_completo', { ascending: true })
-    .limit(2000);
+      )
+      .order('nome_completo', { ascending: true })
+      .limit(2000);
+
+    if (filters?.companyIds && filters.companyIds.length > 0) {
+      query = query.in('company_id', filters.companyIds);
+    } else if (filters?.ownUserId) {
+      query = query.eq('id', filters.ownUserId);
+    }
+
+    const { data, error: queryError } = await query;
+    if (queryError) throw queryError;
+    rows.push(...((data || []) as ManagedUserRow[]));
+  };
 
   if (!scope.isAdmin) {
     let accessibleCompanies = getAccessibleCompanyIds(scope);
@@ -359,18 +425,19 @@ export async function listManagedUsers(client: SupabaseClient, scope: UserScope)
     }
 
     if (scope.isMaster && accessibleCompanies.length > 0) {
-      query = query.in('company_id', accessibleCompanies);
+      for (const companyBatch of chunkArray(accessibleCompanies)) {
+        await fetchUsers({ companyIds: companyBatch });
+      }
     } else if (scope.companyId) {
-      query = query.eq('company_id', scope.companyId);
+      await fetchUsers({ companyIds: [scope.companyId] });
     } else {
-      query = query.eq('id', scope.userId);
+      await fetchUsers({ ownUserId: scope.userId });
     }
+  } else {
+    await fetchUsers();
   }
 
-  const { data, error: queryError } = await query;
-  if (queryError) throw queryError;
-
-  return ((data || []) as ManagedUserRow[]).filter((row) => isUserInScope(scope, row));
+  return rows.filter((row) => isUserInScope(scope, row));
 }
 
 export async function loadManagedUser(client: SupabaseClient, scope: UserScope, userId: string) {
@@ -427,10 +494,12 @@ export async function loadManagedUserTypes(client: SupabaseClient, scope: UserSc
 }
 
 export async function loadManagedCompanies(client: SupabaseClient, scope: UserScope) {
-  let query = client
-    .from('companies')
-    .select(
-      `
+  const rows: ManagedCompanyRow[] = [];
+  const fetchCompanies = async (companyIds?: string[] | null) => {
+    let query = client
+      .from('companies')
+      .select(
+        `
         id,
         nome_empresa,
         nome_fantasia,
@@ -441,19 +510,161 @@ export async function loadManagedCompanies(client: SupabaseClient, scope: UserSc
         estado,
         active
       `
-    )
-    .order('nome_fantasia', { ascending: true });
+      )
+      .order('nome_fantasia', { ascending: true });
+
+    if (companyIds && companyIds.length > 0) {
+      query = query.in('id', companyIds);
+    }
+
+    const { data, error: queryError } = await query;
+    if (queryError) throw queryError;
+    rows.push(...((data || []) as ManagedCompanyRow[]));
+  };
 
   if (!scope.isAdmin) {
     const accessibleCompanies = getAccessibleCompanyIds(scope);
     if (accessibleCompanies.length === 0) return [];
-    query = query.in('id', accessibleCompanies);
+    for (const companyBatch of chunkArray(accessibleCompanies)) {
+      await fetchCompanies(companyBatch);
+    }
+  } else {
+    await fetchCompanies();
   }
 
-  const { data, error: queryError } = await query;
-  if (queryError) throw queryError;
+  return rows;
+}
 
-  return (data || []) as ManagedCompanyRow[];
+export async function loadFinanceiroCompanyIds(
+  client: SupabaseClient,
+  scope: UserScope,
+  financeiroId: string,
+) {
+  const scopedFinanceiroId = String(financeiroId || '').trim();
+  if (!scopedFinanceiroId) return [];
+
+  const rows: Array<{ company_id?: string | null; status?: string | null }> = [];
+  const accessibleCompanies = !scope.isAdmin ? getAccessibleCompanyIds(scope) : [];
+  if (!scope.isAdmin && accessibleCompanies.length === 0) return [];
+  const companyBatches = !scope.isAdmin ? chunkArray(accessibleCompanies) : [null];
+
+  for (const companyBatch of companyBatches) {
+    let query = client
+      .from('financeiro_empresas')
+      .select('company_id, status')
+      .eq('financeiro_id', scopedFinanceiroId);
+
+    if (companyBatch) query = query.in('company_id', companyBatch);
+
+    const { data, error: queryError } = await query;
+    if (queryError) {
+      const code = String(queryError.code || '').toUpperCase();
+      const message = String(queryError.message || '').toLowerCase();
+      if (code === '42P01' || message.includes('does not exist')) return [];
+      throw queryError;
+    }
+    rows.push(...(data || []));
+  }
+
+  return Array.from(
+    new Set(
+      rows
+        .filter((row: { status?: string | null }) => String(row?.status || '').toLowerCase() !== 'rejected')
+        .map((row: { company_id?: string | null }) => String(row?.company_id || '').trim())
+        .filter(isUuid)
+    )
+  );
+}
+
+export async function syncFinanceiroCompanyLinks(
+  client: SupabaseClient,
+  scope: UserScope,
+  financeiroId: string,
+  companyIds: string[],
+  actorUserId?: string | null,
+) {
+  const scopedFinanceiroId = String(financeiroId || '').trim();
+  if (!isUuid(scopedFinanceiroId)) {
+    throw error(400, 'Usuario financeiro invalido.');
+  }
+
+  const targetUser = await loadManagedUser(client, scope, scopedFinanceiroId);
+  const targetRole = extractUserTypeName(targetUser);
+  if (!isFinanceiroRole(targetRole)) {
+    throw error(400, 'Vinculo multiempresa permitido apenas para usuarios financeiros.');
+  }
+
+  const cleanedCompanyIds = Array.from(
+    new Set((companyIds || []).map((id) => String(id || '').trim()).filter(isUuid))
+  );
+  cleanedCompanyIds.forEach((companyId) => ensureAssignableCompany(scope, companyId));
+
+  const accessibleCompanies = getAccessibleCompanyIds(scope);
+  const existingRows: Array<{ id?: string | null; company_id?: string | null }> = [];
+  if (!scope.isAdmin) {
+    if (accessibleCompanies.length === 0) return;
+    for (const companyBatch of chunkArray(accessibleCompanies)) {
+      const { data, error: existingError } = await client
+        .from('financeiro_empresas')
+        .select('id, company_id')
+        .eq('financeiro_id', scopedFinanceiroId)
+        .in('company_id', companyBatch);
+      if (existingError) throw existingError;
+      existingRows.push(...(data || []));
+    }
+  } else {
+    const { data, error: existingError } = await client
+      .from('financeiro_empresas')
+      .select('id, company_id')
+      .eq('financeiro_id', scopedFinanceiroId);
+    if (existingError) throw existingError;
+    existingRows.push(...(data || []));
+  }
+
+  const existingMap = new Map<string, string>();
+  (existingRows || []).forEach((row: { id?: string | null; company_id?: string | null }) => {
+    const companyId = String(row?.company_id || '').trim();
+    if (isUuid(companyId) && row?.id) existingMap.set(companyId, row.id);
+  });
+
+  const changedCompanyIds = Array.from(new Set([...existingMap.keys(), ...cleanedCompanyIds]));
+  const wanted = new Set(cleanedCompanyIds);
+  const idsToDelete = Array.from(existingMap.entries())
+    .filter(([companyId]) => !wanted.has(companyId))
+    .map(([, id]) => id)
+    .filter(Boolean);
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await client
+      .from('financeiro_empresas')
+      .delete()
+      .in('id', idsToDelete);
+    if (deleteError) throw deleteError;
+  }
+
+  const rowsToInsert = cleanedCompanyIds
+    .filter((companyId) => !existingMap.has(companyId))
+    .map((companyId) => ({
+      financeiro_id: scopedFinanceiroId,
+      company_id: companyId,
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      created_by: actorUserId || scope.userId
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: insertError } = await client
+      .from('financeiro_empresas')
+      .insert(rowsToInsert);
+    if (insertError) throw insertError;
+  }
+
+  if (idsToDelete.length > 0 || rowsToInsert.length > 0) {
+    invalidateAccessReadModels({
+      userId: scopedFinanceiroId,
+      companyIds: changedCompanyIds
+    });
+  }
 }
 
 export async function loadUserPermissions(client: SupabaseClient, userId: string) {
@@ -556,6 +767,8 @@ export async function saveUserPermissions(
       if (insertError) throw insertError;
     }
   }
+
+  invalidateAccessReadModels({ userId });
 }
 
 export async function saveDefaultPermissions(
@@ -606,6 +819,8 @@ export async function saveDefaultPermissions(
       if (insertError) throw insertError;
     }
   }
+
+  invalidateReadModelCache({ tags: [READ_MODEL_TAGS.users] });
 }
 
 export async function syncUserTypeDefaultPermissions(client: SupabaseClient, userId: string, userTypeId?: string | null) {

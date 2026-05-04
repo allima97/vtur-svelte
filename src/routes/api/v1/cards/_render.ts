@@ -505,6 +505,8 @@ async function resolveInlineImageHref(sourceUrl: string, appOrigin: string) {
 export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResult> {
   const url = new URL(event.request.url);
   const client = event.locals.supabase;
+  const sessionContext = await event.locals.safeGetSession().catch(() => ({ user: null }));
+  const canReadStoredRows = Boolean(sessionContext?.user);
 
   const nome = limitText(url.searchParams.get("nome"), MAX_SHORT_TEXT_PARAM_LENGTH) || "Cliente";
   const clienteNomeLiteralRaw = limitText(url.searchParams.get("cliente_nome_literal"), MAX_SHORT_TEXT_PARAM_LENGTH);
@@ -551,7 +553,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const themeAssetUrlFromQuery = sanitizeImageUrl(String(url.searchParams.get("theme_asset_url") || ""), url.origin);
 
   let templateRow: Record<string, any> | null = null;
-  if (templateId) {
+  if (canReadStoredRows && templateId) {
     const tplResp = await client
       .from("user_message_templates")
       .select("id, titulo, corpo, assinatura, theme_id, title_style, body_style, signature_style")
@@ -564,7 +566,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   }
 
   let themeRow: Record<string, any> | null = null;
-  if (themeId || themeName) {
+  if (canReadStoredRows && (themeId || themeName)) {
     let themeQuery = client
       .from("user_message_template_themes")
       .select("id, nome, asset_url, storage_path, width_px, height_px, title_style, body_style, signature_style");

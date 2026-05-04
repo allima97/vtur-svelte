@@ -2,12 +2,19 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
+const MAX_PUSH_SUBSCRIBE_BODY_BYTES = 16 * 1024;
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_PUSH_SUBSCRIBE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
 

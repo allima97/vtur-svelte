@@ -2,12 +2,18 @@ import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES = 128 * 1024;
 
 type TierPayload = {
   faixa: 'PRE' | 'POS';
@@ -77,8 +83,7 @@ async function requireAccess(event: RequestEvent, minLevel: number) {
   return {
     client,
     user,
-    scope,
-    scopedCompanyId: scope.companyId || scope.companyIds[0] || null
+    scope
   };
 }
 
@@ -88,10 +93,96 @@ function canAccessRuleCompany(companyId: string | null | undefined, allowedCompa
   return allowedCompanyIds.includes(companyId);
 }
 
+function getRequestedCompanyId(event: RequestEvent, body?: any) {
+  return String(
+    body?.empresa_id ||
+      body?.company_id ||
+      event.url.searchParams.get('empresa_id') ||
+      event.url.searchParams.get('company_id') ||
+      ''
+  ).trim();
+}
+
+function resolveWritableCompanyId(access: Awaited<ReturnType<typeof requireAccess>>, requested: string) {
+  if (access.scope.isAdmin) {
+    return isUuid(requested) ? requested : null;
+  }
+
+  return resolveScopedCompanyId(access.scope, requested);
+}
+
+async function getRuleCompanyForWrite(
+  client: ReturnType<typeof getAdminClient>,
+  id: string
+): Promise<{ exists: boolean; companyId: string | null; legacySchema: boolean }> {
+  const primary = await client
+    .from('commission_rule')
+    .select('id, company_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!primary.error) {
+    return {
+      exists: Boolean(primary.data),
+      companyId: String((primary.data as any)?.company_id || '').trim() || null,
+      legacySchema: false
+    };
+  }
+
+  if (!isMissingColumnError(primary.error)) {
+    throw primary.error;
+  }
+
+  const fallback = await client.from('commission_rule').select('id').eq('id', id).maybeSingle();
+  if (fallback.error) {
+    throw fallback.error;
+  }
+
+  return {
+    exists: Boolean(fallback.data),
+    companyId: null,
+    legacySchema: true
+  };
+}
+
+async function ensureRuleWriteAccess(
+  access: Awaited<ReturnType<typeof requireAccess>>,
+  id: string
+) {
+  if (access.scope.isAdmin) {
+    return { companyId: null, legacySchema: false };
+  }
+
+  const rule = await getRuleCompanyForWrite(access.client, id);
+  if (!rule.exists) {
+    return { error: new Response('Regra não encontrada.', { status: 404 }) };
+  }
+
+  if (rule.legacySchema) {
+    return { companyId: null, legacySchema: true };
+  }
+
+  if (!rule.companyId) {
+    return {
+      error: new Response('Regra global só pode ser alterada pelo ADMIN do sistema.', {
+        status: 403
+      })
+    };
+  }
+
+  if (!access.scope.companyIds.includes(rule.companyId)) {
+    return { error: new Response('Sem acesso a esta regra de comissão.', { status: 403 }) };
+  }
+
+  return { companyId: rule.companyId, legacySchema: false };
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const access = await requireAccess(event, 1);
     const client = access.client;
+    const requestedCompanyId = getRequestedCompanyId(event);
+    const scopedCompanyIds = resolveScopedCompanyIds(access.scope, requestedCompanyId);
 
     let data: any[] | null = null;
     let error: unknown = null;
@@ -120,11 +211,20 @@ export async function GET(event: RequestEvent) {
 
     let items = Array.isArray(data) ? data : [];
 
-    if (!access.scope.isAdmin && access.scope.companyIds.length > 0) {
+    if (!access.scope.isAdmin && scopedCompanyIds.length === 0) {
+      items = [];
+    } else if (!access.scope.isAdmin) {
       items = items.filter((rule) =>
         canAccessRuleCompany(
           String(rule?.company_id || '').trim() || null,
-          access.scope.companyIds
+          scopedCompanyIds
+        )
+      );
+    } else if (scopedCompanyIds.length > 0) {
+      items = items.filter((rule) =>
+        canAccessRuleCompany(
+          String(rule?.company_id || '').trim() || null,
+          scopedCompanyIds
         )
       );
     }
@@ -137,15 +237,26 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const access = await requireAccess(event, 3);
     const client = access.client;
 
     const rawBody = await event.request.text();
     const body = safeJsonParse(rawBody) as any;
     const nome = String(body?.nome || '').trim();
+    const requestedCompanyId = getRequestedCompanyId(event, body);
+    const writableCompanyId = resolveWritableCompanyId(access, requestedCompanyId);
 
     if (!nome) {
       return new Response('Nome é obrigatório.', { status: 400 });
+    }
+
+    if (!access.scope.isAdmin && !writableCompanyId) {
+      return new Response('Selecione uma empresa válida para salvar a regra.', { status: 400 });
     }
 
     const payload = {
@@ -158,20 +269,28 @@ export async function POST(event: RequestEvent) {
       ativo: body?.ativo === undefined ? true : Boolean(body?.ativo)
     };
 
-    const payloadWithScope = {
+    const ruleId = String(body?.id || '').trim();
+    let persistedId = ruleId || null;
+    const payloadWithScope: Record<string, unknown> = {
       ...payload,
-      company_id: access.scope.isAdmin ? null : access.scopedCompanyId,
       created_by: access.user.id
     };
 
-    const ruleId = String(body?.id || '').trim();
-    let persistedId = ruleId || null;
+    if (!persistedId || requestedCompanyId || !access.scope.isAdmin) {
+      payloadWithScope.company_id = writableCompanyId;
+    }
 
     if (persistedId) {
+      const writeAccess = await ensureRuleWriteAccess(access, persistedId);
+      if (writeAccess.error) return writeAccess.error;
+      if (!access.scope.isAdmin && !writeAccess.legacySchema) {
+        payloadWithScope.company_id = writeAccess.companyId;
+      }
+
       let query = client.from('commission_rule').update(payloadWithScope).eq('id', persistedId);
 
-      if (!access.scope.isAdmin && access.scopedCompanyId) {
-        query = query.eq('company_id', access.scopedCompanyId);
+      if (!access.scope.isAdmin && writeAccess.companyId) {
+        query = query.eq('company_id', writeAccess.companyId);
       }
 
       let { error } = await query;
@@ -244,6 +363,11 @@ export async function POST(event: RequestEvent) {
 
 export async function PATCH(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const access = await requireAccess(event, 3);
     const client = access.client;
 
@@ -254,6 +378,9 @@ export async function PATCH(event: RequestEvent) {
     if (!id) {
       return new Response('ID obrigatório.', { status: 400 });
     }
+
+    const writeAccess = await ensureRuleWriteAccess(access, id);
+    if (writeAccess.error) return writeAccess.error;
 
     const payload: Record<string, unknown> = {};
 
@@ -267,8 +394,8 @@ export async function PATCH(event: RequestEvent) {
 
     let query = client.from('commission_rule').update(payload).eq('id', id);
 
-    if (!access.scope.isAdmin && access.scopedCompanyId) {
-      query = query.eq('company_id', access.scopedCompanyId);
+    if (!access.scope.isAdmin && writeAccess.companyId) {
+      query = query.eq('company_id', writeAccess.companyId);
     }
 
     let { error } = await query;
@@ -291,6 +418,11 @@ export async function PATCH(event: RequestEvent) {
 
 export async function DELETE(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const access = await requireAccess(event, 3);
     const client = access.client;
 
@@ -302,6 +434,9 @@ export async function DELETE(event: RequestEvent) {
       return new Response('ID obrigatório.', { status: 400 });
     }
 
+    const writeAccess = await ensureRuleWriteAccess(access, id);
+    if (writeAccess.error) return writeAccess.error;
+
     const { error: tierError } = await client.from('commission_tier').delete().eq('rule_id', id);
 
     if (tierError) {
@@ -310,8 +445,8 @@ export async function DELETE(event: RequestEvent) {
 
     let query = client.from('commission_rule').delete().eq('id', id);
 
-    if (!access.scope.isAdmin && access.scopedCompanyId) {
-      query = query.eq('company_id', access.scopedCompanyId);
+    if (!access.scope.isAdmin && writeAccess.companyId) {
+      query = query.eq('company_id', writeAccess.companyId);
     }
 
     let { error } = await query;

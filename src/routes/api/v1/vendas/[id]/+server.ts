@@ -17,7 +17,11 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+
+const MAX_VENDA_UPDATE_BODY_BYTES = 512 * 1024;
+const MAX_VENDA_DELETE_BODY_BYTES = 8 * 1024;
 
 function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
   logServerError(context, err, extra);
@@ -144,7 +148,7 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     const selectClauses = [
       `*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,
@@ -179,6 +183,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_UPDATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -204,7 +213,7 @@ export async function PATCH(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     let saleScopeQuery = client
       .from("vendas")
@@ -235,7 +244,7 @@ export async function PATCH(event) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const venda = body?.venda || body || {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
@@ -450,6 +459,11 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_DELETE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -477,7 +491,7 @@ export async function DELETE(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     let saleScopeQuery = client
       .from("vendas")

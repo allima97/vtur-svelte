@@ -100,6 +100,33 @@ function roundMoney(v: number) {
   return Number(v.toFixed(2));
 }
 
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function uniqueIds(values: string[]) {
+  return Array.from(new Set((values || []).map((id) => String(id || '').trim()).filter(Boolean)));
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchBatched<T>(
+  values: string[],
+  loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
+) {
+  const rows: T[] = [];
+  for (const batch of chunkArray(values)) {
+    const { data, error } = await loader(batch);
+    if (error) return { data: rows, error };
+    rows.push(...(data || []));
+  }
+  return { data: rows, error: null };
+}
+
 function getCommissionPeriod(row: Pick<ReportVendaRow, 'data_venda'>): string {
   const data = String(row.data_venda || '').trim();
   return /^\d{4}-\d{2}/.test(data) ? `${data.slice(0, 7)}-01` : '';
@@ -366,7 +393,7 @@ async function fetchParametros(
     conciliacao_faixas_loja: []
   };
 
-  const ids = companyIds.filter(Boolean);
+  const ids = uniqueIds(companyIds);
   if (ids.length === 0) return defaultParams;
 
   // Usa o primeiro company_id — igual ao vtur-app que usa um único objeto
@@ -375,7 +402,7 @@ async function fetchParametros(
     .select(
       'usar_taxas_na_meta, foco_valor, foco_faturamento, conciliacao_sobrepoe_vendas, conciliacao_regra_ativa, conciliacao_tipo, conciliacao_meta_nao_atingida, conciliacao_meta_atingida, conciliacao_super_meta, conciliacao_tiers, conciliacao_faixas_loja'
     )
-    .in('company_id', ids)
+    .eq('company_id', ids[0])
     .limit(1)
     .maybeSingle();
 
@@ -401,16 +428,54 @@ async function fetchParametros(
   };
 }
 
-async function fetchRegras(client: SupabaseClient): Promise<Record<string, Regra>> {
-  // vtur-app busca TODAS as regras sem filtro de empresa
-  const { data, error } = await client
-    .from('commission_rule')
-    .select(
-      'id, tipo, meta_nao_atingida, meta_atingida, super_meta, commission_tier (faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao)'
-    )
-    .eq('ativo', true)
-    .order('nome', { ascending: true })
-    .limit(1000);
+async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promise<Record<string, Regra>> {
+  const scopedCompanyIds = uniqueIds(companyIds);
+  const selectWithCompany =
+    'id, company_id, tipo, meta_nao_atingida, meta_atingida, super_meta, commission_tier (faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao)';
+  const selectWithoutCompany =
+    'id, tipo, meta_nao_atingida, meta_atingida, super_meta, commission_tier (faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao)';
+  const baseQuery = (selectClause: string) =>
+    client
+      .from('commission_rule')
+      .select(selectClause)
+      .eq('ativo', true)
+      .order('nome', { ascending: true })
+      .limit(1000);
+
+  let data: any[] | null = null;
+  let error: unknown = null;
+
+  if (scopedCompanyIds.length === 0) {
+    ({ data, error } = await baseQuery(selectWithCompany));
+  } else {
+    const rowsById = new Map<string, any>();
+
+    const globalResult = await baseQuery(selectWithCompany).is('company_id', null);
+    error = globalResult.error;
+    for (const row of (globalResult.data || []) as any[]) {
+      if (row?.id) rowsById.set(String(row.id), row);
+    }
+
+    if (!error) {
+      for (const batch of chunkArray(scopedCompanyIds)) {
+        const batchResult = await baseQuery(selectWithCompany).in('company_id', batch);
+        error = batchResult.error;
+        if (error) break;
+        for (const row of (batchResult.data || []) as any[]) {
+          if (row?.id) rowsById.set(String(row.id), row);
+        }
+      }
+    }
+
+    data = Array.from(rowsById.values());
+  }
+
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await baseQuery(selectWithoutCompany);
+
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error && !isMissingSchemaError(error)) throw error;
 
@@ -540,31 +605,35 @@ async function fetchMetas(
   vendedorIds: string[],
   periodo: string
 ): Promise<{ metaPlanejada: number; metaProdutoMap: Record<string, number> }> {
-  const ids = vendedorIds.filter(Boolean);
+  const ids = uniqueIds(vendedorIds);
   if (ids.length === 0 || !periodo) return { metaPlanejada: 0, metaProdutoMap: {} };
 
-  const { data: metasData, error: metasErr } = await client
-    .from('metas_vendedor')
-    .select('id, meta_geral')
-    .eq('scope', 'vendedor')
-    .eq('ativo', true)
-    .eq('periodo', periodo)
-    .in('vendedor_id', ids)
-    .limit(2000);
+  const { data: metasData, error: metasErr } = await fetchBatched<any>(ids, (batch) =>
+    client
+      .from('metas_vendedor')
+      .select('id, meta_geral')
+      .eq('scope', 'vendedor')
+      .eq('ativo', true)
+      .eq('periodo', periodo)
+      .in('vendedor_id', batch)
+      .limit(2000)
+  );
 
   if (metasErr && !isMissingSchemaError(metasErr)) throw metasErr;
 
   const metas = (metasData || []) as any[];
   const metaPlanejada = metas.reduce((acc: number, m: any) => acc + toNum(m.meta_geral), 0);
-  const metaIds = metas.map((m: any) => String(m.id || '')).filter(Boolean);
+  const metaIds = uniqueIds(metas.map((m: any) => String(m.id || '')));
 
   if (metaIds.length === 0) return { metaPlanejada, metaProdutoMap: {} };
 
-  const { data: prodData, error: prodErr } = await client
-    .from('metas_vendedor_produto')
-    .select('produto_id, valor')
-    .in('meta_vendedor_id', metaIds)
-    .limit(5000);
+  const { data: prodData, error: prodErr } = await fetchBatched<any>(metaIds, (batch) =>
+    client
+      .from('metas_vendedor_produto')
+      .select('produto_id, valor')
+      .in('meta_vendedor_id', batch)
+      .limit(5000)
+  );
 
   if (prodErr && !isMissingSchemaError(prodErr)) throw prodErr;
 
@@ -620,7 +689,7 @@ export async function fetchCommissionContext(
         metasResult
       ] = await Promise.all([
         fetchParametros(client, companyIds),
-        fetchRegras(client),
+        fetchRegras(client, companyIds),
         fetchTipoProdutoMap(client),
         fetchRegraProdutoMap(client),
         fetchRegraProdutoPacoteMap(client),

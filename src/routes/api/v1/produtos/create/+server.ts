@@ -2,9 +2,17 @@ import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoById, sanitizeProdutoPayload } from '$lib/server/cadastros-base';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PRODUTO_CREATE_BODY_BYTES = 128 * 1024;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PRODUTO_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -13,7 +21,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Produtos'], 2, 'Sem permissão para criar produtos.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const payload = sanitizeProdutoPayload(body);
 
     if (!payload.nome) {

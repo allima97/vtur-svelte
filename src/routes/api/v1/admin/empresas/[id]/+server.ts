@@ -10,6 +10,10 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 
 export async function GET(event) {
   try {
@@ -21,7 +25,7 @@ export async function GET(event) {
     ensureCanManageCompanies(scope);
 
     if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
-      return new Response('Empresa fora do escopo permitido.', { status: 403 });
+      return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { data: companyRow, error: companyError } = await client
@@ -31,7 +35,7 @@ export async function GET(event) {
       .maybeSingle();
 
     if (companyError || !companyRow) {
-      return new Response('Empresa nao encontrada.', { status: 404 });
+      return new Response('Empresa nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     let billing = null;
@@ -101,6 +105,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -109,10 +118,10 @@ export async function PATCH(event) {
     ensureCanManageCompanies(scope);
 
     if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
-      return json({ error: 'Empresa fora do escopo permitido.' }, { status: 403 });
+      return json({ error: 'Empresa fora do escopo permitido.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     // Apenas campos que existem na tabela companies
     const ALLOWED = [
@@ -127,7 +136,7 @@ export async function PATCH(event) {
     }
 
     if (Object.keys(updatePayload).length === 1) {
-      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -138,9 +147,9 @@ export async function PATCH(event) {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404 });
+    if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json({ ok: true, empresa: data });
+    return json({ ok: true, empresa: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar empresa.');
   }

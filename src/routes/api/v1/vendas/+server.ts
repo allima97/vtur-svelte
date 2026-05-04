@@ -84,9 +84,10 @@ export async function GET(event) {
     const clienteId = String(searchParams.get('cliente_id') || '').trim();
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id') || searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids') || searchParams.get('vendedor_id'));
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
+    const hasSellerScope = shouldApplySellerScope && vendedorIds.length > 0;
     const accessibleClientIds =
-      !scope.isAdmin && !scope.isMaster && !scope.isGestor
+      !scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor && !hasSellerScope
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
         : [];
 
@@ -108,7 +109,11 @@ export async function GET(event) {
       ttlMs: 20_000,
       staleTtlMs: 90_000,
       loader: async () => {
-        const fetchRows = async (clientIdsFilter?: string[]) => {
+        const fetchRows = async (
+          clientIdsFilter?: string[],
+          companyIdsFilter = companyIds,
+          vendedorIdsFilter = vendedorIds
+        ) => {
           let query = client
             .from('vendas')
             .select(`
@@ -128,10 +133,10 @@ export async function GET(event) {
             .order('data_venda', { ascending: false })
             .limit(5000);
 
-          if (companyIds.length > 0) query = query.in('company_id', companyIds);
-          if (shouldApplySellerScope && vendedorIds.length > 0) query = query.in('vendedor_id', vendedorIds);
+          if (companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
+          if (shouldApplySellerScope && vendedorIdsFilter.length > 0) query = query.in('vendedor_id', vendedorIdsFilter);
           if (clienteId) query = query.eq('cliente_id', clienteId);
-          else if (!scope.isAdmin && clientIdsFilter && clientIdsFilter.length > 0) query = query.in('cliente_id', clientIdsFilter);
+          else if (!scope.isAdmin && !hasSellerScope && clientIdsFilter && clientIdsFilter.length > 0) query = query.in('cliente_id', clientIdsFilter);
 
           const { data, error } = await query;
           if (error) throw error;
@@ -139,13 +144,26 @@ export async function GET(event) {
         };
 
         let data: VendaRow[] = [];
-        if (!clienteId && !scope.isAdmin && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE) {
-          for (const batch of chunkArray(accessibleClientIds)) {
-            data.push(...(await fetchRows(batch)));
+        const shouldBatchClients =
+          !clienteId && !scope.isAdmin && !hasSellerScope && accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE;
+        const shouldBatchCompanies = companyIds.length > SUPABASE_IN_BATCH_SIZE;
+        const shouldBatchVendedores = shouldApplySellerScope && vendedorIds.length > SUPABASE_IN_BATCH_SIZE;
+
+        if (shouldBatchClients || shouldBatchCompanies || shouldBatchVendedores) {
+          const clientBatches = shouldBatchClients ? chunkArray(accessibleClientIds) : [undefined];
+          const companyBatches = shouldBatchCompanies ? chunkArray(companyIds) : [companyIds];
+          const vendedorBatches = shouldBatchVendedores ? chunkArray(vendedorIds) : [vendedorIds];
+
+          for (const clientBatch of clientBatches) {
+            for (const companyBatch of companyBatches) {
+              for (const vendedorBatch of vendedorBatches) {
+                data.push(...(await fetchRows(clientBatch, companyBatch, vendedorBatch)));
+              }
+            }
           }
           data = dedupeRowsById(data);
         } else {
-          data = await fetchRows(!clienteId && !scope.isAdmin && accessibleClientIds.length > 0 ? accessibleClientIds : undefined);
+          data = await fetchRows(!clienteId && !scope.isAdmin && !hasSellerScope && accessibleClientIds.length > 0 ? accessibleClientIds : undefined);
         }
 
         const mappedItems = data.map((row) => ({

@@ -9,6 +9,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_VOUCHER_BODY_BYTES = 512 * 1024;
 
 export async function GET(event) {
   try {
@@ -47,6 +50,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VOUCHER_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -55,7 +63,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 2, 'Sem permissão para criar vouchers.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const { data: voucher, error: voucherError } = await client
       .from('vouchers')

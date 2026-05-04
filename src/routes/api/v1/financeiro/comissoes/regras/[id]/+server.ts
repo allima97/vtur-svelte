@@ -6,8 +6,30 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
+
+function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId?: string | null) {
+  if (scope.isAdmin) return true;
+  const normalized = String(companyId || '').trim();
+  if (!normalized) return false;
+  return scope.companyIds.includes(normalized);
+}
+
+function invalidateCommissionRuleReadModels() {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.comissoes,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking
+    ]
+  });
+}
 
 export async function GET(event) {
   try {
@@ -23,14 +45,17 @@ export async function GET(event) {
 
     const { data, error } = await client
       .from('commission_rule')
-      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
+      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
       .eq('id', id)
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return json({ error: 'Regra não encontrada.' }, { status: 404 });
+    if (!data) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    if (!canAccessCompany(scope, data.company_id)) {
+      return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
 
-    return json({ ...data, tiers: data.commission_tier || [] });
+    return json({ ...data, tiers: data.commission_tier || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar regra.');
   }
@@ -38,6 +63,11 @@ export async function GET(event) {
 
 export async function PUT(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMMISSION_RULE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -47,7 +77,18 @@ export async function PUT(event) {
     }
 
     const { id } = event.params;
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
+
+    const { data: current, error: currentError } = await client
+      .from('commission_rule')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    if (!canAccessCompany(scope, current.company_id)) {
+      return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
 
     const updateData: Record<string, any> = {};
     if ('nome' in body) updateData.nome = body.nome;
@@ -62,7 +103,8 @@ export async function PUT(event) {
       .from('commission_rule')
       .update(updateData)
       .eq('id', id)
-      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, created_at, updated_at')
+      .eq(scope.isAdmin ? 'id' : 'company_id', scope.isAdmin ? id : current.company_id)
+      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at')
       .single();
     if (error) throw error;
 
@@ -83,7 +125,7 @@ export async function PUT(event) {
       }
     }
 
-    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    invalidateCommissionRuleReadModels();
     return json({ success: true, data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra.');
@@ -92,6 +134,9 @@ export async function PUT(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -102,11 +147,24 @@ export async function DELETE(event) {
 
     const { id } = event.params;
 
+    const { data: current, error: currentError } = await client
+      .from('commission_rule')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    if (!canAccessCompany(scope, current.company_id)) {
+      return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+
     await client.from('commission_tier').delete().eq('rule_id', id);
-    const { error } = await client.from('commission_rule').delete().eq('id', id);
+    let query = client.from('commission_rule').delete().eq('id', id);
+    if (!scope.isAdmin) query = query.eq('company_id', current.company_id);
+    const { error } = await query;
     if (error) throw error;
 
-    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    invalidateCommissionRuleReadModels();
     return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra.');

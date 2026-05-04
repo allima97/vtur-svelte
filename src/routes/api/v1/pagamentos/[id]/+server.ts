@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
+  ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -7,6 +9,25 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
+
+const MAX_PAGAMENTO_UPDATE_BODY_BYTES = 64 * 1024;
+
+function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.payments,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: scopeCacheTags({ companyIds: companyId ? [companyId] : [], userId })
+  });
+}
 
 async function resolvePagamentoComScope(
   client: any,
@@ -32,20 +53,24 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    if (!scope.isAdmin) {
+      ensureModuloAccess(scope, ['financeiro'], 1, 'Sem acesso ao Financeiro.');
+    }
+
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const result = await resolvePagamentoComScope(client, id, scope);
-    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404 });
+    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const companyIds = resolveScopedCompanyIds(scope, null);
-      if (companyIds.length > 0 && result.companyId && !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403 });
+      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
+        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
-    return json({ success: true, item: result.pagamento });
+    return json({ success: true, item: result.pagamento }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar pagamento.');
   }
@@ -53,24 +78,31 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_PAGAMENTO_UPDATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    ensureModuloAccess(scope, ['financeiro'], 3, 'Sem permissão para editar pagamento.');
+
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const result = await resolvePagamentoComScope(client, id, scope);
-    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404 });
+    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const companyIds = resolveScopedCompanyIds(scope, null);
-      if (companyIds.length > 0 && result.companyId && !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403 });
+      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
+        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const allowed = [
       'forma_nome', 'forma_pagamento_id', 'valor_total', 'valor_bruto',
       'desconto_valor', 'paga_comissao', 'observacoes',
@@ -89,7 +121,8 @@ export async function PATCH(event) {
       .single();
 
     if (error) throw error;
-    return json({ success: true, item: data });
+    invalidatePagamentoReadModels(result.companyId, user.id);
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao atualizar pagamento.');
   }
@@ -97,20 +130,25 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    ensureModuloAccess(scope, ['financeiro'], 4, 'Sem permissão para excluir pagamento.');
+
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const result = await resolvePagamentoComScope(client, id, scope);
-    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404 });
+    if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const companyIds = resolveScopedCompanyIds(scope, null);
-      if (companyIds.length > 0 && result.companyId && !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403 });
+      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
+        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -120,7 +158,8 @@ export async function DELETE(event) {
       .eq('id', id);
 
     if (error) throw error;
-    return json({ success: true });
+    invalidatePagamentoReadModels(result.companyId, user.id);
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao excluir pagamento.');
   }

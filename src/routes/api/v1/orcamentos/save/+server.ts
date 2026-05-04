@@ -6,12 +6,15 @@ import {
   ensureModuloAccess,
   normalizeText,
   isUuid,
-  logServerError,
-  resolveScopedVendedorIds
+  logServerError
 } from '$lib/server/v1';
 import { getAdminClient } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ORCAMENTO_SAVE_BODY_BYTES = 2 * 1024 * 1024;
 
 const EXCLUDED_PRODUTO_TIPOS = new Set(
   [
@@ -136,6 +139,11 @@ async function syncProductsCatalog(
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ORCAMENTO_SAVE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
 
@@ -144,7 +152,7 @@ export async function POST(event: RequestEvent) {
 
     const body = await event.request.json().catch(() => null);
     const quoteId = String(body?.quote_id || '').trim();
-    if (!isUuid(quoteId)) return new Response('Quote invalido.', { status: 400 });
+    if (!isUuid(quoteId)) return new Response('Quote invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const items = Array.isArray(body?.items) ? (body.items as QuoteItemPayload[]) : [];
     const removedItemIds = Array.isArray(body?.removed_item_ids)
@@ -152,30 +160,30 @@ export async function POST(event: RequestEvent) {
       : [];
     const clienteId = String(body?.client_id || '').trim() || null;
 
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
-    let quoteCheckQuery = client.from('quote').select('id').eq('id', quoteId);
-    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-      quoteCheckQuery = quoteCheckQuery.eq('created_by', user.id);
-    } else if (vendedorIds.length > 0) {
-      quoteCheckQuery = quoteCheckQuery.in('created_by', vendedorIds);
-    }
-    const { data: existingQuote, error: quoteCheckError } = await quoteCheckQuery.maybeSingle();
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
+    });
+    const { data: existingQuote, error: quoteCheckError } = await client
+      .from('quote')
+      .select('id, created_by')
+      .eq('id', quoteId)
+      .maybeSingle();
     if (quoteCheckError) throw quoteCheckError;
-    if (!existingQuote?.id) {
-      return new Response('Orcamento nao encontrado.', { status: 404 });
+    if (!existingQuote?.id || !isQuoteCreatorAllowed(quoteScope, existingQuote.created_by)) {
+      return new Response('Orcamento nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
     if (clienteId) {
-      if (!isUuid(clienteId)) return new Response('Cliente invalido.', { status: 400 });
+      if (!isUuid(clienteId)) return new Response('Cliente invalido.', { status: 400, headers: NO_STORE_HEADERS });
       const { data: cliente, error: clienteErr } = await client
         .from('clientes')
         .select('id, company_id')
         .eq('id', clienteId)
         .maybeSingle();
       if (clienteErr) throw clienteErr;
-      if (!cliente?.id) return new Response('Cliente nao encontrado.', { status: 404 });
+      if (!cliente?.id) return new Response('Cliente nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
       const clienteCompanyId = String((cliente as any).company_id || '').trim();
       if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-        return new Response('Cliente fora do seu escopo.', { status: 403 });
+        return new Response('Cliente fora do seu escopo.', { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -293,8 +301,8 @@ export async function POST(event: RequestEvent) {
     if (quoteError) throw quoteError;
 
     invalidateQuoteReadModels({
-      companyIds: scope.companyIds,
-      vendedorIds: [user.id],
+      companyIds: quoteScope.companyIds,
+      vendedorIds: quoteScope.creatorIds.length > 0 ? quoteScope.creatorIds : [user.id],
       userId: user.id
     });
 
@@ -304,6 +312,6 @@ export async function POST(event: RequestEvent) {
     });
   } catch (err: any) {
     logServerError('[orcamentos/save] falha ao salvar orcamento', err);
-    return new Response('Erro ao salvar orcamento.', { status: 500 });
+    return new Response('Erro ao salvar orcamento.', { status: 500, headers: NO_STORE_HEADERS });
   }
 }

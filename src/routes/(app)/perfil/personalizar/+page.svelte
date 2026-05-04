@@ -57,6 +57,7 @@
         { key: 'fechamento',       label: 'Fechamento',          href: '/comissoes/fechamento' },
         { key: 'ajustes_vendas',   label: 'Ajustes Vendas',      href: '/financeiro/ajustes-vendas' },
         { key: 'formas_pagamento', label: 'Formas de Pagamento', href: '/financeiro/formas-pagamento' },
+        { key: 'notas_fiscais',    label: 'Notas Fiscais',       href: '/financeiro/notas-fiscais' },
         { key: 'regras',           label: 'Regras',              href: '/financeiro/regras' }
       ]
     },

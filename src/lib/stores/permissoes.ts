@@ -31,7 +31,7 @@ export type PermissaoNivel = 'none' | 'view' | 'create' | 'edit' | 'delete' | 'a
  * Papel resolvido do usuário — baseado no tipo de conta.
  * Portabilizado de permissoesStore.ts do vtur-app.
  */
-export type Papel = 'ADMIN' | 'MASTER' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
+export type Papel = 'ADMIN' | 'MASTER' | 'FINANCEIRO' | 'GESTOR' | 'VENDEDOR' | 'OUTRO';
 
 export interface PermissoesState {
   userId: string | null;
@@ -40,6 +40,7 @@ export interface PermissoesState {
   papel: Papel;
   /** Compat: flags de papel usadas em páginas legadas do projeto */
   isMaster: boolean;
+  isFinanceiro: boolean;
   isGestor: boolean;
   isVendedor: boolean;
   /** Se true, o usuário é admin do sistema (acesso irrestrito) */
@@ -88,6 +89,7 @@ function resolvePapel(tipoNome: string, usoIndividual: boolean): Papel {
   // Admin do sistema prevalece sobre uso_individual
   if (nome.includes('ADMIN'))   return 'ADMIN';
   if (nome.includes('MASTER'))  return 'MASTER';
+  if (nome.includes('FINANCEIRO')) return 'FINANCEIRO';
   if (nome.includes('GESTOR'))  return 'GESTOR';
   if (usoIndividual) return 'VENDEDOR';
   if (nome.includes('VENDEDOR')) return 'VENDEDOR';
@@ -137,6 +139,7 @@ const initialState: PermissoesState = {
   userType: '',
   papel: 'OUTRO',
   isMaster: false,
+  isFinanceiro: false,
   isGestor: false,
   isVendedor: false,
   isSystemAdmin: false,
@@ -301,6 +304,7 @@ function createPermissoesStore() {
         userType,
         papel,
         isMaster: papel === 'MASTER',
+        isFinanceiro: papel === 'FINANCEIRO',
         isGestor: papel === 'GESTOR',
         isVendedor: papel === 'VENDEDOR',
         isSystemAdmin,

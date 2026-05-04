@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -7,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+const MAX_CIRCUITO_BODY_BYTES = 128 * 1024;
 
 export async function GET(event) {
   try {
@@ -38,6 +41,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_CIRCUITO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -46,7 +54,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Circuitos'], 2, 'Sem permissão para salvar circuitos.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const id = String(body.id || '').trim();
 
     const payload = {

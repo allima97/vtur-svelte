@@ -4,15 +4,23 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
 import { resolveViagemStatus } from "$lib/viagens/status";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+
+const MAX_VIAGEM_CREATE_BODY_BYTES = 256 * 1024;
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -26,7 +34,7 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const origem = String(body?.origem || "").trim();
     const destino = String(body?.destino || "").trim();
     const dataInicio = String(body?.data_inicio || "").trim();
@@ -59,16 +67,11 @@ export async function POST(event: RequestEvent) {
       return json({ error: "Cliente não encontrado." }, { status: 400 });
     }
 
-    const scopedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     const clienteCompanyId = isUuid(clienteRow.company_id)
       ? String(clienteRow.company_id)
       : null;
-    const companyId =
-      clienteCompanyId ||
-      scopedCompanyIds[0] ||
-      scope.companyId ||
-      scope.companyIds[0] ||
-      null;
+    const requestedScopedCompanyId = resolveScopedCompanyId(scope, requestedCompanyId);
+    const companyId = clienteCompanyId || requestedScopedCompanyId;
 
     if (!companyId) {
       return json(
@@ -79,8 +82,8 @@ export async function POST(event: RequestEvent) {
 
     if (
       !scope.isAdmin &&
-      scope.companyIds.length > 0 &&
-      !scope.companyIds.includes(companyId)
+      (!scope.companyIds.includes(companyId) ||
+        (requestedCompanyId && requestedScopedCompanyId !== requestedCompanyId))
     ) {
       return json(
         { error: "Sem acesso ao cliente selecionado." },

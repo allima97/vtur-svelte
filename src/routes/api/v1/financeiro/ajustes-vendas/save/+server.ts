@@ -8,6 +8,11 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+
+const MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES = 32 * 1024;
 
 function parsePercent(value: unknown) {
   const parsed = Number(value);
@@ -24,8 +29,27 @@ function isRateioTableMissingError(err: unknown) {
   );
 }
 
+function invalidateAjustesVendasReadModels() {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.conciliacao,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes
+    ]
+  });
+}
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -33,16 +57,16 @@ export async function POST(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(
         scope,
-        ['conciliacao', 'vendas_consulta', 'vendas'],
+        ['operacao_conciliacao', 'conciliacao'],
         3,
         'Sem permissao para editar Ajustes de Vendas.'
       );
     }
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       return json(
-        { error: 'Somente gestor/master podem editar Ajustes de Vendas.' },
-        { status: 403 }
+        { error: 'Somente financeiro/gestor/master podem editar Ajustes de Vendas.' },
+        { status: 403, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -59,20 +83,15 @@ export async function POST(event) {
       : vendaReciboIdRaw;
 
     if (!isUuid(rawId)) {
-      return json({ error: 'Identificador do recibo invalido.' }, { status: 400 });
+      return json({ error: 'Identificador do recibo invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (percentualDestino === null || percentualDestino < 0 || percentualDestino >= 100) {
-      return json({ error: 'percentual_destino deve ser >= 0 e < 100.' }, { status: 400 });
-    }
-
-    const companyId = scope.companyId;
-    if (!companyId && !scope.isAdmin) {
-      return json({ error: 'company_id nao resolvido.' }, { status: 400 });
+      return json({ error: 'percentual_destino deve ser >= 0 e < 100.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let vendedorOrigemId = '';
-    let sourceCompanyId = companyId || '';
+    let sourceCompanyId = '';
     let keyColumn: 'venda_recibo_id' | 'conciliacao_recibo_id' = 'venda_recibo_id';
 
     if (!isConciliacao) {
@@ -96,14 +115,14 @@ export async function POST(event) {
         .maybeSingle();
 
       if (reciboError) throw reciboError;
-      if (!reciboRow) return json({ error: 'Recibo nao encontrado.' }, { status: 404 });
+      if (!reciboRow) return json({ error: 'Recibo nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
       const reciboCompany = String((reciboRow as any)?.vendas?.company_id || '').trim();
-      if (!scope.isAdmin && companyId && reciboCompany !== companyId) {
-        return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403 });
+      if (!scope.isAdmin && !scope.companyIds.includes(reciboCompany)) {
+        return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
-      sourceCompanyId = reciboCompany || sourceCompanyId;
+      sourceCompanyId = reciboCompany;
       vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
       keyColumn = 'venda_recibo_id';
     } else {
@@ -115,14 +134,14 @@ export async function POST(event) {
         .maybeSingle();
 
       if (concErr) throw concErr;
-      if (!concRow) return json({ error: 'Recibo da conciliacao nao encontrado.' }, { status: 404 });
+      if (!concRow) return json({ error: 'Recibo da conciliacao nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
       const concCompany = String((concRow as any)?.company_id || '').trim();
-      if (!scope.isAdmin && companyId && concCompany !== companyId) {
-        return json({ error: 'Recibo de conciliacao fora do escopo da empresa.' }, { status: 403 });
+      if (!scope.isAdmin && !scope.companyIds.includes(concCompany)) {
+        return json({ error: 'Recibo de conciliacao fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
-      sourceCompanyId = concCompany || sourceCompanyId;
+      sourceCompanyId = concCompany;
       vendedorOrigemId = String((concRow as any)?.ranking_vendedor_id || '').trim();
 
       // Fallback: buscar vendedor_id na venda associada
@@ -144,7 +163,10 @@ export async function POST(event) {
     }
 
     if (!isUuid(vendedorOrigemId)) {
-      return json({ error: 'Venda sem vendedor valido para rateio.' }, { status: 400 });
+      return json({ error: 'Venda sem vendedor valido para rateio.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+    if (!isUuid(sourceCompanyId)) {
+      return json({ error: 'Recibo sem empresa valida para rateio.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     // Desfazer rateio quando percentual_destino = 0.
@@ -164,17 +186,18 @@ export async function POST(event) {
         .eq('company_id', sourceCompanyId);
       if (clearError) throw clearError;
 
-      return json({ ok: true, cleared: true });
+      invalidateAjustesVendasReadModels();
+      return json({ ok: true, cleared: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (!isUuid(vendedorDestinoId)) {
-      return json({ error: 'vendedor_destino_id invalido.' }, { status: 400 });
+      return json({ error: 'vendedor_destino_id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (vendedorDestinoId === vendedorOrigemId) {
       return json(
         { error: 'O vendedor destino deve ser diferente do vendedor de origem.' },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -194,7 +217,7 @@ export async function POST(event) {
       if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedorDestinoId)) {
         return json(
           { error: 'Gestor so pode ratear vendas da propria empresa.' },
-          { status: 403 }
+          { status: 403, headers: NO_STORE_HEADERS }
         );
       }
     }
@@ -208,17 +231,17 @@ export async function POST(event) {
       .maybeSingle();
     if (destinoError) throw destinoError;
     if (!destinoUser) {
-      return json({ error: 'Vendedor destino nao encontrado ou inativo.' }, { status: 400 });
+      return json({ error: 'Vendedor destino nao encontrado ou inativo.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
-    if (!scope.isAdmin && destinoUser.company_id !== companyId) {
-      return json({ error: 'Vendedor destino fora do escopo da empresa.' }, { status: 403 });
+    if (!scope.isAdmin && destinoUser.company_id !== sourceCompanyId) {
+      return json({ error: 'Vendedor destino fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const percentualOrigem = Math.round((100 - percentualDestino) * 100) / 100;
     if (percentualOrigem <= 0) {
       return json(
         { error: 'percentual_destino invalido: origem deve ficar com percentual > 0.' },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -241,7 +264,7 @@ export async function POST(event) {
       .from('vendas_recibos_rateio')
       .update(payload)
       .eq(keyColumn, rawId)
-      .eq('company_id', companyId ?? '')
+      .eq('company_id', sourceCompanyId)
       .select('id');
     if (updateError) throw updateError;
 
@@ -252,12 +275,13 @@ export async function POST(event) {
       if (insertError) throw insertError;
     }
 
-    return json({ ok: true });
+    invalidateAjustesVendasReadModels();
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     if (isRateioTableMissingError(err)) {
       return new Response(
         'Ajustes de Vendas indisponivel: aplique a migration 20260412_vendas_recibos_rateio.sql.',
-        { status: 409 }
+        { status: 409, headers: NO_STORE_HEADERS }
       );
     }
     return toErrorResponse(err, 'Erro ao salvar ajuste de venda.');

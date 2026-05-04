@@ -7,6 +7,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PROFILE_SIGNATURE_BODY_BYTES = 32 * 1024;
 
 export const GET: RequestHandler = async ({ locals }) => {
   try {
@@ -48,11 +51,16 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const PATCH: RequestHandler = async ({ locals, request }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_PROFILE_SIGNATURE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const signature = String(body?.signature || body?.assinatura || '').trim();
 
     const { data: userRow, error: userErr } = await client

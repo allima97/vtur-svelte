@@ -7,6 +7,10 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_SYSTEM_MODULES_BODY_BYTES = 64 * 1024;
 
 const SYSTEM_MODULES_CATALOG = [
   'dashboard', 'vendas', 'vendas_consulta', 'vendas_importar', 'orcamentos',
@@ -43,7 +47,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem acesso aos modulos do sistema.' }, { status: 403 });
+      return json({ error: 'Sem acesso aos modulos do sistema.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -64,7 +68,7 @@ export const GET: RequestHandler = async ({ locals }) => {
           rows: [],
           catalog: SYSTEM_MODULES_CATALOG,
           setup_error: 'Tabela system_module_settings nao disponivel.'
-        });
+        }, { headers: DYNAMIC_READ_HEADERS });
       }
       throw error;
     }
@@ -72,12 +76,15 @@ export const GET: RequestHandler = async ({ locals }) => {
     const rows = (data || []) as any[];
     const disabled = rows.filter((r: any) => !r.enabled).map((r: any) => r.module_key);
 
-    return json({
-      table_missing: false,
-      disabled,
-      rows,
-      catalog: SYSTEM_MODULES_CATALOG
-    });
+    return json(
+      {
+        table_missing: false,
+        disabled,
+        rows,
+        catalog: SYSTEM_MODULES_CATALOG
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     logServerError('[admin/system-modules] falha ao carregar modulos globais', err);
     return toErrorResponse(err, 'Erro ao carregar modulos globais.');
@@ -86,12 +93,17 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_SYSTEM_MODULES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Sem acesso aos modulos do sistema.' }, { status: 403 });
+      return json({ error: 'Sem acesso aos modulos do sistema.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const body = await request.json().catch(() => ({}));
@@ -120,7 +132,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       const tableMissing = code === '42P01' || message.includes('does not exist');
 
       if (tableMissing) {
-        return json({ error: 'Tabela system_module_settings nao existe. Aplique a migration.' }, { status: 400 });
+        return json(
+          { error: 'Tabela system_module_settings nao existe. Aplique a migration.' },
+          { status: 400, headers: NO_STORE_HEADERS }
+        );
       }
       throw deleteError;
     }
@@ -139,7 +154,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       if (insertError) throw insertError;
     }
 
-    return json({ ok: true, disabled: normalized.map((item: any) => item.module_key) });
+    return json({ ok: true, disabled: normalized.map((item: any) => item.module_key) }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[admin/system-modules] falha ao salvar modulos globais', err);
     return toErrorResponse(err, 'Erro ao salvar modulos globais.');

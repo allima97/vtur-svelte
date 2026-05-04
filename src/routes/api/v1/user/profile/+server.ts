@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, toErrorResponse } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_USER_PROFILE_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -29,10 +32,15 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_USER_PROFILE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
     const allowed = [

@@ -9,9 +9,11 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const TEMPLATE_DISPATCH_SELECT =
   'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
+const MAX_TEMPLATE_DISPATCH_BODY_BYTES = 64 * 1024;
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   try {
@@ -57,6 +59,11 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_TEMPLATE_DISPATCH_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
     const scope = await resolveUserScope(client, user.id);
@@ -65,7 +72,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ensureModuloAccess(scope, ['parametros_crm', 'crm', 'clientes'], 2, 'Sem acesso a enviar templates.');
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     const clienteId = String(body.clienteId || body.cliente_id || '').trim();
     const templateId = String(body.templateId || body.template_id || '').trim();

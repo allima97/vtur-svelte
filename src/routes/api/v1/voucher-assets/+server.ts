@@ -4,17 +4,37 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 function canAccessVoucherAssets(scope: any, level: number) {
   if (scope.isAdmin) return true;
@@ -79,21 +99,17 @@ async function withPreviewUrl(client: any, asset: any) {
 }
 
 async function resolveTargetCompanyId(scope: any, requestedCompanyId?: string | null) {
-  const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
-  if (companyIds.length === 1) return companyIds[0];
-
   const normalizedRequested = normalizeText(requestedCompanyId);
   if (normalizedRequested && !isUuid(normalizedRequested)) {
     throw new Error('Empresa inválida para o voucher asset.');
   }
 
-  if (normalizedRequested && companyIds.includes(normalizedRequested)) {
-    return normalizedRequested;
-  }
-
   if (normalizedRequested && scope.isAdmin) {
     return normalizedRequested;
   }
+
+  const companyId = resolveScopedCompanyId(scope, normalizedRequested || null);
+  if (companyId) return companyId;
 
   throw new Error('Selecione uma empresa válida para o voucher asset.');
 }
@@ -130,15 +146,41 @@ export async function GET(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
 
-    let query = client
-      .from('voucher_assets')
-      .select('id, company_id, provider, asset_kind, label, storage_bucket, storage_path, mime_type, size_bytes, ativo, ordem, created_at, updated_at')
-      .order('asset_kind')
-      .order('ordem');
+    const buildQuery = (companyIdsFilter = companyIds) => {
+      let query = client
+        .from('voucher_assets')
+        .select('id, company_id, provider, asset_kind, label, storage_bucket, storage_path, mime_type, size_bytes, ativo, ordem, created_at, updated_at')
+        .order('asset_kind')
+        .order('ordem');
 
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
+      if (companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
 
-    const { data, error } = await query;
+      return query;
+    };
+
+    const fetchAssets = async () => {
+      if (companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildQuery();
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(companyIds)) {
+        const result = await buildQuery(batch);
+        if (result.error) return { data: null, error: result.error } as typeof result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows).sort((left, right) => {
+          const assetKind = String(left?.asset_kind || '').localeCompare(String(right?.asset_kind || ''), 'pt-BR');
+          if (assetKind !== 0) return assetKind;
+          return Number(left?.ordem || 0) - Number(right?.ordem || 0);
+        }),
+        error: null
+      };
+    };
+
+    const { data, error } = await fetchAssets();
     if (error) throw error;
 
     // Gera URLs assinadas para preview
@@ -152,6 +194,9 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -221,6 +266,9 @@ export async function POST(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -325,6 +373,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

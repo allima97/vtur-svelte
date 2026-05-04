@@ -1,26 +1,36 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CONCILIACAO_EXISTING_BODY_BYTES = 256 * 1024;
+const MAX_EXISTING_DOCUMENTOS = 1000;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_EXISTING_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
     const body = await event.request.json().catch(() => ({}));
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     const companyId = companyIds[0] || null;
-    if (!companyId) return json({ error: 'Company invalida.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const documentos = Array.isArray(body?.documentos)
-      ? body.documentos.map((d: unknown) => String(d || '').trim()).filter(Boolean)
+      ? body.documentos.map((d: unknown) => String(d || '').trim()).filter(Boolean).slice(0, MAX_EXISTING_DOCUMENTOS)
       : [];
 
-    if (documentos.length === 0) return json({ records: {} });
+    if (documentos.length === 0) return json({ records: {} }, { headers: NO_STORE_HEADERS });
 
     const { data, error } = await client
       .from('conciliacao_recibos')
@@ -72,7 +82,10 @@ export async function POST(event) {
       };
     }
 
-    return json({ records });
+    return json(
+      { records, truncated: Array.isArray(body?.documentos) && body.documentos.length > MAX_EXISTING_DOCUMENTOS },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao buscar registros existentes.');
   }

@@ -1,14 +1,18 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { isSameOriginRequest } from '$lib/server/requestGuards';
 import { verifyTurnstileToken } from '$lib/server/turnstile';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
-
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   try {
+    if (!isSameOriginRequest(request)) {
+      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+
     const contentLength = Number(request.headers.get('content-length') || 0);
     if (Number.isFinite(contentLength) && contentLength > 8 * 1024) {
       return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });

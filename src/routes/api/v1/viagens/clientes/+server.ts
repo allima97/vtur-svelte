@@ -4,9 +4,11 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -56,23 +58,26 @@ export async function GET(event: RequestEvent) {
       );
     }
 
-    const vendedorIds = scope.usoIndividual ? [user.id] : [];
-    const accessibleClientIds = !scope.isAdmin
+    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get("empresa_id"));
+    const vendedorIds = scope.isVendedor ? [user.id] : [];
+    const useCompanyScope = scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor;
+    const accessibleClientIds = !useCompanyScope
       ? await resolveAccessibleClientIds(client, {
-          companyIds: scope.companyIds,
+          companyIds,
           vendedorIds,
         })
       : [];
 
-    if (!scope.isAdmin && accessibleClientIds.length === 0) {
-      return json([]);
+    if (!useCompanyScope && accessibleClientIds.length === 0) {
+      return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
     const cacheKey = buildReadModelCacheKey("viagens:clientes", {
       isAdmin: scope.isAdmin,
-      companyIds: scope.companyIds,
+      useCompanyScope,
+      companyIds,
       vendedorIds,
-      accessibleClientIds,
+      accessibleClientCount: accessibleClientIds.length,
       userId: user.id,
     });
     const payload = await getCachedReadModel({
@@ -82,7 +87,7 @@ export async function GET(event: RequestEvent) {
         READ_MODEL_TAGS.clients,
         READ_MODEL_TAGS.sales,
         ...scopeCacheTags({
-          companyIds: scope.companyIds,
+          companyIds,
           vendedorIds,
           userId: user.id,
         }),
@@ -90,7 +95,7 @@ export async function GET(event: RequestEvent) {
       ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
-        const buildQuery = (clientIds?: string[]) => {
+        const buildQuery = (clientIds?: string[], companyIdsFilter = companyIds) => {
           let query = client
             .from("clientes")
             .select("id, nome, cpf")
@@ -98,12 +103,14 @@ export async function GET(event: RequestEvent) {
             .limit(200);
           if (clientIds) {
             query = query.in("id", clientIds);
+          } else if (companyIdsFilter.length > 0) {
+            query = query.in("company_id", companyIdsFilter);
           }
           return query;
         };
 
         const fetchClientes = async () => {
-          if (!scope.isAdmin && accessibleClientIds.length > 0) {
+          if (!useCompanyScope && accessibleClientIds.length > 0) {
             if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
               return buildQuery(accessibleClientIds);
             }
@@ -122,6 +129,22 @@ export async function GET(event: RequestEvent) {
             return { data: dedupeClientes(rows).slice(0, 200), error: null };
           }
 
+          if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+            const rows: ViagemClienteRow[] = [];
+            for (const batch of chunkArray(companyIds)) {
+              const result = await buildQuery(undefined, batch);
+              if (result.error) {
+                return { data: null, error: result.error } as typeof result;
+              }
+              rows.push(
+                ...((result.data || []) as unknown as ViagemClienteRow[]),
+              );
+              if (dedupeClientes(rows).length >= 200) break;
+            }
+
+            return { data: dedupeClientes(rows).slice(0, 200), error: null };
+          }
+
           return buildQuery();
         };
 
@@ -131,7 +154,7 @@ export async function GET(event: RequestEvent) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar clientes.");
   }

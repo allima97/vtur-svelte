@@ -32,7 +32,7 @@ function error(status: number, message: string): never {
   throw new ApiError(status, message);
 }
 
-export type Papel = "ADMIN" | "MASTER" | "GESTOR" | "VENDEDOR" | "OUTRO";
+export type Papel = "ADMIN" | "MASTER" | "FINANCEIRO" | "GESTOR" | "VENDEDOR" | "OUTRO";
 export type PermissaoNivel =
   | "none"
   | "view"
@@ -53,9 +53,13 @@ export interface UserScope {
   permissoes: Record<string, PermissaoNivel>;
   isAdmin: boolean;
   isMaster: boolean;
+  isFinanceiro: boolean;
   isGestor: boolean;
   isVendedor: boolean;
 }
+
+export const NO_MATCH_COMPANY_ID = "00000000-0000-0000-0000-000000000000";
+const SUPABASE_IN_BATCH_SIZE = 100;
 
 type HttpErrorLike = {
   status: number;
@@ -137,6 +141,14 @@ export function parseUuidList(value?: string | null, limit = 300) {
     .map((item) => item.trim())
     .filter((item) => isUuid(item))
     .slice(0, limit);
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 export function parseIntSafe(value: string | null, fallback: number) {
@@ -259,24 +271,28 @@ export async function fetchRankingVendedoresByCompanyIds(
     ttlMs: 15_000,
     staleTtlMs: 60_000,
     loader: async () => {
-      let query = client
-        .from("users")
-        .select(
-          "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
-        )
-        .eq("active", true)
-        .eq("uso_individual", false)
-        .limit(5000);
+      const rows: any[] = [];
+      for (const companyBatch of chunkArray(scopedCompanyIds)) {
+        let query = client
+          .from("users")
+          .select(
+            "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+          )
+          .eq("active", true)
+          .eq("uso_individual", false)
+          .limit(5000);
 
-      query =
-        scopedCompanyIds.length === 1
-          ? query.eq("company_id", scopedCompanyIds[0])
-          : query.in("company_id", scopedCompanyIds);
+        query =
+          companyBatch.length === 1
+            ? query.eq("company_id", companyBatch[0])
+            : query.in("company_id", companyBatch);
 
-      const { data, error } = await query;
-      if (error) throw error;
+        const { data, error } = await query;
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
 
-      return (data || []).filter((row: any) => {
+      return rows.filter((row: any) => {
         const companyId = String(row?.company_id || "").trim();
         return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
       });
@@ -331,6 +347,7 @@ export function resolvePapel(tipoNome: string, usoIndividual: boolean): Papel {
   // NÃO restringe administradores/gestores do sistema.
   if (tipo.includes("ADMIN")) return "ADMIN";
   if (tipo.includes("MASTER")) return "MASTER";
+  if (tipo.includes("FINANCEIRO")) return "FINANCEIRO";
   if (tipo.includes("GESTOR")) return "GESTOR";
   if (usoIndividual) return "VENDEDOR";
   if (tipo.includes("VENDEDOR")) return "VENDEDOR";
@@ -469,6 +486,49 @@ export async function fetchMasterEmpresas(
   });
 }
 
+export async function fetchFinanceiroEmpresas(
+  client: SupabaseClient,
+  financeiroId: string,
+) {
+  const scopedFinanceiroId = String(financeiroId || "").trim();
+  if (!isUuid(scopedFinanceiroId)) return [];
+
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("financeiro-empresas", {
+      financeiroId: scopedFinanceiroId,
+    }),
+    tags: [
+      READ_MODEL_TAGS.users,
+      READ_MODEL_TAGS.finance,
+      ...scopeCacheTags({ userId: scopedFinanceiroId }),
+    ],
+    ttlMs: 15_000,
+    staleTtlMs: 60_000,
+    loader: async () => {
+      const { data, error: companiesError } = await client
+        .from("financeiro_empresas")
+        .select("company_id, status")
+        .eq("financeiro_id", scopedFinanceiroId);
+
+      if (companiesError) {
+        return [];
+      }
+
+      return (data || [])
+        .filter((row: { status?: string | null }) => {
+          const status = String(row?.status || "")
+            .trim()
+            .toLowerCase();
+          return status !== "rejected";
+        })
+        .map((row: { company_id?: string | null }) =>
+          String(row?.company_id || "").trim(),
+        )
+        .filter(isUuid);
+    },
+  });
+}
+
 async function resolveUserScopeUncached(
   client: SupabaseClient,
   userId: string,
@@ -501,6 +561,14 @@ async function resolveUserScopeUncached(
     // (igual ao comportamento do vtur-app)
     companyIds =
       masterEmpresas.length > 0 ? masterEmpresas : companyId ? [companyId] : [];
+  } else if (papel === "FINANCEIRO") {
+    const financeiroEmpresas = await fetchFinanceiroEmpresas(client, userId);
+    const ids = new Set<string>();
+    financeiroEmpresas.forEach((id) => {
+      if (isUuid(id)) ids.add(id);
+    });
+    if (companyId) ids.add(companyId);
+    companyIds = Array.from(ids);
   } else {
     companyIds = companyId ? [companyId] : [];
   }
@@ -517,6 +585,7 @@ async function resolveUserScopeUncached(
     permissoes,
     isAdmin: papel === "ADMIN",
     isMaster: papel === "MASTER",
+    isFinanceiro: papel === "FINANCEIRO",
     isGestor: papel === "GESTOR",
     isVendedor: papel === "VENDEDOR",
   };
@@ -596,25 +665,50 @@ export async function resolveScopedVendedorIds(
   scope: UserScope,
   requestedRaw?: string | null,
 ) {
+  const rawRequested = String(requestedRaw || "").trim();
+  const normalizedRequested = normalizeText(rawRequested);
+  const hasExplicitRequestedFilter =
+    Boolean(rawRequested) &&
+    !["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"].includes(normalizedRequested);
   const requestedIds = parseUuidList(requestedRaw);
+  if (hasExplicitRequestedFilter && requestedIds.length === 0) {
+    return [NO_MATCH_COMPANY_ID];
+  }
 
   if (scope.isAdmin) {
     return requestedIds;
   }
 
-  if (scope.isGestor) {
+  if (scope.isGestor || scope.isFinanceiro) {
     const companyVendedorIds = await fetchVendedorIdsByCompanyIds(
       client,
       scope.companyIds,
     );
 
-    return requestedIds.length > 0
-      ? requestedIds.filter((id) => companyVendedorIds.includes(id))
-      : companyVendedorIds;
+    if (requestedIds.length > 0) {
+      const filtered = requestedIds.filter((id) =>
+        companyVendedorIds.includes(id),
+      );
+      return filtered.length > 0 ? filtered : [NO_MATCH_COMPANY_ID];
+    }
+
+    return companyVendedorIds;
   }
 
   if (scope.isMaster) {
-    return requestedIds;
+    const companyVendedorIds = await fetchVendedorIdsByCompanyIds(
+      client,
+      scope.companyIds,
+    );
+
+    if (requestedIds.length > 0) {
+      const filtered = requestedIds.filter((id) =>
+        companyVendedorIds.includes(id),
+      );
+      return filtered.length > 0 ? filtered : [NO_MATCH_COMPANY_ID];
+    }
+
+    return companyVendedorIds;
   }
 
   return [scope.userId];
@@ -625,20 +719,46 @@ export function resolveScopedCompanyIds(
   requestedCompanyId?: string | null,
 ) {
   const companyId = String(requestedCompanyId || "").trim();
+  const scopedCompanyIds = Array.from(
+    new Set((scope.companyIds || []).filter(isUuid)),
+  );
 
   if (scope.isAdmin) {
     return isUuid(companyId) ? [companyId] : [];
   }
 
-  if (scope.isMaster) {
+  if (scope.isMaster || scope.isFinanceiro) {
     if (isUuid(companyId)) {
-      return scope.companyIds.includes(companyId) ? [companyId] : [];
+      return scopedCompanyIds.includes(companyId)
+        ? [companyId]
+        : [NO_MATCH_COMPANY_ID];
     }
+    if (companyId) return [NO_MATCH_COMPANY_ID];
 
-    return scope.companyIds;
+    return scopedCompanyIds.length > 0
+      ? scopedCompanyIds
+      : [NO_MATCH_COMPANY_ID];
   }
 
-  return scope.companyIds;
+  if (isUuid(companyId)) {
+    return scopedCompanyIds.includes(companyId)
+      ? [companyId]
+      : [NO_MATCH_COMPANY_ID];
+  }
+  if (companyId) return [NO_MATCH_COMPANY_ID];
+
+  return scopedCompanyIds.length > 0
+    ? scopedCompanyIds
+    : [NO_MATCH_COMPANY_ID];
+}
+
+export function resolveScopedCompanyId(
+  scope: UserScope,
+  requestedCompanyId?: string | null,
+) {
+  const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+  if (companyIds[0] === NO_MATCH_COMPANY_ID) return null;
+  return companyIds.length === 1 ? companyIds[0] : null;
 }
 
 export async function resolveAccessibleClientIds(
@@ -670,56 +790,59 @@ export async function resolveAccessibleClientIds(
     loader: async () => {
       const clientIds = new Set<string>();
       const hasVendedorScope = vendedorIds.length > 0;
-
-      if (companyIds.length > 0 && !hasVendedorScope) {
-        const { data } = await client
-          .from("clientes")
-          .select("id")
-          .in("company_id", companyIds)
-          .limit(5000);
-
-        (data || []).forEach((row: { id?: string | null }) => {
+      const addClientIds = (rows?: Array<{ id?: string | null }> | null) => {
+        (rows || []).forEach((row) => {
           const id = String(row?.id || "").trim();
           if (id) clientIds.add(id);
         });
+      };
+
+      if (companyIds.length > 0 && !hasVendedorScope) {
+        for (const companyBatch of chunkArray(companyIds)) {
+          const { data } = await client
+            .from("clientes")
+            .select("id")
+            .in("company_id", companyBatch)
+            .limit(5000);
+          addClientIds(data);
+        }
       }
 
       if (vendedorIds.length > 0) {
-        const { data, error: createdByError } = await client
-          .from("clientes")
-          .select("id")
-          .in("created_by", vendedorIds)
-          .limit(5000);
+        for (const vendedorBatch of chunkArray(vendedorIds)) {
+          const { data, error: createdByError } = await client
+            .from("clientes")
+            .select("id")
+            .in("created_by", vendedorBatch)
+            .limit(5000);
 
-        // created_by pode não existir em todos os ambientes
-        if (!createdByError) {
-          (data || []).forEach((row: { id?: string | null }) => {
-            const id = String(row?.id || "").trim();
+          // created_by pode não existir em todos os ambientes
+          if (!createdByError) addClientIds(data);
+        }
+      }
+
+      const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+      const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+
+      for (const companyBatch of companyBatches) {
+        for (const vendedorBatch of vendedorBatches) {
+          let salesQuery = client
+            .from("vendas")
+            .select("cliente_id")
+            .eq("cancelada", false)
+            .not("cliente_id", "is", null);
+
+          if (companyBatch) salesQuery = salesQuery.in("company_id", companyBatch);
+          if (vendedorBatch) salesQuery = salesQuery.in("vendedor_id", vendedorBatch);
+
+          const { data: salesData } = await salesQuery.limit(5000);
+
+          (salesData || []).forEach((row: { cliente_id?: string | null }) => {
+            const id = String(row?.cliente_id || "").trim();
             if (id) clientIds.add(id);
           });
         }
       }
-
-      let salesQuery = client
-        .from("vendas")
-        .select("cliente_id")
-        .eq("cancelada", false)
-        .not("cliente_id", "is", null);
-
-      if (companyIds.length > 0) {
-        salesQuery = salesQuery.in("company_id", companyIds);
-      }
-
-      if (vendedorIds.length > 0) {
-        salesQuery = salesQuery.in("vendedor_id", vendedorIds);
-      }
-
-      const { data: salesData } = await salesQuery.limit(5000);
-
-      (salesData || []).forEach((row: { cliente_id?: string | null }) => {
-        const id = String(row?.cliente_id || "").trim();
-        if (id) clientIds.add(id);
-      });
 
       return Array.from(clientIds);
     },

@@ -4,17 +4,10 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
-  if (scope.isAdmin) return query;
-  if ((scope.isMaster || scope.isGestor) && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
-  if (scope.isMaster || scope.isGestor) return query.eq('created_by', user.id);
-  return query.eq('created_by', user.id);
-}
+import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 export async function GET(event) {
   try {
@@ -24,21 +17,29 @@ export async function GET(event) {
     const id = String(event.params.id || '').trim();
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['Vendas'], 1, 'Sem acesso ao resumo do orçamento para venda.');
+      ensureModuloAccess(
+        scope,
+        scope.isFinanceiro ? ['Orcamentos'] : ['Vendas'],
+        1,
+        'Sem acesso ao resumo do orçamento para venda.'
+      );
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
+      vendedorRaw: event.url.searchParams.get('vendedor_id')
+    });
 
-    let quoteQuery = client
+    const { data: quote, error: quoteError } = await client
       .from('quote')
       .select('id, client_id, created_by, status, status_negociacao, last_interaction_notes')
-      .eq('id', id);
-    quoteQuery = applyQuoteScope(quoteQuery, scope, user, vendedorIds);
-
-    const { data: quote, error: quoteError } = await quoteQuery.maybeSingle();
+      .eq('id', id)
+      .maybeSingle();
     if (quoteError) throw quoteError;
-    if (!quote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    }
 
     let cliente = null;
     if (quote.client_id) {

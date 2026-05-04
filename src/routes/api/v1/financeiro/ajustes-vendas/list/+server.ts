@@ -11,6 +11,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
@@ -28,6 +29,24 @@ function isRateioTableMissingError(err: any) {
 }
 
 let rateioMissingLogged = false;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 export async function GET(event: RequestEvent) {
   try {
@@ -36,11 +55,19 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Ajustes de Vendas.');
+      ensureModuloAccess(
+        scope,
+        ['operacao_conciliacao', 'conciliacao'],
+        1,
+        'Sem acesso a Ajustes de Vendas.'
+      );
     }
 
-    if (!(scope.isAdmin || scope.papel === "MASTER" || scope.papel === "GESTOR")) {
-      return json({ error: "Somente gestor/master podem acessar Ajustes de Vendas." }, { status: 403 });
+    if (!(scope.isAdmin || scope.papel === "MASTER" || scope.papel === "FINANCEIRO" || scope.papel === "GESTOR")) {
+      return json(
+        { error: "Somente financeiro/gestor/master podem acessar Ajustes de Vendas." },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
     }
 
     const url = event.url;
@@ -55,94 +82,138 @@ export async function GET(event: RequestEvent) {
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 80;
 
     if (!isIsoDate(inicio) || !isIsoDate(fim)) {
-      return json({ error: "inicio/fim invalidos. Use YYYY-MM-DD." }, { status: 400 });
+      return json({ error: "inicio/fim invalidos. Use YYYY-MM-DD." }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (vendedorId && !isUuid(vendedorId)) {
-      return json({ error: "vendedor_id invalido." }, { status: 400 });
+      return json({ error: "vendedor_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     if (companyIds.length === 0) {
-      return json({ error: "company_id nao resolvido para este usuario." }, { status: 400 });
+      return json({ error: "company_id nao resolvido para este usuario." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    let query = client
-      .from("vendas_recibos")
-      .select(
-        `
-          id,
-          venda_id,
-          numero_recibo,
-          data_venda,
-          valor_total,
-          valor_taxas,
-          vendas!inner (
+    const buildVendaQuery = (companyIdsFilter = companyIds) => {
+      let query = client
+        .from("vendas_recibos")
+        .select(
+          `
             id,
-            vendedor_id,
-            cliente_id,
-            cancelada,
-            company_id,
-            clientes:clientes!cliente_id (
-              nome
+            venda_id,
+            numero_recibo,
+            data_venda,
+            valor_total,
+            valor_taxas,
+            vendas!inner (
+              id,
+              vendedor_id,
+              cliente_id,
+              cancelada,
+              company_id,
+              clientes:clientes!cliente_id (
+                nome
+              )
             )
-          )
-        `
-      )
-      .eq("vendas.cancelada", false)
-      .order("data_venda", { ascending: false })
-      .limit(limit);
+          `
+        )
+        .eq("vendas.cancelada", false)
+        .order("data_venda", { ascending: false })
+        .limit(limit);
 
-    if (companyIds.length === 1) {
-      query = query.eq("vendas.company_id", companyIds[0]);
-    } else {
-      query = query.in("vendas.company_id", companyIds);
-    }
+      if (companyIdsFilter.length === 1) {
+        query = query.eq("vendas.company_id", companyIdsFilter[0]);
+      } else if (companyIdsFilter.length > 1) {
+        query = query.in("vendas.company_id", companyIdsFilter);
+      }
+      if (inicio) query = query.gte("data_venda", inicio);
+      if (fim) query = query.lte("data_venda", fim);
+      if (vendedorId) query = query.eq("vendas.vendedor_id", vendedorId);
+      if (termo) query = query.or(`numero_recibo.ilike.%${termo}%`);
 
-    if (inicio) query = query.gte("data_venda", inicio);
-    if (fim) query = query.lte("data_venda", fim);
-    if (vendedorId) query = query.eq("vendas.vendedor_id", vendedorId);
-    if (termo) {
-      query = query.or(`numero_recibo.ilike.%${termo}%`);
-    }
+      return query;
+    };
 
-    const { data, error } = await query;
+    const fetchVendaRows = async () => {
+      if (companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildVendaQuery();
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(companyIds)) {
+        const result = await buildVendaQuery(batch);
+        if (result.error) return { data: null, error: result.error } as typeof result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows)
+          .sort((a, b) => String(b?.data_venda || "").localeCompare(String(a?.data_venda || "")))
+          .slice(0, limit),
+        error: null,
+      };
+    };
+
+    const { data, error } = await fetchVendaRows();
     if (error) throw error;
 
     const reciboIds = (data || [])
       .map((row: any) => String(row?.id || "").trim())
       .filter(Boolean);
 
-    let conciliacaoQuery = client
-      .from("conciliacao_recibos")
-      .select(
-        `
-          id,
-          documento,
-          movimento_data,
-          valor_lancamentos,
-          valor_venda_real,
-          valor_taxas,
-          ranking_vendedor_id,
-          venda_id,
-          venda_recibo_id,
-          users:users!ranking_vendedor_id (
+    const buildConciliacaoQuery = (companyIdsFilter = companyIds) => {
+      let conciliacaoQuery = client
+        .from("conciliacao_recibos")
+        .select(
+          `
             id,
-            nome_completo
-          )
-        `
-      )
-      .in("company_id", companyIds)
-      .is("venda_recibo_id", null)
-      .neq("is_baixa_rac", true)
-      .order("movimento_data", { ascending: false })
-      .limit(limit);
+            documento,
+            movimento_data,
+            valor_lancamentos,
+            valor_venda_real,
+            valor_taxas,
+            ranking_vendedor_id,
+            venda_id,
+            venda_recibo_id,
+            users:users!ranking_vendedor_id (
+              id,
+              nome_completo
+            )
+          `
+        )
+        .in("company_id", companyIdsFilter)
+        .is("venda_recibo_id", null)
+        .neq("is_baixa_rac", true)
+        .order("movimento_data", { ascending: false })
+        .limit(limit);
 
-    if (inicio) conciliacaoQuery = conciliacaoQuery.gte("movimento_data", inicio);
-    if (fim) conciliacaoQuery = conciliacaoQuery.lte("movimento_data", fim);
-    if (vendedorId) conciliacaoQuery = conciliacaoQuery.eq("ranking_vendedor_id", vendedorId);
-    if (termo) conciliacaoQuery = conciliacaoQuery.ilike("documento", `%${termo}%`);
+      if (inicio) conciliacaoQuery = conciliacaoQuery.gte("movimento_data", inicio);
+      if (fim) conciliacaoQuery = conciliacaoQuery.lte("movimento_data", fim);
+      if (vendedorId) conciliacaoQuery = conciliacaoQuery.eq("ranking_vendedor_id", vendedorId);
+      if (termo) conciliacaoQuery = conciliacaoQuery.ilike("documento", `%${termo}%`);
+      return conciliacaoQuery;
+    };
 
-    const { data: conciliacaoData, error: conciliacaoError } = await conciliacaoQuery;
+    const fetchConciliacaoRows = async () => {
+      if (companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildConciliacaoQuery();
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(companyIds)) {
+        const result = await buildConciliacaoQuery(batch);
+        if (result.error) return { data: null, error: result.error } as typeof result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows)
+          .sort((a, b) => String(b?.movimento_data || "").localeCompare(String(a?.movimento_data || "")))
+          .slice(0, limit),
+        error: null,
+      };
+    };
+
+    const { data: conciliacaoData, error: conciliacaoError } = await fetchConciliacaoRows();
     if (conciliacaoError) throw conciliacaoError;
 
     const conciliacaoIds = (conciliacaoData || [])
@@ -151,34 +222,46 @@ export async function GET(event: RequestEvent) {
 
     let rateioMap = new Map<string, any>();
     if (reciboIds.length > 0 || conciliacaoIds.length > 0) {
-      let rateioQuery = client
-        .from("vendas_recibos_rateio")
-        .select(
-          `
-            id,
-            venda_recibo_id,
-            conciliacao_recibo_id,
-            ativo,
-            vendedor_origem_id,
-            vendedor_destino_id,
-            percentual_origem,
-            percentual_destino,
-            observacao,
-            updated_at,
-            vendedor_destino:users!vendedor_destino_id (
+      const buildRateioQuery = () =>
+        client
+          .from("vendas_recibos_rateio")
+          .select(
+            `
               id,
-              nome_completo
-            )
-          `
-        );
+              venda_recibo_id,
+              conciliacao_recibo_id,
+              ativo,
+              vendedor_origem_id,
+              vendedor_destino_id,
+              percentual_origem,
+              percentual_destino,
+              observacao,
+              updated_at,
+              vendedor_destino:users!vendedor_destino_id (
+                id,
+                nome_completo
+              )
+            `
+          );
 
-      if (companyIds.length === 1) {
-        rateioQuery = rateioQuery.eq("company_id", companyIds[0]);
-      } else {
-        rateioQuery = rateioQuery.in("company_id", companyIds);
+      const rateioDataRows: any[] = [];
+      let rateioError: any = null;
+      const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
+      for (const batch of companyBatches) {
+        let scopedRateioQuery = buildRateioQuery();
+        if (batch.length === 1) {
+          scopedRateioQuery = scopedRateioQuery.eq("company_id", batch[0]);
+        } else if (batch.length > 1) {
+          scopedRateioQuery = scopedRateioQuery.in("company_id", batch);
+        }
+
+        const { data: batchData, error: batchError } = await scopedRateioQuery;
+        if (batchError) {
+          rateioError = batchError;
+          break;
+        }
+        rateioDataRows.push(...(batchData || []));
       }
-
-      const { data: rateioData, error: rateioError } = await rateioQuery;
 
       if (rateioError) {
         if (!isRateioTableMissingError(rateioError)) {
@@ -189,7 +272,7 @@ export async function GET(event: RequestEvent) {
           logServerError("[ajustes-vendas/list] tabela vendas_recibos_rateio ainda nao existe", rateioError);
         }
       } else {
-        (rateioData || []).forEach((row: any) => {
+        rateioDataRows.forEach((row: any) => {
           const vendaReciboKey = String(row?.venda_recibo_id || "").trim();
           const concKey = String(row?.conciliacao_recibo_id || "").trim();
           if (vendaReciboKey && reciboIds.includes(vendaReciboKey)) {
@@ -211,16 +294,18 @@ export async function GET(event: RequestEvent) {
     );
     const vendedorNomeMap = new Map<string, string>();
     if (vendedorIdsFromRows.length > 0) {
-      const { data: vendedoresOrigem, error: vendedoresOrigemError } = await client
-        .from("users")
-        .select("id, nome_completo")
-        .in("id", vendedorIdsFromRows);
-      if (vendedoresOrigemError) throw vendedoresOrigemError;
-      (vendedoresOrigem || []).forEach((row: any) => {
-        const id = String(row?.id || "").trim();
-        if (!id) return;
-        vendedorNomeMap.set(id, String(row?.nome_completo || "Sem vendedor"));
-      });
+      for (const batch of chunkArray(vendedorIdsFromRows)) {
+        const { data: vendedoresOrigem, error: vendedoresOrigemError } = await client
+          .from("users")
+          .select("id, nome_completo")
+          .in("id", batch);
+        if (vendedoresOrigemError) throw vendedoresOrigemError;
+        (vendedoresOrigem || []).forEach((row: any) => {
+          const id = String(row?.id || "").trim();
+          if (!id) return;
+          vendedorNomeMap.set(id, String(row?.nome_completo || "Sem vendedor"));
+        });
+      }
     }
 
     const itensVendas = (data || []).map((row: any) => {
@@ -310,17 +395,12 @@ export async function GET(event: RequestEvent) {
       nome_completo: String(row?.nome_completo || "Sem nome"),
     }));
 
-    return json({ items, vendedores }, {
-      headers: {
-        "Cache-Control": "private, max-age=10",
-        Vary: "Cookie",
-      },
-    });
+    return json({ items, vendedores }, { headers: SHORT_DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     logServerError("[financeiro/ajustes-vendas/list] erro ao carregar lista", err);
     return json(
       { error: "Erro ao carregar ajustes de vendas." },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

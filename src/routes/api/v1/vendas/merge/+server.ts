@@ -10,7 +10,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -154,6 +157,11 @@ function parseBodyIds(value: unknown) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_MERGE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -175,10 +183,10 @@ export async function POST(event) {
     const mergeIds = parseBodyIds(body?.merge_ids).filter((id) => id !== vendaId);
 
     if (!isUuid(vendaId)) {
-      return new Response('venda_id invalido.', { status: 400 });
+      return new Response('venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
     if (mergeIds.length === 0) {
-      return new Response('merge_ids vazio.', { status: 400 });
+      return new Response('merge_ids vazio.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -191,7 +199,7 @@ export async function POST(event) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     const bodyVendedorIds = parseBodyIds(body?.vendedor_ids);
     if (scope.isMaster && bodyVendedorIds.length > 0) {
@@ -217,7 +225,7 @@ export async function POST(event) {
     const sales = Array.isArray(salesData) ? salesData : [];
     const foundIds = new Set(sales.map((item: any) => String(item?.id || '')));
     if (saleIds.some((id) => !foundIds.has(id))) {
-      return new Response('Vendas invalidas para mescla.', { status: 404 });
+      return new Response('Vendas invalidas para mescla.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const { data: receiptsData, error: receiptsError } = await client

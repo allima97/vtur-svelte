@@ -3,7 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
@@ -11,15 +11,24 @@ import {
   reconcilePendentes,
   diagnosticarLacunasCronologicas,
 } from "$lib/server/conciliacaoReconcile";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+
+const MAX_CONCILIACAO_RUN_BODY_BYTES = 32 * 1024;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_RUN_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(
         scope,
         ["operacao_conciliacao", "conciliacao"],
@@ -29,11 +38,13 @@ export async function POST(event) {
     }
 
     const body = await event.request.json().catch(() => ({}));
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
+    const companyId = resolveScopedCompanyId(scope, body?.companyId);
 
     if (!companyId)
-      return json({ error: "Empresa não identificada." }, { status: 400 });
+      return json(
+        { error: "Selecione uma empresa para executar a conciliação." },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
 
     const limit = Math.max(1, Math.min(500, Number(body?.limit || 200)));
     const conciliacaoReciboId =
@@ -89,7 +100,7 @@ export async function POST(event) {
 
     invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
 
-    return json({ ok: true, ...result, ...(bloqueio ? { bloqueio } : {}) });
+    return json({ ok: true, ...result, ...(bloqueio ? { bloqueio } : {}) }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao executar conciliação.");
   }

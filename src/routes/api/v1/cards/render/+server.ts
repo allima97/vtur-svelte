@@ -1,6 +1,7 @@
 import { isWasmCodegenBlockedError, renderSvgToPng } from '$lib/cards/svgToPng';
 import { logServerError } from '$lib/server/v1';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { renderCardSvg } from '../_render';
 
 const CARD_IMAGE_HEADERS = {
@@ -11,9 +12,7 @@ const CARD_IMAGE_HEADERS = {
 
 const CARD_ERROR_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store",
-  "Vary": "Cookie",
-  "X-Content-Type-Options": "nosniff",
+  ...NO_STORE_HEADERS,
 } as const;
 
 export async function GET(event: import('@sveltejs/kit').RequestEvent) {

@@ -1,12 +1,16 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+const MAX_SAC_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -55,6 +59,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_SAC_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -63,7 +72,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_controle_sac', 'controle_sac', 'operacao'], 2, 'Sem permissão para salvar SAC.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, recibo, tour, data_solicitacao, motivo, contratante_pax, ok_quando, status, responsavel, prazo } = body;
 
     const payload = {
@@ -81,6 +90,18 @@ export async function POST(event) {
 
     let result;
     if (id && isUuid(id)) {
+      const { data: existing, error: existingError } = await client
+        .from('sac_controle')
+        .select('id, company_id')
+        .eq('id', id)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404 });
+      const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
+      if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
+        return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403 });
+      }
+
       const { data, error: updateError } = await client.from('sac_controle').update(payload).eq('id', id).select('id').single();
       if (updateError) throw updateError;
       result = data;
@@ -98,6 +119,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -108,6 +132,18 @@ export async function DELETE(event) {
 
     const id = String(event.url.searchParams.get('id') || '').trim();
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+
+    const { data: existing, error: existingError } = await client
+      .from('sac_controle')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404 });
+    const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
+    if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
+      return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403 });
+    }
 
     const { error: deleteError } = await client.from('sac_controle').delete().eq('id', id);
     if (deleteError) throw deleteError;

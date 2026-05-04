@@ -422,7 +422,11 @@ async function readPersistentContributions(
   const accessibleClientIds = normalizeIds(params.accessibleClientIds);
   const rows: PersistentContributionRow[] = [];
 
-  const readBatch = async (clientIds?: string[]) => {
+  const readBatch = async (filters?: {
+    companyIds?: string[] | null;
+    vendedorIds?: string[] | null;
+    clientIds?: string[] | null;
+  }) => {
     for (let from = 0; ; from += READ_PAGE_SIZE) {
       let query = client
         .from(TABLE_CONTRIBUICOES)
@@ -435,10 +439,14 @@ async function readPersistentContributions(
         .order("id", { ascending: true })
         .range(from, from + READ_PAGE_SIZE - 1);
 
-      if (companyIds.length > 0) query = query.in("company_id", companyIds);
-      if (vendedorIds.length > 0) query = query.in("vendedor_id", vendedorIds);
-      if (clientIds && clientIds.length > 0) {
-        query = query.in("cliente_id", clientIds);
+      if (filters?.companyIds && filters.companyIds.length > 0) {
+        query = query.in("company_id", filters.companyIds);
+      }
+      if (filters?.vendedorIds && filters.vendedorIds.length > 0) {
+        query = query.in("vendedor_id", filters.vendedorIds);
+      }
+      if (filters?.clientIds && filters.clientIds.length > 0) {
+        query = query.in("cliente_id", filters.clientIds);
       }
 
       const { data, error } = await query;
@@ -450,12 +458,27 @@ async function readPersistentContributions(
     }
   };
 
+  const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+  const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+
   if (vendedorIds.length === 0 && accessibleClientIds.length > 0) {
-    for (const batch of chunkArray(accessibleClientIds)) {
-      await readBatch(batch);
+    for (const companyBatch of companyBatches) {
+      for (const clientBatch of chunkArray(accessibleClientIds)) {
+        await readBatch({
+          companyIds: companyBatch,
+          clientIds: clientBatch,
+        });
+      }
     }
   } else {
-    await readBatch();
+    for (const companyBatch of companyBatches) {
+      for (const vendedorBatch of vendedorBatches) {
+        await readBatch({
+          companyIds: companyBatch,
+          vendedorIds: vendedorBatch,
+        });
+      }
+    }
   }
 
   const contributions = rows.map(rowToContribution);

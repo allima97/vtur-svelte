@@ -1,5 +1,9 @@
 import { json } from "@sveltejs/kit";
 import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
+import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
@@ -14,6 +18,8 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+
+const MAX_OPERACAO_PREFERENCIA_BODY_BYTES = 64 * 1024;
 
 function ensurePreferenciasAccess(
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
@@ -90,11 +96,16 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_OPERACAO_PREFERENCIA_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const {
       id,
       tipo_produto_id,
@@ -154,6 +165,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -181,11 +195,16 @@ export async function DELETE(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_OPERACAO_PREFERENCIA_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { action } = body;
     ensurePreferenciasAccess(scope, action === "accept" ? 1 : 3);
 

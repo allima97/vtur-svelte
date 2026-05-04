@@ -1,1 +1,3 @@
-export { default as component } from "../../../../src/routes/(app)/documentacao/+page.svelte";
+import * as universal from "../../../../src/routes/(app)/financeiro/+page.ts";
+export { universal };
+export { default as component } from "../../../../src/routes/(app)/financeiro/+page.svelte";

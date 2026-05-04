@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess } from '$lib/server/agenda';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 function normalizeUpdate(body: any) {
@@ -48,15 +49,22 @@ function normalizeUpdate(body: any) {
   return payload;
 }
 
+const MAX_AGENDA_UPDATE_BODY_BYTES = 32 * 1024;
+
 async function handleUpdate(event: any) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_AGENDA_UPDATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     ensureAgendaAccess(scope, 3, 'Sem permissao para editar agenda.');
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const targetId = id || String(body?.id || '').trim();
 
     if (!targetId) {

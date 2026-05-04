@@ -7,7 +7,7 @@
   import SimpleTable from '$lib/components/ui/SimpleTable.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiFetch } from '$lib/services/api';
 
   const API_ENDPOINT = '/api/v1/admin/fix-recibos';
 
@@ -18,10 +18,27 @@
     descricao: string;
     movimento_data: string;
     valor_lancamentos: number;
+    valor_descontos: number;
+    valor_abatimentos: number;
     valor_venda_real: number;
+    venda_id: string | null;
+    venda_recibo_id: string | null;
     ranking_vendedor_id: string;
     ranking_vendedor_nome: string;
     company_id: string;
+    candidatos?: ReciboCandidate[];
+  };
+
+  type ReciboCandidate = {
+    id: string;
+    venda_id: string;
+    numero_recibo: string;
+    numero_reserva: string | null;
+    data_venda: string | null;
+    valor_total: number;
+    valor_taxas: number;
+    vendedor_id: string | null;
+    vendedor_nome: string;
   };
 
   type UserOption = {
@@ -30,6 +47,7 @@
   };
 
   const FIX_OPTIONS = [
+    { value: 'fix_link', label: 'Corrigir vínculo com recibo de venda' },
     { value: 'fix_vendor', label: 'Trocar vendedor atribuido no ranking' },
     { value: 'fix_valor', label: 'Corrigir valores financeiros' }
   ];
@@ -45,6 +63,11 @@
   let fixVendedorId = '';
   let fixValorLancamentos = '';
   let fixValorVendaReal = '';
+  let fixCompanyId = '';
+  let originalValorLancamentos: number | null = null;
+  let originalValorVendaReal: number | null = null;
+  let selectedCandidates: ReciboCandidate[] = [];
+  let selectedCandidateId = '';
 
   let userSearch = '';
   let userResults: UserOption[] = [];
@@ -60,16 +83,30 @@
   }
 
   function parseMoneyInput(value: string) {
-    const normalized = String(value || '')
+    let normalized = String(value || '')
       .trim()
-      .replace(/\s/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
+      .replace(/[R$\s]/g, '');
+
+    if (normalized.includes(',')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    } else {
+      const parts = normalized.split('.');
+      const hasThousandsPattern =
+        parts.length > 1 &&
+        parts.slice(1).every((part) => part.length === 3) &&
+        parts[0].length >= 1 &&
+        parts[0].length <= 3;
+
+      if (hasThousandsPattern) {
+        normalized = parts.join('');
+      }
+    }
+
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-  async function fetchDocs() {
+  async function fetchDocs(options: { suppressSuccessMessage?: boolean } = {}) {
     if (!docs.trim()) {
       errorMsg = 'Informe pelo menos um recibo/documento.';
       rows = [];
@@ -82,9 +119,15 @@
     rows = [];
 
     try {
-      const data: any = await apiGet(API_ENDPOINT, { docs });
+      const data: any = await apiFetch(API_ENDPOINT, {
+        method: 'GET',
+        query: { docs },
+        redirectOnForbidden: false
+      });
       rows = data.conciliacao_rows || [];
-      message = `${rows.length} linha(s) encontrada(s)`;
+      if (!options.suppressSuccessMessage) {
+        message = `${rows.length} linha(s) encontrada(s)`;
+      }
     } catch (err: any) {
       errorMsg = err.message || 'Erro ao buscar dados';
     } finally {
@@ -99,8 +142,17 @@
     userResults = [];
 
     try {
-      const data: any = await apiGet(API_ENDPOINT, { busca_usuario: userSearch });
+      const data: any = await apiFetch(API_ENDPOINT, {
+        method: 'GET',
+        query: {
+          busca_usuario: userSearch,
+          empresa_id: fixCompanyId || undefined
+        },
+        redirectOnForbidden: false
+      });
       userResults = data.usuarios || [];
+    } catch (err: any) {
+      errorMsg = err.message || 'Erro ao buscar vendedores';
     } finally {
       userSearchLoading = false;
     }
@@ -126,7 +178,15 @@
           return;
         }
         body.vendedor_id = fixVendedorId.trim();
+      } else if (fixAction === 'fix_link') {
+        if (!selectedCandidateId.trim()) {
+          errorMsg = 'Selecione o recibo de venda que deve ser vinculado.';
+          loading = false;
+          return;
+        }
+        body.venda_recibo_id = selectedCandidateId.trim();
       } else if (fixAction === 'fix_valor') {
+        let changed = false;
         if (fixValorLancamentos) {
           const parsed = parseMoneyInput(fixValorLancamentos);
           if (parsed == null) {
@@ -134,7 +194,13 @@
             loading = false;
             return;
           }
-          body.valor_lancamentos = parsed;
+          if (
+            originalValorLancamentos == null ||
+            Math.abs(parsed - originalValorLancamentos) > 0.009
+          ) {
+            body.valor_lancamentos = parsed;
+            changed = true;
+          }
         }
         if (fixValorVendaReal) {
           const parsed = parseMoneyInput(fixValorVendaReal);
@@ -143,13 +209,29 @@
             loading = false;
             return;
           }
-          body.valor_venda_real = parsed;
+          if (
+            originalValorVendaReal == null ||
+            Math.abs(parsed - originalValorVendaReal) > 0.009
+          ) {
+            body.valor_venda_real = parsed;
+            changed = true;
+          }
+        }
+        if (!changed) {
+          errorMsg = 'Altere pelo menos um valor antes de aplicar a correção.';
+          loading = false;
+          return;
         }
       }
 
-      const data: any = await apiPost(API_ENDPOINT, body);
-      message = `Correção aplicada. Registro atualizado: ${JSON.stringify(data.updated)}`;
-      await fetchDocs();
+      const data: any = await apiFetch(API_ENDPOINT, {
+        method: 'POST',
+        body,
+        redirectOnForbidden: false
+      });
+      await fetchDocs({ suppressSuccessMessage: true });
+      const updated = Array.isArray(data.updated) ? data.updated[0] : data.updated;
+      message = `Correção aplicada em ${updated?.documento || 'registro selecionado'}.`;
     } catch (err: any) {
       errorMsg = err.message || 'Erro ao aplicar correção';
     } finally {
@@ -161,7 +243,17 @@
     fixId = row.id;
     fixValorLancamentos = String(row.valor_lancamentos ?? '');
     fixValorVendaReal = String(row.valor_venda_real ?? '');
+    originalValorLancamentos = Number(row.valor_lancamentos ?? 0);
+    originalValorVendaReal = Number(row.valor_venda_real ?? 0);
     fixVendedorId = row.ranking_vendedor_id || '';
+    fixCompanyId = row.company_id || '';
+    selectedCandidates = row.candidatos || [];
+    selectedCandidateId =
+      selectedCandidates.length === 1
+        ? selectedCandidates[0].id
+        : selectedCandidates.find((candidate) => candidate.id === row.venda_recibo_id)?.id || '';
+    fixAction = selectedCandidates.length > 0 ? 'fix_link' : 'fix_vendor';
+    userResults = [];
     errorMsg = '';
     message = '';
   }
@@ -192,7 +284,7 @@
         placeholder="Ex.: 5630-0000084181, 084181 ou 84181"
         helper="Use recibos completos ou apenas os números. A busca normaliza os formatos CVC."
       />
-      <Button variant="primary" color="financeiro" loading={loading} on:click={fetchDocs}>
+      <Button variant="primary" color="financeiro" loading={loading} on:click={() => fetchDocs()}>
         <Search size={16} class="mr-2" />
         Buscar
       </Button>
@@ -215,6 +307,9 @@
         <th class="text-right">Valor lanc.</th>
         <th class="text-right">Valor real</th>
         <th>Vendedor atual</th>
+        <th>Vínculo</th>
+        <th>Candidatos</th>
+        <th>Empresa</th>
         <th>ID</th>
         <th class="text-right">Acao</th>
       </tr>
@@ -229,6 +324,11 @@
           </td>
           <td class="text-right font-mono">{formatMoney(row.valor_venda_real)}</td>
           <td>{row.ranking_vendedor_nome || '-'}</td>
+          <td class="font-mono text-xs text-slate-500">
+            {row.venda_recibo_id ? row.venda_recibo_id.slice(0, 8) + '...' : '-'}
+          </td>
+          <td>{row.candidatos?.length || 0}</td>
+          <td class="font-mono text-xs text-slate-400">{row.company_id?.slice(0, 8)}...</td>
           <td class="font-mono text-xs text-slate-400">{row.id?.slice(0, 8)}...</td>
           <td class="text-right">
             <Button variant="ghost" size="xs" on:click={() => selectRow(row)}>
@@ -249,6 +349,15 @@
         readonly={Boolean(fixId)}
       />
 
+      {#if fixCompanyId}
+        <FieldInput
+          label="Empresa do recibo"
+          bind:value={fixCompanyId}
+          readonly
+          helper="A busca de vendedor usa esta empresa automaticamente para evitar correção cruzada."
+        />
+      {/if}
+
       <FieldSelect
         label="Tipo de correcao"
         bind:value={fixAction}
@@ -256,7 +365,38 @@
         placeholder={null}
       />
 
-      {#if fixAction === 'fix_vendor'}
+      {#if fixAction === 'fix_link'}
+        {#if selectedCandidates.length > 0}
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-slate-700">Recibos de venda candidatos</p>
+            <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {#each selectedCandidates as candidate}
+                <Button
+                  variant={selectedCandidateId === candidate.id ? 'selected' : 'ghost'}
+                  class_name="w-full justify-between rounded-none border-b border-slate-100 text-left last:border-b-0"
+                  on:click={() => (selectedCandidateId = candidate.id)}
+                >
+                  <span class="flex flex-col items-start gap-0.5">
+                    <span class="font-semibold">{candidate.numero_recibo}</span>
+                    <span class="text-xs text-slate-500">
+                      {candidate.vendedor_nome} · {candidate.data_venda || 'sem data'}
+                    </span>
+                  </span>
+                  <span class="font-mono text-xs text-slate-500">
+                    {formatMoney(candidate.valor_total)}
+                  </span>
+                </Button>
+              {/each}
+            </div>
+          </div>
+        {:else}
+          <AlertMessage
+            variant="warning"
+            title="Nenhum recibo candidato"
+            message="Não há recibo de venda cadastrado com o mesmo número deste documento. Use a correção de vendedor/valor ou cadastre/importe a venda antes de vincular."
+          />
+        {/if}
+      {:else if fixAction === 'fix_vendor'}
         <div class="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
           <FieldInput
             label="Buscar vendedor por nome"
@@ -292,18 +432,20 @@
       {:else}
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <FieldInput
-            label="valor_lancamentos"
+            label="Valor bruto lançado"
             type="number"
             step="0.01"
             bind:value={fixValorLancamentos}
             placeholder="ex: 18148.00"
+            helper="Use quando o bruto da conciliação estiver errado."
           />
           <FieldInput
-            label="valor_venda_real"
+            label="Valor que deve entrar no ranking"
             type="number"
             step="0.01"
             bind:value={fixValorVendaReal}
             placeholder="ex: 18148.00"
+            helper="Ao alterar somente este campo, o sistema ajusta o bruto considerando descontos e abatimentos."
           />
         </div>
       {/if}

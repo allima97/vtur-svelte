@@ -48,10 +48,17 @@
     quantidade: number;
   }
 
+  interface EmpresaOption {
+    id: string;
+    nome: string;
+  }
+
   let loading = true;
   let periodo = 'mes_atual';
   let dataInicio = '';
   let dataFim = '';
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let resumo: Resumo = {
     totalEntradas: 0,
     totalSaidas: 0,
@@ -100,16 +107,33 @@
     value: fp.id,
     label: fp.nome
   }));
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome
+  }));
+  $: temVariasEmpresas = empresas.length > 1;
 
-  onMount(() => {
+  onMount(async () => {
     const hoje = todayISODateLocal();
     dataInicio = `${hoje.slice(0, 7)}-01`;
     dataFim = hoje;
     novaMovimentacao.data_movimentacao = hoje;
 
+    await carregarContexto();
     carregarDados();
     carregarFormasPagamento();
   });
+
+  async function carregarContexto() {
+    try {
+      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>('/api/v1/user/context');
+      empresas = data.empresas || [];
+      empresaId = String(data.company_id || empresas[0]?.id || '').trim();
+    } catch {
+      empresas = [];
+      empresaId = '';
+    }
+  }
 
   async function carregarDados() {
     loading = true;
@@ -121,7 +145,8 @@
       }>('/api/v1/financeiro/caixa', {
         periodo,
         data_inicio: dataInicio || undefined,
-        data_fim: dataFim || undefined
+        data_fim: dataFim || undefined,
+        empresa_id: empresaId || undefined
       });
       if (data.resumo) resumo = data.resumo;
       movimentacoes = data.movimentacoes || [];
@@ -137,7 +162,7 @@
     try {
       const data = await apiGet<{ items?: Array<{ id: string; nome: string }> }>(
         '/api/v1/financeiro/formas-pagamento',
-        { ativas: true }
+        { ativas: true, empresa_id: empresaId || undefined }
       );
       formasPagamento = (data.items || []).map((fp) => ({
         id: fp.id,
@@ -207,7 +232,10 @@
 
     processando = true;
     try {
-      await apiPost('/api/v1/financeiro/caixa', novaMovimentacao);
+      await apiPost('/api/v1/financeiro/caixa', {
+        ...novaMovimentacao,
+        empresa_id: empresaId || undefined
+      });
 
       toast.success('Movimentação registrada com sucesso!');
       showMovimentacaoDialog = false;
@@ -369,6 +397,20 @@
           class_name="min-w-[220px]"
           on:change={carregarDados}
         />
+        {#if temVariasEmpresas}
+          <FieldSelect
+            id="caixa-empresa"
+            label="Empresa"
+            bind:value={empresaId}
+            options={empresaOptions}
+            placeholder={null}
+            class_name="min-w-[220px]"
+            on:change={() => {
+              carregarDados();
+              carregarFormasPagamento();
+            }}
+          />
+        {/if}
         <FieldInput
           id="caixa-data-inicio"
           label="Data Inicio"
@@ -533,6 +575,17 @@
   onConfirm={handleCriarMovimentacao}
 >
   <div class="space-y-4">
+    {#if temVariasEmpresas}
+      <FieldSelect
+        id="caixa-mov-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        required={true}
+        class_name="w-full"
+      />
+    {/if}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <FieldSelect
         id="caixa-mov-tipo"

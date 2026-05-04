@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
-  ensureModuloAccess,
+  fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   logServerError,
   parseIntSafe,
@@ -14,6 +14,7 @@ import {
 } from '$lib/server/v1';
 import {
   deriveClienteStatus,
+  ensureClienteModuloAccess,
   formatDocumentoDisplay,
   isBirthdayToday,
   matchesClienteBusca
@@ -86,6 +87,10 @@ function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   return chunks;
 }
 
+function filterBatches(values: string[]) {
+  return values.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(values) : [values];
+}
+
 function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
   const map = new Map<string, T>();
   rows.forEach((row) => {
@@ -101,9 +106,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'clientes_consulta'], 1, 'Sem acesso a Clientes.');
-    }
+    if (!scope.isAdmin) ensureClienteModuloAccess(scope, 1, 'Sem acesso a Clientes.');
 
     const { searchParams } = event.url;
     const page = parseIntSafe(searchParams.get('page'), 1);
@@ -119,6 +122,9 @@ export async function GET(event) {
     const summaryOnly = String(searchParams.get('summary_only') || '').trim() === '1';
     const lookupOnly = String(searchParams.get('lookup') || '').trim() === '1';
     const summaryFastPath = summaryOnly && !busca;
+    const dbSearchTerm = sanitizePostgrestSearchTerm(busca, 60);
+    const dbSearchDigits = busca.replace(/\D/g, '').slice(0, 30);
+    const canPushBuscaToDb = Boolean(busca) && (dbSearchTerm.length >= 2 || dbSearchDigits.length >= 2);
 
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
@@ -128,6 +134,7 @@ export async function GET(event) {
       scope.isAdmin ||
       scope.isMaster ||
       tipoNome.includes('MASTER') ||
+      (tipoNome.includes('FINANCEIRO') && !String(requestedVendedorRaw || '').trim()) ||
       (tipoNome.includes('GESTOR') && !String(requestedVendedorRaw || '').trim());
 
     const accessibleClientIds = canUseCompanyScope
@@ -180,7 +187,7 @@ export async function GET(event) {
         digits ? `whatsapp.ilike.%${digits}%` : ''
       ].filter(Boolean);
 
-      const buildLookupQuery = (clientIds?: string[]) => {
+      const buildLookupQuery = (clientIds?: string[], companyIdsFilter = companyIds) => {
         let lookupQuery = client
           .from('clientes')
           .select('id, nome, cpf, email, telefone, whatsapp, cidade, estado, company_id, active, ativo')
@@ -193,16 +200,39 @@ export async function GET(event) {
 
         if (clientIds) {
           lookupQuery = lookupQuery.in('id', clientIds);
-        } else if (companyIds.length > 0) {
-          lookupQuery = lookupQuery.in('company_id', companyIds);
+        } else if (companyIdsFilter.length > 0) {
+          lookupQuery = lookupQuery.in('company_id', companyIdsFilter);
         }
 
         return lookupQuery;
       };
 
       const fetchLookupRows = async () => {
-        if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-          return buildLookupQuery(accessibleClientIds || undefined);
+        if (!accessibleClientIds) {
+          if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+            const rows: ClienteLookupRow[] = [];
+            for (const batch of chunkArray(companyIds)) {
+              const result = await buildLookupQuery(undefined, batch);
+              if (result.error) {
+                return { data: null, error: result.error } as typeof result;
+              }
+              rows.push(...(((result.data || []) as unknown) as ClienteLookupRow[]));
+              if (dedupeRowsById(rows).length >= lookupLimit) break;
+            }
+
+            return {
+              data: dedupeRowsById(rows)
+                .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+                .slice(0, lookupLimit),
+              error: null
+            };
+          }
+
+          return buildLookupQuery();
+        }
+
+        if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+          return buildLookupQuery(accessibleClientIds);
         }
 
         const rows: ClienteLookupRow[] = [];
@@ -262,12 +292,22 @@ export async function GET(event) {
 
     const canUseDbPagination =
       !all &&
-      !busca &&
+      (!busca || canPushBuscaToDb) &&
       !statusQuery &&
       !aniversarioHojeQuery &&
+      companyIds.length <= SUPABASE_IN_BATCH_SIZE &&
       (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE);
+    const canUseScopeAggregateSummaries =
+      summaryFastPath &&
+      canUseCompanyScope &&
+      (companyIds.length > 0 || vendedorIds.length > 0) &&
+      !estadoQuery &&
+      !tipoPessoaQuery &&
+      !classificacaoQuery &&
+      !statusQuery &&
+      !aniversarioHojeQuery;
 
-    const buildClientsQuery = (clientIds?: string[], useRange = false) => {
+    const buildClientsQuery = (clientIds?: string[], useRange = false, companyIdsFilter = companyIds) => {
       const selectFields = summaryFastPath ? CLIENT_SELECT_SUMMARY : CLIENT_SELECT_FULL;
       let clientsQuery = (useRange
         ? client.from('clientes').select(selectFields, { count: 'exact' })
@@ -282,8 +322,20 @@ export async function GET(event) {
 
       if (clientIds) {
         clientsQuery = clientsQuery.in('id', clientIds);
-      } else if (companyIds.length > 0) {
-        clientsQuery = clientsQuery.in('company_id', companyIds);
+      } else if (companyIdsFilter.length > 0) {
+        clientsQuery = clientsQuery.in('company_id', companyIdsFilter);
+      }
+      if (canPushBuscaToDb) {
+        const orParts = [
+          dbSearchTerm ? `nome.ilike.%${dbSearchTerm}%` : '',
+          dbSearchTerm ? `email.ilike.%${dbSearchTerm}%` : '',
+          dbSearchTerm ? `cidade.ilike.%${dbSearchTerm}%` : '',
+          dbSearchTerm ? `estado.ilike.%${dbSearchTerm}%` : '',
+          dbSearchDigits ? `cpf.ilike.%${dbSearchDigits}%` : '',
+          dbSearchDigits ? `telefone.ilike.%${dbSearchDigits}%` : '',
+          dbSearchDigits ? `whatsapp.ilike.%${dbSearchDigits}%` : ''
+        ].filter(Boolean);
+        if (orParts.length > 0) clientsQuery = clientsQuery.or(orParts.join(','));
       }
       if (estadoQuery) clientsQuery = clientsQuery.eq('estado', estadoQuery);
       if (tipoPessoaQuery) clientsQuery = clientsQuery.eq('tipo_pessoa', tipoPessoaQuery);
@@ -298,6 +350,24 @@ export async function GET(event) {
       }
 
       if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        if (!accessibleClientIds && companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+          const rows: ClienteBaseRow[] = [];
+          for (const batch of chunkArray(companyIds)) {
+            const result = await buildClientsQuery(undefined, false, batch);
+            if (result.error) {
+              return { data: null, error: result.error } as typeof result;
+            }
+            rows.push(...(((result.data || []) as unknown) as ClienteBaseRow[]));
+          }
+
+          return {
+            data: dedupeRowsById(rows).sort((left, right) =>
+              String(right.created_at || '').localeCompare(String(left.created_at || ''))
+            ),
+            error: null
+          };
+        }
+
         return buildClientsQuery(accessibleClientIds || undefined);
       }
 
@@ -326,8 +396,10 @@ export async function GET(event) {
         page,
         pageSize,
         all,
+        busca,
         summaryFastPath,
         canUseDbPagination,
+        canPushBuscaToDb,
         estadoQuery,
         tipoPessoaQuery,
         classificacaoQuery
@@ -348,9 +420,17 @@ export async function GET(event) {
     const clientsCount = clientsResult.count;
 
     const clientIds = ((clientsData || []) as ClienteBaseRow[]).map((row) => row.id);
-    const summaryClientIds = canUseDbPagination ? clientIds : accessibleClientIds || clientIds;
+    const summaryClientIds = canUseScopeAggregateSummaries
+      ? []
+      : canUseDbPagination
+        ? clientIds
+        : accessibleClientIds || clientIds;
 
-    const buildSalesQuery = (clientIdsFilter?: string[]) => {
+    const buildSalesQuery = (
+      clientIdsFilter?: string[],
+      companyIdsFilter = companyIds,
+      vendedorIdsFilter = vendedorIds
+    ) => {
       let salesQuery = client
         .from('vendas')
         .select('cliente_id, data_venda, valor_total')
@@ -358,11 +438,11 @@ export async function GET(event) {
         .not('cliente_id', 'is', null)
         .limit(5000);
 
-      if (companyIds.length > 0) {
-        salesQuery = salesQuery.in('company_id', companyIds);
+      if (companyIdsFilter.length > 0) {
+        salesQuery = salesQuery.in('company_id', companyIdsFilter);
       }
-      if (vendedorIds.length > 0) {
-        salesQuery = salesQuery.in('vendedor_id', vendedorIds);
+      if (vendedorIdsFilter.length > 0) {
+        salesQuery = salesQuery.in('vendedor_id', vendedorIdsFilter);
       }
       if (clientIdsFilter) {
         salesQuery = salesQuery.in('cliente_id', clientIdsFilter);
@@ -372,21 +452,24 @@ export async function GET(event) {
     };
 
     const fetchSales = async () => {
-      if (summaryClientIds.length === 0) {
+      if (!canUseScopeAggregateSummaries && summaryClientIds.length === 0) {
         return { data: [], error: null };
       }
 
-      if (summaryClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-        return buildSalesQuery(summaryClientIds);
-      }
-
       const rows: VendaResumoRow[] = [];
-      for (const batch of chunkArray(summaryClientIds)) {
-        const result = await buildSalesQuery(batch);
-        if (result.error) {
-          return { data: null, error: result.error } as typeof result;
+      const clientBatches = canUseScopeAggregateSummaries
+        ? [undefined]
+        : chunkArray(summaryClientIds);
+      for (const companyBatch of filterBatches(companyIds)) {
+        for (const vendedorBatch of filterBatches(vendedorIds)) {
+          for (const clientBatch of clientBatches) {
+            const result = await buildSalesQuery(clientBatch, companyBatch, vendedorBatch);
+            if (result.error) {
+              return { data: null, error: result.error } as typeof result;
+            }
+            rows.push(...(((result.data || []) as unknown) as VendaResumoRow[]));
+          }
         }
-        rows.push(...(((result.data || []) as unknown) as VendaResumoRow[]));
       }
 
       return { data: rows, error: null };
@@ -399,9 +482,17 @@ export async function GET(event) {
         userId: canUseCompanyScope ? null : user.id,
         page: canUseDbPagination ? page : null,
         pageSize: canUseDbPagination ? pageSize : null,
+        all,
+        busca,
+        canUseDbPagination,
+        canPushBuscaToDb,
+        summaryFastPath,
         estadoQuery,
         tipoPessoaQuery,
         classificacaoQuery,
+        statusQuery,
+        aniversarioHojeQuery,
+        canUseScopeAggregateSummaries,
         summaryClientCount: summaryClientIds.length
       }),
       tags: listCacheTags,
@@ -414,7 +505,11 @@ export async function GET(event) {
       }
     });
 
-    const buildQuotesQuery = (clientIdsFilter?: string[]) => {
+    const buildQuotesQuery = (
+      clientIdsFilter?: string[],
+      creatorIdsFilter?: string[],
+      vendedorIdsFallback = vendedorIds
+    ) => {
       let quotesQuery = client
         .from('quote')
         .select('client_id, created_at, created_by')
@@ -424,29 +519,67 @@ export async function GET(event) {
       if (clientIdsFilter) {
         quotesQuery = quotesQuery.in('client_id', clientIdsFilter);
       }
-      if (vendedorIds.length > 0) {
-        quotesQuery = quotesQuery.in('created_by', vendedorIds);
+      if (creatorIdsFilter) {
+        quotesQuery = quotesQuery.in('created_by', creatorIdsFilter);
+      } else if (vendedorIdsFallback.length > 0) {
+        quotesQuery = quotesQuery.in('created_by', vendedorIdsFallback);
       }
 
       return quotesQuery;
     };
 
-    const fetchQuotes = async () => {
-      if (clientIds.length === 0) {
-        return { data: [], error: null };
-      }
+    const fetchQuotesByCreatorIds = async (creatorIdsFilter: string[]) => {
+      const normalizedCreatorIds = Array.from(
+        new Set(creatorIdsFilter.map((id) => String(id || '').trim()).filter(Boolean))
+      );
+      if (normalizedCreatorIds.length === 0) return { data: [], error: null };
 
-      if (clientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-        return buildQuotesQuery(clientIds);
+      if (normalizedCreatorIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildQuotesQuery(undefined, normalizedCreatorIds);
       }
 
       const rows: QuoteResumoRow[] = [];
-      for (const batch of chunkArray(clientIds)) {
-        const result = await buildQuotesQuery(batch);
+      for (const batch of chunkArray(normalizedCreatorIds)) {
+        const result = await buildQuotesQuery(undefined, batch);
         if (result.error) {
           return { data: null, error: result.error } as typeof result;
         }
         rows.push(...(((result.data || []) as unknown) as QuoteResumoRow[]));
+      }
+
+      return { data: rows, error: null };
+    };
+
+    const fetchQuotes = async () => {
+      if (canUseScopeAggregateSummaries) {
+        if (vendedorIds.length > 0) {
+          return fetchQuotesByCreatorIds(vendedorIds);
+        }
+
+        const creators = companyIds.length > 0
+          ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
+          : [];
+        const creatorIdsForScope = ((creators || []) as Array<{ id?: string | null }>)
+          .map((row) => String(row?.id || '').trim())
+          .filter(Boolean);
+        return fetchQuotesByCreatorIds(creatorIdsForScope);
+      }
+
+      if (clientIds.length === 0) {
+        return { data: [], error: null };
+      }
+
+      const rows: QuoteResumoRow[] = [];
+      const clientBatches = chunkArray(clientIds);
+      const vendedorBatches = filterBatches(vendedorIds);
+      for (const clientBatch of clientBatches) {
+        for (const vendedorBatch of vendedorBatches) {
+          const result = await buildQuotesQuery(clientBatch, undefined, vendedorBatch);
+          if (result.error) {
+            return { data: null, error: result.error } as typeof result;
+          }
+          rows.push(...(((result.data || []) as unknown) as QuoteResumoRow[]));
+        }
       }
 
       return { data: rows, error: null };
@@ -461,9 +594,17 @@ export async function GET(event) {
           userId: canUseCompanyScope ? null : user.id,
           page: canUseDbPagination ? page : null,
           pageSize: canUseDbPagination ? pageSize : null,
+          all,
+          busca,
+          canUseDbPagination,
+          canPushBuscaToDb,
+          summaryFastPath,
           estadoQuery,
           tipoPessoaQuery,
           classificacaoQuery,
+          statusQuery,
+          aniversarioHojeQuery,
+          canUseScopeAggregateSummaries,
           clientCount: clientIds.length
         }),
         tags: listCacheTags,

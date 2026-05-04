@@ -44,6 +44,7 @@
   let companies: Option[] = [];
   let avisoTemplates: any[] = [];
   let mfaStatus: { enabled: boolean; verified_count: number; factor_count: number } | null = null;
+  let financeiroCompanyIds: string[] = [];
   let showAvisoDialog = false;
   let showSenhaDialog = false;
   let showMfaDialog = false;
@@ -54,6 +55,16 @@
 
   $: isCreateMode = $page.params.id === 'novo';
   $: currentId = $page.params.id;
+  $: selectedUserTypeName = String(
+    userTypes.find((type) => type.id === userForm.user_type_id)?.nome ||
+      userTypes.find((type) => type.id === userForm.user_type_id)?.name ||
+      userMeta?.tipo ||
+      ''
+  ).toUpperCase();
+  $: isFinanceiroUser = selectedUserTypeName.includes('FINANCEIRO');
+  $: if (isFinanceiroUser && userForm.company_id && !financeiroCompanyIds.includes(userForm.company_id)) {
+    financeiroCompanyIds = [...financeiroCompanyIds, userForm.company_id];
+  }
 
   function formatDateTime(value?: string | null) {
     if (!value) return '-';
@@ -81,6 +92,7 @@
     permissionsSummary = [];
     defaultPermissionsSummary = [];
     mfaStatus = null;
+    financeiroCompanyIds = [];
   }
 
   async function loadMfaStatus(userId: string) {
@@ -146,6 +158,9 @@
           active: Boolean(payload.user.ativo),
           participa_ranking: Boolean(payload.user.participa_ranking)
         };
+        financeiroCompanyIds = Array.isArray(payload.user.financeiro_company_ids)
+          ? payload.user.financeiro_company_ids.map((id: string) => String(id || '').trim()).filter(Boolean)
+          : [];
 
         await loadMfaStatus(payload.user.id);
       }
@@ -176,6 +191,10 @@
         throw new Error('Selecione a empresa do usuario.');
       }
 
+      if (isFinanceiroUser && financeiroCompanyIds.length === 0) {
+        throw new Error('Selecione ao menos uma empresa para o usuario financeiro.');
+      }
+
       if (isCreateMode && !userForm.password.trim()) {
         throw new Error('Defina a senha inicial do usuario.');
       }
@@ -189,7 +208,8 @@
         company_id: userForm.uso_individual ? null : userForm.company_id,
         uso_individual: userForm.uso_individual,
         active: userForm.active,
-        participa_ranking: userForm.participa_ranking
+        participa_ranking: isFinanceiroUser ? false : userForm.participa_ranking,
+        financeiro_company_ids: isFinanceiroUser ? financeiroCompanyIds : []
       });
       toast.success(isCreateMode ? 'Usuario criado com sucesso.' : 'Usuario atualizado com sucesso.');
 
@@ -203,6 +223,21 @@
     } finally {
       saving = false;
     }
+  }
+
+  function isFinanceiroCompanySelected(companyId: string) {
+    return financeiroCompanyIds.includes(companyId);
+  }
+
+  function toggleFinanceiroCompany(companyId: string, checked: boolean) {
+    const id = String(companyId || '').trim();
+    if (!id) return;
+    if (checked) {
+      if (!financeiroCompanyIds.includes(id)) financeiroCompanyIds = [...financeiroCompanyIds, id];
+      return;
+    }
+    if (id === userForm.company_id) return;
+    financeiroCompanyIds = financeiroCompanyIds.filter((value) => value !== id);
   }
 
   async function sendAviso() {
@@ -354,14 +389,48 @@
         color="financeiro"
         class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
       />
-      <FieldCheckbox
-        label="Participa do ranking"
-        helper="Inclui o usuario nos indicadores competitivos."
-        bind:checked={userForm.participa_ranking}
-        color="financeiro"
-        class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
-      />
+      {#if !isFinanceiroUser}
+        <FieldCheckbox
+          label="Participa do ranking"
+          helper="Inclui o usuario nos indicadores competitivos."
+          bind:checked={userForm.participa_ranking}
+          color="financeiro"
+          class_name="rounded-xl border border-slate-200 bg-white px-4 py-4"
+        />
+      {:else}
+        <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4">
+          <p class="font-medium text-blue-950">Perfil financeiro</p>
+          <p class="mt-1 text-sm text-blue-800">
+            Este usuario nao participa do ranking e acessa apenas o escopo financeiro das empresas vinculadas.
+          </p>
+        </div>
+      {/if}
     </div>
+
+    {#if isFinanceiroUser}
+      <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="mb-4">
+          <p class="font-semibold text-slate-900">Empresas do financeiro</p>
+          <p class="text-sm text-slate-500">
+            Vincule uma ou varias empresas. A empresa principal fica sempre selecionada quando existir.
+          </p>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {#each companies as company}
+            {@const companyId = String(company.id || '')}
+            <FieldCheckbox
+              label={company.nome_fantasia || company.nome || company.name || 'Empresa'}
+              helper={companyId === userForm.company_id ? 'Empresa principal' : undefined}
+              checked={isFinanceiroCompanySelected(companyId)}
+              disabled={companyId === userForm.company_id}
+              color="financeiro"
+              class_name="rounded-xl border border-slate-200 bg-white px-4 py-3"
+              on:change={(event) => toggleFinanceiroCompany(companyId, Boolean((event.target as HTMLInputElement)?.checked))}
+            />
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     {#if !isCreateMode}
       <div class="mt-6 grid gap-4 md:grid-cols-3">

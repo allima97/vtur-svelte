@@ -1,18 +1,26 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
+
+const MAX_ORCAMENTO_STATUS_BODY_BYTES = 16 * 1024;
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_STATUS_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -28,22 +36,18 @@ export async function PATCH(event) {
 
     const body = await event.request.json().catch(() => ({}));
 
-    const vendedorIds = await resolveScopedVendedorIds(
-      client,
-      scope,
-      event.url.searchParams.get('vendedor_id')
-    );
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
+      vendedorRaw: event.url.searchParams.get('vendedor_id')
+    });
 
-    // ✅ Verifica ownership antes de atualizar
-    // quote usa created_by (FK auth.users) — sem company_id nem vendedor_id
-    let checkQuery = client.from('quote').select('id').eq('id', id);
-    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-      checkQuery = checkQuery.eq('created_by', user.id);
-    } else if (vendedorIds.length > 0) {
-      checkQuery = checkQuery.in('created_by', vendedorIds);
-    }
-    const { data: quote } = await checkQuery.maybeSingle();
-    if (!quote) {
+    const { data: quote, error: quoteError } = await client
+      .from('quote')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (quoteError) throw quoteError;
+    if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
       return json({ error: 'Orcamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
@@ -55,21 +59,17 @@ export async function PATCH(event) {
       updateData.last_interaction_at = new Date().toISOString();
     }
 
-    let updateQuery = client.from('quote').update(updateData).eq('id', id);
-    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-      updateQuery = updateQuery.eq('created_by', user.id);
-    } else if (vendedorIds.length > 0) {
-      updateQuery = updateQuery.in('created_by', vendedorIds);
-    }
-
-    const { data, error } = await updateQuery
+    const { data, error } = await client
+      .from('quote')
+      .update(updateData)
+      .eq('id', id)
       .select('id, status, status_negociacao, last_interaction_notes, last_interaction_at, updated_at')
       .single();
     if (error) throw error;
 
     invalidateQuoteReadModels({
-      companyIds: scope.companyIds,
-      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      companyIds: quoteScope.companyIds,
+      vendedorIds: quoteScope.creatorIds.length > 0 ? quoteScope.creatorIds : [user.id],
       userId: user.id
     });
 

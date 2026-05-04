@@ -60,6 +60,32 @@ function getPeriodFromDate(dateIso?: string | null) {
   return { mes: now.getMonth() + 1, ano: now.getFullYear() };
 }
 
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function uniqueIds(values?: string[]) {
+  return Array.from(
+    new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))
+  );
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function buildFilterBatches(filters: Array<{ column: string; values: string[] }>) {
+  return filters.reduce<Array<Array<{ column: string; values: string[] }>>>(
+    (groups, filter) =>
+      groups.flatMap((group) =>
+        chunkArray(filter.values).map((values) => [...group, { column: filter.column, values }])
+      ),
+    [[]]
+  );
+}
+
 export function buildPersistedComissaoKey(vendaId?: string | null, vendedorId?: string | null) {
   const venda = String(vendaId || '').trim();
   const vendedor = String(vendedorId || '').trim();
@@ -87,42 +113,54 @@ export async function fetchPersistedComissoes(
     companyIds?: string[];
   }
 ): Promise<PersistedComissoesSnapshot> {
-  let query = client
-    .from('comissoes')
-    .select(
-      'id, venda_id, recibo_id, vendedor_id, regra_id, valor_venda, valor_comissionavel, percentual_aplicado, valor_comissao, status, data_pagamento, observacoes_pagamento, pago_por, mes_referencia, ano_referencia, company_id'
-    )
-    .limit(5000);
+  const vendaIds = uniqueIds(params.vendaIds);
+  const reciboIds = uniqueIds(params.reciboIds);
+  const vendedorIds = uniqueIds(params.vendedorIds);
+  const companyIds = uniqueIds(params.companyIds);
+  const primaryReceiptOrSaleFilter =
+    reciboIds.length > 0
+      ? [{ column: 'recibo_id', values: reciboIds }]
+      : vendaIds.length > 0
+        ? [{ column: 'venda_id', values: vendaIds }]
+        : [];
+  const filters = [
+    ...primaryReceiptOrSaleFilter,
+    ...(vendedorIds.length > 0 ? [{ column: 'vendedor_id', values: vendedorIds }] : []),
+    ...(companyIds.length > 0 ? [{ column: 'company_id', values: companyIds }] : [])
+  ];
+  const batches = filters.length > 0 ? buildFilterBatches(filters) : [[]];
+  const rowsById = new Map<string, PersistedComissaoRow>();
 
-  if ((params.vendaIds || []).length > 0) {
-    query = query.in('venda_id', params.vendaIds || []);
-  }
+  for (const batchFilters of batches) {
+    let query = client
+      .from('comissoes')
+      .select(
+        'id, venda_id, recibo_id, vendedor_id, regra_id, valor_venda, valor_comissionavel, percentual_aplicado, valor_comissao, status, data_pagamento, observacoes_pagamento, pago_por, mes_referencia, ano_referencia, company_id'
+      )
+      .limit(5000);
 
-  if ((params.reciboIds || []).length > 0) {
-    query = query.in('recibo_id', params.reciboIds || []);
-  }
-
-  if ((params.vendedorIds || []).length > 0) {
-    query = query.in('vendedor_id', params.vendedorIds || []);
-  }
-
-  if ((params.companyIds || []).length > 0) {
-    query = query.in('company_id', params.companyIds || []);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    if (isMissingComissoesSchema(error)) {
-      return {
-        rows: [],
-        available: false
-      };
+    for (const filter of batchFilters) {
+      query = query.in(filter.column, filter.values);
     }
-    throw error;
+
+    const { data, error } = await query;
+    if (error) {
+      if (isMissingComissoesSchema(error)) {
+        return {
+          rows: [],
+          available: false
+        };
+      }
+      throw error;
+    }
+
+    for (const row of (data || []) as PersistedComissaoRow[]) {
+      if (row?.id) rowsById.set(row.id, row);
+    }
   }
 
   return {
-    rows: (data || []) as PersistedComissaoRow[],
+    rows: Array.from(rowsById.values()),
     available: true
   };
 }

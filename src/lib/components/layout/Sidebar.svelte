@@ -87,9 +87,11 @@
     ? '/dashboard/admin'
     : $permissoes.isMaster
       ? '/dashboard/master'
-      : $permissoes.isGestor
-        ? '/dashboard/gestor'
-        : '/dashboard/vendedor';
+      : $permissoes.isFinanceiro
+        ? '/dashboard/financeiro'
+        : $permissoes.isGestor
+          ? '/dashboard/gestor'
+          : '/dashboard/vendedor';
   $: userDisplayName =
     currentUser?.user_metadata?.nome_completo ||
     currentUser?.user_metadata?.nome ||
@@ -133,11 +135,13 @@
       collapsible: true,
       items: [
         { key: 'caixa', name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
+        { key: 'vendas_financeiro', name: 'Vendas / Pagamentos', href: '/vendas', icon: ShoppingCart },
         { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
         { key: 'comissoes', name: 'Comissionamento', href: '/financeiro/comissoes', icon: Wallet },
         { key: 'fechamento', name: 'Fechamento', href: '/comissoes/fechamento', icon: Wallet },
         { key: 'ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings },
         { key: 'formas_pagamento', name: 'Formas de Pagto', href: '/financeiro/formas-pagamento', icon: CreditCard },
+        { key: 'notas_fiscais', name: 'Notas Fiscais', href: '/financeiro/notas-fiscais', icon: FileText },
         { key: 'regras', name: 'Regras', href: '/financeiro/regras', icon: Settings }
       ]
     },
@@ -242,6 +246,13 @@
     if (!$permissoes.ready) return true;
 
     if (item.systemOnly && !$permissoes.isSystemAdmin) return false;
+    if (item.key === 'vendas_financeiro' && !$permissoes.isFinanceiro) return false;
+
+    if ($permissoes.isFinanceiro) {
+      if (item.key === 'vendas') return false;
+      if (item.key === 'aniversariantes') return false;
+      if (item.href === '/perfil/escala') return permissoes.can('Escalas', 'view');
+    }
 
     if ($permissoes.isSystemAdmin) {
       if (item.href === '/') return false;
@@ -389,6 +400,17 @@
           .map((item) => ({ key: item.key, name: item.name, href: item.href, icon: item.icon })),
         { key: 'meu_perfil', name: 'Perfil', href: '/perfil', icon: UserCircle }
       ]
+    : $permissoes.isFinanceiro
+      ? [
+          { key: 'dashboard', name: 'Dashboard', href: dashboardHref, icon: LayoutDashboard },
+          { key: 'caixa', name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
+          { key: 'vendas_financeiro', name: 'Vendas', href: '/vendas', icon: ShoppingCart },
+          { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
+          { key: 'ajustes_vendas', name: 'Ajustes', href: '/financeiro/ajustes-vendas', icon: Settings },
+          { key: 'comissoes', name: 'Comissões', href: '/financeiro/comissoes', icon: Wallet },
+          { key: 'notas_fiscais', name: 'NF', href: '/financeiro/notas-fiscais', icon: FileText },
+          { key: 'meu_perfil', name: 'Perfil', href: '/perfil', icon: UserCircle },
+        ]
     : [
         { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
         { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },

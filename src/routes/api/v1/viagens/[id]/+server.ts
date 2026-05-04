@@ -11,6 +11,18 @@ import {
 import { resolveViagemStatus } from "$lib/viagens/status";
 import { syncViagemStatusIfNeeded } from "$lib/server/viagensStatus";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+
+const MAX_VIAGEM_UPDATE_BODY_BYTES = 256 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 async function hasViagemAccessByResponsavel(
   client: any,
@@ -75,13 +87,15 @@ async function hasViagemAccessByCliente(
   if (allowedResponsavelIds.length === 0) return scope.isAdmin;
 
   // Clientes relacionados a vendas do vendedor/equipe
-  const { data: vendaCliente } = await client
-    .from("vendas")
-    .select("id")
-    .eq("cliente_id", id)
-    .in("vendedor_id", allowedResponsavelIds)
-    .maybeSingle();
-  if (vendaCliente?.id) return true;
+  for (const responsavelBatch of chunkArray(allowedResponsavelIds)) {
+    const { data: vendaCliente } = await client
+      .from("vendas")
+      .select("id")
+      .eq("cliente_id", id)
+      .in("vendedor_id", responsavelBatch)
+      .limit(1);
+    if (vendaCliente?.[0]?.id) return true;
+  }
 
   // Fallback para cliente criado pelo vendedor/equipe
   const { data: cliente, error: clienteError } = await client
@@ -98,9 +112,16 @@ async function hasViagemAccessByCliente(
 }
 
 function shouldRestrictViagemToOwner(scope: any) {
-  // Gestor/Master/Admin podem operar a empresa. Vendedor comum só acessa
-  // viagens vinculadas às próprias vendas, clientes ou responsabilidade direta.
+  // Gestor/Master/Admin podem operar a empresa. Vendedor comum fica restrito
+  // à própria operação comercial; o fallback por cliente é controlado abaixo.
   return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
+}
+
+function shouldAllowClienteFallback(scope: any) {
+  // Vendedor comum não pode enxergar/alterar uma viagem só porque já vendeu
+  // para o mesmo cliente em outra oportunidade. Para ele, a viagem precisa
+  // estar vinculada à própria venda ou atribuída diretamente.
+  return !scope.isVendedor;
 }
 
 export async function GET(event) {
@@ -174,12 +195,14 @@ export async function GET(event) {
         user.id,
         viagem.venda_id,
       );
-      const hasClienteAccess = await hasViagemAccessByCliente(
-        client,
-        scope,
-        user.id,
-        viagem.cliente_id,
-      );
+      const hasClienteAccess =
+        shouldAllowClienteFallback(scope) &&
+        (await hasViagemAccessByCliente(
+          client,
+          scope,
+          user.id,
+          viagem.cliente_id,
+        ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
         return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }
@@ -307,6 +330,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_UPDATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -321,7 +349,7 @@ export async function PATCH(event) {
     }
 
     const { id } = event.params;
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const companyIds = resolveScopedCompanyIds(scope, body.company_id);
 
     const { data: existing, error: checkError } = await client
@@ -353,12 +381,14 @@ export async function PATCH(event) {
         user.id,
         (existing as any)?.venda_id ?? null,
       );
-      const hasClienteAccess = await hasViagemAccessByCliente(
-        client,
-        scope,
-        user.id,
-        (existing as any)?.cliente_id ?? null,
-      );
+      const hasClienteAccess =
+        shouldAllowClienteFallback(scope) &&
+        (await hasViagemAccessByCliente(
+          client,
+          scope,
+          user.id,
+          (existing as any)?.cliente_id ?? null,
+        ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
         return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }
@@ -418,6 +448,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -472,12 +505,14 @@ export async function DELETE(event) {
         user.id,
         (existing as any)?.venda_id ?? null,
       );
-      const hasClienteAccess = await hasViagemAccessByCliente(
-        client,
-        scope,
-        user.id,
-        (existing as any)?.cliente_id ?? null,
-      );
+      const hasClienteAccess =
+        shouldAllowClienteFallback(scope) &&
+        (await hasViagemAccessByCliente(
+          client,
+          scope,
+          user.id,
+          (existing as any)?.cliente_id ?? null,
+        ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
         return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }

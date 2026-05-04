@@ -6,7 +6,12 @@ export function load({ locals }) {
   }
 
   const userType = String(locals.userType || '').toUpperCase();
-  if (userType.includes('GESTOR') || userType.includes('MASTER') || userType.includes('ADMIN')) {
+  if (
+    userType.includes('GESTOR') ||
+    userType.includes('MASTER') ||
+    userType.includes('FINANCEIRO') ||
+    userType.includes('ADMIN')
+  ) {
     throw redirect(302, '/negado');
   }
 

@@ -3,6 +3,8 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  NO_MATCH_COMPANY_ID,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse,
   isUuid
@@ -16,18 +18,26 @@ import {
   toNullableString
 } from '$lib/server/vendasSave';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
 // Usa sync_venda_children RPC para inserir/atualizar recibos, viagens, passageiros e pagamentos de forma atômica.
 
+const MAX_VENDA_CADASTRO_SAVE_BODY_BYTES = 512 * 1024;
+
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_CADASTRO_SAVE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const adminClient = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(adminClient, user.id);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { venda, recibos = [], pagamentos = [], orcamento_id } = body ?? {};
 
     // Validações mínimas
@@ -47,6 +57,13 @@ export async function POST(event: RequestEvent) {
     const clienteId = String(venda.cliente_id).trim();
     const vendaId = String(venda.id || '').trim();
     const isEdit = isUuid(vendaId);
+    const requestedCompanyId = String(venda.company_id || venda.empresa_id || '').trim();
+    const scopedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    let targetCompanyId = scope.isAdmin
+      ? requestedCompanyId || scope.companyId || null
+      : scopedCompanyIds.length === 1
+        ? scopedCompanyIds[0]
+        : null;
 
     // Permissão: criação = nível 2; edição = nível 3
     if (!scope.isAdmin) {
@@ -54,8 +71,12 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['vendas', 'vendas_cadastro'], moduloMin, 'Sem permissão para salvar vendas.');
     }
 
+    if (!scope.isAdmin && (scopedCompanyIds.length === 0 || scopedCompanyIds[0] === NO_MATCH_COMPANY_ID)) {
+      return json({ error: 'Empresa fora do escopo do usuario.' }, { status: 403 });
+    }
+
     // Resolver vendedor_id
-    const canAssign = scope.isGestor || scope.isMaster || scope.isAdmin;
+    const canAssign = scope.isGestor || scope.isMaster || scope.isFinanceiro || scope.isAdmin;
     const vendedorId =
       canAssign && isUuid(venda.vendedor_id) ? String(venda.vendedor_id) : scope.userId;
 
@@ -67,10 +88,51 @@ export async function POST(event: RequestEvent) {
       }
     }
 
+    const { data: sellerScope, error: sellerScopeError } = await adminClient
+      .from('users')
+      .select('id, company_id')
+      .eq('id', vendedorId)
+      .maybeSingle();
+    if (sellerScopeError) throw sellerScopeError;
+    const sellerCompanyId = String((sellerScope as any)?.company_id || '').trim() || null;
+
+    if (!targetCompanyId && sellerCompanyId && (scope.isAdmin || scopedCompanyIds.includes(sellerCompanyId))) {
+      targetCompanyId = sellerCompanyId;
+    }
+
+    if (!targetCompanyId && scopedCompanyIds.length > 1) {
+      return json({ error: 'Selecione a empresa da venda.' }, { status: 400 });
+    }
+
+    if (sellerCompanyId && targetCompanyId && sellerCompanyId !== targetCompanyId) {
+      return json({ error: 'Vendedor fora da empresa selecionada.' }, { status: 403 });
+    }
+
+    if (isEdit) {
+      let saleScopeQuery = adminClient
+        .from('vendas')
+        .select('id, company_id')
+        .eq('id', vendaId);
+      if (!scope.isAdmin && scopedCompanyIds.length > 0) {
+        saleScopeQuery = saleScopeQuery.in('company_id', scopedCompanyIds);
+      }
+      const { data: existingSale, error: existingSaleError } = await saleScopeQuery.maybeSingle();
+      if (existingSaleError) throw existingSaleError;
+      if (!existingSale?.id) {
+        return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403 });
+      }
+      const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
+      if (isUuid(existingCompanyId)) targetCompanyId = existingCompanyId;
+    }
+
+    if (!isUuid(String(targetCompanyId || ''))) {
+      return json({ error: 'Empresa da venda invalida.' }, { status: 400 });
+    }
+
     // Verificar duplicidade de recibos/reservas
     await ensureReciboReservaUnicos({
       client: adminClient,
-      companyId: scope.companyId,
+      companyId: targetCompanyId,
       clienteId,
       ignoreVendaId: isEdit ? vendaId : null,
       recibos
@@ -84,7 +146,7 @@ export async function POST(event: RequestEvent) {
         vendedorId,
         clienteId,
         String(venda.destino_id),
-        scope.companyId
+        targetCompanyId
       );
     } catch (e: any) {
       if (e?.message === 'DATA_VENDA_INVALIDA') {
@@ -127,7 +189,7 @@ export async function POST(event: RequestEvent) {
     await syncVendaChildren({
       client: adminClient,
       vendaId: vendaIdFinal,
-      companyId: scope.companyId,
+      companyId: targetCompanyId,
       clienteId,
       vendedorId,
       userId: user.id,

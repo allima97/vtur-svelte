@@ -1,12 +1,12 @@
 import { json } from '@sveltejs/kit';
 import {
-  ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { ensureClienteModuloAccess } from '$lib/server/clientes';
 
 export async function GET(event) {
   try {
@@ -15,7 +15,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['clientes', 'vendas'], 1, 'Sem acesso ao historico de avisos.');
+      ensureClienteModuloAccess(scope, 1, 'Sem acesso ao historico de avisos.');
     }
 
     const clienteId = String(event.url.searchParams.get('cliente_id') || '').trim();

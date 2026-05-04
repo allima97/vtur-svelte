@@ -13,10 +13,6 @@
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
-	"/(app)/admin/admin/fix-recibos": [
-		"src/routes/+layout.ts",
-		"src/routes/+layout.server.ts"
-	],
 	"/(app)/admin/aniversariantes": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
@@ -967,6 +963,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/comissoes": [
+		"src/routes/(app)/comissoes/+page.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -984,6 +981,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/dashboard/financeiro": [
+		"src/routes/(app)/dashboard/financeiro/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -997,6 +995,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/dashboard/logs": [
+		"src/routes/(app)/dashboard/logs/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1025,6 +1024,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro": [
+		"src/routes/(app)/financeiro/+page.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1046,6 +1046,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro/comissoes/regras": [
+		"src/routes/(app)/financeiro/comissoes/regras/+page.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1055,6 +1056,10 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro/formas-pagamento": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/financeiro/notas-fiscais": [
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

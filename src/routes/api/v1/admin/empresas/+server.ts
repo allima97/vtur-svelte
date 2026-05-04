@@ -10,6 +10,10 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
   // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active
@@ -114,6 +118,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -134,19 +143,19 @@ export async function POST(event) {
     };
 
     if (!payload.nome_fantasia) {
-      return new Response('Informe o nome da empresa.', { status: 400 });
+      return new Response('Informe o nome da empresa.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let companyId = id;
     if (companyId) {
       if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
-        return new Response('Empresa fora do escopo permitido.', { status: 403 });
+        return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
       }
       const { error: updateError } = await client.from('companies').update(payload).eq('id', companyId);
       if (updateError) throw updateError;
     } else {
       if (!scope.isAdmin) {
-        return new Response('Somente ADMIN pode criar empresas.', { status: 403 });
+        return new Response('Somente ADMIN pode criar empresas.', { status: 403, headers: NO_STORE_HEADERS });
       }
       const { data, error: insertError } = await client
         .from('companies')

@@ -5,9 +5,6 @@ import {
   logServerError,
   normalizeText,
   requireAuthenticatedUser,
-  resolveAccessibleClientIds,
-  resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse,
   getMonthRange,
@@ -21,6 +18,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 type OrcamentoRow = {
   id: string;
@@ -126,22 +124,26 @@ export async function GET(event) {
     }
 
     const searchParams = event.url.searchParams;
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, searchParams.get('vendedor_ids'));
-    const clientIds = await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: searchParams.get('company_id') || searchParams.get('empresa_id'),
+      vendedorRaw: searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
+    });
+    const companyIds = quoteScope.companyIds;
+    const creatorIds = quoteScope.creatorIds;
     
     const statusFilter = searchParams.get('status');
     const periodoFilter = getPeriodoFilter(searchParams.get('periodo'));
-    const shouldFilterByClientIds = vendedorIds.length === 0 && companyIds.length > 0;
+    const shouldFilterByCreatorIds = !quoteScope.allAccess;
+    const scopedCreatorIds = creatorIds;
 
-    if (shouldFilterByClientIds && clientIds.length === 0) {
+    if (shouldFilterByCreatorIds && scopedCreatorIds.length === 0) {
       return json([], { headers: DYNAMIC_READ_HEADERS });
     }
     const listCacheParts = {
       companyIds,
-      vendedorIds,
-      userId: shouldFilterByClientIds ? user.id : null,
-      clientScopeCount: shouldFilterByClientIds ? clientIds.length : 0,
+      vendedorIds: creatorIds,
+      userId: shouldFilterByCreatorIds ? user.id : null,
+      creatorScopeCount: shouldFilterByCreatorIds ? scopedCreatorIds.length : 0,
       periodo: searchParams.get('periodo') || null
     };
     const listCacheTags = [
@@ -149,7 +151,7 @@ export async function GET(event) {
       READ_MODEL_TAGS.clients,
       READ_MODEL_TAGS.users,
       READ_MODEL_TAGS.catalog,
-      ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id })
+      ...scopeCacheTags({ companyIds, vendedorIds: creatorIds, userId: user.id })
     ];
 
     const joinedSelect = `
@@ -168,17 +170,15 @@ export async function GET(event) {
     const fallbackSelect =
       'id, created_at, status, status_negociacao, total, currency, client_id, created_by, last_interaction_at, last_interaction_notes';
 
-    const buildQuoteQuery = (selectClause: string, clientIdsFilter?: string[]) => {
+    const buildQuoteQuery = (selectClause: string, creatorIdsFilter?: string[]) => {
       let query = client
         .from('quote')
         .select(selectClause)
         .order('created_at', { ascending: false })
         .limit(500);
 
-      if (vendedorIds.length > 0) {
-        query = query.in('created_by', vendedorIds);
-      } else if (shouldFilterByClientIds && clientIdsFilter) {
-        query = query.in('client_id', clientIdsFilter);
+      if (shouldFilterByCreatorIds && creatorIdsFilter) {
+        query = query.in('created_by', creatorIdsFilter);
       }
 
       if (periodoFilter?.from && periodoFilter?.to) {
@@ -189,12 +189,12 @@ export async function GET(event) {
     };
 
     const fetchQuoteRows = async (selectClause: string) => {
-      if (!shouldFilterByClientIds || clientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-        return buildQuoteQuery(selectClause, shouldFilterByClientIds ? clientIds : undefined);
+      if (!shouldFilterByCreatorIds || scopedCreatorIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return buildQuoteQuery(selectClause, shouldFilterByCreatorIds ? scopedCreatorIds : undefined);
       }
 
       const rows: OrcamentoRow[] = [];
-      for (const batch of chunkArray(clientIds)) {
+      for (const batch of chunkArray(scopedCreatorIds)) {
         const result = await buildQuoteQuery(selectClause, batch);
         if (result.error) {
           return { data: null, error: result.error } as typeof result;
@@ -293,7 +293,7 @@ export async function GET(event) {
       });
     }
 
-    const creatorIds = Array.from(
+    const rowCreatorIds = Array.from(
       new Set(
         ((data || []) as OrcamentoRow[])
           .map((row) => String(row.created_by || '').trim())
@@ -303,8 +303,8 @@ export async function GET(event) {
 
     const creatorMap = new Map<string, { nome: string; email: string }>();
 
-    if (creatorIds.length > 0) {
-      for (const batch of chunkArray(creatorIds)) {
+    if (rowCreatorIds.length > 0) {
+      for (const batch of chunkArray(rowCreatorIds)) {
         const { data: creators } = await client
           .from('users')
           .select('id, nome_completo, email')

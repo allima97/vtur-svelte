@@ -6,6 +6,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_DOCUMENTO_VIAGEM_CREATE_BODY_BYTES = 64 * 1024;
 
 function sanitizeFileName(name: string) {
   const base = String(name || '').trim();
@@ -20,6 +23,11 @@ function sanitizeFileName(name: string) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_DOCUMENTO_VIAGEM_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -28,7 +36,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 2, 'Sem permissao para enviar documentos.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const rawFileName = String(body?.file_name || '').trim();
     if (!rawFileName) return json({ error: 'file_name obrigatorio.' }, { status: 400 });
 

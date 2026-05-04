@@ -54,7 +54,7 @@ export async function GET(event) {
     const birthdayCompanyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
     const birthdayCompanyId = birthdayCompanyIds[0] || scope.companyId || null;
 
-    if (!scope.usoIndividual && birthdayCompanyId) {
+    if (!scope.isVendedor && birthdayCompanyId) {
       try {
         const birthdayUsers = await getCachedReadModel<any[]>({
           key: buildReadModelCacheKey('agenda:birthday-users', {

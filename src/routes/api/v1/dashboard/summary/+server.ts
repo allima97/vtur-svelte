@@ -19,6 +19,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +48,7 @@ type DashboardQuoteRow = {
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 const DASHBOARD_QUOTES_LIMIT = 20;
+const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
@@ -103,28 +105,42 @@ async function fetchGestorCompanyScopeIds(
       .filter(Boolean);
   }
 
-  let query = client
-    .from("users")
-    .select(
-      "id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name), company_id",
-    )
-    .limit(1000);
-
-  if (userIds.length === 1) {
-    query = query.eq("id", userIds[0]);
-  } else if (userIds.length > 1) {
-    query = query.in("id", userIds);
-  } else if (companyIds.length === 1) {
-    query = query.eq("company_id", companyIds[0]);
-  } else if (companyIds.length > 1) {
-    query = query.in("company_id", companyIds);
-  }
-
   try {
-    const { data, error } = await query;
-    if (error) throw error;
+    const rows: any[] = [];
+    const idBatches =
+      userIds.length > 0 ? chunkArray(userIds) : companyIds.length > 0 ? [] : [null];
+    const companyBatches =
+      userIds.length === 0 && companyIds.length > 0 ? chunkArray(companyIds) : [];
 
-    return (data || [])
+    const fetchBatch = async (filters?: { userIds?: string[] | null; companyIds?: string[] | null }) => {
+      let query = client
+        .from("users")
+        .select(
+          "id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name), company_id",
+        )
+        .limit(1000);
+
+      if (filters?.userIds && filters.userIds.length > 0) {
+        query =
+          filters.userIds.length === 1
+            ? query.eq("id", filters.userIds[0])
+            : query.in("id", filters.userIds);
+      } else if (filters?.companyIds && filters.companyIds.length > 0) {
+        query =
+          filters.companyIds.length === 1
+            ? query.eq("company_id", filters.companyIds[0])
+            : query.in("company_id", filters.companyIds);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      rows.push(...(data || []));
+    };
+
+    for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
+    for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
+
+    return rows
       .filter((row: any) => {
         if (!row?.id) return false;
         if (row?.active === false) return false;
@@ -159,21 +175,26 @@ export async function GET(event) {
       String(searchParams.get("include_orcamentos") || "1").trim() === "1";
 
     const requestedCompanyId = searchParams.get("company_id");
-    const requestedVendedorIds = parseUuidList(
-      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
-    );
+    const requestedVendedorRaw =
+      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id");
+    const hasRequestedVendedorFilter =
+      String(requestedVendedorRaw || "").trim().length > 0;
+    const requestedVendedorIds = parseUuidList(requestedVendedorRaw);
 
     const tipoNome = String(scope.tipoNome || "").toUpperCase();
     const isAdminByType = tipoNome.includes("ADMIN");
+    const isFinanceiroByType = tipoNome.includes("FINANCEIRO");
     const isGestorByType = tipoNome.includes("GESTOR");
     const isMasterByType = tipoNome.includes("MASTER");
     const responsePapel = isAdminByType
       ? "ADMIN"
       : isMasterByType
         ? "MASTER"
-        : isGestorByType
-          ? "GESTOR"
-          : "VENDEDOR";
+        : isFinanceiroByType
+          ? "FINANCEIRO"
+          : isGestorByType
+            ? "GESTOR"
+            : "VENDEDOR";
 
     let companyIds: string[] = [];
     let vendedorIds: string[] = [];
@@ -181,24 +202,46 @@ export async function GET(event) {
     if (isAdminByType) {
       companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
       vendedorIds = requestedVendedorIds;
+    } else if (isFinanceiroByType) {
+      companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+      const allowedFinanceiroIds = await fetchGestorCompanyScopeIds(client, {
+        companyIds,
+      });
+
+      vendedorIds =
+        hasRequestedVendedorFilter
+          ? requestedVendedorIds.filter((id) =>
+              allowedFinanceiroIds.includes(id),
+            )
+          : [];
+      if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
+        vendedorIds = [NO_MATCH_USER_ID];
+      }
     } else if (isGestorByType) {
       companyIds = scope.companyId
         ? [scope.companyId]
         : resolveScopedCompanyIds(scope, requestedCompanyId);
+      const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
+        companyIds,
+      });
       vendedorIds =
-        requestedVendedorIds.length > 0
-          ? requestedVendedorIds
-          : await fetchGestorCompanyScopeIds(client, { companyIds });
+        hasRequestedVendedorFilter
+          ? requestedVendedorIds.filter((id) => allowedGestorIds.includes(id))
+          : allowedGestorIds;
+      if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
+        vendedorIds = [NO_MATCH_USER_ID];
+      }
     } else if (isMasterByType) {
       companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
       const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
 
-      if (requestedVendedorIds.length > 0) {
+      if (hasRequestedVendedorFilter) {
         vendedorIds = requestedVendedorIds.filter((id) =>
           allowedMasterIds.includes(id),
         );
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = allowedMasterIds;
       }
@@ -235,7 +278,8 @@ export async function GET(event) {
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
       loader: async () => {
-        const accessibleClientIds = !scope.isAdmin
+        const accessibleClientIds =
+          !scope.isAdmin && vendedorIds.length === 0 && companyIds.length === 0
           ? await resolveAccessibleClientIds(client, {
               companyIds,
               vendedorIds,
@@ -313,21 +357,32 @@ export async function GET(event) {
         // -------------------------------------------------------------------------
         // 5. Metas
         // -------------------------------------------------------------------------
-        let metasQuery = client
-          .from("metas_vendedor")
-          .select(
-            "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
-          )
-          .eq("ativo", true)
-          .gte("periodo", inicio)
-          .lte("periodo", fim)
-          .limit(500);
+        const buildMetasQuery = () =>
+          client
+            .from("metas_vendedor")
+            .select(
+              "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
+            )
+            .eq("ativo", true)
+            .gte("periodo", inicio)
+            .lte("periodo", fim)
+            .limit(500);
 
-        if (vendedorIds.length > 0)
-          metasQuery = metasQuery.in("vendedor_id", vendedorIds);
-
-        const { data: metasData, error: metasError } = await metasQuery;
-        if (metasError) throw metasError;
+        let metasData: any[] = [];
+        if (vendedorIds.length > 0) {
+          for (const vendedorBatch of chunkArray(vendedorIds)) {
+            const { data, error: metasError } = await buildMetasQuery().in(
+              "vendedor_id",
+              vendedorBatch,
+            );
+            if (metasError) throw metasError;
+            metasData.push(...(data || []));
+          }
+        } else {
+          const { data, error: metasError } = await buildMetasQuery();
+          if (metasError) throw metasError;
+          metasData = data || [];
+        }
 
         // -------------------------------------------------------------------------
         // 6. Orçamentos
@@ -374,11 +429,10 @@ export async function GET(event) {
           if (vendedorIds.length > 0) {
             orcamentos = await fetchQuotesByIds("created_by", vendedorIds);
           } else if (companyIds.length > 0) {
-            const clientIds = await resolveAccessibleClientIds(client, {
+            const creatorIds = await fetchGestorCompanyScopeIds(client, {
               companyIds,
-              vendedorIds: [],
             });
-            orcamentos = await fetchQuotesByIds("client_id", clientIds);
+            orcamentos = await fetchQuotesByIds("created_by", creatorIds);
           } else {
             const { data: quotesData, error: quotesError } = await buildQuotesQuery();
             if (quotesError) throw quotesError;
@@ -439,12 +493,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload, {
-      headers: {
-        "Cache-Control": "private, max-age=5, stale-while-revalidate=20",
-        Vary: "Cookie",
-      },
-    });
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar dashboard.");
   }

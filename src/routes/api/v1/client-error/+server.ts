@@ -1,28 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
+import { isSameOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_FIELD_CHARS = 1200;
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
-
-function isSameOriginRequest(request: Request) {
-  const requestUrl = new URL(request.url);
-  const origin = request.headers.get('origin');
-  if (origin) {
-    try {
-      return new URL(origin).origin === requestUrl.origin;
-    } catch {
-      return false;
-    }
-  }
-
-  const fetchSite = request.headers.get('sec-fetch-site');
-  if (!fetchSite) return true;
-  return ['same-origin', 'same-site', 'none'].includes(fetchSite);
-}
 
 function trimField(value: unknown) {
   const text = String(value ?? '').trim();

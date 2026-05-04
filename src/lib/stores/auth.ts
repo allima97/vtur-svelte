@@ -103,15 +103,23 @@ export const userEmpresa = derived(
 
 export const isSystemAdmin = derived(
   userType,
-  $type => $type === 'ADMIN' || $type === 'ADMINISTRADOR'
+  $type => String($type || '').toUpperCase().includes('ADMIN')
 );
 
 export const isGestor = derived(
   userType,
-  $type => $type === 'GESTOR' || $type === 'ADMIN' || $type === 'ADMINISTRADOR'
+  $type => {
+    const type = String($type || '').toUpperCase();
+    return type.includes('GESTOR') || type.includes('ADMIN');
+  }
 );
 
 export const isMaster = derived(
   userType,
-  $type => $type === 'MASTER'
+  $type => String($type || '').toUpperCase().includes('MASTER')
+);
+
+export const isFinanceiro = derived(
+  userType,
+  $type => String($type || '').toUpperCase().includes('FINANCEIRO')
 );

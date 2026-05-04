@@ -42,7 +42,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
@@ -85,7 +85,7 @@ export async function GET(event) {
 
     // Ownership check
     const reciboCompany = (reciboData as any)?.vendas?.company_id;
-    if (!scope.isAdmin && companyIds.length > 0 && !companyIds.includes(reciboCompany)) {
+    if (!scope.isAdmin && (!reciboCompany || companyIds.length === 0 || !companyIds.includes(reciboCompany))) {
       return json({ error: 'Recibo fora do escopo.' }, { status: 403 });
     }
 

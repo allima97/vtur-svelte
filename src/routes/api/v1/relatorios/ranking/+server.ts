@@ -24,6 +24,17 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 
+const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
   const previousEnd = addDaysISODate(dataInicio, -1);
@@ -81,6 +92,16 @@ function getMonthRangeFromKey(monthKey: string) {
   return monthRangeFromKey(monthKey);
 }
 
+function hasExplicitVendedorFilter(value?: string | null) {
+  const normalized = String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+
+  return Boolean(normalized) && !["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"].includes(normalized);
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -115,9 +136,11 @@ export async function GET(event) {
       dataInicio = mesRange.inicio;
       dataFim = mesRange.fim;
     }
-    const explicitRequestedVendedorIds = parseUuidList(
-      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
-    );
+    const requestedVendedorRaw =
+      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id");
+    const hasRequestedVendedorFilter =
+      hasExplicitVendedorFilter(requestedVendedorRaw);
+    const explicitRequestedVendedorIds = parseUuidList(requestedVendedorRaw);
     const companyIds = resolveScopedCompanyIds(
       scope,
       searchParams.get("empresa_id"),
@@ -127,7 +150,10 @@ export async function GET(event) {
     const isGestorByType = tipoNome.includes("GESTOR");
     const isMasterByType = tipoNome.includes("MASTER");
 
-    let vendedorIds = explicitRequestedVendedorIds;
+    let vendedorIds =
+      hasRequestedVendedorFilter && explicitRequestedVendedorIds.length === 0
+        ? [NO_MATCH_USER_ID]
+        : explicitRequestedVendedorIds;
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
     if (
@@ -144,17 +170,22 @@ export async function GET(event) {
         .map((row: any) => String(row?.id || "").trim())
         .filter(Boolean);
 
-      if (explicitRequestedVendedorIds.length > 0) {
+      if (hasRequestedVendedorFilter) {
         const permitidos = new Set(companyEligibleIds);
         vendedorIds = explicitRequestedVendedorIds.filter((id) =>
           permitidos.has(id),
         );
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = companyEligibleIds;
       }
     }
 
-    if (vendedorIds.length === 0 && companyIds.length > 0) {
+    if (
+      !hasRequestedVendedorFilter &&
+      vendedorIds.length === 0 &&
+      companyIds.length > 0
+    ) {
       const companyUsers = await fetchRankingVendedoresByCompanyIds(
         client,
         companyIds,
@@ -181,25 +212,36 @@ export async function GET(event) {
         ttlMs: 15_000,
         staleTtlMs: 60_000,
         loader: async () => {
-          let teamUsersQuery = client
-            .from("users")
-            .select(
-              "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
-            )
-            .in("id", vendedorIds)
-            .eq("active", true)
-            .limit(5000);
+          const rows: any[] = [];
+          const vendedorBatches = chunkArray(vendedorIds);
+          const companyBatches =
+            companyIds.length > 0 ? chunkArray(companyIds) : [null];
 
-          // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
-          if (companyIds.length === 1) {
-            teamUsersQuery = teamUsersQuery.eq("company_id", companyIds[0]);
-          } else if (companyIds.length > 1) {
-            teamUsersQuery = teamUsersQuery.in("company_id", companyIds);
+          for (const vendedorBatch of vendedorBatches) {
+            for (const companyBatch of companyBatches) {
+              let teamUsersQuery = client
+                .from("users")
+                .select(
+                  "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
+                )
+                .in("id", vendedorBatch)
+                .eq("active", true)
+                .limit(5000);
+
+              // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
+              if (companyBatch?.length === 1) {
+                teamUsersQuery = teamUsersQuery.eq("company_id", companyBatch[0]);
+              } else if (companyBatch && companyBatch.length > 1) {
+                teamUsersQuery = teamUsersQuery.in("company_id", companyBatch);
+              }
+
+              const { data, error: teamUsersError } = await teamUsersQuery;
+              if (teamUsersError) throw teamUsersError;
+              rows.push(...(data || []));
+            }
           }
 
-          const { data, error: teamUsersError } = await teamUsersQuery;
-          if (teamUsersError) throw teamUsersError;
-          return data || [];
+          return rows;
         },
       });
 
@@ -272,16 +314,20 @@ export async function GET(event) {
         ttlMs: 30_000,
         staleTtlMs: 120_000,
         loader: async () => {
-          const { data, error: parametrosError } = await client
-            .from("parametros_comissao")
-            .select(
-              "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
-            )
-            .in("company_id", companyIds)
-            .limit(1000);
+          const rows: any[] = [];
+          for (const companyBatch of chunkArray(companyIds)) {
+            const { data, error: parametrosError } = await client
+              .from("parametros_comissao")
+              .select(
+                "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
+              )
+              .in("company_id", companyBatch)
+              .limit(1000);
 
-          if (parametrosError) throw parametrosError;
-          return data || [];
+            if (parametrosError) throw parametrosError;
+            rows.push(...(data || []));
+          }
+          return rows;
         },
       });
 
@@ -360,20 +406,26 @@ export async function GET(event) {
           ttlMs: 10_000,
           staleTtlMs: 45_000,
           loader: async () => {
-            let query = client
-              .from("quote")
-              .select("id, created_by, total")
-              .gte("created_at", `${dataInicio}T00:00:00`)
-              .lte("created_at", `${dataFim}T23:59:59.999`)
-              .limit(5000);
+            const rows: any[] = [];
+            const vendedorBatches =
+              vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+            for (const vendedorBatch of vendedorBatches) {
+              let query = client
+                .from("quote")
+                .select("id, created_by, total")
+                .gte("created_at", `${dataInicio}T00:00:00`)
+                .lte("created_at", `${dataFim}T23:59:59.999`)
+                .limit(5000);
 
-            if (vendedorIds.length > 0) {
-              query = query.in("created_by", vendedorIds);
+              if (vendedorBatch) {
+                query = query.in("created_by", vendedorBatch);
+              }
+
+              const { data, error } = await query;
+              if (error) throw error;
+              rows.push(...(data || []));
             }
-
-            const { data, error } = await query;
-            if (error) throw error;
-            return data || [];
+            return rows;
           },
         }),
         getCachedReadModel({
@@ -391,26 +443,32 @@ export async function GET(event) {
           loader: async () => {
             const metasReference =
               getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
-            let query = client
-              .from("metas_vendedor")
-              .select(
-                "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
-              )
-              .eq("ativo", true)
-              .gte("periodo", metasReference.inicio)
-              .lte("periodo", metasReference.fim)
-              .limit(1000);
+            const rows: any[] = [];
+            const vendedorBatches =
+              vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+            for (const vendedorBatch of vendedorBatches) {
+              let query = client
+                .from("metas_vendedor")
+                .select(
+                  "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
+                )
+                .eq("ativo", true)
+                .gte("periodo", metasReference.inicio)
+                .lte("periodo", metasReference.fim)
+                .limit(1000);
 
-            if (vendedorIds.length > 0) {
-              query = query.in("vendedor_id", vendedorIds);
-            }
+              if (vendedorBatch) {
+                query = query.in("vendedor_id", vendedorBatch);
+              }
 
-            const { data, error } = await query;
-            if (error) {
-              logServerError("[ranking] Erro ao buscar metas", error);
-              return [];
+              const { data, error } = await query;
+              if (error) {
+                logServerError("[ranking] Erro ao buscar metas", error);
+                return [];
+              }
+              rows.push(...(data || []));
             }
-            return data || [];
+            return rows;
           },
         }),
       ]);
@@ -561,21 +619,23 @@ export async function GET(event) {
       .map((item) => item.vendedor_id);
 
     if (missingNameIds.length > 0) {
-      const { data: usersData, error: usersError } = await client
-        .from("users")
-        .select("id, nome_completo, email")
-        .in("id", missingNameIds);
+      for (const idBatch of chunkArray(missingNameIds)) {
+        const { data: usersData, error: usersError } = await client
+          .from("users")
+          .select("id, nome_completo, email")
+          .in("id", idBatch);
 
-      if (usersError) throw usersError;
+        if (usersError) throw usersError;
 
-      (usersData || []).forEach((row: any) => {
-        const key = String(row.id || "").trim();
-        const current = rankingMap.get(key);
-        if (!current) return;
-        current.vendedor_nome = String(
-          row.nome_completo || row.email || current.vendedor_nome,
-        );
-      });
+        (usersData || []).forEach((row: any) => {
+          const key = String(row.id || "").trim();
+          const current = rankingMap.get(key);
+          if (!current) return;
+          current.vendedor_nome = String(
+            row.nome_completo || row.email || current.vendedor_nome,
+          );
+        });
+      }
     }
 
     let items = Array.from(rankingMap.values())

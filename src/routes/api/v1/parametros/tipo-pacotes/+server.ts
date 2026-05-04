@@ -6,8 +6,12 @@ import {
   normalizeText,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
 
 function parseDecimal(value: any) {
   if (value === null || value === undefined) return null;
@@ -51,6 +55,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_TIPO_PACOTES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -59,17 +68,18 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros'], 2, 'Sem permissão para salvar tipos de pacote.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta } = body;
 
-    const nomeTrimmed = String(nome || '').trim();
+    const nomeTrimmed = String(nome || '').trim().slice(0, 120);
     if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    const nomeBusca = sanitizePostgrestSearchTerm(nomeTrimmed, 120);
 
     // Verifica duplicata
     const { data: existing } = await client
       .from('tipo_pacotes')
       .select('id')
-      .ilike('nome', nomeTrimmed)
+      .ilike('nome', nomeBusca || nomeTrimmed)
       .limit(1);
 
     if (existing && existing.length > 0 && existing[0].id !== id) {
@@ -112,6 +122,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

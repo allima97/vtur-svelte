@@ -3,6 +3,7 @@ import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
@@ -13,8 +14,8 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     const companyId = scope.companyId;
-    const tipo = event.url.searchParams.get('tipo') || null;
-    const q = event.url.searchParams.get('q') || '';
+    const tipo = String(event.url.searchParams.get('tipo') || '').trim().slice(0, 60) || null;
+    const q = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'), 80);
 
     let query = client
       .from('roteiro_sugestoes')
@@ -29,7 +30,7 @@ export async function GET(event: RequestEvent) {
     }
 
     if (tipo) query = query.eq('tipo', tipo);
-    if (q) query = query.ilike('valor', `%${q}%`);
+    if (q.length >= 2) query = query.ilike('valor', `%${q}%`);
 
     const { data, error } = await query;
     if (error) throw error;

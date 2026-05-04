@@ -6,6 +6,9 @@ import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/se
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CONVITE_SEND_BODY_BYTES = 64 * 1024;
 
 function noStoreJson(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -141,6 +144,11 @@ async function enviarEmailSendGrid(params: {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_CONVITE_SEND_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const user = await requireAuthenticatedUser({ locals } as any);
     const adminClient = getAdminClient();
 

@@ -3,7 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -30,15 +30,14 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
     const { searchParams } = event.url;
-    const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
-    const companyId = companyIds[0] || scope.companyId;
+    const companyId = resolveScopedCompanyId(scope, searchParams.get('company_id'));
 
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para verificar a conciliação.' }, { status: 400 });
 
     const diagnostico = await diagnosticarLacunasCronologicas({ client, companyId });
 

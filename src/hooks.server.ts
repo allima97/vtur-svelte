@@ -19,7 +19,7 @@ import {
 } from '$lib/server/admin';
 import { hasVerifiedTotpFactor, normalizeMfaRedirectPath } from '$lib/server/authMfa';
 import { resolveDashboardPathByUserType } from '$lib/server/dashboardRedirect';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 
 const permLevel = (p?: string | null): number => {
@@ -108,6 +108,7 @@ function isDashboardCanonicalRoute(pathname: string) {
 		pathname === '/dashboard/geral' ||
 		pathname === '/dashboard/vendedor' ||
 		pathname === '/dashboard/gestor' ||
+		pathname === '/dashboard/financeiro' ||
 		pathname === '/dashboard/master'
 	);
 }
@@ -220,8 +221,8 @@ function findPublicApiRateLimit(pathname: string, method: string) {
 	});
 }
 
-function checkPublicApiRateLimit(event: Parameters<Handle>[0]['event'], rule: RateLimitRule) {
-	const result = checkRateLimit(`public-api:${rule.prefix}:${resolveClientAddress(event)}`, {
+async function checkPublicApiRateLimit(event: Parameters<Handle>[0]['event'], rule: RateLimitRule) {
+	const result = await checkPersistentRateLimit('public-api', `${rule.prefix}:${resolveClientAddress(event)}`, {
 		max: rule.limit,
 		windowMs: rule.windowMs
 	});
@@ -394,7 +395,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isApiPublic = apiPublicRoutes.some((route) => pathMatchesPrefix(pathname, route));
 		if (isApiPublic) {
 			const rateLimitRule = findPublicApiRateLimit(pathname, event.request.method);
-			const retryAfter = rateLimitRule ? checkPublicApiRateLimit(event, rateLimitRule) : null;
+			const retryAfter = rateLimitRule ? await checkPublicApiRateLimit(event, rateLimitRule) : null;
 			if (retryAfter) {
 				return new Response(JSON.stringify({ error: 'Muitas tentativas. Aguarde e tente novamente.' }), {
 					status: 429,
@@ -680,9 +681,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		pathMatchesPrefix(pathname, '/perfil') ||
 		pathMatchesPrefix(pathname, '/negado') ||
 		pathMatchesPrefix(pathname, '/documentacao') ||
-		// Dashboard é acessível a qualquer usuário autenticado — sem verificação de módulo
+		// Dashboards canônicos são acessíveis a qualquer usuário autenticado; rotas
+		// administrativas sob /dashboard/* continuam passando pela checagem de módulo.
 		pathname === '/' ||
-		pathMatchesPrefix(pathname, '/dashboard')
+		isDashboardCanonicalRoute(normalizedPathname)
 	) {
 		return resolve(event);
 	}

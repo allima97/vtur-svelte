@@ -14,13 +14,22 @@ import {
   invalidateClientReadModels,
   invalidateTripReadModels,
 } from "$lib/server/readModelCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+
+const MAX_VIAGEM_DOSSIE_BODY_BYTES = 512 * 1024;
+
+function vendedorOwnsViagem(userId: string, viagem: any) {
+  const responsavelId = String(viagem?.responsavel_user_id || "").trim();
+  const vendedorId = String(viagem?.venda?.vendedor_id || "").trim();
+  return responsavelId === userId || vendedorId === userId;
+}
 
 async function loadDossie(
   client: any,
   viagemId: string,
   companyId: string,
   userId: string,
-  usoIndividual: boolean,
+  isVendedor: boolean,
 ) {
   let query = client
     .from("viagens")
@@ -42,6 +51,7 @@ async function loadDossie(
       follow_up_fechado,
       venda:vendas (
         id,
+        vendedor_id,
         cliente_id,
         destino_id,
         clientes:clientes (id, nome),
@@ -98,18 +108,18 @@ async function loadDossie(
     .eq("id", viagemId)
     .eq("company_id", companyId);
 
-  if (usoIndividual) {
-    query = query.eq("responsavel_user_id", userId);
-  }
-
   const { data: detalhe, error } = await query.maybeSingle();
   if (error) throw error;
   if (!detalhe) return null;
+  if (isVendedor && !vendedorOwnsViagem(userId, detalhe)) return null;
+
   const statusAtual = await syncViagemStatusIfNeeded(client, detalhe as any);
   (detalhe as any).status = statusAtual;
 
   let viagensVenda: any[] = [];
   if (detalhe?.venda_id) {
+    const ownsVenda =
+      String((detalhe as any)?.venda?.vendedor_id || "").trim() === userId;
     let viagensQuery = client
       .from("viagens")
       .select(
@@ -117,7 +127,7 @@ async function loadDossie(
       )
       .eq("venda_id", detalhe.venda_id)
       .eq("company_id", companyId);
-    if (usoIndividual) {
+    if (isVendedor && !ownsVenda) {
       viagensQuery = viagensQuery.eq("responsavel_user_id", userId);
     }
     const { data } = await viagensQuery;
@@ -144,6 +154,11 @@ async function loadDossie(
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_DOSSIE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -157,7 +172,7 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const viagemId = String(body?.viagemId || "").trim();
     const action = String(body?.action || "").trim();
     const data = body?.data || {};
@@ -167,15 +182,18 @@ export async function POST(event: RequestEvent) {
 
     let baseQuery = client
       .from("viagens")
-      .select("id, company_id, venda_id, cliente_id, responsavel_user_id")
+      .select(
+        "id, company_id, venda_id, cliente_id, responsavel_user_id, venda:vendas!venda_id(id, vendedor_id)",
+      )
       .eq("id", viagemId)
       .eq("company_id", scope.companyId || "");
-    if (scope.usoIndividual)
-      baseQuery = baseQuery.eq("responsavel_user_id", user.id);
     const { data: viagemRow, error: viagemErr } = await baseQuery.maybeSingle();
     if (viagemErr) throw viagemErr;
     if (!viagemRow)
       return json({ error: "Viagem nao encontrada." }, { status: 404 });
+    if (scope.isVendedor && !vendedorOwnsViagem(user.id, viagemRow)) {
+      return json({ error: "Sem acesso a esta viagem." }, { status: 403 });
+    }
 
     if (action === "acompanhante_save") {
       const payload = {
@@ -286,7 +304,10 @@ export async function POST(event: RequestEvent) {
       updateQuery = viagemRow.venda_id
         ? updateQuery.eq("venda_id", viagemRow.venda_id)
         : updateQuery.eq("id", viagemRow.id);
-      if (scope.usoIndividual)
+      const ownsVenda =
+        String((viagemRow as any)?.venda?.vendedor_id || "").trim() ===
+        user.id;
+      if (scope.isVendedor && !ownsVenda)
         updateQuery = updateQuery.eq("responsavel_user_id", user.id);
       const { error } = await updateQuery;
       if (error) throw error;
@@ -313,7 +334,7 @@ export async function POST(event: RequestEvent) {
       viagemId,
       viagemRow.company_id,
       user.id,
-      scope.usoIndividual,
+      scope.isVendedor,
     );
     if (!loaded)
       return json({ error: "Viagem nao encontrada." }, { status: 404 });

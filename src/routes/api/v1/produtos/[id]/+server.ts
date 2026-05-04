@@ -2,6 +2,9 @@ import { json, error } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoById, sanitizeProdutoPayload } from '$lib/server/cadastros-base';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PRODUTO_UPDATE_BODY_BYTES = 128 * 1024;
 
 export async function GET(event) {
   try {
@@ -27,6 +30,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PRODUTO_UPDATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -38,7 +46,7 @@ export async function PATCH(event) {
     const id = String(event.params.id || '').trim();
     if (!id) throw error(400, 'ID do produto é obrigatório.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const payload = sanitizeProdutoPayload(body);
 
     if (!payload.nome) {
@@ -79,6 +87,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

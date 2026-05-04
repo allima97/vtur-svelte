@@ -1,13 +1,22 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 
+const MAX_ROTEIRO_SUGESTAO_BODY_BYTES = 16 * 1024;
+
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_SUGESTAO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -17,9 +26,11 @@ export async function POST(event: RequestEvent) {
       return new Response('Dados invalidos.', { status: 400 });
     }
 
-    const tipo = String(body.tipo).trim();
-    const valor = String(body.valor).trim();
+    const tipo = String(body.tipo).trim().slice(0, 60);
+    const valor = String(body.valor).trim().slice(0, 160);
     if (!tipo || !valor) return new Response('Dados invalidos.', { status: 400 });
+    const valorBusca = sanitizePostgrestSearchTerm(valor, 160);
+    if (!valorBusca) return new Response('Dados invalidos.', { status: 400 });
 
     const companyId = scope.companyId;
 
@@ -29,7 +40,7 @@ export async function POST(event: RequestEvent) {
       .select('id, uso_count')
       .eq('company_id', companyId)
       .eq('tipo', tipo)
-      .ilike('valor', valor)
+      .ilike('valor', valorBusca)
       .maybeSingle();
 
     if (existing) {

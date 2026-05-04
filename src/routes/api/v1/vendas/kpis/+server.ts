@@ -14,6 +14,8 @@ import {
 import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
+const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -29,8 +31,10 @@ export async function GET(event) {
     const fim = String(searchParams.get('fim') || '').trim();
     const requestedCompanyId = searchParams.get('empresa_id') || searchParams.get('company_id');
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
+    const hasRequestedVendedorFilter = String(requestedVendedorRaw || '').trim().length > 0;
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const isAdminByType = tipoNome.includes('ADMIN');
+    const isFinanceiroByType = tipoNome.includes('FINANCEIRO');
     const isGestorByType = tipoNome.includes('GESTOR');
     const isMasterByType = tipoNome.includes('MASTER');
 
@@ -41,12 +45,29 @@ export async function GET(event) {
       vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     } else if (isGestorByType) {
       companyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, requestedCompanyId);
-      vendedorIds = [];
+      if (hasRequestedVendedorFilter) {
+        const requestedIds = parseUuidList(requestedVendedorRaw);
+        const allGestorVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
+        vendedorIds = requestedIds.filter((id) => allGestorVendedores.includes(id));
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
+      } else {
+        vendedorIds = [];
+      }
+    } else if (isFinanceiroByType) {
+      const requestedIds = parseUuidList(requestedVendedorRaw);
+      if (hasRequestedVendedorFilter) {
+        const allFinanceiroVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
+        vendedorIds = requestedIds.filter((id) => allFinanceiroVendedores.includes(id));
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
+      } else {
+        vendedorIds = [];
+      }
     } else if (isMasterByType) {
       const requestedIds = parseUuidList(requestedVendedorRaw);
-      if (requestedIds.length > 0) {
+      if (hasRequestedVendedorFilter) {
         const allMasterVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
         vendedorIds = requestedIds.filter((id) => allMasterVendedores.includes(id));
+        if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = [];
       }
@@ -54,7 +75,12 @@ export async function GET(event) {
       vendedorIds = [scope.userId];
     }
 
-    const accessibleClientIds = !scope.isAdmin && !isMasterByType && !isGestorByType
+    const accessibleClientIds = !scope.isAdmin &&
+      !isMasterByType &&
+      !isFinanceiroByType &&
+      !isGestorByType &&
+      vendedorIds.length === 0 &&
+      companyIds.length === 0
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 

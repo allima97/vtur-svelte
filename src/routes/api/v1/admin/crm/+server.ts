@@ -7,7 +7,11 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
+
+const MAX_ADMIN_CRM_BODY_BYTES = 256 * 1024;
 
 export async function GET(event) {
   try {
@@ -40,14 +44,17 @@ export async function GET(event) {
       .order('nome')
       .limit(200);
 
-    return json({
-      categorias: categorias || [],
-      temas: (temas || []).map((tema) => ({
-        ...tema,
-        asset_url: resolveThemeAssetMeta(tema).asset_url
-      })),
-      templates: templates || []
-    });
+    return json(
+      {
+        categorias: categorias || [],
+        temas: (temas || []).map((tema) => ({
+          ...tema,
+          asset_url: resolveThemeAssetMeta(tema).asset_url
+        })),
+        templates: templates || []
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar CRM Admin.');
   }
@@ -55,6 +62,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_CRM_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -63,7 +75,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['admin', 'parametros_avisos', 'avisos', 'parametros'], 3, 'Sem permissão para editar CRM Admin.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { entity, action, data: payload, id } = body;
 
     const tableMap: Record<string, string> = {
@@ -73,13 +85,13 @@ export async function POST(event) {
     };
 
     const table = tableMap[entity];
-    if (!table) return json({ error: 'Entidade inválida.' }, { status: 400 });
+    if (!table) return json({ error: 'Entidade inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     if (action === 'delete') {
-      if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+      if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
       const { error: deleteError } = await client.from(table).delete().eq('id', id);
       if (deleteError) throw deleteError;
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'upsert') {
@@ -90,10 +102,10 @@ export async function POST(event) {
         const { error: insertError } = await client.from(table).insert(payload);
         if (insertError) throw insertError;
       }
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    return json({ error: 'Ação inválida.' }, { status: 400 });
+    return json({ error: 'Ação inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar CRM Admin.');
   }

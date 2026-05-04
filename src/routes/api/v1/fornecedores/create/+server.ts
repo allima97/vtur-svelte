@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -9,8 +10,15 @@ import {
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
+const MAX_FORNECEDOR_CREATE_BODY_BYTES = 128 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_FORNECEDOR_CREATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -19,7 +27,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Fornecedores'], 2, 'Sem permissão para criar fornecedores.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const payload = sanitizeFornecedorPayload(body, scope);
 
     if (!payload.company_id) {

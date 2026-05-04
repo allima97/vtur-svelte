@@ -1,18 +1,25 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
+
+const MAX_ORCAMENTO_INTERACAO_BODY_BYTES = 32 * 1024;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_INTERACAO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -26,15 +33,19 @@ export async function POST(event) {
       return json({ error: 'Quote ID invalido.' }, { status: 400 });
     }
 
-    const companyIds = resolveScopedCompanyIds(scope, null);
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
+    });
 
-    // quote usa created_by (FK auth.users), entao o ownership e aplicado por vendedor.
-    let checkQuery = client.from('quote').select('id').eq('id', quoteId);
-    if (vendedorIds.length > 0) checkQuery = checkQuery.in('created_by', vendedorIds);
-    if (!scope.isAdmin && vendedorIds.length === 0) checkQuery = checkQuery.eq('created_by', user.id);
-    const { data: quote } = await checkQuery.maybeSingle();
-    if (!quote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    const { data: quote, error: quoteError } = await client
+      .from('quote')
+      .select('id, created_by')
+      .eq('id', quoteId)
+      .maybeSingle();
+    if (quoteError) throw quoteError;
+    if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    }
 
     const body = await event.request.json().catch(() => ({}));
     const updateData: Record<string, any> = {
@@ -44,21 +55,17 @@ export async function POST(event) {
     };
     if (body.status) updateData.status_negociacao = body.status;
 
-    let updateQuery = client
+    const { data, error } = await client
       .from('quote')
       .update(updateData)
-      .eq('id', quoteId);
-    if (vendedorIds.length > 0) updateQuery = updateQuery.in('created_by', vendedorIds);
-    if (!scope.isAdmin && vendedorIds.length === 0) updateQuery = updateQuery.eq('created_by', user.id);
-
-    const { data, error } = await updateQuery
+      .eq('id', quoteId)
       .select('id, status_negociacao, last_interaction_at, last_interaction_notes')
       .single();
     if (error) throw error;
 
     invalidateQuoteReadModels({
-      companyIds,
-      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      companyIds: quoteScope.companyIds,
+      vendedorIds: quoteScope.creatorIds.length > 0 ? quoteScope.creatorIds : [user.id],
       userId: user.id
     });
 
@@ -83,18 +90,19 @@ export async function GET(event) {
       return json({ error: 'Quote ID invalido.' }, { status: 400 });
     }
 
-    const companyIds = resolveScopedCompanyIds(scope, null);
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
+    });
 
-    let query = client
+    const { data, error } = await client
       .from('quote')
-      .select('id, status_negociacao, last_interaction_at, last_interaction_notes, updated_at')
-      .eq('id', quoteId);
-    if (vendedorIds.length > 0) query = query.in('created_by', vendedorIds);
-    if (!scope.isAdmin && vendedorIds.length === 0) query = query.eq('created_by', user.id);
-
-    const { data, error } = await query.maybeSingle();
+      .select('id, created_by, status_negociacao, last_interaction_at, last_interaction_notes, updated_at')
+      .eq('id', quoteId)
+      .maybeSingle();
     if (error) throw error;
+    if (!data || !isQuoteCreatorAllowed(quoteScope, data.created_by)) {
+      return json({ success: true, interacoes: [] });
+    }
 
     const interacoes = data?.last_interaction_at ? [{
       id: data.id,

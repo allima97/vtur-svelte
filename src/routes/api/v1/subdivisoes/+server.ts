@@ -15,6 +15,9 @@ import {
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_SUBDIVISOES_BODY_BYTES = 64 * 1024;
 
 export async function GET(event) {
   try {
@@ -27,10 +30,11 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
-    const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
+    const rawQ = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
+    const q = rawQ.length >= 2 ? rawQ : '';
     const paisId = String(searchParams.get('pais_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
-    const pageSize = Math.min(2000, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 2000)));
+    const pageSize = Math.min(200, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 100)));
 
     const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
       key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
@@ -67,6 +71,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_SUBDIVISOES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -75,7 +84,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Subdivisoes'], 2, 'Sem permissão para salvar estados.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { id, nome, pais_id, codigo_admin1, tipo } = body;
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
@@ -108,6 +117,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

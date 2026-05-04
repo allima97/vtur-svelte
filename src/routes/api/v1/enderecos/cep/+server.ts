@@ -1,9 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
-
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
 
 type ViaCepResponse = {
   cep?: string;

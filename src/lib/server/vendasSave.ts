@@ -112,14 +112,23 @@ export async function ensureAssignableActiveSeller(
   const vendedorCompanyId = String(vendedor?.company_id || "").trim() || null;
 
   if (scope.isAdmin) return null;
-  if (scope.usoIndividual && vendedorId !== scope.userId)
-    return "Uso individual: vendedor invalido.";
+  if (scope.isVendedor && vendedorId !== scope.userId)
+    return "Vendedor nao pode atribuir venda para outro usuario.";
 
   if (scope.isMaster) {
     if (Boolean(vendedor?.uso_individual))
       return "Master so pode atribuir vendas para usuarios corporativos ativos.";
     if (!vendedorCompanyId || !scope.companyIds.includes(vendedorCompanyId)) {
       return "Vendedor fora do escopo das empresas do master.";
+    }
+    return null;
+  }
+
+  if (scope.isFinanceiro) {
+    if (Boolean(vendedor?.uso_individual))
+      return "Financeiro so pode editar vendas de usuarios corporativos ativos.";
+    if (!vendedorCompanyId || !scope.companyIds.includes(vendedorCompanyId)) {
+      return "Vendedor fora do escopo das empresas do financeiro.";
     }
     return null;
   }

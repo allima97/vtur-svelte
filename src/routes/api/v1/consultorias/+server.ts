@@ -1,6 +1,10 @@
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
+import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
@@ -11,6 +15,8 @@ import { invalidateConsultoriaReadModels } from "$lib/server/readModelCache";
 
 // Espelha: vtur-app/src/pages/api/consultorias/
 // Tabela: consultorias_online
+
+const MAX_CONSULTORIA_BODY_BYTES = 64 * 1024;
 
 export async function GET(event: RequestEvent) {
   try {
@@ -63,6 +69,11 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_CONSULTORIA_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     await resolveUserScope(client, user.id);
@@ -132,6 +143,11 @@ export async function POST(event: RequestEvent) {
 
 export async function PATCH(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_CONSULTORIA_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

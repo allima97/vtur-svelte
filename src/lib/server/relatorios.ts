@@ -10,6 +10,19 @@ import {
 
 const SALES_REPORT_PAGE_SIZE = 1000;
 const SALES_REPORT_MAX_ROWS = 50_000;
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function filterBatches(values: string[]) {
+  return values.length > 0 ? chunkArray(values) : [[]];
+}
 
 export type ReportReceiptRow = {
   id?: string | null;
@@ -259,47 +272,58 @@ export async function fetchSalesReportRows(
     staleTtlMs: 45_000,
     loader: async () => {
       const executeQuery = async (selectClause: string) => {
-        const rows: ReportVendaRow[] = [];
+        const rowsById = new Map<string, ReportVendaRow>();
 
-        for (let offset = 0; offset < SALES_REPORT_MAX_ROWS; offset += SALES_REPORT_PAGE_SIZE) {
-          let query = client
-            .from('vendas')
-            .select(selectClause)
-            .order('data_venda', { ascending: false })
-            .range(offset, offset + SALES_REPORT_PAGE_SIZE - 1);
+        for (const companyIdBatch of filterBatches(companyIds)) {
+          for (const vendedorIdBatch of filterBatches(vendedorIds)) {
+            for (const vendaIdBatch of filterBatches(vendaIds)) {
+              for (let offset = 0; offset < SALES_REPORT_MAX_ROWS; offset += SALES_REPORT_PAGE_SIZE) {
+                let query = client
+                  .from('vendas')
+                  .select(selectClause)
+                  .order('data_venda', { ascending: false })
+                  .range(offset, offset + SALES_REPORT_PAGE_SIZE - 1);
 
-          if (!includeCancelled) {
-            query = query.eq('cancelada', false);
+                if (!includeCancelled) {
+                  query = query.eq('cancelada', false);
+                }
+
+                if (dataInicio) {
+                  query = query.gte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataInicio);
+                }
+
+                if (dataFim) {
+                  query = query.lte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataFim);
+                }
+
+                if (companyIdBatch.length > 0) {
+                  query = query.in('company_id', companyIdBatch);
+                }
+
+                if (vendedorIdBatch.length > 0) {
+                  query = query.in('vendedor_id', vendedorIdBatch);
+                }
+
+                if (vendaIdBatch.length > 0) {
+                  query = query.in('id', vendaIdBatch);
+                }
+
+                const { data, error } = await query;
+                if (error) return { data: null, error };
+
+                const batch = ((data || []) as unknown) as ReportVendaRow[];
+                for (const row of batch) {
+                  if (row?.id) rowsById.set(row.id, row);
+                }
+                if (batch.length < SALES_REPORT_PAGE_SIZE) break;
+              }
+            }
           }
-
-          if (dataInicio) {
-            query = query.gte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataInicio);
-          }
-
-          if (dataFim) {
-            query = query.lte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataFim);
-          }
-
-          if (companyIds.length > 0) {
-            query = query.in('company_id', companyIds);
-          }
-
-          if (vendedorIds.length > 0) {
-            query = query.in('vendedor_id', vendedorIds);
-          }
-
-          if (vendaIds.length > 0) {
-            query = query.in('id', vendaIds);
-          }
-
-          const { data, error } = await query;
-          if (error) return { data: null, error };
-
-          const batch = ((data || []) as unknown) as ReportVendaRow[];
-          rows.push(...batch);
-          if (batch.length < SALES_REPORT_PAGE_SIZE) break;
         }
 
+        const rows = Array.from(rowsById.values()).sort((left, right) =>
+          String(right?.data_venda || '').localeCompare(String(left?.data_venda || ''))
+        );
         return { data: rows, error: null };
       };
 
@@ -329,7 +353,7 @@ export async function fetchSalesReportRows(
 }
 
 export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: string[]) {
-  const ids = vendaIds.filter(Boolean);
+  const ids = Array.from(new Set(vendaIds.map((id) => String(id || '').trim()).filter(Boolean)));
   const forms = new Map<string, string>();
 
   if (ids.length === 0) {
@@ -337,23 +361,26 @@ export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: 
   }
 
   // Tenta primeiro vendas_pagamentos (tabela real do sistema)
-  const { data, error } = await client
-    .from('vendas_pagamentos')
-    .select('venda_id, forma_nome, created_at')
-    .in('venda_id', ids)
-    .order('created_at', { ascending: false })
-    .limit(5000);
+  for (const batch of chunkArray(ids)) {
+    const { data, error } = await client
+      .from('vendas_pagamentos')
+      .select('venda_id, forma_nome, created_at')
+      .in('venda_id', batch)
+      .order('created_at', { ascending: false })
+      .limit(5000);
 
-  if (!error) {
+    if (error) {
+      // Fallback — vendas_pagamentos não tem forma_pagamento separada, retorna mapa vazio
+      return forms;
+    }
+
     (data || []).forEach((row: { venda_id?: string | null; forma_nome?: string | null }) => {
       const vendaId = String(row?.venda_id || '').trim();
       if (!vendaId || forms.has(vendaId)) return;
       forms.set(vendaId, normalizeFormaPagamento(row?.forma_nome));
     });
-    return forms;
   }
 
-  // Fallback — vendas_pagamentos não tem forma_pagamento separada, retorna mapa vazio
   return forms;
 }
 

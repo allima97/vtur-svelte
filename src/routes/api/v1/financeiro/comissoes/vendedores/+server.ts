@@ -9,6 +9,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchCommissionContext } from '$lib/server/comissoes';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_COMISSOES_VENDEDORES_BODY_BYTES = 8 * 1024;
 
 // Retorna vendedores com suas regras de comissão (commission_rule)
 export async function GET(event) {
@@ -27,7 +31,7 @@ export async function GET(event) {
 
     const usersCompanyIds = companyIds.length > 0 ? companyIds : scope.companyId ? [scope.companyId] : [];
     const usersData =
-      scope.isAdmin || scope.isMaster || scope.isGestor
+      scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor
         ? await fetchRankingVendedoresByCompanyIds(client, usersCompanyIds)
         : [
             {
@@ -76,7 +80,7 @@ export async function GET(event) {
       };
     });
 
-    return json({ items, total: items.length, regras: regras || [] });
+    return json({ items, total: items.length, regras: regras || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vendedores.');
   }
@@ -84,6 +88,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_VENDEDORES_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -93,7 +102,7 @@ export async function POST(event) {
     }
 
     // Retorna sucesso — associação de vendedor a regra não tem tabela dedicada no schema atual
-    return json({ success: true, message: 'Associação registrada.' });
+    return json({ success: true, message: 'Associação registrada.' }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao associar vendedor.');
   }

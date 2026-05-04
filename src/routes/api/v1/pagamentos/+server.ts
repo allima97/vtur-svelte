@@ -1,13 +1,16 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  parseIntSafe,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse,
-  normalizeText
 } from '$lib/server/v1';
 import {
   buildReadModelCacheKey,
@@ -16,6 +19,42 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+
+const MAX_PAGAMENTO_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
+
+function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.payments,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: scopeCacheTags({ companyIds: companyId ? [companyId] : [], userId })
+  });
+}
 
 // GET - Listar pagamentos
 export async function GET(event) {
@@ -31,52 +70,94 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const vendaId = searchParams.get('venda_id');
     const formaPagamentoId = searchParams.get('forma_pagamento_id');
-    const busca = searchParams.get('q');
+    const rawBusca = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
+    const busca = rawBusca.length >= 2 ? rawBusca : '';
+    const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
+    const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
-    let query = client
-      .from('vendas_pagamentos')
-      .select(`
-        id, venda_id, forma_pagamento_id, company_id, forma_nome, operacao, plano,
-        valor_bruto, desconto_valor, valor_total, parcelas_qtd, parcelas_valor,
-        vencimento_primeira, paga_comissao, observacoes, created_at, updated_at,
-        venda:vendas!venda_id(id, numero_venda),
-        forma_pagamento:formas_pagamento!forma_pagamento_id(id, nome)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(2000);
+    const selectPagamentos = `
+      id, venda_id, forma_pagamento_id, company_id, forma_nome, operacao, plano,
+      valor_bruto, desconto_valor, valor_total, parcelas_qtd, parcelas_valor,
+      vencimento_primeira, paga_comissao, observacoes, created_at, updated_at,
+      venda:vendas!venda_id(id, numero_venda),
+      forma_pagamento:formas_pagamento!forma_pagamento_id(id, nome)
+    `;
+    const from = (page - 1) * pageSize;
+    const to = page * pageSize - 1;
 
-    if (vendaId) query = query.eq('venda_id', vendaId);
-    if (formaPagamentoId) query = query.eq('forma_pagamento_id', formaPagamentoId);
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
+    const buildQuery = (companyIdsFilter = companyIds, useRange = true) => {
+      let query = client
+        .from('vendas_pagamentos')
+        .select(selectPagamentos, { count: 'exact' })
+        .order('created_at', { ascending: false });
 
-    let items = await getCachedReadModel<any[]>({
+      if (useRange) {
+        query = query.range(from, to);
+      } else {
+        query = query.limit(to + 1);
+      }
+
+      if (vendaId) query = query.eq('venda_id', vendaId);
+      if (formaPagamentoId) query = query.eq('forma_pagamento_id', formaPagamentoId);
+      if (companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
+      if (busca) {
+        query = query.or(
+          [
+            `forma_nome.ilike.%${busca}%`,
+            `operacao.ilike.%${busca}%`,
+            `plano.ilike.%${busca}%`,
+            `observacoes.ilike.%${busca}%`
+          ].join(',')
+        );
+      }
+
+      return query;
+    };
+
+    const result = await getCachedReadModel<{ items: any[]; total: number }>({
       key: buildReadModelCacheKey('pagamentos:list', {
         vendaId,
         formaPagamentoId,
-        companyIds
+        companyIds,
+        busca,
+        page,
+        pageSize
       }),
       tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.sales, ...scopeCacheTags({ companyIds, userId: user.id })],
       ttlMs: 10_000,
       staleTtlMs: 45_000,
       loader: async () => {
-        const { data, error } = await query;
+        if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+          const rows: any[] = [];
+          let total = 0;
+          for (const batch of chunkArray(companyIds)) {
+            const { data, count, error } = await buildQuery(batch, false);
+            if (error) throw error;
+            total += Number(count ?? data?.length ?? 0);
+            rows.push(...(data || []));
+          }
+
+          const items = dedupeById(rows)
+            .sort((left, right) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
+            .slice(from, to + 1);
+
+          return { items, total };
+        }
+
+        const { data, count, error } = await buildQuery();
         if (error) throw error;
-        return (data || []) as any[];
+        return {
+          items: (data || []) as any[],
+          total: Number(count ?? data?.length ?? 0)
+        };
       }
     });
 
-    if (busca) {
-      const buscaNormalizada = normalizeText(busca);
-      items = items.filter((p) => {
-        const texto = normalizeText(
-          [p.venda?.numero_venda, p.forma_nome, p.forma_pagamento?.nome, p.observacoes].join(' ')
-        );
-        return texto.includes(buscaNormalizada);
-      });
-    }
-
-    return json({ success: true, items });
+    return json(
+      { success: true, items: result.items, total: result.total, page, pageSize },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar pagamentos.');
   }
@@ -85,44 +166,60 @@ export async function GET(event) {
 // POST - Criar novo pagamento de venda
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_PAGAMENTO_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissao para criar pagamentos.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     if (!isUuid(body.venda_id)) {
-      return json({ success: false, error: 'ID da venda invalido.' }, { status: 400 });
+      return json({ success: false, error: 'ID da venda invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (body.forma_pagamento_id && !isUuid(body.forma_pagamento_id)) {
-      return json({ success: false, error: 'ID da forma de pagamento invalido.' }, { status: 400 });
+      return json({ success: false, error: 'ID da forma de pagamento invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    // Verificar se a venda pertence ao escopo da empresa do usuario
-    if (!scope.isAdmin) {
-      const { data: venda, error: vendaErr } = await client
-        .from('vendas')
-        .select('id, company_id')
-        .eq('id', body.venda_id)
-        .maybeSingle();
+    const { data: venda, error: vendaErr } = await client
+      .from('vendas')
+      .select('id, company_id')
+      .eq('id', body.venda_id)
+      .maybeSingle();
 
-      if (vendaErr) throw vendaErr;
-      if (!venda) {
-        return json({ success: false, error: 'Venda nao encontrada.' }, { status: 404 });
-      }
-      if (scope.companyId && String(venda.company_id || '') !== scope.companyId) {
-        return json({ success: false, error: 'Venda fora do escopo da empresa.' }, { status: 403 });
-      }
+    if (vendaErr) throw vendaErr;
+    if (!venda) {
+      return json({ success: false, error: 'Venda nao encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    }
+
+    const vendaCompanyId = String(venda.company_id || '').trim();
+    const targetCompanyId = resolveScopedCompanyId(
+      scope,
+      body.empresa_id || body.company_id || vendaCompanyId
+    );
+
+    if (!targetCompanyId) {
+      return json(
+        { success: false, error: 'Selecione uma empresa para criar o pagamento.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+
+    if (!vendaCompanyId || vendaCompanyId !== targetCompanyId) {
+      return json({ success: false, error: 'Venda fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
       .from('vendas_pagamentos')
       .insert([{
         venda_id: body.venda_id,
-        company_id: scope.companyId,
+        company_id: targetCompanyId,
         forma_pagamento_id: body.forma_pagamento_id || null,
         forma_nome: body.forma_nome || body.forma_pagamento || null,
         operacao: body.operacao || null,
@@ -142,19 +239,9 @@ export async function POST(event) {
 
     if (error) throw error;
 
-    const paymentScopeTags = scopeCacheTags({
-      companyIds: data?.company_id ? [data.company_id] : [],
-      userId: user.id
-    });
-    invalidateReadModelCache({
-      tags: [
-        READ_MODEL_TAGS.payments,
-        READ_MODEL_TAGS.sales,
-      ],
-      scopeTags: paymentScopeTags
-    });
+    invalidatePagamentoReadModels(data?.company_id, user.id);
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar pagamento.');
   }

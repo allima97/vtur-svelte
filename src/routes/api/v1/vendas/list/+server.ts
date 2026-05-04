@@ -4,6 +4,7 @@ import {
   fetchMasterEmpresas,
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  isUuid,
   logServerError,
   normalizeText,
   parseIntSafe,
@@ -12,6 +13,7 @@ import {
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
@@ -87,6 +89,7 @@ type VendaItem = {
 type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 'recibo';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
+const MAX_SEARCH_CANDIDATES = 1000;
 
 function getResultCount(result: unknown) {
   const value = (result as { count?: unknown } | null)?.count;
@@ -278,6 +281,297 @@ function computeKpisFromRows(rows: VendaRow[]) {
   };
 }
 
+function uniqueIds(values: Array<string | null | undefined>, limit = MAX_SEARCH_CANDIDATES) {
+  return Array.from(
+    new Set(values.map((id) => String(id || '').trim()).filter(isUuid))
+  ).slice(0, limit);
+}
+
+function buildSearchParts(searchTerm: string, digits: string, columns: string[]) {
+  return columns
+    .flatMap((column) => {
+      if (column === 'cpf' || column.includes('recibo') || column.includes('reserva')) {
+        return digits ? [`${column}.ilike.%${digits}%`] : [];
+      }
+      return searchTerm ? [`${column}.ilike.%${searchTerm}%`] : [];
+    })
+    .filter(Boolean);
+}
+
+function applyVendaIdScope(
+  query: any,
+  params: {
+    inicio: string;
+    fim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    companyIdsFilter?: string[];
+    vendedorIdsFilter?: string[];
+    statusQuery?: string;
+  }
+) {
+  if (params.inicio) query = query.gte('data_venda', params.inicio);
+  if (params.fim) query = query.lte('data_venda', params.fim);
+  const companyIdsFilter = params.companyIdsFilter || params.companyIds;
+  const vendedorIdsFilter = params.vendedorIdsFilter || params.vendedorIds;
+  if (companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
+  if (vendedorIdsFilter.length > 0) query = query.in('vendedor_id', vendedorIdsFilter);
+
+  const todayIso = todayISODateLocal();
+  switch (params.statusQuery) {
+    case 'cancelada':
+      query = query.eq('cancelada', true);
+      break;
+    case 'concluida':
+      query = query.eq('cancelada', false).lt('data_final', todayIso);
+      break;
+    case 'confirmada':
+      query = query.eq('cancelada', false).gte('data_embarque', todayIso);
+      break;
+    case 'pendente':
+      query = query
+        .eq('cancelada', false)
+        .or(`data_final.is.null,data_final.gte.${todayIso}`)
+        .or(`data_embarque.is.null,data_embarque.lt.${todayIso}`);
+      break;
+  }
+
+  return query;
+}
+
+async function fetchScopedVendaIds(
+  client: ReturnType<typeof getAdminClient>,
+  params: {
+    inicio: string;
+    fim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    statusQuery?: string;
+    clienteIds?: string[];
+    vendedorIdsFilter?: string[];
+    vendaIds?: string[];
+    orParts?: string[];
+  }
+) {
+  const rows: Array<{ id?: string | null }> = [];
+
+  const runQuery = async (configure?: (query: any) => any) => {
+    const companyBatches =
+      params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
+    const vendedorBatches =
+      params.vendedorIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.vendedorIds) : [params.vendedorIds];
+
+    for (const companyBatch of companyBatches) {
+      for (const vendedorBatch of vendedorBatches) {
+        let scopedQuery = client
+          .from('vendas')
+          .select('id')
+          .order('data_venda', { ascending: false })
+          .limit(MAX_SEARCH_CANDIDATES);
+        scopedQuery = applyVendaIdScope(scopedQuery, {
+          ...params,
+          companyIdsFilter: companyBatch,
+          vendedorIdsFilter: vendedorBatch
+        });
+        if (configure) scopedQuery = configure(scopedQuery);
+        const { data, error } = await scopedQuery;
+        if (error) throw error;
+        rows.push(...((data || []) as Array<{ id?: string | null }>));
+      }
+    }
+  };
+
+  if (params.orParts && params.orParts.length > 0) {
+    await runQuery((query) => query.or(params.orParts!.join(',')));
+  }
+
+  for (const batch of chunkArray(uniqueIds(params.clienteIds || []))) {
+    await runQuery((query) => query.in('cliente_id', batch));
+  }
+
+  for (const batch of chunkArray(uniqueIds(params.vendedorIdsFilter || []))) {
+    await runQuery((query) => query.in('vendedor_id', batch));
+  }
+
+  for (const batch of chunkArray(uniqueIds(params.vendaIds || []))) {
+    await runQuery((query) => query.in('id', batch));
+  }
+
+  return uniqueIds(rows.map((row) => row.id));
+}
+
+async function resolveVendaSearchIds(
+  client: ReturnType<typeof getAdminClient>,
+  params: {
+    searchQuery: string;
+    campoBusca: CampoBusca;
+    inicio: string;
+    fim: string;
+    companyIds: string[];
+    vendedorIds: string[];
+    statusQuery?: string;
+  }
+) {
+  const raw = String(params.searchQuery || '').trim();
+  const searchTerm = sanitizePostgrestSearchTerm(raw, 80);
+  const digits = raw.replace(/\D/g, '').slice(0, 30);
+  if (searchTerm.length < 2 && digits.length < 2) {
+    return { applied: false, vendaIds: [] as string[] };
+  }
+
+  const includeAll = params.campoBusca === 'todos';
+  const candidateVendaIds: string[] = [];
+  const candidateClienteIds: string[] = [];
+  const candidateVendedorIds: string[] = [];
+  const vendaOrParts: string[] = [];
+
+  if (includeAll || params.campoBusca === 'recibo') {
+    const receiptOrParts = buildSearchParts(searchTerm, digits, [
+      'numero_recibo',
+      'numero_recibo_normalizado',
+      'numero_reserva'
+    ]);
+    if (receiptOrParts.length > 0) {
+      const { data, error } = await client
+        .from('vendas_recibos')
+        .select('venda_id')
+        .or(receiptOrParts.join(','))
+        .limit(MAX_SEARCH_CANDIDATES);
+      if (error) throw error;
+      candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
+    }
+  }
+
+  if (includeAll || params.campoBusca === 'cliente') {
+    const clienteOrParts = buildSearchParts(searchTerm, digits, [
+      'nome',
+      'email',
+      'cpf',
+      'telefone',
+      'whatsapp'
+    ]);
+    if (clienteOrParts.length > 0) {
+      const companyBatches =
+        params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
+      for (const companyBatch of companyBatches) {
+        let query = client
+          .from('clientes')
+          .select('id')
+          .or(clienteOrParts.join(','))
+          .limit(300);
+        if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
+        const { data, error } = await query;
+        if (error) throw error;
+        candidateClienteIds.push(...uniqueIds((data || []).map((row: any) => row?.id), 300));
+      }
+    }
+  }
+
+  if (includeAll || params.campoBusca === 'vendedor') {
+    if (searchTerm.length >= 2) {
+      const companyBatches =
+        params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
+      for (const companyBatch of companyBatches) {
+        let query = client
+          .from('users')
+          .select('id')
+          .or(`nome_completo.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+          .limit(100);
+        if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
+        const { data, error } = await query;
+        if (error) throw error;
+        candidateVendedorIds.push(...uniqueIds((data || []).map((row: any) => row?.id), 100));
+      }
+    }
+  }
+
+  if (includeAll || params.campoBusca === 'destino' || params.campoBusca === 'produto') {
+    if (searchTerm.length >= 2) {
+      const productIds: string[] = [];
+      const tipoProdutoIds: string[] = [];
+      const cityIds: string[] = [];
+
+      const { data: produtos, error: produtosError } = await client
+        .from('produtos')
+        .select('id, cidade_id')
+        .or(`nome.ilike.%${searchTerm}%,tipo_produto.ilike.%${searchTerm}%`)
+        .limit(300);
+      if (produtosError) throw produtosError;
+      productIds.push(...uniqueIds((produtos || []).map((row: any) => row?.id), 300));
+      cityIds.push(...uniqueIds((produtos || []).map((row: any) => row?.cidade_id), 300));
+
+      if (params.campoBusca === 'produto' || includeAll) {
+        const { data: tipos, error: tiposError } = await client
+          .from('tipo_produtos')
+          .select('id')
+          .or(`nome.ilike.%${searchTerm}%,tipo.ilike.%${searchTerm}%`)
+          .limit(300);
+        if (tiposError) throw tiposError;
+        tipoProdutoIds.push(...uniqueIds((tipos || []).map((row: any) => row?.id), 300));
+      }
+
+      const { data: cidades, error: cidadesError } = await client
+        .from('cidades')
+        .select('id')
+        .ilike('nome', `%${searchTerm}%`)
+        .limit(300);
+      if (cidadesError) throw cidadesError;
+      cityIds.push(...uniqueIds((cidades || []).map((row: any) => row?.id), 300));
+
+      for (const batch of chunkArray(uniqueIds(productIds, 300))) {
+        const { data, error } = await client
+          .from('vendas_recibos')
+          .select('venda_id')
+          .in('produto_resolvido_id', batch)
+          .limit(MAX_SEARCH_CANDIDATES);
+        if (error) throw error;
+        candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
+      }
+
+      for (const batch of chunkArray(uniqueIds(tipoProdutoIds, 300))) {
+        const { data, error } = await client
+          .from('vendas_recibos')
+          .select('venda_id')
+          .in('produto_id', batch)
+          .limit(MAX_SEARCH_CANDIDATES);
+        if (error) throw error;
+        candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
+      }
+
+      for (const batch of chunkArray(uniqueIds(cityIds, 300))) {
+        const [{ data: vendaRows, error: vendaError }, { data: reciboRows, error: reciboError }] =
+          await Promise.all([
+            client.from('vendas').select('id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES),
+            client.from('vendas_recibos').select('venda_id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES)
+          ]);
+        if (vendaError) throw vendaError;
+        if (reciboError) throw reciboError;
+        candidateVendaIds.push(...uniqueIds((vendaRows || []).map((row: any) => row?.id)));
+        candidateVendaIds.push(...uniqueIds((reciboRows || []).map((row: any) => row?.venda_id)));
+      }
+    }
+  }
+
+  if (includeAll) {
+    if (searchTerm.length >= 2) vendaOrParts.push(`numero_venda.ilike.%${searchTerm}%`);
+    if (isUuid(raw)) vendaOrParts.push(`id.eq.${raw}`);
+  }
+
+  const vendaIds = await fetchScopedVendaIds(client, {
+    inicio: params.inicio,
+    fim: params.fim,
+    companyIds: params.companyIds,
+    vendedorIds: params.vendedorIds,
+    statusQuery: params.statusQuery,
+    clienteIds: candidateClienteIds,
+    vendedorIdsFilter: candidateVendedorIds,
+    vendaIds: candidateVendaIds,
+    orParts: vendaOrParts
+  });
+
+  return { applied: true, vendaIds };
+}
+
 async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminClient>, rows: VendaRow[]) {
   if (!Array.isArray(rows) || rows.length === 0) return;
 
@@ -409,13 +703,22 @@ async function fetchVendaRowsWithFallback(
     clienteId: string;
     scopeIsAdmin: boolean;
     accessibleClientIds: string[];
+    vendaIds: string[];
     statusQuery?: string;
     useRange?: boolean;
     page?: number;
     pageSize?: number;
   }
 ) {
-  const buildBaseQuery = (selectClause: string, accessibleClientIdsOverride?: string[]) => {
+  const buildBaseQuery = (
+    selectClause: string,
+    overrides: {
+      accessibleClientIds?: string[];
+      vendaIds?: string[];
+      companyIds?: string[];
+      vendedorIds?: string[];
+    } = {}
+  ) => {
     let query = params.useRange
       ? client
           .from('vendas')
@@ -432,13 +735,16 @@ async function fetchVendaRowsWithFallback(
           .limit(5000);
 
     if (params.openId) query = query.eq('id', params.openId);
+    if (params.vendaIds.length > 0) query = query.in('id', overrides.vendaIds || params.vendaIds);
     if (params.inicio) query = query.gte('data_venda', params.inicio);
     if (params.fim) query = query.lte('data_venda', params.fim);
-    if (params.companyIds.length > 0) query = query.in('company_id', params.companyIds);
-    if (params.vendedorIds.length > 0) query = query.in('vendedor_id', params.vendedorIds);
+    const companyIdsFilter = overrides.companyIds || params.companyIds;
+    const vendedorIdsFilter = overrides.vendedorIds || params.vendedorIds;
+    if (companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
+    if (vendedorIdsFilter.length > 0) query = query.in('vendedor_id', vendedorIdsFilter);
     if (params.clienteId) query = query.eq('cliente_id', params.clienteId);
-    else if (!params.scopeIsAdmin && params.accessibleClientIds.length > 0) {
-      query = query.in('cliente_id', accessibleClientIdsOverride || params.accessibleClientIds);
+    else if (!params.scopeIsAdmin && params.vendedorIds.length === 0 && params.accessibleClientIds.length > 0) {
+      query = query.in('cliente_id', overrides.accessibleClientIds || params.accessibleClientIds);
     }
 
     const todayIso = todayISODateLocal();
@@ -464,25 +770,47 @@ async function fetchVendaRowsWithFallback(
   };
 
   const runBaseQuery = async (selectClause: string) => {
+    const shouldBatchVendaFilter =
+      !params.useRange && params.vendaIds.length > SUPABASE_IN_BATCH_SIZE;
     const shouldBatchClientFilter =
+      !shouldBatchVendaFilter &&
       !params.scopeIsAdmin &&
       !params.clienteId &&
+      params.vendedorIds.length === 0 &&
       params.accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE;
+    const shouldBatchCompanyFilter = !params.useRange && params.companyIds.length > SUPABASE_IN_BATCH_SIZE;
+    const shouldBatchVendedorFilter = !params.useRange && params.vendedorIds.length > SUPABASE_IN_BATCH_SIZE;
 
-    if (!shouldBatchClientFilter) {
-      return buildBaseQuery(selectClause);
-    }
+    if (shouldBatchVendaFilter || shouldBatchClientFilter || shouldBatchCompanyFilter || shouldBatchVendedorFilter) {
+      const rows: VendaRow[] = [];
+      const vendaBatches = shouldBatchVendaFilter ? chunkArray(params.vendaIds) : [undefined];
+      const clientBatches = shouldBatchClientFilter ? chunkArray(params.accessibleClientIds) : [undefined];
+      const companyBatches = shouldBatchCompanyFilter ? chunkArray(params.companyIds) : [undefined];
+      const vendedorBatches = shouldBatchVendedorFilter ? chunkArray(params.vendedorIds) : [undefined];
 
-    const rows: VendaRow[] = [];
-    for (const batch of chunkArray(params.accessibleClientIds)) {
-      const result = await buildBaseQuery(selectClause, batch);
-      if (result.error) {
-        return { data: null, error: result.error } as typeof result;
+      for (const vendaBatch of vendaBatches) {
+        for (const clientBatch of clientBatches) {
+          for (const companyBatch of companyBatches) {
+            for (const vendedorBatch of vendedorBatches) {
+              const result = await buildBaseQuery(selectClause, {
+                vendaIds: vendaBatch,
+                accessibleClientIds: clientBatch,
+                companyIds: companyBatch,
+                vendedorIds: vendedorBatch
+              });
+              if (result.error) {
+                return { data: null, error: result.error } as typeof result;
+              }
+              rows.push(...(((result.data || []) as unknown) as VendaRow[]));
+            }
+          }
+        }
       }
-      rows.push(...(((result.data || []) as unknown) as VendaRow[]));
+
+      return { data: dedupeVendaRows(rows), error: null };
     }
 
-    return { data: dedupeVendaRows(rows), error: null };
+    return buildBaseQuery(selectClause);
   };
 
   const enrichedSelect = `
@@ -627,7 +955,10 @@ export async function GET(event) {
     const includeKpis = String(searchParams.get('include_kpis') || '').trim() === '1' || String(searchParams.get('kpis') || '').trim() === '1';
     const includeVendedores = String(searchParams.get('include_vendedores') || '').trim() === '1';
     const searchQuery = String(searchParams.get('q') || '').trim();
-    const campoBusca = (String(searchParams.get('campo') || 'todos').trim().toLowerCase() || 'todos') as CampoBusca;
+    const campoBuscaRaw = String(searchParams.get('campo') || 'todos').trim().toLowerCase() || 'todos';
+    const campoBusca = (['todos', 'cliente', 'vendedor', 'destino', 'produto', 'recibo'].includes(campoBuscaRaw)
+      ? campoBuscaRaw
+      : 'todos') as CampoBusca;
     const statusQuery = String(searchParams.get('status') || '').trim().toLowerCase();
     const tipoQuery = String(searchParams.get('tipo') || '').trim().toLowerCase();
     const clienteId = String(searchParams.get('cliente_id') || '').trim();
@@ -635,6 +966,7 @@ export async function GET(event) {
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const isMasterByType = tipoNome.includes('MASTER');
+    const isFinanceiroByType = tipoNome.includes('FINANCEIRO');
     const isGestorByType = tipoNome.includes('GESTOR');
 
     let companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
@@ -652,26 +984,46 @@ export async function GET(event) {
     const hasRequestedVendedorFilter = String(requestedVendedorRaw || '').trim().length > 0;
     const requestedVendedorResolvedEmpty = hasRequestedVendedorFilter && vendedorIds.length === 0;
     const effectiveVendedorIds =
-      (isMasterByType || isGestorByType)
+      (isMasterByType || isFinanceiroByType || isGestorByType)
         ? (hasRequestedVendedorFilter ? vendedorIds : [])
         : vendedorIds;
 
     const accessibleClientIds =
-      !scope.isAdmin && !isMasterByType && !isGestorByType
+      !scope.isAdmin &&
+      !isMasterByType &&
+      !isFinanceiroByType &&
+      !isGestorByType &&
+      effectiveVendedorIds.length === 0
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds: effectiveVendedorIds })
         : [];
 
     const canPushStatusToDb = !statusQuery || ['cancelada', 'concluida', 'confirmada', 'pendente'].includes(statusQuery);
+    const searchPrefilter = searchQuery
+      ? await resolveVendaSearchIds(client, {
+          searchQuery,
+          campoBusca,
+          inicio,
+          fim,
+          companyIds,
+          vendedorIds: effectiveVendedorIds,
+          statusQuery: canPushStatusToDb ? statusQuery : undefined
+        })
+      : { applied: false, vendaIds: [] as string[] };
+    const searchVendaIds = searchPrefilter.applied ? searchPrefilter.vendaIds : [];
     const canUseDbPagination =
       !all &&
       !openId &&
       !includeKpis &&
-      !searchQuery &&
+      (!searchQuery || (searchPrefilter.applied && searchVendaIds.length <= SUPABASE_IN_BATCH_SIZE)) &&
       canPushStatusToDb &&
       !tipoQuery &&
+      companyIds.length <= SUPABASE_IN_BATCH_SIZE &&
+      effectiveVendedorIds.length <= SUPABASE_IN_BATCH_SIZE &&
       accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE;
 
     const dataResult = requestedVendedorResolvedEmpty
+      ? { rows: [] as VendaRow[], count: 0 }
+      : searchPrefilter.applied && searchVendaIds.length === 0
       ? { rows: [] as VendaRow[], count: 0 }
       : await getCachedReadModel<{ rows: VendaRow[]; count: number | null }>({
           key: buildReadModelCacheKey('vendas-list:rows', {
@@ -681,11 +1033,13 @@ export async function GET(event) {
             companyIds,
             vendedorIds: effectiveVendedorIds,
             clienteId,
-            scopeId: !scope.isAdmin && !isMasterByType && !isGestorByType ? user.id : null,
+            scopeId: !scope.isAdmin && !isMasterByType && !isFinanceiroByType && !isGestorByType ? user.id : null,
             statusQuery,
             tipoQuery,
             searchQuery,
             campoBusca,
+            searchPrefilterApplied: searchPrefilter.applied,
+            searchCandidateCount: searchVendaIds.length,
             all,
             includeKpis,
             useRange: canUseDbPagination,
@@ -712,6 +1066,7 @@ export async function GET(event) {
               clienteId,
               scopeIsAdmin: scope.isAdmin,
               accessibleClientIds,
+              vendaIds: searchVendaIds,
               statusQuery,
               useRange: canUseDbPagination,
               page,

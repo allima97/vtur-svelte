@@ -20,28 +20,51 @@ import {
   isDebugEndpointEnabled,
   isRankingEligibleUser,
   logServerError,
+  NO_MATCH_COMPANY_ID,
   parseIntSafe,
   parseUuidList,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse,
 } from '$lib/server/v1';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 import { monthRangeFromKey } from '$lib/date';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
+const MAX_RANKING_DEBUG_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
   return json(body, {
     ...init,
     headers
   });
+}
+
+function hasExplicitVendedorFilter(value?: string | null) {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase();
+
+  return Boolean(normalized) && !['*', 'all', 'todos', 'todas', 'todo', 'toda', 'null', 'undefined'].includes(normalized);
 }
 
 function canUseRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
@@ -104,11 +127,16 @@ export async function GET(event) {
       const requestedLimit = parseIntSafe(event.url.searchParams.get('limit'), MAX_DEBUG_CONTRIBUICOES);
       const maxContribuicoes = Math.max(1, Math.min(requestedLimit, MAX_DEBUG_CONTRIBUICOES));
       const companyIds = resolveDebugCompanyIds(scope, event.url.searchParams.get('empresa_id'));
-      let vendedorIds = parseUuidList(
-        event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
-      );
+      const requestedVendedorRaw =
+        event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id');
+      const hasRequestedVendedorFilter = hasExplicitVendedorFilter(requestedVendedorRaw);
+      let vendedorIds = parseUuidList(requestedVendedorRaw);
 
-      if (vendedorIds.length === 0 && companyIds.length > 0) {
+      if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
+        vendedorIds = [NO_MATCH_COMPANY_ID];
+      }
+
+      if (!hasRequestedVendedorFilter && vendedorIds.length === 0 && companyIds.length > 0) {
         const companyUsers = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
         vendedorIds = (companyUsers || [])
@@ -118,19 +146,21 @@ export async function GET(event) {
 
       const vendedorMap = new Map<string, string>();
       if (vendedorIds.length > 0) {
-        const { data: usersRows, error: usersError } = await client
-          .from('users')
-          .select('id, nome_completo, email')
-          .in('id', vendedorIds)
-          .limit(5000);
+        for (const vendedorBatch of chunkArray(vendedorIds)) {
+          const { data: usersRows, error: usersError } = await client
+            .from('users')
+            .select('id, nome_completo, email')
+            .in('id', vendedorBatch)
+            .limit(5000);
 
-        if (usersError) throw usersError;
-        (usersRows || []).forEach((row: any) => {
-          vendedorMap.set(
-            String(row?.id || ''),
-            String(row?.nome_completo || row?.email || row?.id || '')
-          );
-        });
+          if (usersError) throw usersError;
+          (usersRows || []).forEach((row: any) => {
+            vendedorMap.set(
+              String(row?.id || ''),
+              String(row?.nome_completo || row?.email || row?.id || '')
+            );
+          });
+        }
       }
 
       const canonical = await fetchVendasKpiReciboContributions(client, {
@@ -182,9 +212,9 @@ export async function GET(event) {
     }
 
     // Modo diagnóstico por vendedor: ?vendedor=Leonardo&mes=2026-04
-    const vendedorBusca = event.url.searchParams.get('vendedor');
+    const vendedorBusca = sanitizePostgrestSearchTerm(event.url.searchParams.get('vendedor'), 80);
     const mesBusca = event.url.searchParams.get('mes') || '2026-04';
-    if (vendedorBusca) {
+    if (vendedorBusca.length >= 2) {
       const range = monthRangeFromKey(mesBusca);
       if (!range) {
         return debugJson({ error: 'Mes invalido.' }, { status: 400 });
@@ -245,13 +275,17 @@ export async function GET(event) {
       // 3. Buscar também registros onde o documento aparece mas está atribuído a OUTRO vendedor
       // — para detectar se recibos que deveriam ser do Leonardo foram para o Márcio
       // Primeiro pegar os documentos das vendas do usuário via vendas_recibos
-      const { data: vendasRows } = await client
-        .from('vendas')
-        .select('id, vendedor_id, vendas_recibos(id, numero_recibo, data_venda)')
-        .in('vendedor_id', userIds)
-        .gte('created_at', `${inicio}T00:00:00`)
-        .lte('created_at', `${fim}T23:59:59`)
-        .limit(200);
+      const vendasRows: any[] = [];
+      for (const userBatch of chunkArray(userIds)) {
+        const { data } = await client
+          .from('vendas')
+          .select('id, vendedor_id, vendas_recibos(id, numero_recibo, data_venda)')
+          .in('vendedor_id', userBatch)
+          .gte('created_at', `${inicio}T00:00:00`)
+          .lte('created_at', `${fim}T23:59:59`)
+          .limit(200);
+        vendasRows.push(...(data || []));
+      }
 
       const docsDasVendas: string[] = [];
       for (const v of (vendasRows || [])) {
@@ -263,19 +297,28 @@ export async function GET(event) {
       // 4. Para esses documentos, ver quem está atribuído na conciliação
       let concAtribuicaoOutros: any[] = [];
       if (docsDasVendas.length > 0) {
-        const { data: outrosRows } = await client
-          .from('conciliacao_recibos')
-          .select('id, documento, status, descricao, movimento_data, valor_lancamentos, valor_venda_real, ranking_vendedor_id')
-          .in('documento', docsDasVendas)
-          .gte('movimento_data', inicio)
-          .lte('movimento_data', fim)
-          .not('ranking_vendedor_id', 'in', `(${userIds.join(',')})`)
-          .limit(100);
+        const outrosRawRows: any[] = [];
+        const userIdSet = new Set(userIds);
+        for (const docsBatch of chunkArray(docsDasVendas)) {
+          const { data } = await client
+            .from('conciliacao_recibos')
+            .select('id, documento, status, descricao, movimento_data, valor_lancamentos, valor_venda_real, ranking_vendedor_id')
+            .in('documento', docsBatch)
+            .gte('movimento_data', inicio)
+            .lte('movimento_data', fim)
+            .limit(100);
+          outrosRawRows.push(...(data || []));
+        }
+        const outrosRows = outrosRawRows.filter(
+          (row: any) => !userIdSet.has(String(row?.ranking_vendedor_id || '').trim())
+        );
         // Resolver nomes dos outros vendedores
         const outrosIds = [...new Set((outrosRows || []).map((r: any) => r.ranking_vendedor_id).filter(Boolean))];
-        const { data: outrosUsers } = outrosIds.length > 0
-          ? await client.from('users').select('id, nome_completo').in('id', outrosIds)
-          : { data: [] };
+        const outrosUsers: any[] = [];
+        for (const outrosBatch of chunkArray(outrosIds)) {
+          const { data } = await client.from('users').select('id, nome_completo').in('id', outrosBatch);
+          outrosUsers.push(...(data || []));
+        }
         const outrosNomes: Record<string, string> = Object.fromEntries((outrosUsers || []).map((u: any) => [u.id, u.nome_completo]));
         concAtribuicaoOutros = (outrosRows || []).map((r: any) => ({
           ...r,
@@ -340,8 +383,8 @@ export async function GET(event) {
     }
 
     // Modo busca de usuário: ?busca_usuario=Sandra
-    const buscaUsuario = event.url.searchParams.get('busca_usuario');
-    if (buscaUsuario) {
+    const buscaUsuario = sanitizePostgrestSearchTerm(event.url.searchParams.get('busca_usuario'), 80);
+    if (buscaUsuario.length >= 2) {
       let usuariosQuery = client
         .from('users')
         .select('id, nome_completo')
@@ -428,14 +471,16 @@ export async function GET(event) {
       const companyMap: Record<string, string> = {};
       const usoIndividualSet = new Set<string>();
       if (vendedorIdsSet.size > 0) {
-        const { data: usersData } = await client
-          .from('users')
-          .select('id, nome_completo, company_id, active, uso_individual')
-          .in('id', Array.from(vendedorIdsSet));
-        for (const u of (usersData || [])) {
-          nomesMap[u.id] = u.nome_completo || u.id;
-          companyMap[u.id] = u.company_id || '';
-          if (u.uso_individual || !u.active) usoIndividualSet.add(u.id);
+        for (const vendedorBatch of chunkArray(Array.from(vendedorIdsSet))) {
+          const { data: usersData } = await client
+            .from('users')
+            .select('id, nome_completo, company_id, active, uso_individual')
+            .in('id', vendedorBatch);
+          for (const u of (usersData || [])) {
+            nomesMap[u.id] = u.nome_completo || u.id;
+            companyMap[u.id] = u.company_id || '';
+            if (u.uso_individual || !u.active) usoIndividualSet.add(u.id);
+          }
         }
       }
 
@@ -520,8 +565,8 @@ export async function GET(event) {
     // Lista TODOS os documentos que o sistema atribui a um vendedor via conciliação
     // (fetchEffectiveConciliacaoReceipts logic), para comparar com relatório externo.
     // Inclui: documento, movimento_data, ranking_vendedor_id, linked_venda_id, linked_recibo_id
-    const docsPorVendedor = event.url.searchParams.get('docs_por_vendedor');
-    if (docsPorVendedor) {
+    const docsPorVendedor = sanitizePostgrestSearchTerm(event.url.searchParams.get('docs_por_vendedor'), 80);
+    if (docsPorVendedor.length >= 2) {
       const mesBusca2 = event.url.searchParams.get('mes') || '2026-04';
       const range2 = monthRangeFromKey(mesBusca2);
       if (!range2) {
@@ -631,13 +676,15 @@ export async function GET(event) {
     });
     const vendedorNomes: Record<string, string> = {};
     if (vendedorIdsToResolve.size > 0) {
-      const { data: usersData } = await client
-        .from('users')
-        .select('id, nome_completo')
-        .in('id', Array.from(vendedorIdsToResolve));
-      (usersData || []).forEach((u: any) => {
-        vendedorNomes[u.id] = u.nome_completo || u.id;
-      });
+      for (const vendedorBatch of chunkArray(Array.from(vendedorIdsToResolve))) {
+        const { data: usersData } = await client
+          .from('users')
+          .select('id, nome_completo')
+          .in('id', vendedorBatch);
+        (usersData || []).forEach((u: any) => {
+          vendedorNomes[u.id] = u.nome_completo || u.id;
+        });
+      }
     }
 
     const enrichedRows = (concRows || []).map((r: any) => ({
@@ -658,7 +705,7 @@ export async function GET(event) {
   } catch (err) {
     logServerError('[ranking-debug] erro GET', err);
     const response = toErrorResponse(err, 'Erro no diagnóstico do ranking.');
-    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   }
 }
@@ -668,6 +715,10 @@ export async function POST(event) {
     if (!isDebugEndpointEnabled(event)) {
       return debugJson({ error: 'Not found' }, { status: 404 });
     }
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_RANKING_DEBUG_BODY_BYTES);
+    if (payloadError) return payloadError;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -676,7 +727,7 @@ export async function POST(event) {
       return debugJson({ error: 'Sem acesso.' }, { status: 403 });
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { action, id } = body;
 
     if (!id || typeof id !== 'string') {
@@ -717,9 +768,14 @@ export async function POST(event) {
 
       const { data, error } = await client
         .from('conciliacao_recibos')
-        .update({ ranking_vendedor_id: vendedor_id })
+        .update({
+          ranking_vendedor_id: vendedor_id,
+          ranking_assigned_by: user.id,
+          ranking_assigned_at: new Date().toISOString(),
+          last_checked_at: new Date().toISOString()
+        })
         .eq('id', id)
-        .select('id, documento, ranking_vendedor_id');
+        .select('id, documento, ranking_vendedor_id, ranking_assigned_by, ranking_assigned_at');
       if (error) throw error;
       return debugJson({ ok: true, updated: data });
 
@@ -745,7 +801,7 @@ export async function POST(event) {
   } catch (err) {
     logServerError('[ranking-debug] erro POST', err);
     const response = toErrorResponse(err, 'Erro na correção.');
-    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   }
 }

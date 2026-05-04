@@ -1,8 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import {
   getAdminClient,
+  ensureModuloAccess,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse,
   isUuid
 } from '$lib/server/v1';
@@ -12,7 +15,10 @@ import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatus
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -226,13 +232,14 @@ async function resolveProdutoOperacional(params: {
   }
 
   const nome = titleCaseNome(pickProdutoNome(contrato, destinoNome));
+  const nomeBusca = sanitizePostgrestSearchTerm(nome, 160);
   const tipoProdutoId = resolveTipoProdutoId(contrato, tiposProduto);
   if (!tipoProdutoId) throw new Error('TIPO_PRODUTO_NAO_ENCONTRADO');
 
   let query = client
     .from('produtos')
     .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
-    .ilike('nome', nome);
+    .ilike('nome', nomeBusca || nome);
   if (cidadeId) {
     query = query.eq('cidade_id', cidadeId);
   } else {
@@ -318,31 +325,37 @@ function findWordBoundaryMatch(rows: { id: string; nome: string | null }[], term
 }
 
 async function findCidadeIdByTerm(client: any, termo: string) {
-  const direct = await client.from('cidades').select('id, nome').ilike('nome', termo).maybeSingle();
+  const safeTerm = sanitizePostgrestSearchTerm(termo, 120);
+  if (safeTerm.length < 2) return null;
+
+  const direct = await client.from('cidades').select('id, nome').ilike('nome', safeTerm).maybeSingle();
   if (direct.data?.id) return direct.data.id;
 
-  const prefix = await client.from('cidades').select('id, nome').ilike('nome', `${termo}%`).limit(5);
+  const prefix = await client.from('cidades').select('id, nome').ilike('nome', `${safeTerm}%`).limit(5);
   if (prefix.data?.[0]?.id) return prefix.data[0].id;
 
-  const contains = await client.from('cidades').select('id, nome').ilike('nome', `%${termo}%`).limit(10);
-  return findWordBoundaryMatch((contains.data || []) as { id: string; nome: string | null }[], termo);
+  const contains = await client.from('cidades').select('id, nome').ilike('nome', `%${safeTerm}%`).limit(10);
+  return findWordBoundaryMatch((contains.data || []) as { id: string; nome: string | null }[], safeTerm);
 }
 
 async function findCidadeIdByDestinoTerm(client: any, termo: string) {
+  const safeTerm = sanitizePostgrestSearchTerm(termo, 120);
+  if (safeTerm.length < 2) return null;
+
   // Busca em produtos (tabela real) pelo nome do destino
-  const direct = await client.from('produtos').select('cidade_id, nome').ilike('nome', termo).maybeSingle();
+  const direct = await client.from('produtos').select('cidade_id, nome').ilike('nome', safeTerm).maybeSingle();
   if (direct.data?.cidade_id) return direct.data.cidade_id;
 
-  const prefix = await client.from('produtos').select('cidade_id, nome').ilike('nome', `${termo}%`).limit(5);
+  const prefix = await client.from('produtos').select('cidade_id, nome').ilike('nome', `${safeTerm}%`).limit(5);
   if (prefix.data?.[0]?.cidade_id) return prefix.data[0].cidade_id;
 
-  const contains = await client.from('produtos').select('cidade_id, nome').ilike('nome', `%${termo}%`).limit(10);
+  const contains = await client.from('produtos').select('cidade_id, nome').ilike('nome', `%${safeTerm}%`).limit(10);
   const matchId = findWordBoundaryMatch(
     (contains.data || []).map((row: any) => ({ id: row.cidade_id, nome: row.nome })) as {
       id: string;
       nome: string | null;
     }[],
-    termo
+    safeTerm
   );
   return matchId || null;
 }
@@ -367,7 +380,7 @@ async function findClienteByDocumento(client: any, documento: string) {
   return Array.isArray(data) && data.length > 0 ? data[0] : null;
 }
 
-async function resolveClienteImport(client: any, scope: any, params: {
+async function resolveClienteImport(client: any, companyId: string, userId: string, params: {
   cpf: string;
   nome?: string | null;
   nascimento?: string | null;
@@ -416,8 +429,8 @@ async function resolveClienteImport(client: any, scope: any, params: {
       estado: params.estado || null,
       cep: params.cep || null,
       rg: params.rg || null,
-      company_id: scope.companyId,
-      created_by: scope.userId,
+      company_id: companyId,
+      created_by: userId,
       ativo: true
     })
     .select('id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email')
@@ -429,11 +442,23 @@ async function resolveClienteImport(client: any, scope: any, params: {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body = await event.request.json();
+    ensureModuloAccess(
+      scope,
+      ['vendas_importar', 'Importar Contratos', 'vendas_cadastro', 'vendas'],
+      2,
+      'Sem permissão para importar vendas.'
+    );
+
+    const body = await event.request.json().catch(() => ({}));
     const contratos: ContratoDraft[] = Array.isArray(body?.contratos) ? body.contratos : [];
     const principalIndex = Number(body?.principalIndex || 0);
     const dataVenda = String(body?.dataVenda || '').trim();
@@ -455,9 +480,12 @@ export async function POST(event) {
     const hoje = todayISODateLocal();
     const dataLancamento = dataVenda > hoje ? hoje : dataVenda;
 
-    const companyId = scope.companyId;
+    const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
+    const companyId = scope.isAdmin
+      ? requestedCompanyId || scope.companyId
+      : resolveScopedCompanyId(scope, requestedCompanyId || scope.companyId);
     if (!companyId) {
-      return new Response('Usuário sem company_id para salvar venda.', { status: 400 });
+      return new Response('Selecione a empresa para salvar venda.', { status: 400 });
     }
 
     if (!isUuid(vendedorId)) {
@@ -469,8 +497,19 @@ export async function POST(event) {
       return new Response(deniedSeller, { status: 403 });
     }
 
+    const { data: vendedorScope, error: vendedorScopeError } = await client
+      .from('users')
+      .select('id, company_id')
+      .eq('id', vendedorId)
+      .maybeSingle();
+    if (vendedorScopeError) throw vendedorScopeError;
+    const vendedorCompanyId = String((vendedorScope as any)?.company_id || '').trim() || null;
+    if (vendedorCompanyId && vendedorCompanyId !== companyId) {
+      return new Response('Vendedor fora da empresa selecionada.', { status: 403 });
+    }
+
     if (vendedorId !== user.id && !scope.isAdmin && !scope.isMaster) {
-      if (scope.isGestor) {
+      if (scope.isGestor || scope.isFinanceiro) {
         const { data: targetSeller, error: targetSellerError } = await client
           .from('users')
           .select('id, company_id, active, uso_individual, user_types(name)')
@@ -483,8 +522,8 @@ export async function POST(event) {
         }
 
         const targetCompanyId = String((targetSeller as any)?.company_id || '').trim() || null;
-        if (!scope.companyId || targetCompanyId !== scope.companyId) {
-          return new Response('Vendedor fora da empresa do gestor.', { status: 403 });
+        if (!targetCompanyId || targetCompanyId !== companyId) {
+          return new Response('Vendedor fora da empresa selecionada.', { status: 403 });
         }
 
         if (!Boolean((targetSeller as any)?.active) || Boolean((targetSeller as any)?.uso_individual)) {
@@ -533,7 +572,7 @@ export async function POST(event) {
       return new Response('Selecione a cidade de destino para continuar.', { status: 400 });
     }
 
-    const clientePrincipal = await resolveClienteImport(client, scope, {
+    const clientePrincipal = await resolveClienteImport(client, companyId, user.id, {
       cpf: principal.contratante?.cpf || '',
       nome: principal.contratante?.nome,
       nascimento: principal.contratante?.nascimento,
@@ -780,10 +819,11 @@ export async function POST(event) {
       let pagaComissao: boolean | null = null;
       const formaNome = String(pagamento.forma || '').trim();
       if (formaNome) {
+        const formaNomeBusca = sanitizePostgrestSearchTerm(formaNome, 120);
         const { data: existingForma } = await client
           .from('formas_pagamento')
           .select('id, paga_comissao, permite_desconto')
-          .ilike('nome', formaNome)
+          .ilike('nome', formaNomeBusca || formaNome.slice(0, 120))
           .maybeSingle();
         if (existingForma?.id) {
           formaId = existingForma.id;

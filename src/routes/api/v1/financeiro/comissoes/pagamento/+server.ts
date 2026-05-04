@@ -18,10 +18,48 @@ import { fetchSalesReportRows } from '$lib/server/relatorios';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
 
 function toNum(value: unknown) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function uniqueIds(values: unknown[]) {
+  return Array.from(
+    new Set((values || []).map((id: unknown) => String(id || '').trim()).filter(Boolean))
+  );
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchBatched<T>(
+  values: string[],
+  loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
+) {
+  const rows: T[] = [];
+  for (const batch of chunkArray(values)) {
+    const { data, error } = await loader(batch);
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
+function isMissingComissoesSchema(error: unknown) {
+  const code = String((error as { code?: string })?.code || '');
+  const message = String((error as { message?: string })?.message || '').toLowerCase();
+  return code === '42P01' || code === '42703' || message.includes('does not exist');
 }
 
 function getReciboValor(recibo: any) {
@@ -48,11 +86,16 @@ function normalizeRowsToReceiptPeriod(rows: any[]) {
 }
 
 function canManageCommissionPayments(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
-  return scope.isAdmin || scope.isMaster || scope.isGestor;
+  return scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor;
 }
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -61,28 +104,35 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 3, 'Sem permissão para registrar pagamentos.');
     }
     if (!canManageCommissionPayments(scope)) {
-      return json({ error: 'Vendedores não podem registrar pagamentos de comissões.' }, { status: 403 });
+      return json(
+        { error: 'Vendedores não podem registrar pagamentos de comissões.' },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { comissao_ids, data_pagamento = todayISODateLocal(), observacoes = '' } = body;
 
     if (!comissao_ids || !Array.isArray(comissao_ids) || comissao_ids.length === 0) {
-      return json({ error: 'IDs das comissões são obrigatórios.' }, { status: 400 });
+      return json(
+        { error: 'IDs das comissões são obrigatórios.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
 
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
-    const reciboIds = comissao_ids.map((id: unknown) => String(id || '').trim()).filter(Boolean);
+    const reciboIds = uniqueIds(comissao_ids);
     const reciboIdSet = new Set(reciboIds);
 
-    const { data: recibosBase, error: recibosBaseError } = await client
-      .from('vendas_recibos')
-      .select('id, venda_id')
-      .in('id', reciboIds);
-    if (recibosBaseError) throw recibosBaseError;
+    const recibosBase = await fetchBatched<any>(reciboIds, (batch) =>
+      client
+        .from('vendas_recibos')
+        .select('id, venda_id')
+        .in('id', batch)
+    );
 
     const vendaIds = Array.from(
-      new Set((recibosBase || []).map((row: any) => String(row?.venda_id || '').trim()).filter(Boolean))
+      new Set(recibosBase.map((row: any) => String(row?.venda_id || '').trim()).filter(Boolean))
     );
 
     const fetchedRows = await fetchSalesReportRows(client, {
@@ -92,7 +142,10 @@ export async function POST(event) {
     const rows = filterRowsToReceiptIds(fetchedRows, reciboIdSet);
 
     if (rows.length === 0) {
-      return json({ error: 'Nenhum recibo elegível encontrado para registrar comissão.' }, { status: 404 });
+      return json(
+        { error: 'Nenhum recibo elegível encontrado para registrar comissão.' },
+        { status: 404, headers: NO_STORE_HEADERS }
+      );
     }
 
     const vendedoresSelecionados = Array.from(
@@ -163,7 +216,7 @@ export async function POST(event) {
         pagas: 0,
         data_pagamento,
         message: 'Persistência de comissão indisponível neste ambiente. Nenhuma baixa foi salva.'
-      });
+      }, { headers: NO_STORE_HEADERS });
     }
 
     const existingByKey = new Map(
@@ -210,6 +263,11 @@ export async function POST(event) {
 
 export async function PUT(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -218,48 +276,61 @@ export async function PUT(event) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 3, 'Sem permissão para atualizar pagamentos.');
     }
     if (!canManageCommissionPayments(scope)) {
-      return json({ error: 'Vendedores não podem atualizar pagamentos de comissões.' }, { status: 403 });
+      return json(
+        { error: 'Vendedores não podem atualizar pagamentos de comissões.' },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { comissao_ids, data_pagamento = null, observacoes = '' } = body;
 
     if (!Array.isArray(comissao_ids) || comissao_ids.length === 0) {
-      return json({ error: 'IDs das comissões são obrigatórios.' }, { status: 400 });
+      return json(
+        { error: 'IDs das comissões são obrigatórios.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
 
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
-    let query = client
-      .from('comissoes')
-      .update({
-        data_pagamento,
-        observacoes_pagamento: observacoes || null
-      })
-      .in('recibo_id', comissao_ids.map((id: unknown) => String(id || '').trim()).filter(Boolean))
-      .eq('status', 'PAGA')
-      .select('id');
+    const reciboIds = uniqueIds(comissao_ids);
+    const updatedRows: any[] = [];
+    const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
 
-    if (companyIds.length > 0) {
-      query = query.in('company_id', companyIds);
-    }
+    for (const batch of chunkArray(reciboIds)) {
+      for (const companyBatch of companyBatches) {
+        let query = client
+          .from('comissoes')
+          .update({
+            data_pagamento,
+            observacoes_pagamento: observacoes || null
+          })
+          .in('recibo_id', batch)
+          .eq('status', 'PAGA')
+          .select('id');
 
-    const { data, error } = await query;
-    if (error) {
-      const code = String((error as { code?: string })?.code || '');
-      const message = String((error as { message?: string })?.message || '').toLowerCase();
-      if (code === '42P01' || code === '42703' || message.includes('does not exist')) {
-        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
+        if (companyBatch.length > 0) {
+          query = query.in('company_id', companyBatch);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          if (isMissingComissoesSchema(error)) {
+            return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
+          }
+          throw error;
+        }
+        updatedRows.push(...(data || []));
       }
-      throw error;
     }
 
-    if ((data || []).length > 0) {
+    if (updatedRows.length > 0) {
       invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
     }
     return json({
       success: true,
-      message: `${(data || []).length} comissão(ões) atualizada(s).`,
-      atualizadas: (data || []).length
+      message: `${updatedRows.length} comissão(ões) atualizada(s).`,
+      atualizadas: updatedRows.length
     }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar pagamento.');
@@ -268,6 +339,11 @@ export async function PUT(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -276,49 +352,62 @@ export async function DELETE(event) {
       ensureModuloAccess(scope, ['Comissionamento', 'financeiro'], 4, 'Sem permissão para cancelar comissão.');
     }
     if (!canManageCommissionPayments(scope)) {
-      return json({ error: 'Vendedores não podem cancelar comissões.' }, { status: 403 });
+      return json(
+        { error: 'Vendedores não podem cancelar comissões.' },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
     }
 
     const body = await event.request.json().catch(() => ({}));
     const { comissao_ids, observacoes = '' } = body;
 
     if (!Array.isArray(comissao_ids) || comissao_ids.length === 0) {
-      return json({ error: 'IDs das comissões são obrigatórios.' }, { status: 400 });
+      return json(
+        { error: 'IDs das comissões são obrigatórios.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
 
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
-    let query = client
-      .from('comissoes')
-      .update({
-        status: 'CANCELADA',
-        data_pagamento: null,
-        observacoes_pagamento: observacoes || null,
-        pago_por: user.id
-      })
-      .in('recibo_id', comissao_ids.map((id: unknown) => String(id || '').trim()).filter(Boolean))
-      .select('id');
+    const reciboIds = uniqueIds(comissao_ids);
+    const cancelledRows: any[] = [];
+    const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
 
-    if (companyIds.length > 0) {
-      query = query.in('company_id', companyIds);
-    }
+    for (const batch of chunkArray(reciboIds)) {
+      for (const companyBatch of companyBatches) {
+        let query = client
+          .from('comissoes')
+          .update({
+            status: 'CANCELADA',
+            data_pagamento: null,
+            observacoes_pagamento: observacoes || null,
+            pago_por: user.id
+          })
+          .in('recibo_id', batch)
+          .select('id');
 
-    const { data, error } = await query;
-    if (error) {
-      const code = String((error as { code?: string })?.code || '');
-      const message = String((error as { message?: string })?.message || '').toLowerCase();
-      if (code === '42P01' || code === '42703' || message.includes('does not exist')) {
-        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
+        if (companyBatch.length > 0) {
+          query = query.in('company_id', companyBatch);
+        }
+
+        const { data, error } = await query;
+        if (error) {
+          if (isMissingComissoesSchema(error)) {
+            return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
+          }
+          throw error;
+        }
+        cancelledRows.push(...(data || []));
       }
-      throw error;
     }
 
-    if ((data || []).length > 0) {
+    if (cancelledRows.length > 0) {
       invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
     }
     return json({
       success: true,
-      message: `${(data || []).length} comissão(ões) cancelada(s).`,
-      canceladas: (data || []).length
+      message: `${cancelledRows.length} comissão(ões) cancelada(s).`,
+      canceladas: cancelledRows.length
     }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao cancelar comissão.');

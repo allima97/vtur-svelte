@@ -6,6 +6,9 @@ import { resolveResendApiKey, resolveFromEmails, resolveSmtpConfig } from '$lib/
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_WELCOME_EMAIL_BODY_BYTES = 8 * 1024;
 
 const TEMPLATE_NOME = "Bem-Vindo!";
 const TEMPLATE_ASSUNTO = "Bem-Vindo!";
@@ -155,6 +158,11 @@ async function marcarEmailEnviado(userId: string) {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_WELCOME_EMAIL_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
 

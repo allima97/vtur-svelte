@@ -10,6 +10,16 @@ import {
 } from '$lib/server/v1';
 import { diffDaysISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export type ClienteScopedFilters = {
   companyIds: string[];
   vendedorIds: string[];
@@ -125,8 +135,18 @@ export async function resolveClienteScopedFilters(
 ): Promise<ClienteScopedFilters> {
   const companyIds = resolveScopedCompanyIds(scope, companyParam);
   const vendedorIds = await resolveScopedVendedorIds(client, scope, vendedorParam);
+  const tipoNome = String(scope.tipoNome || '').toUpperCase();
+  const requestedVendedor = String(vendedorParam || '').trim();
+  const canUseCompanyScope =
+    scope.isAdmin ||
+    scope.isMaster ||
+    (scope.isFinanceiro && !requestedVendedor) ||
+    (scope.isGestor && !requestedVendedor) ||
+    tipoNome.includes('MASTER') ||
+    (tipoNome.includes('FINANCEIRO') && !requestedVendedor) ||
+    (tipoNome.includes('GESTOR') && !requestedVendedor);
 
-  if (scope.isAdmin && companyIds.length === 0 && vendedorIds.length === 0) {
+  if (canUseCompanyScope) {
     return {
       companyIds,
       vendedorIds,
@@ -146,6 +166,18 @@ export async function resolveClienteScopedFilters(
   };
 }
 
+export function ensureClienteModuloAccess(
+  scope: UserScope,
+  minLevel = 1,
+  message = 'Sem acesso a Clientes.'
+) {
+  const modulos = scope.isFinanceiro
+    ? ['clientes', 'clientes_consulta']
+    : ['clientes', 'clientes_consulta', 'vendas'];
+
+  ensureModuloAccess(scope, modulos, minLevel, message);
+}
+
 export async function ensureClienteAccess(
   client: SupabaseClient,
   scope: UserScope,
@@ -155,7 +187,7 @@ export async function ensureClienteAccess(
   minLevel = 1
 ) {
   if (!scope.isAdmin) {
-    ensureModuloAccess(scope, ['clientes', 'clientes_consulta', 'vendas'], minLevel, 'Sem acesso a Clientes.');
+    ensureClienteModuloAccess(scope, minLevel);
   }
 
   const companyIds = resolveScopedCompanyIds(scope, companyParam);
@@ -180,23 +212,33 @@ export async function ensureClienteAccess(
   const canUseCompanyScope =
     scope.isAdmin ||
     scope.isMaster ||
+    scope.isFinanceiro ||
     scope.isGestor ||
     tipoNome.includes('MASTER') ||
+    tipoNome.includes('FINANCEIRO') ||
     tipoNome.includes('GESTOR');
 
   if (canUseCompanyScope) {
-    let clienteQuery = client
-      .from('clientes')
-      .select('id')
-      .eq('id', normalizedClienteId)
-      .limit(1);
+    let foundCliente = false;
+    const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+    for (const companyBatch of companyBatches) {
+      let clienteQuery = client
+        .from('clientes')
+        .select('id')
+        .eq('id', normalizedClienteId)
+        .limit(1);
 
-    if (companyIds.length > 0) {
-      clienteQuery = clienteQuery.in('company_id', companyIds);
+      if (companyBatch) {
+        clienteQuery = clienteQuery.in('company_id', companyBatch);
+      }
+
+      const { data, error: clienteError } = await clienteQuery;
+      if (!clienteError && data?.[0]?.id) {
+        foundCliente = true;
+        break;
+      }
     }
-
-    const { data, error: clienteError } = await clienteQuery.maybeSingle();
-    if (clienteError || !data?.id) {
+    if (!foundCliente) {
       throw error(403, 'Sem permissao para acessar este cliente.');
     }
 
@@ -206,42 +248,53 @@ export async function ensureClienteAccess(
   const scopedVendedorIds = vendedorIds.length > 0 ? vendedorIds : [scope.userId].filter(Boolean);
   filters.accessibleClientIds = [normalizedClienteId];
 
-  let clienteCriadoQuery = client
-    .from('clientes')
-    .select('id')
-    .eq('id', normalizedClienteId)
-    .limit(1);
+  const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+  const vendedorBatches = scopedVendedorIds.length > 0 ? chunkArray(scopedVendedorIds) : [null];
 
-  if (companyIds.length > 0) {
-    clienteCriadoQuery = clienteCriadoQuery.in('company_id', companyIds);
-  }
-  if (scopedVendedorIds.length > 0) {
-    clienteCriadoQuery = clienteCriadoQuery.in('created_by', scopedVendedorIds);
-  }
+  for (const companyBatch of companyBatches) {
+    for (const vendedorBatch of vendedorBatches) {
+      let clienteCriadoQuery = client
+        .from('clientes')
+        .select('id')
+        .eq('id', normalizedClienteId)
+        .limit(1);
 
-  const { data: clienteCriado, error: clienteCriadoError } = await clienteCriadoQuery.maybeSingle();
-  if (!clienteCriadoError && clienteCriado?.id) {
-    return filters;
-  }
+      if (companyBatch) {
+        clienteCriadoQuery = clienteCriadoQuery.in('company_id', companyBatch);
+      }
+      if (vendedorBatch) {
+        clienteCriadoQuery = clienteCriadoQuery.in('created_by', vendedorBatch);
+      }
 
-  let vendaClienteQuery = client
-    .from('vendas')
-    .select('id')
-    .eq('cliente_id', normalizedClienteId)
-    .eq('cancelada', false)
-    .limit(1);
-
-  if (companyIds.length > 0) {
-    vendaClienteQuery = vendaClienteQuery.in('company_id', companyIds);
-  }
-  if (scopedVendedorIds.length > 0) {
-    vendaClienteQuery = vendaClienteQuery.in('vendedor_id', scopedVendedorIds);
+      const { data: clienteCriado, error: clienteCriadoError } = await clienteCriadoQuery;
+      if (!clienteCriadoError && clienteCriado?.[0]?.id) {
+        return filters;
+      }
+    }
   }
 
-  const { data: vendaCliente, error: vendaClienteError } = await vendaClienteQuery.maybeSingle();
-  if (vendaClienteError || !vendaCliente?.id) {
-    throw error(403, 'Sem permissao para acessar este cliente.');
+  for (const companyBatch of companyBatches) {
+    for (const vendedorBatch of vendedorBatches) {
+      let vendaClienteQuery = client
+        .from('vendas')
+        .select('id')
+        .eq('cliente_id', normalizedClienteId)
+        .eq('cancelada', false)
+        .limit(1);
+
+      if (companyBatch) {
+        vendaClienteQuery = vendaClienteQuery.in('company_id', companyBatch);
+      }
+      if (vendedorBatch) {
+        vendaClienteQuery = vendaClienteQuery.in('vendedor_id', vendedorBatch);
+      }
+
+      const { data: vendaCliente, error: vendaClienteError } = await vendaClienteQuery;
+      if (!vendaClienteError && vendaCliente?.[0]?.id) {
+        return filters;
+      }
+    }
   }
 
-  return filters;
+  throw error(403, 'Sem permissao para acessar este cliente.');
 }

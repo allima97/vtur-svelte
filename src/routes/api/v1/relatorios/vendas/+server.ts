@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   logServerError,
+  NO_MATCH_COMPANY_ID,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -353,6 +354,78 @@ function getVendaTaxasExibicao(row: any) {
   );
 }
 
+function computeReceiptRankingEntries(
+  rowsInput: any[],
+  naoComissionadoPorVenda: PagamentosNaoComissionaveisResumo,
+) {
+  const entries: Array<{ date: string; value: number }> = [];
+
+  (rowsInput || []).forEach((row) => {
+    const receiptRows = getRecibosAtivos(row);
+    if (receiptRows.length === 0) return;
+
+    const vendaId = toStr(row?.id);
+    const somaBrutoRecibos = receiptRows.reduce(
+      (sum: number, recibo: ReportReceiptRow) =>
+        sum + getReciboBrutoExibicao(recibo),
+      0,
+    );
+    const somaTaxasRecibos = receiptRows.reduce(
+      (sum: number, recibo: ReportReceiptRow) =>
+        sum + getReciboTaxasExibicao(recibo),
+      0,
+    );
+    const linkedNaoComissionado = toNum(
+      naoComissionadoPorVenda.porVenda.get(vendaId) || 0,
+    );
+    const naoComissionadoSemRecibo = toNum(
+      naoComissionadoPorVenda.porVendaSemRecibo.get(vendaId) || 0,
+    );
+    const usarModoPorRecibo =
+      linkedNaoComissionado > 0 && naoComissionadoSemRecibo <= 0;
+    const rankingGrupo = calcularRankingComissionavel({
+      valorBruto: somaBrutoRecibos,
+      valorTaxas: somaTaxasRecibos,
+      valorNaoComissionado: usarModoPorRecibo ? 0 : linkedNaoComissionado,
+    });
+
+    receiptRows.forEach((recibo: ReportReceiptRow) => {
+      const date = toStr((recibo as any)?.data_venda || row?.data_venda);
+      if (!date) return;
+
+      const reciboId = toStr((recibo as any)?.id);
+      const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
+      const naoComissionadoRecibo =
+        usarModoPorRecibo && reciboId && !reciboJaAjustadoPorConciliacao
+          ? toNum(naoComissionadoPorVenda.porRecibo.get(reciboId) || 0)
+          : 0;
+      const rankingRecibo = calcularRankingComissionavel({
+        valorBruto: getReciboBrutoExibicao(recibo),
+        valorTaxas: getReciboTaxasExibicao(recibo),
+        valorNaoComissionado: usarModoPorRecibo ? naoComissionadoRecibo : 0,
+      });
+      const value = usarModoPorRecibo
+        ? rankingRecibo.valorRanking
+        : getReciboBrutoExibicao(recibo) * rankingGrupo.fatorValor;
+
+      if (value > 0) entries.push({ date: date.slice(0, 10), value });
+    });
+  });
+
+  return entries;
+}
+
+function sumRankingEntriesBetween(
+  entries: Array<{ date: string; value: number }>,
+  start: string,
+  end: string,
+) {
+  return entries.reduce((sum, entry) => {
+    if (entry.date < start || entry.date > end) return sum;
+    return sum + entry.value;
+  }, 0);
+}
+
 function getLastSixMonthBuckets(referenceIso: string) {
   const reference =
     parseISODateParts(referenceIso) || parseISODateParts(todayISODateLocal());
@@ -430,11 +503,20 @@ export async function GET(event) {
       scope,
       searchParams.get("empresa_id"),
     );
-    const vendedorIds = await resolveScopedVendedorIds(
+    const requestedVendedorRaw =
+      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id");
+    const hasRequestedVendedorFilter = String(requestedVendedorRaw || "")
+      .trim()
+      .length > 0;
+    const scopedVendedorIds = await resolveScopedVendedorIds(
       client,
       scope,
-      searchParams.get("vendedor_ids") || searchParams.get("vendedor_id"),
+      requestedVendedorRaw,
     );
+    const vendedorIds =
+      hasRequestedVendedorFilter && scopedVendedorIds.length === 0
+        ? [NO_MATCH_COMPANY_ID]
+        : scopedVendedorIds;
     const statusFilter = String(searchParams.get("status") || "")
       .trim()
       .toLowerCase();
@@ -448,7 +530,12 @@ export async function GET(event) {
     const tipoProdutoFilter = String(searchParams.get("tipo_produto") || "")
       .trim()
       .toLowerCase();
-    const accessibleClientIds = !scope.isAdmin
+    const accessibleClientIds =
+      !scope.isAdmin &&
+      !scope.isMaster &&
+      !scope.isFinanceiro &&
+      !scope.isGestor &&
+      vendedorIds.length === 0
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 
@@ -834,10 +921,22 @@ export async function GET(event) {
       periodEnd: string,
       clientIdsFilter?: string[],
     ) => {
-      let query = client
-        .from("vendas")
-        .select(
-          `
+      const rows: any[] = [];
+      const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+      const vendedorBatches =
+        vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+      const clientBatches =
+        clientIdsFilter && clientIdsFilter.length > 0
+          ? chunkArray(clientIdsFilter)
+          : [null];
+
+      for (const companyBatch of companyBatches) {
+        for (const vendedorBatch of vendedorBatches) {
+          for (const clientBatch of clientBatches) {
+            let query = client
+              .from("vendas")
+              .select(
+                `
           id,
           numero_venda,
           vendedor_id,
@@ -870,22 +969,31 @@ export async function GET(event) {
             produto_resolvido:produtos!produto_resolvido_id (id, nome)
           )
         `,
-        )
-        .order("data_venda", { ascending: false })
-        .limit(5000);
+              )
+              .order("data_venda", { ascending: false })
+              .limit(5000);
 
-      if (periodStart) query = query.gte("data_venda", periodStart);
-      if (periodEnd) query = query.lte("data_venda", periodEnd);
-      if (companyIds.length > 0) query = query.in("company_id", companyIds);
-      if (vendedorIds.length > 0) query = query.in("vendedor_id", vendedorIds);
-      if (clienteId) query = query.eq("cliente_id", clienteId);
-      else if (!scope.isAdmin && clientIdsFilter && clientIdsFilter.length > 0)
-        query = query.in("cliente_id", clientIdsFilter);
+            if (periodStart) query = query.gte("data_venda", periodStart);
+            if (periodEnd) query = query.lte("data_venda", periodEnd);
+            if (companyBatch) query = query.in("company_id", companyBatch);
+            if (vendedorBatch) query = query.in("vendedor_id", vendedorBatch);
+            if (clienteId) query = query.eq("cliente_id", clienteId);
+            else if (
+              !scope.isAdmin &&
+              vendedorIds.length === 0 &&
+              clientBatch &&
+              clientBatch.length > 0
+            )
+              query = query.in("cliente_id", clientBatch);
 
-      const { data, error } = await query;
-      if (error) throw error;
+            const { data, error } = await query;
+            if (error) throw error;
+            rows.push(...(data || []));
+          }
+        }
+      }
 
-      return ((data || []) as any[]).map((row) => ({
+      return dedupeRowsById(rows).map((row) => ({
         ...row,
         recibos: Array.isArray(row?.recibos) ? row.recibos : [],
       }));
@@ -911,7 +1019,10 @@ export async function GET(event) {
       }
 
       const clientIdsFilter =
-        !clienteId && !scope.isAdmin && accessibleClientIds.length > 0
+        !clienteId &&
+        !scope.isAdmin &&
+        vendedorIds.length === 0 &&
+        accessibleClientIds.length > 0
           ? accessibleClientIds
           : undefined;
 
@@ -1197,45 +1308,63 @@ export async function GET(event) {
 
     const historyBuckets = getLastSixMonthBuckets(dataFim);
     const dayBuckets = getCurrentMonthDayBuckets(dataFim);
+    const seriesStart = [historyBuckets[0]?.start, dayBuckets[0]?.date, dataInicio]
+      .filter(Boolean)
+      .sort()[0] || dataInicio;
+    const seriesRowsRaw =
+      seriesStart < dataInicio
+        ? await getCachedReadModel({
+            key: buildReadModelCacheKey("relatorios:vendas:series-rows-view", {
+              userId: user.id,
+              seriesStart,
+              dataFim,
+              companyIds,
+              vendedorIds,
+              conciliacaoSobrepoeVendas,
+            }),
+            tags: [
+              READ_MODEL_TAGS.sales,
+              READ_MODEL_TAGS.conciliacao,
+              READ_MODEL_TAGS.payments,
+              READ_MODEL_TAGS.users,
+              ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+            ],
+            ttlMs: 15_000,
+            staleTtlMs: 120_000,
+            loader: () => loadRowsViewForPeriod(seriesStart, dataFim),
+          })
+        : rowsViewRaw;
+    const seriesNaoComissionadoPorVenda =
+      seriesRowsRaw === rowsViewRaw
+        ? naoComissionadoPorVenda
+        : await fetchNaoComissionadoPorVenda(
+            client,
+            (seriesRowsRaw as any[]).map((row) => toStr(row?.id)).filter(Boolean),
+          );
+    const seriesRankingEntries = computeReceiptRankingEntries(
+      seriesRowsRaw as any[],
+      seriesNaoComissionadoPorVenda,
+    );
 
-    const [monthlySeries, dailySeries] = await Promise.all([
-      Promise.all(
-        historyBuckets.map(async (bucket) => {
-          const bucketKpis = await fetchAndComputeVendasKpis(client, {
-            dataInicio: bucket.start,
-            dataFim: bucket.end,
-            companyIds,
-            vendedorIds,
-            accessibleClientIds,
-          });
-
-          return {
-            key: bucket.key,
-            total_valor: Number(bucketKpis.totalVendas || 0),
-          };
-        }),
+    const monthlySeries = historyBuckets.map((bucket) => ({
+      key: bucket.key,
+      total_valor: sumRankingEntriesBetween(
+        seriesRankingEntries,
+        bucket.start,
+        bucket.end,
       ),
-      Promise.all(
-        dayBuckets.map(async (bucket) => {
-          if (bucket.date > dataFim) {
-            return { date: bucket.date, value: 0 };
-          }
-
-          const bucketKpis = await fetchAndComputeVendasKpis(client, {
-            dataInicio: bucket.date,
-            dataFim: bucket.date,
-            companyIds,
-            vendedorIds,
-            accessibleClientIds,
-          });
-
-          return {
-            date: bucket.date,
-            value: Number(bucketKpis.totalVendas || 0),
-          };
-        }),
-      ),
-    ]);
+    }));
+    const dailySeries = dayBuckets.map((bucket) => ({
+      date: bucket.date,
+      value:
+        bucket.date > dataFim
+          ? 0
+          : sumRankingEntriesBetween(
+              seriesRankingEntries,
+              bucket.date,
+              bucket.date,
+            ),
+    }));
 
     // KPIs agregados
     const totalVendas = items.length;

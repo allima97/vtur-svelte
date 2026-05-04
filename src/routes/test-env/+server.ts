@@ -13,12 +13,6 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 
-function mask(value?: string) {
-  if (!value) return null;
-  if (value.length <= 10) return `${value.slice(0, 3)}...`;
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
 export async function GET(event) {
   try {
     if (!isDebugEndpointEnabled(event)) {
@@ -42,8 +36,6 @@ export async function GET(event) {
         publicSupabaseUrlPresent: Boolean(publicUrl),
         publicSupabaseAnonKeyPresent: Boolean(publicAnonKey),
         serviceRoleKeyPresent: Boolean(serviceKey),
-        publicSupabaseUrlMasked: mask(publicUrl),
-        publicSupabaseAnonKeyMasked: mask(publicAnonKey),
         publicEnvironment: publicEnv.PUBLIC_ENVIRONMENT ?? null
       },
       { headers: DEBUG_HEADERS }

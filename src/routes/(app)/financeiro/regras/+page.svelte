@@ -14,8 +14,9 @@
     Plus,
     Trash2
   } from 'lucide-svelte';
-  import { apiFetch } from '$lib/services/api';
+  import { apiFetch, apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
 
   type RuleType = 'GERAL' | 'ESCALONAVEL';
   type FaixaType = 'PRE' | 'POS';
@@ -32,6 +33,7 @@
 
   interface Rule {
     id: string;
+    company_id?: string | null;
     nome: string;
     descricao: string | null;
     tipo: RuleType;
@@ -40,6 +42,13 @@
     super_meta: number | null;
     ativo: boolean;
     commission_tier?: Tier[];
+  }
+
+  interface EmpresaOption {
+    id: string;
+    nome?: string | null;
+    nome_fantasia?: string | null;
+    razao_social?: string | null;
   }
 
   interface RuleForm {
@@ -79,6 +88,8 @@
   let errorMessage = '';
   let validationError = '';
   let form: RuleForm = emptyForm();
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let confirmOpen = false;
   let confirmMode: 'inativar' | 'excluir' = 'inativar';
   let selectedRule: Rule | null = null;
@@ -90,6 +101,14 @@
     { value: 'PRE', label: 'PRE' },
     { value: 'POS', label: 'POS' }
   ];
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome_fantasia || empresa.nome || empresa.razao_social || empresa.id
+  }));
+  $: canSelectEmpresa = empresaOptions.length > 1;
+  $: canEditRules =
+    $permissoes.ready &&
+    (permissoes.can('RegrasComissao', 'edit') || permissoes.can('Parametros', 'edit'));
 
   function normalizeNumber(value: unknown) {
     const parsed = Number(value);
@@ -112,6 +131,7 @@
       id: String(raw?.id || ''),
       nome: String(raw?.nome || ''),
       descricao: raw?.descricao ? String(raw.descricao) : null,
+      company_id: raw?.company_id ? String(raw.company_id) : null,
       tipo: raw?.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL',
       meta_nao_atingida: normalizeNumber(raw?.meta_nao_atingida),
       meta_atingida: normalizeNumber(raw?.meta_atingida),
@@ -127,8 +147,30 @@
   ): Promise<T | null> {
     return apiFetch<T | null>('/api/v1/parametros/commission-rules', {
       method,
-      body: method === 'GET' ? undefined : body || {}
+      query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined,
+      body:
+        method === 'GET'
+          ? undefined
+          : {
+              ...(body || {}),
+              empresa_id: empresaId || undefined
+            }
     });
+  }
+
+  async function loadUserContext() {
+    try {
+      const data = await apiGet<{
+        company_id?: string | null;
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      empresas = Array.isArray(data.empresas) ? data.empresas : [];
+      empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
+    } catch {
+      empresas = [];
+      empresaId = '';
+    }
   }
 
   async function loadRules() {
@@ -149,8 +191,15 @@
     }
   }
 
-  onMount(() => {
-    loadRules();
+  async function handleEmpresaChange() {
+    showForm = false;
+    resetForm();
+    await loadRules();
+  }
+
+  onMount(async () => {
+    await loadUserContext();
+    await loadRules();
   });
 
   $: activeRules = rules.filter((rule) => rule.ativo).length;
@@ -413,7 +462,7 @@
     { label: 'Regras' }
   ]}
   actions={
-    showForm
+    showForm || !canEditRules
       ? []
       : [
           {
@@ -425,6 +474,21 @@
         ]
   }
 />
+
+{#if canSelectEmpresa}
+  <Card title="Escopo" color="financeiro" class="mb-6">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <FieldSelect
+        id="regra-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        class_name="w-full"
+        on:change={handleEmpresaChange}
+      />
+    </div>
+  </Card>
+{/if}
 
 <div class="vtur-kpi-grid mb-6">
   <div class="vtur-kpi-card">
@@ -677,7 +741,7 @@
       <Percent size={42} class="mx-auto mb-3 opacity-40" />
       <p class="font-medium text-slate-700">Nenhuma regra cadastrada</p>
       <p class="mt-1 text-sm">Crie a primeira regra para estruturar percentuais e faixas da operação.</p>
-      {#if !showForm}
+      {#if !showForm && canEditRules}
         <div class="mt-4">
           <Button type="button" variant="primary" on:click={openCreateForm}>
             Criar primeira regra
@@ -763,24 +827,26 @@
               {/if}
             </div>
 
-            <div class="flex flex-wrap gap-2 xl:justify-end">
-              <Button type="button" size="sm" variant="secondary" on:click={() => editRule(rule)}>
-                <Edit2 size={16} class="mr-1" />
-                Editar
-              </Button>
-
-              {#if rule.ativo}
-                <Button type="button" size="sm" variant="outline" on:click={() => askInactivate(rule)}>
-                  <CircleOff size={16} class="mr-1" />
-                  Inativar
+            {#if canEditRules}
+              <div class="flex flex-wrap gap-2 xl:justify-end">
+                <Button type="button" size="sm" variant="secondary" on:click={() => editRule(rule)}>
+                  <Edit2 size={16} class="mr-1" />
+                  Editar
                 </Button>
-              {/if}
 
-              <Button type="button" size="sm" variant="danger" on:click={() => askDelete(rule)}>
-                <Trash2 size={16} class="mr-1" />
-                Excluir
-              </Button>
-            </div>
+                {#if rule.ativo}
+                  <Button type="button" size="sm" variant="outline" on:click={() => askInactivate(rule)}>
+                    <CircleOff size={16} class="mr-1" />
+                    Inativar
+                  </Button>
+                {/if}
+
+                <Button type="button" size="sm" variant="danger" on:click={() => askDelete(rule)}>
+                  <Trash2 size={16} class="mr-1" />
+                  Excluir
+                </Button>
+              </div>
+            {/if}
           </div>
         </div>
       {/each}

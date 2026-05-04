@@ -1,13 +1,17 @@
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
+import { isSameOriginRequest } from '$lib/server/requestGuards';
 import { verifyTurnstileToken } from '$lib/server/turnstile';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
-
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   try {
+    if (!isSameOriginRequest(request)) {
+      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+
     let remoteIp: string | null = null;
     try {
       remoteIp = getClientAddress();

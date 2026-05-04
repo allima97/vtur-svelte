@@ -3,6 +3,7 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isDebugEndpointEnabled,
+  NO_MATCH_COMPANY_ID,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveScopedCompanyIds,
@@ -23,6 +24,10 @@ function debugJson(body: unknown, init?: ResponseInit) {
   return json(body, { ...init, headers });
 }
 
+function isISODate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+}
+
 export async function GET(event) {
   try {
     if (!isDebugEndpointEnabled(event)) {
@@ -33,7 +38,7 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster) {
       return debugJson({ error: 'Sem acesso ao diagnóstico de vendas.' }, { status: 403 });
     }
     if (!scope.isAdmin) {
@@ -43,12 +48,22 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const inicio = String(searchParams.get('inicio') || '').trim();
     const fim = String(searchParams.get('fim') || '').trim();
+    if (!isISODate(inicio) || !isISODate(fim) || inicio > fim) {
+      return debugJson({ error: 'Informe um período válido em inicio/fim.' }, { status: 400 });
+    }
+
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id') || searchParams.get('company_id'));
-    const vendedorIds = await resolveScopedVendedorIds(
+    const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
+    const hasRequestedVendedorFilter = String(requestedVendedorRaw || '').trim().length > 0;
+    const scopedVendedorIds = await resolveScopedVendedorIds(
       client,
       scope,
-      searchParams.get('vendedor_ids') || searchParams.get('vendedor_id')
+      requestedVendedorRaw
     );
+    const vendedorIds =
+      hasRequestedVendedorFilter && scopedVendedorIds.length === 0
+        ? [NO_MATCH_COMPANY_ID]
+        : scopedVendedorIds;
     const accessibleClientIds = !scope.isAdmin
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];

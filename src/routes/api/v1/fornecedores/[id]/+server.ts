@@ -1,4 +1,5 @@
 import { json, error } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -9,6 +10,8 @@ import {
 } from '$lib/server/v1';
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+
+const MAX_FORNECEDOR_UPDATE_BODY_BYTES = 128 * 1024;
 
 export async function GET(event) {
   try {
@@ -39,6 +42,11 @@ export async function GET(event) {
 
 export async function PUT(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_FORNECEDOR_UPDATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -58,7 +66,7 @@ export async function PUT(event) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const payload = sanitizeFornecedorPayload(body, scope);
 
     if (!payload.nome_completo) {
@@ -119,6 +127,9 @@ export async function PUT(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -132,6 +143,11 @@ export async function DELETE(event) {
 
     const fornecedor = await fetchFornecedorById(client, id);
     if (!fornecedor) throw error(404, 'Fornecedor não encontrado.');
+
+    const allowedCompanyIds = resolveScopedCompanyIds(scope, fornecedor.company_id || null);
+    if (!scope.isAdmin && allowedCompanyIds.length > 0 && fornecedor.company_id && !allowedCompanyIds.includes(fornecedor.company_id)) {
+      throw error(403, 'Sem acesso a este fornecedor.');
+    }
 
     const { count, error: countError } = await client
       .from('produtos')

@@ -7,8 +7,10 @@ import {
   extractCompanyName,
   extractUserTypeName,
   getAccessibleCompanyIds,
+  isFinanceiroRole,
   listManagedUsers,
   loadManagedUser,
+  syncFinanceiroCompanyLinks,
   syncUserTypeDefaultPermissions
 } from '$lib/server/admin';
 import {
@@ -17,6 +19,34 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ADMIN_USER_BODY_BYTES = 64 * 1024;
+
+function invalidateManagedUserCache(params: {
+  actorId?: string | null;
+  userId?: string | null;
+  companyIds?: string[] | null;
+}) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.users,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: [
+      ...scopeCacheTags({ userId: params.actorId || null }),
+      ...scopeCacheTags({ userId: params.userId || null, companyIds: params.companyIds || [] })
+    ]
+  });
+}
 
 function matchesSearch(haystack: string, query: string) {
   return haystack.toLowerCase().includes(query.toLowerCase());
@@ -101,6 +131,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_USER_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -114,6 +149,9 @@ export async function POST(event) {
     const nomeCompleto = String(body.nome_completo || '').trim() || null;
     const userTypeId = String(body.user_type_id || '').trim() || null;
     const companyId = String(body.company_id || '').trim() || null;
+    const financeiroCompanyIdsInput = Array.isArray(body.financeiro_company_ids)
+      ? body.financeiro_company_ids
+      : [];
     const usoIndividual = Boolean(body.uso_individual);
     const active = body.active !== false;
     const participaRanking = Boolean(body.participa_ranking);
@@ -127,7 +165,7 @@ export async function POST(event) {
         .maybeSingle();
 
       if (typeError || !userTypeRow) {
-        return new Response('Tipo de usuario invalido.', { status: 400 });
+        return new Response('Tipo de usuario invalido.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       userTypeName = String((userTypeRow as any).name || '').trim().toUpperCase();
@@ -136,15 +174,15 @@ export async function POST(event) {
 
     if (!requestedId) {
       if (!email) {
-        return new Response('E-mail obrigatorio para criar usuario.', { status: 400 });
+        return new Response('E-mail obrigatorio para criar usuario.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       if (!password || password.length < 8) {
-        return new Response('Senha obrigatoria com pelo menos 8 caracteres.', { status: 400 });
+        return new Response('Senha obrigatoria com pelo menos 8 caracteres.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       if (!userTypeId) {
-        return new Response('Tipo de usuario obrigatorio.', { status: 400 });
+        return new Response('Tipo de usuario obrigatorio.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       if (!usoIndividual) {
@@ -152,7 +190,22 @@ export async function POST(event) {
       }
 
       if (!scope.isAdmin && usoIndividual) {
-        return new Response('Somente ADMIN pode criar usuario individual sem empresa.', { status: 403 });
+        return new Response('Somente ADMIN pode criar usuario individual sem empresa.', { status: 403, headers: NO_STORE_HEADERS });
+      }
+
+      const financeiroCompanyIds = Array.from(
+        new Set([
+          ...financeiroCompanyIdsInput.map((id: unknown) => String(id || '').trim()),
+          ...(companyId ? [companyId] : [])
+        ])
+      );
+      if (isFinanceiroRole(userTypeName)) {
+        if (usoIndividual) {
+          return new Response('Usuario financeiro deve ser corporativo e vinculado a empresa.', { status: 400, headers: NO_STORE_HEADERS });
+        }
+        if (financeiroCompanyIds.length === 0) {
+          return new Response('Usuario financeiro deve ser vinculado a pelo menos uma empresa.', { status: 400, headers: NO_STORE_HEADERS });
+        }
       }
 
       const authResult = await createOrReuseAuthUser(client, { email, password });
@@ -166,7 +219,7 @@ export async function POST(event) {
         company_id: usoIndividual ? null : companyId,
         uso_individual: usoIndividual,
         created_by_gestor: scope.isGestor,
-        participa_ranking: participaRanking,
+        participa_ranking: isFinanceiroRole(userTypeName) ? false : participaRanking,
         active
       };
 
@@ -174,6 +227,15 @@ export async function POST(event) {
       if (upsertError) throw upsertError;
 
       await syncUserTypeDefaultPermissions(client, userId, userTypeId);
+      if (isFinanceiroRole(userTypeName)) {
+        await syncFinanceiroCompanyLinks(client, scope, userId, financeiroCompanyIds, user.id);
+      }
+
+      invalidateManagedUserCache({
+        actorId: user.id,
+        userId,
+        companyIds: financeiroCompanyIds
+      });
 
       return json({
         id: userId,
@@ -183,9 +245,28 @@ export async function POST(event) {
     }
 
     const currentUser = await loadManagedUser(client, scope, requestedId);
+    const effectiveUserTypeName = userTypeName || extractUserTypeName(currentUser);
+    const effectiveUsoIndividual =
+      'uso_individual' in body ? usoIndividual : Boolean(currentUser.uso_individual);
+    const effectiveCompanyId = companyId || currentUser.company_id || null;
+    const financeiroCompanyIds = Array.from(
+      new Set([
+        ...financeiroCompanyIdsInput.map((id: unknown) => String(id || '').trim()),
+        ...(effectiveCompanyId ? [effectiveCompanyId] : [])
+      ])
+    );
 
     if (requestedId !== scope.userId) {
-      ensureAssignableCompany(scope, usoIndividual ? null : companyId || currentUser.company_id || null);
+      ensureAssignableCompany(scope, effectiveUsoIndividual ? null : effectiveCompanyId);
+    }
+
+    if (isFinanceiroRole(effectiveUserTypeName)) {
+      if (effectiveUsoIndividual) {
+        return new Response('Usuario financeiro deve ser corporativo e vinculado a empresa.', { status: 400, headers: NO_STORE_HEADERS });
+      }
+      if (financeiroCompanyIds.length === 0) {
+        return new Response('Usuario financeiro deve ser vinculado a pelo menos uma empresa.', { status: 400, headers: NO_STORE_HEADERS });
+      }
     }
 
     const updatePayload: Record<string, unknown> = {};
@@ -193,14 +274,15 @@ export async function POST(event) {
     if ('user_type_id' in body) updatePayload.user_type_id = userTypeId;
     if ('company_id' in body) updatePayload.company_id = usoIndividual ? null : companyId;
     if ('uso_individual' in body) updatePayload.uso_individual = usoIndividual;
-    if ('participa_ranking' in body) updatePayload.participa_ranking = participaRanking;
+    if (isFinanceiroRole(effectiveUserTypeName)) updatePayload.participa_ranking = false;
+    else if ('participa_ranking' in body) updatePayload.participa_ranking = participaRanking;
     if ('active' in body) {
       updatePayload.active = active;
     }
     if ('email' in body && email) updatePayload.email = email;
 
     if (Object.keys(updatePayload).length === 0) {
-      return new Response('Nenhuma alteracao informada.', { status: 400 });
+      return new Response('Nenhuma alteracao informada.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { error: updateError } = await client.from('users').update(updatePayload).eq('id', requestedId);
@@ -209,6 +291,16 @@ export async function POST(event) {
     if (userTypeId) {
       await syncUserTypeDefaultPermissions(client, requestedId, userTypeId);
     }
+
+    if (isFinanceiroRole(effectiveUserTypeName)) {
+      await syncFinanceiroCompanyLinks(client, scope, requestedId, financeiroCompanyIds, user.id);
+    }
+
+    invalidateManagedUserCache({
+      actorId: user.id,
+      userId: requestedId,
+      companyIds: financeiroCompanyIds
+    });
 
     return json({ id: requestedId, updated: true });
   } catch (err) {

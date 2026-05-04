@@ -24,13 +24,23 @@ function isConciliacaoEfetivada(row: any) {
   return raw.includes('BAIXA');
 }
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
@@ -72,23 +82,31 @@ export async function GET(event) {
       ttlMs: 10_000,
       staleTtlMs: 45_000,
       loader: async () => {
-        const [queryResult, diagnostico] = await Promise.all([
-          client
-            .from('conciliacao_recibos')
-            .select(
-              'id, movimento_data, status, descricao, conciliado, venda_id, ranking_vendedor_id, valor_calculada_loja, valor_lancamentos, is_baixa_rac'
-            )
-            .in('company_id', companyIds)
-            .gte('movimento_data', inicio)
-            .lte('movimento_data', fim)
-            .limit(5000),
+        const [rows, diagnostico] = await Promise.all([
+          (async () => {
+            const dataRows: any[] = [];
+            for (const companyBatch of chunkArray(companyIds)) {
+              const { data, error } = await client
+                .from('conciliacao_recibos')
+                .select(
+                  'id, movimento_data, status, descricao, conciliado, venda_id, ranking_vendedor_id, valor_calculada_loja, valor_lancamentos, is_baixa_rac'
+                )
+                .in('company_id', companyBatch)
+                .gte('movimento_data', inicio)
+                .lte('movimento_data', fim)
+                .limit(5000);
+
+              if (error) throw error;
+              dataRows.push(...(data || []));
+            }
+            return dataRows;
+          })(),
           companyIdDiag
             ? diagnosticarLacunasCronologicas({ client, companyId: companyIdDiag })
             : Promise.resolve(null)
         ]);
 
-        if (queryResult.error) throw queryResult.error;
-        return { rows: queryResult.data || [], diagnostico };
+        return { rows, diagnostico };
       }
     });
     const efetivados = rows.filter((row: any) => isConciliacaoEfetivada(row));

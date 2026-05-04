@@ -9,7 +9,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_CONCILIACAO_REVERT_BODY_BYTES = 64 * 1024;
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -25,18 +28,23 @@ function matches(a: number, b: number) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_REVERT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem acesso à Conciliação.');
     }
 
     const body = await event.request.json().catch(() => null);
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     const companyId = companyIds[0] || null;
-    if (!companyId) return json({ error: 'Company invalida.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const revertAll = Boolean(body?.revertAll);
     const limit = Math.max(1, Math.min(500, Number(body?.limit || 200)));
@@ -47,7 +55,7 @@ export async function POST(event) {
       : [];
 
     if (!revertAll && ids.length === 0) {
-      return json({ error: 'Nenhuma alteracao selecionada.' }, { status: 400 });
+      return json({ error: 'Nenhuma alteracao selecionada.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let targetReciboIds: string[] = [];

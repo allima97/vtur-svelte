@@ -1,14 +1,15 @@
 import { json } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
-  resolveScopedVendedorIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 const QUOTE_SELECT_FIELDS =
   'id, created_at, updated_at, created_by, client_id, status, status_negociacao, currency, total, data_embarque, data_final, last_interaction_at, last_interaction_notes';
@@ -16,13 +17,7 @@ const QUOTE_SELECT_FIELDS =
 const QUOTE_ITEM_SELECT_FIELDS =
   'id, quote_id, item_type, title, product_name, city_name, cidade_id, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, confidence, raw, order_index, created_at, updated_at';
 
-// quote nao tem company_id — scoping usa created_by (FK auth.users)
-function applyQuoteScope(query: any, scope: any, user: any, vendedorIds: string[]) {
-  if (scope.isAdmin) return query;
-  if ((scope.isMaster || scope.isGestor) && vendedorIds.length > 0) return query.in('created_by', vendedorIds);
-  if (scope.isMaster || scope.isGestor) return query.eq('created_by', user.id);
-  return query.eq('created_by', user.id); // vendedor ve apenas os seus
-}
+const MAX_ORCAMENTO_UPDATE_BODY_BYTES = 256 * 1024;
 
 export async function GET(event) {
   try {
@@ -36,14 +31,20 @@ export async function GET(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
+      vendedorRaw: event.url.searchParams.get('vendedor_id')
+    });
 
-    let quoteQuery = client.from('quote').select(QUOTE_SELECT_FIELDS).eq('id', id);
-    quoteQuery = applyQuoteScope(quoteQuery, scope, user, vendedorIds);
-
-    const { data: quote, error: quoteError } = await quoteQuery.maybeSingle();
+    const { data: quote, error: quoteError } = await client
+      .from('quote')
+      .select(QUOTE_SELECT_FIELDS)
+      .eq('id', id)
+      .maybeSingle();
     if (quoteError) throw quoteError;
-    if (!quote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    }
 
     const { data: items } = await client
       .from('quote_item')
@@ -98,6 +99,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_UPDATE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -108,13 +114,20 @@ export async function PATCH(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
+      vendedorRaw: event.url.searchParams.get('vendedor_id')
+    });
 
-    // Confirma ownership
-    let checkQuery = client.from('quote').select('id').eq('id', id);
-    checkQuery = applyQuoteScope(checkQuery, scope, user, vendedorIds);
-    const { data: existingQuote } = await checkQuery.maybeSingle();
-    if (!existingQuote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    const { data: existingQuote, error: existingError } = await client
+      .from('quote')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existingQuote || !isQuoteCreatorAllowed(quoteScope, existingQuote.created_by)) {
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    }
 
     const body = await event.request.json().catch(() => ({}));
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -145,10 +158,12 @@ export async function PATCH(event) {
     if (body.data_embarque !== undefined) updateData.data_embarque = body.data_embarque;
     if (body.data_final !== undefined) updateData.data_final = body.data_final;
 
-    let updateQuery = client.from('quote').update(updateData).eq('id', id);
-    updateQuery = applyQuoteScope(updateQuery, scope, user, vendedorIds);
-
-    const { data, error } = await updateQuery.select(QUOTE_SELECT_FIELDS).single();
+    const { data, error } = await client
+      .from('quote')
+      .update(updateData)
+      .eq('id', id)
+      .select(QUOTE_SELECT_FIELDS)
+      .single();
     if (error) throw error;
 
     if (body.itens && Array.isArray(body.itens)) {
@@ -168,8 +183,8 @@ export async function PATCH(event) {
     }
 
     invalidateQuoteReadModels({
-      companyIds: scope.companyIds,
-      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      companyIds: quoteScope.companyIds,
+      vendedorIds: quoteScope.creatorIds.length > 0 ? quoteScope.creatorIds : [user.id],
       userId: user.id
     });
 
@@ -181,6 +196,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -191,24 +209,28 @@ export async function DELETE(event) {
     }
     if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
 
-    const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
+    const quoteScope = await resolveQuoteCreatorScope(client, scope, {
+      companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
+    });
 
-    // Confirma ownership antes de deletar
-    let checkQuery = client.from('quote').select('id').eq('id', id);
-    checkQuery = applyQuoteScope(checkQuery, scope, user, vendedorIds);
-    const { data: existingQuote } = await checkQuery.maybeSingle();
-    if (!existingQuote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    const { data: existingQuote, error: existingError } = await client
+      .from('quote')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existingQuote || !isQuoteCreatorAllowed(quoteScope, existingQuote.created_by)) {
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+    }
 
     await client.from('quote_item').delete().eq('quote_id', id);
 
-    let deleteQuery = client.from('quote').delete().eq('id', id);
-    deleteQuery = applyQuoteScope(deleteQuery, scope, user, vendedorIds);
-    const { error } = await deleteQuery;
+    const { error } = await client.from('quote').delete().eq('id', id);
     if (error) throw error;
 
     invalidateQuoteReadModels({
-      companyIds: scope.companyIds,
-      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      companyIds: quoteScope.companyIds,
+      vendedorIds: quoteScope.creatorIds.length > 0 ? quoteScope.creatorIds : [user.id],
       userId: user.id
     });
 

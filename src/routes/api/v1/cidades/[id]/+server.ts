@@ -6,6 +6,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CIDADE_UPDATE_BODY_BYTES = 64 * 1024;
 
 const CIDADE_SELECT_FIELDS = `
   id, nome, subdivisao_id, descricao, created_at,
@@ -45,6 +48,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CIDADE_UPDATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -54,7 +62,7 @@ export async function PATCH(event) {
     }
 
     const cidadeId = event.params.id;
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const updateData: any = {};
     
@@ -82,6 +90,9 @@ export async function PATCH(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

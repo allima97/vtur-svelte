@@ -15,6 +15,36 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+type TarefaClienteRow = {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  telefone: string | null;
+  company_id: string | null;
+};
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeClientes(rows: TarefaClienteRow[]) {
+  const map = new Map<string, TarefaClienteRow>();
+  rows.forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values()).sort((left, right) =>
+    String(left.nome || "").localeCompare(String(right.nome || ""), "pt-BR"),
+  );
+}
 
 export async function GET(event) {
   try {
@@ -41,7 +71,7 @@ export async function GET(event) {
     );
 
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ items: [], total: 0 });
+      return json({ items: [], total: 0 }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const payload = await getCachedReadModel({
@@ -58,21 +88,43 @@ export async function GET(event) {
       ttlMs: search ? 15_000 : 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
-        let query = client
-          .from("clientes")
-          .select("id, nome, email, telefone, company_id")
-          .order("nome", { ascending: true })
-          .limit(search ? 50 : 300);
+        const buildQuery = (companyIdsFilter = companyIds) => {
+          let query = client
+            .from("clientes")
+            .select("id, nome, email, telefone, company_id")
+            .order("nome", { ascending: true })
+            .limit(search ? 50 : 300);
 
-        if (companyIds.length > 0) {
-          query = query.in("company_id", companyIds);
-        }
+          if (companyIdsFilter.length > 0) {
+            query = query.in("company_id", companyIdsFilter);
+          }
 
-        if (search) {
-          query = query.or(`nome.ilike.%${search}%,email.ilike.%${search}%`);
-        }
+          if (search) {
+            query = query.or(`nome.ilike.%${search}%,email.ilike.%${search}%`);
+          }
 
-        const { data, error } = await query;
+          return query;
+        };
+
+        const fetchRows = async () => {
+          if (companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+            return buildQuery();
+          }
+
+          const rows: TarefaClienteRow[] = [];
+          for (const batch of chunkArray(companyIds)) {
+            const result = await buildQuery(batch);
+            if (result.error) {
+              return { data: null, error: result.error } as typeof result;
+            }
+            rows.push(...(((result.data || []) as unknown) as TarefaClienteRow[]));
+            if (dedupeClientes(rows).length >= (search ? 50 : 300)) break;
+          }
+
+          return { data: dedupeClientes(rows).slice(0, search ? 50 : 300), error: null };
+        };
+
+        const { data, error } = await fetchRows();
 
         if (error) {
           throw error;
@@ -89,7 +141,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError("[tarefas/clientes] falha ao carregar clientes", err);
     return toErrorResponse(err, "Erro ao carregar clientes.");

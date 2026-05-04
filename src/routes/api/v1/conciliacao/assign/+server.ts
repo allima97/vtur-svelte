@@ -17,7 +17,11 @@ import {
   resolveFromEmails,
 } from "$lib/server/emailSettings";
 import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+
+const MAX_CONCILIACAO_ASSIGN_BODY_BYTES = 64 * 1024;
 
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
@@ -204,11 +208,16 @@ function parseNullableNumber(value: any) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_ASSIGN_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(
         scope,
         ["operacao_conciliacao", "conciliacao"],
@@ -217,24 +226,15 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
     if (!isUuid(conciliacaoId))
-      return json({ error: "ID de conciliação inválido." }, { status: 400 });
+      return json({ error: "ID de conciliação inválido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const rankingVendedorIdRaw =
       String(body?.rankingVendedorId || "").trim() || null;
-    // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
-    const equipeVturVendedor = rankingVendedorIdRaw
-      ? await findEquipeVturVendedor(client, companyId)
-      : null;
-    const rankingVendedorId =
-      equipeVturVendedor?.id && rankingVendedorIdRaw === equipeVturVendedor.id
-        ? null
-        : rankingVendedorIdRaw;
     const rankingProdutoId =
       String(body?.rankingProdutoId || "").trim() || null;
     const vendaId = String(body?.vendaId || "").trim() || null;
@@ -282,9 +282,19 @@ export async function POST(event) {
     if (registroErr) throw registroErr;
     if (!registro)
       return json({ error: "Registro não encontrado." }, { status: 404 });
-    if (!scope.isAdmin && registro.company_id !== companyId) {
+    const registroCompanyId = String(registro.company_id || "").trim();
+    if (!scope.isAdmin && !companyIds.includes(registroCompanyId)) {
       return json({ error: "Registro fora do escopo." }, { status: 403 });
     }
+
+    // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
+    const equipeVturVendedor = rankingVendedorIdRaw
+      ? await findEquipeVturVendedor(client, registroCompanyId)
+      : null;
+    const rankingVendedorId =
+      equipeVturVendedor?.id && rankingVendedorIdRaw === equipeVturVendedor.id
+        ? null
+        : rankingVendedorIdRaw;
 
     if (rankingVendedorId) {
       const { data: vendedorRow, error: vendedorErr } = await client
@@ -320,10 +330,14 @@ export async function POST(event) {
       ranking_assigned_at: new Date().toISOString(),
     };
 
-    if (rankingVendedorId !== undefined)
+    if (rankingVendedorId !== undefined) {
       update.ranking_vendedor_id = rankingVendedorId;
-    if (rankingProdutoId !== undefined)
+      update.ranking_assigned_by = user.id;
+    }
+    if (rankingProdutoId !== undefined) {
       update.ranking_produto_id = rankingProdutoId;
+      update.ranking_assigned_by = user.id;
+    }
     if (vendaId !== undefined) update.venda_id = vendaId;
     if (vendaReciboId !== undefined) update.venda_recibo_id = vendaReciboId;
     if (body && "isBaixaRac" in body) update.is_baixa_rac = isBaixaRac;
@@ -424,7 +438,7 @@ export async function POST(event) {
       userId: user.id,
     });
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao atribuir conciliação.");
   }

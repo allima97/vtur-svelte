@@ -21,6 +21,25 @@ import {
 const SUPABASE_IN_BATCH_SIZE = 100;
 const DEFAULT_LIST_LIMIT = 300;
 const MAX_LIST_LIMIT = 500;
+const VIAGENS_LIST_SELECT = `
+  id,
+  venda_id,
+  orcamento_id,
+  cliente_id,
+  company_id,
+  responsavel_user_id,
+  origem,
+  destino,
+  data_inicio,
+  data_fim,
+  status,
+  observacoes,
+  follow_up_text,
+  follow_up_fechado,
+  recibo_id,
+  created_at,
+  updated_at
+`;
 
 function clampInt(
   value: string | null,
@@ -69,6 +88,55 @@ function getPeriodoFilter(
   }
 }
 
+function compareNullableDate(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  ascending: boolean,
+) {
+  const left = String(a || "").trim();
+  const right = String(b || "").trim();
+  if (!left && !right) return 0;
+  if (!left) return 1;
+  if (!right) return -1;
+  return ascending ? left.localeCompare(right) : right.localeCompare(left);
+}
+
+function sortViagemRows(rows: any[], ordenar: string) {
+  return [...rows].sort((a, b) => {
+    if (ordenar === "embarque_desc") {
+      return (
+        compareNullableDate(a?.data_inicio, b?.data_inicio, false) ||
+        compareNullableDate(a?.data_fim, b?.data_fim, false)
+      );
+    }
+    if (ordenar === "retorno_asc") {
+      return (
+        compareNullableDate(a?.data_fim, b?.data_fim, true) ||
+        compareNullableDate(a?.data_inicio, b?.data_inicio, true)
+      );
+    }
+    if (ordenar === "cadastro_desc") {
+      return (
+        compareNullableDate(a?.created_at, b?.created_at, false) ||
+        compareNullableDate(a?.data_inicio, b?.data_inicio, true)
+      );
+    }
+    return (
+      compareNullableDate(a?.data_inicio, b?.data_inicio, true) ||
+      compareNullableDate(a?.data_fim, b?.data_fim, true)
+    );
+  });
+}
+
+function mergeUniqueViagemRows(...groups: any[][]) {
+  const byId = new Map<string, any>();
+  groups.flat().forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !byId.has(id)) byId.set(id, row);
+  });
+  return Array.from(byId.values());
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -109,8 +177,7 @@ export async function GET(event) {
       return json({ items: [], total: 0 }, { headers: DYNAMIC_READ_HEADERS });
     }
 
-    const vendedorTagIds =
-      !scope.isAdmin && scope.usoIndividual ? [user.id] : [];
+    const vendedorTagIds = scope.isVendedor ? [user.id] : [];
     const cacheKey = buildReadModelCacheKey("viagens:list", {
       status,
       periodo,
@@ -120,7 +187,7 @@ export async function GET(event) {
       limit,
       userId: user.id,
       isAdmin: scope.isAdmin,
-      usoIndividual: scope.usoIndividual,
+      isVendedor: scope.isVendedor,
     });
     const payload = await getCachedReadModel({
       key: cacheKey,
@@ -139,60 +206,6 @@ export async function GET(event) {
       ttlMs: 20_000,
       staleTtlMs: 90_000,
       loader: async () => {
-        let query = client
-          .from("viagens")
-          .select(
-            `
-        id,
-        venda_id,
-        orcamento_id,
-        cliente_id,
-        company_id,
-        responsavel_user_id,
-        origem,
-        destino,
-        data_inicio,
-        data_fim,
-        status,
-        observacoes,
-        follow_up_text,
-        follow_up_fechado,
-        recibo_id,
-        created_at,
-        updated_at
-      `,
-          )
-          .range(from, to);
-
-        if (ordenar === "embarque_desc") {
-          query = query
-            .order("data_inicio", { ascending: false, nullsFirst: false })
-            .order("data_fim", { ascending: false, nullsFirst: false });
-        } else if (ordenar === "retorno_asc") {
-          query = query
-            .order("data_fim", { ascending: true, nullsFirst: false })
-            .order("data_inicio", { ascending: true, nullsFirst: false });
-        } else if (ordenar === "cadastro_desc") {
-          query = query
-            .order("created_at", { ascending: false, nullsFirst: false })
-            .order("data_inicio", { ascending: true, nullsFirst: false });
-        } else {
-          query = query
-            .order("data_inicio", { ascending: true, nullsFirst: false })
-            .order("data_fim", { ascending: true, nullsFirst: false });
-        }
-
-        // Filtro por empresa — igual ao vtur-app
-        if (companyIds.length > 0) {
-          query = query.in("company_id", companyIds);
-        }
-
-        // Uso individual (vendedor que só vê as próprias viagens) — igual ao vtur-app
-        // Gestor/Master veem todas da empresa; apenas uso_individual restringe por responsável
-        if (!scope.isAdmin && scope.usoIndividual) {
-          query = query.eq("responsavel_user_id", user.id);
-        }
-
         const normalizedStatus = normalizeViagemStatus(status);
         const hasStatusFilter =
           Boolean(String(status || "").trim()) &&
@@ -201,15 +214,98 @@ export async function GET(event) {
             .toLowerCase() !== "todas";
 
         const periodoFilter = getPeriodoFilter(periodo);
-        if (periodoFilter?.from && periodoFilter?.to) {
-          query = query
-            .gte("data_inicio", periodoFilter.from)
-            .lte("data_inicio", periodoFilter.to + "T23:59:59");
+
+        const applyOrdering = (query: any) => {
+          if (ordenar === "embarque_desc") {
+            return query
+              .order("data_inicio", { ascending: false, nullsFirst: false })
+              .order("data_fim", { ascending: false, nullsFirst: false });
+          }
+          if (ordenar === "retorno_asc") {
+            return query
+              .order("data_fim", { ascending: true, nullsFirst: false })
+              .order("data_inicio", { ascending: true, nullsFirst: false });
+          }
+          if (ordenar === "cadastro_desc") {
+            return query
+              .order("created_at", { ascending: false, nullsFirst: false })
+              .order("data_inicio", { ascending: true, nullsFirst: false });
+          }
+          return query
+            .order("data_inicio", { ascending: true, nullsFirst: false })
+            .order("data_fim", { ascending: true, nullsFirst: false });
+        };
+
+        const buildQuery = (selectFields: string, companyIdsFilter = companyIds) => {
+          let query = client.from("viagens").select(selectFields);
+
+          if (companyIdsFilter.length > 0) {
+            query = query.in("company_id", companyIdsFilter);
+          }
+
+          if (periodoFilter?.from && periodoFilter?.to) {
+            query = query
+              .gte("data_inicio", periodoFilter.from)
+              .lte("data_inicio", periodoFilter.to + "T23:59:59");
+          }
+
+          return applyOrdering(query);
+        };
+
+        const fetchBatchedViagens = async (
+          selectFields: string,
+          configure: (query: any) => any,
+          limitRows: number,
+        ) => {
+          const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
+          const rows: any[] = [];
+          for (const batch of companyBatches) {
+            const result = await configure(buildQuery(selectFields, batch)).limit(limitRows);
+            if (result.error) throw result.error;
+            rows.push(...(result.data || []));
+          }
+          return rows;
+        };
+
+        let scopedData: any[] = [];
+
+        if (scope.isVendedor) {
+          const candidateLimit = Math.min(
+            MAX_LIST_LIMIT,
+            Math.max(limit, to + 1),
+          );
+          const [responsavelRows, vendaRows] = await Promise.all([
+            fetchBatchedViagens(
+              VIAGENS_LIST_SELECT,
+              (query) => query.eq("responsavel_user_id", user.id),
+              candidateLimit,
+            ),
+            fetchBatchedViagens(
+              `${VIAGENS_LIST_SELECT}, venda:vendas!inner(id, vendedor_id)`,
+              (query) => query.eq("venda.vendedor_id", user.id),
+              candidateLimit,
+            ),
+          ]);
+
+          scopedData = sortViagemRows(
+            mergeUniqueViagemRows(
+              responsavelRows,
+              vendaRows,
+            ),
+            ordenar,
+          ).slice(from, to + 1);
+        } else if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+          const rows = await fetchBatchedViagens(VIAGENS_LIST_SELECT, (query) => query, to + 1);
+          scopedData = sortViagemRows(mergeUniqueViagemRows(rows), ordenar).slice(from, to + 1);
+        } else {
+          const { data, error } = await buildQuery(VIAGENS_LIST_SELECT).range(
+            from,
+            to,
+          );
+          if (error) throw error;
+          scopedData = data || [];
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-        const scopedData = data || [];
         const resolvedStatuses = await syncViagensStatus(
           client,
           scopedData as any[],

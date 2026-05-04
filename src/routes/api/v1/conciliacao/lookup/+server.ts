@@ -1,5 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CONCILIACAO_LOOKUP_BODY_BYTES = 256 * 1024;
+const MAX_LOOKUP_DOCUMENTOS = 500;
 
 function normalizeNumeroRecibo(value: string) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -197,20 +202,25 @@ async function findReciboByNumero(params: {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_LOOKUP_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
     const body = await event.request.json().catch(() => ({}));
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
-    if (companyIds.length === 0) return json({ error: 'Company invalida.' }, { status: 400 });
+    if (companyIds.length === 0) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const documentos = Array.isArray(body?.documentos) ? body.documentos : [];
-    if (documentos.length === 0) return json({ matches: {} });
+    const documentos = Array.isArray(body?.documentos) ? body.documentos.slice(0, MAX_LOOKUP_DOCUMENTOS) : [];
+    if (documentos.length === 0) return json({ matches: {} }, { headers: NO_STORE_HEADERS });
 
     const matches: Record<
       string,
@@ -258,9 +268,11 @@ export async function POST(event) {
       };
     }
 
-    return json({ matches });
+    return json(
+      { matches, truncated: Array.isArray(body?.documentos) && body.documentos.length > MAX_LOOKUP_DOCUMENTOS },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao buscar vendedores.');
   }
 }
-

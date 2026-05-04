@@ -2,6 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_CONVITE_ACCEPT_BODY_BYTES = 32 * 1024;
 
 function isTableMissing(error: any) {
   const code = String(error?.code || "");
@@ -21,6 +24,11 @@ function errorJson(message: string, status: number) {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_CONVITE_ACCEPT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const user = await requireAuthenticatedUser({ locals } as any);
     const adminClient = getAdminClient();
 

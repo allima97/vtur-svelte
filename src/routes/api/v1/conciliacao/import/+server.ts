@@ -4,7 +4,7 @@ import {
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
@@ -16,8 +16,21 @@ import {
   resolveConciliacaoStatus,
 } from "$lib/conciliacao/business";
 import { diagnosticarLacunasCronologicas } from "$lib/server/conciliacaoReconcile";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
+
+const MAX_CONCILIACAO_IMPORT_BODY_BYTES = 8 * 1024 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers de número de recibo
@@ -179,23 +192,25 @@ async function fetchReciboCandidates(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
-  const { data: vendas } = await client
-    .from("vendas")
-    .select("id, company_id, vendedor_id")
-    .in("id", vendaIds)
-    .eq("company_id", companyId);
-
   const vendaMap = new Map<
     string,
     { company_id: string | null; vendedor_id: string | null }
   >();
-  for (const row of vendas || []) {
-    const id = String((row as any)?.id || "").trim();
-    if (!id) continue;
-    vendaMap.set(id, {
-      company_id: String((row as any)?.company_id || "").trim() || null,
-      vendedor_id: String((row as any)?.vendedor_id || "").trim() || null,
-    });
+  for (const batch of chunkArray(vendaIds)) {
+    const { data: vendas } = await client
+      .from("vendas")
+      .select("id, company_id, vendedor_id")
+      .in("id", batch)
+      .eq("company_id", companyId);
+
+    for (const row of vendas || []) {
+      const id = String((row as any)?.id || "").trim();
+      if (!id) continue;
+      vendaMap.set(id, {
+        company_id: String((row as any)?.company_id || "").trim() || null,
+        vendedor_id: String((row as any)?.vendedor_id || "").trim() || null,
+      });
+    }
   }
 
   return candidates
@@ -300,20 +315,22 @@ async function findRexturReciboByReserva(params: {
   if (recibos.length === 0) return null;
 
   const vendaIds = Array.from(new Set(recibos.map((row: any) => row.venda_id)));
-  const { data: vendas } = await params.client
-    .from("vendas")
-    .select("id, company_id, vendedor_id")
-    .in("id", vendaIds)
-    .eq("company_id", params.companyId);
-
   const vendaMap = new Map<string, string | null>();
-  for (const venda of vendas || []) {
-    const id = String((venda as any)?.id || "").trim();
-    if (id)
-      vendaMap.set(
-        id,
-        String((venda as any)?.vendedor_id || "").trim() || null,
-      );
+  for (const batch of chunkArray(vendaIds)) {
+    const { data: vendas } = await params.client
+      .from("vendas")
+      .select("id, company_id, vendedor_id")
+      .in("id", batch)
+      .eq("company_id", params.companyId);
+
+    for (const venda of vendas || []) {
+      const id = String((venda as any)?.id || "").trim();
+      if (id)
+        vendaMap.set(
+          id,
+          String((venda as any)?.vendedor_id || "").trim() || null,
+        );
+    }
   }
 
   const candidatos = recibos
@@ -398,11 +415,16 @@ function buildImportFallbackKey(
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_IMPORT_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(
         scope,
         ["operacao_conciliacao", "conciliacao"],
@@ -411,18 +433,20 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json();
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
+    const body = await event.request.json().catch(() => ({}));
+    const companyId = resolveScopedCompanyId(scope, body?.companyId);
 
     if (!companyId)
-      return json({ error: "Empresa não identificada." }, { status: 400 });
+      return json(
+        { error: "Selecione uma empresa para importar conciliação." },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
 
     const linhas: ConciliacaoLinhaInput[] = Array.isArray(body?.linhas)
       ? body.linhas
       : [];
     if (linhas.length === 0)
-      return json({ error: "Nenhuma linha para importar." }, { status: 400 });
+      return json({ error: "Nenhuma linha para importar." }, { status: 400, headers: NO_STORE_HEADERS });
 
     // Filtra apenas linhas importáveis (BAIXA / OPFAX / ESTORNO)
     const importaveis = linhas.filter((linha) =>
@@ -756,22 +780,24 @@ export async function POST(event) {
       ),
     );
     if (reciboIdsToCheck.length > 0) {
-      const { data: recibosSistema } = await client
-        .from("vendas_recibos")
-        .select("id, valor_total, valor_taxas")
-        .in("id", reciboIdsToCheck);
-
       const reciboValorMap = new Map<
         string,
         { valor_total: number; valor_taxas: number }
       >();
-      for (const r of recibosSistema || []) {
-        const id = String(r?.id || "").trim();
-        if (id) {
-          reciboValorMap.set(id, {
-            valor_total: Number(r?.valor_total || 0),
-            valor_taxas: Number(r?.valor_taxas || 0),
-          });
+      for (const batch of chunkArray(reciboIdsToCheck)) {
+        const { data: recibosSistema } = await client
+          .from("vendas_recibos")
+          .select("id, valor_total, valor_taxas")
+          .in("id", batch);
+
+        for (const r of recibosSistema || []) {
+          const id = String(r?.id || "").trim();
+          if (id) {
+            reciboValorMap.set(id, {
+              valor_total: Number(r?.valor_total || 0),
+              valor_taxas: Number(r?.valor_taxas || 0),
+            });
+          }
         }
       }
 
@@ -873,16 +899,19 @@ export async function POST(event) {
 
     invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
 
-    return json({
-      ok: true,
-      importados,
-      atualizados,
-      ignorados: linhas.length - importaveis.length,
-      duplicados: atualizados,
-      status_cronologico: statusCronologico,
-      diferencas: diferencas.length > 0 ? diferencas : undefined,
-      tem_diferenca: diferencas.length > 0,
-    });
+    return json(
+      {
+        ok: true,
+        importados,
+        atualizados,
+        ignorados: linhas.length - importaveis.length,
+        duplicados: atualizados,
+        status_cronologico: statusCronologico,
+        diferencas: diferencas.length > 0 ? diferencas : undefined,
+        tem_diferenca: diferencas.length > 0,
+      },
+      { headers: NO_STORE_HEADERS },
+    );
   } catch (err) {
     return toErrorResponse(err, "Erro ao importar conciliação.");
   }

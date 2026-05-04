@@ -1,5 +1,7 @@
 export const MAPA_MODULOS: Record<string, string> = {
   Dashboard: 'dashboard',
+  Financeiro: 'financeiro',
+  NotasFiscais: 'financeiro_notas_fiscais',
   Vendas: 'vendas_consulta',
   Orcamentos: 'orcamentos',
   Clientes: 'clientes',
@@ -53,6 +55,7 @@ export const MAPA_MODULOS: Record<string, string> = {
   'Minhas Preferencias': 'operacao_preferencias',
   'Documentos Viagens': 'operacao_documentos_viagens',
   Vouchers: 'operacao_vouchers',
+  'Conciliação': 'operacao_conciliacao',
   Conciliacao: 'operacao_conciliacao',
   Campanhas: 'operacao_campanhas',
   Viagens: 'operacao_viagens',
@@ -83,8 +86,10 @@ const MODULO_REVERSE: Record<string, string> = Object.entries(MAPA_MODULOS).redu
 const MODULO_PREFERENCIAS: Record<string, string> = {
   consultoria_online: 'Consultoria Online',
   operacao_todo: 'Tarefas',
+  operacao_conciliacao: 'Conciliação',
   parametros_avisos: 'Avisos',
-  parametros_crm: 'CRM'
+  parametros_crm: 'CRM',
+  financeiro_notas_fiscais: 'NotasFiscais'
 };
 
 export const ROTAS_MODULOS: Record<string, string> = {
@@ -93,6 +98,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/dashboard/permissoes': 'Admin',
   '/dashboard/master': 'Dashboard',
   '/dashboard/gestor': 'Dashboard',
+  '/dashboard/financeiro': 'Dashboard',
   '/dashboard/vendedor': 'Dashboard',
   '/dashboard/geral': 'Dashboard',
   '/admin/permissoes': 'Admin',
@@ -108,7 +114,6 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/admin/email': 'Admin',
   '/admin/parametros-importacao': 'Admin',
   '/admin/fix-recibos': 'Admin',
-  '/admin/admin/fix-recibos': 'Admin',
   '/master': 'MasterEmpresas',
   '/master/empresas': 'MasterEmpresas',
   '/master/usuarios': 'MasterUsuarios',
@@ -129,6 +134,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/relatorios/vendas-por-cliente': 'RelatorioClientes',
   '/relatorios/ranking-vendas/view': 'Dashboard',
   '/relatorios/ranking-vendas': 'Ranking de vendas',
+  '/relatorios/ranking': 'Ranking de vendas',
   '/parametros': 'Parametros',
   '/parametros/tipo-pacotes': 'TipoPacotes',
   '/parametros/equipe': 'Equipe',
@@ -140,16 +146,26 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/parametros/formas-pagamento': 'Formas de Pagamento',
   '/admin': 'Admin',
   '/documentacao': 'Admin',
+  '/financeiro': 'Financeiro',
+  '/financeiro/caixa': 'Financeiro',
+  '/financeiro/notas-fiscais': 'NotasFiscais',
+  '/financeiro/conciliacao': 'Conciliação',
+  '/financeiro/comissoes': 'Comissionamento',
+  '/financeiro/comissoes/regras': 'RegrasComissao',
+  '/financeiro/regras': 'RegrasComissao',
+  '/financeiro/formas-pagamento': 'Formas de Pagamento',
+  '/comissoes': 'Comissionamento',
   '/consultoria-online': 'Consultoria Online',
   '/operacao/agenda': 'Agenda',
+  '/operacao/tarefas': 'Tarefas',
   '/operacao/todo': 'Tarefas',
   '/operacao/recados': 'Mural de Recados',
   '/operacao/minhas-preferencias': 'Minhas Preferencias',
   '/operacao/documentos-viagens': 'Documentos Viagens',
   '/operacao/vouchers': 'Vouchers',
   '/operacao/viagens': 'Viagens',
-  '/operacao/conciliacao': 'Conciliacao',
-  '/financeiro/ajustes-vendas': 'Conciliacao',
+  '/operacao/conciliacao': 'Conciliação',
+  '/financeiro/ajustes-vendas': 'Conciliação',
   '/operacao/campanhas': 'Campanhas',
   '/operacao/comissionamento': 'Comissionamento',
   '/chat': 'Mural de Recados',
@@ -157,7 +173,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/vendas/importar': 'Importar Contratos',
   '/gestor/importar-vendas': 'Vendas',
   '/metas/vendedor': 'Metas',
-  '/comissoes/fechamento': 'Metas',
+  '/comissoes/fechamento': 'Comissionamento',
   '/perfil': 'Perfil',
   '/perfil/personalizar': 'Perfil',
   '/perfil/escala': 'Perfil'
@@ -173,6 +189,8 @@ export const MODULO_HERANCA: Record<string, string[]> = {
   Vouchers: ['Operacao', 'Viagens'],
   'Controle de SAC': ['Operacao'],
   Campanhas: ['Operacao'],
+  'Conciliação': ['Operacao'],
+  Conciliacao: ['Operacao'],
   CRM: ['Parametros'],
   ParametrosAvisos: ['Parametros'],
   Avisos: ['Parametros'],
@@ -232,9 +250,22 @@ export const SECOES_PERMISSOES: ModuloSecaoPermissoes[] = [
     modulos: ['Relatorios', 'RelatorioVendas', 'RelatorioDestinos', 'RelatorioProdutos', 'RelatorioClientes']
   },
   {
+    id: 'financeiro',
+    titulo: 'Financeiro',
+    modulos: [
+      'Financeiro',
+      'NotasFiscais',
+      'Conciliação',
+      'Comissionamento',
+      'Vendas',
+      'Formas de Pagamento',
+      'RegrasComissao'
+    ]
+  },
+  {
     id: 'gestor',
     titulo: 'Gestor',
-    modulos: ['Ranking de vendas', 'Controle de SAC', 'Conciliacao', 'Metas', 'Equipe', 'Escalas']
+    modulos: ['Ranking de vendas', 'Controle de SAC', 'Conciliação', 'Metas', 'Equipe', 'Escalas']
   },
   {
     id: 'master',
@@ -280,6 +311,14 @@ export const SECOES_PERMISSOES: ModuloSecaoPermissoes[] = [
 
 const GLOBAL_MODULE_GROUPS: Record<string, string[]> = {
   Vendas: ['Orcamentos', 'Importar Contratos'],
+  Financeiro: [
+    'NotasFiscais',
+    'Conciliação',
+    'Comissionamento',
+    'Vendas',
+    'Formas de Pagamento',
+    'RegrasComissao'
+  ],
   Cadastros: ['Paises', 'Subdivisoes', 'Cidades', 'Destinos', 'Produtos', 'Circuitos', 'ProdutosLote', 'Fornecedores'],
   Relatorios: ['RelatorioVendas', 'RelatorioDestinos', 'RelatorioProdutos', 'RelatorioClientes', 'Ranking de vendas'],
   Parametros: [
@@ -305,7 +344,7 @@ const GLOBAL_MODULE_GROUPS: Record<string, string[]> = {
     'Campanhas',
     'Viagens',
     'Controle de SAC',
-    'Conciliacao',
+    'Conciliação',
     'Comissionamento'
   ],
   Admin: [

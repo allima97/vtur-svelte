@@ -36,9 +36,17 @@
     email?: string;
   }
 
+  interface EmpresaOption {
+    id: string;
+    nome?: string | null;
+    nome_fantasia?: string | null;
+    razao_social?: string | null;
+  }
+
   // ─── Estado ─────────────────────────────────────────────────────────────────
   let comissoes: ComissaoItem[] = [];
   let vendedores: VendedorOption[] = [];
+  let empresas: EmpresaOption[] = [];
   let loading = true;
 
   const todayParts = parseISODateParts(todayISODateLocal());
@@ -46,6 +54,7 @@
   let filtroAno    = todayParts?.year || new Date().getFullYear();
   let filtroVendedor = '';
   let filtroStatus = 'todas';
+  let empresaId = '';
 
   let abortController: AbortController | null = null;
   let autoReloadEnabled = false;
@@ -113,7 +122,8 @@
         status: filtroStatus !== 'todas' ? filtroStatus : undefined,
         mes: filtroMes,
         ano: filtroAno,
-        vendedor_id: filtroVendedor || undefined
+        vendedor_id: filtroVendedor || undefined,
+        empresa_id: empresaId || undefined
       }, abortController.signal);
       comissoes = data.items ?? [];
     } catch (err: unknown) {
@@ -126,9 +136,29 @@
 
   async function loadVendedores() {
     try {
-      const data = await apiGet<any>('/api/v1/financeiro/comissoes/vendedores');
+      const data = await apiGet<any>('/api/v1/financeiro/comissoes/vendedores', {
+        empresa_id: empresaId || undefined
+      });
       vendedores = Array.isArray(data.items) ? data.items : [];
+      if (filtroVendedor && !vendedores.some((v) => v.id === filtroVendedor)) {
+        filtroVendedor = '';
+      }
     } catch { /* silencioso */ }
+  }
+
+  async function loadUserContext() {
+    try {
+      const data = await apiGet<{
+        company_id?: string | null;
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      empresas = Array.isArray(data.empresas) ? data.empresas : [];
+      empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
+    } catch {
+      empresas = [];
+      empresaId = '';
+    }
   }
 
   function handleExport() {
@@ -152,6 +182,7 @@
   }
 
   onMount(async () => {
+    await loadUserContext();
     await Promise.all([load(), loadVendedores()]);
     lastAutoReloadKey = buildAutoReloadKey();
     autoReloadEnabled = true;
@@ -163,13 +194,14 @@
   });
 
   function buildAutoReloadKey() {
-    return [filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
+    return [empresaId, filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
   }
 
   function scheduleAutoReload() {
     if (autoReloadTimer) clearTimeout(autoReloadTimer);
     autoReloadTimer = setTimeout(() => {
       void load();
+      void loadVendedores();
     }, 250);
   }
 
@@ -201,6 +233,11 @@
       label: v.nome_completo || v.email || v.id
     }))
   ];
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome_fantasia || empresa.nome || empresa.razao_social || empresa.id
+  }));
+  $: canSelectEmpresa = empresaOptions.length > 1;
   $: autoReloadKey = buildAutoReloadKey();
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
@@ -252,6 +289,15 @@
       max="2100"
       class_name="w-24"
     />
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="fech-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+      />
+    {/if}
     <FieldSelect
       id="fech-status"
       label="Status"

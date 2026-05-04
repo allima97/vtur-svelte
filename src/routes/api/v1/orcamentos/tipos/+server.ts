@@ -14,7 +14,12 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['orcamentos', 'vendas'], 1, 'Sem acesso a Orcamentos.');
+      ensureModuloAccess(
+        scope,
+        scope.isFinanceiro ? ['orcamentos'] : ['orcamentos', 'vendas'],
+        1,
+        'Sem acesso a Orcamentos.'
+      );
     }
 
     const { data, error } = await client

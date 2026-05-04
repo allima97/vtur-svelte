@@ -32,6 +32,8 @@
     motivo?: string;
   }
 
+  type EmpresaOption = { id: string; nome: string };
+
   let loading = false;
   let calculando = false;
   let showConfirmDialog = false;
@@ -56,6 +58,8 @@
   let filtroVendedor = '';
   let filtroStatus = 'todas';
   let vendedores: any[] = [];
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -97,6 +101,7 @@
     filtroDataFim = range.fim;
     
     void (async () => {
+      await loadUserContext();
       await Promise.all([loadComissoes(), loadVendedores()]);
       lastAutoReloadKey = buildAutoReloadKey();
       autoReloadEnabled = true;
@@ -108,7 +113,42 @@
   });
 
   function buildAutoReloadKey() {
-    return [filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
+    return [empresaId, filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
+  }
+
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome
+  }));
+
+  $: canSelectEmpresa = empresaOptions.length > 1;
+
+  async function loadUserContext() {
+    try {
+      const data = await apiGet<{
+        company_id?: string | null;
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      empresas = Array.isArray(data.empresas)
+        ? data.empresas
+            .map((empresa) => ({
+              id: String(empresa?.id || '').trim(),
+              nome: String(empresa?.nome || 'Empresa sem nome').trim() || 'Empresa sem nome'
+            }))
+            .filter((empresa) => empresa.id)
+        : [];
+      empresaId = String(data.company_id || '').trim() || empresas[0]?.id || '';
+    } catch (err) {
+      empresas = [];
+      empresaId = '';
+      toast.error(err instanceof Error ? err.message : 'Erro ao carregar empresas.');
+    }
+  }
+
+  async function handleEmpresaChange() {
+    filtroVendedor = '';
+    await Promise.all([loadComissoes(), loadVendedores()]);
   }
 
   function scheduleAutoReload() {
@@ -125,6 +165,7 @@
         '/api/v1/financeiro/comissoes/calcular',
         {
           status: filtroStatus !== 'todas' ? filtroStatus : undefined,
+          empresa_id: empresaId || undefined,
           mes: filtroMes,
           ano: filtroAno,
           vendedor_id: filtroVendedor || undefined
@@ -141,7 +182,9 @@
 
   async function loadVendedores() {
     try {
-      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores');
+      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores', {
+        empresa_id: empresaId || undefined
+      });
       vendedores = data.items || [];
     } catch (err) {
       vendedores = [];
@@ -154,6 +197,7 @@
       const data = await apiPost<typeof resultadoCalculo>('/api/v1/financeiro/comissoes/calcular', {
         data_inicio: filtroDataInicio,
         data_fim: filtroDataFim,
+        empresa_id: empresaId || undefined,
         mes_referencia: Number(filtroMes),
         ano_referencia: filtroAno,
         vendedor_ids: filtroVendedor ? [filtroVendedor] : undefined
@@ -349,6 +393,17 @@
 <!-- Filtros -->
 <Card header="Filtros de Cálculo" color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
+
     <FieldInput
       label="Data Início"
       type="date"

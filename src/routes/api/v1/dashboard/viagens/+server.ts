@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
 type DashboardViagemRow = {
   id: string;
@@ -29,6 +30,16 @@ type DashboardViagemRow = {
   data_fim: string | null;
   status: string | null;
 };
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function isCancelledStatus(value?: string | null) {
   return normalizeViagemStatus(value) === "cancelada";
@@ -45,6 +56,26 @@ function clampIntParam(
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
+function compareNullableDate(a?: string | null, b?: string | null) {
+  const left = String(a || "").trim();
+  const right = String(b || "").trim();
+  if (!left && !right) return 0;
+  if (!left) return 1;
+  if (!right) return -1;
+  return left.localeCompare(right);
+}
+
+function mergeDashboardViagens(...groups: DashboardViagemRow[][]) {
+  const byId = new Map<string, DashboardViagemRow>();
+  groups.flat().forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !byId.has(id)) byId.set(id, row);
+  });
+  return Array.from(byId.values()).sort((a, b) =>
+    compareNullableDate(a.data_inicio, b.data_inicio),
+  );
+}
+
 async function fetchDashboardViagens(params: {
   client: any;
   companyIds: string[];
@@ -54,32 +85,61 @@ async function fetchDashboardViagens(params: {
   ongoing?: boolean;
   limit: number;
 }) {
-  let query = params.client
-    .from("viagens")
-    .select(
-      "id, venda_id, cliente_id, company_id, responsavel_user_id, destino, data_inicio, data_fim, status",
-    )
-    .order("data_inicio", { ascending: true })
-    .limit(params.limit);
+  const baseSelect =
+    "id, venda_id, cliente_id, company_id, responsavel_user_id, destino, data_inicio, data_fim, status";
+  const buildQuery = (selectFields: string, companyBatch?: string[] | null) => {
+    let query = params.client
+      .from("viagens")
+      .select(selectFields)
+      .order("data_inicio", { ascending: true })
+      .limit(params.limit);
 
-  if (params.ongoing) {
-    query = query.lte("data_inicio", params.from).gte("data_fim", params.from);
+    if (params.ongoing) {
+      query = query.lte("data_inicio", params.from).gte("data_fim", params.from);
+    } else {
+      query = query.gte("data_inicio", params.from);
+      if (params.to) query = query.lte("data_inicio", params.to);
+    }
+
+    if (companyBatch && companyBatch.length > 0) {
+      query = query.in("company_id", companyBatch);
+    }
+
+    return query;
+  };
+
+  const rows: DashboardViagemRow[] = [];
+  const companyBatches =
+    params.companyIds.length > 0 ? chunkArray(params.companyIds) : [null];
+
+  if (params.vendedorIds.length > 0) {
+    for (const companyBatch of companyBatches) {
+      for (const vendedorBatch of chunkArray(params.vendedorIds)) {
+        const [responsavelResult, vendaResult] = await Promise.all([
+          buildQuery(baseSelect, companyBatch).in("responsavel_user_id", vendedorBatch),
+          buildQuery(`${baseSelect}, venda:vendas!inner(id, vendedor_id)`, companyBatch).in(
+            "venda.vendedor_id",
+            vendedorBatch,
+          ),
+        ]);
+
+        if (responsavelResult.error) throw responsavelResult.error;
+        if (vendaResult.error) throw vendaResult.error;
+        rows.push(...((responsavelResult.data || []) as DashboardViagemRow[]));
+        rows.push(...((vendaResult.data || []) as DashboardViagemRow[]));
+      }
+    }
   } else {
-    query = query.gte("data_inicio", params.from);
-    if (params.to) query = query.lte("data_inicio", params.to);
+    for (const companyBatch of companyBatches) {
+      const result = await buildQuery(baseSelect, companyBatch);
+      if (result.error) throw result.error;
+      rows.push(...((result.data || []) as DashboardViagemRow[]));
+    }
   }
 
-  if (params.companyIds.length > 0)
-    query = query.in("company_id", params.companyIds);
-  if (params.vendedorIds.length > 0)
-    query = query.in("responsavel_user_id", params.vendedorIds);
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  return ((data || []) as DashboardViagemRow[]).filter(
-    (row) => !isCancelledStatus(row.status),
-  );
+  return mergeDashboardViagens(rows)
+    .slice(0, params.limit)
+    .filter((row) => !isCancelledStatus(row.status));
 }
 
 async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
@@ -95,17 +155,20 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
     { nome: string; contato: string | null }
   >();
   if (clienteIds.length > 0) {
-    const { data } = await client
-      .from("clientes")
-      .select("id, nome, whatsapp, telefone")
-      .in("id", clienteIds);
-    for (const row of data || []) {
-      const id = String((row as any)?.id || "").trim();
-      if (!id) continue;
-      clientesMap.set(id, {
-        nome: String((row as any)?.nome || "Cliente"),
-        contato: (row as any)?.whatsapp || (row as any)?.telefone || null,
-      });
+    for (const batch of chunkArray(clienteIds)) {
+      const { data, error } = await client
+        .from("clientes")
+        .select("id, nome, whatsapp, telefone")
+        .in("id", batch);
+      if (error) throw error;
+      for (const row of data || []) {
+        const id = String((row as any)?.id || "").trim();
+        if (!id) continue;
+        clientesMap.set(id, {
+          nome: String((row as any)?.nome || "Cliente"),
+          contato: (row as any)?.whatsapp || (row as any)?.telefone || null,
+        });
+      }
     }
   }
 
@@ -114,13 +177,16 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
   ) as string[];
   const vendedoresMap = new Map<string, string>();
   if (vendedorIds.length > 0) {
-    const { data } = await client
-      .from("users")
-      .select("id, nome_completo")
-      .in("id", vendedorIds);
-    for (const row of data || []) {
-      const id = String((row as any)?.id || "").trim();
-      if (id) vendedoresMap.set(id, String((row as any)?.nome_completo || ""));
+    for (const batch of chunkArray(vendedorIds)) {
+      const { data, error } = await client
+        .from("users")
+        .select("id, nome_completo")
+        .in("id", batch);
+      if (error) throw error;
+      for (const row of data || []) {
+        const id = String((row as any)?.id || "").trim();
+        if (id) vendedoresMap.set(id, String((row as any)?.nome_completo || ""));
+      }
     }
   }
 
@@ -129,17 +195,20 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
   ) as string[];
   const vendasMap = new Map<string, string | null>();
   if (vendaIds.length > 0) {
-    const { data } = await client
-      .from("vendas")
-      .select("id, numero_venda")
-      .in("id", vendaIds);
-    for (const row of data || []) {
-      const id = String((row as any)?.id || "").trim();
-      if (id)
-        vendasMap.set(
-          id,
-          (row as any)?.numero_venda ? String((row as any).numero_venda) : null,
-        );
+    for (const batch of chunkArray(vendaIds)) {
+      const { data, error } = await client
+        .from("vendas")
+        .select("id, numero_venda")
+        .in("id", batch);
+      if (error) throw error;
+      for (const row of data || []) {
+        const id = String((row as any)?.id || "").trim();
+        if (id)
+          vendasMap.set(
+            id,
+            (row as any)?.numero_venda ? String((row as any).numero_venda) : null,
+          );
+      }
     }
   }
 
@@ -220,13 +289,16 @@ export async function GET(event) {
     }
 
     if (!scope.isAdmin && companyIds.length === 0 && vendedorIds.length === 0) {
-      return json({
-        items: [],
-        proximas: [],
-        em_andamento: [],
-        total_proximas: 0,
-        total_em_andamento: 0,
-      });
+      return json(
+        {
+          items: [],
+          proximas: [],
+          em_andamento: [],
+          total_proximas: 0,
+          total_em_andamento: 0,
+        },
+        { headers: DYNAMIC_READ_HEADERS },
+      );
     }
 
     const cacheKey = buildReadModelCacheKey("dashboard:viagens", {
@@ -287,7 +359,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar viagens do dashboard.");
   }

@@ -4,6 +4,7 @@ import {
   getAdminClient,
   isUuid,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
@@ -15,10 +16,18 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+
+const MAX_VENDA_CREATE_BODY_BYTES = 512 * 1024;
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_VENDA_CREATE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -32,21 +41,58 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const venda = body?.venda || {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
 
     const vendedorId = String(venda?.vendedor_id || scope.userId).trim();
+    if (!isUuid(vendedorId)) {
+      return json({ error: "Vendedor invalido." }, { status: 400 });
+    }
+
     const deniedSeller = await ensureAssignableActiveSeller(
       client,
       scope,
       vendedorId,
     );
-    if (!isUuid(vendedorId) || deniedSeller) {
+    if (deniedSeller) {
       return json(
-        { error: deniedSeller || "Vendedor invalido." },
+        { error: deniedSeller },
         { status: 400 },
+      );
+    }
+
+    const { data: sellerScope, error: sellerScopeError } = await client
+      .from("users")
+      .select("id, company_id")
+      .eq("id", vendedorId)
+      .maybeSingle();
+    if (sellerScopeError) throw sellerScopeError;
+
+    const sellerCompanyId =
+      String((sellerScope as any)?.company_id || "").trim() || null;
+    const requestedCompanyId = String(
+      venda?.company_id || venda?.empresa_id || "",
+    ).trim();
+    const targetCompanyId = scope.isAdmin
+      ? requestedCompanyId || sellerCompanyId || scope.companyId
+      : resolveScopedCompanyId(
+          scope,
+          requestedCompanyId || sellerCompanyId || scope.companyId,
+        );
+
+    if (!targetCompanyId) {
+      return json(
+        { error: "Selecione uma empresa para cadastrar a venda." },
+        { status: 400 },
+      );
+    }
+
+    if (sellerCompanyId && sellerCompanyId !== targetCompanyId) {
+      return json(
+        { error: "Vendedor fora da empresa selecionada." },
+        { status: 403 },
       );
     }
 
@@ -65,7 +111,7 @@ export async function POST(event) {
     try {
       await ensureReciboReservaUnicos({
         client,
-        companyId: scope.companyId,
+        companyId: targetCompanyId,
         clienteId,
         recibos,
       });
@@ -85,7 +131,7 @@ export async function POST(event) {
         vendedorId,
         clienteId,
         destinoId,
-        scope.companyId,
+        targetCompanyId,
       );
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
@@ -105,7 +151,7 @@ export async function POST(event) {
     await syncVendaChildren({
       client,
       vendaId: insertedSale.id,
-      companyId: scope.companyId,
+      companyId: targetCompanyId,
       clienteId,
       vendedorId,
       userId: user.id,
@@ -115,7 +161,7 @@ export async function POST(event) {
 
     await closeQuoteIfNeeded(client, body?.orcamento_id);
     invalidateSalesReadModels({
-      companyIds: scope.companyId ? [scope.companyId] : [],
+      companyIds: [targetCompanyId],
       vendedorIds: [vendedorId],
       userId: user.id,
     });

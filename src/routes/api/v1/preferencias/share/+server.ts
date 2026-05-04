@@ -1,4 +1,5 @@
 import { isUuid } from "$lib/server/v1";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import {
   buildNoStoreJsonResponse,
   buildNoStoreTextResponse,
@@ -8,13 +9,24 @@ import {
 } from "../_shared";
 import { invalidatePreferenceReadModels } from "$lib/server/readModelCache";
 
+const MAX_PREFERENCIAS_SHARE_BODY_BYTES = 16 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_PREFERENCIAS_SHARE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const { client, user, scope } = await requirePreferenciasScope(event, 3);
     const companyId = scope.companyId;
     if (!companyId) return buildNoStoreTextResponse("Empresa inválida.", 400);
 
-    const body = safeJsonParse(await event.request.text()) as any;
+    const rawBody = await event.request.text();
+    if (rawBody.length > MAX_PREFERENCIAS_SHARE_BODY_BYTES) {
+      return buildNoStoreTextResponse("Payload muito grande.", 413);
+    }
+    const body = safeJsonParse(rawBody) as any;
     const preferenciaId = String(body?.preferencia_id || "").trim();
     const sharedWith = String(body?.shared_with || "").trim();
 

@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldCheckbox, FieldInput } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { 
@@ -28,6 +28,11 @@
     ordem?: number;
   }
 
+  interface EmpresaOption {
+    id: string;
+    nome: string;
+  }
+
   let formasPagamento: FormaPagamento[] = [];
   let loading = true;
   let showFormDialog = false;
@@ -35,6 +40,8 @@
   let processando = false;
   let editando: FormaPagamento | null = null;
   let excluindo: FormaPagamento | null = null;
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
   let filtroRapido: 'todas' | 'ativas' | 'inativas' | 'sem_comissao' | 'com_desconto' = 'todas';
 
   let form = {
@@ -92,14 +99,31 @@
     }
   ];
 
-  onMount(() => {
+  $: empresaOptions = empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }));
+  $: temVariasEmpresas = empresas.length > 1;
+
+  onMount(async () => {
+    await carregarContexto();
     carregarFormasPagamento();
   });
+
+  async function carregarContexto() {
+    try {
+      const data = await apiGet<{ company_id?: string; empresas?: EmpresaOption[] }>('/api/v1/user/context');
+      empresas = data.empresas || [];
+      empresaId = String(data.company_id || empresas[0]?.id || '').trim();
+    } catch {
+      empresas = [];
+      empresaId = '';
+    }
+  }
 
   async function carregarFormasPagamento() {
     loading = true;
     try {
-      const data = await apiGet<{ items?: FormaPagamento[] }>('/api/v1/financeiro/formas-pagamento');
+      const data = await apiGet<{ items?: FormaPagamento[] }>('/api/v1/financeiro/formas-pagamento', {
+        empresa_id: empresaId || undefined
+      });
       formasPagamento = data.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados');
@@ -149,8 +173,8 @@
       const url = '/api/v1/financeiro/formas-pagamento';
       const method = editando ? 'PATCH' : 'POST';
       const body = editando 
-        ? { ...form, id: editando.id }
-        : form;
+        ? { ...form, id: editando.id, empresa_id: empresaId || undefined }
+        : { ...form, empresa_id: empresaId || undefined };
 
       if (method === 'PATCH') await apiPatch(url, body);
       else await apiPost(url, body);
@@ -264,7 +288,18 @@
 </div>
 
 <Card color="financeiro" class="mb-6">
-  <div class="flex flex-wrap items-center gap-2">
+  <div class="flex flex-wrap items-end gap-3">
+    {#if temVariasEmpresas}
+      <FieldSelect
+        id="formas-pagamento-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="min-w-[240px]"
+        on:change={carregarFormasPagamento}
+      />
+    {/if}
     <Button
       variant={filtroRapido === 'todas' ? 'selected' : 'secondary'}
       size="sm"
@@ -354,6 +389,17 @@
   onConfirm={salvar}
 >
   <div class="space-y-4">
+    {#if temVariasEmpresas && !editando}
+      <FieldSelect
+        id="forma-pagamento-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        required={true}
+        class_name="w-full"
+      />
+    {/if}
     <FieldInput
       id="forma-pagamento-nome"
       label="Nome"

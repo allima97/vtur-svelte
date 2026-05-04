@@ -3,13 +3,45 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
+  resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import {
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const FORMA_PAGAMENTO_SELECT =
   'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
+const MAX_FORMA_PAGAMENTO_BODY_BYTES = 16 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function invalidateFinancePaymentModels(companyId: string | null | undefined, userId: string) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.payments,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.comissoes,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.dashboard
+    ],
+    scopeTags: scopeCacheTags({ companyIds: companyId ? [companyId] : [], userId })
+  });
+}
 
 // GET - Listar formas de pagamento
 export async function GET(event) {
@@ -26,30 +58,35 @@ export async function GET(event) {
     const ativas = searchParams.get('ativas');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
-    let query = client
-      .from('formas_pagamento')
-      .select(FORMA_PAGAMENTO_SELECT)
-      .order('nome', { ascending: true });
+    const items: any[] = [];
+    const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+    for (const companyBatch of companyBatches) {
+      let query = client
+        .from('formas_pagamento')
+        .select(FORMA_PAGAMENTO_SELECT)
+        .order('nome', { ascending: true });
 
-    if (ativas === 'true') {
-      query = query.eq('ativo', true);
-    }
-
-    if (companyIds.length > 0) {
-      query = query.in('company_id', companyIds);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      // Tabela formas_pagamento pode não existir — retorna lista vazia
-      if (String(error.code || '').includes('42P01') || String(error.message || '').includes('does not exist')) {
-        return json({ success: true, items: [] });
+      if (ativas === 'true') {
+        query = query.eq('ativo', true);
       }
-      throw error;
+
+      if (companyBatch) {
+        query = query.in('company_id', companyBatch);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        // Tabela formas_pagamento pode não existir — retorna lista vazia
+        if (String(error.code || '').includes('42P01') || String(error.message || '').includes('does not exist')) {
+          return json({ success: true, items: [] }, { headers: DYNAMIC_READ_HEADERS });
+        }
+        throw error;
+      }
+      items.push(...(data || []));
     }
 
-    return json({ success: true, items: data || [] });
+    return json({ success: true, items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar formas de pagamento.');
   }
@@ -58,26 +95,38 @@ export async function GET(event) {
 // POST - Criar nova forma de pagamento
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissão para criar formas de pagamento.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
+    const companyId = resolveScopedCompanyId(scope, body.empresa_id || body.company_id);
 
     // Validar campos obrigatórios
     if (!body.nome) {
       return json(
         { success: false, error: 'Nome é obrigatório.' },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+    if (!companyId) {
+      return json(
+        { success: false, error: 'Selecione uma empresa para criar forma de pagamento.' },
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
     const { data, error } = await client
       .from('formas_pagamento')
       .insert([{
-        company_id: scope.companyId,
+        company_id: companyId,
         nome: body.nome,
         descricao: body.descricao || null,
         paga_comissao: body.paga_comissao !== false,
@@ -92,13 +141,14 @@ export async function POST(event) {
       if (error.code === '23505') {
         return json(
           { success: false, error: 'Já existe uma forma de pagamento com este código.' },
-          { status: 409 }
+          { status: 409, headers: NO_STORE_HEADERS }
         );
       }
       throw error;
     }
 
-    return json({ success: true, item: data });
+    invalidateFinancePaymentModels(companyId, user.id);
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar forma de pagamento.');
   }
@@ -107,18 +157,23 @@ export async function POST(event) {
 // PATCH - Atualizar forma de pagamento
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     ensureModuloAccess(scope, ['financeiro'], 3, 'Sem permissão para editar formas de pagamento.');
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     if (!body.id) {
       return json(
         { success: false, error: 'ID da forma de pagamento é obrigatório.' },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -133,16 +188,32 @@ export async function PATCH(event) {
     if (body.desconto_padrao_pct !== undefined) updateData.desconto_padrao_pct = body.desconto_padrao_pct;
     if (body.ativo !== undefined) updateData.ativo = body.ativo;
 
+    const { data: existing, error: existingError } = await client
+      .from('formas_pagamento')
+      .select('id, company_id')
+      .eq('id', body.id)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (!existing) {
+      return json({ success: false, error: 'Forma de pagamento não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    }
+    if (!scope.isAdmin && !scope.companyIds.includes(String(existing.company_id || ''))) {
+      return json({ success: false, error: 'Forma de pagamento fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+    }
+
     const { data, error } = await client
       .from('formas_pagamento')
       .update(updateData)
       .eq('id', body.id)
+      .eq('company_id', existing.company_id)
       .select(FORMA_PAGAMENTO_SELECT)
       .single();
 
     if (error) throw error;
 
-    return json({ success: true, item: data });
+    invalidateFinancePaymentModels(existing.company_id, user.id);
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar forma de pagamento.');
   }
@@ -151,6 +222,9 @@ export async function PATCH(event) {
 // DELETE - Excluir forma de pagamento
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -163,8 +237,22 @@ export async function DELETE(event) {
     if (!id) {
       return json(
         { success: false, error: 'ID da forma de pagamento é obrigatório.' },
-        { status: 400 }
+        { status: 400, headers: NO_STORE_HEADERS }
       );
+    }
+
+    const { data: existing, error: existingError } = await client
+      .from('formas_pagamento')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (!existing) {
+      return json({ success: false, error: 'Forma de pagamento não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
+    }
+    if (!scope.isAdmin && !scope.companyIds.includes(String(existing.company_id || ''))) {
+      return json({ success: false, error: 'Forma de pagamento fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     // Verificar se há pagamentos associados (tabela vendas_pagamentos)
@@ -181,26 +269,33 @@ export async function DELETE(event) {
         .from('formas_pagamento')
         .update({ ativo: false, updated_at: new Date().toISOString() })
         .eq('id', id)
+        .eq('company_id', existing.company_id)
         .select(FORMA_PAGAMENTO_SELECT)
         .single();
 
       if (error) throw error;
 
-      return json({
-        success: true,
-        item: data,
-        message: 'Forma de pagamento inativada pois possui pagamentos associados.'
-      });
+      invalidateFinancePaymentModels(existing.company_id, user.id);
+      return json(
+        {
+          success: true,
+          item: data,
+          message: 'Forma de pagamento inativada pois possui pagamentos associados.'
+        },
+        { headers: NO_STORE_HEADERS }
+      );
     }
 
     const { error } = await client
       .from('formas_pagamento')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', existing.company_id);
 
     if (error) throw error;
 
-    return json({ success: true });
+    invalidateFinancePaymentModels(existing.company_id, user.id);
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir forma de pagamento.');
   }

@@ -12,6 +12,10 @@ import { escapeHtml } from "$lib/utils/html";
 import { env } from "$env/dynamic/private";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { checkPersistentRateLimit } from "$lib/server/persistentRateLimit";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { resolveThemeAssetMeta } from "$lib/cards/themeAssetMeta";
+
+const MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES = 128 * 1024;
 
 type Body = {
   clienteId?: string;
@@ -212,6 +216,11 @@ async function enviarEmailSMTP(
 
 export const POST: RequestHandler = async ({ locals, request, url }) => {
   try {
+    const originError = rejectCrossOriginRequest(request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(request, MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
     const userScope = await resolveUserScope(client, user.id);
@@ -232,7 +241,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     }
     const dataClient = client;
 
-    const body = (await request.json()) as Body;
+    const body = (await request.json().catch(() => ({}))) as Body;
 
     const templateId = String(body.templateId || "").trim();
     const clienteId = String(body.clienteId || "").trim();
@@ -302,6 +311,28 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     const requestedThemeId = String(body.themeId || "").trim();
     const selectedThemeId =
       requestedThemeId || String(tpl.theme_id || "").trim();
+    let selectedTheme: Record<string, any> | null = null;
+    if (selectedThemeId) {
+      const { data: themeRow, error: themeError } = await client
+        .from("user_message_template_themes")
+        .select("id, user_id, company_id, scope, nome, asset_url, storage_path")
+        .eq("id", selectedThemeId)
+        .maybeSingle();
+      if (themeError) throw themeError;
+      if (
+        themeRow &&
+        canAccessScopedRow({
+          isAdmin,
+          userId: user.id,
+          companyIds,
+          rowUserId: themeRow.user_id,
+          rowCompanyId: themeRow.company_id,
+          rowScope: themeRow.scope,
+        })
+      ) {
+        selectedTheme = themeRow;
+      }
+    }
     const textOffsetX = parseBodyOffset(body.textOffsetX);
     const textOffsetY = parseBodyOffset(body.textOffsetY);
     const signatureTextConfig = extractSignatureTextConfig(tpl.signature_style);
@@ -315,7 +346,11 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
       style_overrides: "{}",
       v: String(Date.now()),
     });
-    if (selectedThemeId) cardParams.set("theme_id", selectedThemeId);
+    if (selectedTheme) {
+      const themeAsset = resolveThemeAssetMeta(selectedTheme);
+      cardParams.set("theme_name", String(selectedTheme.nome || ""));
+      if (themeAsset.asset_url) cardParams.set("theme_asset_url", themeAsset.asset_url);
+    }
 
     const cardUrlPng = `${origin}/api/v1/cards/render.png?${cardParams.toString()}`;
     const cardUrlSvg = `${origin}/api/v1/cards/render.svg?${cardParams.toString()}`;

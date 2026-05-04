@@ -3,12 +3,15 @@ import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_SEM_MOVIMENTO_BODY_BYTES = 8 * 1024;
 
 function isTableMissingError(error: any, tableName: string) {
   const msg = String(error?.message || error || '').toLowerCase();
@@ -27,15 +30,14 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão.');
     }
 
     const url = new URL(event.request.url);
-    const companyIds = resolveScopedCompanyIds(scope, url.searchParams.get('companyId'));
-    const companyId = companyIds[0] || scope.companyId;
+    const companyId = resolveScopedCompanyId(scope, url.searchParams.get('companyId'));
 
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para listar dias sem movimento.' }, { status: 400 });
 
     const { data, error } = await client
       .from('conciliacao_dias_sem_movimento')
@@ -59,23 +61,27 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_SEM_MOVIMENTO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão.');
     }
 
     const body = await event.request.json().catch(() => ({}));
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
+    const companyId = resolveScopedCompanyId(scope, body?.companyId);
     const dataStr = String(body?.data || '').trim();
     const observacao = String(body?.observacao || '').trim() || null;
 
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para marcar dia sem movimento.' }, { status: 400, headers: NO_STORE_HEADERS });
     if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) {
-      return json({ error: 'Data inválida. Use formato YYYY-MM-DD.' }, { status: 400 });
+      return json({ error: 'Data inválida. Use formato YYYY-MM-DD.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     // Verifica se já existe importação para essa data
@@ -89,7 +95,7 @@ export async function POST(event) {
     if ((existentes as any)?.count > 0) {
       return json(
         { error: `Não é possível marcar "sem movimento" para ${dataStr}, pois já existem registros importados para esta data.` },
-        { status: 409 }
+        { status: 409, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -107,7 +113,10 @@ export async function POST(event) {
 
     if (error) {
       if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
-        return json({ error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente. Execute a migração 20260430_conciliacao_dias_sem_movimento.sql no Supabase.' }, { status: 503 });
+        return json(
+          { error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente. Execute a migração 20260430_conciliacao_dias_sem_movimento.sql no Supabase.' },
+          { status: 503, headers: NO_STORE_HEADERS }
+        );
       }
       throw error;
     }
@@ -121,22 +130,26 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_SEM_MOVIMENTO_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão.');
     }
 
     const body = await event.request.json().catch(() => ({}));
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
+    const companyId = resolveScopedCompanyId(scope, body?.companyId);
     const dataStr = String(body?.data || '').trim();
 
-    if (!companyId) return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para remover dia sem movimento.' }, { status: 400, headers: NO_STORE_HEADERS });
     if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) {
-      return json({ error: 'Data inválida.' }, { status: 400 });
+      return json({ error: 'Data inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { error } = await client
@@ -147,7 +160,7 @@ export async function DELETE(event) {
 
     if (error) {
       if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
-        return json({ error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente.' }, { status: 503 });
+        return json({ error: 'A tabela de dias sem movimento ainda não foi provisionada no ambiente.' }, { status: 503, headers: NO_STORE_HEADERS });
       }
       throw error;
     }

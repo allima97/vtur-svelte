@@ -6,6 +6,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PARAMETROS_ORCAMENTOS_PDF_BODY_BYTES = 128 * 1024;
 
 const DEFAULT_FOOTER =
   'Preços em real (R$) convertido ao câmbio do dia sujeito a alteração e disponibilidade da tarifa.\n' +
@@ -62,6 +65,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_ORCAMENTOS_PDF_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -70,7 +78,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros_orcamentos', 'parametros'], 2, 'Sem permissão para salvar parâmetros de orçamento.');
     }
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const { settings } = body;
 
     const payload: Record<string, string | null> = {

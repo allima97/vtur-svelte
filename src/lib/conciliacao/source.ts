@@ -159,6 +159,16 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito",
 ].map((termo) => normalizeTextValue(termo));
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
   try {
     const { data, error } = await client
@@ -785,51 +795,55 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   >();
   if (vendaIds.length > 0) {
-    const { data, error } = await client
-      .from("vendas")
-      .select("id, vendedor_id, valor_total, valor_nao_comissionado")
-      .in("id", vendaIds);
-    if (error) throw error;
-    (data || []).forEach((row: any) => {
-      const id = toStr(row?.id);
-      if (!id) return;
-      vendasMap.set(id, {
-        vendedor_id: toStr(row?.vendedor_id) || null,
-        valor_total:
-          row?.valor_total == null ? null : toNumber(row.valor_total),
-        valor_nao_comissionado:
-          row?.valor_nao_comissionado == null
-            ? null
-            : toNumber(row.valor_nao_comissionado),
+    for (const batch of chunkArray(vendaIds)) {
+      const { data, error } = await client
+        .from("vendas")
+        .select("id, vendedor_id, valor_total, valor_nao_comissionado")
+        .in("id", batch);
+      if (error) throw error;
+      (data || []).forEach((row: any) => {
+        const id = toStr(row?.id);
+        if (!id) return;
+        vendasMap.set(id, {
+          vendedor_id: toStr(row?.vendedor_id) || null,
+          valor_total:
+            row?.valor_total == null ? null : toNumber(row.valor_total),
+          valor_nao_comissionado:
+            row?.valor_nao_comissionado == null
+              ? null
+              : toNumber(row.valor_nao_comissionado),
+        });
       });
-    });
+    }
   }
 
   const recibosMap = new Map<string, any>();
   const reciboByNumeroMap = new Map<string, any>();
   if (reciboIds.length > 0) {
-    const { data, error } = await client
-      .from("vendas_recibos")
-      .select(
-        "id, venda_id, produto_id, data_venda, valor_total, valor_rav, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao",
-      )
-      .in("id", reciboIds);
-    if (error) throw error;
-    (data || []).forEach((row: any) => {
-      const id = toStr(row?.id);
-      if (!id) return;
-      recibosMap.set(id, {
-        venda_id: toStr(row?.venda_id) || null,
-        produto_id: toStr(row?.produto_id) || null,
-        data_venda: toStr(row?.data_venda) || null,
-        valor_total: toNumber(row?.valor_total),
-        valor_rav: toNumber(row?.valor_rav),
-        cancelado_por_conciliacao_em:
-          toStr(row?.cancelado_por_conciliacao_em) || null,
-        cancelado_por_conciliacao_observacao:
-          toStr(row?.cancelado_por_conciliacao_observacao) || null,
+    for (const batch of chunkArray(reciboIds)) {
+      const { data, error } = await client
+        .from("vendas_recibos")
+        .select(
+          "id, venda_id, produto_id, data_venda, valor_total, valor_rav, cancelado_por_conciliacao_em, cancelado_por_conciliacao_observacao",
+        )
+        .in("id", batch);
+      if (error) throw error;
+      (data || []).forEach((row: any) => {
+        const id = toStr(row?.id);
+        if (!id) return;
+        recibosMap.set(id, {
+          venda_id: toStr(row?.venda_id) || null,
+          produto_id: toStr(row?.produto_id) || null,
+          data_venda: toStr(row?.data_venda) || null,
+          valor_total: toNumber(row?.valor_total),
+          valor_rav: toNumber(row?.valor_rav),
+          cancelado_por_conciliacao_em:
+            toStr(row?.cancelado_por_conciliacao_em) || null,
+          cancelado_por_conciliacao_observacao:
+            toStr(row?.cancelado_por_conciliacao_observacao) || null,
+        });
       });
-    });
+    }
   }
 
   const validRankingVendedorIds = new Set<string>();
@@ -872,21 +886,23 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       );
       const allowedVendaIds = new Set<string>();
       if (vendaIdsBatch.length > 0) {
-        let vendasBatchQuery = client
-          .from("vendas")
-          .select("id, company_id")
-          .in("id", vendaIdsBatch);
-        vendasBatchQuery =
-          normalizedCompanyIds.length === 1
-            ? vendasBatchQuery.eq("company_id", normalizedCompanyIds[0])
-            : vendasBatchQuery.in("company_id", normalizedCompanyIds);
-        const { data: vendasBatch, error: vendasBatchErr } =
-          await vendasBatchQuery;
-        if (vendasBatchErr) throw vendasBatchErr;
-        (vendasBatch || []).forEach((v: any) => {
-          const id = toStr(v?.id);
-          if (id) allowedVendaIds.add(id);
-        });
+        for (const vendaIdBatch of chunkArray(vendaIdsBatch)) {
+          let vendasBatchQuery = client
+            .from("vendas")
+            .select("id, company_id")
+            .in("id", vendaIdBatch);
+          vendasBatchQuery =
+            normalizedCompanyIds.length === 1
+              ? vendasBatchQuery.eq("company_id", normalizedCompanyIds[0])
+              : vendasBatchQuery.in("company_id", normalizedCompanyIds);
+          const { data: vendasBatch, error: vendasBatchErr } =
+            await vendasBatchQuery;
+          if (vendasBatchErr) throw vendasBatchErr;
+          (vendasBatch || []).forEach((v: any) => {
+            const id = toStr(v?.id);
+            if (id) allowedVendaIds.add(id);
+          });
+        }
       }
 
       (data || []).forEach((row: any) => {

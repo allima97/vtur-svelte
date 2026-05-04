@@ -1,5 +1,9 @@
 import { json } from "@sveltejs/kit";
 import { ensureTodoAccess } from "$lib/server/agenda";
+import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
 import { invalidateTodoReadModels } from "$lib/server/readModelCache";
 import {
   getAdminClient,
@@ -9,12 +13,19 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 
+const MAX_TODO_CATEGORY_BODY_BYTES = 16 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_TODO_CATEGORY_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
 
     const id = String(body?.id || "").trim();
     const isEdit = Boolean(id);
@@ -89,6 +100,9 @@ export async function POST(event) {
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

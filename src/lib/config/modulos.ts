@@ -18,6 +18,7 @@
 export const MAPA_MODULOS: Record<string, string> = {
   Dashboard: 'dashboard',
   Financeiro: 'financeiro',
+  NotasFiscais: 'financeiro_notas_fiscais',
   Vendas: 'vendas_consulta',
   Orcamentos: 'orcamentos',
   Clientes: 'clientes',
@@ -117,6 +118,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/dashboard/permissoes': 'Admin',
   '/dashboard/master': 'Dashboard',
   '/dashboard/gestor': 'Dashboard',
+  '/dashboard/financeiro': 'Dashboard',
   '/dashboard/vendedor': 'Dashboard',
   '/dashboard/geral': 'Dashboard',
 
@@ -135,7 +137,6 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/admin/email': 'Admin',
   '/admin/parametros-importacao': 'Admin',
   '/admin/fix-recibos': 'Admin',
-  '/admin/admin/fix-recibos': 'Admin',
 
   // Master
   '/master/empresas': 'MasterEmpresas',
@@ -147,6 +148,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/vendas': 'Vendas',
   '/vendas/nova': 'Vendas',
   '/vendas/importar': 'Importar Contratos',
+  '/gestor/importar-vendas': 'Importar Contratos',
 
   // Orçamentos / Clientes
   '/orcamentos': 'Orcamentos',
@@ -186,12 +188,16 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/parametros/empresa': 'Parametros',
 
   // Financeiro
+  '/financeiro': 'Financeiro',
   '/financeiro/caixa': 'Financeiro',
+  '/financeiro/notas-fiscais': 'NotasFiscais',
   '/financeiro/conciliacao': 'Conciliação',
   '/financeiro/ajustes-vendas': 'Conciliação',
   '/financeiro/comissoes': 'Comissionamento',
   '/financeiro/comissoes/regras': 'RegrasComissao',
   '/financeiro/regras': 'RegrasComissao',
+  '/financeiro/formas-pagamento': 'Formas de Pagamento',
+  '/comissoes': 'Comissionamento',
 
   // Operação
   '/operacao/agenda': 'Agenda',
@@ -211,7 +217,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   // Misc
   '/chat': 'Mural de Recados',
   '/metas/vendedor': 'Metas',
-  '/comissoes/fechamento': 'Metas',
+  '/comissoes/fechamento': 'Comissionamento',
   '/perfil': 'Perfil',
   '/perfil/personalizar': 'Perfil',
   '/perfil/escala': 'Perfil',
@@ -358,6 +364,19 @@ export const SECOES_PERMISSOES: ModuloSecaoPermissoes[] = [
       'RelatorioDestinos',
       'RelatorioProdutos',
       'RelatorioClientes',
+    ],
+  },
+  {
+    id: 'financeiro',
+    titulo: 'Financeiro',
+    modulos: [
+      'Financeiro',
+      'NotasFiscais',
+      'Conciliação',
+      'Comissionamento',
+      'Vendas',
+      'Formas de Pagamento',
+      'RegrasComissao',
     ],
   },
   {

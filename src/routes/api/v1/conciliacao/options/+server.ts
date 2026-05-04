@@ -15,16 +15,15 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
-    const companyId = companyIds[0] || scope.companyId;
 
-    if (!companyId) return json({ vendedores: [], produtosMeta: [] });
+    if (companyIds.length === 0) return json({ vendedores: [], produtosMeta: [] });
 
-    const usersData = await fetchRankingVendedoresByCompanyIds(client, [companyId]);
+    const usersData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     const vendedoresFinal = ((usersData || []) as any[])
       .map((row) => ({

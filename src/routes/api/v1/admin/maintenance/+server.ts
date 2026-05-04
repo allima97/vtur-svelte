@@ -2,20 +2,18 @@ import { json } from '@sveltejs/kit';
 import {
   getAdminClient,
   requireAuthenticatedUser,
+  resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { isSystemAdminRole, extractUserTypeName } from '$lib/server/admin';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkRateLimit } from '$lib/server/rateLimit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_MAINTENANCE_BODY_BYTES = 8 * 1024;
 
 async function requireSystemAdmin(client: ReturnType<typeof getAdminClient>, userId: string) {
-  const { data, error } = await client
-    .from('users')
-    .select('id, user_types(name)')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error) throw error;
-  return isSystemAdminRole(extractUserTypeName(data));
+  const scope = await resolveUserScope(client, userId);
+  return scope.isAdmin;
 }
 
 export async function GET(event) {
@@ -49,6 +47,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_MAINTENANCE_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
 

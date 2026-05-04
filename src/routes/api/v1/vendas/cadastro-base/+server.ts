@@ -1,8 +1,10 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
   getAdminClient,
+  hasModuloAccess,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -46,8 +48,8 @@ export async function GET(event: RequestEvent) {
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const activeCompanyIds = companyIds.length > 0 ? companyIds : scope.companyId ? [scope.companyId] : [];
 
-    let vendedoresEquipe: Array<{ id: string; nome_completo: string | null }> = [
-      { id: scope.userId, nome_completo: scope.nome || 'Você' }
+    let vendedoresEquipe: Array<{ id: string; nome_completo: string | null; company_id?: string | null }> = [
+      { id: scope.userId, nome_completo: scope.nome || 'Você', company_id: scope.companyId || null }
     ];
     let clientes: any[] = [];
     let cidades: any[] = [];
@@ -55,20 +57,31 @@ export async function GET(event: RequestEvent) {
     let tipos: any[] = [];
     let tiposPacote: any[] = [];
     let formasPagamento: any[] = [];
+    let empresas: any[] = [];
+    const canLoadClientes =
+      scope.isAdmin ||
+      !scope.isFinanceiro ||
+      hasModuloAccess(scope, ['clientes', 'clientes_consulta'], 1);
 
-    if ((scope.isGestor || scope.isMaster) && activeCompanyIds.length > 0) {
+    if ((scope.isGestor || scope.isMaster || scope.isFinanceiro) && activeCompanyIds.length > 0) {
       const data = await fetchRankingVendedoresByCompanyIds(client, activeCompanyIds);
       vendedoresEquipe = (data || [])
-        .map((row: any) => ({ id: row.id, nome_completo: row.nome_completo || row.email || 'Vendedor' }))
+        .map((row: any) => ({
+          id: row.id,
+          nome_completo: row.nome_completo || row.email || 'Vendedor',
+          company_id: row.company_id || null
+        }))
         .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR'));
     }
 
-    let clientesQuery = client
-      .from('clientes')
-      .select('id, nome, cpf, telefone, email, whatsapp, company_id')
-      .order('nome', { ascending: true })
-      .limit(INITIAL_CLIENTES_LIMIT);
-    if (activeCompanyIds.length > 0) clientesQuery = clientesQuery.in('company_id', activeCompanyIds);
+    let clientesQuery = canLoadClientes
+      ? client
+          .from('clientes')
+          .select('id, nome, cpf, telefone, email, whatsapp, company_id')
+          .order('nome', { ascending: true })
+          .limit(INITIAL_CLIENTES_LIMIT)
+      : null;
+    if (clientesQuery && activeCompanyIds.length > 0) clientesQuery = clientesQuery.in('company_id', activeCompanyIds);
 
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
     const cidadesQuery = client
@@ -84,11 +97,21 @@ export async function GET(event: RequestEvent) {
       .limit(2000);
     const tiposQuery = client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200);
     const pacotesQuery = client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200);
-    const formasQuery = client
+    let formasQuery = client
       .from('formas_pagamento')
       .select('id, nome, paga_comissao, permite_desconto, desconto_padrao_pct')
       .order('nome', { ascending: true })
       .limit(200);
+    if (activeCompanyIds.length > 0) formasQuery = formasQuery.in('company_id', activeCompanyIds);
+
+    const empresasQuery =
+      activeCompanyIds.length > 0
+        ? client
+            .from('companies')
+            .select('id, nome_fantasia, nome_empresa')
+            .in('id', activeCompanyIds)
+            .order('nome_fantasia', { ascending: true })
+        : null;
 
     const [
       clientesRes,
@@ -96,14 +119,16 @@ export async function GET(event: RequestEvent) {
       produtosRes,
       tiposRes,
       pacotesRes,
-      formasRes
+      formasRes,
+      empresasRes
     ] = await Promise.all([
-      clientesQuery,
+      clientesQuery ?? Promise.resolve({ data: [], error: null }),
       cidadesQuery,
       produtosQuery,
       tiposQuery,
       pacotesQuery,
-      formasQuery
+      formasQuery,
+      empresasQuery ?? Promise.resolve({ data: [], error: null })
     ]);
 
     clientes = safeRows(clientesRes);
@@ -133,6 +158,10 @@ export async function GET(event: RequestEvent) {
     tipos = safeRows(tiposRes);
     tiposPacote = safeRows(pacotesRes);
     formasPagamento = safeRows(formasRes);
+    empresas = safeRows(empresasRes).map((row: any) => ({
+      id: row.id,
+      nome: row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'
+    }));
 
     const warningParts: string[] = [];
     if (clientesRes?.error) warningParts.push('clientes');
@@ -148,10 +177,12 @@ export async function GET(event: RequestEvent) {
         id: scope.userId,
         papel: scope.papel,
         company_id: scope.companyId,
+        company_ids: activeCompanyIds,
         uso_individual: scope.usoIndividual,
         is_gestor: scope.isGestor,
-        can_assign_vendedor: scope.isGestor || scope.isMaster || scope.isAdmin
+        can_assign_vendedor: scope.isGestor || scope.isMaster || scope.isFinanceiro || scope.isAdmin
       },
+      empresas,
       vendedoresEquipe,
       clientes,
       cidades,
@@ -166,10 +197,7 @@ export async function GET(event: RequestEvent) {
       formasPagamento,
       warning
     }, {
-      headers: {
-        'Cache-Control': 'private, max-age=10',
-        Vary: 'Cookie'
-      }
+      headers: SHORT_DYNAMIC_READ_HEADERS
     });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar base do cadastro de vendas.');

@@ -9,6 +9,12 @@ import {
 } from '$lib/server/v1';
 import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
 
+function vendedorOwnsViagem(userId: string, viagem: any) {
+  const responsavelId = String(viagem?.responsavel_user_id || '').trim();
+  const vendedorId = String(viagem?.venda?.vendedor_id || '').trim();
+  return responsavelId === userId || vendedorId === userId;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -28,7 +34,7 @@ export async function GET(event) {
         cliente:clientes!cliente_id(id, nome, email, telefone, whatsapp, nascimento, cpf),
         responsavel:users!responsavel_user_id(id, nome_completo, email),
         venda:vendas!venda_id(
-          id, numero_venda, valor_total, valor_total_pago, status, data_venda,
+          id, vendedor_id, numero_venda, valor_total, valor_total_pago, status, data_venda,
           recibos:vendas_recibos(
             id, numero_recibo, numero_reserva, tipo_pacote, valor_total, valor_taxas,
             data_inicio, data_fim, contrato_url,
@@ -51,7 +57,7 @@ export async function GET(event) {
       return json({ error: 'Viagem fora do escopo.' }, { status: 403 });
     }
 
-    if (scope.usoIndividual && viagem.responsavel_user_id && viagem.responsavel_user_id !== user.id) {
+    if (scope.isVendedor && !vendedorOwnsViagem(user.id, viagem)) {
       return json({ error: 'Sem acesso a esta viagem.' }, { status: 403 });
     }
 

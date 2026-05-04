@@ -24,6 +24,9 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateUserReadModels } from '$lib/server/readModelCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_PERMISSIONS_BODY_BYTES = 256 * 1024;
 
 export async function GET(event: RequestEvent) {
   try {
@@ -74,6 +77,11 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PERMISSIONS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
 

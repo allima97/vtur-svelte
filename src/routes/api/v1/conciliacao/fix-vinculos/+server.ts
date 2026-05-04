@@ -20,15 +20,17 @@ import {
   getAdminClient,
   logServerError,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
+  resolveScopedCompanyId,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { addDaysISODate, monthRangeFromKey } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MONEY_TOLERANCE = 0.01;
+const MAX_FIX_VINCULOS_BODY_BYTES = 64 * 1024;
 const AUTO_FIX_CODES = new Set([
   'RECIBO_INEXISTENTE',
   'RECIBO_NUMERO_DIVERGENTE',
@@ -263,18 +265,22 @@ const RECIBO_SELECT = `
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_FIX_VINCULOS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissao para auditar vinculos.');
     }
 
     const body = await event.request.json().catch(() => ({}));
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyId = companyIds[0] || scope.companyId;
-    if (!companyId) return json({ error: 'Empresa nao identificada.' }, { status: 400 });
+    const companyId = resolveScopedCompanyId(scope, body?.companyId);
+    if (!companyId) return json({ error: 'Selecione uma empresa para auditar vínculos.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const dryRun = Boolean(body?.dryRun ?? true);
     const limit = Math.min(5000, Math.max(1, Number(body?.limit || 500)));
@@ -696,6 +702,8 @@ export async function POST(event) {
             venda_recibo_id: null,
             venda_id: null,
             ranking_vendedor_id: null,
+            ranking_assigned_by: null,
+            ranking_assigned_at: null,
             conciliado: false,
             conciliado_em: null,
             last_checked_at: null

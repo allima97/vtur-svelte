@@ -1,11 +1,15 @@
 import { json } from '@sveltejs/kit';
 import { ensureCanManageCompanies, getAccessibleCompanyIds } from '$lib/server/admin';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+
+const MAX_MASTER_EMPRESAS_BODY_BYTES = 16 * 1024;
 
 export async function GET(event) {
   try {
@@ -24,14 +28,14 @@ export async function GET(event) {
     if (companyId) query = query.eq('company_id', companyId);
     if (!scope.isAdmin) {
       const accessible = getAccessibleCompanyIds(scope);
-      if (!accessible.length) return json({ items: [] });
+      if (!accessible.length) return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
       query = query.in('company_id', accessible);
     }
 
     const { data, error: queryError } = await query;
     if (queryError) throw queryError;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vinculos master.');
   }
@@ -39,6 +43,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_MASTER_EMPRESAS_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -54,7 +63,7 @@ export async function POST(event) {
     const accessible = scope.isAdmin ? null : getAccessibleCompanyIds(scope);
 
     if (action === 'delete') {
-      if (!id) return new Response('Vinculo nao informado.', { status: 400 });
+      if (!id) return new Response('Vinculo nao informado.', { status: 400, headers: NO_STORE_HEADERS });
 
       // ✅ Verifica ownership antes de deletar
       if (!scope.isAdmin) {
@@ -64,17 +73,17 @@ export async function POST(event) {
           .eq('id', id)
           .maybeSingle();
         if (!vinculo || !accessible?.includes(String(vinculo.company_id || ''))) {
-          return new Response('Vinculo fora do escopo.', { status: 403 });
+          return new Response('Vinculo fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
       }
 
       const { error: deleteError } = await client.from('master_empresas').delete().eq('id', id);
       if (deleteError) throw deleteError;
-      return json({ id, deleted: true });
+      return json({ id, deleted: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'update') {
-      if (!id) return new Response('Vinculo nao informado.', { status: 400 });
+      if (!id) return new Response('Vinculo nao informado.', { status: 400, headers: NO_STORE_HEADERS });
 
       // ✅ Verifica ownership antes de atualizar
       if (!scope.isAdmin) {
@@ -84,7 +93,7 @@ export async function POST(event) {
           .eq('id', id)
           .maybeSingle();
         if (!vinculo || !accessible?.includes(String(vinculo.company_id || ''))) {
-          return new Response('Vinculo fora do escopo.', { status: 403 });
+          return new Response('Vinculo fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
       }
 
@@ -96,16 +105,16 @@ export async function POST(event) {
         })
         .eq('id', id);
       if (updateError) throw updateError;
-      return json({ id, updated: true });
+      return json({ id, updated: true }, { headers: NO_STORE_HEADERS });
     }
 
     // action === 'save' (insert)
     if (!masterId || !companyId) {
-      return new Response('Master e empresa sao obrigatorios.', { status: 400 });
+      return new Response('Master e empresa sao obrigatorios.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!scope.isAdmin && !accessible?.includes(companyId)) {
-      return new Response('Empresa fora do escopo permitido.', { status: 403 });
+      return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { error: insertError } = await client.from('master_empresas').insert({
@@ -116,7 +125,7 @@ export async function POST(event) {
     });
     if (insertError) throw insertError;
 
-    return json({ created: true });
+    return json({ created: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar vinculo master.');
   }

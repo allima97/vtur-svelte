@@ -14,7 +14,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { getAdminClient, isUuid, logServerError } from '$lib/server/v1';
+import { getAdminClient, isProductionRuntime, isUuid, logServerError } from '$lib/server/v1';
 
 const PASSKEY_CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
@@ -101,7 +101,12 @@ function passkeyUnavailable(): never {
 
 export function toPasskeyErrorResponse(err: unknown, fallbackMessage: string) {
   const status = typeof (err as any)?.status === 'number' ? (err as any).status : 500;
-  const message = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
+  if (status >= 500) {
+    logServerError('[passkeys] erro interno', err, { fallbackMessage });
+  }
+
+  const rawMessage = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
+  const message = isProductionRuntime() && status >= 500 ? fallbackMessage : rawMessage;
 
   if (status === 404) {
     return json({ error: message || fallbackMessage }, { status: 400, headers: NO_STORE_HEADERS });
@@ -318,53 +323,55 @@ export async function verifyRegistration(params: {
   name?: string | null;
 }) {
   const challenge = await getChallenge(params.challengeId, 'registration');
-  if (challenge.user_id !== params.user.id) {
-    throw error(403, 'Passkey não pertence ao usuário atual.');
-  }
-
-  const { origin, rpID } = getPasskeyRp(params.event);
-  const verification = await verifyRegistrationResponse({
-    response: params.response,
-    expectedChallenge: challenge.challenge,
-    expectedOrigin: origin,
-    expectedRPID: rpID,
-    requireUserVerification: true
-  });
-
-  if (!verification.verified || !verification.registrationInfo) {
-    throw error(400, 'Não foi possível validar a passkey.');
-  }
-
-  const { credential, credentialDeviceType, credentialBackedUp, aaguid, origin: credentialOrigin, rpID: credentialRpID } =
-    verification.registrationInfo;
-  const transports = credential.transports ?? params.response.response.transports ?? [];
-  const email = normalizeEmail(params.user.email) || params.user.id;
-
-  const admin = getAdminClient();
-  const { error: insertError } = await admin.from('auth_passkeys').insert({
-    user_id: params.user.id,
-    user_email: email,
-    name: String(params.name || 'Passkey').trim().slice(0, 80) || 'Passkey',
-    credential_id: credential.id,
-    public_key: bytesToBase64Url(credential.publicKey),
-    counter: credential.counter,
-    transports,
-    device_type: credentialDeviceType,
-    backed_up: credentialBackedUp,
-    aaguid,
-    origin: credentialOrigin,
-    rp_id: credentialRpID || rpID
-  });
-
-  await consumeChallenge(challenge.id);
-
-  if (insertError) {
-    if (String((insertError as any).code || '') === '23505') {
-      throw error(409, 'Esta passkey já está cadastrada.');
+  try {
+    if (challenge.user_id !== params.user.id) {
+      throw error(403, 'Passkey não pertence ao usuário atual.');
     }
 
-    logServerError('[passkeys] falha ao salvar passkey', insertError);
-    throw error(500, 'Erro ao salvar passkey.');
+    const { origin, rpID } = getPasskeyRp(params.event);
+    const verification = await verifyRegistrationResponse({
+      response: params.response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      requireUserVerification: true
+    });
+
+    if (!verification.verified || !verification.registrationInfo) {
+      throw error(400, 'Não foi possível validar a passkey.');
+    }
+
+    const { credential, credentialDeviceType, credentialBackedUp, aaguid, origin: credentialOrigin, rpID: credentialRpID } =
+      verification.registrationInfo;
+    const transports = credential.transports ?? params.response.response.transports ?? [];
+    const email = normalizeEmail(params.user.email) || params.user.id;
+
+    const admin = getAdminClient();
+    const { error: insertError } = await admin.from('auth_passkeys').insert({
+      user_id: params.user.id,
+      user_email: email,
+      name: String(params.name || 'Passkey').trim().slice(0, 80) || 'Passkey',
+      credential_id: credential.id,
+      public_key: bytesToBase64Url(credential.publicKey),
+      counter: credential.counter,
+      transports,
+      device_type: credentialDeviceType,
+      backed_up: credentialBackedUp,
+      aaguid,
+      origin: credentialOrigin,
+      rp_id: credentialRpID || rpID
+    });
+
+    if (insertError) {
+      if (String((insertError as any).code || '') === '23505') {
+        throw error(409, 'Esta passkey já está cadastrada.');
+      }
+
+      logServerError('[passkeys] falha ao salvar passkey', insertError);
+      throw error(500, 'Erro ao salvar passkey.');
+    }
+  } finally {
+    await consumeChallenge(challenge.id);
   }
 }
 
@@ -422,69 +429,71 @@ export async function verifyAuthentication(params: {
   response: AuthenticationResponseJSON;
 }) {
   const challenge = await getChallenge(params.challengeId, 'authentication');
-  const admin = getAdminClient();
-  const { data: passkey, error: passkeyError } = await admin
-    .from('auth_passkeys')
-    .select(
-      'id, user_id, user_email, name, credential_id, public_key, counter, transports, device_type, backed_up, aaguid, origin, rp_id, last_used_at, created_at'
-    )
-    .eq('credential_id', params.response.id)
-    .maybeSingle();
+  try {
+    const admin = getAdminClient();
+    const { data: passkey, error: passkeyError } = await admin
+      .from('auth_passkeys')
+      .select(
+        'id, user_id, user_email, name, credential_id, public_key, counter, transports, device_type, backed_up, aaguid, origin, rp_id, last_used_at, created_at'
+      )
+      .eq('credential_id', params.response.id)
+      .maybeSingle();
 
-  if (passkeyError) {
-    logServerError('[passkeys] falha ao buscar credencial', passkeyError);
-    if (isMissingPasskeyTable(passkeyError)) passkeyUnavailable();
-    throw error(500, 'Erro ao validar passkey.');
+    if (passkeyError) {
+      logServerError('[passkeys] falha ao buscar credencial', passkeyError);
+      if (isMissingPasskeyTable(passkeyError)) passkeyUnavailable();
+      throw error(500, 'Erro ao validar passkey.');
+    }
+
+    if (!passkey) {
+      throw error(401, 'Passkey não cadastrada neste sistema.');
+    }
+
+    const row = passkey as PasskeyRow;
+    if (challenge.user_id && challenge.user_id !== row.user_id) {
+      throw error(403, 'Passkey não pertence à solicitação de login.');
+    }
+
+    const { origin, rpID } = getPasskeyRp(params.event);
+    const credential: WebAuthnCredential = {
+      id: row.credential_id,
+      publicKey: base64UrlToBytes(row.public_key),
+      counter: Number(row.counter || 0),
+      transports: normalizeTransports(row.transports)
+    };
+
+    const verification = await verifyAuthenticationResponse({
+      response: params.response,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+      credential,
+      requireUserVerification: true
+    });
+
+    if (!verification.verified) {
+      throw error(401, 'Passkey inválida.');
+    }
+
+    const { authenticationInfo } = verification;
+    const { error: updateError } = await admin
+      .from('auth_passkeys')
+      .update({
+        counter: authenticationInfo.newCounter,
+        device_type: authenticationInfo.credentialDeviceType,
+        backed_up: authenticationInfo.credentialBackedUp,
+        origin: authenticationInfo.origin,
+        rp_id: authenticationInfo.rpID,
+        last_used_at: new Date().toISOString()
+      })
+      .eq('id', row.id);
+
+    if (updateError) {
+      logServerError('[passkeys] passkey validada, mas contador nao foi atualizado', updateError);
+    }
+
+    return createSupabaseSessionForUser(params.event, row.user_id);
+  } finally {
+    await consumeChallenge(challenge.id);
   }
-
-  if (!passkey) {
-    throw error(401, 'Passkey não cadastrada neste sistema.');
-  }
-
-  const row = passkey as PasskeyRow;
-  if (challenge.user_id && challenge.user_id !== row.user_id) {
-    throw error(403, 'Passkey não pertence à solicitação de login.');
-  }
-
-  const { origin, rpID } = getPasskeyRp(params.event);
-  const credential: WebAuthnCredential = {
-    id: row.credential_id,
-    publicKey: base64UrlToBytes(row.public_key),
-    counter: Number(row.counter || 0),
-    transports: normalizeTransports(row.transports)
-  };
-
-  const verification = await verifyAuthenticationResponse({
-    response: params.response,
-    expectedChallenge: challenge.challenge,
-    expectedOrigin: origin,
-    expectedRPID: rpID,
-    credential,
-    requireUserVerification: true
-  });
-
-  if (!verification.verified) {
-    throw error(401, 'Passkey inválida.');
-  }
-
-  const { authenticationInfo } = verification;
-  const { error: updateError } = await admin
-    .from('auth_passkeys')
-    .update({
-      counter: authenticationInfo.newCounter,
-      device_type: authenticationInfo.credentialDeviceType,
-      backed_up: authenticationInfo.credentialBackedUp,
-      origin: authenticationInfo.origin,
-      rp_id: authenticationInfo.rpID,
-      last_used_at: new Date().toISOString()
-    })
-    .eq('id', row.id);
-
-  await consumeChallenge(challenge.id);
-
-  if (updateError) {
-    logServerError('[passkeys] passkey validada, mas contador nao foi atualizado', updateError);
-  }
-
-  return createSupabaseSessionForUser(params.event, row.user_id);
 }

@@ -1,9 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess } from '$lib/server/agenda';
+import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 export async function DELETE(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

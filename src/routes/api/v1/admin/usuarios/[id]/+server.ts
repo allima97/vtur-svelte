@@ -7,12 +7,16 @@ import {
   extractCompanyName,
   extractUserTypeName,
   getAccessibleCompanyIds,
+  isFinanceiroRole,
   loadAvisoTemplates,
+  loadFinanceiroCompanyIds,
   loadManagedCompanies,
   loadManagedUser,
   loadManagedUserTypes,
   loadUserPermissions,
-  loadUserTypeDefaultPermissions
+  loadUserTypeDefaultPermissions,
+  syncFinanceiroCompanyLinks,
+  syncUserTypeDefaultPermissions
 } from '$lib/server/admin';
 import {
   getAdminClient,
@@ -20,6 +24,34 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+
+const MAX_ADMIN_USER_BODY_BYTES = 64 * 1024;
+
+function invalidateManagedUserCache(params: {
+  actorId?: string | null;
+  userId?: string | null;
+  companyIds?: string[] | null;
+}) {
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.users,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.comissoes
+    ],
+    scopeTags: [
+      ...scopeCacheTags({ userId: params.actorId || null }),
+      ...scopeCacheTags({ userId: params.userId || null, companyIds: params.companyIds || [] })
+    ]
+  });
+}
 
 export async function GET(event) {
   try {
@@ -31,14 +63,15 @@ export async function GET(event) {
 
     const userId = String(event.params.id || '').trim();
     const targetUser = await loadManagedUser(client, scope, userId);
-    const [permissions, defaultPermissions, userTypes, companies, templates] = await Promise.all([
+    const [permissions, defaultPermissions, userTypes, companies, templates, financeiroCompanyIds] = await Promise.all([
       loadUserPermissions(client, userId),
       targetUser.user_type_id
         ? loadUserTypeDefaultPermissions(client, String(targetUser.user_type_id))
         : Promise.resolve([]),
       loadManagedUserTypes(client, scope),
       loadManagedCompanies(client, scope),
-      loadAvisoTemplates(client).catch(() => [])
+      loadAvisoTemplates(client).catch(() => []),
+      loadFinanceiroCompanyIds(client, scope, userId)
     ]);
 
     return json({
@@ -57,6 +90,7 @@ export async function GET(event) {
         uso_individual: Boolean(targetUser.uso_individual),
         created_by_gestor: Boolean(targetUser.created_by_gestor),
         participa_ranking: Boolean(targetUser.participa_ranking),
+        financeiro_company_ids: financeiroCompanyIds,
         created_at: targetUser.created_at || null,
         updated_at: targetUser.updated_at || null
       },
@@ -79,6 +113,11 @@ export async function GET(event) {
 
 export async function PATCH(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_USER_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -88,7 +127,8 @@ export async function PATCH(event) {
     const userId = String(event.params.id || '').trim();
     const targetUser = await loadManagedUser(client, scope, userId);
 
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
+    let effectiveUserTypeName = extractUserTypeName(targetUser);
 
     if (body.company_id !== undefined) {
       ensureAssignableCompany(scope, String(body.company_id || '').trim());
@@ -98,15 +138,16 @@ export async function PATCH(event) {
       const requestedTypeId = String(body.user_type_id || '').trim();
       if (!requestedTypeId) {
         if (!scope.isAdmin) {
-          return json({ error: 'Tipo de usuario obrigatorio.' }, { status: 400 });
+          return json({ error: 'Tipo de usuario obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
         }
       } else {
         const managedTypes = await loadManagedUserTypes(client, scope);
         const targetType = managedTypes.find((row) => row.id === requestedTypeId);
         if (!targetType) {
-          return json({ error: 'Tipo de usuario fora do escopo.' }, { status: 403 });
+          return json({ error: 'Tipo de usuario fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
         }
         ensureAssignableUserType(scope, targetType.name);
+        effectiveUserTypeName = String(targetType.name || '').trim().toUpperCase();
       }
     }
 
@@ -121,32 +162,80 @@ export async function PATCH(event) {
     for (const field of ALLOWED_USER) {
       if (body[field] !== undefined) updatePayload[field] = body[field];
     }
+    const effectiveUsoIndividual =
+      body.uso_individual !== undefined ? Boolean(body.uso_individual) : Boolean(targetUser.uso_individual);
+    const effectiveCompanyId =
+      body.company_id !== undefined
+        ? String(body.company_id || '').trim()
+        : String(targetUser.company_id || '').trim();
+    const financeiroCompanyIds = Array.from(
+      new Set([
+        ...(Array.isArray(body.financeiro_company_ids)
+          ? body.financeiro_company_ids.map((id: unknown) => String(id || '').trim())
+          : []),
+        ...(effectiveCompanyId ? [effectiveCompanyId] : [])
+      ])
+    );
+    if (isFinanceiroRole(effectiveUserTypeName)) {
+      if (effectiveUsoIndividual) {
+        return json({ error: 'Usuario financeiro deve ser corporativo e vinculado a empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+      if (financeiroCompanyIds.length === 0) {
+        return json({ error: 'Usuario financeiro deve ser vinculado a pelo menos uma empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+      updatePayload.participa_ranking = false;
+    }
+    const shouldSyncFinanceiroLinks =
+      isFinanceiroRole(effectiveUserTypeName) &&
+      (Array.isArray(body.financeiro_company_ids) || body.user_type_id !== undefined || body.company_id !== undefined);
 
-    if (Object.keys(updatePayload).length === 1) {
-      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+    if (Object.keys(updatePayload).length === 1 && !shouldSyncFinanceiroLinks) {
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const { data, error } = await client
-      .from('users')
-      .update(updatePayload)
-      .eq('id', userId)
-      .select('id, nome_completo, email, active, uso_individual, user_type_id, company_id')
-      .maybeSingle();
+    let data: unknown = {
+      id: targetUser.id,
+      nome_completo: targetUser.nome_completo,
+      email: targetUser.email,
+      active: targetUser.active,
+      uso_individual: targetUser.uso_individual,
+      user_type_id: targetUser.user_type_id,
+      company_id: targetUser.company_id
+    };
 
-    if (error) throw error;
-    if (!data) return json({ error: 'Usuário não encontrado.' }, { status: 404 });
+    if (Object.keys(updatePayload).length > 1) {
+      const { data: updatedUser, error } = await client
+        .from('users')
+        .update(updatePayload)
+        .eq('id', userId)
+        .select('id, nome_completo, email, active, uso_individual, user_type_id, company_id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!updatedUser) return json({ error: 'Usuário não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
+      data = updatedUser;
+    }
 
     // Sincronizar permissões se user_type_id mudou
     if (body.user_type_id && body.user_type_id !== targetUser.user_type_id) {
       try {
-        const { syncUserTypeDefaultPermissions } = await import('$lib/server/admin');
         await syncUserTypeDefaultPermissions(client, userId, String(body.user_type_id));
       } catch {
         // não fatal — permissões serão atualizadas manualmente
       }
     }
 
-    return json({ ok: true, user: data });
+    if (shouldSyncFinanceiroLinks) {
+      await syncFinanceiroCompanyLinks(client, scope, userId, financeiroCompanyIds, user.id);
+    }
+
+    invalidateManagedUserCache({
+      actorId: user.id,
+      userId,
+      companyIds: financeiroCompanyIds
+    });
+
+    return json({ ok: true, user: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar usuario.');
   }

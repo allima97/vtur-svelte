@@ -12,6 +12,9 @@ import {
   sanitizeConciliacaoTiers,
   type ParametrosConciliacaoShape,
 } from "$lib/utils/conciliacao";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+
+const MAX_PARAMETROS_SISTEMA_BODY_BYTES = 256 * 1024;
 
 const DEFAULT_PARAMS = {
   company_id: null,
@@ -300,6 +303,11 @@ export async function GET(event) {
 
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_SISTEMA_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);

@@ -1,5 +1,7 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 type CacheEntry = {
   expiresAt: number;
@@ -14,19 +16,11 @@ type WidgetInput = {
 
 const CACHE_TTL_MS = 900_000;
 const CACHE_MAX_ENTRIES = 300;
+const MAX_DASHBOARD_WIDGETS_BODY_BYTES = 64 * 1024;
 const cache = new Map<string, CacheEntry>();
-const PRIVATE_CACHE_HEADERS = {
-  'Cache-Control': 'private, max-age=900',
-  Vary: 'Cookie'
-};
 const NO_STORE_TEXT_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
-};
-const NO_STORE_JSON_HEADERS = {
-  'Cache-Control': 'no-store',
-  Vary: 'Cookie'
+  ...NO_STORE_HEADERS
 };
 
 function readCache(key: string) {
@@ -85,7 +79,7 @@ export async function GET(event: RequestEvent) {
     const cacheKey = ['v1', 'dashWidgets', user.id].join('|');
     const cached = readCache(cacheKey);
     if (cached) {
-      return json(cached, { headers: PRIVATE_CACHE_HEADERS });
+      return json(cached, { headers: SHORT_DYNAMIC_READ_HEADERS });
     }
 
     const { data, error } = await client
@@ -99,7 +93,7 @@ export async function GET(event: RequestEvent) {
     const payload = { items: data || [] };
     writeCache(cacheKey, payload);
 
-    return json(payload, { headers: PRIVATE_CACHE_HEADERS });
+    return json(payload, { headers: SHORT_DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError('[dashboard/widgets] falha ao carregar widgets', err);
     return new Response('Erro ao carregar widgets.', {
@@ -111,6 +105,11 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_DASHBOARD_WIDGETS_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -120,6 +119,9 @@ export async function POST(event: RequestEvent) {
     }
 
     const rawBody = await event.request.text();
+    if (rawBody.length > MAX_DASHBOARD_WIDGETS_BODY_BYTES) {
+      return new Response('Payload muito grande.', { status: 413, headers: NO_STORE_TEXT_HEADERS });
+    }
     const body = safeJsonParse(rawBody);
     const items = normalizeItems((body as any)?.items);
 
@@ -159,7 +161,7 @@ export async function POST(event: RequestEvent) {
 
     cache.delete(cacheKey);
 
-    return json({ ok: true }, { headers: NO_STORE_JSON_HEADERS });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[dashboard/widgets] falha ao salvar widgets', err);
     return new Response('Erro ao salvar widgets.', { status: 500, headers: NO_STORE_TEXT_HEADERS });

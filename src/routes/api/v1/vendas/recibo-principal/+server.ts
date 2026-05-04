@@ -10,7 +10,10 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+
+const MAX_RECIBO_PRINCIPAL_BODY_BYTES = 16 * 1024;
 
 function safeJsonParse(text: string) {
   try {
@@ -22,6 +25,11 @@ function safeJsonParse(text: string) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_PRINCIPAL_BODY_BYTES);
+    if (payloadError) return payloadError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -35,7 +43,7 @@ export async function POST(event: RequestEvent) {
     const vendaId = String(body?.venda_id || '').trim();
     const reciboId = String(body?.recibo_id || '').trim();
     if (!isUuid(vendaId) || !isUuid(reciboId)) {
-      return new Response('venda_id ou recibo_id invalido.', { status: 400 });
+      return new Response('venda_id ou recibo_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -47,7 +55,7 @@ export async function POST(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster;
+    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
     if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);

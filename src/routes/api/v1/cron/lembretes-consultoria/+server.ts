@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { rejectLargePayload } from '$lib/server/requestGuards';
 import { logServerError } from '$lib/server/v1';
 import { env } from '$env/dynamic/private';
 
-const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 const MAX_CRON_BODY_BYTES = 4 * 1024;
 
 function secretMatches(expected: string, received: string | null) {
@@ -23,10 +24,8 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_CRON_BODY_BYTES) {
-    return json({ error: "Payload muito grande." }, { status: 413, headers: NO_STORE_HEADERS });
-  }
+  const sizeError = rejectLargePayload(request, MAX_CRON_BODY_BYTES);
+  if (sizeError) return sizeError;
 
   try {
     const body = await request.json().catch(() => ({}));

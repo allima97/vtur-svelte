@@ -1,5 +1,9 @@
 import { isUuid, logServerError } from "$lib/server/v1";
 import {
+  rejectCrossOriginRequest,
+  rejectLargePayload,
+} from "$lib/server/requestGuards";
+import {
   assertCompanyAccess,
   noStoreJsonResponse,
   noStoreTextResponse,
@@ -7,10 +11,17 @@ import {
 } from "../_shared";
 import { invalidateMuralReadModels } from "$lib/server/readModelCache";
 
+const MAX_MURAL_READ_BODY_BYTES = 8 * 1024;
+
 export async function POST(event) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_MURAL_READ_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const { client, user, scope } = await requireMuralScope(event);
-    const body = await event.request.json();
+    const body = await event.request.json().catch(() => ({}));
     const id = String(body?.id || "").trim();
     if (!isUuid(id)) return noStoreTextResponse("ID inválido.", 400);
 

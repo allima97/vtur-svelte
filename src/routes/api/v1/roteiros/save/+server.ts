@@ -1,12 +1,16 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
+import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
   ensureModuloAccess,
   toErrorResponse,
-  toISODateLocal
+  toISODateLocal,
+  isUuid
 } from '$lib/server/v1';
+
+const MAX_ROTEIRO_SAVE_BODY_BYTES = 512 * 1024;
 
 function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
@@ -72,6 +76,11 @@ function isDuplicateOrdensUnique(error: any) {
 
 export async function POST(event: RequestEvent) {
   try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_SAVE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
@@ -118,6 +127,7 @@ export async function POST(event: RequestEvent) {
       roteiroId = roteiro.id;
     } else {
       roteiroId = String(body.id).trim();
+      if (!isUuid(roteiroId)) return new Response('ID invalido.', { status: 400 });
 
       const { data: existing, error: existingError } = await applyRoteiroScope(
         client.from('roteiro_personalizado').select('id').eq('id', roteiroId).maybeSingle(),

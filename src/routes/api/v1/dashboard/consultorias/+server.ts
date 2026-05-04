@@ -1,9 +1,9 @@
 import { json, type RequestEvent } from "@sveltejs/kit";
 import {
+  fetchVendedorIdsByCompanyIds,
   getAdminClient,
   logServerError,
   requireAuthenticatedUser,
-  resolveAccessibleClientIds,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
@@ -14,20 +14,12 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
-const MAX_FILTER_IDS = 300;
-const PRIVATE_CACHE_HEADERS = {
-  "Cache-Control": "private, max-age=30",
-  Vary: "Cookie",
-};
-const NO_STORE_HEADERS = {
-  "Cache-Control": "no-store",
-  Vary: "Cookie",
-};
+const SUPABASE_IN_BATCH_SIZE = 100;
 const NO_STORE_TEXT_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
-  "Cache-Control": "no-store",
-  Vary: "Cookie",
+  ...NO_STORE_HEADERS,
 };
 
 function clampIntParam(
@@ -52,6 +44,14 @@ function isRpcMissing(error: any, fnName: string) {
       (message.includes("does not exist") ||
         message.includes("could not find")))
   );
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 export async function GET(event: RequestEvent) {
@@ -148,47 +148,58 @@ export async function GET(event: RequestEvent) {
           throw rpcError;
       }
 
-      const clientIds = companyId
-        ? await resolveAccessibleClientIds(client, {
-            companyIds: [companyId],
-            vendedorIds: [],
-          })
-        : [];
+      const creatorIds =
+        vendedorIds.length > 0
+          ? vendedorIds
+          : companyId
+            ? await fetchVendedorIdsByCompanyIds(client, [companyId])
+            : [];
 
-      if (companyId && vendedorIds.length === 0 && clientIds.length === 0) {
+      if (companyId && creatorIds.length === 0) {
         return { items: [] };
       }
 
-      let consultoriasQuery = client
-        .from("consultorias_online")
-        .select("id, cliente_nome, data_hora, lembrete, destino, orcamento_id")
-        .eq("fechada", false)
-        .gte("data_hora", agoraIso)
-        .lte("data_hora", limiteIso)
-        .order("data_hora", { ascending: true })
-        .limit(limit);
+      const fetchRows = async (ids?: string[]) => {
+        let consultoriasQuery = client
+          .from("consultorias_online")
+          .select("id, cliente_nome, data_hora, lembrete, destino, orcamento_id")
+          .eq("fechada", false)
+          .gte("data_hora", agoraIso)
+          .lte("data_hora", limiteIso)
+          .order("data_hora", { ascending: true })
+          .limit(limit);
 
-      if (companyId && clientIds.length > 0 && vendedorIds.length > 0) {
-        const clienteSlice = clientIds.slice(0, MAX_FILTER_IDS).join(",");
-        const vendedorSlice = vendedorIds.slice(0, MAX_FILTER_IDS).join(",");
-        consultoriasQuery = consultoriasQuery.or(
-          `created_by.in.(${vendedorSlice}),cliente_id.in.(${clienteSlice})`,
-        );
-      } else if (clientIds.length > 0) {
-        consultoriasQuery = consultoriasQuery.in(
-          "cliente_id",
-          clientIds.slice(0, MAX_FILTER_IDS),
-        );
-      } else if (vendedorIds.length > 0) {
-        consultoriasQuery = consultoriasQuery.in(
-          "created_by",
-          vendedorIds.slice(0, MAX_FILTER_IDS),
-        );
+        if (ids && ids.length > 0) {
+          consultoriasQuery = consultoriasQuery.in("created_by", ids);
+        }
+
+        const { data, error } = await consultoriasQuery;
+        if (error) throw error;
+        return data || [];
+      };
+
+      if (creatorIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return {
+          items: await fetchRows(creatorIds.length > 0 ? creatorIds : undefined),
+        };
       }
 
-      const { data, error } = await consultoriasQuery;
-      if (error) throw error;
-      return { items: data || [] };
+      const rows: any[] = [];
+      for (const batch of chunkArray(creatorIds)) {
+        rows.push(...(await fetchRows(batch)));
+      }
+
+      const dedupedRows = Array.from(
+        new Map(rows.map((row) => [String(row?.id || ""), row])).values(),
+      )
+        .sort((left, right) =>
+          String(left?.data_hora || "").localeCompare(
+            String(right?.data_hora || ""),
+          ),
+        )
+        .slice(0, limit);
+
+      return { items: dedupedRows };
     };
     const payload = noCache
       ? await loadPayload()
@@ -211,7 +222,7 @@ export async function GET(event: RequestEvent) {
         });
 
     return json(payload, {
-      headers: noCache ? NO_STORE_HEADERS : PRIVATE_CACHE_HEADERS,
+      headers: noCache ? NO_STORE_HEADERS : SHORT_DYNAMIC_READ_HEADERS,
     });
   } catch (error: any) {
     logServerError(

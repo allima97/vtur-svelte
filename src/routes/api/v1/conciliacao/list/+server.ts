@@ -20,13 +20,36 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito'
 ];
 
+const SUPABASE_IN_BATCH_SIZE = 150;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchBatched<T>(
+  values: string[],
+  loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
+) {
+  const rows: T[] = [];
+  for (const batch of chunkArray(values)) {
+    const { data, error } = await loader(batch);
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster && !scope.isFinanceiro && !scope.isGestor) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
@@ -130,14 +153,15 @@ export async function GET(event) {
       } catch {
       }
 
-      const { data: pagamentos, error: pagamentosError } = await client
-        .from('vendas_pagamentos')
-        .select('venda_id, forma_nome, paga_comissao')
-        .eq('company_id', companyId)
-        .in('venda_id', vendaIds);
-      if (pagamentosError) throw pagamentosError;
+      const pagamentos = await fetchBatched<any>(vendaIds, (batch) =>
+        client
+          .from('vendas_pagamentos')
+          .select('venda_id, forma_nome, paga_comissao')
+          .eq('company_id', companyId)
+          .in('venda_id', batch)
+      );
 
-      (pagamentos || []).forEach((pagamento: any) => {
+      pagamentos.forEach((pagamento: any) => {
         const vendaId = String(pagamento?.venda_id || '').trim();
         if (!vendaId) return;
         const naoComissiona =
@@ -151,12 +175,14 @@ export async function GET(event) {
     const reciboIdsForAudit = Array.from(new Set(rows.map((row: any) => String(row?.venda_recibo_id || '').trim()).filter(Boolean)));
 
     if (reciboIdsForAudit.length > 0) {
-      const { data: recibosAudit } = await client
-        .from('vendas_recibos')
-        .select('id, valor_total, valor_taxas')
-        .in('id', reciboIdsForAudit);
+      const recibosAudit = await fetchBatched<any>(reciboIdsForAudit, (batch) =>
+        client
+          .from('vendas_recibos')
+          .select('id, valor_total, valor_taxas')
+          .in('id', batch)
+      );
 
-      (recibosAudit || []).forEach((recibo: any) => {
+      recibosAudit.forEach((recibo: any) => {
         const reciboId = String(recibo?.id || '').trim();
         if (!reciboId) return;
         recibosByIdForAudit.set(reciboId, {
@@ -207,29 +233,31 @@ export async function GET(event) {
     const recibosById = new Map<string, any>();
 
     if (vendaIdsLinked.length > 0) {
-      const { data: vendasData, error: vendasError } = await client
-        .from('vendas')
-        .select('id, numero_venda, cliente_id, vendedor_id')
-        .eq('company_id', companyId)
-        .in('id', vendaIdsLinked)
-        .limit(1000);
-      if (vendasError) throw vendasError;
+      const vendasData = await fetchBatched<any>(vendaIdsLinked, (batch) =>
+        client
+          .from('vendas')
+          .select('id, numero_venda, cliente_id, vendedor_id')
+          .eq('company_id', companyId)
+          .in('id', batch)
+      );
 
-      (vendasData || []).forEach((item: any) => {
+      vendasData.forEach((item: any) => {
         const id = String(item?.id || '').trim();
         if (id) vendasById.set(id, item);
       });
 
       const clienteIds = Array.from(
-        new Set((vendasData || []).map((item: any) => String(item?.cliente_id || '').trim()).filter(Boolean))
+        new Set(vendasData.map((item: any) => String(item?.cliente_id || '').trim()).filter(Boolean))
       );
       const vendedorIds = Array.from(
-        new Set((vendasData || []).map((item: any) => String(item?.vendedor_id || '').trim()).filter(Boolean))
+        new Set(vendasData.map((item: any) => String(item?.vendedor_id || '').trim()).filter(Boolean))
       );
 
       if (clienteIds.length > 0) {
-        const { data: clientesData } = await client.from('clientes').select('id, nome').in('id', clienteIds).limit(1000);
-        (clientesData || []).forEach((cliente: any) => {
+        const clientesData = await fetchBatched<any>(clienteIds, (batch) =>
+          client.from('clientes').select('id, nome').in('id', batch)
+        );
+        clientesData.forEach((cliente: any) => {
           const id = String(cliente?.id || '').trim();
           const nome = String(cliente?.nome || '').trim();
           if (id) clientesById.set(id, nome || '-');
@@ -237,12 +265,13 @@ export async function GET(event) {
       }
 
       if (vendedorIds.length > 0) {
-        const { data: vendedoresData } = await client
-          .from('users')
-          .select('id, nome_completo')
-          .in('id', vendedorIds)
-          .limit(1000);
-        (vendedoresData || []).forEach((vendedor: any) => {
+        const vendedoresData = await fetchBatched<any>(vendedorIds, (batch) =>
+          client
+            .from('users')
+            .select('id, nome_completo')
+            .in('id', batch)
+        );
+        vendedoresData.forEach((vendedor: any) => {
           const id = String(vendedor?.id || '').trim();
           const nome = String(vendedor?.nome_completo || '').trim();
           if (id) vendedoresById.set(id, nome || '-');
@@ -251,12 +280,13 @@ export async function GET(event) {
     }
 
     if (reciboIdsLinked.length > 0) {
-      const { data: recibosData } = await client
-        .from('vendas_recibos')
-        .select('id, venda_id, numero_recibo, numero_reserva')
-        .in('id', reciboIdsLinked)
-        .limit(1000);
-      (recibosData || []).forEach((item: any) => {
+      const recibosData = await fetchBatched<any>(reciboIdsLinked, (batch) =>
+        client
+          .from('vendas_recibos')
+          .select('id, venda_id, numero_recibo, numero_reserva')
+          .in('id', batch)
+      );
+      recibosData.forEach((item: any) => {
         const id = String(item?.id || '').trim();
         if (id) recibosById.set(id, item);
       });

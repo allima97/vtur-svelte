@@ -153,6 +153,7 @@
 
   type VendedorOption = { id: string; nome_completo: string };
   type ProdutoOption = { id: string; nome: string };
+  type EmpresaOption = { id: string; nome: string };
   type DetalheRateioInfo = {
     vendedor_destino_nome: string;
     percentual_destino: number;
@@ -289,6 +290,8 @@
   let executions: ConciliacaoExecution[] = [];
   let vendedores: VendedorOption[] = [];
   let produtosMeta: ProdutoOption[] = [];
+  let empresas: EmpresaOption[] = [];
+  let empresaId = '';
 
   let monthFilter = currentMonth();
   let dayFilter = '';
@@ -374,6 +377,13 @@
     value: produto.id,
     label: produto.nome
   }));
+
+  $: empresaOptions = empresas.map((empresa) => ({
+    value: empresa.id,
+    label: empresa.nome
+  }));
+
+  $: canSelectEmpresa = empresaOptions.length > 1;
 
   const recordColumns = [
     { key: 'documento', label: 'Documento', sortable: true, width: '140px' },
@@ -764,8 +774,43 @@
     importPreview = importPreparedRows;
   }
 
+  async function loadUserContext() {
+    try {
+      const data = await apiGet<{
+        company_id?: string | null;
+        company_ids?: string[];
+        empresas?: EmpresaOption[];
+      }>('/api/v1/user/context');
+
+      const nextEmpresas = Array.isArray(data.empresas)
+        ? data.empresas
+            .map((empresa) => ({
+              id: String(empresa?.id || '').trim(),
+              nome: String(empresa?.nome || 'Empresa sem nome').trim() || 'Empresa sem nome'
+            }))
+            .filter((empresa) => empresa.id)
+        : [];
+
+      empresas = nextEmpresas;
+      const currentCompany = String(data.company_id || '').trim();
+      empresaId = currentCompany || nextEmpresas[0]?.id || '';
+    } catch (error: any) {
+      empresas = [];
+      empresaId = '';
+      toast.error(error?.message || 'Erro ao carregar empresas do usuário.');
+    }
+  }
+
+  async function handleEmpresaChange() {
+    clearImportState();
+    selectedRow = null;
+    showDetailsDialog = false;
+    await loadAll();
+  }
+
   onMount(async () => {
     loadOperationLogs();
+    await loadUserContext();
     await loadAll();
   });
 
@@ -801,6 +846,9 @@
     loading = true;
     operationMessage = 'Atualizando dados da conciliação financeira.';
     try {
+      if (empresas.length > 0 && !empresaId) {
+        throw new Error('Selecione uma empresa para carregar a conciliação.');
+      }
       await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao atualizar dados da conciliação.');
@@ -812,7 +860,8 @@
 
   async function loadSummary() {
     const data = await apiGet<any>('/api/v1/conciliacao/summary', {
-      mes: monthFilter || undefined
+      mes: monthFilter || undefined,
+      company_id: empresaId || undefined
     });
     summary = {
       total: Number(data.total || 0),
@@ -830,6 +879,7 @@
     registrosLoading = true;
     try {
       const data = await apiGet<any[]>('/api/v1/conciliacao/list', {
+        company_id: empresaId || undefined,
         month: monthFilter || undefined,
         day: dayFilter || undefined,
         pending: showPendingOnly ? '1' : undefined,
@@ -845,7 +895,9 @@
   async function loadOptions() {
     optionsLoading = true;
     try {
-      const data = await apiGet<any>('/api/v1/conciliacao/options');
+      const data = await apiGet<any>('/api/v1/conciliacao/options', {
+        company_id: empresaId || undefined
+      });
       vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
       produtosMeta = Array.isArray(data.produtosMeta) ? data.produtosMeta : [];
     } finally {
@@ -857,6 +909,7 @@
     changesLoading = true;
     try {
       const data = await apiGet<any[]>('/api/v1/conciliacao/changes', {
+        company_id: empresaId || undefined,
         month: monthFilter || undefined
       });
       changes = Array.isArray(data) ? data : [];
@@ -868,7 +921,10 @@
   async function loadExecutions() {
     executionsLoading = true;
     try {
-      const data = await apiGet<any[]>('/api/v1/conciliacao/executions', { limit: 20 });
+      const data = await apiGet<any[]>('/api/v1/conciliacao/executions', {
+        company_id: empresaId || undefined,
+        limit: 20
+      });
       executions = Array.isArray(data) ? data : [];
     } finally {
       executionsLoading = false;
@@ -1018,6 +1074,7 @@
     detalheRateioLoading = true;
     try {
       const data = await apiGet<any>('/api/v1/conciliacao/rateio-info', {
+        company_id: empresaId || undefined,
         venda_recibo_id: vendaReciboId,
         conciliacao_recibo_id: String(row.id || '')
       });
@@ -1092,6 +1149,7 @@
       : 'Executando conciliação automática dos recibos pendentes.';
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        companyId: empresaId || undefined,
         limit: reciboId ? 1 : 200,
         conciliacaoReciboId: reciboId || null
       });
@@ -1139,6 +1197,7 @@
     operationMessage = 'Forçando recálculo dos recibos da conciliação no mês selecionado.';
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        companyId: empresaId || undefined,
         recalculateAllMonth: true,
         recalculateMonth: monthFilter
       });
@@ -1185,6 +1244,7 @@
     operationMessage = 'Saneando recibos duplicados da conciliação no mês selecionado.';
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/run', {
+        companyId: empresaId || undefined,
         cleanupDuplicatesOnly: true,
         recalculateMonth: monthFilter
       });
@@ -1234,6 +1294,7 @@
 
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/fix-vinculos', {
+        companyId: empresaId || undefined,
         dryRun: !apply,
         limit: conciliacaoId ? 1 : 2000,
         month: conciliacaoId ? null : monthFilter || null,
@@ -1282,7 +1343,11 @@
     reverting = true;
     operationMessage = 'Revertendo alterações pendentes da conciliação.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/revert', { revertAll: true, limit: 500 });
+      const data = await apiPost<any>('/api/v1/conciliacao/revert', {
+        companyId: empresaId || undefined,
+        revertAll: true,
+        limit: 500
+      });
       toast.success(`Alterações revertidas: ${Number(data.reverted || 0)} recibos atualizados.`);
       await Promise.all([loadRegistros(), loadChanges()]);
     } catch (error: any) {
@@ -1331,6 +1396,7 @@
     operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/import', {
+        companyId: empresaId || undefined,
         linhas: importPreparedRows.map((row) => ({
           documento: row.documento,
           numero_reserva: row.numero_reserva || null,
@@ -1423,9 +1489,8 @@
 
   async function loadDiasSemMovimento() {
     try {
-      const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
       const data = await apiGet<any>('/api/v1/conciliacao/sem-movimento', {
-        companyId: companyId || undefined
+        companyId: empresaId || undefined
       });
       diasSemMovimento = (data.dias || []).map((d: any) => String(d.data || '')).filter(Boolean);
     } catch {
@@ -1440,9 +1505,8 @@
     }
     semMovimentoLoading = true;
     try {
-      const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
       await apiPost('/api/v1/conciliacao/sem-movimento', {
-        companyId,
+        companyId: empresaId || undefined,
         data: semMovimentoData,
         observacao: semMovimentoObservacao
       });
@@ -1475,8 +1539,10 @@
 
     importLookupLoading = true;
     try {
-      const companyId = String((registros[0] as any)?.company_id || '').trim() || null;
-      const data = await apiPost<any>('/api/v1/conciliacao/lookup', { companyId, documentos: docs });
+      const data = await apiPost<any>('/api/v1/conciliacao/lookup', {
+        companyId: empresaId || undefined,
+        documentos: docs
+      });
       importLookupMatches = data?.matches && typeof data.matches === 'object' ? data.matches : {};
     } catch {
       importLookupMatches = {};
@@ -1825,6 +1891,17 @@
     </Button>
   </div>
   <div class="mt-3 flex flex-wrap gap-2">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="conciliacao-empresa"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full md:w-72"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
     <Button variant="secondary" on:click={abrirImportacao}>
       <Upload size={16} class="mr-2" />
       Importar

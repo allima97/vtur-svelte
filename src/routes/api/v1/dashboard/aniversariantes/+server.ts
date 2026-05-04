@@ -13,6 +13,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 /** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
  *  evitando qualquer problema de timezone/DST. */
@@ -51,6 +52,16 @@ function clampIntParam(value: string | null, fallback: number, min: number, max:
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -64,11 +75,14 @@ export async function GET(event) {
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
 
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({
-        items: [],
-        hoje: 0,
-        proximos: 0
-      });
+      return json(
+        {
+          items: [],
+          hoje: 0,
+          proximos: 0
+        },
+        { headers: DYNAMIC_READ_HEADERS }
+      );
     }
 
     const clientes = await getCachedReadModel<any[]>({
@@ -83,17 +97,23 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
-        let clientesQuery = client
-          .from('clientes')
-          .select('id, nome, nascimento, telefone, whatsapp, email')
-          .not('nascimento', 'is', null)
-          .limit(2000);
+        const rows: any[] = [];
+        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
 
-        if (companyIds.length > 0) clientesQuery = clientesQuery.in('company_id', companyIds);
+        for (const companyBatch of companyBatches) {
+          let clientesQuery = client
+            .from('clientes')
+            .select('id, nome, nascimento, telefone, whatsapp, email')
+            .not('nascimento', 'is', null)
+            .limit(2000);
 
-        const { data, error } = await clientesQuery;
-        if (error) throw error;
-        return data || [];
+          if (companyBatch) clientesQuery = clientesQuery.in('company_id', companyBatch);
+
+          const { data, error } = await clientesQuery;
+          if (error) throw error;
+          rows.push(...(data || []));
+        }
+        return rows;
       }
     });
 
@@ -126,11 +146,14 @@ export async function GET(event) {
       ? aniversariantesFiltrados.slice(0, outputLimit)
       : aniversariantesFiltrados;
 
-    return json({
-      items: aniversariantes,
-      hoje: aniversariantesFiltrados.filter((a: any) => a.aniversario_hoje).length,
-      proximos: aniversariantesFiltrados.length
-    });
+    return json(
+      {
+        items: aniversariantes,
+        hoje: aniversariantesFiltrados.filter((a: any) => a.aniversario_hoje).length,
+        proximos: aniversariantesFiltrados.length
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar aniversariantes.');
   }

@@ -1,4 +1,5 @@
 import { isUuid } from "$lib/server/v1";
+import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import {
   buildNoStoreJsonResponse,
   buildNoStoreTextResponse,
@@ -8,9 +9,20 @@ import {
 } from "../_shared";
 import { invalidatePreferenceReadModels } from "$lib/server/readModelCache";
 
+const MAX_PREFERENCIAS_SAVE_BODY_BYTES = 64 * 1024;
+
 export async function POST(event) {
   try {
-    const body = safeJsonParse(await event.request.text()) as any;
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const sizeError = rejectLargePayload(event.request, MAX_PREFERENCIAS_SAVE_BODY_BYTES);
+    if (sizeError) return sizeError;
+
+    const rawBody = await event.request.text();
+    if (rawBody.length > MAX_PREFERENCIAS_SAVE_BODY_BYTES) {
+      return buildNoStoreTextResponse("Payload muito grande.", 413);
+    }
+    const body = safeJsonParse(rawBody) as any;
     const id = String(body?.id || "").trim();
     const isUpdate = Boolean(id);
     const { client, user, scope } = await requirePreferenciasScope(

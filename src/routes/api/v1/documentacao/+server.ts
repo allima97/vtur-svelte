@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -20,9 +21,7 @@ export const GET: RequestHandler = async ({ locals }) => {
             source: "sections"
           },
           {
-            headers: {
-              "Cache-Control": "no-store",
-            },
+            headers: NO_STORE_HEADERS,
           }
         );
       }
@@ -44,9 +43,7 @@ export const GET: RequestHandler = async ({ locals }) => {
             source: "legacy"
           },
           {
-            headers: {
-              "Cache-Control": "no-store",
-            },
+            headers: NO_STORE_HEADERS,
           }
         );
       }
@@ -54,9 +51,9 @@ export const GET: RequestHandler = async ({ locals }) => {
       logServerError("[documentacao] falha ao ler system_documentation", err);
     }
 
-    return json({ error: "Documentacao nao encontrada." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+    return json({ error: "Documentacao nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[documentacao] falha ao carregar documentação", error);
-    return json({ error: "Erro interno ao carregar documentação." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    return json({ error: "Erro interno ao carregar documentação." }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };
