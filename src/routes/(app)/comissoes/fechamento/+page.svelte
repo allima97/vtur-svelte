@@ -173,10 +173,17 @@
     }, 250);
   }
 
+  function formatMonthName(month: number) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      month: 'long',
+      timeZone: 'UTC'
+    }).format(new Date(Date.UTC(2024, month - 1, 1)));
+  }
+
   function buildMonthOptions() {
     return Array.from({ length: 12 }, (_, i) => ({
       value: String(i + 1),
-      label: new Date(2024, i, 1).toLocaleDateString('pt-BR', { month: 'long' })
+      label: formatMonthName(i + 1)
     }));
   }
 

@@ -84,7 +84,7 @@ export function formatThreadTime(value?: string | null) {
     date.getDate() === now.getDate();
   return sameDay
     ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleDateString('pt-BR');
+    : new Intl.DateTimeFormat('pt-BR').format(date);
 }
 
 export function getNomeExibicao(user?: UserMini | null) {

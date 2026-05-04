@@ -8,6 +8,7 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import { FieldInput, FieldTextarea, FieldCheckbox, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
+  import { diffDaysISODate, formatISODateBR, todayISODateLocal, toISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
@@ -48,12 +49,7 @@
     { key: 'descricao', label: 'Descricao', sortable: true }
   ];
 
-  const todayIso = (() => {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
-  })();
+  const todayIso = todayISODateLocal();
 
   const defaultEventForm = (): EventForm => ({
     titulo: '',
@@ -88,7 +84,7 @@
   let eventForm = defaultEventForm();
 
   function formatDate(date: Date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return toISODateLocal(date);
   }
 
   function formatLocalDateTime(date: Date) {
@@ -98,8 +94,7 @@
   function formatDateTimeLabel(value?: string | null, allDay = false) {
     if (!value) return '-';
     if (allDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [year, month, day] = value.split('-');
-      return `${day}/${month}/${year}`;
+      return formatISODateBR(value);
     }
 
     const parsed = new Date(value);
@@ -410,10 +405,8 @@
     aniversarios: items.filter((item) => String(item.id).startsWith('birthday:')).length,
     hoje: items.filter((item) => String(item.start).startsWith(todayIso)).length,
     proximos7: items.filter((item) => {
-      const parsed = new Date(String(item.start));
-      if (Number.isNaN(parsed.getTime())) return false;
-      const diff = parsed.getTime() - new Date(`${todayIso}T00:00:00`).getTime();
-      return diff >= 0 && diff <= 7 * 24 * 60 * 60 * 1000;
+      const diff = diffDaysISODate(todayIso, item.start);
+      return diff != null && diff >= 0 && diff <= 7;
     }).length
   };
 </script>

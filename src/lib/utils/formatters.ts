@@ -92,10 +92,10 @@ export function formatYearMonthLabel(value: string | null | undefined): string {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return raw || '-';
 
   const [yearText, monthText] = raw.split('-');
-  const monthDate = new Date(Number(yearText), Number(monthText) - 1, 1);
+  const monthDate = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1));
   if (isNaN(monthDate.getTime())) return raw;
 
-  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(monthDate);
+  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' }).format(monthDate);
   const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1);
   const yearShort = yearText.slice(-2);
   return `${monthTitle}-${yearShort}`;

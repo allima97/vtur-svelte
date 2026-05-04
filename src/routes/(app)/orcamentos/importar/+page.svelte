@@ -9,6 +9,7 @@
   import { apiGet, apiPost } from '$lib/services/api';
   import type { PassagemAereaFonte } from '$lib/quote/passagemAereaQuoteImport';
   import type { QuoteDraft, QuoteItemDraft, QuoteSegmentDraft } from '$lib/quote/types';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
   import {
     ArrowLeft,
     FileText,
@@ -119,9 +120,7 @@
   }
 
   function formatDate(iso: string | null | undefined) {
-    if (!iso) return '-';
-    const d = new Date(`${iso}T12:00:00`);
-    return isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR');
+    return formatDateValue(iso);
   }
 
   function itemValido(item: QuoteItemDraft) {

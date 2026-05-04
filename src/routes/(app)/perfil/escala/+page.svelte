@@ -6,6 +6,7 @@
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { formatDate, formatYearMonthLabel } from '$lib/utils/formatters';
+  import { todayISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
   import { auth } from '$lib/stores/auth';
   import { apiGet } from '$lib/services/api';
@@ -54,12 +55,11 @@
   let feriados: Feriado[] = [];
   let activeTab = 'minha_escala';
 
-  const now = new Date();
-  let periodoAtual = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  let periodoAtual = todayISODateLocal().slice(0, 7);
 
   function getDaysInMonth(periodo: string) {
     const [year, month] = periodo.split('-').map(Number);
-    const daysCount = new Date(year, month, 0).getDate();
+    const daysCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
     return Array.from({ length: daysCount }, (_, i) => {
       const d = i + 1;
       const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -97,8 +97,8 @@
 
   function navMes(delta: number) {
     const [year, month] = periodoAtual.split('-').map(Number);
-    const d = new Date(year, month - 1 + delta, 1);
-    periodoAtual = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const d = new Date(Date.UTC(year, month - 1 + delta, 1));
+    periodoAtual = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     load();
   }
 

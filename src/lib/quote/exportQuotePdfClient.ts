@@ -10,6 +10,7 @@
 
 import { construirLinkWhatsApp } from '$lib/whatsapp';
 import { safeOpenNewTab } from '$lib/security/url';
+import { formatISODateBR } from '$lib/date';
 
 // ---------------------------------------------------------------------------
 // TIPOS
@@ -88,13 +89,8 @@ function formatCurrency(value: number, currency = 'BRL'): string {
 
 function formatDateBR(value?: string | null): string {
   if (!value) return '';
-  try {
-    const d = new Date(`${value.slice(0, 10)}T12:00:00`);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('pt-BR');
-  } catch {
-    return '';
-  }
+  const formatted = formatISODateBR(value);
+  return formatted === '-' ? '' : formatted;
 }
 
 function normalizeText(value?: string | null): string {

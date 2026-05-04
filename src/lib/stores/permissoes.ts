@@ -79,24 +79,26 @@ const permLevel = (p: PermissaoNivel | undefined): number => {
 
 /**
  * Resolve o papel do usuário com base no nome do tipo.
- * Portabilizado fielmente do vtur-app.
+ * ADMIN do sistema tem precedência sobre uso_individual —
+ * uso_individual diferencia vendedores individuais de equipe,
+ * não restringe administradores do sistema.
  */
 function resolvePapel(tipoNome: string, usoIndividual: boolean): Papel {
-  if (usoIndividual) return 'VENDEDOR';
   const nome = tipoNome.toUpperCase();
+  // Admin do sistema prevalece sobre uso_individual
   if (nome.includes('ADMIN'))   return 'ADMIN';
   if (nome.includes('MASTER'))  return 'MASTER';
   if (nome.includes('GESTOR'))  return 'GESTOR';
+  if (usoIndividual) return 'VENDEDOR';
   if (nome.includes('VENDEDOR')) return 'VENDEDOR';
   return 'OUTRO';
 }
 
 /**
  * Resolve se o usuário é admin do sistema.
- * ADMIN do sistema = tipo contém "ADMIN" E não é uso individual.
+ * ADMIN do sistema = tipo contém "ADMIN" — uso_individual não restringe admin.
  */
-function resolveIsSystemAdmin(tipoNome: string, usoIndividual: boolean): boolean {
-  if (usoIndividual) return false;
+function resolveIsSystemAdmin(tipoNome: string, _usoIndividual: boolean): boolean {
   return tipoNome.toUpperCase().includes('ADMIN');
 }
 

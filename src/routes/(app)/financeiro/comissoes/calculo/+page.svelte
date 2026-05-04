@@ -75,6 +75,21 @@
     );
   }
 
+  function formatMonthName(month: number) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      month: 'long',
+      timeZone: 'UTC'
+    }).format(new Date(Date.UTC(2024, month - 1, 1)));
+  }
+
+  function formatMonthYearLabel(year: number, month: number) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(new Date(Date.UTC(year, month - 1, 1)));
+  }
+
   onMount(() => {
     // Define período padrão (mês atual)
     const range = currentMonthRangeISODate();
@@ -354,7 +369,7 @@
       bind:value={filtroMes}
       options={Array.from({ length: 12 }, (_, i) => ({
         value: String(i + 1),
-        label: new Date(2024, i, 1).toLocaleDateString('pt-BR', { month: 'long' })
+        label: formatMonthName(i + 1)
       }))}
       class_name="w-full"
     />
@@ -506,7 +521,7 @@
       <div>
         <p class="text-slate-500">Referência</p>
         <p class="font-medium">
-          {new Date(filtroAno, Number(filtroMes) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          {formatMonthYearLabel(Number(filtroAno), Number(filtroMes))}
         </p>
       </div>
       <div>

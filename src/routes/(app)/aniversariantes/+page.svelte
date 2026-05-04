@@ -47,8 +47,13 @@
       width: '130px',
       formatter: (v: string) => {
         if (!v) return '-';
-        const d = new Date(v + 'T00:00:00');
-        return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+        const parts = parseISODateParts(v);
+        if (!parts) return '-';
+        const monthName = new Intl.DateTimeFormat('pt-BR', {
+          month: 'long',
+          timeZone: 'UTC'
+        }).format(new Date(Date.UTC(2024, parts.month - 1, 1)));
+        return `${String(parts.day).padStart(2, '0')} de ${monthName}`;
       }
     },
     {

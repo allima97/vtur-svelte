@@ -324,13 +324,15 @@ function buildPermissionsMap(
 }
 
 export function resolvePapel(tipoNome: string, usoIndividual: boolean): Papel {
-  if (usoIndividual) return "VENDEDOR";
-
   const tipo = String(tipoNome || "").toUpperCase();
 
+  // Papel de tipo tem precedência sobre uso_individual
+  // uso_individual diferencia vendedores individuais de equipe,
+  // NÃO restringe administradores/gestores do sistema.
   if (tipo.includes("ADMIN")) return "ADMIN";
   if (tipo.includes("MASTER")) return "MASTER";
   if (tipo.includes("GESTOR")) return "GESTOR";
+  if (usoIndividual) return "VENDEDOR";
   if (tipo.includes("VENDEDOR")) return "VENDEDOR";
 
   return "OUTRO";

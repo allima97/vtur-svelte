@@ -28,6 +28,7 @@ import {
   toErrorResponse,
 } from '$lib/server/v1';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
+import { monthRangeFromKey } from '$lib/date';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
@@ -95,10 +96,11 @@ export async function GET(event) {
       if (!/^\d{4}-\d{2}$/.test(String(contribuicoesMes))) {
         return debugJson({ error: 'Mes invalido.' }, { status: 400 });
       }
-      const [ano, mes] = String(contribuicoesMes).split('-');
-      const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
-      const inicio = `${ano}-${mes}-01`;
-      const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
+      const range = monthRangeFromKey(contribuicoesMes);
+      if (!range) {
+        return debugJson({ error: 'Mes invalido.' }, { status: 400 });
+      }
+      const { inicio, fim } = range;
       const requestedLimit = parseIntSafe(event.url.searchParams.get('limit'), MAX_DEBUG_CONTRIBUICOES);
       const maxContribuicoes = Math.max(1, Math.min(requestedLimit, MAX_DEBUG_CONTRIBUICOES));
       const companyIds = resolveDebugCompanyIds(scope, event.url.searchParams.get('empresa_id'));
@@ -183,10 +185,11 @@ export async function GET(event) {
     const vendedorBusca = event.url.searchParams.get('vendedor');
     const mesBusca = event.url.searchParams.get('mes') || '2026-04';
     if (vendedorBusca) {
-      const [ano, mes] = mesBusca.split('-');
-      const inicio = `${ano}-${mes}-01`;
-      const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
-      const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
+      const range = monthRangeFromKey(mesBusca);
+      if (!range) {
+        return debugJson({ error: 'Mes invalido.' }, { status: 400 });
+      }
+      const { inicio, fim } = range;
 
       // 1. Encontrar o(s) user(s) com esse nome
       let usersQuery = client
@@ -354,10 +357,11 @@ export async function GET(event) {
     // Retorna totais brutos da conciliação por vendedor (com e sem vendor) + recibos sem vendedor
     const auditoriaMes = event.url.searchParams.get('auditoria_mes');
     if (auditoriaMes) {
-      const [ano, mes] = String(auditoriaMes).split('-');
-      const ultimoDia = new Date(Number(ano), Number(mes), 0).getDate();
-      const inicio = `${ano}-${mes}-01`;
-      const fim = `${ano}-${mes}-${String(ultimoDia).padStart(2, '0')}`;
+      const range = monthRangeFromKey(auditoriaMes);
+      if (!range) {
+        return debugJson({ error: 'Mes invalido.' }, { status: 400 });
+      }
+      const { inicio, fim } = range;
       const empresaId = event.url.searchParams.get('empresa_id');
 
       // Metas informadas (valores de fechamento externos)
@@ -519,10 +523,12 @@ export async function GET(event) {
     const docsPorVendedor = event.url.searchParams.get('docs_por_vendedor');
     if (docsPorVendedor) {
       const mesBusca2 = event.url.searchParams.get('mes') || '2026-04';
-      const [ano2, mes2] = mesBusca2.split('-');
-      const inicio2 = `${ano2}-${mes2}-01`;
-      const ultimoDia2 = new Date(Number(ano2), Number(mes2), 0).getDate();
-      const fim2 = `${ano2}-${mes2}-${String(ultimoDia2).padStart(2, '0')}`;
+      const range2 = monthRangeFromKey(mesBusca2);
+      if (!range2) {
+        return debugJson({ error: 'Mes invalido.' }, { status: 400 });
+      }
+      const inicio2 = range2.inicio;
+      const fim2 = range2.fim;
 
       // Encontrar usuário
       let usersQuery2 = client

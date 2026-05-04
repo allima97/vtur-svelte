@@ -10,6 +10,7 @@
   import { RefreshCw, DollarSign, Building2 } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
+  import { diffDaysISODate, formatISODateBR, todayISODateLocal } from '$lib/date';
 
   type BillingRow = {
     id: string;
@@ -65,10 +66,8 @@
       width: '140px',
       formatter: (v: string | null) => {
         if (!v) return '-';
-        const d = new Date(v + 'T00:00:00');
-        const hoje = new Date();
-        const diff = Math.ceil((d.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        const label = d.toLocaleDateString('pt-BR');
+        const diff = diffDaysISODate(todayISODateLocal(), v) ?? 0;
+        const label = formatISODateBR(v);
         if (diff < 0) return `<span class="text-red-600 font-medium">${label}</span>`;
         if (diff <= 7) return `<span class="text-amber-600 font-medium">${label}</span>`;
         return label;
