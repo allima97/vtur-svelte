@@ -3,11 +3,13 @@ import type { RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 function sanitizeNumber(value: unknown, fallback = 0): number {
   const num = typeof value === 'number' ? value : Number(value);
@@ -54,6 +56,23 @@ export async function POST(event: RequestEvent) {
 
     if (!clientId) {
       return json({ error: 'Selecione um cliente antes de salvar.' }, { status: 400 });
+    }
+    if (!isUuid(clientId)) {
+      return json({ error: 'Cliente invalido.' }, { status: 400 });
+    }
+
+    const { data: cliente, error: clienteError } = await client
+      .from('clientes')
+      .select('id, company_id')
+      .eq('id', clientId)
+      .maybeSingle();
+    if (clienteError) throw clienteError;
+    if (!cliente?.id) {
+      return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+    }
+    const clienteCompanyId = String((cliente as any).company_id || '').trim();
+    if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+      return json({ error: 'Cliente fora do seu escopo.' }, { status: 403 });
     }
 
     const items = draft.items as Array<Record<string, unknown>>;
@@ -202,6 +221,12 @@ export async function POST(event: RequestEvent) {
       .from('quote')
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq('id', quote.id);
+
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: [user.id],
+      userId: user.id
+    });
 
     return json({ ok: true, quote_id: quote.id, status: nextStatus }, { status: 201 });
   } catch (err) {

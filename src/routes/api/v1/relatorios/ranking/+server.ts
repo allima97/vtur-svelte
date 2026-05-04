@@ -17,6 +17,12 @@ import {
 import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { addDaysISODate, diffDaysISODate, monthRangeFromKey } from "$lib/date";
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
@@ -162,25 +168,40 @@ export async function GET(event) {
     const rankingTeamMap = new Map<string, { id: string; nome: string }>();
     const gestorIdsSet = new Set<string>();
     if (vendedorIds.length > 0) {
-      let teamUsersQuery = client
-        .from("users")
-        .select(
-          "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
-        )
-        .in("id", vendedorIds)
-        .eq("active", true)
-        .limit(5000);
+      const teamUsers = await getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey("ranking:team-users", {
+          companyIds,
+          vendedorIds,
+        }),
+        tags: [
+          READ_MODEL_TAGS.users,
+          READ_MODEL_TAGS.ranking,
+          ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+        ],
+        ttlMs: 15_000,
+        staleTtlMs: 60_000,
+        loader: async () => {
+          let teamUsersQuery = client
+            .from("users")
+            .select(
+              "id, nome_completo, email, active, uso_individual, participa_ranking, company_id, user_types(name)",
+            )
+            .in("id", vendedorIds)
+            .eq("active", true)
+            .limit(5000);
 
-      // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
-      if (companyIds.length === 1) {
-        teamUsersQuery = teamUsersQuery.eq("company_id", companyIds[0]);
-      } else if (companyIds.length > 1) {
-        teamUsersQuery = teamUsersQuery.in("company_id", companyIds);
-      }
+          // Restringe ao(s) company_id(s) do escopo para excluir usuários de outras empresas
+          if (companyIds.length === 1) {
+            teamUsersQuery = teamUsersQuery.eq("company_id", companyIds[0]);
+          } else if (companyIds.length > 1) {
+            teamUsersQuery = teamUsersQuery.in("company_id", companyIds);
+          }
 
-      const { data: teamUsers, error: teamUsersError } = await teamUsersQuery;
-
-      if (teamUsersError) throw teamUsersError;
+          const { data, error: teamUsersError } = await teamUsersQuery;
+          if (teamUsersError) throw teamUsersError;
+          return data || [];
+        },
+      });
 
       const scopedIds: string[] = [];
       (teamUsers || []).forEach((row: any) => {
@@ -239,15 +260,30 @@ export async function GET(event) {
     let usarTaxasNaMeta = true;
     let focoValor: "bruto" | "liquido" = "bruto";
     if (companyIds.length > 0) {
-      const { data: parametrosRows, error: parametrosError } = await client
-        .from("parametros_comissao")
-        .select(
-          "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
-        )
-        .in("company_id", companyIds)
-        .limit(1000);
+      const parametrosRows = await getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey("ranking:parametros-comissao", {
+          companyIds,
+        }),
+        tags: [
+          READ_MODEL_TAGS.comissoes,
+          READ_MODEL_TAGS.ranking,
+          ...scopeCacheTags({ companyIds, userId: user.id }),
+        ],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: async () => {
+          const { data, error: parametrosError } = await client
+            .from("parametros_comissao")
+            .select(
+              "company_id, conciliacao_sobrepoe_vendas, usar_taxas_na_meta, foco_valor",
+            )
+            .in("company_id", companyIds)
+            .limit(1000);
 
-      if (parametrosError) throw parametrosError;
+          if (parametrosError) throw parametrosError;
+          return data || [];
+        },
+      });
 
       conciliacaoSobrepoeVendas = (parametrosRows || []).some((row: any) =>
         Boolean(row?.conciliacao_sobrepoe_vendas),
@@ -262,60 +298,122 @@ export async function GET(event) {
     }
 
     // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
-    const [currentContributions, previousContributions, quotesRes, metasRes] =
+    const [currentContributions, previousContributions, quotesData, metasData] =
       await Promise.all([
-        buildRankingSimple(client, {
-          dataInicio,
-          dataFim,
-          companyIds,
-          vendedorIds,
+        getCachedReadModel({
+          key: buildReadModelCacheKey("ranking:contributions", {
+            dataInicio,
+            dataFim,
+            companyIds,
+            vendedorIds,
+          }),
+          tags: [
+            READ_MODEL_TAGS.sales,
+            READ_MODEL_TAGS.conciliacao,
+            READ_MODEL_TAGS.ranking,
+            ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+          ],
+          ttlMs: 10_000,
+          staleTtlMs: 45_000,
+          loader: () =>
+            buildRankingSimple(client, {
+              dataInicio,
+              dataFim,
+              companyIds,
+              vendedorIds,
+            }),
         }),
-        buildRankingSimple(client, {
-          dataInicio: previousPeriod.dataInicio,
-          dataFim: previousPeriod.dataFim,
-          companyIds,
-          vendedorIds,
+        getCachedReadModel({
+          key: buildReadModelCacheKey("ranking:contributions", {
+            dataInicio: previousPeriod.dataInicio,
+            dataFim: previousPeriod.dataFim,
+            companyIds,
+            vendedorIds,
+          }),
+          tags: [
+            READ_MODEL_TAGS.sales,
+            READ_MODEL_TAGS.conciliacao,
+            READ_MODEL_TAGS.ranking,
+            ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+          ],
+          ttlMs: 10_000,
+          staleTtlMs: 45_000,
+          loader: () =>
+            buildRankingSimple(client, {
+              dataInicio: previousPeriod.dataInicio,
+              dataFim: previousPeriod.dataFim,
+              companyIds,
+              vendedorIds,
+            }),
         }),
-        (async () => {
-          let query = client
-            .from("quote")
-            .select("id, created_by, total")
-            .gte("created_at", `${dataInicio}T00:00:00`)
-            .lte("created_at", `${dataFim}T23:59:59.999`)
-            .limit(5000);
+        getCachedReadModel({
+          key: buildReadModelCacheKey("ranking:quotes", {
+            dataInicio,
+            dataFim,
+            vendedorIds,
+          }),
+          tags: [
+            READ_MODEL_TAGS.quote,
+            READ_MODEL_TAGS.ranking,
+            ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+          ],
+          ttlMs: 10_000,
+          staleTtlMs: 45_000,
+          loader: async () => {
+            let query = client
+              .from("quote")
+              .select("id, created_by, total")
+              .gte("created_at", `${dataInicio}T00:00:00`)
+              .lte("created_at", `${dataFim}T23:59:59.999`)
+              .limit(5000);
 
-          if (vendedorIds.length > 0) {
-            query = query.in("created_by", vendedorIds);
-          }
+            if (vendedorIds.length > 0) {
+              query = query.in("created_by", vendedorIds);
+            }
 
-          return query;
-        })(),
-        (async () => {
-          const metasReference =
-            getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
-          let query = client
-            .from("metas_vendedor")
-            .select(
-              "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
-            )
-            .eq("ativo", true)
-            .gte("periodo", metasReference.inicio)
-            .lte("periodo", metasReference.fim)
-            .limit(1000);
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+          },
+        }),
+        getCachedReadModel({
+          key: buildReadModelCacheKey("ranking:metas", {
+            mes: dataInicio.slice(0, 7),
+            vendedorIds,
+          }),
+          tags: [
+            READ_MODEL_TAGS.metas,
+            READ_MODEL_TAGS.ranking,
+            ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+          ],
+          ttlMs: 10_000,
+          staleTtlMs: 45_000,
+          loader: async () => {
+            const metasReference =
+              getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
+            let query = client
+              .from("metas_vendedor")
+              .select(
+                "id, vendedor_id, meta_geral, meta_diferenciada, periodo, ativo",
+              )
+              .eq("ativo", true)
+              .gte("periodo", metasReference.inicio)
+              .lte("periodo", metasReference.fim)
+              .limit(1000);
 
-          if (vendedorIds.length > 0) {
-            query = query.in("vendedor_id", vendedorIds);
-          }
+            if (vendedorIds.length > 0) {
+              query = query.in("vendedor_id", vendedorIds);
+            }
 
-          return query;
-        })(),
+            const { data, error } = await query;
+            if (error) {
+              logServerError("[ranking] Erro ao buscar metas", error);
+              return [];
+            }
+            return data || [];
+          },
+        }),
       ]);
-
-    if (quotesRes.error) throw quotesRes.error;
-    if (metasRes.error) {
-      // Tabela meta_vendedor pode não existir — ignora silenciosamente
-      logServerError("[ranking] Erro ao buscar metas", metasRes.error);
-    }
 
     const rankingMap = new Map<
       string,
@@ -411,7 +509,7 @@ export async function GET(event) {
       );
     });
 
-    (quotesRes.data || []).forEach((quote: any) => {
+    (quotesData || []).forEach((quote: any) => {
       const vendedorId = String(quote?.created_by || "").trim();
       if (!vendedorId) return;
 
@@ -434,7 +532,7 @@ export async function GET(event) {
       rankingMap.set(vendedorId, current);
     });
 
-    (metasRes.data || []).forEach((meta: any) => {
+    (metasData || []).forEach((meta: any) => {
       const vendedorId = String(meta?.vendedor_id || "").trim();
       if (!vendedorId) return;
 

@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function canManageTemplates(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return scope.isAdmin || scope.isMaster || scope.isGestor || Boolean(scope.permissoes.admin) || Boolean(scope.permissoes.admin_users);
@@ -18,11 +19,11 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!canManageTemplates(scope)) {
-      return new Response('Sem acesso aos templates de aviso.', { status: 403 });
+      return new Response('Sem acesso aos templates de aviso.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const templates = await loadAvisoTemplates(client);
-    return json({ items: templates });
+    return json({ items: templates }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar templates de aviso.');
   }
@@ -36,17 +37,17 @@ export async function POST(event) {
     const body = await event.request.json().catch(() => ({}));
 
     if (!canManageTemplates(scope)) {
-      return new Response('Sem acesso aos templates de aviso.', { status: 403 });
+      return new Response('Sem acesso aos templates de aviso.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const action = String(body.action || 'save').trim().toLowerCase();
     const id = String(body.id || '').trim();
 
     if (action === 'delete') {
-      if (!id) return new Response('Template nao informado.', { status: 400 });
+      if (!id) return new Response('Template nao informado.', { status: 400, headers: NO_STORE_HEADERS });
       const { error: deleteError } = await client.from('admin_avisos_templates').delete().eq('id', id);
       if (deleteError) throw deleteError;
-      return json({ id, deleted: true });
+      return json({ id, deleted: true }, { headers: NO_STORE_HEADERS });
     }
 
     const payload = {
@@ -58,7 +59,7 @@ export async function POST(event) {
     };
 
     if (!payload.nome || !payload.assunto || !payload.mensagem) {
-      return new Response('Nome, assunto e mensagem sao obrigatorios.', { status: 400 });
+      return new Response('Nome, assunto e mensagem sao obrigatorios.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (id) {
@@ -67,7 +68,7 @@ export async function POST(event) {
         .update(payload)
         .eq('id', id);
       if (updateError) throw updateError;
-      return json({ id, updated: true });
+      return json({ id, updated: true }, { headers: NO_STORE_HEADERS });
     }
 
     const { data, error: insertError } = await client
@@ -77,7 +78,7 @@ export async function POST(event) {
       .single();
     if (insertError) throw insertError;
 
-    return json({ id: data.id, created: true });
+    return json({ id: data.id, created: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar template de aviso.');
   }

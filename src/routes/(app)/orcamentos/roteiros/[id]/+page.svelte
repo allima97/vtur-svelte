@@ -18,6 +18,7 @@
   import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { diffDaysISODate } from '$lib/date';
+  import { safeOpenNewTab } from '$lib/security/url';
 
   // ─── Types ─────────────────────────────────────────────────────────────────
   type RotDia = {
@@ -1160,7 +1161,8 @@
             body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
             .shell { max-width: 960px; margin: 0 auto; padding: 24px; }
             .toolbar { position: sticky; top: 0; display: flex; justify-content: flex-end; gap: 12px; padding: 16px 0; background: #f8fafc; }
-            .toolbar button { border: 0; border-radius: 999px; padding: 10px 16px; background: #0f766e; color: white; cursor: pointer; }
+            .print-action { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; padding: 10px 16px; background: #0f766e; color: white; cursor: pointer; text-decoration: none; font-weight: 700; }
+            .print-action:focus-visible { outline: 3px solid rgba(15, 118, 110, 0.28); outline-offset: 2px; }
             .preview-header-card, .preview-title-card, .preview-footer-card, .section { background: white; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
             .preview-header-card { padding: 12px 14px; margin: 0 0 12px 0; }
             .preview-header-table { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -1235,7 +1237,7 @@
         </head>
         <body>
           <div class="shell">
-            <div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div>
+            <div class="toolbar"><a class="print-action" href="#" onclick="event.preventDefault(); window.print();">Imprimir / Salvar em PDF</a></div>
             ${headerCardHtml}
             ${titleCardHtml}
             ${buildPreviewSection('Itinerário Detalhado', diasHtml)}
@@ -1260,12 +1262,11 @@
       const assets = await resolvePreviewPdfAssets();
       const html = buildRoteiroPreviewHtml(assets);
       const previewUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-      const previewWindow = window.open(previewUrl, '_blank', 'noopener,noreferrer');
-      if (!previewWindow) {
+      const opened = safeOpenNewTab(previewUrl, ['blob:']);
+      if (!opened) {
         throw new Error('Não foi possível abrir a prévia do PDF. Verifique o bloqueador de pop-up.');
       }
       window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60000);
-      previewWindow.focus();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao visualizar PDF.');
     } finally {

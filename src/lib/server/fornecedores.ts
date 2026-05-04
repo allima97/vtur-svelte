@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isUuid, resolveScopedCompanyIds, type UserScope } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 type RowsResult<T> = { data: T[] | null; error: any };
 type SingleResult<T> = { data: T | null; error: any };
@@ -75,73 +81,89 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
   const requestedCompanyId = String(params.get('empresa_id') || '').trim();
   const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
 
-  let query = client.from('fornecedores').select('id', { count: 'exact' }).order('created_at', { ascending: false }).limit(5000);
-  if (companyIds.length > 0) {
-    query = query.in('company_id', companyIds);
-  }
+  return getCachedReadModel({
+    key: buildReadModelCacheKey('fornecedores:list', {
+      companyIds,
+      requestedCompanyId,
+      scopeId: scope.userId
+    }),
+    tags: [READ_MODEL_TAGS.catalog, ...scopeCacheTags({ companyIds, userId: scope.userId })],
+    ttlMs: 30_000,
+    staleTtlMs: 120_000,
+    loader: async () => {
+      let query = client
+        .from('fornecedores')
+        .select('id', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(5000);
+      if (companyIds.length > 0) {
+        query = query.in('company_id', companyIds);
+      }
 
-  const base = await query;
-  if (base.error) throw base.error;
+      const base = await query;
+      if (base.error) throw base.error;
 
-  const ids = (base.data || []).map((row: any) => String(row.id || '')).filter(Boolean);
-  if (ids.length === 0) return { items: [], total: 0 };
+      const ids = (base.data || []).map((row: any) => String(row.id || '')).filter(Boolean);
+      if (ids.length === 0) return { items: [], total: 0 };
 
-  const detailRows = await optionalRows<any>(
-    client
-      .from('fornecedores')
-      .select(
-        [
-          'id',
-          'company_id',
-          'nome_completo',
-          'nome_fantasia',
-          'localizacao',
-          'cnpj',
-          'cep',
-          'cidade',
-          'estado',
-          'telefone',
-          'whatsapp',
-          'telefone_emergencia',
-          'responsavel',
-          'tipo_faturamento',
-          'principais_servicos',
-          'created_at',
-          'updated_at'
-        ].join(', ')
-      )
-      .in('id', ids)
-  );
+      const detailRows = await optionalRows<any>(
+        client
+          .from('fornecedores')
+          .select(
+            [
+              'id',
+              'company_id',
+              'nome_completo',
+              'nome_fantasia',
+              'localizacao',
+              'cnpj',
+              'cep',
+              'cidade',
+              'estado',
+              'telefone',
+              'whatsapp',
+              'telefone_emergencia',
+              'responsavel',
+              'tipo_faturamento',
+              'principais_servicos',
+              'created_at',
+              'updated_at'
+            ].join(', ')
+          )
+          .in('id', ids)
+      );
 
-  const products = await optionalRows<any>(
-    client.from('produtos').select('id, fornecedor_id').in('fornecedor_id', ids).limit(10000)
-  );
+      const products = await optionalRows<any>(
+        client.from('produtos').select('id, fornecedor_id').in('fornecedor_id', ids).limit(10000)
+      );
 
-  const productsCount = new Map<string, number>();
-  products.forEach((row: any) => {
-    const key = String(row?.fornecedor_id || '').trim();
-    if (!key) return;
-    productsCount.set(key, (productsCount.get(key) || 0) + 1);
-  });
+      const productsCount = new Map<string, number>();
+      products.forEach((row: any) => {
+        const key = String(row?.fornecedor_id || '').trim();
+        if (!key) return;
+        productsCount.set(key, (productsCount.get(key) || 0) + 1);
+      });
 
-  const items = detailRows
-    .map((row: FornecedorRecord) => {
-      const normalized = normalizeFornecedor(row);
+      const items = detailRows
+        .map((row: FornecedorRecord) => {
+          const normalized = normalizeFornecedor(row);
+          return {
+            ...normalized,
+            produtos_vinculados: productsCount.get(normalized.id) || 0
+          };
+        })
+        .sort((a: any, b: any) => {
+          const aName = String(a.nome_fantasia || a.nome_completo || '').toLowerCase();
+          const bName = String(b.nome_fantasia || b.nome_completo || '').toLowerCase();
+          return aName.localeCompare(bName);
+        });
+
       return {
-        ...normalized,
-        produtos_vinculados: productsCount.get(normalized.id) || 0
+        items,
+        total: base.count ?? items.length
       };
-    })
-    .sort((a: any, b: any) => {
-      const aName = String(a.nome_fantasia || a.nome_completo || '').toLowerCase();
-      const bName = String(b.nome_fantasia || b.nome_completo || '').toLowerCase();
-      return aName.localeCompare(bName);
-    });
-
-  return {
-    items,
-    total: base.count ?? items.length
-  };
+    }
+  });
 }
 
 export async function fetchFornecedorById(client: SupabaseClient, id: string) {

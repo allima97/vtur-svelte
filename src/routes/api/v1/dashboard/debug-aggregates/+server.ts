@@ -7,8 +7,9 @@ import {
   requireAuthenticatedUser,
   resolveUserScope
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const DEBUG_HEADERS = NO_STORE_HEADERS;
 
 function toNumber(value: unknown) {
   const parsed = Number(value || 0);

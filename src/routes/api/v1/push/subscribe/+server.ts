@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
@@ -55,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return json({ error: "Erro ao salvar subscription." }, { status: 500 });
     }
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[push/subscribe] falha interna", error);
     return json({ error: "Erro interno ao salvar subscription." }, { status: 500 });

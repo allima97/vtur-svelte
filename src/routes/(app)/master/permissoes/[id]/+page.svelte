@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
@@ -44,7 +45,7 @@
       permissions = payload.permissions || [];
       sections = payload.sections || [];
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Nao foi possivel carregar a matriz de permissoes do master.');
     } finally {
       loading = false;
@@ -62,7 +63,7 @@
       toast.success('Permissoes atualizadas com sucesso.');
       await loadPage();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar permissoes.');
     } finally {
       saving = false;

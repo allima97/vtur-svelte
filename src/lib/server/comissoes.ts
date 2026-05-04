@@ -22,6 +22,12 @@ import {
   type Tier
 } from '$lib/utils/comissao';
 import { normalizeTipoPacoteRuleKey } from '$lib/server/tipoPacote';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -588,28 +594,52 @@ export async function fetchCommissionContext(
   const vendedorIds = (params.vendedorIds || []).map((id) => String(id || '').trim()).filter(Boolean);
   const periodo = params.periodo || '';
 
-  // vtur-app busca tipo_produtos, regras de produto e pacote SEM filtro (busca tudo)
-  const [fetchedParams, regrasMap, tipoProdutoMap, regraProdutoMap, regraProdutoPacoteMap, regraTipoPacoteMap, metasResult] =
-    await Promise.all([
-      fetchParametros(client, companyIds),
-      fetchRegras(client),
-      fetchTipoProdutoMap(client),
-      fetchRegraProdutoMap(client),
-      fetchRegraProdutoPacoteMap(client),
-      fetchRegraTipoPacoteMap(client),
-      fetchMetas(client, vendedorIds, periodo)
-    ]);
+  return getCachedReadModel<CommissionContext>({
+    key: buildReadModelCacheKey('commission-context', {
+      companyIds,
+      vendedorIds,
+      periodo
+    }),
+    tags: [
+      READ_MODEL_TAGS.comissoes,
+      READ_MODEL_TAGS.metas,
+      READ_MODEL_TAGS.users,
+      ...scopeCacheTags({ companyIds, vendedorIds })
+    ],
+    ttlMs: 15_000,
+    staleTtlMs: 60_000,
+    loader: async () => {
+      // vtur-app busca tipo_produtos, regras de produto e pacote SEM filtro (busca tudo)
+      const [
+        fetchedParams,
+        regrasMap,
+        tipoProdutoMap,
+        regraProdutoMap,
+        regraProdutoPacoteMap,
+        regraTipoPacoteMap,
+        metasResult
+      ] = await Promise.all([
+        fetchParametros(client, companyIds),
+        fetchRegras(client),
+        fetchTipoProdutoMap(client),
+        fetchRegraProdutoMap(client),
+        fetchRegraProdutoPacoteMap(client),
+        fetchRegraTipoPacoteMap(client),
+        fetchMetas(client, vendedorIds, periodo)
+      ]);
 
-  return {
-    params: fetchedParams,
-    regrasMap,
-    tipoProdutoMap,
-    regraProdutoMap,
-    regraProdutoPacoteMap,
-    regraTipoPacoteMap,
-    metaPlanejada: metasResult.metaPlanejada,
-    metaProdutoMap: metasResult.metaProdutoMap
-  };
+      return {
+        params: fetchedParams,
+        regrasMap,
+        tipoProdutoMap,
+        regraProdutoMap,
+        regraProdutoPacoteMap,
+        regraTipoPacoteMap,
+        metaPlanejada: metasResult.metaPlanejada,
+        metaProdutoMap: metasResult.metaProdutoMap
+      };
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

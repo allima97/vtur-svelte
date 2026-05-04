@@ -9,6 +9,7 @@
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPatch, apiPost } from '$lib/services/api';
+  import { safeOpenNewTab } from '$lib/security/url';
   import { Calendar, Download, Plus, RefreshCw, Video, X } from 'lucide-svelte';
 
   type Consultoria = {
@@ -179,7 +180,7 @@
   }
 
   function exportIcal() {
-    window.open('/api/v1/consultorias/ics', '_blank', 'noopener,noreferrer');
+    safeOpenNewTab('/api/v1/consultorias/ics');
   }
 
   // Recarrega quando o filtro muda

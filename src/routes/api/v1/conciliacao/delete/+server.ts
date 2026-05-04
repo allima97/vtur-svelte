@@ -8,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 export async function DELETE(event) {
   try {
@@ -39,7 +41,8 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('conciliacao_recibos').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    invalidateSalesReadModels({ companyIds: [registro.company_id], userId: user.id });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir registro de conciliação.');
   }

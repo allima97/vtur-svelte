@@ -29,8 +29,9 @@ import {
 } from '$lib/server/v1';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
 
 function debugJson(body: unknown, init?: ResponseInit) {

@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { normalizeText } from '$lib/normalizeText';
 import { supabase as supabaseBrowser } from '$lib/db/supabase';
 import {
@@ -49,7 +50,7 @@ export async function carregarTermosNaoComissionaveis(options: { force?: boolean
       cachedTermosNaoComissionaveis = unique;
       return unique;
     } catch (err) {
-      console.warn("[pagamentoUtils] Falha ao carregar termos nao comissionaveis.", err);
+      if (dev) console.warn("[pagamentoUtils] Falha ao carregar termos nao comissionaveis.", err);
     } finally {
       termosLoadPromise = null;
     }

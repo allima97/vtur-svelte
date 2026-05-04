@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -19,7 +20,6 @@
     Users
   } from 'lucide-svelte';
   import {
-    buildAttachmentUrl,
     buildThreads,
     formatBadge,
     formatDateTimeBR,
@@ -27,6 +27,7 @@
     getInitials,
     getNomeExibicao,
     normalizeSortKey,
+    safeAttachmentHref,
     type EmpresaOption,
     type RecadoRow,
     type Thread,
@@ -224,7 +225,7 @@
       await Promise.all(ids.map((id) => apiPost('/api/v1/mural/read', { id })));
       await loadRecados();
     } catch (err) {
-      console.error('Falha ao marcar leitura do mural', err);
+      if (dev) console.error('Falha ao marcar leitura do mural', err);
     }
   }
 
@@ -559,7 +560,11 @@
                         {#each recado.arquivos as arquivo}
                           <a
                             class="chat-attachment-file"
-                            href={arquivo.download_url || buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                            href={safeAttachmentHref(
+                              arquivo.download_url,
+                              arquivo.storage_bucket,
+                              arquivo.storage_path,
+                            )}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -711,7 +716,11 @@
                       {#each recado.arquivos as arquivo}
                         <a
                           class="chat-attachment-file"
-                          href={arquivo.download_url || buildAttachmentUrl(arquivo.storage_bucket, arquivo.storage_path)}
+                          href={safeAttachmentHref(
+                            arquivo.download_url,
+                            arquivo.storage_bucket,
+                            arquivo.storage_path,
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

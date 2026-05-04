@@ -94,7 +94,9 @@
   // Filtra um item de acordo com as permissões do usuário — mesma lógica do Sidebar.
   function podeVerItem(href: string): boolean {
     if (!$permissoes.ready) return true; // aguarda carregamento
-    if ($permissoes.isSystemAdmin) return true;
+    if ($permissoes.isSystemAdmin) {
+      return href.startsWith('/perfil') && !href.startsWith('/perfil/escala');
+    }
     if (href.startsWith('/perfil')) return true; // perfil sempre acessível
     if (href.startsWith('/master')) return $permissoes.isMaster;
     const modulo = descobrirModulo(href);

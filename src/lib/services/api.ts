@@ -10,6 +10,7 @@ export interface ApiOptions {
   headers?: Record<string, string>;
   query?: Record<string, string | number | boolean | undefined | null>;
   signal?: AbortSignal;
+  timeoutMs?: number;
   redirectOnForbidden?: boolean;
   redirectOnUnauthorized?: boolean;
 }
@@ -25,6 +26,8 @@ export class ApiError extends Error {
     this.payload = payload;
   }
 }
+
+const DEFAULT_API_TIMEOUT_MS = 90_000;
 
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
   if (!query) return '';
@@ -84,6 +87,11 @@ async function readError(response: Response) {
 export async function apiFetch<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
   const queryString = buildQueryString(options.query);
   const url = `${path}${queryString}`;
+  const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS));
+  const controller = options.signal ? null : new AbortController();
+  const timeout = controller
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
 
   const isFormData = options.body instanceof FormData;
   const isString = typeof options.body === 'string';
@@ -102,13 +110,25 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
       : JSON.stringify(options.body)
     : undefined;
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body: requestBody,
-    signal: options.signal,
-    credentials: 'same-origin'
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      body: requestBody,
+      signal: options.signal || controller?.signal,
+      credentials: 'same-origin'
+    });
+  } catch (err) {
+    const aborted = err instanceof DOMException && err.name === 'AbortError';
+    throw new ApiError(
+      aborted ? 'A requisição demorou demais. Tente novamente.' : 'Falha de conexão com o servidor.',
+      0,
+      err
+    );
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 
   if (response.status === 401) {
     if (options.redirectOnUnauthorized !== false) {

@@ -9,6 +9,7 @@
  */
 
 import { construirLinkWhatsApp } from '$lib/whatsapp';
+import { safeOpenNewTab } from '$lib/security/url';
 
 // ---------------------------------------------------------------------------
 // TIPOS
@@ -725,8 +726,7 @@ export async function openQuotePreview(params: {
 
   // 9. Abre em nova aba
   const previewUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-  const win = window.open(previewUrl, '_blank', 'noopener,noreferrer');
+  const opened = safeOpenNewTab(previewUrl, ['blob:']);
   setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000);
-  if (!win) throw new Error('Não foi possível abrir a prévia. Verifique o bloqueador de pop-up.');
-  win.focus();
+  if (!opened) throw new Error('Não foi possível abrir a prévia. Verifique o bloqueador de pop-up.');
 }

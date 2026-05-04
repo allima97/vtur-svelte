@@ -3,6 +3,19 @@ import { logServerError } from '$lib/server/v1';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { renderCardSvg } from '../_render';
 
+const CARD_IMAGE_HEADERS = {
+  "Cache-Control": "private, max-age=60, no-transform",
+  "Vary": "Cookie",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
+const CARD_ERROR_HEADERS = {
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "no-store",
+  "Vary": "Cookie",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
 export async function GET(event: import('@sveltejs/kit').RequestEvent) {
   try {
     const url = new URL(event.request.url);
@@ -17,9 +30,8 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         {
           status: 429,
           headers: {
-            "Content-Type": "application/json; charset=utf-8",
+            ...CARD_ERROR_HEADERS,
             "Retry-After": String(rateLimit.retryAfterSeconds),
-            "Cache-Control": "no-store",
           },
         }
       );
@@ -33,8 +45,8 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         return new Response(png, {
           status: 200,
           headers: {
+            ...CARD_IMAGE_HEADERS,
             "Content-Type": "image/png",
-            "Cache-Control": "public, max-age=60",
           },
         });
       } catch (error) {
@@ -46,13 +58,12 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
               message: "PNG rendering unavailable in current runtime.",
             }),
             {
-              status: 503,
-              headers: {
-                "Content-Type": "application/json; charset=utf-8",
-                "Cache-Control": "no-store",
-                "X-Card-Render-Error": "png_render_unavailable",
-              },
-            }
+            status: 503,
+            headers: {
+              ...CARD_ERROR_HEADERS,
+              "X-Card-Render-Error": "png_render_unavailable",
+            },
+          }
           );
         }
         throw error;
@@ -62,8 +73,8 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
     return new Response(svg, {
       status: 200,
       headers: {
+        ...CARD_IMAGE_HEADERS,
         "Content-Type": "image/svg+xml; charset=utf-8",
-        "Cache-Control": "public, max-age=60",
       },
     });
   } catch (e: any) {
@@ -75,10 +86,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-        },
+        headers: CARD_ERROR_HEADERS,
       }
     );
   }

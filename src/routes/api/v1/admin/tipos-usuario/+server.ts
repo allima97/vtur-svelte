@@ -12,6 +12,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -54,16 +55,19 @@ export async function GET(event) {
       userCounts.set(String(row.user_type_id), Number(userCounts.get(String(row.user_type_id)) || 0) + 1);
     });
 
-    return json({
-      items: userTypes.map((row) => ({
-        id: row.id,
-        nome: row.name,
-        descricao: row.description || '',
-        created_at: row.created_at || null,
-        usuarios: Number(userCounts.get(row.id) || 0),
-        permissoes_padrao: Number(defaultPermCounts.get(row.id) || 0)
-      }))
-    });
+    return json(
+      {
+        items: userTypes.map((row) => ({
+          id: row.id,
+          nome: row.name,
+          descricao: row.description || '',
+          created_at: row.created_at || null,
+          usuarios: Number(userCounts.get(row.id) || 0),
+          permissoes_padrao: Number(defaultPermCounts.get(row.id) || 0)
+        }))
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tipos de usuario.');
   }
@@ -83,35 +87,35 @@ export async function POST(event) {
     const managedTypes = await loadManagedUserTypes(client, scope);
 
     if (action === 'delete') {
-      if (!id) return new Response('Tipo de usuario nao informado.', { status: 400 });
+      if (!id) return new Response('Tipo de usuario nao informado.', { status: 400, headers: NO_STORE_HEADERS });
       if (!managedTypes.some((row) => row.id === id)) {
-        return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+        return new Response('Tipo de usuario fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
       }
       const { error: deleteError } = await client.from('user_types').delete().eq('id', id);
       if (deleteError) throw deleteError;
-      return json({ id, deleted: true });
+      return json({ id, deleted: true }, { headers: NO_STORE_HEADERS });
     }
 
     const name = String(body.name || '').trim();
     const description = String(body.description || '').trim() || null;
 
     if (!name) {
-      return new Response('Nome do tipo de usuario obrigatorio.', { status: 400 });
+      return new Response('Nome do tipo de usuario obrigatorio.', { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!scope.isAdmin && isRestrictedUserTypeName(name)) {
-      return new Response('Sem permissao para criar ou editar perfis ADMIN/MASTER.', { status: 403 });
+      return new Response('Sem permissao para criar ou editar perfis ADMIN/MASTER.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (id) {
       if (!managedTypes.some((row) => row.id === id)) {
-        return new Response('Tipo de usuario fora do escopo.', { status: 403 });
+        return new Response('Tipo de usuario fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
       }
       const { error: updateError } = await client
         .from('user_types')
         .update({ name, description })
         .eq('id', id);
       if (updateError) throw updateError;
-      return json({ id, updated: true });
+      return json({ id, updated: true }, { headers: NO_STORE_HEADERS });
     }
 
     const { data, error: insertError } = await client
@@ -121,7 +125,7 @@ export async function POST(event) {
       .single();
     if (insertError) throw insertError;
 
-    return json({ id: data.id, created: true });
+    return json({ id: data.id, created: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tipo de usuario.');
   }

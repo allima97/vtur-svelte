@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/server/emailSettings';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function titleCaseWithExceptions(input: string): string {
   if (!input) return "";
@@ -390,10 +391,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
 
-    return json({
-      id: inviteId,
-      expires_at: expiresAt,
-    });
+    return json(
+      {
+        id: inviteId,
+        expires_at: expiresAt,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (error: any) {
     logServerError("[convites/send] falha ao enviar convite", error);
     return json({ error: "Erro interno ao enviar convite." }, { status: 500 });

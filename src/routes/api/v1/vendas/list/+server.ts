@@ -16,6 +16,12 @@ import {
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -643,7 +649,12 @@ export async function GET(event) {
     }
 
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
-    const effectiveVendedorIds = (isMasterByType || isGestorByType) ? [] : vendedorIds;
+    const hasRequestedVendedorFilter = String(requestedVendedorRaw || '').trim().length > 0;
+    const requestedVendedorResolvedEmpty = hasRequestedVendedorFilter && vendedorIds.length === 0;
+    const effectiveVendedorIds =
+      (isMasterByType || isGestorByType)
+        ? (hasRequestedVendedorFilter ? vendedorIds : [])
+        : vendedorIds;
 
     const accessibleClientIds =
       !scope.isAdmin && !isMasterByType && !isGestorByType
@@ -660,20 +671,53 @@ export async function GET(event) {
       !tipoQuery &&
       accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE;
 
-    const dataResult = await fetchVendaRowsWithFallback(client, {
-      openId,
-      inicio,
-      fim,
-      companyIds,
-      vendedorIds: effectiveVendedorIds,
-      clienteId,
-      scopeIsAdmin: scope.isAdmin,
-      accessibleClientIds,
-      statusQuery,
-      useRange: canUseDbPagination,
-      page,
-      pageSize
-    });
+    const dataResult = requestedVendedorResolvedEmpty
+      ? { rows: [] as VendaRow[], count: 0 }
+      : await getCachedReadModel<{ rows: VendaRow[]; count: number | null }>({
+          key: buildReadModelCacheKey('vendas-list:rows', {
+            openId,
+            inicio,
+            fim,
+            companyIds,
+            vendedorIds: effectiveVendedorIds,
+            clienteId,
+            scopeId: !scope.isAdmin && !isMasterByType && !isGestorByType ? user.id : null,
+            statusQuery,
+            tipoQuery,
+            searchQuery,
+            campoBusca,
+            all,
+            includeKpis,
+            useRange: canUseDbPagination,
+            page: canUseDbPagination ? page : null,
+            pageSize: canUseDbPagination ? pageSize : null,
+            accessibleClientCount: accessibleClientIds.length
+          }),
+          tags: [
+            READ_MODEL_TAGS.sales,
+            READ_MODEL_TAGS.clients,
+            READ_MODEL_TAGS.catalog,
+            READ_MODEL_TAGS.users,
+            ...scopeCacheTags({ companyIds, vendedorIds: effectiveVendedorIds, userId: user.id })
+          ],
+          ttlMs: 10_000,
+          staleTtlMs: 45_000,
+          loader: () =>
+            fetchVendaRowsWithFallback(client, {
+              openId,
+              inicio,
+              fim,
+              companyIds,
+              vendedorIds: effectiveVendedorIds,
+              clienteId,
+              scopeIsAdmin: scope.isAdmin,
+              accessibleClientIds,
+              statusQuery,
+              useRange: canUseDbPagination,
+              page,
+              pageSize
+            })
+        });
     const data = dataResult.rows;
 
     await hydrateDestinosFromVendaIds(client, data as VendaRow[]);

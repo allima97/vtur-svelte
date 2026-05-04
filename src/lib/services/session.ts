@@ -1,8 +1,12 @@
 import { browser } from '$app/environment';
 import { supabase } from '$lib/db/supabase';
 
+const SESSION_SYNC_TIMEOUT_MS = 12_000;
+
 export async function ensureServerSessionCookie() {
   if (!browser) return;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), SESSION_SYNC_TIMEOUT_MS);
   try {
     const {
       data: { session }
@@ -12,6 +16,7 @@ export async function ensureServerSessionCookie() {
     await fetch('/api/auth/set-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         access_token: session.access_token,
         refresh_token: session.refresh_token
@@ -19,5 +24,7 @@ export async function ensureServerSessionCookie() {
     });
   } catch {
     // Falha silenciosa: a tela chamadora deve tratar 401/403 no carregamento.
+  } finally {
+    window.clearTimeout(timeout);
   }
 }

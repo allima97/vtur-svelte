@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -65,7 +66,7 @@
         destinos_str: Array.isArray(c.destinos) ? c.destinos.join(', ') : c.destinos || ''
       }));
     } catch (err) {
-      console.error('Erro ao carregar circuitos:', err);
+      if (dev) console.error('Erro ao carregar circuitos:', err);
       toast.error('Erro ao carregar circuitos');
     } finally {
       loading = false;

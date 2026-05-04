@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event) {
   try {
@@ -60,6 +61,8 @@ export async function POST(event) {
 
     const { data, error } = await client.from('fornecedores').insert([payload]).select('id').single();
     if (error) throw error;
+
+    invalidateCatalogReadModels({ companyIds: payload.company_id ? [payload.company_id] : [], userId: user.id });
 
     const fornecedor = await fetchFornecedorById(client, data.id);
     return json({ success: true, data: fornecedor }, { status: 201 });

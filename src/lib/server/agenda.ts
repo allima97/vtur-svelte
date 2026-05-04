@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
+  fetchRankingVendedoresByCompanyIds,
   parseUuidList,
   resolveScopedCompanyIds,
   toISODateLocal,
@@ -205,7 +205,14 @@ export async function resolveFollowUpFilters(
   if (tipoNome.includes('ADMIN')) {
     vendedorIds = requestedVendedorIds;
   } else if (tipoNome.includes('GESTOR')) {
-    const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+    const gestorCompanyIds = companyIds.length > 0
+      ? companyIds
+      : scope.companyId
+        ? [scope.companyId]
+        : [];
+    const equipeIds = (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds))
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean);
     vendedorIds = requestedVendedorIds.length > 0
       ? requestedVendedorIds.filter((id) => equipeIds.includes(id))
       : equipeIds;

@@ -1,7 +1,6 @@
 import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   fetchVendedorIdsByCompanyIds,
   getAdminClient,
   isUuid,
@@ -11,6 +10,13 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { monthRangeFromKey } from '$lib/date';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 const ESCALA_HORARIO_SELECT =
   'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
@@ -62,7 +68,12 @@ async function fetchFeriadosNacionais(ano: number, periodo: string) {
 
 async function resolveEquipeIds(client: any, scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   if (scope.isGestor) {
-    return fetchGestorEquipeIdsComGestor(client, scope.userId);
+    const companyIds = scope.companyIds.length > 0
+      ? scope.companyIds
+      : scope.companyId
+        ? [scope.companyId]
+        : [];
+    return fetchVendedorIdsByCompanyIds(client, companyIds);
   }
 
   if (scope.isMaster || scope.isAdmin) {
@@ -72,16 +83,6 @@ async function resolveEquipeIds(client: any, scope: Awaited<ReturnType<typeof re
     }
 
     return fetchVendedorIdsByCompanyIds(client, scope.companyIds);
-  }
-
-  if (scope.companyIds.length > 0) {
-    const { data } = await client
-      .from('users')
-      .select('id')
-      .eq('active', true)
-      .in('company_id', scope.companyIds)
-      .limit(500);
-    return (data || []).map((u: any) => String(u?.id || '')).filter(Boolean);
   }
 
   return [scope.userId];
@@ -141,94 +142,121 @@ export async function GET(event) {
 
     const equipeIds = await resolveEquipeIds(client, scope);
 
-    // Busca escala_mes
-    let mesQuery = client
-      .from('escala_mes')
-      .select('id, periodo, status, company_id')
-      .order('periodo', { ascending: false })
-      .limit(24);
+    const companyIds = scope.companyIds.length > 0 ? scope.companyIds : scope.companyId ? [scope.companyId] : [];
 
-    if (!scope.isAdmin) {
-      if (scope.companyIds.length > 0) mesQuery = mesQuery.in('company_id', scope.companyIds);
-      else if (scope.companyId) mesQuery = mesQuery.eq('company_id', scope.companyId);
-    }
-    if (periodo) mesQuery = mesQuery.eq('periodo', periodo + '-01');
+    const result = await getCachedReadModel<{
+      meses: any[];
+      dias: any[];
+      usuarios: any[];
+      feriados: any[];
+      horariosUsuario: any[];
+    }>({
+      key: buildReadModelCacheKey('parametros:escalas', {
+        periodo,
+        companyIds,
+        equipeIds,
+        userId: scope.userId,
+        isAdmin: scope.isAdmin
+      }),
+      tags: [
+        READ_MODEL_TAGS.users,
+        ...scopeCacheTags({ companyIds, vendedorIds: equipeIds, userId: scope.userId })
+      ],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () => {
+        // Busca escala_mes
+        let mesQuery = client
+          .from('escala_mes')
+          .select('id, periodo, status, company_id')
+          .order('periodo', { ascending: false })
+          .limit(24);
 
-    const { data: meses, error: mesError } = await mesQuery;
-    if (mesError) {
-      // Tabelas de escala podem não existir
-      if (String(mesError.code || '').includes('42P01') || String(mesError.message || '').includes('does not exist')) {
-        return json({ meses: [], dias: [], usuarios: [], feriados: [] });
+        if (!scope.isAdmin) {
+          if (scope.companyIds.length > 0) mesQuery = mesQuery.in('company_id', scope.companyIds);
+          else if (scope.companyId) mesQuery = mesQuery.eq('company_id', scope.companyId);
+        }
+        if (periodo) mesQuery = mesQuery.eq('periodo', periodo + '-01');
+
+        const { data: meses, error: mesError } = await mesQuery;
+        if (mesError) {
+          // Tabelas de escala podem não existir
+          if (String(mesError.code || '').includes('42P01') || String(mesError.message || '').includes('does not exist')) {
+            return { meses: [], dias: [], usuarios: [], feriados: [], horariosUsuario: [] };
+          }
+          throw mesError;
+        }
+
+        // Busca dias da escala para o período selecionado
+        let dias: any[] = [];
+        if (periodo && meses && meses.length > 0) {
+          const mesIds = meses.map((m: any) => m.id);
+          let diasQuery = client
+            .from('escala_dia')
+            .select('id, escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao, usuario:users!usuario_id(id, nome_completo)')
+            .in('escala_mes_id', mesIds)
+            .order('data');
+
+          if (equipeIds.length > 0) diasQuery = diasQuery.in('usuario_id', equipeIds);
+          const { data: diasData } = await diasQuery.limit(2000);
+          dias = diasData || [];
+        }
+
+        // Busca usuários da equipe
+        let usuarios: any[] = [];
+        if (equipeIds.length > 0) {
+          const { data: usersData } = await client
+            .from('users')
+            .select('id, nome_completo, email')
+            .in('id', equipeIds)
+            .eq('active', true)
+            .order('nome_completo')
+            .limit(100);
+          usuarios = usersData || [];
+        }
+
+        // Feriados nacionais + locais do mês
+        const anoFeriados = Number(periodo.slice(0, 4));
+        const feriadosNacionais = periodoRange ? await fetchFeriadosNacionais(anoFeriados, periodo) : [];
+        let feriadosQuery = client
+          .from('feriados')
+          .select('id, data, nome, tipo')
+          .order('data')
+          .limit(100);
+        if (periodoRange) {
+          feriadosQuery = feriadosQuery
+            .gte('data', periodoRange.inicio)
+            .lte('data', periodoRange.fim);
+        }
+        if (!scope.isAdmin) {
+          if (scope.companyIds.length > 0) feriadosQuery = feriadosQuery.in('company_id', scope.companyIds);
+          else if (scope.companyId) feriadosQuery = feriadosQuery.eq('company_id', scope.companyId);
+        }
+        const { data: feriadosLocais } = await feriadosQuery;
+        const feriados = [...feriadosNacionais, ...(feriadosLocais || [])];
+
+        // Busca horarios do usuario logado
+        let horariosUsuario: any[] = [];
+        if (equipeIds.length > 0) {
+          const { data: horariosData } = await client
+            .from('escala_horario_usuario')
+            .select(ESCALA_HORARIO_SELECT)
+            .in('usuario_id', equipeIds)
+            .limit(500);
+          horariosUsuario = horariosData || [];
+        }
+
+        return {
+          meses: meses || [],
+          dias,
+          usuarios,
+          feriados: feriados || [],
+          horariosUsuario
+        };
       }
-      throw mesError;
-    }
-
-    // Busca dias da escala para o período selecionado
-    let dias: any[] = [];
-    if (periodo && meses && meses.length > 0) {
-      const mesIds = meses.map((m: any) => m.id);
-      let diasQuery = client
-        .from('escala_dia')
-        .select('id, escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao, usuario:users!usuario_id(id, nome_completo)')
-        .in('escala_mes_id', mesIds)
-        .order('data');
-
-      if (equipeIds.length > 0) diasQuery = diasQuery.in('usuario_id', equipeIds);
-      const { data: diasData } = await diasQuery.limit(2000);
-      dias = diasData || [];
-    }
-
-    // Busca usuários da equipe
-    let usuarios: any[] = [];
-    if (equipeIds.length > 0) {
-      const { data: usersData } = await client
-        .from('users')
-        .select('id, nome_completo, email')
-        .in('id', equipeIds)
-        .eq('active', true)
-        .order('nome_completo')
-        .limit(100);
-      usuarios = usersData || [];
-    }
-
-    // Feriados nacionais + locais do mês
-    const anoFeriados = Number(periodo.slice(0, 4));
-    const feriadosNacionais = periodoRange ? await fetchFeriadosNacionais(anoFeriados, periodo) : [];
-    let feriadosQuery = client
-      .from('feriados')
-      .select('id, data, nome, tipo')
-      .order('data')
-      .limit(100);
-    if (periodoRange) {
-      feriadosQuery = feriadosQuery
-        .gte('data', periodoRange.inicio)
-        .lte('data', periodoRange.fim);
-    }
-    if (!scope.isAdmin) {
-      if (scope.companyIds.length > 0) feriadosQuery = feriadosQuery.in('company_id', scope.companyIds);
-      else if (scope.companyId) feriadosQuery = feriadosQuery.eq('company_id', scope.companyId);
-    }
-    const { data: feriadosLocais } = await feriadosQuery;
-    const feriados = [...feriadosNacionais, ...(feriadosLocais || [])];
-
-    // Busca horarios do usuario logado
-    let horariosUsuario: any[] = [];
-    if (equipeIds.length > 0) {
-      const { data: horariosData } = await client
-        .from('escala_horario_usuario')
-        .select(ESCALA_HORARIO_SELECT)
-        .in('usuario_id', equipeIds)
-        .limit(500);
-      horariosUsuario = horariosData || [];
-    }
-
-    return json({
-      meses: meses || [],
-      dias,
-      usuarios,
-      feriados: feriados || [],
-      horariosUsuario
     });
+
+    return json(result);
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar escalas.');
   }
@@ -289,6 +317,7 @@ export async function POST(event) {
         await client.from('escala_dia').insert(payload);
       }
 
+      invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
       return json({ ok: true });
     }
 
@@ -325,6 +354,7 @@ export async function POST(event) {
           .eq('usuario_id', usuarioId)
           .in('data', datas);
         if (deleteError) throw deleteError;
+        invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
         return json({ ok: true, removed: datas.length, id: mesId });
       }
 
@@ -344,6 +374,7 @@ export async function POST(event) {
         .select('id, escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao');
       if (upsertError) throw upsertError;
 
+      invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
       return json({ ok: true, id: mesId, items: saved || [] });
     }
 
@@ -352,6 +383,7 @@ export async function POST(event) {
       if (!periodo) return json({ error: 'Período inválido.' }, { status: 400 });
 
       const id = await ensureEscalaMes(client, scope, periodo);
+      invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
       return json({ ok: true, id });
     }
 
@@ -388,6 +420,7 @@ export async function POST(event) {
 
       if (existing?.id) {
         await client.from('escala_horario_usuario').update(payload).eq('id', existing.id);
+        invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
         return json({ ok: true, id: existing.id });
       } else {
         const { data: inserted, error: insertError } = await client
@@ -396,6 +429,7 @@ export async function POST(event) {
           .select('id')
           .single();
         if (insertError) throw insertError;
+        invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
         return json({ ok: true, id: inserted?.id });
       }
     }

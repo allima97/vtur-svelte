@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoById, sanitizeProdutoPayload } from '$lib/server/cadastros-base';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event) {
   try {
@@ -41,6 +42,7 @@ export async function POST(event) {
 
     if (insertError) throw insertError;
 
+    invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
     const produto = await fetchProdutoById(client, data.id);
     return json({ success: true, data: produto }, { status: 201 });
   } catch (err) {

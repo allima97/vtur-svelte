@@ -15,8 +15,10 @@ import {
 import {
   deriveClienteStatus,
   ensureClienteAccess,
-  formatDocumentoDisplay
+  formatDocumentoDisplay,
+  type ClienteScopedFilters
 } from '$lib/server/clientes';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
 type ClienteRow = {
   id: string;
@@ -64,20 +66,36 @@ async function fetchCliente(client: ReturnType<typeof getAdminClient>, id: strin
 
 async function fetchResumoRelacionamentos(
   client: ReturnType<typeof getAdminClient>,
-  clienteId: string
+  clienteId: string,
+  filters: ClienteScopedFilters
 ) {
-  const { data: vendasData, error: vendasError } = await client
+  let vendasQuery = client
     .from('vendas')
     .select('id, data_venda, valor_total', { count: 'exact' })
     .eq('cliente_id', clienteId)
     .eq('cancelada', false);
 
+  if (filters.companyIds.length > 0) {
+    vendasQuery = vendasQuery.in('company_id', filters.companyIds);
+  }
+  if (filters.vendedorIds.length > 0) {
+    vendasQuery = vendasQuery.in('vendedor_id', filters.vendedorIds);
+  }
+
+  const { data: vendasData, error: vendasError } = await vendasQuery;
+
   if (vendasError) throw vendasError;
 
-  const { data: quotesData, error: quotesError } = await client
+  let quotesQuery = client
     .from('quote')
     .select('id, created_at', { count: 'exact' })
     .eq('client_id', clienteId);
+
+  if (filters.vendedorIds.length > 0) {
+    quotesQuery = quotesQuery.in('created_by', filters.vendedorIds);
+  }
+
+  const { data: quotesData, error: quotesError } = await quotesQuery;
 
   if (quotesError) throw quotesError;
 
@@ -116,7 +134,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
     const id = String(event.params.id || '').trim();
 
-    await ensureClienteAccess(
+    const filters = await ensureClienteAccess(
       client,
       scope,
       id,
@@ -128,7 +146,7 @@ export async function GET(event) {
     const row = await fetchCliente(client, id);
     if (!row) return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
 
-    const resumo = await fetchResumoRelacionamentos(client, id);
+    const resumo = await fetchResumoRelacionamentos(client, id, filters);
 
     return json({
       ...row,
@@ -215,6 +233,11 @@ export async function PATCH(event) {
 
     if (updateError) throw updateError;
 
+    invalidateClientReadModels({
+      companyIds: data?.company_id ? [String(data.company_id)] : [],
+      userId: user.id
+    });
+
     return json({ cliente: data, message: 'Cliente atualizado com sucesso.' });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar cliente.');
@@ -228,7 +251,7 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
     const id = String(event.params.id || '').trim();
 
-    await ensureClienteAccess(
+    const filters = await ensureClienteAccess(
       client,
       scope,
       id,
@@ -239,6 +262,11 @@ export async function DELETE(event) {
 
     const { error: deleteError } = await client.from('clientes').delete().eq('id', id);
     if (deleteError) throw deleteError;
+
+    invalidateClientReadModels({
+      companyIds: filters.companyIds,
+      userId: user.id
+    });
 
     return json({ message: 'Cliente excluido com sucesso.' });
   } catch (err) {

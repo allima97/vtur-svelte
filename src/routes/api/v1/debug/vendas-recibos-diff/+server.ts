@@ -12,8 +12,9 @@ import {
   parseIntSafe
 } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_ITEMS = 500;
 
 function debugJson(body: unknown, init?: ResponseInit) {

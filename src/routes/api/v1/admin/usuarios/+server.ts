@@ -139,8 +139,8 @@ export async function POST(event) {
         return new Response('E-mail obrigatorio para criar usuario.', { status: 400 });
       }
 
-      if (!password || password.length < 6) {
-        return new Response('Senha obrigatoria com pelo menos 6 caracteres.', { status: 400 });
+      if (!password || password.length < 8) {
+        return new Response('Senha obrigatoria com pelo menos 8 caracteres.', { status: 400 });
       }
 
       if (!userTypeId) {

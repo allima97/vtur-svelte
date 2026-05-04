@@ -1,17 +1,18 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { json } from "@sveltejs/kit";
+import type { RequestHandler } from "./$types";
 import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
+  toErrorResponse,
+} from "$lib/server/v1";
+import { escapeHtml } from "$lib/utils/html";
 
 type Body = {
   clienteId?: string;
   templateId?: string;
-  canal?: 'email' | 'whatsapp';
+  canal?: "email" | "whatsapp";
   nomeDestinatario?: string;
   emailDestinatario?: string;
   themeId?: string | null;
@@ -23,16 +24,24 @@ type Body = {
   textOffsetY?: number | string | null;
 };
 
-type ScopeValue = 'system' | 'master' | 'gestor' | 'user';
+type ScopeValue = "system" | "master" | "gestor" | "user";
 
 function normalizeScope(value?: string | null): ScopeValue {
-  const scope = String(value || '').trim().toLowerCase();
-  if (scope === 'system' || scope === 'master' || scope === 'gestor' || scope === 'user') return scope;
-  return 'system';
+  const scope = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (
+    scope === "system" ||
+    scope === "master" ||
+    scope === "gestor" ||
+    scope === "user"
+  )
+    return scope;
+  return "system";
 }
 
 function inCompany(companyId: string | null, allowed: Set<string>) {
-  const key = String(companyId || '').trim();
+  const key = String(companyId || "").trim();
   return key ? allowed.has(key) : false;
 }
 
@@ -44,32 +53,37 @@ function canAccessScopedRow(params: {
   rowCompanyId?: string | null;
   rowScope?: string | null;
 }) {
-  const { isAdmin, userId, companyIds, rowUserId, rowCompanyId, rowScope } = params;
+  const { isAdmin, userId, companyIds, rowUserId, rowCompanyId, rowScope } =
+    params;
   if (isAdmin) return true;
-  if (String(rowUserId || '') === userId) return true;
+  if (String(rowUserId || "") === userId) return true;
   const scope = normalizeScope(rowScope);
-  if (scope === 'system') return true;
-  if (scope === 'user') return false;
+  if (scope === "system") return true;
+  if (scope === "user") return false;
   return inCompany(rowCompanyId || null, companyIds);
 }
 
 function isPlainObject(value: unknown): value is Record<string, any> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function isEmailLike(value?: string | null) {
-  const raw = String(value || '').trim();
-  return raw.includes('@') ? raw : '';
+  const raw = String(value || "").trim();
+  return raw.includes("@") ? raw : "";
 }
 
 function looksLikeResendSmtpCompat(settings?: Record<string, any> | null) {
-  const host = String(settings?.smtp_host || '').trim().toLowerCase();
-  const user = String(settings?.smtp_user || '').trim().toLowerCase();
-  return host === 'smtp.resend.com' && user === 'resend';
+  const host = String(settings?.smtp_host || "")
+    .trim()
+    .toLowerCase();
+  const user = String(settings?.smtp_user || "")
+    .trim()
+    .toLowerCase();
+  return host === "smtp.resend.com" && user === "resend";
 }
 
 function parseBodyOffset(value: unknown) {
-  const raw = String(value ?? '').trim();
+  const raw = String(value ?? "").trim();
   if (!raw) return 0;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return 0;
@@ -77,17 +91,19 @@ function parseBodyOffset(value: unknown) {
 }
 
 function extractSignatureTextConfig(signatureStyle?: unknown) {
-  const content = isPlainObject(signatureStyle) && isPlainObject(signatureStyle.content)
-    ? signatureStyle.content
-    : null;
+  const content =
+    isPlainObject(signatureStyle) && isPlainObject(signatureStyle.content)
+      ? signatureStyle.content
+      : null;
   const hasFooterLead =
-    !!content && Object.prototype.hasOwnProperty.call(content, 'footerLead');
+    !!content && Object.prototype.hasOwnProperty.call(content, "footerLead");
   const hasConsultantRole =
-    !!content && Object.prototype.hasOwnProperty.call(content, 'consultantRole');
+    !!content &&
+    Object.prototype.hasOwnProperty.call(content, "consultantRole");
 
   return {
-    footerLead: String(content?.footerLead || '').trim(),
-    consultantRole: String(content?.consultantRole || '').trim(),
+    footerLead: String(content?.footerLead || "").trim(),
+    consultantRole: String(content?.consultantRole || "").trim(),
     hasFooterLead,
     hasConsultantRole,
   };
@@ -102,13 +118,13 @@ async function enviarEmailResend(params: {
   apiKey?: string;
 }) {
   if (!params.apiKey || !params.fromEmail) {
-    return { ok: false, status: 'resend_not_configured' };
+    return { ok: false, status: "resend_not_configured" };
   }
-  const resp = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${params.apiKey}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       from: params.fromEmail,
@@ -120,7 +136,11 @@ async function enviarEmailResend(params: {
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || !data?.id) {
-    return { ok: false, status: String(resp.status || 'resend_error'), error: data };
+    return {
+      ok: false,
+      status: String(resp.status || "resend_error"),
+      error: data,
+    };
   }
   return { ok: true, status: String(resp.status), id: data.id };
 }
@@ -135,43 +155,55 @@ async function enviarEmailSendGrid(params: {
   const SENDGRID_API_KEY = import.meta.env.SENDGRID_API_KEY;
   const SENDGRID_FROM_EMAIL = import.meta.env.SENDGRID_FROM_EMAIL;
   const ALERTA_FROM_EMAIL = import.meta.env.ALERTA_FROM_EMAIL;
-  const fromEmail = params.fromEmail || SENDGRID_FROM_EMAIL || ALERTA_FROM_EMAIL;
+  const fromEmail =
+    params.fromEmail || SENDGRID_FROM_EMAIL || ALERTA_FROM_EMAIL;
   if (!SENDGRID_API_KEY || !fromEmail) {
-    return { ok: false, status: 'sendgrid_not_configured' };
+    return { ok: false, status: "sendgrid_not_configured" };
   }
   const personalizations = params.to.map((dest) => ({ to: [{ email: dest }] }));
-  const resp = await fetch('https://api.sendgrid.com/v3/mail/send', {
-    method: 'POST',
+  const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${SENDGRID_API_KEY}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       personalizations,
       from: { email: fromEmail },
       subject: params.subject,
       content: [
-        { type: 'text/plain', value: params.text },
-        { type: 'text/html', value: params.html },
+        { type: "text/plain", value: params.text },
+        { type: "text/html", value: params.html },
       ],
     }),
   });
   if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    return { ok: false, status: String(resp.status || 'sendgrid_error'), error: errText };
+    const errText = await resp.text().catch(() => "");
+    return {
+      ok: false,
+      status: String(resp.status || "sendgrid_error"),
+      error: errText,
+    };
   }
   return { ok: true, status: String(resp.status || 202) };
 }
 
 async function enviarEmailSMTP(
   params: { to: string[]; subject: string; html: string; text: string },
-  smtpConfig: { host?: string; port?: number; secure?: boolean; user?: string; pass?: string; from?: string },
-  fromEmail?: string
+  smtpConfig: {
+    host?: string;
+    port?: number;
+    secure?: boolean;
+    user?: string;
+    pass?: string;
+    from?: string;
+  },
+  fromEmail?: string,
 ) {
   if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.pass) {
-    return { ok: false, status: 'smtp_not_configured' };
+    return { ok: false, status: "smtp_not_configured" };
   }
-  return { ok: false, status: 'smtp_not_supported' };
+  return { ok: false, status: "smtp_not_supported" };
 }
 
 export const POST: RequestHandler = async ({ locals, request, url }) => {
@@ -182,48 +214,59 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     const isAdmin = Boolean(userScope.isAdmin);
     const companyIds = new Set<string>();
     if (userScope.companyId) companyIds.add(String(userScope.companyId));
-    if (userScope.papel === 'MASTER') {
+    if (userScope.papel === "MASTER") {
       const { data: vinculos } = await client
-        .from('master_empresas')
-        .select('company_id, status')
-        .eq('master_id', user.id);
+        .from("master_empresas")
+        .select("company_id, status")
+        .eq("master_id", user.id);
       (vinculos || []).forEach((row: any) => {
-        const status = String(row?.status || '').toLowerCase();
-        const companyId = String(row?.company_id || '').trim();
-        if (!companyId || status === 'rejected') return;
+        const status = String(row?.status || "").toLowerCase();
+        const companyId = String(row?.company_id || "").trim();
+        if (!companyId || status === "rejected") return;
         companyIds.add(companyId);
       });
     }
     const dataClient = client;
 
-    const body = await request.json() as Body;
+    const body = (await request.json()) as Body;
 
-    const templateId = String(body.templateId || '').trim();
-    const clienteId = String(body.clienteId || '').trim();
-    const canal = body.canal || 'email';
-    if (!templateId || !clienteId) return json({ error: 'templateId e clienteId sao obrigatorios.' }, { status: 400 });
-    if (canal !== 'email') return json({ error: 'Canal invalido para esta rota.' }, { status: 400 });
+    const templateId = String(body.templateId || "").trim();
+    const clienteId = String(body.clienteId || "").trim();
+    const canal = body.canal || "email";
+    if (!templateId || !clienteId)
+      return json(
+        { error: "templateId e clienteId sao obrigatorios." },
+        { status: 400 },
+      );
+    if (canal !== "email")
+      return json({ error: "Canal invalido para esta rota." }, { status: 400 });
 
     const { data: userRow } = await client
-      .from('users')
-      .select('id, nome_completo')
-      .eq('id', user.id)
+      .from("users")
+      .select("id, nome_completo")
+      .eq("id", user.id)
       .maybeSingle();
     const { data: brandingRow } = await client
-      .from('quote_print_settings')
-      .select('logo_url, logo_path, consultor_nome')
-      .eq('owner_user_id', user.id)
+      .from("quote_print_settings")
+      .select("logo_url, logo_path, consultor_nome")
+      .eq("owner_user_id", user.id)
       .maybeSingle();
     const assinaturaPadrao = String(
-      brandingRow?.consultor_nome || userRow?.nome_completo || user.user_metadata?.name || ''
+      brandingRow?.consultor_nome ||
+        userRow?.nome_completo ||
+        user.user_metadata?.name ||
+        "",
     ).trim();
 
     const { data: tpl, error: tplErr } = await dataClient
-      .from('user_message_templates')
-      .select('id, user_id, company_id, scope, nome, assunto, titulo, corpo, assinatura, ativo, theme_id, title_style, body_style, signature_style')
-      .eq('id', templateId)
+      .from("user_message_templates")
+      .select(
+        "id, user_id, company_id, scope, nome, assunto, titulo, corpo, assinatura, ativo, theme_id, title_style, body_style, signature_style",
+      )
+      .eq("id", templateId)
       .maybeSingle();
-    if (tplErr || !tpl) return json({ error: 'Template nao encontrado.' }, { status: 404 });
+    if (tplErr || !tpl)
+      return json({ error: "Template nao encontrado." }, { status: 404 });
     if (
       !canAccessScopedRow({
         isAdmin,
@@ -234,52 +277,60 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         rowScope: (tpl as any)?.scope || null,
       })
     ) {
-      return json({ error: 'Template nao encontrado.' }, { status: 404 });
+      return json({ error: "Template nao encontrado." }, { status: 404 });
     }
-    if (!tpl.ativo) return json({ error: 'Template inativo.' }, { status: 400 });
+    if (!tpl.ativo)
+      return json({ error: "Template inativo." }, { status: 400 });
 
-    const nomeDestinatario = String(body.nomeDestinatario || '').trim() || 'Cliente';
-    const emailDestinatario = String(body.emailDestinatario || '').trim().toLowerCase();
-    if (!emailDestinatario) return json({ error: 'Destinatario sem e-mail.' }, { status: 400 });
+    const nomeDestinatario =
+      String(body.nomeDestinatario || "").trim() || "Cliente";
+    const emailDestinatario = String(body.emailDestinatario || "")
+      .trim()
+      .toLowerCase();
+    if (!emailDestinatario)
+      return json({ error: "Destinatario sem e-mail." }, { status: 400 });
 
     const assinatura = tpl.assinatura || assinaturaPadrao;
-    const assuntoPadrao = String(tpl.assunto || tpl.titulo || tpl.nome || 'Aviso');
+    const assuntoPadrao = String(
+      tpl.assunto || tpl.titulo || tpl.nome || "Aviso",
+    );
     const origin = url.origin;
-    const requestedThemeId = String(body.themeId || '').trim();
-    const selectedThemeId = requestedThemeId || String(tpl.theme_id || '').trim();
+    const requestedThemeId = String(body.themeId || "").trim();
+    const selectedThemeId =
+      requestedThemeId || String(tpl.theme_id || "").trim();
     const textOffsetX = parseBodyOffset(body.textOffsetX);
     const textOffsetY = parseBodyOffset(body.textOffsetY);
     const signatureTextConfig = extractSignatureTextConfig(tpl.signature_style);
 
     const cardParams = new URLSearchParams({
-      theme_name: '',
+      theme_name: "",
       nome: nomeDestinatario,
-      titulo: String(tpl.titulo || ''),
-      corpo: String(body.mensagem || tpl.corpo || tpl.titulo || tpl.nome || ''),
+      titulo: String(tpl.titulo || ""),
+      corpo: String(body.mensagem || tpl.corpo || tpl.titulo || tpl.nome || ""),
       assinatura,
-      style_overrides: '{}',
+      style_overrides: "{}",
       v: String(Date.now()),
     });
-    if (selectedThemeId) cardParams.set('theme_id', selectedThemeId);
+    if (selectedThemeId) cardParams.set("theme_id", selectedThemeId);
 
     const cardUrlPng = `${origin}/api/v1/cards/render.png?${cardParams.toString()}`;
     const cardUrlSvg = `${origin}/api/v1/cards/render.svg?${cardParams.toString()}`;
 
     const corpo = [
-      String(body.mensagem || tpl.corpo || ''),
+      String(body.mensagem || tpl.corpo || ""),
       assinatura,
       `Cartao PNG: ${cardUrlPng}`,
-      `Cartao SVG: ${cardUrlSvg}`
+      `Cartao SVG: ${cardUrlSvg}`,
     ]
       .filter(Boolean)
-      .join('\n\n');
+      .join("\n\n");
     const text = corpo;
-    const html = `<pre>${corpo}</pre>`;
+    const html = `<pre>${escapeHtml(corpo)}</pre>`;
 
     const ALERTA_FROM_EMAIL = import.meta.env.ALERTA_FROM_EMAIL;
-    const fromEmail = ALERTA_FROM_EMAIL || 'noreply@vtur.com.br';
+    const fromEmail = ALERTA_FROM_EMAIL || "noreply@vtur.com.br";
 
-    let sentProvider: 'resend' | 'sendgrid' | 'smtp' | null = null;
+    let sentProvider: "resend" | "sendgrid" | "smtp" | null = null;
 
     const resendResp = await enviarEmailResend({
       to: [emailDestinatario],
@@ -290,7 +341,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
       apiKey: import.meta.env.RESEND_API_KEY,
     });
     if (resendResp.ok) {
-      sentProvider = 'resend';
+      sentProvider = "resend";
     } else {
       const sendgridResp = await enviarEmailSendGrid({
         to: [emailDestinatario],
@@ -300,31 +351,40 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         fromEmail,
       });
       if (sendgridResp.ok) {
-        sentProvider = 'sendgrid';
+        sentProvider = "sendgrid";
       } else {
         const smtpResp = await enviarEmailSMTP(
-          { to: [emailDestinatario], subject: String(body.subject || assuntoPadrao), html, text },
+          {
+            to: [emailDestinatario],
+            subject: String(body.subject || assuntoPadrao),
+            html,
+            text,
+          },
           {},
-          fromEmail
+          fromEmail,
         );
         if (smtpResp.ok) {
-          sentProvider = 'smtp';
+          sentProvider = "smtp";
         } else {
-          return json({
-            status: 'failed',
-            message: 'Falha no envio de e-mail. Verifique as configuracoes de provider.',
-            providers: {
-              resend: resendResp.status,
-              sendgrid: sendgridResp.status,
-              smtp: smtpResp.status,
+          return json(
+            {
+              status: "failed",
+              message:
+                "Falha no envio de e-mail. Verifique as configuracoes de provider.",
+              providers: {
+                resend: resendResp.status,
+                sendgrid: sendgridResp.status,
+                smtp: smtpResp.status,
+              },
             },
-          }, { status: 200 });
+            { status: 200 },
+          );
         }
       }
     }
 
-    return json({ status: 'sent', provider: sentProvider, clienteId });
+    return json({ status: "sent", provider: sentProvider, clienteId });
   } catch (e: any) {
-    return toErrorResponse(e, 'Erro ao enviar template.');
+    return toErrorResponse(e, "Erro ao enviar template.");
   }
 };

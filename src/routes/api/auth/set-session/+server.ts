@@ -1,4 +1,5 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
+import { dev } from '$app/environment';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
@@ -37,7 +38,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     // Em modo mock/local sem credenciais reais, o cliente pode não expor auth.setSession.
     // Nesses casos, não quebra a navegação e retorna sucesso lógico.
     if (typeof supabase?.auth?.setSession !== 'function') {
-      console.warn('[set-session] auth.setSession indisponivel (mock mode ativo).');
+      if (dev) console.warn('[set-session] auth.setSession indisponivel (mock mode ativo).');
       return json({ ok: true, mock: true, storageKey: getSupabaseAuthStorageKey() }, { headers: NO_STORE_HEADERS });
     }
 

@@ -7,6 +7,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 function isTableMissingError(error: any, tableName: string) {
   const msg = String(error?.message || error || '').toLowerCase();
@@ -44,12 +46,12 @@ export async function GET(event) {
 
     if (error) {
       if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
-        return json({ ok: true, dias: [], tabela_nao_existe: true });
+        return json({ ok: true, dias: [], tabela_nao_existe: true }, { headers: NO_STORE_HEADERS });
       }
       throw error;
     }
 
-    return json({ ok: true, dias: data || [] });
+    return json({ ok: true, dias: data || [] }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao listar dias sem movimento.');
   }
@@ -110,7 +112,8 @@ export async function POST(event) {
       throw error;
     }
 
-    return json({ ok: true, dia: data });
+    invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
+    return json({ ok: true, dia: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao marcar dia sem movimento.');
   }
@@ -149,7 +152,8 @@ export async function DELETE(event) {
       throw error;
     }
 
-    return json({ ok: true });
+    invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao remover dia sem movimento.');
   }

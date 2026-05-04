@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -104,6 +105,11 @@ export async function PUT(event) {
     if (updateError) throw updateError;
     if (!data) throw error(404, 'Fornecedor não encontrado.');
 
+    invalidateCatalogReadModels({
+      companyIds: [existing.company_id, payload.company_id].filter(Boolean) as string[],
+      userId: user.id
+    });
+
     const fornecedor = await fetchFornecedorById(client, id);
     return json({ success: true, data: fornecedor });
   } catch (err) {
@@ -139,6 +145,11 @@ export async function DELETE(event) {
 
     const { error: deleteError } = await client.from('fornecedores').delete().eq('id', id);
     if (deleteError) throw deleteError;
+
+    invalidateCatalogReadModels({
+      companyIds: fornecedor.company_id ? [fornecedor.company_id] : [],
+      userId: user.id
+    });
 
     return json({ success: true });
   } catch (err) {

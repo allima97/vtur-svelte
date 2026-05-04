@@ -20,7 +20,7 @@
       error = 'Preencha todos os campos.';
       return;
     }
-    if (password.length < 6) { error = 'A senha deve ter pelo menos 6 caracteres.'; return; }
+    if (password.length < 8) { error = 'A senha deve ter pelo menos 8 caracteres.'; return; }
     if (password !== confirmPassword) { error = 'As senhas não conferem.'; return; }
 
     loading = true;

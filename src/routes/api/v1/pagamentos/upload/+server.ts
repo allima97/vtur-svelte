@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
@@ -98,7 +99,10 @@ export async function POST(event) {
       throw updateError;
     }
 
-    return json({ success: true, item: pagamento, comprovante_url: comprovanteUrl });
+    return json(
+      { success: true, item: pagamento, comprovante_url: comprovanteUrl },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao fazer upload do comprovante.');
   }

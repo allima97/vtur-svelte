@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -188,7 +189,7 @@
         return modulo;
       });
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Erro ao carregar dashboard financeiro');
     } finally {
       loading = false;

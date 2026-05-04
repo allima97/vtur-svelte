@@ -11,6 +11,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -24,7 +25,7 @@ export async function GET(event) {
     const userTypes = await loadManagedUserTypes(client, scope);
     const target = userTypes.find((row) => row.id === typeId);
     if (!target) {
-      return new Response('Tipo de usuario nao encontrado.', { status: 404 });
+      return new Response('Tipo de usuario nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const [defaultPermsRes, usersRes] = await Promise.all([
@@ -34,15 +35,18 @@ export async function GET(event) {
 
     if (usersRes.error) throw usersRes.error;
 
-    return json({
-      tipo: target,
-      default_permissions: buildPermissionMatrix(defaultPermsRes as any),
-      usuarios: (usersRes.data || []).map((row: any) => ({
-        id: row.id,
-        nome: row.nome_completo || row.email || 'Usuario sem nome',
-        email: row.email || null
-      }))
-    });
+    return json(
+      {
+        tipo: target,
+        default_permissions: buildPermissionMatrix(defaultPermsRes as any),
+        usuarios: (usersRes.data || []).map((row: any) => ({
+          id: row.id,
+          nome: row.nome_completo || row.email || 'Usuario sem nome',
+          email: row.email || null
+        }))
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar detalhe do tipo de usuario.');
   }

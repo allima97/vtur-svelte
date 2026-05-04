@@ -8,8 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function POST(event) {
   try {

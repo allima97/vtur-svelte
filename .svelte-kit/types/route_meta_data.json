@@ -1017,6 +1017,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro/ajustes-vendas": [
+		"src/routes/(app)/financeiro/ajustes-vendas/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1037,6 +1038,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro/conciliacao": [
+		"src/routes/(app)/financeiro/conciliacao/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1205,6 +1207,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/parametros/escalas": [
+		"src/routes/(app)/parametros/escalas/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1241,6 +1244,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/perfil/escala": [
+		"src/routes/(app)/perfil/escala/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

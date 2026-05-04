@@ -10,6 +10,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, MessageSquare } from 'lucide-svelte';
+  import { escapeHtml } from '$lib/utils/html';
 
   import { confirmAction } from '$lib/stores/confirm';
   type MessageTemplate = {
@@ -60,7 +61,9 @@
       width: '110px',
       formatter: (v: string) => {
         const found = SCOPE_OPTIONS.find((s) => s.value === v);
-        return found ? `<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">${found.label}</span>` : v;
+        return found
+          ? `<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">${escapeHtml(found.label)}</span>`
+          : escapeHtml(v || '-');
       }
     },
     {

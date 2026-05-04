@@ -9,6 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 function safeJsonParse(text: string) {
   try {
@@ -78,6 +79,7 @@ export async function POST(event: RequestEvent) {
         .upsert(links, { onConflict: 'venda_id,recibo_id', ignoreDuplicates: true });
       if (batchError) throw batchError;
 
+      invalidateSalesReadModels();
       return json({ ok: true, total: links.length }, { headers: NO_STORE_HEADERS });
     }
 
@@ -132,6 +134,7 @@ export async function POST(event: RequestEvent) {
       }
     }
 
+    invalidateSalesReadModels();
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao vincular recibo complementar.');

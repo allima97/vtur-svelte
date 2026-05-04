@@ -10,6 +10,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { checkRateLimit } from '$lib/server/rateLimit';
 
 export async function POST(event) {
   try {
@@ -19,14 +21,30 @@ export async function POST(event) {
     const body = await event.request.json().catch(() => ({}));
 
     ensureCanManageUsers(scope);
+    const rateLimit = checkRateLimit(`admin-set-password:${user.id}`, {
+      max: 20,
+      windowMs: 60_000
+    });
+    if (!rateLimit.allowed) {
+      return json(
+        { error: 'Muitas alterações de senha. Aguarde e tente novamente.' },
+        {
+          status: 429,
+          headers: { ...NO_STORE_HEADERS, 'Retry-After': String(rateLimit.retryAfterSeconds) }
+        }
+      );
+    }
 
     let userId = String(body.user_id || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
     const confirmEmail = body.confirm_email !== false;
 
-    if (!password || password.length < 6) {
-      return new Response('Senha obrigatoria com pelo menos 6 caracteres.', { status: 400 });
+    if (!password || password.length < 8) {
+      return json(
+        { error: 'Senha obrigatoria com pelo menos 8 caracteres.' },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
 
     if (!userId && email) {
@@ -34,7 +52,7 @@ export async function POST(event) {
     }
 
     if (!userId) {
-      return new Response('Usuario alvo nao informado.', { status: 400 });
+      return json({ error: 'Usuario alvo nao informado.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     await loadManagedUser(client, scope, userId);
@@ -46,12 +64,15 @@ export async function POST(event) {
 
     if (updateError) throw updateError;
 
-    return json({
-      ok: true,
-      user_id: userId,
-      email: data.user?.email || null,
-      updated_at: data.user?.updated_at || null
-    });
+    return json(
+      {
+        ok: true,
+        user_id: userId,
+        email: data.user?.email || null,
+        updated_at: data.user?.updated_at || null
+      },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao redefinir senha.');
   }

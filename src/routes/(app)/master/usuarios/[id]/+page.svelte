@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -149,7 +150,7 @@
         await loadMfaStatus(payload.user.id);
       }
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Nao foi possivel carregar o detalhe do usuario.');
     } finally {
       loading = false;
@@ -218,15 +219,15 @@
       showAvisoDialog = false;
       avisoTemplateId = '';
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar aviso.');
     }
   }
 
   async function redefineSenha() {
     try {
-      if (!novaSenha.trim() || novaSenha.length < 6) {
-        throw new Error('A nova senha precisa ter pelo menos 6 caracteres.');
+      if (!novaSenha.trim() || novaSenha.length < 8) {
+        throw new Error('A nova senha precisa ter pelo menos 8 caracteres.');
       }
       if (novaSenha !== confirmarSenha) {
         throw new Error('A confirmacao da senha nao confere.');
@@ -242,7 +243,7 @@
       novaSenha = '';
       confirmarSenha = '';
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao redefinir senha.');
     }
   }
@@ -254,7 +255,7 @@
       showMfaDialog = false;
       await loadMfaStatus(userForm.id);
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao resetar 2FA.');
     }
   }

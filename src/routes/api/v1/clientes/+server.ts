@@ -46,7 +46,22 @@ export async function GET(event) {
     const search = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
-    const accessibleClientIds = await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+    const tipoNome = String(scope.tipoNome || '').toUpperCase();
+    const canUseCompanyScope =
+      scope.isAdmin ||
+      scope.isMaster ||
+      tipoNome.includes('MASTER') ||
+      tipoNome.includes('GESTOR');
+    const accessibleClientIds = canUseCompanyScope
+      ? null
+      : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+
+    if (accessibleClientIds && accessibleClientIds.length === 0) {
+      return json(
+        { items: [], total: 0 },
+        { headers: DYNAMIC_READ_HEADERS }
+      );
+    }
 
     const buildQuery = (clientIds?: string[]) => {
       let query = client
@@ -69,7 +84,7 @@ export async function GET(event) {
     };
 
     const fetchClientes = async () => {
-      if (accessibleClientIds.length > 0 && !scope.isAdmin) {
+      if (accessibleClientIds && !scope.isAdmin) {
         if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
           return buildQuery(accessibleClientIds);
         }

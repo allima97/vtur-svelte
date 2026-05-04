@@ -8,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -77,7 +79,7 @@ export async function POST(event) {
     }
 
     if (targetReciboIds.length === 0) {
-      return json({ ok: true, attempted: 0, reverted: 0, errored: 0, total: 0 });
+      return json({ ok: true, attempted: 0, reverted: 0, errored: 0, total: 0 }, { headers: NO_STORE_HEADERS });
     }
 
     // Busca detalhes das alterações para agrupar os changeIds por recibo
@@ -131,7 +133,10 @@ export async function POST(event) {
       reverted += 1;
     }
 
-    return json({ ok: true, attempted, reverted, errored, total: changesByRecibo.size });
+    if (reverted > 0) {
+      invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
+    }
+    return json({ ok: true, attempted, reverted, errored, total: changesByRecibo.size }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao reverter alteracoes.');
   }

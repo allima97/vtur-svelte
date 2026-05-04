@@ -8,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 export async function PATCH(event) {
   try {
@@ -21,7 +23,7 @@ export async function PATCH(event) {
 
     const id = String(event.url.searchParams.get('id') || '').trim();
     if (!id || !isUuid(id)) {
-      return json({ error: 'ID invalido.' }, { status: 400 });
+      return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const body = await event.request.json().catch(() => ({}));
@@ -42,7 +44,7 @@ export async function PATCH(event) {
     }
     const { data: quote } = await checkQuery.maybeSingle();
     if (!quote) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
@@ -65,7 +67,13 @@ export async function PATCH(event) {
       .single();
     if (error) throw error;
 
-    return json({ success: true, item: data });
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      userId: user.id
+    });
+
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar status.');
   }

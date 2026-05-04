@@ -46,7 +46,9 @@
         .then((reg) => {
           if (dev) console.info('[SW Calculadora] registrado:', reg.scope);
         })
-        .catch((err) => console.error('[SW Calculadora] erro:', err));
+        .catch((err) => {
+          if (dev) console.error('[SW Calculadora] erro:', err);
+        });
     }
   });
 

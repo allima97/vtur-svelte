@@ -6,6 +6,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 type TierPayload = {
   faixa: 'PRE' | 'POS';
@@ -233,7 +235,8 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    return json({ ok: true, id: persistedId });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ ok: true, id: persistedId }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar regra de comissão.');
   }
@@ -279,7 +282,8 @@ export async function PATCH(event: RequestEvent) {
       throw error;
     }
 
-    return json({ ok: true, id });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ ok: true, id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra de comissão.');
   }
@@ -321,7 +325,8 @@ export async function DELETE(event: RequestEvent) {
       throw error;
     }
 
-    return json({ ok: true, id });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ ok: true, id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra de comissão.');
   }

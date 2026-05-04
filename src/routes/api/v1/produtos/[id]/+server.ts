@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoById, sanitizeProdutoPayload } from '$lib/server/cadastros-base';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -68,6 +69,7 @@ export async function PATCH(event) {
     if (updateError) throw updateError;
     if (!data) throw error(404, 'Produto não encontrado.');
 
+    invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
     const produto = await fetchProdutoById(client, id);
     return json({ success: true, data: produto });
   } catch (err) {
@@ -94,6 +96,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('produtos').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
     return json({ success: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir produto.');

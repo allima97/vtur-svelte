@@ -76,7 +76,8 @@
       const data = await apiGet<{ items?: any[] }>('/api/v1/viagens', {
         status: filtroStatus || undefined,
         periodo: filtroPeriodo || undefined,
-        ordenar: ordenacao
+        ordenar: ordenacao,
+        limit: 500
       });
       viagens = (data.items || []).map((v: any) => ({
         id: v.id,
@@ -214,7 +215,8 @@
       sortable: true,
       width: '90px',
       align: 'center' as const,
-      formatter: (value: number) => `<span class="inline-flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> ${value}</span>`
+      formatter: (value: number) =>
+        `<span class="inline-flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> ${escapeHtml(String(value ?? 0))}</span>`
     },
     { 
       key: 'valor_total', 
@@ -242,7 +244,7 @@
           concluida: 'bg-green-100 text-green-700',
           cancelada: 'bg-red-100 text-red-700'
         };
-        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[value] || styles.pendente}">${formatViagemStatus(value)}</span>`;
+        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[value] || styles.pendente}">${escapeHtml(formatViagemStatus(value))}</span>`;
       }
     },
     {

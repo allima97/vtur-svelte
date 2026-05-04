@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json } from "@sveltejs/kit";
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -6,12 +6,18 @@ import {
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
-import { resolveViagemStatus } from '$lib/viagens/status';
-import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
+  toErrorResponse,
+} from "$lib/server/v1";
+import { resolveViagemStatus } from "$lib/viagens/status";
+import { syncViagemStatusIfNeeded } from "$lib/server/viagensStatus";
+import { invalidateTripReadModels } from "$lib/server/readModelCache";
 
-async function hasViagemAccessByResponsavel(client: any, scope: any, userId: string, responsavelUserId?: string | null) {
+async function hasViagemAccessByResponsavel(
+  client: any,
+  scope: any,
+  userId: string,
+  responsavelUserId?: string | null,
+) {
   const allowedResponsavelIds = !scope.isAdmin
     ? scope.isGestor || scope.isMaster
       ? await resolveScopedVendedorIds(client, scope, null)
@@ -20,12 +26,17 @@ async function hasViagemAccessByResponsavel(client: any, scope: any, userId: str
 
   if (allowedResponsavelIds.length === 0) return scope.isAdmin;
 
-  const responsavelId = String(responsavelUserId || '').trim();
+  const responsavelId = String(responsavelUserId || "").trim();
   return responsavelId ? allowedResponsavelIds.includes(responsavelId) : false;
 }
 
-async function hasViagemAccessByVenda(client: any, scope: any, userId: string, vendaId?: string | null) {
-  const id = String(vendaId || '').trim();
+async function hasViagemAccessByVenda(
+  client: any,
+  scope: any,
+  userId: string,
+  vendaId?: string | null,
+) {
+  const id = String(vendaId || "").trim();
   if (!id) return false;
 
   const allowedResponsavelIds = !scope.isAdmin
@@ -37,17 +48,22 @@ async function hasViagemAccessByVenda(client: any, scope: any, userId: string, v
   if (allowedResponsavelIds.length === 0) return scope.isAdmin;
 
   const { data: venda } = await client
-    .from('vendas')
-    .select('id, vendedor_id')
-    .eq('id', id)
+    .from("vendas")
+    .select("id, vendedor_id")
+    .eq("id", id)
     .maybeSingle();
 
-  const vendedorId = String((venda as any)?.vendedor_id || '').trim();
+  const vendedorId = String((venda as any)?.vendedor_id || "").trim();
   return vendedorId ? allowedResponsavelIds.includes(vendedorId) : false;
 }
 
-async function hasViagemAccessByCliente(client: any, scope: any, userId: string, clienteId?: string | null) {
-  const id = String(clienteId || '').trim();
+async function hasViagemAccessByCliente(
+  client: any,
+  scope: any,
+  userId: string,
+  clienteId?: string | null,
+) {
+  const id = String(clienteId || "").trim();
   if (!id) return false;
 
   const allowedResponsavelIds = !scope.isAdmin
@@ -60,21 +76,21 @@ async function hasViagemAccessByCliente(client: any, scope: any, userId: string,
 
   // Clientes relacionados a vendas do vendedor/equipe
   const { data: vendaCliente } = await client
-    .from('vendas')
-    .select('id')
-    .eq('cliente_id', id)
-    .in('vendedor_id', allowedResponsavelIds)
+    .from("vendas")
+    .select("id")
+    .eq("cliente_id", id)
+    .in("vendedor_id", allowedResponsavelIds)
     .maybeSingle();
   if (vendaCliente?.id) return true;
 
   // Fallback para cliente criado pelo vendedor/equipe
   const { data: cliente, error: clienteError } = await client
-    .from('clientes')
-    .select('id, created_by')
-    .eq('id', id)
+    .from("clientes")
+    .select("id, created_by")
+    .eq("id", id)
     .maybeSingle();
   if (!clienteError) {
-    const createdBy = String((cliente as any)?.created_by || '').trim();
+    const createdBy = String((cliente as any)?.created_by || "").trim();
     if (createdBy && allowedResponsavelIds.includes(createdBy)) return true;
   }
 
@@ -94,15 +110,24 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_viagens", "viagens", "operacao"],
+        1,
+        "Sem acesso a Viagens.",
+      );
     }
 
     const { id } = event.params;
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
+    const companyIds = resolveScopedCompanyIds(
+      scope,
+      event.url.searchParams.get("empresa_id"),
+    );
 
     const { data: viagem, error } = await client
-      .from('viagens')
-      .select(`
+      .from("viagens")
+      .select(
+        `
         id,
         venda_id,
         orcamento_id,
@@ -120,27 +145,43 @@ export async function GET(event) {
         recibo_id,
         created_at,
         updated_at
-      `)
-      .eq('id', id)
+      `,
+      )
+      .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return json({ error: 'Viagem não encontrada' }, { status: 404 });
+      if (error.code === "PGRST116") {
+        return json({ error: "Viagem não encontrada" }, { status: 404 });
       }
       throw error;
     }
 
     if (companyIds.length > 0 && !companyIds.includes(viagem.company_id)) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
-      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, viagem.responsavel_user_id);
-      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, viagem.venda_id);
-      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, viagem.cliente_id);
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(
+        client,
+        scope,
+        user.id,
+        viagem.responsavel_user_id,
+      );
+      const hasVendaAccess = await hasViagemAccessByVenda(
+        client,
+        scope,
+        user.id,
+        viagem.venda_id,
+      );
+      const hasClienteAccess = await hasViagemAccessByCliente(
+        client,
+        scope,
+        user.id,
+        viagem.cliente_id,
+      );
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }
     }
 
@@ -150,9 +191,9 @@ export async function GET(event) {
     let cliente = null;
     if (viagemComStatus.cliente_id) {
       const { data: clienteData } = await client
-        .from('clientes')
-        .select('id, nome, email, telefone, whatsapp')
-        .eq('id', viagemComStatus.cliente_id)
+        .from("clientes")
+        .select("id, nome, email, telefone, whatsapp")
+        .eq("id", viagemComStatus.cliente_id)
         .single();
       cliente = clienteData;
     }
@@ -160,17 +201,18 @@ export async function GET(event) {
     let venda = null;
     if (viagemComStatus.venda_id) {
       const { data: vendaData } = await client
-        .from('vendas')
-        .select('id, valor_total, valor_total_pago, status, data_venda')
-        .eq('id', viagemComStatus.venda_id)
+        .from("vendas")
+        .select("id, valor_total, valor_total_pago, status, data_venda")
+        .eq("id", viagemComStatus.venda_id)
         .single();
 
       if (vendaData) {
         venda = { ...vendaData } as any;
 
         const { data: recibosData } = await client
-          .from('vendas_recibos')
-          .select(`
+          .from("vendas_recibos")
+          .select(
+            `
             id,
             produto_id,
             produto_resolvido_id,
@@ -182,25 +224,34 @@ export async function GET(event) {
             data_inicio,
             data_fim,
             contrato_url
-          `)
-          .eq('venda_id', viagemComStatus.venda_id);
+          `,
+          )
+          .eq("venda_id", viagemComStatus.venda_id);
 
-        const produtoIds = [...new Set((recibosData || [])
-          .map((r: any) => r.produto_id || r.produto_resolvido_id)
-          .filter(Boolean))];
+        const produtoIds = [
+          ...new Set(
+            (recibosData || [])
+              .map((r: any) => r.produto_id || r.produto_resolvido_id)
+              .filter(Boolean),
+          ),
+        ];
 
         const produtosMap = new Map<string, string>();
         if (produtoIds.length > 0) {
           const { data: produtosData } = await client
-            .from('produtos')
-            .select('id, nome')
-            .in('id', produtoIds);
-          (produtosData || []).forEach((p: any) => produtosMap.set(p.id, p.nome));
+            .from("produtos")
+            .select("id, nome")
+            .in("id", produtoIds);
+          (produtosData || []).forEach((p: any) =>
+            produtosMap.set(p.id, p.nome),
+          );
         }
 
         venda.recibos = (recibosData || []).map((r: any) => ({
           ...r,
-          produto_nome: produtosMap.get(r.produto_id || r.produto_resolvido_id) || 'Produto'
+          produto_nome:
+            produtosMap.get(r.produto_id || r.produto_resolvido_id) ||
+            "Produto",
         }));
       }
     }
@@ -208,9 +259,11 @@ export async function GET(event) {
     let recibo = null;
     if (viagemComStatus.recibo_id) {
       const { data: reciboData } = await client
-        .from('vendas_recibos')
-        .select('id, numero_recibo, numero_reserva, valor_total, data_inicio, data_fim')
-        .eq('id', viagemComStatus.recibo_id)
+        .from("vendas_recibos")
+        .select(
+          "id, numero_recibo, numero_reserva, valor_total, data_inicio, data_fim",
+        )
+        .eq("id", viagemComStatus.recibo_id)
         .single();
       recibo = reciboData;
     }
@@ -218,26 +271,37 @@ export async function GET(event) {
     // Vouchers vinculados à company da viagem (sem filtro de venda_id — comportamento original mantido)
     const { data: vouchers } = viagemComStatus.venda_id
       ? await client
-          .from('vouchers')
-          .select('id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo')
-          .eq('company_id', viagemComStatus.company_id)
+          .from("vouchers")
+          .select(
+            "id, nome, provider, codigo_systur, codigo_fornecedor, data_inicio, data_fim, ativo",
+          )
+          .eq("company_id", viagemComStatus.company_id)
           .limit(20)
       : { data: [] };
 
     const { data: passageiros } = await client
-      .from('viagem_passageiros')
-      .select(`
+      .from("viagem_passageiros")
+      .select(
+        `
         id, viagem_id, cliente_id, papel, observacoes, created_at,
         cliente:clientes!cliente_id(id, nome, cpf, telefone, data_nascimento:nascimento)
-      `)
-      .eq('viagem_id', id)
-      .order('created_at', { ascending: true });
+      `,
+      )
+      .eq("viagem_id", id)
+      .order("created_at", { ascending: true });
 
     return json({
-      viagem: { ...viagemComStatus, cliente, venda, recibo, vouchers: vouchers || [], passageiros: passageiros || [] }
+      viagem: {
+        ...viagemComStatus,
+        cliente,
+        venda,
+        recibo,
+        vouchers: vouchers || [],
+        passageiros: passageiros || [],
+      },
     });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar viagem.');
+    return toErrorResponse(err, "Erro ao carregar viagem.");
   }
 }
 
@@ -248,7 +312,12 @@ export async function PATCH(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 2, 'Sem permissão para editar viagens.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_viagens", "viagens", "operacao"],
+        2,
+        "Sem permissão para editar viagens.",
+      );
     }
 
     const { id } = event.params;
@@ -256,55 +325,94 @@ export async function PATCH(event) {
     const companyIds = resolveScopedCompanyIds(scope, body.company_id);
 
     const { data: existing, error: checkError } = await client
-      .from('viagens')
-      .select('id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status')
-      .eq('id', id)
+      .from("viagens")
+      .select(
+        "id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status",
+      )
+      .eq("id", id)
       .single();
 
     if (checkError || !existing) {
-      return json({ error: 'Viagem não encontrada' }, { status: 404 });
+      return json({ error: "Viagem não encontrada" }, { status: 404 });
     }
 
     if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
-      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
-      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
-      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.responsavel_user_id,
+      );
+      const hasVendaAccess = await hasViagemAccessByVenda(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.venda_id ?? null,
+      );
+      const hasClienteAccess = await hasViagemAccessByCliente(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.cliente_id ?? null,
+      );
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }
     }
 
     const allowedFields = [
-      'data_inicio', 'data_fim', 'status',
-      'observacoes', 'follow_up_text', 'follow_up_fechado', 'responsavel_user_id'
+      "data_inicio",
+      "data_fim",
+      "status",
+      "observacoes",
+      "follow_up_text",
+      "follow_up_fechado",
+      "responsavel_user_id",
     ];
 
-    const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
     allowedFields.forEach((field) => {
       if (body[field] !== undefined) updateData[field] = body[field];
     });
     updateData.status = resolveViagemStatus({
       status: updateData.status ?? (existing as any).status,
       data_inicio: updateData.data_inicio ?? (existing as any).data_inicio,
-      data_fim: updateData.data_fim ?? (existing as any).data_fim
+      data_fim: updateData.data_fim ?? (existing as any).data_fim,
     });
 
     const { data, error } = await client
-      .from('viagens')
+      .from("viagens")
       .update(updateData)
-      .eq('id', id)
-      .select('id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status, observacoes, follow_up_text, follow_up_fechado, created_at, updated_at')
+      .eq("id", id)
+      .select(
+        "id, company_id, responsavel_user_id, venda_id, cliente_id, data_inicio, data_fim, status, observacoes, follow_up_text, follow_up_fechado, created_at, updated_at",
+      )
       .single();
 
     if (error) throw error;
 
-    return json({ viagem: data, message: 'Viagem atualizada com sucesso' });
+    invalidateTripReadModels({
+      companyIds: [
+        String(
+          (data as any)?.company_id || (existing as any)?.company_id || "",
+        ),
+      ].filter(Boolean),
+      vendedorIds: [
+        String((existing as any)?.responsavel_user_id || ""),
+        String((data as any)?.responsavel_user_id || ""),
+      ].filter(Boolean),
+      userId: user.id,
+    });
+
+    return json({ viagem: data, message: "Viagem atualizada com sucesso" });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao atualizar viagem.');
+    return toErrorResponse(err, "Erro ao atualizar viagem.");
   }
 }
 
@@ -315,45 +423,79 @@ export async function DELETE(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 3, 'Sem permissão para excluir viagens.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_viagens", "viagens", "operacao"],
+        3,
+        "Sem permissão para excluir viagens.",
+      );
     }
 
     const { id } = event.params;
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
+    const companyIds = resolveScopedCompanyIds(
+      scope,
+      event.url.searchParams.get("company_id"),
+    );
 
     // ✅ Guard: não-admin deve ter empresa identificada
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ error: 'Informe company_id para excluir viagem.' }, { status: 400 });
+      return json(
+        { error: "Informe company_id para excluir viagem." },
+        { status: 400 },
+      );
     }
 
     const { data: existing, error: checkError } = await client
-      .from('viagens')
-      .select('id, company_id, responsavel_user_id, venda_id, cliente_id')
-      .eq('id', id)
+      .from("viagens")
+      .select("id, company_id, responsavel_user_id, venda_id, cliente_id")
+      .eq("id", id)
       .single();
 
     if (checkError || !existing) {
-      return json({ error: 'Viagem não encontrada' }, { status: 404 });
+      return json({ error: "Viagem não encontrada" }, { status: 404 });
     }
 
     if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
-      return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
-      const hasResponsavelAccess = await hasViagemAccessByResponsavel(client, scope, user.id, (existing as any)?.responsavel_user_id);
-      const hasVendaAccess = await hasViagemAccessByVenda(client, scope, user.id, (existing as any)?.venda_id ?? null);
-      const hasClienteAccess = await hasViagemAccessByCliente(client, scope, user.id, (existing as any)?.cliente_id ?? null);
+      const hasResponsavelAccess = await hasViagemAccessByResponsavel(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.responsavel_user_id,
+      );
+      const hasVendaAccess = await hasViagemAccessByVenda(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.venda_id ?? null,
+      );
+      const hasClienteAccess = await hasViagemAccessByCliente(
+        client,
+        scope,
+        user.id,
+        (existing as any)?.cliente_id ?? null,
+      );
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: 'Sem acesso a esta viagem' }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
       }
     }
 
-    const { error } = await client.from('viagens').delete().eq('id', id);
+    const { error } = await client.from("viagens").delete().eq("id", id);
     if (error) throw error;
 
-    return json({ message: 'Viagem excluída com sucesso' });
+    invalidateTripReadModels({
+      companyIds: [String((existing as any)?.company_id || "")].filter(Boolean),
+      vendedorIds: [
+        String((existing as any)?.responsavel_user_id || ""),
+      ].filter(Boolean),
+      userId: user.id,
+    });
+
+    return json({ message: "Viagem excluída com sucesso" });
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao excluir viagem.');
+    return toErrorResponse(err, "Erro ao excluir viagem.");
   }
 }

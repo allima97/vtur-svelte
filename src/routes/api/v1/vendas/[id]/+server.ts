@@ -16,6 +16,7 @@ import {
   ensureReciboReservaUnicos,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
@@ -440,7 +441,7 @@ export async function PATCH(event) {
       userId: user.id,
     });
 
-    return json({ ok: true, venda_id: data.id });
+    return json({ ok: true, venda_id: data.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logVendaError("[PATCH venda] catch geral:", err);
     return toErrorResponse(err, "Erro ao atualizar venda.");
@@ -598,7 +599,7 @@ export async function DELETE(event) {
       userId: user.id,
     });
 
-    return json({ ok: true, deleted: true });
+    return json({ ok: true, deleted: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao excluir venda.");
   }

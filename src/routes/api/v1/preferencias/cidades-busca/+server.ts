@@ -1,4 +1,12 @@
-import { buildJsonResponse, logServerError, readCache, requirePreferenciasScope, writeCache } from '../_shared';
+import {
+  buildJsonResponse,
+  buildNoStoreJsonResponse,
+  buildNoStoreTextResponse,
+  logServerError,
+  readCache,
+  requirePreferenciasScope,
+  writeCache
+} from '../_shared';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -16,13 +24,7 @@ export async function GET(event) {
     const noCache = String(event.url.searchParams.get('no_cache') || '').trim() === '1';
 
     if (query.length < 2) {
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store'
-        }
-      });
+      return buildNoStoreJsonResponse([]);
     }
 
     const cacheKey = ['v1', 'preferencias', 'cidades-busca', user.id, query, String(limite)].join('|');
@@ -47,6 +49,6 @@ export async function GET(event) {
     return buildJsonResponse(cidadesData);
   } catch (err) {
     logServerError('[preferencias/cidades-busca] falha ao buscar cidades', err);
-    return new Response('Erro ao buscar cidades.', { status: 500 });
+    return buildNoStoreTextResponse('Erro ao buscar cidades.', 500);
   }
 }

@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event) {
   try {
@@ -28,10 +29,10 @@ export async function POST(event) {
     const companyIds = resolveScopedCompanyIds(scope, null);
     const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
 
-    // ✅ Verifica ownership
+    // quote usa created_by (FK auth.users), entao o ownership e aplicado por vendedor.
     let checkQuery = client.from('quote').select('id').eq('id', quoteId);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
     if (vendedorIds.length > 0) checkQuery = checkQuery.in('created_by', vendedorIds);
+    if (!scope.isAdmin && vendedorIds.length === 0) checkQuery = checkQuery.eq('created_by', user.id);
     const { data: quote } = await checkQuery.maybeSingle();
     if (!quote) return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
 
@@ -47,13 +48,19 @@ export async function POST(event) {
       .from('quote')
       .update(updateData)
       .eq('id', quoteId);
-    if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
     if (vendedorIds.length > 0) updateQuery = updateQuery.in('created_by', vendedorIds);
+    if (!scope.isAdmin && vendedorIds.length === 0) updateQuery = updateQuery.eq('created_by', user.id);
 
     const { data, error } = await updateQuery
       .select('id, status_negociacao, last_interaction_at, last_interaction_notes')
       .single();
     if (error) throw error;
+
+    invalidateQuoteReadModels({
+      companyIds,
+      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      userId: user.id
+    });
 
     return json({ success: true, interacao: data });
   } catch (err) {
@@ -83,8 +90,8 @@ export async function GET(event) {
       .from('quote')
       .select('id, status_negociacao, last_interaction_at, last_interaction_notes, updated_at')
       .eq('id', quoteId);
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
     if (vendedorIds.length > 0) query = query.in('created_by', vendedorIds);
+    if (!scope.isAdmin && vendedorIds.length === 0) query = query.eq('created_by', user.id);
 
     const { data, error } = await query.maybeSingle();
     if (error) throw error;

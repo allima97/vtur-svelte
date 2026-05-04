@@ -1,6 +1,18 @@
 import type { RequestHandler } from './$types';
 import { checkRateLimit } from '$lib/server/rateLimit';
 
+const SVG_HEADERS = {
+  "Content-Type": "image/svg+xml; charset=utf-8",
+  "Cache-Control": "private, max-age=3600, no-transform",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
+const ERROR_HEADERS = {
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+} as const;
+
 function escapeXml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -29,9 +41,8 @@ export const GET: RequestHandler = async ({ request, getClientAddress }) => {
       {
         status: 429,
         headers: {
-          "Content-Type": "application/json; charset=utf-8",
+          ...ERROR_HEADERS,
           "Retry-After": String(rateLimit.retryAfterSeconds),
-          "Cache-Control": "no-store",
         },
       }
     );
@@ -109,9 +120,6 @@ export const GET: RequestHandler = async ({ request, getClientAddress }) => {
 
   return new Response(svg, {
     status: 200,
-    headers: {
-      "Content-Type": "image/svg+xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600",
-    },
+    headers: SVG_HEADERS,
   });
 };

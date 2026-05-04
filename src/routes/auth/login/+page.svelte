@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { dev } from '$app/environment';
   import { env as publicEnv } from '$env/dynamic/public';
   import { supabase, isMockMode } from '$lib/db/supabase';
   import { auth } from '$lib/stores/auth';
@@ -200,7 +201,7 @@
       await syncSessionOnServer(session);
 
       void syncSessionInBrowser(session).catch((browserSyncError) => {
-        console.warn('[login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
+        if (dev) console.warn('[login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
       });
 
       auth.setAuth(payload.user ?? null, session as any);
@@ -267,7 +268,7 @@
       await syncSessionOnServer(session);
 
       void syncSessionInBrowser(session).catch((browserSyncError) => {
-        console.warn('[passkey-login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
+        if (dev) console.warn('[passkey-login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
       });
 
       auth.setAuth(payload.user ?? null, session as any);

@@ -10,6 +10,7 @@ import {
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
+  READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import {
@@ -70,18 +71,22 @@ export function isProductionRuntime() {
 }
 
 export function isDebugEndpointEnabled(event?: RequestEvent) {
-  const explicitEnabled = ["1", "true", "yes", "on"].includes(
-    String(privateEnv.VTUR_ENABLE_DEBUG_ENDPOINTS || "")
-      .trim()
-      .toLowerCase(),
+  const explicitValue = String(privateEnv.VTUR_ENABLE_DEBUG_ENDPOINTS || "")
+    .trim()
+    .toLowerCase();
+  const isProduction = isProductionRuntime();
+  const explicitEnabled = ["1", "true", "yes", "on"].includes(explicitValue);
+  const explicitProductionEnabled = ["production", "force-production"].includes(
+    explicitValue,
   );
-  if (explicitEnabled) return true;
+  if (isProduction) return explicitProductionEnabled;
+  if (explicitEnabled || explicitProductionEnabled) return true;
 
   const hostname = String(event?.url?.hostname || "").toLowerCase();
   const isLocalhost =
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 
-  return !isProductionRuntime() || isLocalhost;
+  return isLocalhost;
 }
 
 type UsersProfileRow = {
@@ -242,26 +247,40 @@ export async function fetchRankingVendedoresByCompanyIds(
   );
   if (scopedCompanyIds.length === 0) return [] as any[];
 
-  let query = client
-    .from("users")
-    .select(
-      "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
-    )
-    .eq("active", true)
-    .eq("uso_individual", false)
-    .limit(5000);
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("ranking-vendedores", {
+      companyIds: scopedCompanyIds,
+    }),
+    tags: [
+      READ_MODEL_TAGS.users,
+      READ_MODEL_TAGS.ranking,
+      ...scopeCacheTags({ companyIds: scopedCompanyIds }),
+    ],
+    ttlMs: 15_000,
+    staleTtlMs: 60_000,
+    loader: async () => {
+      let query = client
+        .from("users")
+        .select(
+          "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+        )
+        .eq("active", true)
+        .eq("uso_individual", false)
+        .limit(5000);
 
-  query =
-    scopedCompanyIds.length === 1
-      ? query.eq("company_id", scopedCompanyIds[0])
-      : query.in("company_id", scopedCompanyIds);
+      query =
+        scopedCompanyIds.length === 1
+          ? query.eq("company_id", scopedCompanyIds[0])
+          : query.in("company_id", scopedCompanyIds);
 
-  const { data, error } = await query;
-  if (error) throw error;
+      const { data, error } = await query;
+      if (error) throw error;
 
-  return (data || []).filter((row: any) => {
-    const companyId = String(row?.company_id || "").trim();
-    return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
+      return (data || []).filter((row: any) => {
+        const companyId = String(row?.company_id || "").trim();
+        return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
+      });
+    },
   });
 }
 
@@ -413,26 +432,39 @@ export async function fetchMasterEmpresas(
   client: SupabaseClient,
   masterId: string,
 ) {
-  const { data, error: companiesError } = await client
-    .from("master_empresas")
-    .select("company_id, status")
-    .eq("master_id", masterId);
+  const scopedMasterId = String(masterId || "").trim();
+  if (!isUuid(scopedMasterId)) return [];
 
-  if (companiesError) {
-    return [];
-  }
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("master-empresas", {
+      masterId: scopedMasterId,
+    }),
+    tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId: scopedMasterId })],
+    ttlMs: 15_000,
+    staleTtlMs: 60_000,
+    loader: async () => {
+      const { data, error: companiesError } = await client
+        .from("master_empresas")
+        .select("company_id, status")
+        .eq("master_id", scopedMasterId);
 
-  return (data || [])
-    .filter((row: { status?: string | null }) => {
-      const status = String(row?.status || "")
-        .trim()
-        .toLowerCase();
-      return status !== "rejected";
-    })
-    .map((row: { company_id?: string | null }) =>
-      String(row?.company_id || "").trim(),
-    )
-    .filter(Boolean);
+      if (companiesError) {
+        return [];
+      }
+
+      return (data || [])
+        .filter((row: { status?: string | null }) => {
+          const status = String(row?.status || "")
+            .trim()
+            .toLowerCase();
+          return status !== "rejected";
+        })
+        .map((row: { company_id?: string | null }) =>
+          String(row?.company_id || "").trim(),
+        )
+        .filter(Boolean);
+    },
+  });
 }
 
 async function resolveUserScopeUncached(
@@ -496,7 +528,8 @@ export async function resolveUserScope(
   return getCachedReadModel({
     key,
     ttlMs: 30_000,
-    tags: scopeCacheTags({ userId }),
+    staleTtlMs: 30_000,
+    tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId })],
     loader: () => resolveUserScopeUncached(client, userId),
   });
 }
@@ -613,60 +646,82 @@ export async function resolveAccessibleClientIds(
     vendedorIds: string[];
   },
 ) {
-  const clientIds = new Set<string>();
-  const hasVendedorScope = params.vendedorIds.length > 0;
+  const companyIds = Array.from(new Set((params.companyIds || []).filter(isUuid))).sort();
+  const vendedorIds = Array.from(new Set((params.vendedorIds || []).filter(isUuid))).sort();
 
-  if (params.companyIds.length > 0 && !hasVendedorScope) {
-    const { data } = await client
-      .from("clientes")
-      .select("id")
-      .in("company_id", params.companyIds)
-      .limit(5000);
-
-    (data || []).forEach((row: { id?: string | null }) => {
-      const id = String(row?.id || "").trim();
-      if (id) clientIds.add(id);
-    });
+  if (companyIds.length === 0 && vendedorIds.length === 0) {
+    return [];
   }
 
-  if (params.vendedorIds.length > 0) {
-    const { data, error: createdByError } = await client
-      .from("clientes")
-      .select("id")
-      .in("created_by", params.vendedorIds)
-      .limit(5000);
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("accessible-client-ids", {
+      companyIds,
+      vendedorIds,
+    }),
+    tags: [
+      READ_MODEL_TAGS.clients,
+      READ_MODEL_TAGS.sales,
+      ...scopeCacheTags({ companyIds, vendedorIds }),
+    ],
+    ttlMs: 10_000,
+    staleTtlMs: 45_000,
+    loader: async () => {
+      const clientIds = new Set<string>();
+      const hasVendedorScope = vendedorIds.length > 0;
 
-    // created_by pode não existir em todos os ambientes
-    if (!createdByError) {
-      (data || []).forEach((row: { id?: string | null }) => {
-        const id = String(row?.id || "").trim();
+      if (companyIds.length > 0 && !hasVendedorScope) {
+        const { data } = await client
+          .from("clientes")
+          .select("id")
+          .in("company_id", companyIds)
+          .limit(5000);
+
+        (data || []).forEach((row: { id?: string | null }) => {
+          const id = String(row?.id || "").trim();
+          if (id) clientIds.add(id);
+        });
+      }
+
+      if (vendedorIds.length > 0) {
+        const { data, error: createdByError } = await client
+          .from("clientes")
+          .select("id")
+          .in("created_by", vendedorIds)
+          .limit(5000);
+
+        // created_by pode não existir em todos os ambientes
+        if (!createdByError) {
+          (data || []).forEach((row: { id?: string | null }) => {
+            const id = String(row?.id || "").trim();
+            if (id) clientIds.add(id);
+          });
+        }
+      }
+
+      let salesQuery = client
+        .from("vendas")
+        .select("cliente_id")
+        .eq("cancelada", false)
+        .not("cliente_id", "is", null);
+
+      if (companyIds.length > 0) {
+        salesQuery = salesQuery.in("company_id", companyIds);
+      }
+
+      if (vendedorIds.length > 0) {
+        salesQuery = salesQuery.in("vendedor_id", vendedorIds);
+      }
+
+      const { data: salesData } = await salesQuery.limit(5000);
+
+      (salesData || []).forEach((row: { cliente_id?: string | null }) => {
+        const id = String(row?.cliente_id || "").trim();
         if (id) clientIds.add(id);
       });
-    }
-  }
 
-  let salesQuery = client
-    .from("vendas")
-    .select("cliente_id")
-    .eq("cancelada", false)
-    .not("cliente_id", "is", null);
-
-  if (params.companyIds.length > 0) {
-    salesQuery = salesQuery.in("company_id", params.companyIds);
-  }
-
-  if (params.vendedorIds.length > 0) {
-    salesQuery = salesQuery.in("vendedor_id", params.vendedorIds);
-  }
-
-  const { data: salesData } = await salesQuery.limit(5000);
-
-  (salesData || []).forEach((row: { cliente_id?: string | null }) => {
-    const id = String(row?.cliente_id || "").trim();
-    if (id) clientIds.add(id);
+      return Array.from(clientIds);
+    },
   });
-
-  return Array.from(clientIds);
 }
 
 function isHttpErrorLike(value: unknown): value is HttpErrorLike {

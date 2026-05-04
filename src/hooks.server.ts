@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '$lib/db/supabase';
 import { dev } from '$app/environment';
+import { env as publicEnv } from '$env/dynamic/public';
 import { sequence } from '@sveltejs/kit/hooks';
 import { redirect, type Handle } from '@sveltejs/kit';
 import {
@@ -130,6 +131,22 @@ const AUTHENTICATED_API_MAX_BODY_BYTES = 10 * 1024 * 1024;
 const AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES = 20 * 1024 * 1024;
 
 function buildCspPolicy() {
+	const connectSrc = ["'self'", 'https://challenges.cloudflare.com'];
+	const supabaseUrl = String(publicEnv.PUBLIC_SUPABASE_URL || '').trim();
+	if (supabaseUrl) {
+		try {
+			const parsed = new URL(supabaseUrl);
+			connectSrc.push(parsed.origin);
+			if (parsed.protocol === 'https:') connectSrc.push(`wss://${parsed.host}`);
+			if (parsed.protocol === 'http:') connectSrc.push(`ws://${parsed.host}`);
+		} catch {
+			// Mantém a CSP fechada; configuração inválida já quebra o cliente Supabase.
+		}
+	}
+	if (dev) {
+		connectSrc.push('http:', 'https:', 'ws:', 'wss:');
+	}
+
 	return [
 		"default-src 'self'",
 		"base-uri 'self'",
@@ -141,7 +158,7 @@ function buildCspPolicy() {
 		dev
 			? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com"
 			: "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-		"connect-src 'self' https: wss:",
+		`connect-src ${Array.from(new Set(connectSrc)).join(' ')}`,
 		"frame-src https://challenges.cloudflare.com",
 		"worker-src 'self' blob:",
 		"form-action 'self'"
@@ -176,18 +193,22 @@ const AUTHENTICATED_API_UPLOAD_PREFIXES = [
 	'/api/v1/pagamentos/upload'
 ];
 
+function isAuthenticatedUploadApi(pathname: string) {
+	return AUTHENTICATED_API_UPLOAD_PREFIXES.some((prefix) => pathMatchesPrefix(pathname, prefix));
+}
+
 function resolveClientAddress(event: Parameters<Handle>[0]['event']) {
-	const cloudflareIp = event.request.headers.get('cf-connecting-ip');
+	try {
+		const runtimeAddress = event.getClientAddress();
+		if (runtimeAddress) return runtimeAddress;
+	} catch {
+		// Continua para headers controlados pelo provedor quando o adapter não expõe IP.
+	}
+
+	const cloudflareIp = event.request.headers.get('cf-connecting-ip')?.trim();
 	if (cloudflareIp) return cloudflareIp;
 
-	const forwardedFor = event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-	if (forwardedFor) return forwardedFor;
-
-	try {
-		return event.getClientAddress();
-	} catch {
-		return 'unknown';
-	}
+	return 'unknown';
 }
 
 function findPublicApiRateLimit(pathname: string, method: string) {
@@ -223,21 +244,43 @@ function isRequestBodyTooLarge(event: Parameters<Handle>[0]['event'], limitBytes
 	return Number.isFinite(length) && length > limitBytes;
 }
 
+function hasRequestBody(event: Parameters<Handle>[0]['event']) {
+	const rawLength = event.request.headers.get('content-length');
+	if (rawLength) {
+		const length = Number(rawLength);
+		if (Number.isFinite(length)) return length > 0;
+	}
+	return Boolean(event.request.headers.get('content-type'));
+}
+
+function isJsonMutationContentType(event: Parameters<Handle>[0]['event']) {
+	if (!hasRequestBody(event)) return true;
+	const contentType = event.request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+	return contentType === 'application/json' || contentType === 'application/merge-patch+json';
+}
+
 function isSameOriginMutation(event: Parameters<Handle>[0]['event']) {
 	const origin = event.request.headers.get('origin');
-	if (origin && origin !== event.url.origin) return false;
+	const fetchSite = event.request.headers.get('sec-fetch-site')?.toLowerCase();
 
-	const fetchSite = event.request.headers.get('sec-fetch-site');
-	if (fetchSite && fetchSite.toLowerCase() === 'cross-site') return false;
+	if (origin) {
+		try {
+			if (new URL(origin).origin !== event.url.origin) return false;
+		} catch {
+			return false;
+		}
+	}
+
+	if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) return false;
+	if (!origin && !fetchSite) return false;
 
 	return true;
 }
 
 function resolveAuthenticatedApiBodyLimit(pathname: string) {
-	const isUploadRoute = AUTHENTICATED_API_UPLOAD_PREFIXES.some((prefix) =>
-		pathMatchesPrefix(pathname, prefix)
-	);
-	return isUploadRoute ? AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES : AUTHENTICATED_API_MAX_BODY_BYTES;
+	return isAuthenticatedUploadApi(pathname)
+		? AUTHENTICATED_API_UPLOAD_MAX_BODY_BYTES
+		: AUTHENTICATED_API_MAX_BODY_BYTES;
 }
 
 const supabaseHook: Handle = async ({ event, resolve }) => {
@@ -290,7 +333,10 @@ const securityHeadersHook: Handle = async ({ event, resolve }) => {
 		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 	}
 
-	if (pathMatchesPrefix(event.url.pathname, '/api') && response.status >= 400) {
+	if (
+		pathMatchesPrefix(event.url.pathname, '/api') &&
+		(isUnsafeHttpMethod(event.request.method) || response.status >= 400)
+	) {
 		response.headers.set('Cache-Control', 'no-store');
 		ensureVaryHeader(response, 'Cookie');
 	}
@@ -374,6 +420,19 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			if (
 				pathMatchesPrefix(pathname, '/api/auth') &&
 				isUnsafeHttpMethod(event.request.method) &&
+				!isJsonMutationContentType(event)
+			) {
+				return new Response(JSON.stringify({ error: 'Tipo de conteudo invalido.' }), {
+					status: 415,
+					headers: {
+						'content-type': 'application/json; charset=utf-8',
+						'cache-control': 'no-store'
+					}
+				});
+			}
+			if (
+				pathMatchesPrefix(pathname, '/api/auth') &&
+				isUnsafeHttpMethod(event.request.method) &&
 				isRequestBodyTooLarge(event, PUBLIC_AUTH_MAX_BODY_BYTES)
 			) {
 				return new Response(JSON.stringify({ error: 'Corpo da requisicao muito grande.' }), {
@@ -390,6 +449,20 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		if (isUnsafeHttpMethod(event.request.method) && !isSameOriginMutation(event)) {
 			return new Response(JSON.stringify({ error: 'Origem da requisicao invalida.' }), {
 				status: 403,
+				headers: {
+					'content-type': 'application/json; charset=utf-8',
+					'cache-control': 'no-store'
+				}
+			});
+		}
+
+		if (
+			isUnsafeHttpMethod(event.request.method) &&
+			!isAuthenticatedUploadApi(pathname) &&
+			!isJsonMutationContentType(event)
+		) {
+			return new Response(JSON.stringify({ error: 'Tipo de conteudo invalido.' }), {
+				status: 415,
 				headers: {
 					'content-type': 'application/json; charset=utf-8',
 					'cache-control': 'no-store'

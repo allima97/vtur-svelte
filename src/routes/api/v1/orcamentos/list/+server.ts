@@ -15,6 +15,12 @@ import {
 } from '$lib/server/v1';
 import { addDaysISODate, addMonthsISODate, monthRangeFromKey, parseISODateLocal, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 type OrcamentoRow = {
   id: string;
@@ -131,6 +137,20 @@ export async function GET(event) {
     if (shouldFilterByClientIds && clientIds.length === 0) {
       return json([], { headers: DYNAMIC_READ_HEADERS });
     }
+    const listCacheParts = {
+      companyIds,
+      vendedorIds,
+      userId: shouldFilterByClientIds ? user.id : null,
+      clientScopeCount: shouldFilterByClientIds ? clientIds.length : 0,
+      periodo: searchParams.get('periodo') || null
+    };
+    const listCacheTags = [
+      READ_MODEL_TAGS.quote,
+      READ_MODEL_TAGS.clients,
+      READ_MODEL_TAGS.users,
+      READ_MODEL_TAGS.catalog,
+      ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id })
+    ];
 
     const joinedSelect = `
         id,
@@ -185,16 +205,23 @@ export async function GET(event) {
       return { data: dedupeOrcamentos(rows).slice(0, 500), error: null };
     };
 
-    const queryResult = await fetchQuoteRows(joinedSelect);
-    let data = (queryResult.data || null) as OrcamentoRow[] | null;
-    const queryError = queryResult.error;
+    const data = await getCachedReadModel<OrcamentoRow[]>({
+      key: buildReadModelCacheKey('orcamentos-list:rows', listCacheParts),
+      tags: listCacheTags,
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const queryResult = await fetchQuoteRows(joinedSelect);
+        const queryError = queryResult.error;
 
-    if (queryError) {
-      logServerError('[orcamentos/list] erro na query com join; usando fallback', queryError);
-      const fallback = await fetchQuoteRows(fallbackSelect);
-      if (fallback.error) throw fallback.error;
-      data = (fallback.data || []) as OrcamentoRow[];
-    }
+        if (!queryError) return ((queryResult.data || []) as OrcamentoRow[]);
+
+        logServerError('[orcamentos/list] erro na query com join; usando fallback', queryError);
+        const fallback = await fetchQuoteRows(fallbackSelect);
+        if (fallback.error) throw fallback.error;
+        return ((fallback.data || []) as OrcamentoRow[]);
+      }
+    });
 
     const clientIdsFromData = Array.from(new Set(
       ((data || []) as OrcamentoRow[]).map((row) => String(row.client_id || '').trim()).filter(Boolean)
@@ -222,30 +249,40 @@ export async function GET(event) {
     const quoteItemsMap = new Map<string, OrcamentoItemRow[]>();
 
     if (quoteIds.length > 0) {
-      let quoteItems: OrcamentoItemRow[] = [];
+      const quoteItems = await getCachedReadModel<OrcamentoItemRow[]>({
+        key: buildReadModelCacheKey('orcamentos-list:items', listCacheParts),
+        tags: listCacheTags,
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: async () => {
+          const rows: OrcamentoItemRow[] = [];
 
-      for (const batch of chunkArray(quoteIds)) {
-        const withCity = await client
-          .from('quote_item')
-          .select('id, quote_id, title, product_name, item_type, total_amount, order_index, city_name')
-          .in('quote_id', batch)
-          .order('order_index', { ascending: true })
-          .limit(5000);
+          for (const batch of chunkArray(quoteIds)) {
+            const withCity = await client
+              .from('quote_item')
+              .select('id, quote_id, title, product_name, item_type, total_amount, order_index, city_name')
+              .in('quote_id', batch)
+              .order('order_index', { ascending: true })
+              .limit(5000);
 
-        if (withCity.error) {
-          const fallback = await client
-            .from('quote_item')
-            .select('id, quote_id, title, product_name, item_type, total_amount, order_index')
-            .in('quote_id', batch)
-            .order('order_index', { ascending: true })
-            .limit(5000);
+            if (withCity.error) {
+              const fallback = await client
+                .from('quote_item')
+                .select('id, quote_id, title, product_name, item_type, total_amount, order_index')
+                .in('quote_id', batch)
+                .order('order_index', { ascending: true })
+                .limit(5000);
 
-          if (fallback.error) throw fallback.error;
-          quoteItems.push(...((fallback.data || []) as OrcamentoItemRow[]));
-        } else {
-          quoteItems.push(...((withCity.data || []) as OrcamentoItemRow[]));
+              if (fallback.error) throw fallback.error;
+              rows.push(...((fallback.data || []) as OrcamentoItemRow[]));
+            } else {
+              rows.push(...((withCity.data || []) as OrcamentoItemRow[]));
+            }
+          }
+
+          return rows;
         }
-      }
+      });
 
       quoteItems.forEach((item) => {
         const quoteId = String(item.quote_id || '').trim();

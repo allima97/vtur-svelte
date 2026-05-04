@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function isTableMissing(error: any) {
   const code = String(error?.code || "");
@@ -135,7 +136,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .update({ invited_user_id: user.id } as any)
       .eq("id", inviteId);
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[convites/accept] falha ao aceitar convite", error);
     return json({ error: "Erro interno ao aceitar convite." }, { status: 500 });

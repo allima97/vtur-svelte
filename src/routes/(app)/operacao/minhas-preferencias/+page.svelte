@@ -11,6 +11,7 @@
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
   type Preferencia = {
     id: string;
     tipo_produto_id: string | null;
@@ -80,7 +81,9 @@
       sortable: true,
       width: '90px',
       formatter: (v: string | null) =>
-        v ? `<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">${v}</span>` : '-'
+        v
+          ? `<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">${escapeHtml(v)}</span>`
+          : '-'
     }
   ];
 

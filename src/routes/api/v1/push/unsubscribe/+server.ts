@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -28,7 +29,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return json({ error: "Erro ao desativar subscription." }, { status: 500 });
     }
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[push/unsubscribe] falha interna", error);
     return json({ error: "Erro interno ao desativar subscription." }, { status: 500 });

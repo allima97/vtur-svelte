@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import type { ChartData } from 'chart.js';
@@ -327,7 +328,7 @@
       empresas = [];
       vendedores = [];
       const msg = err instanceof Error ? err.message : 'Erro ao carregar filtros analíticos';
-      console.error('[loadBase] Erro:', msg);
+      if (dev) console.error('[loadBase] Erro:', msg);
       toast.error(msg);
     } finally {
       loadingBase = false;
@@ -400,7 +401,7 @@
       }
       chartSeries = { mensal: [], diaria: [] };
       const msg = err instanceof Error ? err.message : 'Erro ao carregar relatório de vendas';
-      console.error('[loadRelatorio] Erro:', msg);
+      if (dev) console.error('[loadRelatorio] Erro:', msg);
       toast.error(msg);
     } finally {
       loading = false;

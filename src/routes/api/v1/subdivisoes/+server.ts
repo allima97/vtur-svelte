@@ -3,10 +3,18 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  parseIntSafe,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateCatalogReadModels,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -19,29 +27,39 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
-    const q = String(searchParams.get('q') || '').trim();
+    const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
     const paisId = String(searchParams.get('pais_id') || '').trim();
+    const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
+    const pageSize = Math.min(2000, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 2000)));
 
-    let query = client
-      .from('subdivisoes')
-      .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)')
-      .order('nome')
-      .limit(2000);
+    const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
+      key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        let query = client
+          .from('subdivisoes')
+          .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)', {
+            count: 'exact'
+          })
+          .order('nome')
+          .range((page - 1) * pageSize, page * pageSize - 1);
 
-    if (paisId) query = query.eq('pais_id', paisId);
+        if (paisId) query = query.eq('pais_id', paisId);
+        if (q) query = query.ilike('nome', `%${q}%`);
 
-    const { data, error: queryError } = await query;
-    if (queryError) throw queryError;
+        const { data, count, error: queryError } = await query;
+        if (queryError) throw queryError;
 
-    let items = data || [];
-    if (q) {
-      const qLower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      items = items.filter((item: any) =>
-        String(item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qLower)
-      );
-    }
+        return {
+          items: data || [],
+          total: Number(count ?? data?.length ?? 0)
+        };
+      }
+    });
 
-    return json({ items });
+    return json({ items, total, page, pageSize });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar estados/subdivisões.');
   }
@@ -81,6 +99,7 @@ export async function POST(event) {
       result = data;
     }
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar estado.');
@@ -103,6 +122,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('subdivisoes').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir estado.');

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { resolveResendApiKey, resolveFromEmails, resolveSmtpConfig } from '$lib/server/emailSettings';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const TEMPLATE_NOME = "Bem-Vindo!";
 const TEMPLATE_ASSUNTO = "Bem-Vindo!";
@@ -173,7 +174,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (perfil.welcome_email_sent) {
-      return new Response(null, { status: 204 });
+      return new Response(null, { status: 204, headers: NO_STORE_HEADERS });
     }
 
     if (!perfilCompleto(perfil)) {
@@ -265,13 +266,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (resendResp.ok) {
       await marcarEmailEnviado(user.id);
-      return json({ status: "sent", provider: "resend", id: resendResp.id }, { status: 200 });
+      return json(
+        { status: "sent", provider: "resend", id: resendResp.id },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
     }
 
     const sendgridResp = await enviarEmailSendGrid({ to, subject, html, text, fromEmail });
     if (sendgridResp.ok) {
       await marcarEmailEnviado(user.id);
-      return json({ status: "sent", provider: "sendgrid" }, { status: 200 });
+      return json(
+        { status: "sent", provider: "sendgrid" },
+        { status: 200, headers: NO_STORE_HEADERS }
+      );
     }
 
     return json({ error: "Nenhum provedor de e-mail configurado." }, { status: 500 });

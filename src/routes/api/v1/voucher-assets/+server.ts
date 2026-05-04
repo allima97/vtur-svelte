@@ -9,6 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -143,7 +144,7 @@ export async function GET(event) {
     // Gera URLs assinadas para preview
     const withUrls = await Promise.all((data || []).map((asset: any) => withPreviewUrl(client, asset)));
 
-    return json({ success: true, items: withUrls });
+    return json({ success: true, items: withUrls }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar voucher assets.');
   }
@@ -212,7 +213,7 @@ export async function POST(event) {
       throw error;
     }
 
-    return json({ success: true, item: await withPreviewUrl(client, data) });
+    return json({ success: true, item: await withPreviewUrl(client, data) }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao criar voucher asset.');
   }
@@ -313,7 +314,10 @@ export async function PATCH(event) {
       await client.storage.from(existing.storage_bucket).remove([existing.storage_path]).catch(() => undefined);
     }
 
-    return json({ success: true, item: await withPreviewUrl(client, updated) });
+    return json(
+      { success: true, item: await withPreviewUrl(client, updated) },
+      { headers: NO_STORE_HEADERS }
+    );
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao atualizar voucher asset.');
   }
@@ -356,7 +360,7 @@ export async function DELETE(event) {
       await client.storage.from(existing.storage_bucket).remove([existing.storage_path]).catch(() => undefined);
     }
 
-    return json({ success: true, id: existing.id });
+    return json({ success: true, id: existing.id }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao excluir voucher asset.');
   }

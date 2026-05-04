@@ -2,7 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
-  import { browser } from '$app/environment';
+  import { browser, dev } from '$app/environment';
   import { goto } from '$app/navigation';
   import { supabase } from '$lib/db/supabase';
   import { auth, sessionSynced } from '$lib/stores/auth';
@@ -21,6 +21,7 @@
   let lastRedirectAt = 0;
   let lastSessionAt = 0;
   let checkingSession = false;
+  const SESSION_SYNC_TIMEOUT_MS = 12_000;
 
   function isPublicRoute(path: string): boolean {
     return path.startsWith('/auth/') || path === '/negado';
@@ -37,7 +38,7 @@
     if (browser && !isPublicRoute(window.location.pathname)) {
       isRedirecting = true;
       lastRedirectAt = now;
-      console.warn(`[Auth] ${reason}. Redirecionando para login.`);
+      if (dev) console.warn(`[Auth] ${reason}. Redirecionando para login.`);
       toast.warning('Sua sessão expirou. Você será redirecionado para o login.', 6000);
       goto('/auth/login?session_expired=1', { replaceState: true });
     }
@@ -52,10 +53,13 @@
       return;
     }
 
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), SESSION_SYNC_TIMEOUT_MS);
     try {
       const result = await fetch('/api/auth/set-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           access_token: session.access_token,
           refresh_token: session.refresh_token
@@ -63,13 +67,15 @@
       });
 
       if (!result.ok) {
-        console.warn(`[Auth] Falha ao sincronizar sessão (${source}) status:`, result.status);
+        if (dev) console.warn(`[Auth] Falha ao sincronizar sessão (${source}) status:`, result.status);
       }
 
       sessionSynced.set(true);
     } catch (syncErr) {
-      console.warn(`[Auth] Erro ao sincronizar sessão (${source}):`, syncErr);
+      if (dev) console.warn(`[Auth] Erro ao sincronizar sessão (${source}):`, syncErr);
       sessionSynced.set(true);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 

@@ -9,6 +9,7 @@ import {
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 import {
@@ -18,6 +19,12 @@ import {
   matchesClienteBusca
 } from '$lib/server/clientes';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 type ClienteBaseRow = {
   id: string;
@@ -49,6 +56,20 @@ type QuoteResumoRow = {
   client_id: string | null;
   created_at: string | null;
   created_by: string | null;
+};
+
+type ClienteLookupRow = {
+  id: string;
+  nome: string | null;
+  cpf: string | null;
+  email: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  cidade: string | null;
+  estado: string | null;
+  company_id: string | null;
+  active: boolean | null;
+  ativo: boolean | null;
 };
 
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -96,6 +117,7 @@ export async function GET(event) {
     const aniversarioHojeQuery = String(searchParams.get('aniversario_hoje') || '').trim().toLowerCase();
     const includeSummary = String(searchParams.get('include_summary') || '').trim() === '1';
     const summaryOnly = String(searchParams.get('summary_only') || '').trim() === '1';
+    const lookupOnly = String(searchParams.get('lookup') || '').trim() === '1';
     const summaryFastPath = summaryOnly && !busca;
 
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
@@ -111,6 +133,13 @@ export async function GET(event) {
     const accessibleClientIds = canUseCompanyScope
       ? null
       : await resolveAccessibleClientIds(client, { companyIds, vendedorIds });
+    const cacheScopeTags = scopeCacheTags({ companyIds, vendedorIds, userId: user.id });
+    const listCacheTags = [
+      READ_MODEL_TAGS.clients,
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.quote,
+      ...cacheScopeTags
+    ];
 
     if (accessibleClientIds && accessibleClientIds.length === 0) {
       return json(
@@ -119,6 +148,113 @@ export async function GET(event) {
           pageSize,
           total: 0,
           items: []
+        },
+        { headers: DYNAMIC_READ_HEADERS }
+      );
+    }
+
+    if (lookupOnly) {
+      const searchTerm = sanitizePostgrestSearchTerm(busca, 60);
+      const digits = busca.replace(/\D/g, '').slice(0, 30);
+      const lookupLimit = Math.min(50, Math.max(5, pageSize || 15));
+
+      if (searchTerm.length < 2 && digits.length < 2) {
+        return json(
+          {
+            page,
+            pageSize: lookupLimit,
+            total: 0,
+            items: []
+          },
+          { headers: DYNAMIC_READ_HEADERS }
+        );
+      }
+
+      const orParts = [
+        searchTerm ? `nome.ilike.%${searchTerm}%` : '',
+        searchTerm ? `email.ilike.%${searchTerm}%` : '',
+        searchTerm ? `cidade.ilike.%${searchTerm}%` : '',
+        searchTerm ? `estado.ilike.%${searchTerm}%` : '',
+        digits ? `cpf.ilike.%${digits}%` : '',
+        digits ? `telefone.ilike.%${digits}%` : '',
+        digits ? `whatsapp.ilike.%${digits}%` : ''
+      ].filter(Boolean);
+
+      const buildLookupQuery = (clientIds?: string[]) => {
+        let lookupQuery = client
+          .from('clientes')
+          .select('id, nome, cpf, email, telefone, whatsapp, cidade, estado, company_id, active, ativo')
+          .order('nome', { ascending: true })
+          .limit(lookupLimit);
+
+        if (orParts.length > 0) {
+          lookupQuery = lookupQuery.or(orParts.join(','));
+        }
+
+        if (clientIds) {
+          lookupQuery = lookupQuery.in('id', clientIds);
+        } else if (companyIds.length > 0) {
+          lookupQuery = lookupQuery.in('company_id', companyIds);
+        }
+
+        return lookupQuery;
+      };
+
+      const fetchLookupRows = async () => {
+        if (!accessibleClientIds || accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+          return buildLookupQuery(accessibleClientIds || undefined);
+        }
+
+        const rows: ClienteLookupRow[] = [];
+        for (const batch of chunkArray(accessibleClientIds)) {
+          const result = await buildLookupQuery(batch);
+          if (result.error) {
+            return { data: null, error: result.error } as typeof result;
+          }
+          rows.push(...(((result.data || []) as unknown) as ClienteLookupRow[]));
+          if (dedupeRowsById(rows).length >= lookupLimit) break;
+        }
+
+        return {
+          data: dedupeRowsById(rows)
+            .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+            .slice(0, lookupLimit),
+          error: null
+        };
+      };
+
+      const { data: lookupRows, error: lookupError } = await fetchLookupRows();
+      if (lookupError) throw lookupError;
+
+      const items = ((lookupRows || []) as ClienteLookupRow[]).map((row) => {
+        const tags: string[] = [];
+        const contato = [row.whatsapp, row.telefone, row.email].filter(Boolean).join(' | ');
+        const cidadeUf = [row.cidade, row.estado].filter(Boolean).join('/');
+        return {
+          id: row.id,
+          nome: String(row.nome || 'Cliente sem nome'),
+          cpf: row.cpf,
+          documento: formatDocumentoDisplay(row.cpf),
+          email: row.email,
+          telefone: row.telefone,
+          whatsapp: row.whatsapp,
+          contato,
+          cidade: row.cidade,
+          estado: row.estado,
+          cidade_uf: cidadeUf,
+          tags,
+          tags_text: '',
+          status: row.active === false || row.ativo === false ? 'inativo' : 'prospect',
+          ativo: row.ativo !== false
+        };
+      });
+
+      return json(
+        {
+          page,
+          pageSize: lookupLimit,
+          total: items.length,
+          items
         },
         { headers: DYNAMIC_READ_HEADERS }
       );
@@ -182,12 +318,34 @@ export async function GET(event) {
       };
     };
 
-    const clientsResult = (await fetchClients()) as any;
-    const { data: clientsData, error: clientsError } = clientsResult;
-    const clientsCount = typeof clientsResult?.count === 'number' ? clientsResult.count : null;
-    if (clientsError) {
-      throw clientsError;
-    }
+    const clientsResult = await getCachedReadModel<{ data: ClienteBaseRow[]; count: number | null }>({
+      key: buildReadModelCacheKey('clientes-list:clients', {
+        companyIds,
+        vendedorIds,
+        userId: canUseCompanyScope ? null : user.id,
+        page,
+        pageSize,
+        all,
+        summaryFastPath,
+        canUseDbPagination,
+        estadoQuery,
+        tipoPessoaQuery,
+        classificacaoQuery
+      }),
+      tags: listCacheTags,
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const result = (await fetchClients()) as any;
+        if (result?.error) throw result.error;
+        return {
+          data: ((result?.data || []) as ClienteBaseRow[]),
+          count: typeof result?.count === 'number' ? result.count : null
+        };
+      }
+    });
+    const clientsData = clientsResult.data;
+    const clientsCount = clientsResult.count;
 
     const clientIds = ((clientsData || []) as ClienteBaseRow[]).map((row) => row.id);
     const summaryClientIds = canUseDbPagination ? clientIds : accessibleClientIds || clientIds;
@@ -234,10 +392,27 @@ export async function GET(event) {
       return { data: rows, error: null };
     };
 
-    const { data: salesData, error: salesError } = await fetchSales();
-    if (salesError) {
-      throw salesError;
-    }
+    const salesData = await getCachedReadModel<VendaResumoRow[]>({
+      key: buildReadModelCacheKey('clientes-list:sales', {
+        companyIds,
+        vendedorIds,
+        userId: canUseCompanyScope ? null : user.id,
+        page: canUseDbPagination ? page : null,
+        pageSize: canUseDbPagination ? pageSize : null,
+        estadoQuery,
+        tipoPessoaQuery,
+        classificacaoQuery,
+        summaryClientCount: summaryClientIds.length
+      }),
+      tags: listCacheTags,
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const result = await fetchSales();
+        if (result.error) throw result.error;
+        return ((result.data || []) as VendaResumoRow[]);
+      }
+    });
 
     const buildQuotesQuery = (clientIdsFilter?: string[]) => {
       let quotesQuery = client
@@ -277,8 +452,30 @@ export async function GET(event) {
       return { data: rows, error: null };
     };
 
-    const { data: quotesData, error: quotesError } = await fetchQuotes();
-    if (quotesError) {
+    let quotesData: QuoteResumoRow[] = [];
+    try {
+      quotesData = await getCachedReadModel<QuoteResumoRow[]>({
+        key: buildReadModelCacheKey('clientes-list:quotes', {
+          companyIds,
+          vendedorIds,
+          userId: canUseCompanyScope ? null : user.id,
+          page: canUseDbPagination ? page : null,
+          pageSize: canUseDbPagination ? pageSize : null,
+          estadoQuery,
+          tipoPessoaQuery,
+          classificacaoQuery,
+          clientCount: clientIds.length
+        }),
+        tags: listCacheTags,
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: async () => {
+          const result = await fetchQuotes();
+          if (result.error) throw result.error;
+          return ((result.data || []) as QuoteResumoRow[]);
+        }
+      });
+    } catch (quotesError) {
       // Tabela quote pode não existir em todos os ambientes — não bloqueia
       logServerError('[clientes/list] Erro ao buscar quotes', quotesError);
     }

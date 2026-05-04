@@ -8,6 +8,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -22,7 +24,7 @@ export async function POST(event: RequestEvent) {
     const body = await event.request.json().catch(() => ({}));
     const id = String(body?.id || '').trim();
     if (!id || !isUuid(id)) {
-      return json({ error: 'ID invalido.' }, { status: 400 });
+      return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const vendedorIds = await resolveScopedVendedorIds(client, scope, null);
@@ -37,7 +39,7 @@ export async function POST(event: RequestEvent) {
     }
     const { data: quote } = await checkQuery.maybeSingle();
     if (!quote) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     let deleteQuery = client.from('quote').delete().eq('id', id);
@@ -50,7 +52,13 @@ export async function POST(event: RequestEvent) {
     const { error } = await deleteQuery;
     if (error) throw error;
 
-    return json({ ok: true });
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      userId: user.id
+    });
+
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir orcamento.');
   }

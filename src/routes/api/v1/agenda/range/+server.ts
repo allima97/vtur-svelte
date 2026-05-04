@@ -16,6 +16,12 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -50,17 +56,28 @@ export async function GET(event) {
 
     if (!scope.usoIndividual && birthdayCompanyId) {
       try {
-        const { data: birthdayUsers, error: birthdayError } = await client
-          .from('users')
-          .select('id, nome_completo, data_nascimento, active, uso_individual')
-          .eq('company_id', birthdayCompanyId)
-          .or('active.is.null,active.eq.true')
-          .or('uso_individual.is.null,uso_individual.eq.false')
-          .not('data_nascimento', 'is', null)
-          .order('nome_completo', { ascending: true })
-          .limit(5000);
+        const birthdayUsers = await getCachedReadModel<any[]>({
+          key: buildReadModelCacheKey('agenda:birthday-users', {
+            companyId: birthdayCompanyId
+          }),
+          tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ companyIds: [birthdayCompanyId] })],
+          ttlMs: 60_000,
+          staleTtlMs: 300_000,
+          loader: async () => {
+            const { data, error: birthdayError } = await client
+              .from('users')
+              .select('id, nome_completo, data_nascimento, active, uso_individual')
+              .eq('company_id', birthdayCompanyId)
+              .or('active.is.null,active.eq.true')
+              .or('uso_individual.is.null,uso_individual.eq.false')
+              .not('data_nascimento', 'is', null)
+              .order('nome_completo', { ascending: true })
+              .limit(5000);
 
-        if (birthdayError) throw birthdayError;
+            if (birthdayError) throw birthdayError;
+            return data || [];
+          }
+        });
 
         const startYear = Number(inicio.slice(0, 4));
         const endYear = Number(fim.slice(0, 4));

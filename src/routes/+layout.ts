@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser, dev } from '$app/environment';
 import { auth } from '$lib/stores/auth';
 import { permissoes } from '$lib/stores/permissoes';
 import { createSupabaseBrowserClient } from '$lib/db/supabase';
@@ -31,9 +31,11 @@ export const load = async () => {
           try {
             await permissoes.init(supabase);
           } catch (err) {
-            console.error('[layout.ts] Erro ao reinicializar permissoes', {
-              message: String((err as any)?.message || err || '')
-            });
+            if (dev) {
+              console.error('[layout.ts] Erro ao reinicializar permissoes', {
+                message: String((err as any)?.message || err || '')
+              });
+            }
           }
           return;
         }

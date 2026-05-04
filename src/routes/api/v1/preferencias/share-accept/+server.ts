@@ -1,26 +1,51 @@
-import { isUuid } from '$lib/server/v1';
-import { buildNoStoreJsonResponse, buildNoStoreTextResponse, logServerError, requirePreferenciasScope, safeJsonParse } from '../_shared';
+import { isUuid } from "$lib/server/v1";
+import {
+  buildNoStoreJsonResponse,
+  buildNoStoreTextResponse,
+  logServerError,
+  requirePreferenciasScope,
+  safeJsonParse,
+} from "../_shared";
+import { invalidatePreferenceReadModels } from "$lib/server/readModelCache";
 
 export async function POST(event) {
   try {
-    const { client, user } = await requirePreferenciasScope(event, 1);
+    const { client, user, scope } = await requirePreferenciasScope(event, 1);
     const body = safeJsonParse(await event.request.text()) as any;
-    const shareId = String(body?.share_id || '').trim();
-    if (!isUuid(shareId)) return buildNoStoreTextResponse('share_id invalido.', 400);
+    const shareId = String(body?.share_id || "").trim();
+    if (!isUuid(shareId))
+      return buildNoStoreTextResponse("share_id invalido.", 400);
 
     const { data, error } = await client
-      .from('minhas_preferencias_shares')
-      .update({ status: 'accepted', accepted_at: new Date().toISOString(), revoked_at: null })
-      .eq('id', shareId)
-      .eq('shared_with', user.id)
-      .select('id, status, accepted_at')
+      .from("minhas_preferencias_shares")
+      .update({
+        status: "accepted",
+        accepted_at: new Date().toISOString(),
+        revoked_at: null,
+      })
+      .eq("id", shareId)
+      .eq("shared_with", user.id)
+      .select("id, company_id, shared_by, shared_with, status, accepted_at")
       .maybeSingle();
     if (error) throw error;
-    if (!data) return buildNoStoreTextResponse('Convite não encontrado.', 404);
+    if (!data) return buildNoStoreTextResponse("Convite não encontrado.", 404);
 
+    const companyIds = data.company_id
+      ? [String(data.company_id)]
+      : scope.companyId
+        ? [scope.companyId]
+        : [];
+    invalidatePreferenceReadModels({ companyIds, userId: user.id });
+    invalidatePreferenceReadModels({
+      companyIds,
+      userId: String(data.shared_by || ""),
+    });
     return buildNoStoreJsonResponse({ ok: true, share: data });
   } catch (err) {
-    logServerError('[preferencias/share-accept] falha ao aceitar compartilhamento', err);
-    return buildNoStoreTextResponse('Erro ao aceitar compartilhamento.', 500);
+    logServerError(
+      "[preferencias/share-accept] falha ao aceitar compartilhamento",
+      err,
+    );
+    return buildNoStoreTextResponse("Erro ao aceitar compartilhamento.", 500);
   }
 }

@@ -2,8 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { logServerError } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' } as const;
+const QR_IMAGE_HEADERS = {
+  'Cache-Control': 'private, max-age=300',
+  Vary: 'Cookie'
+} as const;
 
 function clampInt(value: string | null, fallback: number, min: number, max: number) {
   const parsed = Number(value);
@@ -80,7 +84,7 @@ export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
     return new Response(image, {
       headers: {
         'content-type': contentType || 'image/png',
-        'cache-control': 'private, max-age=86400'
+        ...QR_IMAGE_HEADERS
       }
     });
   } catch (err) {

@@ -10,7 +10,23 @@ type Bucket = {
 
 const buckets = new Map<string, Bucket>();
 const MAX_BUCKETS = 5000;
+const MAX_KEY_LENGTH = 240;
 let lastPruneAt = 0;
+
+function hashKey(value: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function normalizeRateLimitKey(key: string) {
+  const normalized = String(key || 'unknown').replace(/\s+/g, ' ').trim() || 'unknown';
+  if (normalized.length <= MAX_KEY_LENGTH) return normalized;
+  return `${normalized.slice(0, MAX_KEY_LENGTH)}:${hashKey(normalized)}`;
+}
 
 function pruneExpiredBuckets(now: number) {
   if (now - lastPruneAt < 60_000 && buckets.size <= MAX_BUCKETS) return;
@@ -27,7 +43,7 @@ export function checkRateLimit(key: string, options: RateLimitOptions) {
   const now = Date.now();
   pruneExpiredBuckets(now);
 
-  const safeKey = key || 'unknown';
+  const safeKey = normalizeRateLimitKey(key);
   const current = buckets.get(safeKey);
   if (!current || current.resetAt <= now) {
     buckets.set(safeKey, { count: 1, resetAt: now + options.windowMs });

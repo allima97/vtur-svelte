@@ -165,6 +165,7 @@
     try {
       const data = await apiGet<{ items?: ClienteOption[] }>('/api/v1/clientes/list', {
         q: query,
+        lookup: '1',
         pageSize: 15
       });
       clientesFiltrados = Array.isArray(data.items) ? data.items : [];

@@ -1,4 +1,5 @@
 import { env as publicEnv } from '$env/dynamic/public';
+import { encodeStoragePathSegment, sanitizeHref } from '$lib/security/url';
 
 export type EmpresaOption = {
   id: string;
@@ -133,7 +134,16 @@ export function buildAttachmentUrl(bucket?: string | null, path?: string | null)
   if (!bucket || !path) return '';
   const supabaseUrl = publicEnv.PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) return '';
-  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  const bucketSegment = encodeStoragePathSegment(bucket);
+  const pathSegment = encodeStoragePathSegment(path);
+  return sanitizeHref(`${supabaseUrl}/storage/v1/object/public/${bucketSegment}/${pathSegment}`, [
+    'http:',
+    'https:'
+  ]);
+}
+
+export function safeAttachmentHref(rawUrl?: string | null, bucket?: string | null, path?: string | null) {
+  return sanitizeHref(rawUrl, ['http:', 'https:']) || buildAttachmentUrl(bucket, path) || '#';
 }
 
 export function buildThreads(recados: RecadoRow[], usuariosEmpresa: UserMini[], userId: string | null): Thread[] {

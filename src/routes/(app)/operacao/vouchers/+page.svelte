@@ -10,6 +10,7 @@
   import { formatDate } from '$lib/utils/formatters';
   import type { VoucherRecord, VoucherAssetRecord, VoucherProvider } from '$lib/vouchers/types';
   import { apiDelete, apiGet } from '$lib/services/api';
+  import { escapeHtml } from '$lib/utils/html';
 
   let vouchers: VoucherRecord[] = [];
   let assets: VoucherAssetRecord[] = [];
@@ -43,7 +44,7 @@
           europamundo: 'bg-orange-100 text-orange-700',
           sato_tours: 'bg-emerald-100 text-emerald-700'
         };
-        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${colors[v]}">${labels[v] || v}</span>`;
+        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${colors[v] || 'bg-slate-100 text-slate-700'}">${escapeHtml(labels[v] || v || '-')}</span>`;
       }
     },
     { key: 'codigo_fornecedor', label: 'Código', sortable: true, width: '120px' },

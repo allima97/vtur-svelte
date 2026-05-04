@@ -1,6 +1,15 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { requireAuthenticatedUser, resolveUserScope, ensureModuloAccess, getAdminClient, logServerError } from '$lib/server/v1';
+import {
+  requireAuthenticatedUser,
+  resolveUserScope,
+  ensureModuloAccess,
+  getAdminClient,
+  resolveScopedCompanyIds,
+  toErrorResponse
+} from '$lib/server/v1';
 import { titleCaseNome } from '$lib/normalizeText';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -15,6 +24,13 @@ export async function POST(event: RequestEvent) {
     const telefone = String(body?.telefone || '').trim();
     if (!nome || !telefone) return new Response('Nome e telefone obrigatorios.', { status: 400 });
 
+    const requestedCompanyId = String(body?.company_id || '').trim();
+    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
+    const companyId = scope.isAdmin ? requestedCompanyId || null : companyIds[0] || null;
+    if (!scope.isAdmin && !companyId) {
+      return new Response('Empresa nao identificada.', { status: 400, headers: NO_STORE_HEADERS });
+    }
+
     const payload: Record<string, any> = {
       nome,
       telefone,
@@ -22,7 +38,7 @@ export async function POST(event: RequestEvent) {
       ativo: true,
       active: true
     };
-    if (scope.companyId) payload.company_id = scope.companyId;
+    if (companyId) payload.company_id = companyId;
 
     const { data, error } = await client
       .from('clientes')
@@ -31,12 +47,16 @@ export async function POST(event: RequestEvent) {
       .single();
     if (error || !data) throw error || new Error('Falha ao criar cliente.');
 
+    invalidateClientReadModels({
+      companyIds: companyId ? [companyId] : [],
+      userId: user.id
+    });
+
     return new Response(JSON.stringify({ item: data }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...NO_STORE_HEADERS }
     });
   } catch (err) {
-    logServerError('[orcamentos/cliente-create] falha ao criar cliente', err);
-    return new Response('Erro ao criar cliente.', { status: 500 });
+    return toErrorResponse(err, 'Erro ao criar cliente.');
   }
 }

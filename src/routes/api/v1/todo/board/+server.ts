@@ -1,6 +1,17 @@
-import { json } from '@sveltejs/kit';
-import { ensureTodoAccess, mapTodoRow } from '$lib/server/agenda';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { json } from "@sveltejs/kit";
+import { ensureTodoAccess, mapTodoRow } from "$lib/server/agenda";
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
+import {
+  getAdminClient,
+  requireAuthenticatedUser,
+  resolveUserScope,
+  toErrorResponse,
+} from "$lib/server/v1";
 
 export async function GET(event) {
   try {
@@ -8,34 +19,53 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    ensureTodoAccess(scope, 1, 'Sem acesso a Tarefas.');
+    ensureTodoAccess(scope, 1, "Sem acesso a Tarefas.");
 
-    const [categoriasResp, itensResp] = await Promise.all([
-      client
-        .from('todo_categorias')
-        .select('id, nome, cor')
-        .eq('user_id', user.id)
-        .order('nome', { ascending: true }),
-      client
-        .from('agenda_itens')
-        .select('id, titulo, descricao, done, categoria_id, prioridade, status, arquivo, created_at, updated_at')
-        .eq('tipo', 'todo')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-    ]);
+    const result = await getCachedReadModel({
+      key: buildReadModelCacheKey("todo:board", {
+        userId: user.id,
+        companyIds: scope.companyIds,
+      }),
+      tags: [
+        READ_MODEL_TAGS.todo,
+        READ_MODEL_TAGS.users,
+        ...scopeCacheTags({ userId: user.id, companyIds: scope.companyIds }),
+      ],
+      ttlMs: 15_000,
+      staleTtlMs: 90_000,
+      loader: async () => {
+        const [categoriasResp, itensResp] = await Promise.all([
+          client
+            .from("todo_categorias")
+            .select("id, nome, cor")
+            .eq("user_id", user.id)
+            .order("nome", { ascending: true }),
+          client
+            .from("agenda_itens")
+            .select(
+              "id, titulo, descricao, done, categoria_id, prioridade, status, arquivo, created_at, updated_at",
+            )
+            .eq("tipo", "todo")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false }),
+        ]);
 
-    if (categoriasResp.error) throw categoriasResp.error;
-    if (itensResp.error) throw itensResp.error;
+        if (categoriasResp.error) throw categoriasResp.error;
+        if (itensResp.error) throw itensResp.error;
 
-    return json({
-      categorias: (categoriasResp.data || []).map((row) => ({
-        id: String(row.id),
-        nome: String(row.nome || ''),
-        cor: row.cor ? String(row.cor) : null
-      })),
-      itens: (itensResp.data || []).map(mapTodoRow).filter(Boolean)
+        return {
+          categorias: (categoriasResp.data || []).map((row) => ({
+            id: String(row.id),
+            nome: String(row.nome || ""),
+            cor: row.cor ? String(row.cor) : null,
+          })),
+          itens: (itensResp.data || []).map(mapTodoRow).filter(Boolean),
+        };
+      },
     });
+
+    return json(result);
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar tarefas.');
+    return toErrorResponse(err, "Erro ao carregar tarefas.");
   }
 }

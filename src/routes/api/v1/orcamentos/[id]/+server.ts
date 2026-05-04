@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 const QUOTE_SELECT_FIELDS =
   'id, created_at, updated_at, created_by, client_id, status, status_negociacao, currency, total, data_embarque, data_final, last_interaction_at, last_interaction_notes';
@@ -166,6 +167,12 @@ export async function PATCH(event) {
       await client.from('quote_item').insert(itensParaInserir);
     }
 
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      userId: user.id
+    });
+
     return json({ success: true, data });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar orcamento.');
@@ -198,6 +205,12 @@ export async function DELETE(event) {
     deleteQuery = applyQuoteScope(deleteQuery, scope, user, vendedorIds);
     const { error } = await deleteQuery;
     if (error) throw error;
+
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: vendedorIds.length > 0 ? vendedorIds : [user.id],
+      userId: user.id
+    });
 
     return json({ success: true });
   } catch (err) {

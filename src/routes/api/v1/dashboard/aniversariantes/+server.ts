@@ -7,6 +7,12 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { addDaysISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 /** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
  *  evitando qualquer problema de timezone/DST. */
@@ -57,16 +63,39 @@ export async function GET(event) {
     const outputLimit = clampIntParam(searchParams.get('limit'), 500, 1, 500);
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
 
-    // Busca clientes com aniversário
-    let clientesQuery = client
-      .from('clientes')
-      .select('id, nome, nascimento, telefone, whatsapp, email')
-      .not('nascimento', 'is', null)
-      .limit(2000);
+    if (!scope.isAdmin && companyIds.length === 0) {
+      return json({
+        items: [],
+        hoje: 0,
+        proximos: 0
+      });
+    }
 
-    if (companyIds.length > 0) clientesQuery = clientesQuery.in('company_id', companyIds);
+    const clientes = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', {
+        companyIds
+      }),
+      tags: [
+        READ_MODEL_TAGS.clients,
+        READ_MODEL_TAGS.dashboard,
+        ...scopeCacheTags({ companyIds, userId: user.id })
+      ],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        let clientesQuery = client
+          .from('clientes')
+          .select('id, nome, nascimento, telefone, whatsapp, email')
+          .not('nascimento', 'is', null)
+          .limit(2000);
 
-    const { data: clientes } = await clientesQuery;
+        if (companyIds.length > 0) clientesQuery = clientesQuery.in('company_id', companyIds);
+
+        const { data, error } = await clientesQuery;
+        if (error) throw error;
+        return data || [];
+      }
+    });
 
     const aniversariantesFiltrados = (clientes || [])
       .filter((c: any) => isBirthdayInRange(c.nascimento, diasAfrente))

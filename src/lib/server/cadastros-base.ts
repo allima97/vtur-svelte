@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserScope } from '$lib/server/v1';
 import { isUuid, normalizeText, parseIntSafe, sanitizePostgrestSearchTerm } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 type QueryResult<T> = { data: T[] | null; error: any };
 
@@ -138,46 +144,78 @@ export async function fetchProdutosBase(
     );
   }
 
-  const [
+  const companyTags = scope.companyId ? [scope.companyId] : [];
+  const [auxiliares, produtosResp] = await Promise.all([
+    getCachedReadModel({
+      key: buildReadModelCacheKey('produtos-base:auxiliares', {
+        companyId: scope.companyId || null
+      }),
+      tags: [READ_MODEL_TAGS.catalog, ...scopeCacheTags({ companyIds: companyTags })],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        const [
+          paises,
+          subdivisoes,
+          tipos,
+          destinosProdutos,
+          cidadesComPais,
+          cidadesBase,
+          fornecedores
+        ] = await Promise.all([
+          optionalRows(client.from('paises').select('id, nome').order('nome')),
+          optionalRows(client.from('subdivisoes').select('id, nome, codigo_admin1, pais_id').order('nome')),
+          optionalRows(client.from('tipo_produtos').select('id, nome, tipo, ativo').eq('ativo', true).order('nome')),
+          optionalRows(
+            client
+              .from('produtos')
+              .select('destino, atracao_principal, melhor_epoca')
+              .order('destino', { ascending: true })
+              .limit(1000)
+          ),
+          optionalRows(
+            client
+              .from('cidades')
+              .select('id, nome, subdivisao_id, subdivisao:subdivisoes(id, nome, pais_id)')
+              .order('nome', { ascending: true })
+              .limit(5000)
+          ),
+          optionalRows(client.from('cidades').select('id, nome').order('nome', { ascending: true }).limit(5000)),
+          scope.companyId
+            ? optionalRows(
+                client
+                  .from('fornecedores')
+                  .select('id, nome_completo, nome_fantasia')
+                  .eq('company_id', scope.companyId)
+                  .order('nome_fantasia', { ascending: true })
+                  .limit(2000)
+              )
+            : Promise.resolve([])
+        ]);
+
+        return {
+          paises,
+          subdivisoes,
+          tipos,
+          destinosProdutos,
+          cidadesComPais,
+          cidadesBase,
+          fornecedores
+        };
+      }
+    }),
+    produtosQuery
+  ]);
+
+  const {
     paises,
     subdivisoes,
     tipos,
-    produtosResp,
     destinosProdutos,
     cidadesComPais,
     cidadesBase,
     fornecedores
-  ] = await Promise.all([
-    optionalRows(client.from('paises').select('id, nome').order('nome')),
-    optionalRows(client.from('subdivisoes').select('id, nome, codigo_admin1, pais_id').order('nome')),
-    optionalRows(client.from('tipo_produtos').select('id, nome, tipo, ativo').eq('ativo', true).order('nome')),
-    produtosQuery,
-    optionalRows(
-      client
-        .from('produtos')
-        .select('destino, atracao_principal, melhor_epoca')
-        .order('destino', { ascending: true })
-        .limit(1000)
-    ),
-    optionalRows(
-      client
-        .from('cidades')
-        .select('id, nome, subdivisao_id, subdivisao:subdivisoes(id, nome, pais_id)')
-        .order('nome', { ascending: true })
-        .limit(5000)
-    ),
-    optionalRows(client.from('cidades').select('id, nome').order('nome', { ascending: true }).limit(5000)),
-    scope.companyId
-      ? optionalRows(
-          client
-            .from('fornecedores')
-            .select('id, nome_completo, nome_fantasia')
-            .eq('company_id', scope.companyId)
-            .order('nome_fantasia', { ascending: true })
-            .limit(2000)
-        )
-      : Promise.resolve([])
-  ]);
+  } = auxiliares;
 
   if (produtosResp.error) throw produtosResp.error;
 

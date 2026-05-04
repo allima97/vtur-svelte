@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import type { RequestHandler } from './$types';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { logServerError } from '$lib/server/v1';
@@ -35,7 +36,7 @@ function sanitizePayload(payload: any) {
 
   return {
     message: trimField(payload.message),
-    stack: trimField(payload.stack),
+    stack: dev ? trimField(payload.stack) : '',
     page: trimField(payload.page),
     source: trimField(payload.source),
     ts: trimField(payload.ts),
@@ -70,10 +71,20 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     const url = new URL(request.url);
     const safePayload = sanitizePayload(payload);
 
-    console.error('CLIENT_ERROR', {
-      url: url.pathname,
-      payload: safePayload
-    });
+    if (dev) {
+      console.error('CLIENT_ERROR', {
+        url: url.pathname,
+        payload: safePayload
+      });
+    } else {
+      console.warn('CLIENT_ERROR', {
+        url: url.pathname,
+        message: safePayload.message,
+        page: safePayload.page,
+        source: safePayload.source,
+        ts: safePayload.ts
+      });
+    }
   } catch (err: any) {
     logServerError('CLIENT_ERROR_PARSE', err);
   }

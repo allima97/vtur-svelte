@@ -25,6 +25,8 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { addDaysISODate, monthRangeFromKey } from '$lib/date';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MONEY_TOLERANCE = 0.01;
 const AUTO_FIX_CODES = new Set([
@@ -711,6 +713,10 @@ export async function POST(event) {
 
     const remainingCorrigiveis = dryRun ? corrigiveis : Math.max(0, corrigiveis - corrigidos);
 
+    if (corrigidos > 0) {
+      invalidateSalesReadModels({ companyIds: [companyId], userId: user.id });
+    }
+
     return json({
       ok: true,
       checked: rows.length,
@@ -725,7 +731,7 @@ export async function POST(event) {
       detalhes: detalhes
         .filter((item: any) => item.issues.length > 0)
         .slice(0, 200)
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao auditar vinculos de conciliacao.');
   }

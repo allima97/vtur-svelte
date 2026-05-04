@@ -7,6 +7,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 // Usa commission_rule e commission_tier (tabelas reais do schema)
 
@@ -90,7 +92,8 @@ export async function POST(event) {
       await client.from('commission_tier').insert(tiersData);
     }
 
-    return json({ success: true, data: regraData });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ success: true, data: regraData }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar regra de comissão.');
   }
@@ -120,7 +123,8 @@ export async function PUT(event) {
     const { error } = await client.from('commission_rule').update(payload).eq('id', id);
     if (error) throw error;
 
-    return json({ success: true });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra.');
   }
@@ -143,7 +147,8 @@ export async function DELETE(event) {
     const { error } = await client.from('commission_rule').delete().eq('id', id);
     if (error) throw error;
 
-    return json({ success: true });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra.');
   }

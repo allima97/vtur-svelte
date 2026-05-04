@@ -9,6 +9,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 export async function PATCH(event) {
   try {
@@ -58,7 +60,8 @@ export async function PATCH(event) {
     const { data, error } = await updateQuery.select('id, status, updated_at').single();
     if (error) throw error;
 
-    return json({ success: true, item: data });
+    invalidateSalesReadModels();
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao atualizar status da venda.');
   }

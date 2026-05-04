@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 function safeJsonParse(text: string) {
   try {
@@ -84,6 +85,7 @@ export async function POST(event: RequestEvent) {
       return new Response('Nao foi possivel atualizar o recibo principal.', { status: 403 });
     }
 
+    invalidateSalesReadModels();
     return json(
       {
         ok: true,

@@ -6,8 +6,15 @@ import {
   parseIntSafe,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateCatalogReadModels,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -20,45 +27,49 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
-    const q = String(searchParams.get('q') || '').trim();
+    const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
     const subdivisaoId = String(searchParams.get('subdivisao_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
     const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));
-    const canUseDbPagination = !q;
 
     const selectFields = `
         id, nome, subdivisao_id, descricao, created_at,
         subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id, pais:paises!pais_id(id, nome))
       `;
 
-    let query = (canUseDbPagination
-      ? client.from('cidades').select(selectFields, { count: 'exact' })
-      : client.from('cidades').select(selectFields)
-    ).order('nome');
+    const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
+      key: buildReadModelCacheKey('cidades:list', {
+        q,
+        subdivisaoId,
+        page,
+        pageSize
+      }),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        let query = client
+          .from('cidades')
+          .select(selectFields, { count: 'exact' })
+          .order('nome')
+          .range((page - 1) * pageSize, page * pageSize - 1);
 
-    if (canUseDbPagination) {
-      query = query.range((page - 1) * pageSize, page * pageSize - 1);
-    } else {
-      query = query.limit(5000);
-    }
+        if (subdivisaoId) query = query.eq('subdivisao_id', subdivisaoId);
+        if (q) {
+          query = query.or(`nome.ilike.%${q}%,descricao.ilike.%${q}%`);
+        }
 
-    if (subdivisaoId) query = query.eq('subdivisao_id', subdivisaoId);
+        const { data, count, error: queryError } = await query;
+        if (queryError) throw queryError;
 
-    const { data, count, error: queryError } = await query;
-    if (queryError) throw queryError;
+        return {
+          items: data || [],
+          total: Number(count ?? data?.length ?? 0)
+        };
+      }
+    });
 
-    let items = data || [];
-    if (q) {
-      const qLower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      items = items.filter((item: any) =>
-        String(item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qLower)
-      );
-    }
-
-    const total = canUseDbPagination ? Number(count ?? data?.length ?? 0) : items.length;
-    const paginatedItems = canUseDbPagination ? items : items.slice((page - 1) * pageSize, page * pageSize);
-
-    return json({ items: paginatedItems, total, page, pageSize });
+    return json({ items, total, page, pageSize });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar cidades.');
   }
@@ -97,6 +108,7 @@ export async function POST(event) {
       result = data;
     }
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true, id: result?.id });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar cidade.');
@@ -119,6 +131,7 @@ export async function DELETE(event) {
     const { error: deleteError } = await client.from('cidades').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
+    invalidateCatalogReadModels({ userId: user.id });
     return json({ ok: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir cidade.');

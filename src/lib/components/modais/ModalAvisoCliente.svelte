@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { X, MessageCircle, Mail, Send, Phone, Copy, Pencil, ExternalLink, Download } from 'lucide-svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dialog, FieldInput, FieldTextarea, FieldSelect, LoadingState } from '$lib/components/ui';
@@ -7,6 +8,7 @@
   import { formatDateTime } from '$lib/utils/formatters';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { safeOpenNewTab } from '$lib/security/url';
 
   export let open: boolean = false;
   export let clienteId: string = '';
@@ -309,7 +311,7 @@
           .sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
       }
     } catch (err) {
-      console.error('Erro ao carregar templates:', err);
+      if (dev) console.error('Erro ao carregar templates:', err);
       templates = [];
       erroTemplates = err instanceof Error ? err.message : 'Falha ao carregar templates';
     } finally {
@@ -326,7 +328,7 @@
       historico = Array.isArray(data?.items) ? data.items : [];
       historicoIndisponivel = data?.unavailable === true;
     } catch (err) {
-      console.error('Erro ao carregar histórico:', err);
+      if (dev) console.error('Erro ao carregar histórico:', err);
       historico = [];
     } finally {
       carregandoHistorico = false;
@@ -363,7 +365,7 @@
 
   function openPreviewSvg() {
     if (!previewCardUrl) return;
-    window.open(previewCardUrl, '_blank', 'noopener,noreferrer');
+    safeOpenNewTab(previewCardUrl, ['http:', 'https:']);
   }
 
   async function downloadPreviewPng() {
@@ -382,7 +384,7 @@
     const pngUrl = previewCardUrl.replace('/render.svg', '/render.png');
     const primeiroNome = getPrimeiroNome(clienteNome);
     const text = `Segue seu cartao, ${primeiroNome || 'cliente'}: ${pngUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    safeOpenNewTab(`https://wa.me/?text=${encodeURIComponent(text)}`, ['https:']);
   }
 
   function clearPreviewActions() {
@@ -416,8 +418,11 @@
       });
 
       if (payload?.canal === 'whatsapp' && payload?.whatsapp_url) {
-        window.open(payload.whatsapp_url, '_blank', 'noopener,noreferrer');
-        toast.success('WhatsApp preparado com sucesso');
+        if (safeOpenNewTab(payload.whatsapp_url, ['https:'])) {
+          toast.success('WhatsApp preparado com sucesso');
+        } else {
+          toast.error('Link do WhatsApp inválido.');
+        }
       } else {
         toast.success('E-mail enviado com sucesso');
       }

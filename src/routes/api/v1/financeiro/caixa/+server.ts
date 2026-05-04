@@ -11,6 +11,13 @@ import {
   getMonthRange
 } from '$lib/server/v1';
 import { addDaysISODate, parseISODateLocal, todayISODateLocal } from '$lib/date';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -48,14 +55,30 @@ export async function GET(event) {
 
     let vendaIds: string[] = [];
     if (companyIds.length > 0) {
-      const { data: vendasScope } = await client
-        .from('vendas')
-        .select('id')
-        .in('company_id', companyIds)
-        .gte('data_venda', inicio)
-        .lte('data_venda', fim)
-        .limit(5000);
-      vendaIds = (vendasScope || []).map((v: any) => String(v.id || '').trim()).filter(Boolean);
+      vendaIds = await getCachedReadModel<string[]>({
+        key: buildReadModelCacheKey('caixa:venda-ids', {
+          companyIds,
+          inicio,
+          fim
+        }),
+        tags: [
+          READ_MODEL_TAGS.finance,
+          READ_MODEL_TAGS.sales,
+          ...scopeCacheTags({ companyIds, userId: user.id })
+        ],
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: async () => {
+          const { data: vendasScope } = await client
+            .from('vendas')
+            .select('id')
+            .in('company_id', companyIds)
+            .gte('data_venda', inicio)
+            .lte('data_venda', fim)
+            .limit(5000);
+          return (vendasScope || []).map((v: any) => String(v.id || '').trim()).filter(Boolean);
+        }
+      });
       if (vendaIds.length === 0) {
         return json({
           success: true,
@@ -84,8 +107,30 @@ export async function GET(event) {
       pagamentosQuery = pagamentosQuery.in('venda_id', vendaIds);
     }
 
-    const { data: pagamentos, error: pagError } = await pagamentosQuery;
-    if (pagError) logServerError('[caixa] Erro pagamentos', pagError);
+    const pagamentos = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('caixa:pagamentos', {
+        companyIds,
+        vendaIds,
+        inicio,
+        fim
+      }),
+      tags: [
+        READ_MODEL_TAGS.finance,
+        READ_MODEL_TAGS.payments,
+        READ_MODEL_TAGS.sales,
+        ...scopeCacheTags({ companyIds, userId: user.id })
+      ],
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const { data, error: pagError } = await pagamentosQuery;
+        if (pagError) {
+          logServerError('[caixa] Erro pagamentos', pagError);
+          return [];
+        }
+        return data || [];
+      }
+    });
 
     let movQuery = client
       .from('caixa_movimentacoes')
@@ -96,11 +141,27 @@ export async function GET(event) {
 
     if (companyIds.length > 0) movQuery = movQuery.in('company_id', companyIds);
 
-    const { data: movimentacoes, error: movError } = await movQuery;
-    if (movError) logServerError('[caixa] caixa_movimentacoes', movError);
+    const movimentacoes = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('caixa:movimentacoes', {
+        companyIds,
+        inicio,
+        fim
+      }),
+      tags: [READ_MODEL_TAGS.finance, ...scopeCacheTags({ companyIds, userId: user.id })],
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const { data, error: movError } = await movQuery;
+        if (movError) {
+          logServerError('[caixa] caixa_movimentacoes', movError);
+          return [];
+        }
+        return data || [];
+      }
+    });
 
     const pagItems = pagamentos || [];
-    const movItems = (movError ? [] : movimentacoes) || [];
+    const movItems = movimentacoes || [];
 
     const totalEntradasPagamentos = pagItems.reduce((sum: number, p: any) => sum + Number(p.valor_total || 0), 0);
     const totalEntradasMovimentacoes = movItems
@@ -212,6 +273,17 @@ export async function POST(event) {
       }
       throw error;
     }
+
+    const financeScopeTags = scopeCacheTags({
+      companyIds: data?.company_id ? [data.company_id] : [],
+      userId: user.id
+    });
+    invalidateReadModelCache({
+      tags: [
+        READ_MODEL_TAGS.finance,
+      ],
+      scopeTags: financeScopeTags
+    });
 
     return json({ success: true, item: data });
   } catch (err) {

@@ -9,6 +9,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -329,12 +331,13 @@ export async function POST(event) {
     const { error: updateSaleError } = await updateSaleQuery;
     if (updateSaleError) throw updateSaleError;
 
+    invalidateSalesReadModels();
     return json({
       ok: true,
       removed_pagamentos: duplicateIds.length,
       total_bruto: totalBrutoRecibos,
       total_taxas: totalTaxasRecibos
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao mesclar vendas.');
   }

@@ -1,12 +1,18 @@
-import { json, type RequestEvent } from '@sveltejs/kit';
+import { json, type RequestEvent } from "@sveltejs/kit";
 import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
   resolveAccessibleClientIds,
   resolveUserScope,
-  toErrorResponse
-} from '$lib/server/v1';
+  toErrorResponse,
+} from "$lib/server/v1";
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -27,11 +33,11 @@ function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
 function dedupeClientes(rows: ViagemClienteRow[]) {
   const map = new Map<string, ViagemClienteRow>();
   rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
+    const id = String(row?.id || "").trim();
     if (id && !map.has(id)) map.set(id, row);
   });
   return Array.from(map.values()).sort((left, right) =>
-    String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR')
+    String(left.nome || "").localeCompare(String(right.nome || ""), "pt-BR"),
   );
 }
 
@@ -42,47 +48,91 @@ export async function GET(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      ensureModuloAccess(scope, ['operacao_viagens', 'viagens', 'operacao'], 1, 'Sem acesso a Viagens.');
+      ensureModuloAccess(
+        scope,
+        ["operacao_viagens", "viagens", "operacao"],
+        1,
+        "Sem acesso a Viagens.",
+      );
     }
 
     const vendedorIds = scope.usoIndividual ? [user.id] : [];
     const accessibleClientIds = !scope.isAdmin
-      ? await resolveAccessibleClientIds(client, { companyIds: scope.companyIds, vendedorIds })
+      ? await resolveAccessibleClientIds(client, {
+          companyIds: scope.companyIds,
+          vendedorIds,
+        })
       : [];
 
-    const buildQuery = (clientIds?: string[]) => {
-      let query = client.from('clientes').select('id, nome, cpf').order('nome', { ascending: true }).limit(200);
-      if (clientIds) {
-        query = query.in('id', clientIds);
-      }
-      return query;
-    };
+    if (!scope.isAdmin && accessibleClientIds.length === 0) {
+      return json([]);
+    }
 
-    const fetchClientes = async () => {
-      if (!scope.isAdmin && accessibleClientIds.length > 0) {
-        if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
-          return buildQuery(accessibleClientIds);
-        }
-
-        const rows: ViagemClienteRow[] = [];
-        for (const batch of chunkArray(accessibleClientIds)) {
-          const result = await buildQuery(batch);
-          if (result.error) {
-            return { data: null, error: result.error } as typeof result;
+    const cacheKey = buildReadModelCacheKey("viagens:clientes", {
+      isAdmin: scope.isAdmin,
+      companyIds: scope.companyIds,
+      vendedorIds,
+      accessibleClientIds,
+      userId: user.id,
+    });
+    const payload = await getCachedReadModel({
+      key: cacheKey,
+      tags: [
+        READ_MODEL_TAGS.trips,
+        READ_MODEL_TAGS.clients,
+        READ_MODEL_TAGS.sales,
+        ...scopeCacheTags({
+          companyIds: scope.companyIds,
+          vendedorIds,
+          userId: user.id,
+        }),
+      ],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () => {
+        const buildQuery = (clientIds?: string[]) => {
+          let query = client
+            .from("clientes")
+            .select("id, nome, cpf")
+            .order("nome", { ascending: true })
+            .limit(200);
+          if (clientIds) {
+            query = query.in("id", clientIds);
           }
-          rows.push(...(((result.data || []) as unknown) as ViagemClienteRow[]));
-        }
+          return query;
+        };
 
-        return { data: dedupeClientes(rows).slice(0, 200), error: null };
-      }
+        const fetchClientes = async () => {
+          if (!scope.isAdmin && accessibleClientIds.length > 0) {
+            if (accessibleClientIds.length <= SUPABASE_IN_BATCH_SIZE) {
+              return buildQuery(accessibleClientIds);
+            }
 
-      return buildQuery();
-    };
+            const rows: ViagemClienteRow[] = [];
+            for (const batch of chunkArray(accessibleClientIds)) {
+              const result = await buildQuery(batch);
+              if (result.error) {
+                return { data: null, error: result.error } as typeof result;
+              }
+              rows.push(
+                ...((result.data || []) as unknown as ViagemClienteRow[]),
+              );
+            }
 
-    const { data, error } = await fetchClientes();
-    if (error) throw error;
-    return json(data || []);
+            return { data: dedupeClientes(rows).slice(0, 200), error: null };
+          }
+
+          return buildQuery();
+        };
+
+        const { data, error } = await fetchClientes();
+        if (error) throw error;
+        return data || [];
+      },
+    });
+
+    return json(payload);
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar clientes.');
+    return toErrorResponse(err, "Erro ao carregar clientes.");
   }
 }

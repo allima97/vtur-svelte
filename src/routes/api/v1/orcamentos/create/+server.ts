@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event) {
   try {
@@ -94,6 +95,12 @@ export async function POST(event) {
       logServerError('[orcamentos/create] erro ao criar itens do quote', itemsError);
       return json({ error: 'Erro ao salvar itens do orcamento.' }, { status: 500 });
     }
+
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: [user.id],
+      userId: user.id
+    });
 
     return json(
       {

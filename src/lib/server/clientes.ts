@@ -158,13 +158,88 @@ export async function ensureClienteAccess(
     ensureModuloAccess(scope, ['clientes', 'clientes_consulta', 'vendas'], minLevel, 'Sem acesso a Clientes.');
   }
 
-  const filters = await resolveClienteScopedFilters(client, scope, companyParam, vendedorParam);
+  const companyIds = resolveScopedCompanyIds(scope, companyParam);
+  const vendedorIds = await resolveScopedVendedorIds(client, scope, vendedorParam);
+  const normalizedClienteId = String(clienteId || '').trim();
 
-  if (!filters.accessibleClientIds) {
+  const filters: ClienteScopedFilters = {
+    companyIds,
+    vendedorIds,
+    accessibleClientIds: null
+  };
+
+  if (!normalizedClienteId) {
+    throw error(400, 'Cliente invalido.');
+  }
+
+  if (scope.isAdmin && companyIds.length === 0 && vendedorIds.length === 0) {
     return filters;
   }
 
-  if (!filters.accessibleClientIds.includes(clienteId)) {
+  const tipoNome = String(scope.tipoNome || '').toUpperCase();
+  const canUseCompanyScope =
+    scope.isAdmin ||
+    scope.isMaster ||
+    scope.isGestor ||
+    tipoNome.includes('MASTER') ||
+    tipoNome.includes('GESTOR');
+
+  if (canUseCompanyScope) {
+    let clienteQuery = client
+      .from('clientes')
+      .select('id')
+      .eq('id', normalizedClienteId)
+      .limit(1);
+
+    if (companyIds.length > 0) {
+      clienteQuery = clienteQuery.in('company_id', companyIds);
+    }
+
+    const { data, error: clienteError } = await clienteQuery.maybeSingle();
+    if (clienteError || !data?.id) {
+      throw error(403, 'Sem permissao para acessar este cliente.');
+    }
+
+    return filters;
+  }
+
+  const scopedVendedorIds = vendedorIds.length > 0 ? vendedorIds : [scope.userId].filter(Boolean);
+  filters.accessibleClientIds = [normalizedClienteId];
+
+  let clienteCriadoQuery = client
+    .from('clientes')
+    .select('id')
+    .eq('id', normalizedClienteId)
+    .limit(1);
+
+  if (companyIds.length > 0) {
+    clienteCriadoQuery = clienteCriadoQuery.in('company_id', companyIds);
+  }
+  if (scopedVendedorIds.length > 0) {
+    clienteCriadoQuery = clienteCriadoQuery.in('created_by', scopedVendedorIds);
+  }
+
+  const { data: clienteCriado, error: clienteCriadoError } = await clienteCriadoQuery.maybeSingle();
+  if (!clienteCriadoError && clienteCriado?.id) {
+    return filters;
+  }
+
+  let vendaClienteQuery = client
+    .from('vendas')
+    .select('id')
+    .eq('cliente_id', normalizedClienteId)
+    .eq('cancelada', false)
+    .limit(1);
+
+  if (companyIds.length > 0) {
+    vendaClienteQuery = vendaClienteQuery.in('company_id', companyIds);
+  }
+  if (scopedVendedorIds.length > 0) {
+    vendaClienteQuery = vendaClienteQuery.in('vendedor_id', scopedVendedorIds);
+  }
+
+  const { data: vendaCliente, error: vendaClienteError } = await vendaClienteQuery.maybeSingle();
+  if (vendaClienteError || !vendaCliente?.id) {
     throw error(403, 'Sem permissao para acessar este cliente.');
   }
 

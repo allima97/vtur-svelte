@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { dev } from '$app/environment';
   import { get } from 'svelte/store';
   import Sidebar from '$lib/components/layout/Sidebar.svelte';
   import Topbar from '$lib/components/layout/Topbar.svelte';
@@ -23,7 +24,7 @@
       const supabase = createSupabaseBrowserClient();
       await permissoes.init(supabase);
     } catch (err) {
-      console.error('[AppLayout] Erro ao inicializar permissoes:', err);
+      if (dev) console.error('[AppLayout] Erro ao inicializar permissoes:', err);
       const message = String((err as any)?.message || '').toLowerCase();
       if (
         message.includes('sessao invalida') ||

@@ -22,11 +22,13 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateUserReadModels } from '$lib/server/readModelCache';
 
 export async function GET(event: RequestEvent) {
   try {
     const { session, user } = await event.locals.safeGetSession();
-    if (!session || !user) return new Response('Sessao invalida.', { status: 401 });
+    if (!session || !user) return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
 
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
@@ -34,7 +36,7 @@ export async function GET(event: RequestEvent) {
     ensureCanManagePermissions(scope);
 
     const userId = String(event.params.id || '').trim();
-    if (!isUuid(userId)) return new Response('ID invalido.', { status: 400 });
+    if (!isUuid(userId)) return new Response('ID invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const targetUser = await loadManagedUser(client, scope, userId);
     const permissions = await loadUserPermissions(client, userId);
@@ -48,19 +50,22 @@ export async function GET(event: RequestEvent) {
       globalModules = [];
     }
 
-    return json({
-      user: {
-        id: targetUser.id,
-        nome: targetUser.nome_completo || targetUser.email || 'Usuario sem nome',
-        email: targetUser.email || null
+    return json(
+      {
+        user: {
+          id: targetUser.id,
+          nome: targetUser.nome_completo || targetUser.email || 'Usuario sem nome',
+          email: targetUser.email || null
+        },
+        permissions: buildPermissionMatrix(permissions),
+        global_modules: globalModules,
+        sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES),
+        system_module_catalog: listSystemModuleCatalog(
+          globalModules.map((row: any) => String(row.module_key || '').trim())
+        )
       },
-      permissions: buildPermissionMatrix(permissions),
-      global_modules: globalModules,
-      sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES),
-      system_module_catalog: listSystemModuleCatalog(
-        globalModules.map((row: any) => String(row.module_key || '').trim())
-      )
-    });
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     logServerError('[admin/permissoes/[id]] falha ao carregar permissoes', err);
     return toErrorResponse(err, 'Erro ao carregar permissoes do usuario.');
@@ -70,7 +75,7 @@ export async function GET(event: RequestEvent) {
 export async function POST(event: RequestEvent) {
   try {
     const { session, user } = await event.locals.safeGetSession();
-    if (!session || !user) return new Response('Sessao invalida.', { status: 401 });
+    if (!session || !user) return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
 
     const client = getAdminClient();
     const scope = await resolveUserScope(client, user.id);
@@ -78,18 +83,22 @@ export async function POST(event: RequestEvent) {
     ensureCanManagePermissions(scope);
 
     const userId = String(event.params.id || '').trim();
-    if (!isUuid(userId)) return new Response('ID invalido.', { status: 400 });
+    if (!isUuid(userId)) return new Response('ID invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const body = await event.request.json().catch(() => ({}));
 
     const targetUser = await loadManagedUser(client, scope, userId);
-    if (!targetUser) return new Response('Usuario fora do escopo.', { status: 403 });
+    if (!targetUser) return new Response('Usuario fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
 
     const permissions = Array.isArray(body.permissions) ? body.permissions : [];
     ensureAssignablePermissionSet(scope, permissions);
     await saveUserPermissions(client, userId, permissions);
+    invalidateUserReadModels({
+      userId,
+      companyIds: scope.companyIds
+    });
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[admin/permissoes/[id]] falha ao salvar permissoes', err);
     return toErrorResponse(err, 'Erro ao salvar permissoes.');

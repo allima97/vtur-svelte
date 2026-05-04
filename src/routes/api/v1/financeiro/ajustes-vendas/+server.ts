@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
-  fetchGestorEquipeIdsComGestor,
   getAdminClient,
   isUuid,
   logServerError,
@@ -278,10 +277,13 @@ export async function POST(event) {
 
     // Restrição de gestor: só pode ratear vendas da própria equipe
     if (scope.isGestor) {
-      const equipeIds = await fetchGestorEquipeIdsComGestor(client, scope.userId);
+      const gestorCompanyIds = companyId ? [companyId] : scope.companyIds;
+      const equipeIds = (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds))
+        .map((row: any) => String(row?.id || '').trim())
+        .filter(Boolean);
       const equipeSet = new Set(equipeIds.map((id) => String(id || '').trim()));
       if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedor_destino_id)) {
-        return json({ error: 'Gestor só pode ratear vendas da própria equipe.' }, { status: 403 });
+        return json({ error: 'Gestor só pode ratear vendas da própria empresa.' }, { status: 403 });
       }
     }
 

@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event: RequestEvent) {
   try {
@@ -61,11 +62,15 @@ export async function POST(event: RequestEvent) {
     if (clientId) {
       const { data: cliente } = await client
         .from('clientes')
-        .select('nome, whatsapp, email')
+        .select('nome, whatsapp, email, company_id')
         .eq('id', clientId)
         .maybeSingle();
 
       if (cliente) {
+        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+          return new Response('Cliente fora do seu escopo.', { status: 403 });
+        }
         clientWhatsapp = clientWhatsapp || (cliente as any).whatsapp || null;
         clientEmail = clientEmail || (cliente as any).email || null;
       }
@@ -117,6 +122,12 @@ export async function POST(event: RequestEvent) {
       const { error: itemErr } = await client.from('quote_item').insert(items);
       if (itemErr) throw itemErr;
     }
+
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: [user.id],
+      userId: user.id
+    });
 
     return json({ ok: true, quote_id: quote.id });
   } catch (err) {

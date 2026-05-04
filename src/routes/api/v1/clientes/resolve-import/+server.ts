@@ -8,6 +8,7 @@ import {
 } from '$lib/server/v1';
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { titleCaseNome } from '$lib/normalizeText';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
 function normalizeCpf(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
@@ -38,6 +39,9 @@ export async function POST(event) {
 
     // ✅ Filtra clientes pelo escopo da empresa do usuário
     const allowedCompanyIds = resolveScopedCompanyIds(scope, null);
+    if (!scope.isAdmin && allowedCompanyIds.length === 0) {
+      return json({ error: 'Empresa não identificada.' }, { status: 400 });
+    }
 
     let existingQuery = client
       .from('clientes')
@@ -66,6 +70,10 @@ export async function POST(event) {
 
       if (Object.keys(updates).length > 0) {
         await client.from('clientes').update(updates).eq('id', existing.id);
+        invalidateClientReadModels({
+          companyIds: allowedCompanyIds,
+          userId: user.id
+        });
       }
 
       return json({ cliente: { ...existing, ...updates }, created: false });
@@ -102,6 +110,11 @@ export async function POST(event) {
       .single();
 
     if (insertError) throw insertError;
+
+    invalidateClientReadModels({
+      companyIds: companyId ? [companyId] : allowedCompanyIds,
+      userId: user.id
+    });
 
     return json({ cliente: created, created: true });
   } catch (err) {

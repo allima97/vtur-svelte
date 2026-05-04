@@ -10,6 +10,8 @@ import {
   resolveScopedVendedorIds
 } from '$lib/server/v1';
 import { getAdminClient } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 
 const EXCLUDED_PRODUTO_TIPOS = new Set(
   [
@@ -290,9 +292,15 @@ export async function POST(event: RequestEvent) {
       .eq('id', quoteId);
     if (quoteError) throw quoteError;
 
+    invalidateQuoteReadModels({
+      companyIds: scope.companyIds,
+      vendedorIds: [user.id],
+      userId: user.id
+    });
+
     return new Response(JSON.stringify({ ok: true, status: nextStatus }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...NO_STORE_HEADERS },
     });
   } catch (err: any) {
     logServerError('[orcamentos/save] falha ao salvar orcamento', err);

@@ -9,6 +9,13 @@ import {
   toErrorResponse,
   normalizeText
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  invalidateReadModelCache,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 // GET - Listar pagamentos
 export async function GET(event) {
@@ -43,10 +50,21 @@ export async function GET(event) {
     if (formaPagamentoId) query = query.eq('forma_pagamento_id', formaPagamentoId);
     if (companyIds.length > 0) query = query.in('company_id', companyIds);
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    let items = (data || []) as any[];
+    let items = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('pagamentos:list', {
+        vendaId,
+        formaPagamentoId,
+        companyIds
+      }),
+      tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.sales, ...scopeCacheTags({ companyIds, userId: user.id })],
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const { data, error } = await query;
+        if (error) throw error;
+        return (data || []) as any[];
+      }
+    });
 
     if (busca) {
       const buscaNormalizada = normalizeText(busca);
@@ -123,6 +141,18 @@ export async function POST(event) {
       .single();
 
     if (error) throw error;
+
+    const paymentScopeTags = scopeCacheTags({
+      companyIds: data?.company_id ? [data.company_id] : [],
+      userId: user.id
+    });
+    invalidateReadModelCache({
+      tags: [
+        READ_MODEL_TAGS.payments,
+        READ_MODEL_TAGS.sales,
+      ],
+      scopeTags: paymentScopeTags
+    });
 
     return json({ success: true, item: data });
   } catch (err) {

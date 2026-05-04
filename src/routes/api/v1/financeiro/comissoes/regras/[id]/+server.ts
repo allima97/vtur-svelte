@@ -6,6 +6,8 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -81,7 +83,8 @@ export async function PUT(event) {
       }
     }
 
-    return json({ success: true, data });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ success: true, data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra.');
   }
@@ -103,7 +106,8 @@ export async function DELETE(event) {
     const { error } = await client.from('commission_rule').delete().eq('id', id);
     if (error) throw error;
 
-    return json({ success: true });
+    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra.');
   }

@@ -5,6 +5,7 @@
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { downloadBlob, fetchPreviewPngBlob } from '$lib/utils/browser-images';
+  import { safeOpenNewTab } from '$lib/security/url';
   import {
     RefreshCw,
     Image as ImageIcon,
@@ -675,7 +676,7 @@
 
   function openPreviewSvg() {
     if (!previewUrl) return;
-    window.open(previewUrl, '_blank', 'noopener,noreferrer');
+    safeOpenNewTab(previewUrl, ['http:', 'https:']);
   }
 
   async function openPreviewPng() {
@@ -698,7 +699,7 @@
     const pngUrl = previewUrl.replace('/render.svg', '/render.png');
     const cliente = primeiroNome || clienteNome || 'cliente';
     const text = `Segue o seu cartao, ${cliente}: ${pngUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    safeOpenNewTab(`https://wa.me/?text=${encodeURIComponent(text)}`, ['https:']);
   }
 
   function clearPreviewSelection() {
@@ -1248,7 +1249,7 @@
             color="crm"
             disabled={palavrasExcedido || linhasExcedido || !selectedTheme}
             on:click={() => {
-              if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer');
+              if (previewUrl) safeOpenNewTab(previewUrl, ['http:', 'https:']);
             }}
           >
             <Eye size={16} class="mr-2" />

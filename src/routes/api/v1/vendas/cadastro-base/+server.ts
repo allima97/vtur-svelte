@@ -30,6 +30,9 @@ function getImportanceRank(value: unknown) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 9999;
 }
 
+const INITIAL_CLIENTES_LIMIT = 300;
+const INITIAL_CIDADES_LIMIT = 500;
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -64,7 +67,7 @@ export async function GET(event: RequestEvent) {
       .from('clientes')
       .select('id, nome, cpf, telefone, email, whatsapp, company_id')
       .order('nome', { ascending: true })
-      .limit(5000);
+      .limit(INITIAL_CLIENTES_LIMIT);
     if (activeCompanyIds.length > 0) clientesQuery = clientesQuery.in('company_id', activeCompanyIds);
 
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
@@ -73,7 +76,7 @@ export async function GET(event: RequestEvent) {
       .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
       .order('grau_importancia', { ascending: true, nullsFirst: false })
       .order('nome', { ascending: true })
-      .limit(5000);
+      .limit(INITIAL_CIDADES_LIMIT);
     const produtosQuery = client
       .from('produtos')
       .select('id, nome, cidade_id, tipo_produto, destino, todas_as_cidades, ativo, informacoes_importantes, fornecedor_id')

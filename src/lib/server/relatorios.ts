@@ -1,6 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isEquipeVturNome } from '$lib/conciliacao/baixaRac';
 import { todayISODateLocal } from '$lib/date';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
+
+const SALES_REPORT_PAGE_SIZE = 1000;
+const SALES_REPORT_MAX_ROWS = 50_000;
 
 export type ReportReceiptRow = {
   id?: string | null;
@@ -221,63 +230,102 @@ export async function fetchSalesReportRows(
     filterByReceiptDate?: boolean;
   }
 ) {
+  const companyIds = Array.from(new Set((params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
+  const vendedorIds = Array.from(new Set((params.vendedorIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
+  const vendaIds = Array.from(new Set((params.vendaIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
+  const dataInicio = String(params.dataInicio || '').trim();
+  const dataFim = String(params.dataFim || '').trim();
+  const includeCancelled = Boolean(params.includeCancelled);
+  const filterByReceiptDate = Boolean(params.filterByReceiptDate);
   const receiptRelation = params.filterByReceiptDate ? 'recibos:vendas_recibos!inner' : 'recibos:vendas_recibos';
 
-  const executeQuery = async (selectClause: string) => {
-    let query = client
-      .from('vendas')
-      .select(selectClause)
-      .order('data_venda', { ascending: false })
-      .limit(50000);
+  return getCachedReadModel({
+    key: buildReadModelCacheKey('sales-report-rows', {
+      dataInicio,
+      dataFim,
+      companyIds,
+      vendedorIds,
+      vendaIds,
+      includeCancelled,
+      filterByReceiptDate
+    }),
+    tags: [
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.clients,
+      READ_MODEL_TAGS.catalog,
+      ...scopeCacheTags({ companyIds, vendedorIds })
+    ],
+    ttlMs: 10_000,
+    staleTtlMs: 45_000,
+    loader: async () => {
+      const executeQuery = async (selectClause: string) => {
+        const rows: ReportVendaRow[] = [];
 
-    if (!params.includeCancelled) {
-      query = query.eq('cancelada', false);
+        for (let offset = 0; offset < SALES_REPORT_MAX_ROWS; offset += SALES_REPORT_PAGE_SIZE) {
+          let query = client
+            .from('vendas')
+            .select(selectClause)
+            .order('data_venda', { ascending: false })
+            .range(offset, offset + SALES_REPORT_PAGE_SIZE - 1);
+
+          if (!includeCancelled) {
+            query = query.eq('cancelada', false);
+          }
+
+          if (dataInicio) {
+            query = query.gte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataInicio);
+          }
+
+          if (dataFim) {
+            query = query.lte(filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', dataFim);
+          }
+
+          if (companyIds.length > 0) {
+            query = query.in('company_id', companyIds);
+          }
+
+          if (vendedorIds.length > 0) {
+            query = query.in('vendedor_id', vendedorIds);
+          }
+
+          if (vendaIds.length > 0) {
+            query = query.in('id', vendaIds);
+          }
+
+          const { data, error } = await query;
+          if (error) return { data: null, error };
+
+          const batch = ((data || []) as unknown) as ReportVendaRow[];
+          rows.push(...batch);
+          if (batch.length < SALES_REPORT_PAGE_SIZE) break;
+        }
+
+        return { data: rows, error: null };
+      };
+
+      const selectVariants = [
+        buildSalesSelect(true, true, true, receiptRelation),
+        buildSalesSelect(true, false, true, receiptRelation),
+        buildSalesSelect(true, false, false, receiptRelation),
+        buildSalesSelect(false, false, false, receiptRelation)
+      ];
+
+      let lastError: unknown = null;
+
+      for (const selectClause of selectVariants) {
+        const { data, error } = await executeQuery(selectClause);
+        if (!error) {
+          return ((data || []) as unknown) as ReportVendaRow[];
+        }
+        lastError = error;
+        if (!isMissingColumnError(error)) {
+          throw error;
+        }
+      }
+
+      throw lastError;
     }
-
-    if (params.dataInicio) {
-      query = query.gte(params.filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', params.dataInicio);
-    }
-
-    if (params.dataFim) {
-      query = query.lte(params.filterByReceiptDate ? 'recibos.data_venda' : 'data_venda', params.dataFim);
-    }
-
-    if ((params.companyIds || []).length > 0) {
-      query = query.in('company_id', params.companyIds || []);
-    }
-
-    if ((params.vendedorIds || []).length > 0) {
-      query = query.in('vendedor_id', params.vendedorIds || []);
-    }
-
-    if ((params.vendaIds || []).length > 0) {
-      query = query.in('id', params.vendaIds || []);
-    }
-
-    return query;
-  };
-
-  const selectVariants = [
-    buildSalesSelect(true, true, true, receiptRelation),
-    buildSalesSelect(true, false, true, receiptRelation),
-    buildSalesSelect(true, false, false, receiptRelation),
-    buildSalesSelect(false, false, false, receiptRelation)
-  ];
-
-  let lastError: unknown = null;
-
-  for (const selectClause of selectVariants) {
-    const { data, error } = await executeQuery(selectClause);
-    if (!error) {
-      return ((data || []) as unknown) as ReportVendaRow[];
-    }
-    lastError = error;
-    if (!isMissingColumnError(error)) {
-      throw error;
-    }
-  }
-
-  throw lastError;
+  });
 }
 
 export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: string[]) {

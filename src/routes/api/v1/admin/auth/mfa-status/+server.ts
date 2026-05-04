@@ -6,6 +6,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+
+const MAX_MFA_STATUS_USERS = 200;
 
 function normalizeUserIds(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -15,7 +18,7 @@ function normalizeUserIds(value: unknown) {
         .map((item) => String(item || '').trim())
         .filter((item) => /^[0-9a-f-]{36}$/i.test(item))
     )
-  );
+  ).slice(0, MAX_MFA_STATUS_USERS);
 }
 
 export async function POST(event) {
@@ -49,7 +52,7 @@ export async function POST(event) {
       };
     }
 
-    return json({ available: true, statuses });
+    return json({ available: true, statuses }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar status de MFA.');
   }

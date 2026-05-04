@@ -13,10 +13,10 @@ import {
 import type { RequestEvent } from '@sveltejs/kit';
 import { error, json } from '@sveltejs/kit';
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { getAdminClient, isUuid, logServerError } from '$lib/server/v1';
 
 const PASSKEY_CHALLENGE_TTL_MS = 5 * 60 * 1000;
-const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
 
 type PasskeyRow = {
   id: string;
@@ -64,6 +64,10 @@ function base64UrlToBytes(value: string) {
   }
 
   return bytes;
+}
+
+function randomCredentialId() {
+  return bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
 }
 
 function getPasskeyRp(event: RequestEvent) {
@@ -369,11 +373,12 @@ export async function buildAuthenticationOptions(event: RequestEvent, email?: st
   const { rpID } = getPasskeyRp(event);
   const normalizedEmail = normalizeEmail(email);
 
-  let passkeys: Array<Pick<PasskeyRow, 'credential_id' | 'transports'>> = [];
+  let passkeys: Array<Pick<PasskeyRow, 'user_id' | 'credential_id' | 'transports'>> = [];
+  let challengeUserId: string | null = null;
   if (normalizedEmail) {
     const { data, error: listError } = await admin
       .from('auth_passkeys')
-      .select('credential_id, transports')
+      .select('user_id, credential_id, transports')
       .eq('user_email', normalizedEmail);
 
     if (listError) {
@@ -382,19 +387,18 @@ export async function buildAuthenticationOptions(event: RequestEvent, email?: st
       throw error(500, 'Erro ao preparar login por passkey.');
     }
 
-    passkeys = (data || []) as Array<Pick<PasskeyRow, 'credential_id' | 'transports'>>;
-    if (passkeys.length === 0) {
-      throw error(404, 'Nenhuma passkey cadastrada para este e-mail.');
-    }
+    passkeys = (data || []) as Array<Pick<PasskeyRow, 'user_id' | 'credential_id' | 'transports'>>;
+    challengeUserId = passkeys[0]?.user_id || null;
   }
 
-  const allowCredentials =
-    normalizedEmail && passkeys.length > 0
+  const allowCredentials = normalizedEmail
+    ? passkeys.length > 0
       ? passkeys.map((row) => ({
           id: row.credential_id,
           transports: normalizeTransports(row.transports)
         }))
-      : undefined;
+      : [{ id: randomCredentialId(), transports: [] }]
+    : undefined;
 
   const options = await generateAuthenticationOptions({
     rpID,
@@ -404,6 +408,7 @@ export async function buildAuthenticationOptions(event: RequestEvent, email?: st
   });
 
   const challengeId = await storeChallenge({
+    userId: challengeUserId,
     type: 'authentication',
     challenge: options.challenge
   });
@@ -437,6 +442,10 @@ export async function verifyAuthentication(params: {
   }
 
   const row = passkey as PasskeyRow;
+  if (challenge.user_id && challenge.user_id !== row.user_id) {
+    throw error(403, 'Passkey não pertence à solicitação de login.');
+  }
+
   const { origin, rpID } = getPasskeyRp(params.event);
   const credential: WebAuthnCredential = {
     id: row.credential_id,

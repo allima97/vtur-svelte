@@ -42,7 +42,7 @@
       label: 'Modulos ativos',
       sortable: true,
       formatter: (value: number) =>
-        `<span class="inline-flex rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">${value || 0}</span>`
+        `<span class="inline-flex rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">${Number(value || 0)}</span>`
     }
   ];
 

@@ -11,6 +11,8 @@ import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas
 import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { todayISODateLocal } from '$lib/date';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -849,7 +851,12 @@ export async function POST(event) {
       .update({ valor_nao_comissionado: valorNaoComissionado, valor_total: valorTotal || null })
       .eq('id', venda.id);
 
-    return json({ venda_id: venda.id });
+    invalidateSalesReadModels({
+      companyIds: [companyId],
+      vendedorIds: [vendedorId],
+      userId: user.id
+    });
+    return json({ venda_id: venda.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar importação de contrato.');
   }

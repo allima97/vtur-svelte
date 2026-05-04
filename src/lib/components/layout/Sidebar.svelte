@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { dev } from '$app/environment';
   import { page } from '$app/stores';
   import { auth } from '$lib/stores/auth';
   import { createSupabaseBrowserClient } from '$lib/db/supabase';
@@ -272,7 +273,7 @@
         await permissoes.refresh(supabase);
         toast.success('Permissões atualizadas após recarregar a página.');
       } catch (error) {
-        console.error('Erro ao atualizar permissoes apos reload:', error);
+        if (dev) console.error('Erro ao atualizar permissoes apos reload:', error);
         toast.error('A página foi recarregada, mas não foi possível atualizar as permissões.');
       } finally {
         refreshingPerms = false;
@@ -437,7 +438,7 @@
       toast.success('Recarregando a página para atualizar os dados antes das permissões...');
       window.location.reload();
     } catch (error) {
-      console.error('Erro ao atualizar permissoes:', error);
+      if (dev) console.error('Erro ao atualizar permissoes:', error);
       toast.error('Não foi possível atualizar as permissões.');
     } finally {
       refreshingPerms = false;
@@ -449,7 +450,7 @@
       await apiPost('/auth/logout', null);
       window.location.href = '/auth/login';
     } catch (error) {
-      console.error('Erro ao fazer logout:', error);
+      if (dev) console.error('Erro ao fazer logout:', error);
       toast.error('Erro ao fazer logout.');
     }
   }

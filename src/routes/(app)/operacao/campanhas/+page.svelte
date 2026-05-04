@@ -10,6 +10,7 @@
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
+  import { sanitizeAbsoluteHttpUrl } from '$lib/security/url';
 
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -58,7 +59,7 @@
       cancelada: 'bg-red-100 text-red-700'
     };
     const labels: Record<string, string> = { ativa: 'Ativa', inativa: 'Inativa', cancelada: 'Cancelada' };
-    return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[status] || 'bg-slate-100 text-slate-600'}">${labels[status] || status}</span>`;
+    return `<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[status] || 'bg-slate-100 text-slate-600'}">${escapeHtml(labels[status] || status || '-')}</span>`;
   }
 
   const columns = [
@@ -89,8 +90,12 @@
       label: 'Link',
       sortable: false,
       width: '80px',
-      formatter: (v: string | null) =>
-        v ? `<a href="${escapeHtml(v)}" target="_blank" rel="noopener noreferrer" class="text-financeiro-600 hover:underline text-xs">Abrir</a>` : '-'
+      formatter: (v: string | null) => {
+        const href = sanitizeAbsoluteHttpUrl(v);
+        return href
+          ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="text-financeiro-600 hover:underline text-xs">Abrir</a>`
+          : '-';
+      }
     },
     {
       key: 'status',

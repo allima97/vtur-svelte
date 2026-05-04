@@ -3,13 +3,14 @@ import {
   isConciliacaoEfetivada,
   resolveConciliacaoStatus,
 } from "$lib/conciliacao/business";
+import { dev } from "$app/environment";
 import { EQUIPE_VTUR_USER_NAME } from "$lib/conciliacao/baixaRac";
 import {
   calcularNaoComissionavelResumo,
   type PagamentoNaoComissionavelInput,
 } from "$lib/naoComissionavel";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
-import { isRankingEligibleUser } from "$lib/server/v1";
+import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -54,6 +55,14 @@ export type SuppressedConciliacaoReceipt = {
 
 function toStr(value: unknown) {
   return String(value || "").trim();
+}
+
+function logSourceWarning(context: string, error: unknown) {
+  if (dev) {
+    console.warn(context, error);
+  } else {
+    logServerError(context, error);
+  }
 }
 
 function normalizeConciliacaoReserva(value?: unknown) {
@@ -167,7 +176,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
       ? Array.from(new Set(termos))
       : DEFAULT_NAO_COMISSIONAVEIS;
   } catch (error) {
-    console.warn(
+    logSourceWarning(
       "[source] parametros_pagamentos_nao_comissionaveis indisponivel:",
       error,
     );
@@ -492,7 +501,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       if (id) equipeVturIds.add(id);
     });
   } catch (error) {
-    console.warn(
+    logSourceWarning(
       "[source] falha ao carregar Equipe vtur, seguindo sem filtro:",
       error,
     );
@@ -701,7 +710,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       } catch (err: any) {
         // Qualquer erro inesperado na query de rateio → segue sem aplicar rateio,
         // não derruba a busca principal de conciliação.
-        console.warn(
+        logSourceWarning(
           "[source] rateio query falhou, seguindo sem rateio:",
           err?.message || err,
         );
@@ -735,7 +744,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
         });
       } catch (err: any) {
-        console.warn(
+        logSourceWarning(
           "[source] rateio por recibo falhou, seguindo sem rateio:",
           err?.message || err,
         );
@@ -935,7 +944,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
         });
       } catch (err: any) {
-        console.warn(
+        logSourceWarning(
           "[source] rateio por recibo fallback falhou, seguindo sem rateio:",
           err?.message || err,
         );

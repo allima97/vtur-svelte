@@ -11,6 +11,8 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
   invalidateReadModelCache,
   READ_MODEL_TAGS,
   scopeCacheTags,
@@ -101,18 +103,26 @@ async function loadScopedVendedores(
     );
 
   if (scope.isAdmin) {
-    const { data, error } = await client
-      .from("users")
-      .select(
-        "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
-      )
-      .eq("active", true)
-      .eq("uso_individual", false)
-      .order("nome_completo")
-      .limit(5000);
+    return getCachedReadModel({
+      key: buildReadModelCacheKey("parametros-metas:vendedores-admin", {}),
+      tags: [READ_MODEL_TAGS.users, READ_MODEL_TAGS.metas],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () => {
+        const { data, error } = await client
+          .from("users")
+          .select(
+            "id, nome_completo, email, company_id, active, uso_individual, participa_ranking, user_types(name)",
+          )
+          .eq("active", true)
+          .eq("uso_individual", false)
+          .order("nome_completo")
+          .limit(5000);
 
-    if (error) throw error;
-    return sortByName((data || []).filter(isRankingEligibleUser));
+        if (error) throw error;
+        return sortByName((data || []).filter(isRankingEligibleUser));
+      },
+    });
   }
 
   if (scope.isMaster || scope.isGestor) {
@@ -134,57 +144,76 @@ async function loadScopedVendedores(
 }
 
 async function loadProdutosDiferenciados(client: any) {
-  const fullCols =
-    "id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor";
+  return getCachedReadModel({
+    key: buildReadModelCacheKey("parametros-metas:produtos-diferenciados", {}),
+    tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.metas, READ_MODEL_TAGS.comissoes],
+    ttlMs: 60_000,
+    staleTtlMs: 300_000,
+    loader: async () => {
+      const fullCols =
+        "id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor";
 
-  let { data, error } = await client
-    .from("tipo_produtos")
-    .select(fullCols)
-    .eq("ativo", true)
-    .order("nome")
-    .limit(500);
+      let { data, error } = await client
+        .from("tipo_produtos")
+        .select(fullCols)
+        .eq("ativo", true)
+        .order("nome")
+        .limit(500);
 
-  if (error && isMissingSchemaError(error)) {
-    const fallback = await client
-      .from("tipo_produtos")
-      .select("id, nome, tipo, ativo")
-      .eq("ativo", true)
-      .order("nome")
-      .limit(500);
-    data = fallback.data || [];
-    error = fallback.error;
-  }
+      if (error && isMissingSchemaError(error)) {
+        const fallback = await client
+          .from("tipo_produtos")
+          .select("id, nome, tipo, ativo")
+          .eq("ativo", true)
+          .order("nome")
+          .limit(500);
+        data = fallback.data || [];
+        error = fallback.error;
+      }
 
-  if (error) throw error;
+      if (error) throw error;
 
-  return (data || []).filter((row: any) => {
-    const nomeTipo = `${row?.nome || ""} ${row?.tipo || ""}`.toLowerCase();
-    return (
-      row?.regra_comissionamento === "diferenciado" ||
-      row?.usa_meta_produto === true ||
-      row?.tipo === "seguro" ||
-      nomeTipo.includes("seguro")
-    );
+      return (data || []).filter((row: any) => {
+        const nomeTipo = `${row?.nome || ""} ${row?.tipo || ""}`.toLowerCase();
+        return (
+          row?.regra_comissionamento === "diferenciado" ||
+          row?.usa_meta_produto === true ||
+          row?.tipo === "seguro" ||
+          nomeTipo.includes("seguro")
+        );
+      });
+    },
   });
 }
 
 async function loadProdutoMetas(client: any, metaIds: string[]) {
   if (metaIds.length === 0) return new Map<string, any[]>();
 
-  const { data, error } = await client
-    .from("metas_vendedor_produto")
-    .select(
-      "id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)",
-    )
-    .in("meta_vendedor_id", metaIds);
+  const rows = await getCachedReadModel<any[]>({
+    key: buildReadModelCacheKey("parametros-metas:produto-metas", {
+      metaIds: [...metaIds].sort(),
+    }),
+    tags: [READ_MODEL_TAGS.metas, READ_MODEL_TAGS.catalog],
+    ttlMs: 15_000,
+    staleTtlMs: 60_000,
+    loader: async () => {
+      const { data, error } = await client
+        .from("metas_vendedor_produto")
+        .select(
+          "id, meta_vendedor_id, produto_id, valor, produto:tipo_produtos!produto_id(id, nome, tipo)",
+        )
+        .in("meta_vendedor_id", metaIds);
 
-  if (error) {
-    if (isMissingSchemaError(error)) return new Map<string, any[]>();
-    throw error;
-  }
+      if (error) {
+        if (isMissingSchemaError(error)) return [];
+        throw error;
+      }
+      return data || [];
+    },
+  });
 
   const map = new Map<string, any[]>();
-  (data || []).forEach((row: any) => {
+  rows.forEach((row: any) => {
     const metaId = String(row?.meta_vendedor_id || "").trim();
     if (!metaId) return;
     const list = map.get(metaId) || [];
@@ -440,18 +469,21 @@ export async function POST(event) {
       ids.push(await upsertMeta(client, input, fallbackPeriod));
     }
 
+    const metaScopeTags = scopeCacheTags({
+      companyIds: scope.companyIds,
+      vendedorIds: inputs
+        .map((input) => String(input?.vendedor_id || "").trim())
+        .filter(Boolean),
+      userId: user.id,
+    });
     invalidateReadModelCache({
       tags: [
         READ_MODEL_TAGS.metas,
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.ranking,
         READ_MODEL_TAGS.comissoes,
-        ...scopeCacheTags({
-          vendedorIds: inputs
-            .map((input) => String(input?.vendedor_id || "").trim())
-            .filter(Boolean),
-        }),
       ],
+      scopeTags: metaScopeTags,
     });
 
     return json({ ok: true, ids, id: ids[0] || null });
@@ -478,20 +510,31 @@ export async function DELETE(event) {
     const id = String(event.url.searchParams.get("id") || "").trim();
     if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400 });
 
+    const { data: meta, error: metaError } = await client
+      .from("metas_vendedor")
+      .select("id, vendedor_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (metaError) throw metaError;
+    const vendedorId = String(meta?.vendedor_id || "").trim();
+
     if (!scope.isAdmin) {
-      const { data: meta, error: metaError } = await client
-        .from("metas_vendedor")
-        .select("id, vendedor_id")
-        .eq("id", id)
-        .maybeSingle();
-      if (metaError) throw metaError;
-      const vendedorId = String(meta?.vendedor_id || "").trim();
       if (
         !vendedorId ||
         !(await assertTargetAllowed(client, scope, vendedorId))
       ) {
         return json({ error: "Meta fora do seu escopo." }, { status: 403 });
       }
+    }
+
+    let vendedorCompanyId = "";
+    if (vendedorId) {
+      const { data: vendedorRow } = await client
+        .from("users")
+        .select("company_id")
+        .eq("id", vendedorId)
+        .maybeSingle();
+      vendedorCompanyId = String(vendedorRow?.company_id || "").trim();
     }
 
     const { error: deleteError } = await client
@@ -507,6 +550,11 @@ export async function DELETE(event) {
         READ_MODEL_TAGS.ranking,
         READ_MODEL_TAGS.comissoes,
       ],
+      scopeTags: scopeCacheTags({
+        companyIds: vendedorCompanyId ? [vendedorCompanyId] : scope.companyIds,
+        vendedorIds: vendedorId ? [vendedorId] : [],
+        userId: user.id,
+      }),
     });
 
     return json({ ok: true });

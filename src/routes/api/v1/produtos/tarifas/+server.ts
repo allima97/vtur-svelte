@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoTarifas, sanitizeTarifasPayload } from '$lib/server/cadastros-base';
+import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 export async function GET(event) {
   try {
@@ -46,6 +47,7 @@ export async function POST(event) {
       if (insertError) throw insertError;
     }
 
+    invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
     return json({ success: true });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tarifas.');

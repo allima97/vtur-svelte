@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -167,7 +168,7 @@
       await loadBase();
       await loadProduto();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Erro ao carregar cadastro de produto.');
       goto(routeBase);
     } finally {
@@ -268,7 +269,7 @@
       toast.success(isCreateMode ? 'Cadastro salvo com sucesso.' : 'Cadastro atualizado com sucesso.');
       goto(routeBase);
     } catch (err: any) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err?.message || 'Erro ao salvar cadastro.');
     } finally {
       saving = false;

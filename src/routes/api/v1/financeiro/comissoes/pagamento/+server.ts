@@ -16,6 +16,8 @@ import {
 } from '$lib/server/comissoes-registro';
 import { fetchSalesReportRows } from '$lib/server/relatorios';
 import { todayISODateLocal } from '$lib/date';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 function toNum(value: unknown) {
   const parsed = Number(value || 0);
@@ -188,16 +190,19 @@ export async function POST(event) {
         pagas: 0,
         data_pagamento,
         message: 'Persistência de comissão indisponível neste ambiente. Nenhuma baixa foi salva.'
-      });
+      }, { headers: NO_STORE_HEADERS });
     }
 
+    if (result.pagas > 0) {
+      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    }
     return json({
       success: true,
       message: `${result.pagas} comissão(ões) marcada(s) como paga(s)`,
       pagas: result.pagas,
       data_pagamento,
       fallback: false
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao registrar pagamento.');
   }
@@ -243,16 +248,19 @@ export async function PUT(event) {
       const code = String((error as { code?: string })?.code || '');
       const message = String((error as { message?: string })?.message || '').toLowerCase();
       if (code === '42P01' || code === '42703' || message.includes('does not exist')) {
-        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true });
+        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
       }
       throw error;
     }
 
+    if ((data || []).length > 0) {
+      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    }
     return json({
       success: true,
       message: `${(data || []).length} comissão(ões) atualizada(s).`,
       atualizadas: (data || []).length
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar pagamento.');
   }
@@ -299,16 +307,19 @@ export async function DELETE(event) {
       const code = String((error as { code?: string })?.code || '');
       const message = String((error as { message?: string })?.message || '').toLowerCase();
       if (code === '42P01' || code === '42703' || message.includes('does not exist')) {
-        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true });
+        return json({ success: true, message: 'Persistência de comissão não disponível neste ambiente.', fallback: true }, { headers: NO_STORE_HEADERS });
       }
       throw error;
     }
 
+    if ((data || []).length > 0) {
+      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    }
     return json({
       success: true,
       message: `${(data || []).length} comissão(ões) cancelada(s).`,
       canceladas: (data || []).length
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao cancelar comissão.');
   }

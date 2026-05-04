@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -73,7 +74,7 @@
         sections = permsPayload.sections || [];
       }
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Nao foi possivel carregar o tipo de usuario.');
     } finally {
       loading = false;
@@ -101,7 +102,7 @@
         await loadPage();
       }
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar tipo de usuario.');
     } finally {
       saving = false;
@@ -118,7 +119,7 @@
       toast.success('Tipo de usuario removido.');
       await goto('/admin/tipos-usuario');
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao remover tipo de usuario.');
     } finally {
       deleting = false;

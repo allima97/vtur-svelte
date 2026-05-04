@@ -14,6 +14,7 @@ import {
   ensureReciboReservaUnicos,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 export async function POST(event) {
@@ -119,7 +120,7 @@ export async function POST(event) {
       userId: user.id,
     });
 
-    return json({ ok: true, venda_id: insertedSale.id });
+    return json({ ok: true, venda_id: insertedSale.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao salvar venda.");
   }

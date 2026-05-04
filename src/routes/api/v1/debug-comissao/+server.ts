@@ -22,8 +22,9 @@ import {
   regraProdutoTemFixo,
   buildLegacyConciliacaoRule
 } from '$lib/utils/comissao';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const DEBUG_HEADERS = { 'Cache-Control': 'no-store' };
+const DEBUG_HEADERS = NO_STORE_HEADERS;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);

@@ -11,7 +11,13 @@ function isSameSiteLogoutRequest(request: Request) {
 
   const url = new URL(request.url);
   const expectedOrigin = url.origin;
-  if (origin && origin !== expectedOrigin) return false;
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== expectedOrigin) return false;
+    } catch {
+      return false;
+    }
+  }
   if (referer) {
     try {
       if (new URL(referer).origin !== expectedOrigin) return false;

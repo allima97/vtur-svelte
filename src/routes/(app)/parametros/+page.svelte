@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from "$app/environment";
   import { onMount } from "svelte";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
   import Card from "$lib/components/ui/Card.svelte";
@@ -186,7 +187,7 @@
         form = createDefaultForm();
         return;
       }
-      console.error(err);
+      if (dev) console.error(err);
       toast.error("Nao foi possivel carregar os parametros do sistema.");
     } finally {
       loading = false;
@@ -218,7 +219,7 @@
       toast.success("Parametros do sistema salvos com sucesso.");
       await loadPage();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(
         err instanceof Error ? err.message : "Erro ao salvar parametros.",
       );

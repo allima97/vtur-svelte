@@ -3,7 +3,6 @@ import {
   getAdminClient,
   getMonthRange,
   hasModuloAccess,
-  fetchGestorEquipeIdsComGestor,
   fetchRankingVendedoresByCompanyIds,
   isRankingEligibleUser,
   parseUuidList,

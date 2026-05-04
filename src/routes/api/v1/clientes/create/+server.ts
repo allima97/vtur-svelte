@@ -15,6 +15,7 @@ import {
   type ClienteFormData,
   validateClienteForm
 } from '$lib/features/clientes/form';
+import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
 export async function POST(event) {
   try {
@@ -93,6 +94,11 @@ export async function POST(event) {
       .single();
 
     if (insertError) throw insertError;
+
+    invalidateClientReadModels({
+      companyIds: companyId ? [companyId] : [],
+      userId: user.id
+    });
 
     return json({ success: true, data, message: 'Cliente criado com sucesso.' });
   } catch (err) {

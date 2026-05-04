@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -101,7 +102,7 @@
         mastersDisponiveis = payload.masters_disponiveis || [];
       }
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error('Nao foi possivel carregar a empresa.');
     } finally {
       loading = false;
@@ -120,7 +121,7 @@
         await loadPage();
       }
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar empresa.');
     } finally {
       saving = false;
@@ -139,7 +140,7 @@
       newLink = { master_id: '', status: 'approved' };
       await loadPage();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao criar vinculo master.');
     } finally {
       linkSaving = false;
@@ -156,7 +157,7 @@
       toast.success('Vinculo master atualizado.');
       await loadPage();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar vinculo.');
     }
   }
@@ -170,7 +171,7 @@
       toast.success('Vinculo master removido.');
       await loadPage();
     } catch (err) {
-      console.error(err);
+      if (dev) console.error(err);
       toast.error(err instanceof Error ? err.message : 'Erro ao remover vinculo.');
     }
   }

@@ -1,16 +1,38 @@
-import { json } from '@sveltejs/kit';
-import { getDefaultFollowUpRange, isIsoDate, resolveFollowUpFilters } from '$lib/server/agenda';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
-import { syncViagensStatus } from '$lib/server/viagensStatus';
+import { json } from "@sveltejs/kit";
+import {
+  getDefaultFollowUpRange,
+  isIsoDate,
+  resolveFollowUpFilters,
+} from "$lib/server/agenda";
+import {
+  getAdminClient,
+  requireAuthenticatedUser,
+  resolveUserScope,
+  toErrorResponse,
+} from "$lib/server/v1";
+import { syncViagensStatus } from "$lib/server/viagensStatus";
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from "$lib/server/readModelCache";
 
 function normalizeStatusFilter(value: string | null) {
-  const raw = String(value || '').trim().toLowerCase();
-  if (raw === 'fechados') return 'fechados';
-  if (raw === 'todos') return 'todos';
-  return 'abertos';
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "fechados") return "fechados";
+  if (raw === "todos") return "todos";
+  return "abertos";
 }
 
-function clampIntParam(value: string | null, fallback: number, min: number, max: number) {
+function clampIntParam(
+  value: string | null,
+  fallback: number,
+  min: number,
+  max: number,
+) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
@@ -18,11 +40,13 @@ function clampIntParam(value: string | null, fallback: number, min: number, max:
 
 function getVendaFromRow(row: any) {
   const venda = Array.isArray(row?.venda) ? row.venda[0] : row?.venda;
-  return venda && typeof venda === 'object' ? venda : null;
+  return venda && typeof venda === "object" ? venda : null;
 }
 
 function hasLinkedVenda(row: any) {
-  return Boolean(String(row?.venda_id || getVendaFromRow(row)?.id || '').trim());
+  return Boolean(
+    String(row?.venda_id || getVendaFromRow(row)?.id || "").trim(),
+  );
 }
 
 function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
@@ -31,7 +55,7 @@ function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
   if (hasLinkedVenda(row)) {
     if (!venda || venda.cancelada === true) return false;
     if (vendedorIds.length === 0) return true;
-    return vendedorIds.includes(String(venda.vendedor_id || '').trim());
+    return vendedorIds.includes(String(venda.vendedor_id || "").trim());
   }
 
   // Viagem avulsa não tem venda para comprovar vendedor. Quando há escopo de
@@ -48,25 +72,70 @@ export async function GET(event) {
     // (a verificação de módulo detalhada fica nas rotas de operação completas)
 
     const defaults = getDefaultFollowUpRange();
-    const inicio = String(event.url.searchParams.get('inicio') || defaults.inicio).trim();
-    const fim = String(event.url.searchParams.get('fim') || defaults.fim).trim();
-    const statusFilter = normalizeStatusFilter(event.url.searchParams.get('status'));
-    const hasExplicitLimit = event.url.searchParams.has('limit');
-    const outputLimit = clampIntParam(event.url.searchParams.get('limit'), 500, 1, 500);
-    const candidateLimit = hasExplicitLimit ? Math.max(40, outputLimit * 8) : 500;
-    const detailLimit = hasExplicitLimit ? Math.max(80, outputLimit * 12) : 5000;
+    const inicio = String(
+      event.url.searchParams.get("inicio") || defaults.inicio,
+    ).trim();
+    const fim = String(
+      event.url.searchParams.get("fim") || defaults.fim,
+    ).trim();
+    const statusFilter = normalizeStatusFilter(
+      event.url.searchParams.get("status"),
+    );
+    const hasExplicitLimit = event.url.searchParams.has("limit");
+    const outputLimit = clampIntParam(
+      event.url.searchParams.get("limit"),
+      500,
+      1,
+      500,
+    );
+    const candidateLimit = hasExplicitLimit
+      ? Math.max(40, outputLimit * 8)
+      : 500;
+    const detailLimit = hasExplicitLimit
+      ? Math.max(80, outputLimit * 12)
+      : 5000;
 
     if (!isIsoDate(inicio) || !isIsoDate(fim)) {
-      return json({ error: 'inicio e fim devem estar no formato YYYY-MM-DD.' }, { status: 400 });
+      return json(
+        { error: "inicio e fim devem estar no formato YYYY-MM-DD." },
+        { status: 400 },
+      );
     }
 
-    const { companyIds, vendedorIds } = await resolveFollowUpFilters(client, scope, event.url.searchParams);
-    const vendaJoin = vendedorIds.length > 0 ? 'venda:vendas!inner' : 'venda:vendas';
-
-    let candidatasQuery = client
-      .from('viagens')
-      .select(
-        `
+    const { companyIds, vendedorIds } = await resolveFollowUpFilters(
+      client,
+      scope,
+      event.url.searchParams,
+    );
+    const vendaJoin =
+      vendedorIds.length > 0 ? "venda:vendas!inner" : "venda:vendas";
+    const cacheKey = buildReadModelCacheKey("dashboard:follow-ups", {
+      inicio,
+      fim,
+      statusFilter,
+      outputLimit,
+      candidateLimit,
+      detailLimit,
+      companyIds,
+      vendedorIds,
+      userId: user.id,
+    });
+    const payload = await getCachedReadModel({
+      key: cacheKey,
+      tags: [
+        READ_MODEL_TAGS.trips,
+        READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.sales,
+        READ_MODEL_TAGS.clients,
+        ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
+      ],
+      ttlMs: 20_000,
+      staleTtlMs: 90_000,
+      loader: async () => {
+        let candidatasQuery = client
+          .from("viagens")
+          .select(
+            `
           id,
           venda_id,
           company_id,
@@ -86,53 +155,61 @@ export async function GET(event) {
             clientes:clientes (id, nome, whatsapp, telefone),
             destino_cidade:cidades!destino_cidade_id (id, nome)
           )
-        `
-      )
-      .not('data_fim', 'is', null)
-      .gte('data_fim', inicio)
-      .lte('data_fim', fim)
-      .or('status.is.null,status.neq.Fechado')
-      .eq('venda.cancelada', false)
-      .order('data_fim', { ascending: false })
-      .limit(candidateLimit);
+        `,
+          )
+          .not("data_fim", "is", null)
+          .gte("data_fim", inicio)
+          .lte("data_fim", fim)
+          .or("status.is.null,status.neq.Fechado")
+          .eq("venda.cancelada", false)
+          .order("data_fim", { ascending: false })
+          .limit(candidateLimit);
 
-    if (statusFilter === 'abertos') {
-      candidatasQuery = candidatasQuery.or('follow_up_fechado.is.null,follow_up_fechado.eq.false');
-    } else if (statusFilter === 'fechados') {
-      candidatasQuery = candidatasQuery.eq('follow_up_fechado', true);
-    }
+        if (statusFilter === "abertos") {
+          candidatasQuery = candidatasQuery.or(
+            "follow_up_fechado.is.null,follow_up_fechado.eq.false",
+          );
+        } else if (statusFilter === "fechados") {
+          candidatasQuery = candidatasQuery.eq("follow_up_fechado", true);
+        }
 
-    if (companyIds.length > 0) {
-      candidatasQuery = candidatasQuery.in('company_id', companyIds);
-    }
+        if (companyIds.length > 0) {
+          candidatasQuery = candidatasQuery.in("company_id", companyIds);
+        }
 
-    if (vendedorIds.length > 0) {
-      candidatasQuery = candidatasQuery.in('venda.vendedor_id', vendedorIds);
-    }
+        if (vendedorIds.length > 0) {
+          candidatasQuery = candidatasQuery.in(
+            "venda.vendedor_id",
+            vendedorIds,
+          );
+        }
 
-    const { data: candidatasData, error: candidatasError } = await candidatasQuery;
-    if (candidatasError) throw candidatasError;
-    const candidatas = ((candidatasData || []) as any[]).filter((row) =>
-      isFollowUpAllowedForVendedores(row, vendedorIds)
-    );
-    await syncViagensStatus(client, candidatas);
+        const { data: candidatasData, error: candidatasError } =
+          await candidatasQuery;
+        if (candidatasError) throw candidatasError;
+        const candidatas = ((candidatasData || []) as any[]).filter((row) =>
+          isFollowUpAllowedForVendedores(row, vendedorIds),
+        );
+        await syncViagensStatus(client, candidatas);
 
-    const vendaIds = Array.from(
-      new Set(
-        candidatas
-          .map((row: any) => String(row?.venda_id || getVendaFromRow(row)?.id || '').trim())
-          .filter(Boolean)
-      )
-    );
+        const vendaIds = Array.from(
+          new Set(
+            candidatas
+              .map((row: any) =>
+                String(row?.venda_id || getVendaFromRow(row)?.id || "").trim(),
+              )
+              .filter(Boolean),
+          ),
+        );
 
-    const avulsas = candidatas.filter((row: any) => !hasLinkedVenda(row));
+        const avulsas = candidatas.filter((row: any) => !hasLinkedVenda(row));
 
-    let detalhadas: any[] = [];
-    if (vendaIds.length > 0) {
-      let detalhadasQuery = client
-        .from('viagens')
-        .select(
-          `
+        let detalhadas: any[] = [];
+        if (vendaIds.length > 0) {
+          let detalhadasQuery = client
+            .from("viagens")
+            .select(
+              `
             id,
             venda_id,
             company_id,
@@ -152,100 +229,144 @@ export async function GET(event) {
               clientes:clientes (id, nome, whatsapp, telefone),
               destino_cidade:cidades!destino_cidade_id (id, nome)
             )
-          `
-        )
-        .in('venda_id', vendaIds)
-        .not('data_fim', 'is', null)
-        .or('status.is.null,status.neq.Fechado')
-        .eq('venda.cancelada', false)
-        .order('data_fim', { ascending: false })
-        .limit(detailLimit);
+          `,
+            )
+            .in("venda_id", vendaIds)
+            .not("data_fim", "is", null)
+            .or("status.is.null,status.neq.Fechado")
+            .eq("venda.cancelada", false)
+            .order("data_fim", { ascending: false })
+            .limit(detailLimit);
 
-      if (companyIds.length > 0) {
-        detalhadasQuery = detalhadasQuery.in('company_id', companyIds);
-      }
+          if (companyIds.length > 0) {
+            detalhadasQuery = detalhadasQuery.in("company_id", companyIds);
+          }
 
-      if (vendedorIds.length > 0) {
-        detalhadasQuery = detalhadasQuery.in('venda.vendedor_id', vendedorIds);
-      }
+          if (vendedorIds.length > 0) {
+            detalhadasQuery = detalhadasQuery.in(
+              "venda.vendedor_id",
+              vendedorIds,
+            );
+          }
 
-      const { data: detalhadasData, error: detalhadasError } = await detalhadasQuery;
-      if (detalhadasError) throw detalhadasError;
-      detalhadas = ((detalhadasData || []) as any[]).filter((row) =>
-        isFollowUpAllowedForVendedores(row, vendedorIds)
-      );
-      await syncViagensStatus(client, detalhadas);
-    }
+          const { data: detalhadasData, error: detalhadasError } =
+            await detalhadasQuery;
+          if (detalhadasError) throw detalhadasError;
+          detalhadas = ((detalhadasData || []) as any[]).filter((row) =>
+            isFollowUpAllowedForVendedores(row, vendedorIds),
+          );
+          await syncViagensStatus(client, detalhadas);
+        }
 
-    const grupos = new Map<string, any>();
+        const grupos = new Map<string, any>();
 
-    for (const sourceItem of [...detalhadas, ...avulsas]) {
-      const item = { ...sourceItem, venda: getVendaFromRow(sourceItem) };
-      const key = String(item?.venda_id || item?.venda?.id || item?.id || '').trim();
-      if (!key) continue;
+        for (const sourceItem of [...detalhadas, ...avulsas]) {
+          const item = { ...sourceItem, venda: getVendaFromRow(sourceItem) };
+          const key = String(
+            item?.venda_id || item?.venda?.id || item?.id || "",
+          ).trim();
+          if (!key) continue;
 
-      const fechado = item?.follow_up_fechado === true;
-      const existing = grupos.get(key);
+          const fechado = item?.follow_up_fechado === true;
+          const existing = grupos.get(key);
 
-      if (!existing) {
-        grupos.set(key, {
-          ...item,
-          __allClosed: fechado
-        });
-        continue;
-      }
+          if (!existing) {
+            grupos.set(key, {
+              ...item,
+              __allClosed: fechado,
+            });
+            continue;
+          }
 
-      existing.__allClosed = Boolean(existing.__allClosed) && fechado;
-      if (item?.data_inicio && (!existing.data_inicio || item.data_inicio < existing.data_inicio)) {
-        existing.data_inicio = item.data_inicio;
-      }
-      if (item?.data_fim && (!existing.data_fim || item.data_fim > existing.data_fim)) {
-        const savedStart = existing.data_inicio;
-        const allClosed = existing.__allClosed;
-        Object.assign(existing, item);
-        existing.data_inicio = savedStart;
-        existing.__allClosed = allClosed;
-      }
-      if (!existing.follow_up_text && item?.follow_up_text) {
-        existing.follow_up_text = item.follow_up_text;
-      }
-      if (!existing.updated_at && item?.updated_at) {
-        existing.updated_at = item.updated_at;
-      }
-    }
+          existing.__allClosed = Boolean(existing.__allClosed) && fechado;
+          if (
+            item?.data_inicio &&
+            (!existing.data_inicio || item.data_inicio < existing.data_inicio)
+          ) {
+            existing.data_inicio = item.data_inicio;
+          }
+          if (
+            item?.data_fim &&
+            (!existing.data_fim || item.data_fim > existing.data_fim)
+          ) {
+            const savedStart = existing.data_inicio;
+            const allClosed = existing.__allClosed;
+            Object.assign(existing, item);
+            existing.data_inicio = savedStart;
+            existing.__allClosed = allClosed;
+          }
+          if (!existing.follow_up_text && item?.follow_up_text) {
+            existing.follow_up_text = item.follow_up_text;
+          }
+          if (!existing.updated_at && item?.updated_at) {
+            existing.updated_at = item.updated_at;
+          }
+        }
 
-    const items = Array.from(grupos.values())
-      .filter((item: any) => {
-        if (statusFilter === 'abertos') return item.__allClosed !== true;
-        if (statusFilter === 'fechados') return item.__allClosed === true;
-        return true;
-      })
-      .filter((item: any) => {
-        const retorno = String(item?.data_fim || item?.venda?.data_final || '').trim();
-        return Boolean(retorno) && retorno >= inicio && retorno <= fim;
-      })
-      .sort((a: any, b: any) => String(b?.data_fim || '').localeCompare(String(a?.data_fim || '')))
-      .slice(0, outputLimit)
-      .map((item: any) => ({
-        id: String(item.id),
-        venda_id: item?.venda_id ? String(item.venda_id) : item?.venda?.id ? String(item.venda.id) : null,
-        cliente_id: item?.venda?.cliente_id ? String(item.venda.cliente_id) : item?.venda?.clientes?.id ? String(item.venda.clientes.id) : null,
-        cliente_nome: String(item?.venda?.clientes?.nome || 'Cliente sem nome'),
-        cliente_whatsapp: item?.venda?.clientes?.whatsapp ? String(item.venda.clientes.whatsapp) : null,
-        cliente_telefone: item?.venda?.clientes?.telefone ? String(item.venda.clientes.telefone) : null,
-        destino_nome: item?.venda?.destino_cidade?.nome ? String(item.venda.destino_cidade.nome) : null,
-        data_inicio: item?.data_inicio ? String(item.data_inicio) : null,
-        data_fim: item?.data_fim ? String(item.data_fim) : null,
-        data_embarque: item?.venda?.data_embarque ? String(item.venda.data_embarque) : null,
-        data_final: item?.venda?.data_final ? String(item.venda.data_final) : null,
-        vendedor_id: item?.venda?.vendedor_id ? String(item.venda.vendedor_id) : null,
-        follow_up_fechado: item.__allClosed === true,
-        follow_up_text: item?.follow_up_text ? String(item.follow_up_text) : null,
-        updated_at: item?.updated_at ? String(item.updated_at) : null
-      }));
+        const items = Array.from(grupos.values())
+          .filter((item: any) => {
+            if (statusFilter === "abertos") return item.__allClosed !== true;
+            if (statusFilter === "fechados") return item.__allClosed === true;
+            return true;
+          })
+          .filter((item: any) => {
+            const retorno = String(
+              item?.data_fim || item?.venda?.data_final || "",
+            ).trim();
+            return Boolean(retorno) && retorno >= inicio && retorno <= fim;
+          })
+          .sort((a: any, b: any) =>
+            String(b?.data_fim || "").localeCompare(String(a?.data_fim || "")),
+          )
+          .slice(0, outputLimit)
+          .map((item: any) => ({
+            id: String(item.id),
+            venda_id: item?.venda_id
+              ? String(item.venda_id)
+              : item?.venda?.id
+                ? String(item.venda.id)
+                : null,
+            cliente_id: item?.venda?.cliente_id
+              ? String(item.venda.cliente_id)
+              : item?.venda?.clientes?.id
+                ? String(item.venda.clientes.id)
+                : null,
+            cliente_nome: String(
+              item?.venda?.clientes?.nome || "Cliente sem nome",
+            ),
+            cliente_whatsapp: item?.venda?.clientes?.whatsapp
+              ? String(item.venda.clientes.whatsapp)
+              : null,
+            cliente_telefone: item?.venda?.clientes?.telefone
+              ? String(item.venda.clientes.telefone)
+              : null,
+            destino_nome: item?.venda?.destino_cidade?.nome
+              ? String(item.venda.destino_cidade.nome)
+              : null,
+            data_inicio: item?.data_inicio ? String(item.data_inicio) : null,
+            data_fim: item?.data_fim ? String(item.data_fim) : null,
+            data_embarque: item?.venda?.data_embarque
+              ? String(item.venda.data_embarque)
+              : null,
+            data_final: item?.venda?.data_final
+              ? String(item.venda.data_final)
+              : null,
+            vendedor_id: item?.venda?.vendedor_id
+              ? String(item.venda.vendedor_id)
+              : null,
+            follow_up_fechado: item.__allClosed === true,
+            follow_up_text: item?.follow_up_text
+              ? String(item.follow_up_text)
+              : null,
+            updated_at: item?.updated_at ? String(item.updated_at) : null,
+          }));
 
-    return json({ inicio, fim, items });
+        return { inicio, fim, items };
+      },
+    });
+
+    return json(payload);
   } catch (err) {
-    return toErrorResponse(err, 'Erro ao carregar follow-ups.');
+    return toErrorResponse(err, "Erro ao carregar follow-ups.");
   }
 }

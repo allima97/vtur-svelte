@@ -1,6 +1,5 @@
 import { normalizeText } from "$lib/normalizeText";
 import {
-  fetchGestorEquipeIdsComGestor,
   isRankingEligibleUser,
   isUuid,
   type UserScope,

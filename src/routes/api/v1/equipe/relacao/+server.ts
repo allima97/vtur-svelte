@@ -7,6 +7,7 @@ import {
   logServerError,
   resolveUserScope
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -62,7 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return json({ error: "Erro ao atualizar equipe." }, { status: 400 });
     }
 
-    return json(data || { ok: true, ativo });
+    return json(data || { ok: true, ativo }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[equipe/relacao] falha ao atualizar equipe", error);
     return json({ error: "Erro ao atualizar equipe." }, { status: 500 });
