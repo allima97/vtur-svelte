@@ -16,7 +16,7 @@ import {
   ensureReciboReservaUnicos,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
-import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { fetchSaleForScope } from "$lib/server/salesScope";
@@ -146,7 +146,7 @@ export async function GET(event) {
 
     const id = String(event.params.id || "").trim();
     if (!isUuid(id)) {
-      return json({ error: "ID invalido." }, { status: 400 });
+      return json({ error: "ID invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -181,7 +181,7 @@ export async function GET(event) {
 
     if (lastError) throw lastError;
     if (!data) throw error(404, "Venda não encontrada.");
-    return json(data);
+    return json(data, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar venda.");
   }
@@ -207,7 +207,7 @@ export async function PATCH(event) {
 
     const id = String(event.params.id || "").trim();
     if (!isUuid(id)) {
-      return json({ error: "ID invalido." }, { status: 400 });
+      return json({ error: "ID invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -233,7 +233,7 @@ export async function PATCH(event) {
           error:
             "Venda sem empresa vinculada. Atualize o cadastro da venda antes de editar recibos/pagamentos.",
         },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -254,22 +254,22 @@ export async function PATCH(event) {
     if (!isUuid(vendedorId) || deniedSeller) {
       return json(
         { error: deniedSeller || "Vendedor invalido." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
     const clienteId = String(venda?.cliente_id || "").trim();
     if (!isUuid(clienteId)) {
-      return json({ error: "Cliente invalido." }, { status: 400 });
+      return json({ error: "Cliente invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const destinationId = String(venda?.destino_id || "").trim();
     if (!isUuid(destinationId)) {
-      return json({ error: "Destino invalido." }, { status: 400 });
+      return json({ error: "Destino invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!Array.isArray(recibos) || recibos.length === 0) {
-      return json({ error: "Inclua ao menos um recibo." }, { status: 400 });
+      return json({ error: "Inclua ao menos um recibo." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const normalizeReceiptKey = (value?: string | null) =>
@@ -378,13 +378,13 @@ export async function PATCH(event) {
         if (code === "RECIBO_DUPLICADO") {
           return json(
             { code, error: "Recibo já utilizado em outra venda da empresa." },
-            { status: 409 },
+            { status: 409, headers: NO_STORE_HEADERS },
           );
         }
         if (code === "RESERVA_DUPLICADA") {
           return json(
             { code, error: "Reserva já vinculada a outro recibo/venda." },
-            { status: 409 },
+            { status: 409, headers: NO_STORE_HEADERS },
           );
         }
         throw err;
@@ -404,7 +404,7 @@ export async function PATCH(event) {
       const code = err instanceof Error ? err.message : "";
       logVendaError("[PATCH venda] buildVendaPayload error:", err, { code });
       if (code === "DATA_VENDA_INVALIDA") {
-        return json({ error: "Data da venda invalida." }, { status: 400 });
+        return json({ error: "Data da venda invalida." }, { status: 400, headers: NO_STORE_HEADERS });
       }
       throw err;
     }
@@ -436,7 +436,7 @@ export async function PATCH(event) {
       logVendaError("[PATCH venda] syncVendaChildren error:", syncError);
       const mapped = mapSyncChildrenError(syncError);
       if (mapped) {
-        return json(mapped.body, { status: mapped.status });
+        return json(mapped.body, { status: mapped.status, headers: NO_STORE_HEADERS });
       }
       throw syncError;
     }
@@ -476,7 +476,7 @@ export async function DELETE(event) {
 
     const id = String(event.params.id || "").trim();
     if (!isUuid(id)) {
-      return json({ error: "ID invalido." }, { status: 400 });
+      return json({ error: "ID invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(

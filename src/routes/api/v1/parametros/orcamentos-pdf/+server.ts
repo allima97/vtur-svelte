@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
@@ -58,7 +59,7 @@ export async function GET(event) {
         email: data?.email || userRow?.email || '',
         rodape_texto: data?.rodape_texto || DEFAULT_FOOTER
       }
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar parâmetros do orçamento.');
   }
@@ -120,7 +121,7 @@ export async function POST(event) {
       companyIds: scope.companyId ? [scope.companyId] : null,
       userId: user.id
     });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar parâmetros do orçamento.');
   }

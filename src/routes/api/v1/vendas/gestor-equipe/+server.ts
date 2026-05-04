@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -24,12 +25,12 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isGestor && !scope.isAdmin) {
-      return json({ items: [] });
+      return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const equipeIds = await fetchGestorEquipeIdsComGestor(client, user.id);
     if (equipeIds.length === 0) {
-      return json({ items: [] });
+      return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const rows: any[] = [];
@@ -55,7 +56,7 @@ export async function GET(event) {
         id: row.id,
         nome_completo: row.nome_completo || ''
       }))
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar equipe do gestor.');
   }

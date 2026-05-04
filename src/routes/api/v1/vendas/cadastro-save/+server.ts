@@ -45,16 +45,16 @@ export async function POST(event: RequestEvent) {
 
     // Validações mínimas
     if (!venda || typeof venda !== 'object') {
-      return json({ error: 'Payload inválido: campo "venda" obrigatório.' }, { status: 400 });
+      return json({ error: 'Payload inválido: campo "venda" obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!isUuid(venda.cliente_id)) {
-      return json({ error: 'cliente_id inválido ou ausente.' }, { status: 400 });
+      return json({ error: 'cliente_id inválido ou ausente.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!isUuid(venda.destino_id)) {
-      return json({ error: 'destino_id inválido ou ausente.' }, { status: 400 });
+      return json({ error: 'destino_id inválido ou ausente.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!Array.isArray(recibos) || recibos.length === 0) {
-      return json({ error: 'Pelo menos um recibo é obrigatório.' }, { status: 400 });
+      return json({ error: 'Pelo menos um recibo é obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const clienteId = String(venda.cliente_id).trim();
@@ -75,7 +75,7 @@ export async function POST(event: RequestEvent) {
     }
 
     if (!scope.isAdmin && (scopedCompanyIds.length === 0 || scopedCompanyIds[0] === NO_MATCH_COMPANY_ID)) {
-      return json({ error: 'Empresa fora do escopo do usuario.' }, { status: 403 });
+      return json({ error: 'Empresa fora do escopo do usuario.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     // Resolver vendedor_id
@@ -87,7 +87,7 @@ export async function POST(event: RequestEvent) {
     if (!scope.isAdmin) {
       const denied = await ensureAssignableActiveSeller(adminClient, scope, vendedorId);
       if (denied) {
-        return json({ error: denied }, { status: 403 });
+        return json({ error: denied }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -104,11 +104,11 @@ export async function POST(event: RequestEvent) {
     }
 
     if (!targetCompanyId && scopedCompanyIds.length > 1) {
-      return json({ error: 'Selecione a empresa da venda.' }, { status: 400 });
+      return json({ error: 'Selecione a empresa da venda.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (sellerCompanyId && targetCompanyId && sellerCompanyId !== targetCompanyId) {
-      return json({ error: 'Vendedor fora da empresa selecionada.' }, { status: 403 });
+      return json({ error: 'Vendedor fora da empresa selecionada.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (isEdit) {
@@ -121,13 +121,13 @@ export async function POST(event: RequestEvent) {
       const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
       const scopedCompanySet = new Set(scopedCompanyIds.map((id) => String(id || '').trim()).filter(Boolean));
       if (!existingSale?.id || (!scope.isAdmin && scopedCompanySet.size > 0 && !scopedCompanySet.has(existingCompanyId))) {
-        return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403 });
+        return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
       if (isUuid(existingCompanyId)) targetCompanyId = existingCompanyId;
     }
 
     if (!isUuid(String(targetCompanyId || ''))) {
-      return json({ error: 'Empresa da venda invalida.' }, { status: 400 });
+      return json({ error: 'Empresa da venda invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     // Verificar duplicidade de recibos/reservas
@@ -151,7 +151,7 @@ export async function POST(event: RequestEvent) {
       );
     } catch (e: any) {
       if (e?.message === 'DATA_VENDA_INVALIDA') {
-        return json({ error: 'data_venda inválida.' }, { status: 400 });
+        return json({ error: 'data_venda inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
       throw e;
     }
@@ -168,7 +168,7 @@ export async function POST(event: RequestEvent) {
         .maybeSingle();
       if (updateError) throw updateError;
       if (!updated?.id) {
-        return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403 });
+        return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
       vendaIdFinal = updated.id;
     } else {
@@ -183,7 +183,7 @@ export async function POST(event: RequestEvent) {
     }
 
     if (!vendaIdFinal) {
-      return json({ error: 'Venda não foi gerada.' }, { status: 500 });
+      return json({ error: 'Venda não foi gerada.' }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     // Sincronizar recibos, viagens, passageiros e pagamentos via RPC atômica
@@ -205,7 +205,7 @@ export async function POST(event: RequestEvent) {
   } catch (err: any) {
     const code = err?.message;
     if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA' || code === 'RECIBO_INVALIDO') {
-      return json({ error: code }, { status: 409 });
+      return json({ error: code }, { status: 409, headers: NO_STORE_HEADERS });
     }
     return toErrorResponse(err, 'Erro ao salvar cadastro de venda.');
   }

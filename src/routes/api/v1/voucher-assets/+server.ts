@@ -18,6 +18,8 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
+const mutationError = (message: string, status: number) =>
+  json({ success: false, error: message }, { status, headers: NO_STORE_HEADERS });
 
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
@@ -285,7 +287,7 @@ export async function PATCH(event) {
     const formData = formDataResult.formData;
     const id = normalizeText(formData.get('id'));
     if (!isUuid(id)) {
-      return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
+      return mutationError('ID do asset inválido.', 400);
     }
 
     const assetQuery = client
@@ -304,7 +306,7 @@ export async function PATCH(event) {
       ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||
         (!scope.isAdmin && allowedCompanySet.has(existingCompanyId)));
     if (!existingRaw || !isAllowed) {
-      return json({ success: false, error: 'Voucher asset não encontrado.' }, { status: 404 });
+      return mutationError('Voucher asset não encontrado.', 404);
     }
     const existing = existingRaw;
 
@@ -391,7 +393,7 @@ export async function DELETE(event) {
     const id = normalizeText(event.url.searchParams.get('id'));
     const requestedCompanyId = normalizeText(event.url.searchParams.get('company_id'));
     if (!isUuid(id)) {
-      return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
+      return mutationError('ID do asset inválido.', 400);
     }
 
     const assetQuery = client
@@ -410,7 +412,7 @@ export async function DELETE(event) {
       ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||
         (!scope.isAdmin && allowedCompanySet.has(existingCompanyId)));
     if (!existingRaw || !isAllowed) {
-      return json({ success: false, error: 'Voucher asset não encontrado.' }, { status: 404 });
+      return mutationError('Voucher asset não encontrado.', 404);
     }
     const existing = existingRaw;
 

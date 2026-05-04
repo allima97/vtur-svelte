@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import { ensureTodoAccess, normalizeTodoStatus } from "$lib/server/agenda";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { invalidateTodoReadModels } from "$lib/server/readModelCache";
 import {
   getAdminClient,
@@ -87,7 +88,7 @@ export async function POST(event) {
         : {};
     const updates = normalizeUpdates(body?.updates).slice(0, 120);
     if (updates.length === 0) {
-      return json({ error: "updates obrigatorio." }, { status: 400 });
+      return json({ error: "updates obrigatorio." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const ids = updates.map((item) => item.id);
@@ -159,7 +160,7 @@ export async function POST(event) {
         updated,
         errors,
       },
-      { status: errors.length > 0 ? 207 : 200 },
+      { status: errors.length > 0 ? 207 : 200, headers: NO_STORE_HEADERS },
     );
   } catch (err) {
     return toErrorResponse(err, "Erro ao atualizar tarefas.");

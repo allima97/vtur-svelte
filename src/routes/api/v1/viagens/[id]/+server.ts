@@ -11,6 +11,7 @@ import {
 import { resolveViagemStatus } from "$lib/viagens/status";
 import { syncViagemStatusIfNeeded } from "$lib/server/viagensStatus";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_UPDATE_BODY_BYTES = 256 * 1024;
@@ -173,13 +174,13 @@ export async function GET(event) {
 
     if (error) {
       if (error.code === "PGRST116") {
-        return json({ error: "Viagem não encontrada" }, { status: 404 });
+        return json({ error: "Viagem não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
       }
       throw error;
     }
 
     if (companyIds.length > 0 && !companyIds.includes(viagem.company_id)) {
-      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
@@ -204,7 +205,7 @@ export async function GET(event) {
           viagem.cliente_id,
         ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -322,7 +323,7 @@ export async function GET(event) {
         vouchers: vouchers || [],
         passageiros: passageiros || [],
       },
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar viagem.");
   }
@@ -364,11 +365,11 @@ export async function PATCH(event) {
       .single();
 
     if (checkError || !existing) {
-      return json({ error: "Viagem não encontrada" }, { status: 404 });
+      return json({ error: "Viagem não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
-      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
@@ -393,7 +394,7 @@ export async function PATCH(event) {
           (existing as any)?.cliente_id ?? null,
         ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -443,7 +444,7 @@ export async function PATCH(event) {
       userId: user.id,
     });
 
-    return json({ viagem: data, message: "Viagem atualizada com sucesso" });
+    return json({ viagem: data, message: "Viagem atualizada com sucesso" }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao atualizar viagem.");
   }
@@ -477,7 +478,7 @@ export async function DELETE(event) {
     if (!scope.isAdmin && companyIds.length === 0) {
       return json(
         { error: "Informe company_id para excluir viagem." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -488,11 +489,11 @@ export async function DELETE(event) {
       .single();
 
     if (checkError || !existing) {
-      return json({ error: "Viagem não encontrada" }, { status: 404 });
+      return json({ error: "Viagem não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
-      return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (shouldRestrictViagemToOwner(scope)) {
@@ -517,7 +518,7 @@ export async function DELETE(event) {
           (existing as any)?.cliente_id ?? null,
         ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
-        return json({ error: "Sem acesso a esta viagem" }, { status: 403 });
+        return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -532,7 +533,7 @@ export async function DELETE(event) {
       userId: user.id,
     });
 
-    return json({ message: "Viagem excluída com sucesso" });
+    return json({ message: "Viagem excluída com sucesso" }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao excluir viagem.");
   }

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyId,
   resolveScopedCompanyIds,
@@ -176,9 +177,9 @@ export async function PATCH(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
 
-    if (!body.id) {
+    if (!isUuid(String(body.id || ''))) {
       return json(
-        { success: false, error: 'ID da forma de pagamento é obrigatório.' },
+        { success: false, error: 'ID da forma de pagamento inválido.' },
         { status: 400, headers: NO_STORE_HEADERS }
       );
     }
@@ -240,9 +241,9 @@ export async function DELETE(event) {
     const { searchParams } = event.url;
     const id = searchParams.get('id');
 
-    if (!id) {
+    if (!isUuid(id)) {
       return json(
-        { success: false, error: 'ID da forma de pagamento é obrigatório.' },
+        { success: false, error: 'ID da forma de pagamento inválido.' },
         { status: 400, headers: NO_STORE_HEADERS }
       );
     }

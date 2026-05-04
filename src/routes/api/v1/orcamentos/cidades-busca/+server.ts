@@ -13,6 +13,7 @@ import {
   getCachedReadModel,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -35,7 +36,7 @@ export async function GET(event: RequestEvent) {
       );
     }
 
-    const query = String(event.url.searchParams.get('q') || '').trim();
+    const query = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'), 120);
     const limite = parseLimit(event.url.searchParams.get('limite'), query ? 50 : 200);
 
     if (!query) {
@@ -50,7 +51,7 @@ export async function GET(event: RequestEvent) {
           return (data || []).map((item: any) => ({ nome: item.nome }));
         }
       });
-      return json(items);
+      return json(items, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const items = await getCachedReadModel<any[]>({
@@ -78,7 +79,7 @@ export async function GET(event: RequestEvent) {
       }
     });
 
-    return json(items);
+    return json(items, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar cidades.');
   }

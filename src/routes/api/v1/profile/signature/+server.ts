@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
@@ -43,7 +44,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       companyId: String(userRow?.company_id || '').trim() || null,
       nome_completo: userRow?.nome_completo || '',
       cargo: '',
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError('[profile/signature] falha ao carregar assinatura', err);
     return toErrorResponse(err, 'Erro ao carregar assinatura.');
@@ -90,7 +91,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
       companyIds: userRow?.company_id ? [String(userRow.company_id)] : null,
       userId: user.id
     });
-    return json({ ok: true, signature });
+    return json({ ok: true, signature }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[profile/signature] falha ao salvar assinatura', err);
     return toErrorResponse(err, 'Erro ao salvar assinatura.');

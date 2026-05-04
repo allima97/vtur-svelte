@@ -7,6 +7,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function shouldScopeByOwner(scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean }) {
   return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
@@ -85,7 +86,7 @@ export async function GET(event: RequestEvent) {
 
     if (fetchError) throw fetchError;
 
-    return json({ dias: data || [] });
+    return json({ dias: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao buscar dias.');
   }

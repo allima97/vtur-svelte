@@ -51,7 +51,7 @@ export async function POST(event) {
 
     const vendedorId = String(venda?.vendedor_id || scope.userId).trim();
     if (!isUuid(vendedorId)) {
-      return json({ error: "Vendedor invalido." }, { status: 400 });
+      return json({ error: "Vendedor invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const deniedSeller = await ensureAssignableActiveSeller(
@@ -62,7 +62,7 @@ export async function POST(event) {
     if (deniedSeller) {
       return json(
         { error: deniedSeller },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -88,27 +88,27 @@ export async function POST(event) {
     if (!targetCompanyId) {
       return json(
         { error: "Selecione uma empresa para cadastrar a venda." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
     if (sellerCompanyId && sellerCompanyId !== targetCompanyId) {
       return json(
         { error: "Vendedor fora da empresa selecionada." },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 
     const clienteId = String(venda?.cliente_id || "").trim();
     if (!isUuid(clienteId))
-      return json({ error: "Cliente invalido." }, { status: 400 });
+      return json({ error: "Cliente invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const destinoId = String(venda?.destino_id || "").trim();
     if (!isUuid(destinoId))
-      return json({ error: "Destino invalido." }, { status: 400 });
+      return json({ error: "Destino invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     if (!Array.isArray(recibos) || recibos.length === 0) {
-      return json({ error: "Inclua ao menos um recibo." }, { status: 400 });
+      return json({ error: "Inclua ao menos um recibo." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     try {
@@ -122,7 +122,7 @@ export async function POST(event) {
       const code =
         err instanceof Error ? err.message : "Erro ao validar recibos.";
       if (code === "RECIBO_DUPLICADO" || code === "RESERVA_DUPLICADA") {
-        return json({ code }, { status: 409 });
+        return json({ code }, { status: 409, headers: NO_STORE_HEADERS });
       }
       throw err;
     }
@@ -139,7 +139,7 @@ export async function POST(event) {
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
       if (code === "DATA_VENDA_INVALIDA") {
-        return json({ error: "Data da venda invalida." }, { status: 400 });
+        return json({ error: "Data da venda invalida." }, { status: 400, headers: NO_STORE_HEADERS });
       }
       throw err;
     }

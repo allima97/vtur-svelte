@@ -58,7 +58,7 @@ export async function POST(event) {
     );
     const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
     const saleCompanyId = String(sale.company_id || '').trim();
 

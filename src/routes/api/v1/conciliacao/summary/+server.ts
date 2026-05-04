@@ -15,6 +15,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function isConciliacaoEfetivada(row: any) {
   const raw = String(row?.descricao || row?.status || '')
@@ -50,11 +51,11 @@ export async function GET(event) {
 
     // Não-admins devem sempre ter empresa resolvida
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ error: 'Empresa não identificada.' }, { status: 400 });
+      return json({ error: 'Empresa não identificada.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     // Admin sem filtro explicitamente passado também precisa de company_id
     if (companyIds.length === 0) {
-      return json({ error: 'Informe company_id.' }, { status: 400 });
+      return json({ error: 'Informe company_id.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const monthRange = monthRangeFromKey(mes);
@@ -156,7 +157,7 @@ export async function GET(event) {
       totalValor,
       timeline,
       ...(lacunaCronologica ? { lacuna_cronologica: lacunaCronologica } : {})
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar resumo da conciliação.');
   }

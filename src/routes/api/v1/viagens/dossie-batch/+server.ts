@@ -14,6 +14,7 @@ import {
   invalidateClientReadModels,
   invalidateTripReadModels,
 } from "$lib/server/readModelCache";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_DOSSIE_BODY_BYTES = 512 * 1024;
@@ -180,7 +181,7 @@ export async function POST(event: RequestEvent) {
     const action = String(body?.action || "").trim();
     const data = body?.data || {};
     if (!viagemId || !action) {
-      return json({ error: "Parametros invalidos." }, { status: 400 });
+      return json({ error: "Parametros invalidos." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let baseQuery = client
@@ -193,9 +194,9 @@ export async function POST(event: RequestEvent) {
     const { data: viagemRow, error: viagemErr } = await baseQuery.maybeSingle();
     if (viagemErr) throw viagemErr;
     if (!viagemRow)
-      return json({ error: "Viagem nao encontrada." }, { status: 404 });
+      return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
     if (scope.isVendedor && !vendedorOwnsViagem(user.id, viagemRow)) {
-      return json({ error: "Sem acesso a esta viagem." }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem." }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (action === "acompanhante_save") {
@@ -315,7 +316,7 @@ export async function POST(event: RequestEvent) {
       const { error } = await updateQuery;
       if (error) throw error;
     } else {
-      return json({ error: "Acao invalida." }, { status: 400 });
+      return json({ error: "Acao invalida." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     invalidateTripReadModels({
@@ -340,13 +341,13 @@ export async function POST(event: RequestEvent) {
       scope.isVendedor,
     );
     if (!loaded)
-      return json({ error: "Viagem nao encontrada." }, { status: 404 });
+      return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
 
     return json({
       viagem: loaded.detalhe,
       viagensVenda: loaded.viagensVenda,
       acompanhantesCliente: loaded.acompanhantesCliente,
-    });
+    }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao salvar dossie.");
   }

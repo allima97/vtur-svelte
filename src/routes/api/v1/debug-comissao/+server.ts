@@ -45,7 +45,7 @@ export async function GET(event: any) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
+    if (!scope.isAdmin && !scope.isMaster) {
       return debugJson({ error: 'Sem acesso ao diagnóstico de comissão.' }, { status: 403 });
     }
     if (!scope.isAdmin) {

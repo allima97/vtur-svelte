@@ -6,6 +6,7 @@ import {
   ensureModuloAccess,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
@@ -38,7 +39,7 @@ export async function GET(event: RequestEvent) {
 
     if (error) throw error;
 
-    return json({ roteiros: data || [] });
+    return json({ roteiros: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar roteiros.');
   }

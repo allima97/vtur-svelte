@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function vendedorOwnsViagem(userId: string, viagem: any) {
   const responsavelId = String(viagem?.responsavel_user_id || '').trim();
@@ -22,7 +23,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     const viagemId = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(viagemId)) return json({ error: 'ID de viagem inválido.' }, { status: 400 });
+    if (!isUuid(viagemId)) return json({ error: 'ID de viagem inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: viagem, error: viagemError } = await client
       .from('viagens')
@@ -49,16 +50,16 @@ export async function GET(event) {
       .maybeSingle();
 
     if (viagemError) throw viagemError;
-    if (!viagem) return json({ error: 'Viagem não encontrada.' }, { status: 404 });
+    if (!viagem) return json({ error: 'Viagem não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     // ✅ Ownership compatível com MASTER (múltiplos companyIds)
     const companyIds = resolveScopedCompanyIds(scope, viagem.company_id);
     if (!scope.isAdmin && !companyIds.includes(viagem.company_id)) {
-      return json({ error: 'Viagem fora do escopo.' }, { status: 403 });
+      return json({ error: 'Viagem fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     if (scope.isVendedor && !vendedorOwnsViagem(user.id, viagem)) {
-      return json({ error: 'Sem acesso a esta viagem.' }, { status: 403 });
+      return json({ error: 'Sem acesso a esta viagem.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const statusAtual = await syncViagemStatusIfNeeded(client, viagem as any);
@@ -86,7 +87,7 @@ export async function GET(event) {
         vouchers: vouchers || [],
         historico: []
       }
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar dossie da viagem.');
   }

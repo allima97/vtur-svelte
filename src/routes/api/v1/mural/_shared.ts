@@ -1,7 +1,9 @@
 import {
   ensureModuloAccess,
   getAdminClient,
+  NO_MATCH_COMPANY_ID,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   type UserScope,
 } from "$lib/server/v1";
@@ -65,30 +67,19 @@ export async function requireMuralScope(event: any, minLevel = 1) {
 }
 
 export async function assertCompanyAccess(
-  client: any,
+  _client: any,
   scope: UserScope,
   companyId: string,
 ) {
   if (scope.isAdmin) return null;
 
-  if (!scope.isMaster) {
-    if (!scope.companyId || scope.companyId !== companyId) {
-      return noStoreTextResponse("Sem acesso a empresa.", 403);
-    }
-    return null;
-  }
-
-  const { data: vinculos, error } = await client
-    .from("master_empresas")
-    .select("company_id, status")
-    .eq("master_id", scope.userId)
-    .eq("status", "approved");
-  if (error) throw error;
-
-  const allowed = (vinculos || []).some(
-    (row: any) => String(row.company_id || "") === companyId,
-  );
+  const scopedCompanyIds = resolveScopedCompanyIds(scope, companyId);
+  const allowed =
+    scopedCompanyIds.length > 0 &&
+    scopedCompanyIds[0] !== NO_MATCH_COMPANY_ID &&
+    scopedCompanyIds.includes(companyId);
   if (!allowed) return noStoreTextResponse("Sem acesso a empresa.", 403);
+
   return null;
 }
 

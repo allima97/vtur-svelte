@@ -271,7 +271,7 @@ export async function POST(event) {
     ) {
       return json(
         { error: "Um ou mais campos de valor estão inválidos." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -284,10 +284,10 @@ export async function POST(event) {
 
     if (registroErr) throw registroErr;
     if (!registro)
-      return json({ error: "Registro não encontrado." }, { status: 404 });
+      return json({ error: "Registro não encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
     const registroCompanyId = String(registro.company_id || "").trim();
     if (!scope.isAdmin && !companyIds.includes(registroCompanyId)) {
-      return json({ error: "Registro fora do escopo." }, { status: 403 });
+      return json({ error: "Registro fora do escopo." }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     // Nunca permitir atribuição de "Equipe vtur" como vendedor de um recibo
@@ -319,7 +319,7 @@ export async function POST(event) {
             error:
               "Vendedor fora do escopo da empresa ou inelegível para ranking.",
           },
-          { status: 422 },
+          { status: 422, headers: NO_STORE_HEADERS },
         );
       }
     }

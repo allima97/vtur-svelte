@@ -5,6 +5,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -13,7 +14,7 @@ export async function GET(event) {
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
-      return json({ error: 'Somente administradores podem acessar logs.' }, { status: 403 });
+      return json({ error: 'Somente administradores podem acessar logs.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { searchParams } = event.url;
@@ -38,7 +39,7 @@ export async function GET(event) {
     const { data, count, error: queryError } = await query;
     if (queryError) throw queryError;
 
-    return json({ items: data || [], total: Number(count || 0), page, pageSize });
+    return json({ items: data || [], total: Number(count || 0), page, pageSize }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar logs.');
   }

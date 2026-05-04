@@ -12,6 +12,8 @@ const MAX_WELCOME_EMAIL_BODY_BYTES = 8 * 1024;
 
 const TEMPLATE_NOME = "Bem-Vindo!";
 const TEMPLATE_ASSUNTO = "Bem-Vindo!";
+const errorResponse = (message: string, status: number) =>
+  json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
 function limparDigitos(valor?: string | null) {
   return (valor || "").replace(/\D/g, "");
@@ -184,11 +186,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (perfilErr) {
       logServerError("[welcome-email] falha ao carregar perfil", perfilErr);
-      return json({ error: "Falha ao carregar perfil." }, { status: 500 });
+      return errorResponse("Falha ao carregar perfil.", 500);
     }
 
     if (!perfil) {
-      return json({ error: "Usuário não encontrado." }, { status: 404 });
+      return errorResponse("Usuário não encontrado.", 404);
     }
 
     if (perfil.welcome_email_sent) {
@@ -196,7 +198,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (!perfilCompleto(perfil)) {
-      return json({ error: "Perfil incompleto." }, { status: 400 });
+      return errorResponse("Perfil incompleto.", 400);
     }
 
     let recipientEmail = (perfil.email || user.email || "").trim().toLowerCase();
@@ -214,7 +216,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (!recipientEmail) {
-      return json({ error: "Usuário sem e-mail cadastrado." }, { status: 400 });
+      return errorResponse("Usuário sem e-mail cadastrado.", 400);
     }
 
     let templateResp = await client
@@ -235,15 +237,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (templateResp.error) {
       logServerError("[welcome-email] falha ao carregar template", templateResp.error);
-      return json({ error: "Falha ao carregar template." }, { status: 500 });
+      return errorResponse("Falha ao carregar template.", 500);
     }
 
     const template = templateResp.data;
     if (!template) {
-      return json({ error: "Template Bem-Vindo! não encontrado." }, { status: 404 });
+      return errorResponse("Template Bem-Vindo! não encontrado.", 404);
     }
     if (!template.ativo) {
-      return json({ error: "Template Bem-Vindo! está inativo." }, { status: 400 });
+      return errorResponse("Template Bem-Vindo! está inativo.", 400);
     }
 
     const vars = {
@@ -299,9 +301,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       );
     }
 
-    return json({ error: "Nenhum provedor de e-mail configurado." }, { status: 500 });
+    return errorResponse("Nenhum provedor de e-mail configurado.", 500);
   } catch (error: any) {
     logServerError("[welcome-email] falha ao enviar boas-vindas", error);
-    return json({ error: "Erro interno ao enviar e-mail de boas-vindas." }, { status: 500 });
+    return errorResponse("Erro interno ao enviar e-mail de boas-vindas.", 500);
   }
 };

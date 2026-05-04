@@ -15,6 +15,17 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 // Usa commission_rule e commission_tier (tabelas reais do schema)
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
+const COMMISSION_RULE_COMPANY_BATCH_SIZE = 80;
+const COMMISSION_RULE_SELECT =
+  'id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)';
+
+function chunkArray<T>(values: T[], size = COMMISSION_RULE_COMPANY_BATCH_SIZE) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId?: string | null) {
   if (scope.isAdmin) return true;
@@ -41,6 +52,46 @@ function invalidateCommissionRuleReadModels(params?: {
   invalidateCommissionReadModels(params);
 }
 
+function applyRuleListFilters(query: any, ativo: string | null, tipo: string | null) {
+  if (ativo !== null && ativo !== '') query = query.eq('ativo', ativo === 'true');
+  if (tipo) query = query.eq('tipo', tipo);
+  return query;
+}
+
+async function fetchCommissionRulesForScope(params: {
+  client: ReturnType<typeof getAdminClient>;
+  ativo: string | null;
+  tipo: string | null;
+  companyIds: string[];
+  includeAllCompanies: boolean;
+}) {
+  const { client, ativo, tipo, companyIds, includeAllCompanies } = params;
+  const rows: any[] = [];
+
+  const runQuery = async (builder: any) => {
+    const { data, error } = await applyRuleListFilters(builder, ativo, tipo).order('nome', {
+      ascending: true
+    });
+    if (error) throw error;
+    rows.push(...(data || []));
+  };
+
+  if (includeAllCompanies) {
+    await runQuery(client.from('commission_rule').select(COMMISSION_RULE_SELECT));
+  } else {
+    await runQuery(client.from('commission_rule').select(COMMISSION_RULE_SELECT).is('company_id', null));
+
+    for (const companyBatch of chunkArray(companyIds)) {
+      if (companyBatch.length === 0) continue;
+      await runQuery(client.from('commission_rule').select(COMMISSION_RULE_SELECT).in('company_id', companyBatch));
+    }
+  }
+
+  return Array.from(new Map(rows.map((row) => [row.id, row])).values()).sort((a, b) =>
+    String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR')
+  );
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -59,19 +110,13 @@ export async function GET(event) {
       searchParams.get('empresa_id') || searchParams.get('company_id')
     );
 
-    let query = client
-      .from('commission_rule')
-      .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
-      .order('nome', { ascending: true });
-
-    if (ativo !== null && ativo !== '') query = query.eq('ativo', ativo === 'true');
-    if (tipo) query = query.eq('tipo', tipo);
-    if (companyIds.length > 0) query = query.or(`company_id.is.null,company_id.in.(${companyIds.join(',')})`);
-
-    const { data, error: dbError } = await query;
-    if (dbError) throw dbError;
-
-    const rows = (data || []) as any[];
+    const rows = await fetchCommissionRulesForScope({
+      client,
+      ativo,
+      tipo,
+      companyIds,
+      includeAllCompanies: scope.isAdmin && companyIds.length === 0
+    });
     const visibleRows =
       scope.isAdmin || companyIds.length > 0
         ? rows

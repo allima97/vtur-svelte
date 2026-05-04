@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 /**
  * GET /api/v1/conciliacao/rateio-info?venda_recibo_id=<uuid>&company_id=<uuid>
@@ -51,7 +52,7 @@ export async function GET(event) {
     const conciliacaoReciboId = String(searchParams.get('conciliacao_recibo_id') || '').trim();
 
     if (!isUuid(vendaReciboId)) {
-      return json({ error: 'venda_recibo_id inválido.' }, { status: 400 });
+      return json({ error: 'venda_recibo_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
@@ -81,12 +82,12 @@ export async function GET(event) {
       .maybeSingle();
 
     if (reciboErr) throw reciboErr;
-    if (!reciboData) return json({ error: 'Recibo não encontrado.' }, { status: 404 });
+    if (!reciboData) return json({ error: 'Recibo não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     // Ownership check
     const reciboCompany = (reciboData as any)?.vendas?.company_id;
     if (!scope.isAdmin && (!reciboCompany || companyIds.length === 0 || !companyIds.includes(reciboCompany))) {
-      return json({ error: 'Recibo fora do escopo.' }, { status: 403 });
+      return json({ error: 'Recibo fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const recibo = reciboData as any;
@@ -147,7 +148,7 @@ export async function GET(event) {
       vendedor_origem: vendedorOrigem,
       rateio: rateioInfo,
       valor_calculada_loja: valorCalculadaLoja
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar informações de rateio.');
   }

@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchFornecedores } from '$lib/server/fornecedores';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -19,7 +20,7 @@ export async function GET(event) {
     }
 
     const payload = await fetchFornecedores(client, scope, event.url.searchParams);
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar fornecedores.');
   }

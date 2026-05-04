@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
@@ -30,7 +31,7 @@ export async function GET(event) {
     const { data, error: queryError } = await query.limit(200);
     if (queryError) throw queryError;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar termos não comissionáveis.');
   }
@@ -57,7 +58,9 @@ export async function POST(event) {
         : {};
     const { id, termo, descricao, ativo } = body;
 
-    if (!String(termo || '').trim()) return json({ error: 'Termo obrigatório.' }, { status: 400 });
+    if (!String(termo || '').trim()) {
+      return json({ error: 'Termo obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     const payload = {
       termo: String(termo).trim(),
@@ -78,7 +81,7 @@ export async function POST(event) {
     }
 
     invalidateSalesReadModels();
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar termo.');
   }
@@ -98,13 +101,13 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('parametros_pagamentos_nao_comissionaveis').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
     invalidateSalesReadModels();
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir termo.');
   }

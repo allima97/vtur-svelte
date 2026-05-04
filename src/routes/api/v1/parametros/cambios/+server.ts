@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_CAMBIOS_BODY_BYTES = 32 * 1024;
@@ -35,7 +36,7 @@ export async function GET(event) {
     const { data, error: queryError } = await query.limit(500);
     if (queryError) throw queryError;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar câmbios.');
   }
@@ -62,10 +63,10 @@ export async function POST(event) {
         : {};
     const { id, moeda, data, valor } = body;
 
-    if (!String(moeda || '').trim()) return json({ error: 'Moeda obrigatória.' }, { status: 400 });
-    if (!String(data || '').trim()) return json({ error: 'Data obrigatória.' }, { status: 400 });
+    if (!String(moeda || '').trim()) return json({ error: 'Moeda obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!String(data || '').trim()) return json({ error: 'Data obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
     const valorNum = Number(valor);
-    if (!Number.isFinite(valorNum) || valorNum <= 0) return json({ error: 'Valor inválido.' }, { status: 400 });
+    if (!Number.isFinite(valorNum) || valorNum <= 0) return json({ error: 'Valor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       moeda: String(moeda).trim().toUpperCase(),
@@ -90,7 +91,7 @@ export async function POST(event) {
       companyIds: scope.companyId ? [scope.companyId] : null,
       userId: user.id
     });
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar câmbio.');
   }
@@ -110,7 +111,7 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('parametros_cambios').delete().eq('id', id);
     if (deleteError) throw deleteError;
@@ -119,7 +120,7 @@ export async function DELETE(event) {
       companyIds: scope.companyId ? [scope.companyId] : null,
       userId: user.id
     });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir câmbio.');
   }

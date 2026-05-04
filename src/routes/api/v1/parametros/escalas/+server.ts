@@ -18,6 +18,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_ESCALAS_BODY_BYTES = 512 * 1024;
@@ -330,7 +331,7 @@ export async function GET(event) {
       }
     });
 
-    return json(result);
+    return json(result, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar escalas.');
   }
@@ -361,12 +362,12 @@ export async function POST(event) {
       const { escala_mes_id, usuario_id, data, tipo, hora_inicio, hora_fim, observacao } = body;
 
       if (!isUuid(escala_mes_id) || !isUuid(usuario_id) || !data) {
-        return json({ error: 'Dados inválidos.' }, { status: 400 });
+        return json({ error: 'Dados inválidos.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
 
       const equipeIds = await resolveEquipeIds(client, scope);
       if (!scope.isAdmin && !equipeIds.includes(usuario_id)) {
-        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403 });
+        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
       const payload = {
@@ -400,7 +401,7 @@ export async function POST(event) {
       }
 
       invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'apply_batch') {
@@ -414,16 +415,16 @@ export async function POST(event) {
       const observacao = String(body.observacao || '').trim() || null;
 
       if (!isUuid(usuarioId) || datas.length === 0) {
-        return json({ error: 'Seleção inválida.' }, { status: 400 });
+        return json({ error: 'Seleção inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
 
       const equipeIds = await resolveEquipeIds(client, scope);
       if (!scope.isAdmin && !equipeIds.includes(usuarioId)) {
-        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403 });
+        return json({ error: 'Usuário fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
       const periodo = normalizePeriod(body.periodo || datas[0]?.slice(0, 7));
-      if (!periodo) return json({ error: 'Período inválido.' }, { status: 400 });
+      if (!periodo) return json({ error: 'Período inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
       const escalaMesId = String(body.escala_mes_id || '').trim();
       const mesId = isUuid(escalaMesId) ? escalaMesId : await ensureEscalaMes(client, scope, periodo);
@@ -437,7 +438,7 @@ export async function POST(event) {
           .in('data', datas);
         if (deleteError) throw deleteError;
         invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-        return json({ ok: true, removed: datas.length, id: mesId });
+        return json({ ok: true, removed: datas.length, id: mesId }, { headers: NO_STORE_HEADERS });
       }
 
       const rows = datas.map((data) => ({
@@ -457,16 +458,16 @@ export async function POST(event) {
       if (upsertError) throw upsertError;
 
       invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-      return json({ ok: true, id: mesId, items: saved || [] });
+      return json({ ok: true, id: mesId, items: saved || [] }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'ensure_mes') {
       const { periodo } = body; // YYYY-MM
-      if (!periodo) return json({ error: 'Período inválido.' }, { status: 400 });
+      if (!periodo) return json({ error: 'Período inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
       const id = await ensureEscalaMes(client, scope, periodo);
       invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-      return json({ ok: true, id });
+      return json({ ok: true, id }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'upsert_horario_usuario') {
@@ -503,7 +504,7 @@ export async function POST(event) {
       if (existing?.id) {
         await client.from('escala_horario_usuario').update(payload).eq('id', existing.id);
         invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-        return json({ ok: true, id: existing.id });
+        return json({ ok: true, id: existing.id }, { headers: NO_STORE_HEADERS });
       } else {
         const { data: inserted, error: insertError } = await client
           .from('escala_horario_usuario')
@@ -512,11 +513,11 @@ export async function POST(event) {
           .single();
         if (insertError) throw insertError;
         invalidateReadModelCache({ keyPrefix: 'parametros:escalas:' });
-        return json({ ok: true, id: inserted?.id });
+        return json({ ok: true, id: inserted?.id }, { headers: NO_STORE_HEADERS });
       }
     }
 
-    return json({ error: 'Ação inválida.' }, { status: 400 });
+    return json({ error: 'Ação inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar escala.');
   }

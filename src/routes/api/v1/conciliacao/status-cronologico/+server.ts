@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 /**
  * GET /api/v1/conciliacao/status-cronologico?company_id=...
@@ -37,7 +38,7 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const companyId = resolveScopedCompanyId(scope, searchParams.get('company_id'));
 
-    if (!companyId) return json({ error: 'Selecione uma empresa para verificar a conciliação.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para verificar a conciliação.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const diagnostico = await diagnosticarLacunasCronologicas({ client, companyId });
 
@@ -65,7 +66,7 @@ export async function GET(event) {
       dias_sem_movimento: diagnostico.diasSemMovimento,
       registros_bloqueados: diagnostico.registrosBloqueados,
       aviso
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao verificar status cronológico da conciliação.');
   }

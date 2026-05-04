@@ -6,6 +6,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event: RequestEvent) {
   try {
@@ -42,7 +43,7 @@ export async function GET(event: RequestEvent) {
       sugestoes[row.tipo].push(row.valor);
     });
 
-    return json({ sugestoes });
+    return json({ sugestoes }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao buscar sugestoes.');
   }

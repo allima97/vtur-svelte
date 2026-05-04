@@ -6,9 +6,12 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_VOUCHER_UPDATE_BODY_BYTES = 512 * 1024;
+const errorResponse = (message: string, status: number, success = false) =>
+  json({ success, error: message }, { status, headers: NO_STORE_HEADERS });
 
 export async function GET(event) {
   try {
@@ -33,9 +36,9 @@ export async function GET(event) {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return json({ success: false, error: 'Voucher não encontrado' }, { status: 404 });
+    if (!data) return errorResponse('Voucher não encontrado', 404);
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar voucher.');
   }
@@ -64,9 +67,9 @@ export async function PATCH(event) {
 
     // Verifica escopo
     const { data: existing } = await client.from('vouchers').select('id, company_id').eq('id', id).maybeSingle();
-    if (!existing) return json({ error: 'Voucher não encontrado.' }, { status: 404 });
+    if (!existing) return errorResponse('Voucher não encontrado.', 404);
     if (!scope.isAdmin && existing.company_id !== scope.companyId) {
-      return json({ error: 'Voucher fora do escopo.' }, { status: 403 });
+      return errorResponse('Voucher fora do escopo.', 403);
     }
 
     const { error: voucherError } = await client
@@ -126,7 +129,7 @@ export async function PATCH(event) {
       await client.from('voucher_hoteis').insert(hoteisPayload);
     }
 
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao atualizar voucher.');
   }
@@ -148,9 +151,9 @@ export async function DELETE(event) {
     const id = event.params.id;
 
     const { data: existing } = await client.from('vouchers').select('id, company_id').eq('id', id).maybeSingle();
-    if (!existing) return json({ error: 'Voucher não encontrado.' }, { status: 404 });
+    if (!existing) return errorResponse('Voucher não encontrado.', 404);
     if (!scope.isAdmin && existing.company_id !== scope.companyId) {
-      return json({ error: 'Voucher fora do escopo.' }, { status: 403 });
+      return errorResponse('Voucher fora do escopo.', 403);
     }
 
     await client.from('voucher_dias').delete().eq('voucher_id', id);
@@ -159,7 +162,7 @@ export async function DELETE(event) {
     const { error } = await client.from('vouchers').delete().eq('id', id);
     if (error) throw error;
 
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao excluir voucher.');
   }

@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
@@ -18,6 +19,8 @@ const QUOTE_ITEM_SELECT_FIELDS =
   'id, quote_id, item_type, title, product_name, city_name, cidade_id, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, confidence, raw, order_index, created_at, updated_at';
 
 const MAX_ORCAMENTO_UPDATE_BODY_BYTES = 256 * 1024;
+const errorResponse = (message: string, status: number) =>
+  json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
 export async function GET(event) {
   try {
@@ -29,7 +32,7 @@ export async function GET(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Orcamentos.');
     }
-    if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return errorResponse('ID invalido.', 400);
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
       companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
@@ -43,7 +46,7 @@ export async function GET(event) {
       .maybeSingle();
     if (quoteError) throw quoteError;
     if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return errorResponse('Orcamento nao encontrado.', 404);
     }
 
     const { data: items } = await client
@@ -91,7 +94,7 @@ export async function GET(event) {
       last_interaction_notes: quote.last_interaction_notes || null,
       vendedor,
       itens: items || []
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar orcamento.');
   }
@@ -112,7 +115,7 @@ export async function PATCH(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem permissao para editar orcamentos.');
     }
-    if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return errorResponse('ID invalido.', 400);
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
       companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
@@ -126,7 +129,7 @@ export async function PATCH(event) {
       .maybeSingle();
     if (existingError) throw existingError;
     if (!existingQuote || !isQuoteCreatorAllowed(quoteScope, existingQuote.created_by)) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return errorResponse('Orcamento nao encontrado.', 404);
     }
 
     const body =
@@ -141,7 +144,7 @@ export async function PATCH(event) {
     if (body.client_id !== undefined) {
       const nextClientId = String(body.client_id || '').trim();
       if (nextClientId && !isUuid(nextClientId)) {
-        return json({ error: 'Cliente invalido.' }, { status: 400 });
+        return errorResponse('Cliente invalido.', 400);
       }
       if (nextClientId) {
         const { data: cliente, error: clienteErr } = await client
@@ -150,10 +153,10 @@ export async function PATCH(event) {
           .eq('id', nextClientId)
           .maybeSingle();
         if (clienteErr) throw clienteErr;
-        if (!cliente?.id) return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+        if (!cliente?.id) return errorResponse('Cliente nao encontrado.', 404);
         const clienteCompanyId = String((cliente as any).company_id || '').trim();
         if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-          return json({ error: 'Cliente fora do seu escopo.' }, { status: 403 });
+          return errorResponse('Cliente fora do seu escopo.', 403);
         }
       }
       updateData.client_id = nextClientId || null;
@@ -191,7 +194,7 @@ export async function PATCH(event) {
       userId: user.id
     });
 
-    return json({ success: true, data });
+    return json({ success: true, data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar orcamento.');
   }
@@ -210,7 +213,7 @@ export async function DELETE(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['Orcamentos'], 3, 'Sem permissao para excluir orcamentos.');
     }
-    if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return errorResponse('ID invalido.', 400);
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
       companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
@@ -223,7 +226,7 @@ export async function DELETE(event) {
       .maybeSingle();
     if (existingError) throw existingError;
     if (!existingQuote || !isQuoteCreatorAllowed(quoteScope, existingQuote.created_by)) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return errorResponse('Orcamento nao encontrado.', 404);
     }
 
     await client.from('quote_item').delete().eq('quote_id', id);
@@ -237,7 +240,7 @@ export async function DELETE(event) {
       userId: user.id
     });
 
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir orcamento.');
   }

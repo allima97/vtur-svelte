@@ -21,6 +21,10 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
 
+function textNoStore(message: string, status: number) {
+  return new Response(message, { status, headers: NO_STORE_HEADERS });
+}
+
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -484,10 +488,10 @@ export async function POST(event) {
     const clienteEmail = sanitizeOptionalContact(body?.clienteEmail);
 
     if (!contratos.length) {
-      return new Response('Nenhum contrato para salvar.', { status: 400 });
+      return textNoStore('Nenhum contrato para salvar.', 400);
     }
     if (!isISODate(dataVenda)) {
-      return new Response('Data da venda inválida.', { status: 400 });
+      return textNoStore('Data da venda inválida.', 400);
     }
     const hoje = todayISODateLocal();
     const dataLancamento = dataVenda > hoje ? hoje : dataVenda;
@@ -497,16 +501,16 @@ export async function POST(event) {
       ? requestedCompanyId || scope.companyId
       : resolveScopedCompanyId(scope, requestedCompanyId || scope.companyId);
     if (!companyId) {
-      return new Response('Selecione a empresa para salvar venda.', { status: 400 });
+      return textNoStore('Selecione a empresa para salvar venda.', 400);
     }
 
     if (!isUuid(vendedorId)) {
-      return new Response('Vendedor inválido.', { status: 400 });
+      return textNoStore('Vendedor inválido.', 400);
     }
 
     const deniedSeller = await ensureAssignableActiveSeller(client, scope, vendedorId);
     if (deniedSeller) {
-      return new Response(deniedSeller, { status: 403 });
+      return textNoStore(deniedSeller, 403);
     }
 
     const { data: vendedorScope, error: vendedorScopeError } = await client
@@ -517,7 +521,7 @@ export async function POST(event) {
     if (vendedorScopeError) throw vendedorScopeError;
     const vendedorCompanyId = String((vendedorScope as any)?.company_id || '').trim() || null;
     if (vendedorCompanyId && vendedorCompanyId !== companyId) {
-      return new Response('Vendedor fora da empresa selecionada.', { status: 403 });
+      return textNoStore('Vendedor fora da empresa selecionada.', 403);
     }
 
     if (vendedorId !== user.id && !scope.isAdmin && !scope.isMaster) {
@@ -530,35 +534,35 @@ export async function POST(event) {
         if (targetSellerError) throw targetSellerError;
 
         if (!targetSeller?.id) {
-          return new Response('Vendedor informado nao encontrado.', { status: 404 });
+          return textNoStore('Vendedor informado nao encontrado.', 404);
         }
 
         const targetCompanyId = String((targetSeller as any)?.company_id || '').trim() || null;
         if (!targetCompanyId || targetCompanyId !== companyId) {
-          return new Response('Vendedor fora da empresa selecionada.', { status: 403 });
+          return textNoStore('Vendedor fora da empresa selecionada.', 403);
         }
 
         if (!Boolean((targetSeller as any)?.active) || Boolean((targetSeller as any)?.uso_individual)) {
-          return new Response('Vendedor informado nao pode receber venda.', { status: 403 });
+          return textNoStore('Vendedor informado nao pode receber venda.', 403);
         }
 
         if (!isAllowedSellerTipo((targetSeller as any)?.user_types?.name)) {
-          return new Response('Usuario informado nao pode receber venda.', { status: 403 });
+          return textNoStore('Usuario informado nao pode receber venda.', 403);
         }
       } else {
-        return new Response('Sem permissão para atribuir venda a outro vendedor.', { status: 403 });
+        return textNoStore('Sem permissão para atribuir venda a outro vendedor.', 403);
       }
     }
 
     const principal = contratos[principalIndex] || contratos[0];
     const cpfPrincipal = normalizeCpf(principal.contratante?.cpf);
     if (!cpfPrincipal || cpfPrincipal.length < 11) {
-      return new Response('CPF/CNPJ do contratante principal é obrigatório.', { status: 400 });
+      return textNoStore('CPF/CNPJ do contratante principal é obrigatório.', 400);
     }
 
     const documentos = new Set(contratos.map((c) => normalizeCpf(c.contratante?.cpf)));
     if (documentos.size > 1) {
-      return new Response('Importação contém contratos de documentos diferentes. Importe separadamente.', { status: 400 });
+      return textNoStore('Importação contém contratos de documentos diferentes. Importe separadamente.', 400);
     }
 
     let cidadeId = destinoCidadeId;
@@ -575,13 +579,13 @@ export async function POST(event) {
     if (isContratoLocacao(principal)) {
       const { data: indefinida } = await client.from('cidades').select('id').ilike('nome', 'Indefinida').maybeSingle();
       if (!indefinida?.id) {
-        return new Response("Cidade 'Indefinida' não encontrada. Cadastre antes de importar locação.", { status: 400 });
+        return textNoStore("Cidade 'Indefinida' não encontrada. Cadastre antes de importar locação.", 400);
       }
       cidadeId = indefinida.id;
     }
 
     if (!cidadeId) {
-      return new Response('Selecione a cidade de destino para continuar.', { status: 400 });
+      return textNoStore('Selecione a cidade de destino para continuar.', 400);
     }
 
     const clientePrincipal = await resolveClienteImport(client, companyId, user.id, {
@@ -615,7 +619,7 @@ export async function POST(event) {
       } catch (err) {
         const code = err instanceof Error ? err.message : 'Erro ao validar duplicidade.';
         if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA') {
-          return new Response(code, { status: 409 });
+          return textNoStore(code, 409);
         }
         throw err;
       }
@@ -688,7 +692,7 @@ export async function POST(event) {
       null;
 
     if (!produtoVendaId || !produtosMap.has(produtoVendaId)) {
-      return new Response('Produto de referência da venda inválido.', { status: 400 });
+      return textNoStore('Produto de referência da venda inválido.', 400);
     }
 
     const { data: venda, error: vendaError } = await client
@@ -722,7 +726,7 @@ export async function POST(event) {
       const produtoReciboId = String((contrato as any)?.produto_resolvido_id || '').trim() || destinoProdutoId || '';
       const produtoRecibo = produtosMap.get(produtoReciboId);
       if (!produtoRecibo?.id) {
-        return new Response('Produto do recibo inválido.', { status: 400 });
+        return textNoStore('Produto do recibo inválido.', 400);
       }
 
       const reciboCidadeId = String((contrato as any)?.destino_cidade_id || '').trim() || cidadeId || null;

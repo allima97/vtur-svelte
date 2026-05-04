@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { ensureClienteModuloAccess } from '$lib/server/clientes';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -20,7 +21,7 @@ export async function GET(event) {
 
     const clienteId = String(event.url.searchParams.get('cliente_id') || '').trim();
     if (!clienteId || !isUuid(clienteId)) {
-      return json({ error: 'Cliente invalido.' }, { status: 400 });
+      return json({ error: 'Cliente invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -33,12 +34,12 @@ export async function GET(event) {
     if (error) {
       const message = String(error.message || '').toLowerCase();
       if (message.includes('does not exist') || message.includes('schema cache')) {
-        return json({ items: [], unavailable: true });
+        return json({ items: [], unavailable: true }, { headers: DYNAMIC_READ_HEADERS });
       }
       throw error;
     }
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar historico de avisos.');
   }

@@ -20,7 +20,7 @@ function parseLimit(value: string | null, fallback: number) {
 export async function GET(event) {
   try {
     const { client, user } = await requirePreferenciasScope(event, 1);
-    const query = String(event.url.searchParams.get('q') || '').trim();
+    const query = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'), 120);
     const limite = parseLimit(event.url.searchParams.get('limite'), 8);
     const noCache = String(event.url.searchParams.get('no_cache') || '').trim() === '1';
 

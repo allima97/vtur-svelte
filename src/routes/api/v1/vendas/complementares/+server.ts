@@ -60,7 +60,7 @@ export async function GET(event: RequestEvent) {
     const vendaId = String(event.url.searchParams.get('venda_id') || '').trim();
     const busca = normalizeText(String(event.url.searchParams.get('q') || '').trim());
     if (!isUuid(vendaId)) {
-      return new Response('venda_id invalido.', { status: 400 });
+      return new Response('venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -83,7 +83,7 @@ export async function GET(event: RequestEvent) {
       extraSelect: 'cliente_id'
     });
     if (!currentSale) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const { data: currentReceiptsData, error: currentReceiptsError } = await client

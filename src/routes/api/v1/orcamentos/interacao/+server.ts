@@ -8,10 +8,13 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 const MAX_ORCAMENTO_INTERACAO_BODY_BYTES = 32 * 1024;
+const errorResponse = (message: string, status: number) =>
+  json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
 export async function POST(event) {
   try {
@@ -30,7 +33,7 @@ export async function POST(event) {
 
     const quoteId = String(event.url.searchParams.get('quote_id') || '').trim();
     if (!quoteId || !isUuid(quoteId)) {
-      return json({ error: 'Quote ID invalido.' }, { status: 400 });
+      return errorResponse('Quote ID invalido.', 400);
     }
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
@@ -44,7 +47,7 @@ export async function POST(event) {
       .maybeSingle();
     if (quoteError) throw quoteError;
     if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return errorResponse('Orcamento nao encontrado.', 404);
     }
 
     const body =
@@ -72,7 +75,7 @@ export async function POST(event) {
       userId: user.id
     });
 
-    return json({ success: true, interacao: data });
+    return json({ success: true, interacao: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao registrar interacao.');
   }
@@ -90,7 +93,7 @@ export async function GET(event) {
 
     const quoteId = String(event.url.searchParams.get('quote_id') || '').trim();
     if (!quoteId || !isUuid(quoteId)) {
-      return json({ error: 'Quote ID invalido.' }, { status: 400 });
+      return errorResponse('Quote ID invalido.', 400);
     }
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
@@ -104,7 +107,7 @@ export async function GET(event) {
       .maybeSingle();
     if (error) throw error;
     if (!data || !isQuoteCreatorAllowed(quoteScope, data.created_by)) {
-      return json({ success: true, interacoes: [] });
+      return json({ success: true, interacoes: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const interacoes = data?.last_interaction_at ? [{
@@ -116,7 +119,7 @@ export async function GET(event) {
       created_at: data.last_interaction_at
     }] : [];
 
-    return json({ success: true, interacoes });
+    return json({ success: true, interacoes }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar interacoes.');
   }

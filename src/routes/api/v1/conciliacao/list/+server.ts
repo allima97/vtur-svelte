@@ -21,6 +21,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -84,7 +85,7 @@ export async function GET(event) {
       searchParams.get('company_id'),
     );
     const companyId = companyIds[0] || null;
-    if (!companyId) return json([]);
+    if (!companyId) return json([], { headers: DYNAMIC_READ_HEADERS });
 
     const somentePendentes = searchParams.get('pending') === '1';
     const somenteConciliados = searchParams.get('conciliado') === '1';

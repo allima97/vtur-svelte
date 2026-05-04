@@ -4,6 +4,7 @@ import { env as publicEnv } from '$env/dynamic/public';
 import {
   getAdminClient,
   isDebugEndpointEnabled,
+  isProductionRuntime,
   logServerError,
   requireAuthenticatedUser,
   resolveUserScope,
@@ -15,6 +16,10 @@ const DEBUG_HEADERS = NO_STORE_HEADERS;
 
 export async function GET(event) {
   try {
+    if (isProductionRuntime()) {
+      return json({ error: 'Not found' }, { status: 404, headers: DEBUG_HEADERS });
+    }
+
     if (!isDebugEndpointEnabled(event)) {
       return json({ error: 'Not found' }, { status: 404, headers: DEBUG_HEADERS });
     }

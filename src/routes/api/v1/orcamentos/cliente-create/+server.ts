@@ -33,7 +33,9 @@ export async function POST(event: RequestEvent) {
         : null;
     const nome = titleCaseNome(String(body?.nome || '').trim());
     const telefone = String(body?.telefone || '').trim();
-    if (!nome || !telefone) return new Response('Nome e telefone obrigatorios.', { status: 400 });
+    if (!nome || !telefone) {
+      return new Response('Nome e telefone obrigatorios.', { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     const requestedCompanyId = String(body?.company_id || '').trim();
     const companyId = scope.isAdmin ? requestedCompanyId || null : resolveScopedCompanyId(scope, requestedCompanyId || null);

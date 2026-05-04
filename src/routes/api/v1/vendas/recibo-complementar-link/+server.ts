@@ -104,15 +104,15 @@ export async function POST(event: RequestEvent) {
         }));
 
       if (links.length === 0) {
-        return new Response('Sem links validos.', { status: 400 });
+        return new Response('Sem links validos.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
       const scopedSales = await fetchScopedSales([primaryVendaId, ...links.map((link) => link.venda_id)]);
       if (!scopedSales.has(primaryVendaId)) {
-        return new Response('Venda nao encontrada.', { status: 404 });
+        return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
       }
       if (links.some((link) => !scopedSales.has(link.venda_id))) {
-        return new Response('Venda complementar fora do escopo.', { status: 403 });
+        return new Response('Venda complementar fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
       }
 
       const { error: batchError } = await client
@@ -131,23 +131,23 @@ export async function POST(event: RequestEvent) {
     const cruzadoJaVinculado = Boolean(body?.cruzado_ja_vinculado);
 
     if (!isUuid(vendaId) || !isUuid(reciboId)) {
-      return new Response('venda_id ou recibo_id invalido.', { status: 400 });
+      return new Response('venda_id ou recibo_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
     if (vendaCruzadaId && !isUuid(vendaCruzadaId)) {
-      return new Response('venda_cruzada_id invalido.', { status: 400 });
+      return new Response('venda_cruzada_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
     if (reciboCruzadoId && !isUuid(reciboCruzadoId)) {
-      return new Response('recibo_cruzado_id invalido.', { status: 400 });
+      return new Response('recibo_cruzado_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const saleIdsToValidate = [vendaId, vendaCruzadaId].filter(Boolean);
     const scopedSales = await fetchScopedSales(saleIdsToValidate);
     if (!scopedSales.has(vendaId)) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     if (vendaCruzadaId && !scopedSales.has(vendaCruzadaId)) {
-      return new Response('Venda cruzada nao encontrada.', { status: 404 });
+      return new Response('Venda cruzada nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const primaryLink = { venda_id: vendaId, recibo_id: reciboId };

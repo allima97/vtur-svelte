@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_VOUCHER_BODY_BYTES = 512 * 1024;
@@ -72,7 +73,7 @@ export async function GET(event) {
         .slice(0, 500);
     };
 
-    return json({ success: true, items: await fetchItems() });
+    return json({ success: true, items: await fetchItems() }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar vouchers.');
   }
@@ -155,7 +156,7 @@ export async function POST(event) {
       if (hoteisError) logServerError('[vouchers POST] Erro ao inserir hoteis', hoteisError);
     }
 
-    return json({ success: true, item: { id: voucher.id } });
+    return json({ success: true, item: { id: voucher.id } }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao criar voucher.');
   }

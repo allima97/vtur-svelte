@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateUserReadModels } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_EQUIPE_BODY_BYTES = 64 * 1024;
@@ -71,7 +72,7 @@ export async function GET(event) {
       relacoes: relData || [],
       convites: convitesData || [],
       tipos_usuario: tiposData || []
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar equipe.');
   }
@@ -99,10 +100,10 @@ export async function POST(event) {
     const { action, vendedor_id, ativo } = body;
 
     if (action === 'toggle_relacao') {
-      if (!isUuid(vendedor_id)) return json({ error: 'Vendedor inválido.' }, { status: 400 });
+      if (!isUuid(vendedor_id)) return json({ error: 'Vendedor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
       const gestorId = scope.isGestor ? scope.userId : String(body.gestor_id || '').trim();
-      if (!isUuid(gestorId)) return json({ error: 'Gestor inválido.' }, { status: 400 });
+      if (!isUuid(gestorId)) return json({ error: 'Gestor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
       // Verifica se já existe
       const { data: existing } = await client
@@ -130,10 +131,10 @@ export async function POST(event) {
         vendedorIds: [gestorId, vendedor_id],
         userId: user.id
       });
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    return json({ error: 'Ação inválida.' }, { status: 400 });
+    return json({ error: 'Ação inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao gerenciar equipe.');
   }

@@ -95,7 +95,7 @@ function isMissingPasskeyTable(err: unknown) {
 function passkeyUnavailable(): never {
   throw error(
     503,
-    'Passkeys ainda não estão provisionadas neste ambiente. Execute a migration 20260502_auth_passkeys.sql antes de usar esse recurso.'
+    'Passkeys ainda não estão habilitadas neste ambiente.'
   );
 }
 
@@ -106,7 +106,7 @@ export function toPasskeyErrorResponse(err: unknown, fallbackMessage: string) {
   }
 
   const rawMessage = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
-  const message = isProductionRuntime() && status >= 500 ? fallbackMessage : rawMessage;
+  const message = isProductionRuntime() && status >= 500 && status !== 503 ? fallbackMessage : rawMessage;
 
   if (status === 404) {
     return json({ error: message || fallbackMessage }, { status: 400, headers: NO_STORE_HEADERS });

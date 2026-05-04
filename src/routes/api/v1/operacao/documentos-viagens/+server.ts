@@ -3,12 +3,33 @@ import {
   ensureModuloAccess,
   getAdminClient,
   isUuid,
+  NO_MATCH_COMPANY_ID,
   requireAuthenticatedUser,
+  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 export async function GET(event) {
   try {
@@ -19,22 +40,49 @@ export async function GET(event) {
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 1, 'Sem acesso a Documentos de Viagens.');
     }
+    const allowedCompanyIds = resolveScopedCompanyIds(scope);
 
     const { searchParams } = event.url;
     const q = String(searchParams.get('q') || searchParams.get('busca') || '').trim();
 
-    let query = client
-      .from('documentos_viagens')
-      .select(`
-        id, file_name, display_name, title, template_text, template_fields, storage_bucket, storage_path, mime_type, size_bytes, created_at,
-        uploader:users!uploaded_by(id, nome_completo, email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(200);
+    const buildQuery = (companyIdsFilter?: string[]) => {
+      let query = client
+        .from('documentos_viagens')
+        .select(`
+          id, file_name, display_name, title, template_text, template_fields, storage_bucket, storage_path, mime_type, size_bytes, created_at,
+          uploader:users!uploaded_by(id, nome_completo, email)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-    if (scope.companyId && !scope.isAdmin) query = query.eq('company_id', scope.companyId);
+      if (companyIdsFilter && companyIdsFilter.length > 0) {
+        query = query.in('company_id', companyIdsFilter);
+      }
 
-    const { data, error: queryError } = await query;
+      return query;
+    };
+
+    const fetchRows = async () => {
+      if (scope.isAdmin) return buildQuery();
+      if (allowedCompanyIds[0] === NO_MATCH_COMPANY_ID) return { data: [], error: null };
+      if (allowedCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildQuery(allowedCompanyIds);
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(allowedCompanyIds)) {
+        const result = await buildQuery(batch);
+        if (result.error) return { data: null, error: result.error } as typeof result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows)
+          .sort((left: any, right: any) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
+          .slice(0, 200),
+        error: null
+      };
+    };
+
+    const { data, error: queryError } = await fetchRows();
     if (queryError) throw queryError;
 
     let items = data || [];
@@ -77,11 +125,9 @@ export async function DELETE(event) {
     if (!doc) return json({ error: 'Documento não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
-      const allowedCompanyIds = new Set(
-        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
-      );
       const targetCompanyId = String((doc as { company_id?: string | null })?.company_id || '').trim();
-      if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
+      const allowedCompanyIds = resolveScopedCompanyIds(scope, targetCompanyId);
+      if (!targetCompanyId || allowedCompanyIds[0] === NO_MATCH_COMPANY_ID || !allowedCompanyIds.includes(targetCompanyId)) {
         return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }

@@ -1,5 +1,6 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -28,7 +29,7 @@ export async function GET(event: RequestEvent) {
     const limite = parseLimit(event.url.searchParams.get('limite'), 8);
 
     if (query.length < 2) {
-      return json([]);
+      return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
     const data = await getCachedReadModel<any[]>({
@@ -43,9 +44,9 @@ export async function GET(event: RequestEvent) {
       }
     });
 
-    return json(data);
+    return json(data, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError('[relatorios/cidades-busca] falha ao buscar cidades', err);
-    return new Response('Erro ao buscar cidades.', { status: 500 });
+    return new Response('Erro ao buscar cidades.', { status: 500, headers: NO_STORE_HEADERS });
   }
 }

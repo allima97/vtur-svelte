@@ -9,6 +9,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_DELETE_BODY_BYTES = 64 * 1024;
@@ -56,14 +57,14 @@ export async function POST(event: RequestEvent) {
     const vendaId = String(body?.venda_id || "").trim();
 
     if (!id && !vendaId) {
-      return json({ error: "Parametros invalidos." }, { status: 400 });
+      return json({ error: "Parametros invalidos." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     // Valida formato dos IDs
     if (id && !isUuid(id))
-      return json({ error: "ID de viagem inválido." }, { status: 400 });
+      return json({ error: "ID de viagem inválido." }, { status: 400, headers: NO_STORE_HEADERS });
     if (vendaId && !isUuid(vendaId))
-      return json({ error: "ID de venda inválido." }, { status: 400 });
+      return json({ error: "ID de venda inválido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const companyIds = resolveScopedCompanyIds(
       scope,
@@ -74,7 +75,7 @@ export async function POST(event: RequestEvent) {
     if (companyIds.length === 0) {
       return json(
         { error: "Informe company_id para excluir viagem." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -88,7 +89,7 @@ export async function POST(event: RequestEvent) {
       : await affectedQuery.eq("id", id);
 
     if (!affectedRows || affectedRows.length === 0) {
-      return json({ error: "Viagem nao encontrada." }, { status: 404 });
+      return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const companySet = new Set(companyIds.map((companyId) => String(companyId || "").trim()).filter(Boolean));
@@ -100,14 +101,14 @@ export async function POST(event: RequestEvent) {
     });
 
     if ((affectedRows || []).length > 0 && scopedAffectedRows.length === 0) {
-      return json({ error: "Sem acesso a esta viagem." }, { status: 403 });
+      return json({ error: "Sem acesso a esta viagem." }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const allowedIds = scopedAffectedRows
       .map((row: any) => String(row?.id || "").trim())
       .filter((rowId) => isUuid(rowId));
     if (allowedIds.length === 0) {
-      return json({ error: "Viagem nao encontrada." }, { status: 404 });
+      return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     for (const batch of chunkArray(allowedIds)) {
@@ -133,7 +134,7 @@ export async function POST(event: RequestEvent) {
       userId: user.id,
     });
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao excluir viagem.");
   }

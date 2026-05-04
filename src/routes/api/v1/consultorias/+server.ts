@@ -8,12 +8,15 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { invalidateConsultoriaReadModels } from "$lib/server/readModelCache";
 
 // Espelha: vtur-app/src/pages/api/consultorias/
 // Tabela: consultorias_online
 
 const MAX_CONSULTORIA_BODY_BYTES = 64 * 1024;
+const errorResponse = (message: string, status: number) =>
+  json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
 export async function GET(event: RequestEvent) {
   try {
@@ -58,7 +61,7 @@ export async function GET(event: RequestEvent) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return json(data || []);
+    return json(data || [], { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao listar consultorias.");
   }
@@ -86,10 +89,10 @@ export async function POST(event: RequestEvent) {
     const dataHora = body.data_hora || body.dataHora;
 
     if (!clienteNome) {
-      return json({ error: "cliente_nome é obrigatório." }, { status: 400 });
+      return errorResponse("cliente_nome é obrigatório.", 400);
     }
     if (!dataHora) {
-      return json({ error: "data_hora é obrigatória." }, { status: 400 });
+      return errorResponse("data_hora é obrigatória.", 400);
     }
 
     const payload = {
@@ -135,7 +138,7 @@ export async function POST(event: RequestEvent) {
       userId: user.id,
     });
 
-    return json(data, { status: 201 });
+    return json(data, { status: 201, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao criar consultoria.");
   }
@@ -159,7 +162,7 @@ export async function PATCH(event: RequestEvent) {
     const id = String(body.id || "").trim();
 
     if (!isUuid(id)) {
-      return json({ error: "id da consultoria inválido." }, { status: 400 });
+      return errorResponse("id da consultoria inválido.", 400);
     }
 
     // Verificar acesso: dono ou admin/gestor/master
@@ -171,7 +174,7 @@ export async function PATCH(event: RequestEvent) {
 
     if (checkErr) throw checkErr;
     if (!existing)
-      return json({ error: "Consultoria não encontrada." }, { status: 404 });
+      return errorResponse("Consultoria não encontrada.", 404);
 
     const podeEditar =
       scope.isAdmin ||
@@ -182,7 +185,7 @@ export async function PATCH(event: RequestEvent) {
     if (!podeEditar) {
       return json(
         { error: "Sem permissão para editar esta consultoria." },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -228,7 +231,7 @@ export async function PATCH(event: RequestEvent) {
       payload.fechada_em = body.fechada_em || null;
 
     if (Object.keys(payload).length === 1) {
-      return json({ error: "Nenhum campo para atualizar." }, { status: 400 });
+      return errorResponse("Nenhum campo para atualizar.", 400);
     }
 
     const { error } = await client
@@ -245,7 +248,7 @@ export async function PATCH(event: RequestEvent) {
       userId: user.id,
     });
 
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 204, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao atualizar consultoria.");
   }

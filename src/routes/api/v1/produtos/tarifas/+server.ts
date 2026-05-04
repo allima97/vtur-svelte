@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoTarifas, sanitizeTarifasPayload } from '$lib/server/cadastros-base';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
@@ -20,7 +21,7 @@ export async function GET(event) {
     if (!produtoId) throw error(400, 'produto_id é obrigatório.');
 
     const items = await fetchProdutoTarifas(client, produtoId);
-    return json({ items });
+    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tarifas.');
   }
@@ -59,7 +60,7 @@ export async function POST(event) {
     }
 
     invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tarifas.');
   }

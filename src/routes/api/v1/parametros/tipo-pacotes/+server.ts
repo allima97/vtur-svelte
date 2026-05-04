@@ -14,6 +14,7 @@ import {
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
@@ -61,7 +62,7 @@ export async function GET(event) {
       }
     });
 
-    return json({ items, regras });
+    return json({ items, regras }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tipos de pacote.');
   }
@@ -89,7 +90,8 @@ export async function POST(event) {
     const { id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta } = body;
 
     const nomeTrimmed = String(nome || '').trim().slice(0, 120);
-    if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (id && !isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     const nomeBusca = sanitizePostgrestSearchTerm(nomeTrimmed, 120);
 
     // Verifica duplicata
@@ -100,7 +102,7 @@ export async function POST(event) {
       .limit(1);
 
     if (existing && existing.length > 0 && existing[0].id !== id) {
-      return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409 });
+      return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409, headers: NO_STORE_HEADERS });
     }
 
     const fixMetaNaoAtingida = parseDecimal(fix_meta_nao_atingida);
@@ -108,7 +110,7 @@ export async function POST(event) {
     const fixSuperMeta = parseDecimal(fix_super_meta);
 
     if (Number.isNaN(fixMetaNaoAtingida) || Number.isNaN(fixMetaAtingida) || Number.isNaN(fixSuperMeta)) {
-      return json({ error: 'Percentuais invalidos. Use apenas numeros (ex: 0.8).' }, { status: 400 });
+      return json({ error: 'Percentuais invalidos. Use apenas numeros (ex: 0.8).' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const payload = {
@@ -132,7 +134,7 @@ export async function POST(event) {
     }
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tipo de pacote.');
   }
@@ -152,13 +154,13 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('tipo_pacotes').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir tipo de pacote.');
   }

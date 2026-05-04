@@ -8,7 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -78,7 +78,7 @@ export async function GET(event) {
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
 
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ error: 'Empresa não identificada.' }, { status: 400 });
+      return json({ error: 'Empresa não identificada.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const rows = await getCachedReadModel<any[]>({

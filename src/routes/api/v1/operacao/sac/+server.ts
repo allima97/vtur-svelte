@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_SAC_BODY_BYTES = 64 * 1024;
 
@@ -51,7 +52,7 @@ export async function GET(event) {
       );
     }
 
-    return json({ items });
+    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar registros SAC.');
   }
@@ -99,10 +100,10 @@ export async function POST(event) {
         .eq('id', id)
         .maybeSingle();
       if (existingError) throw existingError;
-      if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404 });
+      if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
       if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
-        return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403 });
+        return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
       const { data, error: updateError } = await client.from('sac_controle').update(payload).eq('id', id).select('id').single();
@@ -114,7 +115,7 @@ export async function POST(event) {
       result = data;
     }
 
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar registro SAC.');
   }
@@ -134,7 +135,7 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: existing, error: existingError } = await client
       .from('sac_controle')
@@ -142,16 +143,16 @@ export async function DELETE(event) {
       .eq('id', id)
       .maybeSingle();
     if (existingError) throw existingError;
-    if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404 });
+    if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
     if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
-      return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403 });
+      return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { error: deleteError } = await client.from('sac_controle').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir registro SAC.');
   }

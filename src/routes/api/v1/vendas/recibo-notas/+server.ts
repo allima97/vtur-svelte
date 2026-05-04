@@ -24,7 +24,7 @@ export async function GET(event: RequestEvent) {
 
     const vendaId = String(event.url.searchParams.get('venda_id') || '').trim();
     if (!isUuid(vendaId)) {
-      return new Response('venda_id invalido.', { status: 400 });
+      return new Response('venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -38,7 +38,7 @@ export async function GET(event: RequestEvent) {
     );
     const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client

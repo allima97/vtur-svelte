@@ -58,7 +58,7 @@ export async function POST(event: RequestEvent) {
     );
     const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
     const saleCompanyId = String(sale.company_id || '').trim();
 
@@ -70,12 +70,12 @@ export async function POST(event: RequestEvent) {
       .maybeSingle();
     if (receiptError) throw receiptError;
     if (!receipt) {
-      return new Response('Recibo nao encontrado.', { status: 404 });
+      return new Response('Recibo nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const produtoResolvidoId = String((receipt as any)?.produto_resolvido_id || '').trim();
     if (!isUuid(produtoResolvidoId)) {
-      return new Response('Recibo sem produto valido para definir como principal.', { status: 400 });
+      return new Response('Recibo sem produto valido para definir como principal.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const updateQuery = client
@@ -87,7 +87,7 @@ export async function POST(event: RequestEvent) {
     const { data: updated, error: updateError } = await updateQuery.select('id, destino_id').maybeSingle();
     if (updateError) throw updateError;
     if (!updated?.id) {
-      return new Response('Nao foi possivel atualizar o recibo principal.', { status: 403 });
+      return new Response('Nao foi possivel atualizar o recibo principal.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
     invalidateSalesReadModels();

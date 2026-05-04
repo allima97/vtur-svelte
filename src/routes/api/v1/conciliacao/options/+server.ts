@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -21,7 +22,7 @@ export async function GET(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
 
-    if (companyIds.length === 0) return json({ vendedores: [], produtosMeta: [] });
+    if (companyIds.length === 0) return json({ vendedores: [], produtosMeta: [] }, { headers: DYNAMIC_READ_HEADERS });
 
     const usersData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
@@ -45,7 +46,7 @@ export async function GET(event) {
     return json({
       vendedores: vendedoresFinal,
       produtosMeta: produtosData || []
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar opções da conciliação.');
   }

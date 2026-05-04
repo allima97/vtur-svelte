@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -19,7 +20,7 @@ export async function GET(event) {
     }
 
     const id = event.params.id;
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     let query = client
       .from('roteiro_personalizado')
@@ -36,7 +37,7 @@ export async function GET(event) {
     const { data: roteiro, error: roteiroError } = await query.maybeSingle();
 
     if (roteiroError) throw roteiroError;
-    if (!roteiro) return json({ error: 'Roteiro não encontrado.' }, { status: 404 });
+    if (!roteiro) return json({ error: 'Roteiro não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     // Busca todos os filhos em paralelo
     const [dias, hoteis, passeios, transportes, investimentos, pagamentos] = await Promise.all([
@@ -75,7 +76,7 @@ export async function GET(event) {
         investimentos: investimentos.data || [],
         pagamentos: pagamentos.data || []
       }
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar roteiro.');
   }

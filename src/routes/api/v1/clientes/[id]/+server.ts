@@ -18,7 +18,7 @@ import {
   formatDocumentoDisplay,
   type ClienteScopedFilters
 } from '$lib/server/clientes';
-import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
@@ -185,7 +185,7 @@ export async function GET(event) {
     );
 
     const row = await fetchCliente(client, id);
-    if (!row) return json({ error: 'Cliente nao encontrado.' }, { status: 404 });
+    if (!row) return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     const resumo = await fetchResumoRelacionamentos(client, id, filters);
 
@@ -196,7 +196,7 @@ export async function GET(event) {
       documento_formatado: formatDocumentoDisplay(row.cpf),
       status: deriveClienteStatus(row, resumo.ultima_compra),
       ...resumo
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar cliente.');
   }

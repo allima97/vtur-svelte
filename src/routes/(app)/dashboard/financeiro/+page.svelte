@@ -4,6 +4,8 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
+  import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { apiGet } from '$lib/services/api';
   import { toast } from '$lib/stores/ui';
   import {
@@ -172,36 +174,36 @@
     </div>
   </Card>
 
-  {#if loading}
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {#each Array(4) as _}
-        <div class="vtur-card h-28 animate-pulse bg-slate-100"></div>
-      {/each}
-    </div>
-  {:else}
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <Card color="financeiro">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Entradas</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-950">{money(resumoCaixa.totalEntradas)}</p>
-        <p class="mt-1 text-sm text-slate-500">Pagamentos e movimentos de entrada</p>
-      </Card>
-      <Card color="financeiro">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Saídas</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-950">{money(resumoCaixa.totalSaidas)}</p>
-        <p class="mt-1 text-sm text-slate-500">Despesas e movimentos de saída</p>
-      </Card>
-      <Card color="financeiro">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Saldo</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-950">{money(resumoCaixa.saldo)}</p>
-        <p class="mt-1 text-sm text-slate-500">{resumoCaixa.totalMovimentacoes || 0} movimentação(ões)</p>
-      </Card>
-      <Card color="financeiro">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Conciliação pendente</p>
-        <p class="mt-2 text-2xl font-semibold text-slate-950">{conciliacao?.pendentes || 0}</p>
-        <p class="mt-1 text-sm text-slate-500">{conciliacao?.semRanking || 0} sem ranking</p>
-      </Card>
-    </div>
-  {/if}
+  <KPIGrid columns={4} loading={loading}>
+    <KPICard
+      title="Entradas"
+      value={money(resumoCaixa.totalEntradas)}
+      subtitle="Pagamentos e movimentos de entrada"
+      color="financeiro"
+      icon={Banknote}
+    />
+    <KPICard
+      title="Saídas"
+      value={money(resumoCaixa.totalSaidas)}
+      subtitle="Despesas e movimentos de saída"
+      color="financeiro"
+      icon={CreditCard}
+    />
+    <KPICard
+      title="Saldo"
+      value={money(resumoCaixa.saldo)}
+      subtitle={`${resumoCaixa.totalMovimentacoes || 0} movimentação(ões)`}
+      color="financeiro"
+      icon={Wallet}
+    />
+    <KPICard
+      title="Conciliação pendente"
+      value={conciliacao?.pendentes || 0}
+      subtitle={`${conciliacao?.semRanking || 0} sem ranking`}
+      color="financeiro"
+      icon={FileSpreadsheet}
+    />
+  </KPIGrid>
 
   <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
     <Card title="Fila financeira" subtitle="Atalhos do fluxo operacional" color="financeiro">

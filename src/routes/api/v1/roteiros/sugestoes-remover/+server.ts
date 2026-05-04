@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SUGESTAO_REMOVE_BODY_BYTES = 16 * 1024;
 
@@ -25,12 +26,12 @@ export async function POST(event: RequestEvent) {
         ? (bodyResult.data as Record<string, any>)
         : null;
     if (!body || !body.tipo || !body.valor) {
-      return new Response('Dados invalidos.', { status: 400 });
+      return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const tipo = String(body.tipo).trim().slice(0, 60);
     const valor = String(body.valor).trim().slice(0, 160);
-    if (!tipo || !valor) return new Response('Dados invalidos.', { status: 400 });
+    if (!tipo || !valor) return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
 
     const companyId = scope.companyId;
 
@@ -49,7 +50,7 @@ export async function POST(event: RequestEvent) {
     const { error } = await query;
     if (error) throw error;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao remover sugestao.');
   }

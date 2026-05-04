@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_DOCUMENTO_VIAGEM_DELETE_BODY_BYTES = 32 * 1024;
@@ -31,7 +32,7 @@ export async function POST(event: RequestEvent) {
         ? (bodyResult.data as Record<string, any>)
         : {};
     const id = String(body?.id || '').trim();
-    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: doc, error: fetchErr } = await client
       .from('documentos_viagens')
@@ -39,7 +40,7 @@ export async function POST(event: RequestEvent) {
       .eq('id', id)
       .maybeSingle();
     if (fetchErr) throw fetchErr;
-    if (!doc) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+    if (!doc) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const allowedCompanyIds = new Set(
@@ -47,7 +48,7 @@ export async function POST(event: RequestEvent) {
       );
       const targetCompanyId = String((doc as { company_id?: string | null })?.company_id || '').trim();
       if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
-        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -58,7 +59,7 @@ export async function POST(event: RequestEvent) {
     const { error } = await client.from('documentos_viagens').delete().eq('id', id);
     if (error) throw error;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir documento.');
   }

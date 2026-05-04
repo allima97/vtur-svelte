@@ -17,6 +17,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { buildVendaRankingConciliacaoSnapshot } from '$lib/conciliacao/vendaRanking';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 
 export async function GET(event) {
@@ -30,13 +31,13 @@ export async function GET(event) {
 
     const id = String(event.params.id || '').trim();
     if (!isUuid(id)) {
-      return json({ error: 'ID inválido.' }, { status: 400 });
+      return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const venda = await fetchSaleForScope({ client, scope, saleId: id, companyIds, extraSelect: 'cancelada' });
     if (!venda || venda.cancelada) {
-      return json({ recibos: [], totais: null });
+      return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const { data: recibosData, error: recibosErr } = await client
@@ -47,7 +48,7 @@ export async function GET(event) {
     if (recibosErr) throw recibosErr;
 
     const recibos = Array.isArray(recibosData) ? recibosData : [];
-    if (recibos.length === 0) return json({ recibos: [], totais: null });
+    if (recibos.length === 0) return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
 
     const snapshot = await buildVendaRankingConciliacaoSnapshot({
       client,
@@ -63,7 +64,7 @@ export async function GET(event) {
       }))
     });
 
-    return json(snapshot);
+    return json(snapshot, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     logServerError('[ranking-recibos] erro ao carregar snapshot', err);
     return toErrorResponse(err, 'Erro ao carregar ranking de recibos.');

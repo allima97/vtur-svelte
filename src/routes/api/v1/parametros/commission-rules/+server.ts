@@ -162,7 +162,7 @@ async function ensureRuleWriteAccess(
 
   const rule = await getRuleCompanyForWrite(access.client, id);
   if (!rule.exists) {
-    return { error: new Response('Regra não encontrada.', { status: 404 }) };
+    return { error: new Response('Regra não encontrada.', { status: 404, headers: NO_STORE_HEADERS }) };
   }
 
   if (rule.legacySchema) {
@@ -172,13 +172,19 @@ async function ensureRuleWriteAccess(
   if (!rule.companyId) {
     return {
       error: new Response('Regra global só pode ser alterada pelo ADMIN do sistema.', {
-        status: 403
+        status: 403,
+        headers: NO_STORE_HEADERS
       })
     };
   }
 
   if (!access.scope.companyIds.includes(rule.companyId)) {
-    return { error: new Response('Sem acesso a esta regra de comissão.', { status: 403 }) };
+    return {
+      error: new Response('Sem acesso a esta regra de comissão.', {
+        status: 403,
+        headers: NO_STORE_HEADERS
+      })
+    };
   }
 
   return { companyId: rule.companyId, legacySchema: false };
@@ -236,7 +242,7 @@ export async function GET(event: RequestEvent) {
       );
     }
 
-    return json(items);
+    return json(items, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar regras de comissão.');
   }
@@ -259,11 +265,14 @@ export async function POST(event: RequestEvent) {
     const writableCompanyId = resolveWritableCompanyId(access, requestedCompanyId);
 
     if (!nome) {
-      return new Response('Nome é obrigatório.', { status: 400 });
+      return new Response('Nome é obrigatório.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!access.scope.isAdmin && !writableCompanyId) {
-      return new Response('Selecione uma empresa válida para salvar a regra.', { status: 400 });
+      return new Response('Selecione uma empresa válida para salvar a regra.', {
+        status: 400,
+        headers: NO_STORE_HEADERS
+      });
     }
 
     const payload = {
@@ -277,6 +286,9 @@ export async function POST(event: RequestEvent) {
     };
 
     const ruleId = String(body?.id || '').trim();
+    if (ruleId && !isUuid(ruleId)) {
+      return new Response('ID inválido.', { status: 400, headers: NO_STORE_HEADERS });
+    }
     let persistedId = ruleId || null;
     const payloadWithScope: Record<string, unknown> = {
       ...payload,
@@ -329,7 +341,10 @@ export async function POST(event: RequestEvent) {
     }
 
     if (!persistedId) {
-      return new Response('Não foi possível identificar a regra salva.', { status: 500 });
+      return new Response('Não foi possível identificar a regra salva.', {
+        status: 500,
+        headers: NO_STORE_HEADERS
+      });
     }
 
     const tiers = payload.tipo === 'ESCALONAVEL' ? sanitizeTiers(body?.tiers) : [];
@@ -385,8 +400,8 @@ export async function PATCH(event: RequestEvent) {
     const body = safeJsonParse(rawBody) as any;
     const id = String(body?.id || '').trim();
 
-    if (!id) {
-      return new Response('ID obrigatório.', { status: 400 });
+    if (!isUuid(id)) {
+      return new Response('ID inválido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const writeAccess = await ensureRuleWriteAccess(access, id);
@@ -399,7 +414,7 @@ export async function PATCH(event: RequestEvent) {
     }
 
     if (Object.keys(payload).length === 0) {
-      return new Response('Nenhuma alteração enviada.', { status: 400 });
+      return new Response('Nenhuma alteração enviada.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let query = client.from('commission_rule').update(payload).eq('id', id);
@@ -443,8 +458,8 @@ export async function DELETE(event: RequestEvent) {
     const body = safeJsonParse(rawBody) as any;
     const id = String(body?.id || '').trim();
 
-    if (!id) {
-      return new Response('ID obrigatório.', { status: 400 });
+    if (!isUuid(id)) {
+      return new Response('ID inválido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const writeAccess = await ensureRuleWriteAccess(access, id);

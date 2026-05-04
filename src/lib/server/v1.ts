@@ -877,6 +877,7 @@ export function logServerError(context: string, err: unknown, extra?: Record<str
 const ERROR_RESPONSE_HEADERS = {
   "Cache-Control": "no-store",
   Vary: "Cookie",
+  "X-Content-Type-Options": "nosniff",
 };
 
 export function toErrorResponse(err: unknown, fallbackMessage: string) {

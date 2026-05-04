@@ -8,6 +8,7 @@ import {
   toErrorResponse,
   isUuid
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
@@ -33,7 +34,7 @@ export async function DELETE(event: RequestEvent) {
     ensureModuloAccess(scope, ['Orcamentos'], 4, 'Sem acesso para excluir Roteiros.');
 
     const id = event.url.searchParams.get('id') || '';
-    if (!id || !isUuid(id)) return new Response('ID invalido.', { status: 400 });
+    if (!id || !isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     // Verifica ownership
     const { data: roteiro, error: findErr } = await applyRoteiroScope(
@@ -42,7 +43,7 @@ export async function DELETE(event: RequestEvent) {
     );
 
     if (findErr) throw findErr;
-    if (!roteiro) return new Response('Roteiro nao encontrado.', { status: 404 });
+    if (!roteiro) return json({ error: 'Roteiro nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     const { error } = await client
       .from('roteiro_personalizado')
@@ -51,7 +52,7 @@ export async function DELETE(event: RequestEvent) {
 
     if (error) throw error;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir roteiro.');
   }

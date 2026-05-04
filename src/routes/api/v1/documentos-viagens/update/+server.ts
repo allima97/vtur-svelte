@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_DOCUMENTO_VIAGEM_UPDATE_BODY_BYTES = 64 * 1024;
@@ -32,8 +33,8 @@ export async function POST(event: RequestEvent) {
         : {};
     const id = String(body?.id || '').trim();
     const displayName = String(body?.display_name || '').trim();
-    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400 });
-    if (!displayName) return json({ error: 'display_name obrigatorio.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!displayName) return json({ error: 'display_name obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: currentDoc, error: currentDocError } = await client
       .from('documentos_viagens')
@@ -41,7 +42,7 @@ export async function POST(event: RequestEvent) {
       .eq('id', id)
       .maybeSingle();
     if (currentDocError) throw currentDocError;
-    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const allowedCompanyIds = new Set(
@@ -49,7 +50,7 @@ export async function POST(event: RequestEvent) {
       );
       const targetCompanyId = String((currentDoc as { company_id?: string | null })?.company_id || '').trim();
       if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
-        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -60,9 +61,9 @@ export async function POST(event: RequestEvent) {
       .select('id, file_name, display_name, storage_bucket, storage_path, mime_type, size_bytes, created_at, updated_at')
       .maybeSingle();
     if (error) throw error;
-    if (!data) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+    if (!data) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json({ ok: true, doc: data });
+    return json({ ok: true, doc: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar documento.');
   }

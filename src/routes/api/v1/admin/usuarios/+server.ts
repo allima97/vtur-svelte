@@ -305,7 +305,7 @@ export async function POST(event) {
       companyIds: financeiroCompanyIds
     });
 
-    return json({ id: requestedId, updated: true });
+    return json({ id: requestedId, updated: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar usuario.');
   }

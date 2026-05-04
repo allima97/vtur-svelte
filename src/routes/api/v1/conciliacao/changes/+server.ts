@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -14,7 +15,7 @@ export async function GET(event) {
     const requestedCompanyId = event.url.searchParams.get('company_id');
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     const companyId = companyIds[0] || null;
-    if (!companyId) return json([]);
+    if (!companyId) return json([], { headers: DYNAMIC_READ_HEADERS });
 
     const somentePendentes = event.url.searchParams.get('pending') === '1';
     const month = event.url.searchParams.get('month') || null;
@@ -43,12 +44,7 @@ export async function GET(event) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return json(data || [], {
-      headers: {
-        'Cache-Control': 'private, max-age=5',
-        Vary: 'Cookie'
-      }
-    });
+    return json(data || [], { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao listar alteracoes.');
   }

@@ -12,6 +12,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
 export async function GET(event) {
   try {
@@ -64,7 +65,7 @@ export async function GET(event) {
       },
     });
 
-    return json(result);
+    return json(result, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar tarefas.");
   }

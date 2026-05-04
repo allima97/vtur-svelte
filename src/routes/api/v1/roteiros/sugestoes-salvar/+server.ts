@@ -7,6 +7,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SUGESTAO_BODY_BYTES = 16 * 1024;
 
@@ -26,14 +27,14 @@ export async function POST(event: RequestEvent) {
         ? (bodyResult.data as Record<string, any>)
         : null;
     if (!body || !body.tipo || !body.valor) {
-      return new Response('Dados invalidos.', { status: 400 });
+      return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const tipo = String(body.tipo).trim().slice(0, 60);
     const valor = String(body.valor).trim().slice(0, 160);
-    if (!tipo || !valor) return new Response('Dados invalidos.', { status: 400 });
+    if (!tipo || !valor) return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
     const valorBusca = sanitizePostgrestSearchTerm(valor, 160);
-    if (!valorBusca) return new Response('Dados invalidos.', { status: 400 });
+    if (!valorBusca) return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
 
     const companyId = scope.companyId;
 
@@ -56,7 +57,7 @@ export async function POST(event: RequestEvent) {
         })
         .eq('id', (existing as any).id);
 
-      return json({ ok: true, novo: false });
+      return json({ ok: true, novo: false }, { headers: NO_STORE_HEADERS });
     }
 
     // Insere novo
@@ -68,7 +69,7 @@ export async function POST(event: RequestEvent) {
     });
     if (error) throw error;
 
-    return json({ ok: true, novo: true });
+    return json({ ok: true, novo: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar sugestao.');
   }

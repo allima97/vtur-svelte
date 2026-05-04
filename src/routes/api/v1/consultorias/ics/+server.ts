@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
 
@@ -22,7 +23,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     const id = url.searchParams.get("id") || "";
     if (id && !isUuid(id)) {
-      return json({ error: "ID invalido." }, { status: 400 });
+      return json({ error: "ID invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const client = locals.supabase;
@@ -37,7 +38,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       : await baseQuery.limit(500);
 
     if (error) {
-      return json({ error: "Erro ao carregar consultorias." }, { status: 500 });
+      return json({ error: "Erro ao carregar consultorias." }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     const items = (rows || []).filter((row: any) => {
@@ -46,7 +47,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
 
     if (items.length === 0) {
-      return json({ error: "Nenhuma consultoria valida para exportar." }, { status: 404 });
+      return json({ error: "Nenhuma consultoria valida para exportar." }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const events = items
@@ -86,12 +87,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     return new Response(ics, {
       headers: {
+        ...NO_STORE_HEADERS,
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
   } catch (error: any) {
     logServerError("[consultorias/ics] falha ao exportar ICS", error);
-    return json({ error: "Erro interno ao exportar consultorias." }, { status: 500 });
+    return json({ error: "Erro interno ao exportar consultorias." }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };

@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess } from '$lib/server/agenda';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { getAdminClient, isUuid, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 function normalizeUpdate(body: any) {
   const payload: Record<string, unknown> = {};
@@ -70,8 +71,8 @@ async function handleUpdate(event: any) {
         : {};
     const targetId = id || String(body?.id || '').trim();
 
-    if (!targetId) {
-      return json({ error: 'id obrigatorio.' }, { status: 400 });
+    if (!isUuid(targetId)) {
+      return json({ error: 'Evento inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: existing, error: existingError } = await client
@@ -82,16 +83,16 @@ async function handleUpdate(event: any) {
 
     if (existingError) throw existingError;
     if (!existing || existing.tipo !== 'evento') {
-      return json({ error: 'Evento nao encontrado.' }, { status: 404 });
+      return json({ error: 'Evento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     if (!scope.isAdmin && String(existing.user_id || '') !== user.id) {
-      return json({ error: 'Sem acesso a este evento.' }, { status: 403 });
+      return json({ error: 'Sem acesso a este evento.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const payload = normalizeUpdate(body);
     if (Object.keys(payload).length === 0) {
-      return json({ error: 'payload vazio.' }, { status: 400 });
+      return json({ error: 'payload vazio.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -103,7 +104,7 @@ async function handleUpdate(event: any) {
 
     if (error) throw error;
 
-    return json({ ok: true, item: data });
+    return json({ ok: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar agenda.');
   }

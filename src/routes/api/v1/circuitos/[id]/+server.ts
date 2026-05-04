@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_CIRCUITO_UPDATE_BODY_BYTES = 128 * 1024;
 
@@ -22,7 +23,7 @@ export async function GET(event) {
     }
 
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data, error } = await client
       .from('circuitos')
@@ -35,9 +36,9 @@ export async function GET(event) {
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) return json({ success: false, error: 'Circuito não encontrado' }, { status: 404 });
+    if (!data) return json({ success: false, error: 'Circuito não encontrado' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar circuito.');
   }
@@ -59,7 +60,7 @@ export async function PATCH(event) {
     }
 
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -82,7 +83,7 @@ export async function PATCH(event) {
 
     if (error) throw error;
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao atualizar circuito.');
   }
@@ -102,7 +103,7 @@ export async function DELETE(event) {
     }
 
     const id = String(event.params.id || '').trim();
-    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error } = await client
       .from('circuitos')
@@ -111,7 +112,7 @@ export async function DELETE(event) {
 
     if (error) throw error;
 
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao excluir circuito.');
   }

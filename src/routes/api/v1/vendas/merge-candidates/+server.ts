@@ -9,6 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -33,7 +34,7 @@ export async function GET(event) {
 
     const vendaId = String(event.url.searchParams.get('venda_id') || '').trim();
     if (!isUuid(vendaId)) {
-      return new Response('venda_id invalido.', { status: 400 });
+      return new Response('venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const companyIds = resolveScopedCompanyIds(
@@ -59,11 +60,11 @@ export async function GET(event) {
       extraSelect: 'cliente_id'
     });
     if (!currentSale) {
-      return new Response('Venda nao encontrada.', { status: 404 });
+      return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
     const currentVendedorId = String(currentSale.vendedor_id || '').trim();
     if (scope.isMaster && requestedVendedorIds.length > 0 && !vendedorScopeSet.has(currentVendedorId)) {
-      return json({ items: [] });
+      return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     let query = client
@@ -153,7 +154,7 @@ export async function GET(event) {
       };
     });
 
-    return json({ items });
+    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vendas para mesclar.');
   }

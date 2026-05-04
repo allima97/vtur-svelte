@@ -6,6 +6,7 @@
  */
 import { json } from '@sveltejs/kit';
 import { requireAuthenticatedUser, toErrorResponse } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CRM_SIGNATURE_BODY_BYTES = 64 * 1024;
@@ -58,7 +59,7 @@ export async function POST(event) {
 
     if (error) throw error;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar assinatura.');
   }

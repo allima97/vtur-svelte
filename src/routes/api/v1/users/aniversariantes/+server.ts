@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { parseISODateParts, todayISODateLocal } from '$lib/date';
 
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -80,7 +81,7 @@ export async function GET(event) {
         return da - db;
       });
 
-    return json({ items, month });
+    return json({ items, month }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar aniversariantes de colaboradores.');
   }

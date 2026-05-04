@@ -12,6 +12,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_CAMPANHA_BODY_BYTES = 128 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -51,7 +52,7 @@ export async function GET(event) {
     );
 
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ items: [], can_write: false });
+      return json({ items: [], can_write: false }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const buildQuery = (companyIdsFilter?: string[]) => {
@@ -92,7 +93,7 @@ export async function GET(event) {
     return json({
       items: await fetchItems(),
       can_write: canManageCampanhas(scope) && (scope.isAdmin || hasModuloAccess(scope, ['Campanhas'], 2))
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar campanhas.');
   }
@@ -114,7 +115,7 @@ export async function POST(event) {
     }
 
     if (!canManageCampanhas(scope)) {
-      return json({ error: 'Somente gestor/master podem gerenciar campanhas.' }, { status: 403 });
+      return json({ error: 'Somente gestor/master podem gerenciar campanhas.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const body =
@@ -125,13 +126,13 @@ export async function POST(event) {
     const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
 
-    if (!String(titulo || '').trim()) return json({ error: 'Título obrigatório.' }, { status: 400 });
-    if (!String(data_campanha || '').trim()) return json({ error: 'Data da campanha obrigatória.' }, { status: 400 });
+    if (!String(titulo || '').trim()) return json({ error: 'Título obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!String(data_campanha || '').trim()) return json({ error: 'Data da campanha obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
     if (!scope.isAdmin && (companyIds.length === 0 || companyIds[0] === NO_MATCH_COMPANY_ID)) {
-      return json({ error: 'Empresa fora do escopo.' }, { status: 403 });
+      return json({ error: 'Empresa fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
     if (!scope.isAdmin && !id && !requestedCompanyId && companyIds.length > 1) {
-      return json({ error: 'Selecione a empresa para criar a campanha.' }, { status: 400 });
+      return json({ error: 'Selecione a empresa para criar a campanha.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     let companyId = scope.isAdmin
@@ -145,16 +146,16 @@ export async function POST(event) {
         .eq('id', id)
         .maybeSingle();
       if (existingError) throw existingError;
-      if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404 });
+      if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
       const existingCompanyId = String((existing as any)?.company_id || '').trim();
       if (!existingCompanyId || !companyIds.includes(existingCompanyId)) {
-        return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403 });
+        return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
       companyId = existingCompanyId;
     }
 
     if (!companyId) {
-      return json({ error: 'Empresa obrigatória para salvar campanha.' }, { status: 400 });
+      return json({ error: 'Empresa obrigatória para salvar campanha.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const payload = {
@@ -181,7 +182,7 @@ export async function POST(event) {
       result = data;
     }
 
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar campanha.');
   }
@@ -201,11 +202,11 @@ export async function DELETE(event) {
     }
 
     if (!canManageCampanhas(scope)) {
-      return json({ error: 'Sem permissão.' }, { status: 403 });
+      return json({ error: 'Sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const companyIds = resolveScopedCompanyIds(
       scope,
@@ -218,17 +219,17 @@ export async function DELETE(event) {
       .eq('id', id)
       .maybeSingle();
     if (existingError) throw existingError;
-    if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404 });
+    if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     const existingCompanyId = String((existing as any)?.company_id || '').trim();
     if (!scope.isAdmin && (!existingCompanyId || !companyIds.includes(existingCompanyId))) {
-      return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403 });
+      return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { error: deleteError } = await client.from('campanhas').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir campanha.');
   }

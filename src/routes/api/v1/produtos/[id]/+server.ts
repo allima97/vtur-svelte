@@ -1,7 +1,15 @@
 import { json, error } from '@sveltejs/kit';
-import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import {
+  ensureModuloAccess,
+  getAdminClient,
+  isUuid,
+  requireAuthenticatedUser,
+  resolveUserScope,
+  toErrorResponse
+} from '$lib/server/v1';
 import { fetchProdutoById, sanitizeProdutoPayload } from '$lib/server/cadastros-base';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PRODUTO_UPDATE_BODY_BYTES = 128 * 1024;
@@ -18,11 +26,12 @@ export async function GET(event) {
 
     const id = String(event.params.id || '').trim();
     if (!id) throw error(400, 'ID do produto é obrigatório.');
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const produto = await fetchProdutoById(client, id);
     if (!produto) throw error(404, 'Produto não encontrado.');
 
-    return json(produto);
+    return json(produto, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar produto.');
   }
@@ -45,6 +54,7 @@ export async function PATCH(event) {
 
     const id = String(event.params.id || '').trim();
     if (!id) throw error(400, 'ID do produto é obrigatório.');
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -53,16 +63,16 @@ export async function PATCH(event) {
     const payload = sanitizeProdutoPayload(body);
 
     if (!payload.nome) {
-      return json({ error: 'Nome do produto é obrigatório.' }, { status: 400 });
+      return json({ error: 'Nome do produto é obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!payload.destino) {
-      return json({ error: 'Destino é obrigatório.' }, { status: 400 });
+      return json({ error: 'Destino é obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!payload.tipo_produto) {
-      return json({ error: 'Tipo de produto é obrigatório.' }, { status: 400 });
+      return json({ error: 'Tipo de produto é obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
     if (!payload.todas_as_cidades && !payload.cidade_id) {
-      return json({ error: 'Cidade é obrigatória para produtos não globais.' }, { status: 400 });
+      return json({ error: 'Cidade é obrigatória para produtos não globais.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const updatePayload = {
@@ -82,7 +92,7 @@ export async function PATCH(event) {
 
     invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
     const produto = await fetchProdutoById(client, id);
-    return json({ success: true, data: produto });
+    return json({ success: true, data: produto }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar produto.');
   }
@@ -103,6 +113,7 @@ export async function DELETE(event) {
 
     const id = String(event.params.id || '').trim();
     if (!id) throw error(400, 'ID do produto é obrigatório.');
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: tarifasError } = await client.from('produtos_tarifas').delete().eq('produto_id', id);
     if (tarifasError) throw tarifasError;
@@ -111,7 +122,7 @@ export async function DELETE(event) {
     if (deleteError) throw deleteError;
 
     invalidateCatalogReadModels({ companyIds: scope.companyId ? [scope.companyId] : undefined, userId: user.id });
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir produto.');
   }

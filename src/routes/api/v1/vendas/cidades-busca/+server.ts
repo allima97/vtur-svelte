@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   sanitizePostgrestSearchTerm,
@@ -12,6 +13,7 @@ import {
   getCachedReadModel,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 function parseLimit(value: string | null) {
   const parsed = Number(value);
@@ -86,10 +88,17 @@ export async function GET(event) {
     }
 
     const cidadeId = String(event.url.searchParams.get('id') || '').trim();
-    const query = String(event.url.searchParams.get('q') || event.url.searchParams.get('search') || '').trim();
+    const query = sanitizePostgrestSearchTerm(
+      event.url.searchParams.get('q') || event.url.searchParams.get('search'),
+      120
+    );
     const limite = parseLimit(event.url.searchParams.get('limite'));
 
     if (cidadeId) {
+      if (!isUuid(cidadeId)) {
+        return json({ error: 'id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+
       const item = await getCachedReadModel<ReturnType<typeof mapCidade> | null>({
         key: buildReadModelCacheKey('vendas:cidades-busca:id', { cidadeId }),
         tags: [READ_MODEL_TAGS.catalog],
@@ -119,11 +128,11 @@ export async function GET(event) {
         }
       });
 
-      return json(item);
+      return json(item, { headers: DYNAMIC_READ_HEADERS });
     }
 
     if (query.length < 2) {
-      return json([]);
+      return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
     const filtered = await getCachedReadModel<Array<ReturnType<typeof mapCidade>>>({
@@ -195,7 +204,7 @@ export async function GET(event) {
       }
     });
 
-    return json(filtered);
+    return json(filtered, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao buscar cidades.');
   }

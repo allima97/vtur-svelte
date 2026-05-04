@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_CIRCUITO_BODY_BYTES = 128 * 1024;
 
@@ -33,7 +34,7 @@ export async function GET(event) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return json({ success: true, items: data || [] });
+    return json({ success: true, items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao carregar circuitos.');
   }
@@ -68,7 +69,7 @@ export async function POST(event) {
       ativo: body.ativo !== false
     };
 
-    if (!payload.nome) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!payload.nome) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     let result;
     if (id && isUuid(id)) {
@@ -81,7 +82,7 @@ export async function POST(event) {
       result = data;
     }
 
-    return json({ success: true, item: result });
+    return json({ success: true, item: result }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao salvar circuito.');
   }

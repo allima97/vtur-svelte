@@ -21,6 +21,7 @@ const MAX_CACHE_KEY_LENGTH = 900;
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
+let invalidationEpoch = 0;
 
 export const READ_MODEL_TAGS = {
   sales: "data:sales",
@@ -219,11 +220,14 @@ export async function getCachedReadModel<T>(
   );
   const now = nowMs();
   const existing = cache.get(options.key) as CacheEntry<T> | undefined;
+  const loaderEpoch = invalidationEpoch;
   const tags = new Set(
     (options.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean),
   );
 
   const writeEntry = (value: T) => {
+    if (loaderEpoch !== invalidationEpoch) return value;
+
     const writtenAt = nowMs();
     cache.set(options.key, {
       value,
@@ -250,7 +254,9 @@ export async function getCachedReadModel<T>(
         .then(writeEntry)
         .catch(() => existing.value)
         .finally(() => {
-          inflight.delete(options.key);
+          if (inflight.get(options.key) === refreshPromise) {
+            inflight.delete(options.key);
+          }
         });
       inflight.set(options.key, refreshPromise);
     }
@@ -264,7 +270,9 @@ export async function getCachedReadModel<T>(
     .loader()
     .then(writeEntry)
     .finally(() => {
-      inflight.delete(options.key);
+      if (inflight.get(options.key) === promise) {
+        inflight.delete(options.key);
+      }
     });
 
   inflight.set(options.key, promise);
@@ -276,6 +284,9 @@ export function invalidateReadModelCache(options?: {
   scopeTags?: string[];
   keyPrefix?: string;
 }) {
+  invalidationEpoch += 1;
+  inflight.clear();
+
   const tags = new Set(
     (options?.tags || [])
       .map((tag) => String(tag || "").trim())
@@ -290,7 +301,6 @@ export function invalidateReadModelCache(options?: {
 
   if (tags.size === 0 && scopeTags.size === 0 && !keyPrefix) {
     cache.clear();
-    inflight.clear();
     return;
   }
 

@@ -9,6 +9,7 @@ import {
   toISODateLocal,
   isUuid
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SAVE_BODY_BYTES = 512 * 1024;
 
@@ -91,10 +92,10 @@ export async function POST(event: RequestEvent) {
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
         : null;
-    if (!body) return new Response('Body invalido.', { status: 400 });
+    if (!body) return new Response('Body invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const nome = String(body.nome || '').trim();
-    if (!nome) return new Response('Nome obrigatorio.', { status: 400 });
+    if (!nome) return new Response('Nome obrigatorio.', { status: 400, headers: NO_STORE_HEADERS });
 
     const companyId = scope.companyId;
     const isNew = !body.id;
@@ -130,14 +131,14 @@ export async function POST(event: RequestEvent) {
       roteiroId = roteiro.id;
     } else {
       roteiroId = String(body.id).trim();
-      if (!isUuid(roteiroId)) return new Response('ID invalido.', { status: 400 });
+      if (!isUuid(roteiroId)) return new Response('ID invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
       const { data: existing, error: existingError } = await applyRoteiroScope(
         client.from('roteiro_personalizado').select('id').eq('id', roteiroId).maybeSingle(),
         scope
       );
       if (existingError) throw existingError;
-      if (!existing) return new Response('Roteiro nao encontrado.', { status: 404 });
+      if (!existing) return new Response('Roteiro nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
 
       const updatePayload: Record<string, any> = {
         nome,
@@ -489,19 +490,22 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    return json({ ok: true, id: roteiroId });
+    return json({ ok: true, id: roteiroId }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     const code = String(err?.code || '');
     const msg = String(err?.message || '');
 
     if (/row-level security/i.test(msg)) {
-      return new Response('Sem permissão para salvar os dias do roteiro (RLS).', { status: 403 });
+      return new Response('Sem permissão para salvar os dias do roteiro (RLS).', {
+        status: 403,
+        headers: NO_STORE_HEADERS
+      });
     }
 
     if (code === '23505' || /duplicate key value violates unique constraint/i.test(msg)) {
       return new Response(
         'Conflito ao salvar (provável save duplo/concorrência). Tente novamente.',
-        { status: 409 }
+        { status: 409, headers: NO_STORE_HEADERS }
       );
     }
 

@@ -13,7 +13,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { isSameOriginRequest, readJsonBodyLimited } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_DOC_VARIANTS = 200;
@@ -57,6 +57,19 @@ function documentKey(value?: string | null) {
   const digits = raw.replace(/\D/g, '');
   if (!digits) return raw.toLowerCase();
   return digits.length >= 10 ? digits.slice(-10) : digits.padStart(10, '0');
+}
+
+function candidateDocumentKeys(row: {
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+}) {
+  const keys = new Set<string>();
+  [row?.numero_recibo, row?.numero_recibo_normalizado, row?.numero_reserva].forEach((value) => {
+    const key = documentKey(value);
+    if (key) keys.add(key);
+  });
+  return keys;
 }
 
 function onlyDigits(value?: string | null) {
@@ -110,6 +123,14 @@ function numeroReciboMatches(left?: string | null, right?: string | null) {
   const rightPrefix = extractReciboPrefix(right);
   if (leftPrefix && rightPrefix) return leftPrefix === rightPrefix;
   return true;
+}
+
+function candidateMatchesVariant(row: any, variant: string) {
+  return (
+    numeroReciboMatches(variant, row?.numero_recibo) ||
+    numeroReciboMatches(variant, row?.numero_recibo_normalizado) ||
+    numeroReciboMatches(variant, row?.numero_reserva)
+  );
 }
 
 function buildDocumentSearchPatterns(input: string) {
@@ -309,7 +330,11 @@ async function searchDocuments(event: RequestEvent) {
     const candidateSelect =
       'id, venda_id, numero_recibo, numero_recibo_normalizado, numero_reserva, data_venda, valor_total, valor_taxas, produto_id, vendas!inner(id, company_id, vendedor_id, data_venda)';
 
-    const [{ data: exactRows, error: exactError }, { data: normalizedRows, error: normalizedError }] =
+    const [
+      { data: exactRows, error: exactError },
+      { data: normalizedRows, error: normalizedError },
+      { data: reservaRows, error: reservaError }
+    ] =
       await Promise.all([
         client
           .from('vendas_recibos')
@@ -322,13 +347,42 @@ async function searchDocuments(event: RequestEvent) {
               .select(candidateSelect)
               .in('numero_recibo_normalizado', normalizedVariants)
               .limit(100)
-          : Promise.resolve({ data: [], error: null })
+          : Promise.resolve({ data: [], error: null }),
+        client
+          .from('vendas_recibos')
+          .select(candidateSelect)
+          .in('numero_reserva', docVariants)
+          .limit(100)
       ]);
     if (exactError) throw exactError;
     if (normalizedError) throw normalizedError;
-    [...(exactRows || []), ...(normalizedRows || [])].forEach((row: any) => {
+    if (reservaError) throw reservaError;
+    [...(exactRows || []), ...(normalizedRows || []), ...(reservaRows || [])].forEach((row: any) => {
       if (row?.id) candidateMap.set(String(row.id), row);
     });
+
+    const candidateFilters = docPatterns
+      .flatMap((pattern) => [
+        `numero_recibo.ilike.${pattern}`,
+        `numero_recibo_normalizado.ilike.${pattern}`,
+        `numero_reserva.ilike.${pattern}`
+      ])
+      .slice(0, 90);
+    if (candidateFilters.length > 0) {
+      const { data: fuzzyCandidates, error: fuzzyCandidateError } = await client
+        .from('vendas_recibos')
+        .select(candidateSelect)
+        .or(candidateFilters.join(','))
+        .limit(150);
+      if (fuzzyCandidateError) throw fuzzyCandidateError;
+
+      (fuzzyCandidates || [])
+        .filter((row: any) => docVariants.some((variant) => candidateMatchesVariant(row, variant)))
+        .forEach((row: any) => {
+          if (row?.id) candidateMap.set(String(row.id), row);
+        });
+    }
+
     const companySet = new Set(companyIds);
     candidatos = Array.from(candidateMap.values()).filter((row) => {
       const venda = firstRelation<any>(row.vendas);
@@ -367,7 +421,6 @@ async function searchDocuments(event: RequestEvent) {
 
   const candidatosPorDocumento = new Map<string, any[]>();
   candidatos.forEach((row) => {
-    const key = documentKey(row.numero_recibo);
     const venda = firstRelation<any>(row.vendas);
     const vendedorId = String(venda?.vendedor_id || '').trim();
     const item = {
@@ -383,9 +436,11 @@ async function searchDocuments(event: RequestEvent) {
       vendedor_id: vendedorId || null,
       vendedor_nome: vendedorNomes.get(vendedorId) || vendedorId || '(sem vendedor)'
     };
-    const bucket = candidatosPorDocumento.get(key) || [];
-    bucket.push(item);
-    candidatosPorDocumento.set(key, bucket);
+    candidateDocumentKeys(row).forEach((key) => {
+      const bucket = candidatosPorDocumento.get(key) || [];
+      if (!bucket.some((candidate) => candidate.id === item.id)) bucket.push(item);
+      candidatosPorDocumento.set(key, bucket);
+    });
   });
 
   const conciliacaoRows = foundRows.map((row) => ({
@@ -426,9 +481,8 @@ export async function GET(event: RequestEvent) {
 
 export async function POST(event: RequestEvent) {
   try {
-    if (!isSameOriginRequest(event.request)) {
-      return adminJson({ error: 'Origem inválida.' }, { status: 403 });
-    }
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
 
     const bodyResult = await readJsonBodyLimited(event.request, MAX_FIX_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
@@ -538,10 +592,12 @@ export async function POST(event: RequestEvent) {
         return adminJson({ error: 'Recibo de venda fora da empresa da conciliação.' }, { status: 422 });
       }
 
-      const candidatoDocumentKey =
-        documentKey((candidato as any).numero_recibo) ||
-        documentKey((candidato as any).numero_recibo_normalizado);
-      if (candidatoDocumentKey !== documentKey(registro.documento)) {
+      const registroDocumentKey = documentKey(registro.documento);
+      const candidatoKeys = candidateDocumentKeys(candidato as any);
+      if (
+        !candidatoKeys.has(registroDocumentKey) &&
+        !candidateMatchesVariant(candidato, String(registro.documento || ''))
+      ) {
         return adminJson(
           { error: 'O número do recibo selecionado não confere com o documento da conciliação.' },
           { status: 422 }

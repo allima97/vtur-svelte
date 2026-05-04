@@ -11,6 +11,8 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_EQUIPE_RELACAO_BODY_BYTES = 16 * 1024;
+const errorResponse = (message: string, status: number) =>
+  json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -33,10 +35,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const ativo = body.ativo === true;
 
     if (!isUuid(gestorId) || !isUuid(vendedorId)) {
-      return json({ error: "Gestor ou vendedor invalido." }, { status: 400 });
+      return errorResponse("Gestor ou vendedor invalido.", 400);
     }
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
-      return json({ error: "Sem permissao para atualizar equipe." }, { status: 403 });
+      return errorResponse("Sem permissao para atualizar equipe.", 403);
     }
 
     const { data: scopedUsers, error: scopedErr } = await adminClient
@@ -49,18 +51,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const gestor = byId.get(gestorId) as any;
     const vendedor = byId.get(vendedorId) as any;
     if (!gestor || !vendedor) {
-      return json({ error: "Gestor ou vendedor nao encontrado." }, { status: 404 });
+      return errorResponse("Gestor ou vendedor nao encontrado.", 404);
     }
     if (!scope.isAdmin) {
       const allowedCompanies = new Set(scope.companyIds);
       const gestorCompanyId = String(gestor.company_id || "");
       const vendedorCompanyId = String(vendedor.company_id || "");
       if (!allowedCompanies.has(gestorCompanyId) || !allowedCompanies.has(vendedorCompanyId)) {
-        return json({ error: "Equipe fora do seu escopo." }, { status: 403 });
+        return errorResponse("Equipe fora do seu escopo.", 403);
       }
     }
     if (scope.isGestor && !scope.isAdmin && !scope.isMaster && gestorId !== user.id) {
-      return json({ error: "Gestor so pode alterar a propria equipe." }, { status: 403 });
+      return errorResponse("Gestor so pode alterar a propria equipe.", 403);
     }
 
     const { data, error } = await client.rpc("set_gestor_vendedor_relacao", {
@@ -71,12 +73,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (error) {
       logServerError("[equipe/relacao] falha na RPC", error);
-      return json({ error: "Erro ao atualizar equipe." }, { status: 400 });
+      return errorResponse("Erro ao atualizar equipe.", 400);
     }
 
     return json(data || { ok: true, ativo }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[equipe/relacao] falha ao atualizar equipe", error);
-    return json({ error: "Erro ao atualizar equipe." }, { status: 500 });
+    return errorResponse("Erro ao atualizar equipe.", 500);
   }
 };

@@ -14,6 +14,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -46,7 +47,7 @@ export async function GET(event) {
     );
 
     if (!scope.isAdmin && companyIds.length === 0) {
-      return json({ items: [], total: 0 });
+      return json({ items: [], total: 0 }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     const payload = await getCachedReadModel({
@@ -98,7 +99,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError("[tarefas/usuarios] falha ao carregar usuarios", err);
     return toErrorResponse(err, "Erro ao carregar usuários.");

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -13,7 +14,7 @@ export async function GET(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
     const companyId = companyIds[0] || null;
-    if (!companyId) return json([]);
+    if (!companyId) return json([], { headers: DYNAMIC_READ_HEADERS });
 
     const limit = Math.max(1, Math.min(50, Number(event.url.searchParams.get('limit') || 20)));
 
@@ -25,12 +26,7 @@ export async function GET(event) {
       .limit(limit);
     if (error) throw error;
 
-    return json(Array.isArray(data) ? data : [], {
-      headers: {
-        'Cache-Control': 'private, max-age=5',
-        Vary: 'Cookie'
-      }
-    });
+    return json(Array.isArray(data) ? data : [], { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar execucoes da conciliacao.');
   }

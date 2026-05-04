@@ -1,5 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { ensureTodoAccess, mapTodoRow } from "$lib/server/agenda";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -23,7 +24,7 @@ export async function GET(event) {
 
     const id = String(event.params.id || "").trim();
     if (!isUuid(id)) {
-      return json({ error: "id invalido." }, { status: 400 });
+      return json({ error: "id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const result = await getCachedReadModel({
@@ -80,10 +81,10 @@ export async function GET(event) {
     });
 
     if ("error" in result) {
-      return json({ error: result.error }, { status: result.status });
+      return json({ error: result.error }, { status: result.status, headers: NO_STORE_HEADERS });
     }
 
-    return json(result);
+    return json(result, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar tarefa.");
   }

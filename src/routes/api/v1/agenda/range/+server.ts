@@ -22,6 +22,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -33,7 +34,7 @@ export async function GET(event) {
 
     const { inicio, fim } = buildAgendaRangeParams(event.url.searchParams);
     if (!isIsoDate(inicio) || !isIsoDate(fim)) {
-      return json({ error: 'inicio e fim devem estar no formato YYYY-MM-DD.' }, { status: 400 });
+      return json({ error: 'inicio e fim devem estar no formato YYYY-MM-DD.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const overlapFilter = buildAgendaOverlapFilter(inicio, fim);
@@ -120,7 +121,7 @@ export async function GET(event) {
       inicio,
       fim,
       items
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar agenda.');
   }

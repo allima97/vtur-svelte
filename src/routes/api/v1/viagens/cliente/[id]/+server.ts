@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 
 const SUPABASE_IN_BATCH_SIZE = 100;
 
@@ -225,7 +226,7 @@ export async function GET(event) {
       },
     });
 
-    return json(payload);
+    return json(payload, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError(
       "[viagens/cliente] falha ao carregar viagens do cliente",

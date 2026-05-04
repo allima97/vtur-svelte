@@ -9,9 +9,11 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 
 const MAX_FORNECEDOR_UPDATE_BODY_BYTES = 128 * 1024;
+const validationError = (message: string) => json({ error: message }, { status: 400, headers: NO_STORE_HEADERS });
 
 export async function GET(event) {
   try {
@@ -34,7 +36,7 @@ export async function GET(event) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
-    return json({ data: fornecedor });
+    return json({ data: fornecedor }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar fornecedor.');
   }
@@ -73,37 +75,37 @@ export async function PUT(event) {
     const payload = sanitizeFornecedorPayload(body, scope);
 
     if (!payload.nome_completo) {
-      return json({ error: 'Nome completo é obrigatório.' }, { status: 400 });
+      return validationError('Nome completo é obrigatório.');
     }
     if (!payload.nome_fantasia) {
-      return json({ error: 'Nome fantasia é obrigatório.' }, { status: 400 });
+      return validationError('Nome fantasia é obrigatório.');
     }
     if (!payload.cidade) {
-      return json({ error: 'Cidade é obrigatória.' }, { status: 400 });
+      return validationError('Cidade é obrigatória.');
     }
     if (!payload.estado) {
-      return json({ error: 'Estado é obrigatório.' }, { status: 400 });
+      return validationError('Estado é obrigatório.');
     }
     if (!payload.telefone) {
-      return json({ error: 'Telefone é obrigatório.' }, { status: 400 });
+      return validationError('Telefone é obrigatório.');
     }
     if (!payload.whatsapp) {
-      return json({ error: 'WhatsApp é obrigatório.' }, { status: 400 });
+      return validationError('WhatsApp é obrigatório.');
     }
     if (!payload.telefone_emergencia) {
-      return json({ error: 'Telefone de emergência é obrigatório.' }, { status: 400 });
+      return validationError('Telefone de emergência é obrigatório.');
     }
     if (!payload.responsavel) {
-      return json({ error: 'Responsável é obrigatório.' }, { status: 400 });
+      return validationError('Responsável é obrigatório.');
     }
     if (!payload.principais_servicos) {
-      return json({ error: 'Principais serviços são obrigatórios.' }, { status: 400 });
+      return validationError('Principais serviços são obrigatórios.');
     }
     if (payload.localizacao === 'brasil' && !payload.cnpj) {
-      return json({ error: 'CNPJ é obrigatório para fornecedores no Brasil.' }, { status: 400 });
+      return validationError('CNPJ é obrigatório para fornecedores no Brasil.');
     }
     if (payload.localizacao === 'brasil' && !payload.cep) {
-      return json({ error: 'CEP é obrigatório para fornecedores no Brasil.' }, { status: 400 });
+      return validationError('CEP é obrigatório para fornecedores no Brasil.');
     }
 
     const { data, error: updateError } = await client
@@ -122,7 +124,7 @@ export async function PUT(event) {
     });
 
     const fornecedor = await fetchFornecedorById(client, id);
-    return json({ success: true, data: fornecedor });
+    return json({ success: true, data: fornecedor }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar fornecedor.');
   }
@@ -159,7 +161,7 @@ export async function DELETE(event) {
     if (countError) throw countError;
 
     if ((count || 0) > 0) {
-      return json({ error: 'Não é possível excluir fornecedor com produtos vinculados.' }, { status: 409 });
+      return json({ error: 'Não é possível excluir fornecedor com produtos vinculados.' }, { status: 409, headers: NO_STORE_HEADERS });
     }
 
     const { error: deleteError } = await client.from('fornecedores').delete().eq('id', id);
@@ -170,7 +172,7 @@ export async function DELETE(event) {
       userId: user.id
     });
 
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir fornecedor.');
   }

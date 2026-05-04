@@ -5,7 +5,7 @@ import {
   fetchUsuariosEmpresa,
   noStoreTextResponse,
 } from "../_shared";
-import { logServerError } from "$lib/server/v1";
+import { isUuid, logServerError } from "$lib/server/v1";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -22,22 +22,26 @@ export async function GET(event) {
 
     let empresas: Array<{ id: string; nome_fantasia: string; status: string }> =
       [];
-    let selectedCompanyId = String(scope.companyId || "").trim();
+    const allowedCompanyIds = Array.from(
+      new Set((scope.companyIds || []).map((id) => String(id || "").trim()).filter(isUuid)),
+    );
+    let selectedCompanyId = String(scope.companyId || allowedCompanyIds[0] || "").trim();
 
-    if (scope.isMaster) {
-      const { data: vinculos, error } = await client
-        .from("master_empresas")
-        .select("company_id, status, companies(id, nome_fantasia)")
-        .eq("master_id", user.id);
+    if (!scope.isAdmin && allowedCompanyIds.length > 0) {
+      const { data: rows, error } = await client
+        .from("companies")
+        .select("id, nome_fantasia")
+        .in("id", allowedCompanyIds)
+        .order("nome_fantasia", { ascending: true });
       if (error) throw error;
 
-      empresas = (vinculos || [])
+      empresas = (rows || [])
         .map((v: any) => ({
-          id: String(v?.companies?.id || v?.company_id || ""),
-          nome_fantasia: String(v?.companies?.nome_fantasia || "Empresa"),
-          status: String(v?.status || "pending"),
+          id: String(v?.id || ""),
+          nome_fantasia: String(v?.nome_fantasia || "Empresa"),
+          status: "approved",
         }))
-        .filter((e: any) => e.id && e.status === "approved");
+        .filter((e: any) => e.id);
 
       const approvedIds = new Set(empresas.map((e) => e.id));
       if (queryCompanyId && approvedIds.has(queryCompanyId)) {

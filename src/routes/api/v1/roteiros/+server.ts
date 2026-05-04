@@ -10,6 +10,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import type { RequestEvent } from '@sveltejs/kit';
 
 const ROTEIRO_SUGESTAO_SELECT = 'id, company_id, tipo, valor, uso_count, created_at, updated_at';
@@ -61,7 +62,7 @@ export async function GET(event: RequestEvent) {
 
     if (queryError) throw queryError;
 
-    return json({ roteiros: data || [] });
+    return json({ roteiros: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     logServerError('[roteiros] falha ao carregar roteiros', err);
     return toErrorResponse(err, 'Erro ao carregar roteiros.');
@@ -78,7 +79,7 @@ export async function POST(event: RequestEvent) {
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
-      return new Response('Sessao invalida.', { status: 401 });
+      return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const body =
@@ -87,7 +88,9 @@ export async function POST(event: RequestEvent) {
         : {};
     const { id, nome, duracao, inicio_cidade, fim_cidade, dias, itinerario_config } = body;
 
-    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!String(nome || '').trim()) {
+      return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     // Buscar company_id do usuário
     const { data: userProfile } = await supabase
@@ -186,7 +189,7 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    return json({ ok: true, id: roteiroId });
+    return json({ ok: true, id: roteiroId }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[roteiros] falha ao salvar roteiro', err);
     return toErrorResponse(err, 'Erro ao salvar roteiro.');
@@ -201,11 +204,11 @@ export async function DELETE(event: RequestEvent) {
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
-      return new Response('Sessao invalida.', { status: 401 });
+      return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     // RLS garante que só o dono pode excluir
     const { error: deleteError } = await supabase
@@ -216,7 +219,7 @@ export async function DELETE(event: RequestEvent) {
 
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[roteiros] falha ao excluir roteiro', err);
     return toErrorResponse(err, 'Erro ao excluir roteiro.');
@@ -233,7 +236,7 @@ export async function PATCH(event: RequestEvent) {
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
-      return new Response('Sessao invalida.', { status: 401 });
+      return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
     }
 
     const body =
@@ -246,7 +249,7 @@ export async function PATCH(event: RequestEvent) {
       const termo = sanitizePostgrestSearchTerm(body.termo, 80);
       const tipo = String(body.tipo || '').trim().slice(0, 60);
 
-      if (!termo && !tipo) return json({ sugestoes: [] });
+      if (!termo && !tipo) return json({ sugestoes: [] }, { headers: NO_STORE_HEADERS });
 
       let query = supabase
         .from('roteiro_sugestoes')
@@ -258,16 +261,20 @@ export async function PATCH(event: RequestEvent) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return json({ sugestoes: data || [] });
+      return json({ sugestoes: data || [] }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'sugestoes-salvar') {
       const { tipo, valor } = body;
-      if (!tipo || !valor) return json({ error: 'tipo e valor obrigatorios.' }, { status: 400 });
+      if (!tipo || !valor) {
+        return json({ error: 'tipo e valor obrigatorios.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
 
       const safeTipo = String(tipo).trim().slice(0, 60);
       const safeValor = String(valor).trim().slice(0, 160);
-      if (!safeTipo || !safeValor) return json({ error: 'tipo e valor obrigatorios.' }, { status: 400 });
+      if (!safeTipo || !safeValor) {
+        return json({ error: 'tipo e valor obrigatorios.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
 
       const normalizedValor = safeValor.toLowerCase();
 
@@ -291,7 +298,7 @@ export async function PATCH(event: RequestEvent) {
           .from('roteiro_sugestoes')
           .update({ uso_count: ((existing as any).uso_count || 0) + 1 })
           .eq('id', (existing as any).id);
-        return json({ ok: true, id: (existing as any).id });
+        return json({ ok: true, id: (existing as any).id }, { headers: NO_STORE_HEADERS });
       }
 
       const { data: inserted, error: insertError } = await supabase
@@ -301,17 +308,17 @@ export async function PATCH(event: RequestEvent) {
         .single();
 
       if (insertError) throw insertError;
-      return json({ ok: true, id: (inserted as any)?.id });
+      return json({ ok: true, id: (inserted as any)?.id }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'sugestoes-remover') {
       const { id } = body;
-      if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
+      if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
       await supabase.from('roteiro_sugestoes').delete().eq('id', id);
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    return json({ error: 'Acao invalida.' }, { status: 400 });
+    return json({ error: 'Acao invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[roteiros] falha ao processar sugestoes', err);
     return toErrorResponse(err, 'Erro ao processar sugestoes.');

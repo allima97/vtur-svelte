@@ -132,7 +132,7 @@ export async function POST(event) {
         });
       }
 
-      return json({ cliente: { ...existing, ...updates }, created: false });
+      return json({ cliente: { ...existing, ...updates }, created: false }, { headers: NO_STORE_HEADERS });
     }
 
     // ✅ company_id compatível com MASTER (usa primeiro do escopo)
@@ -143,7 +143,7 @@ export async function POST(event) {
     if (!scope.isAdmin && !companyId) {
       return json(
         { error: requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa não identificada.' },
-        { status: requestedCompanyId ? 403 : 400 }
+        { status: requestedCompanyId ? 403 : 400, headers: NO_STORE_HEADERS }
       );
     }
 

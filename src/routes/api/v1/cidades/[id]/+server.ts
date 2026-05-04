@@ -2,11 +2,13 @@ import { json } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CIDADE_UPDATE_BODY_BYTES = 64 * 1024;
@@ -26,7 +28,8 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['Cidades'], 1, 'Sem acesso a Cidades.');
     }
 
-    const cidadeId = event.params.id;
+    const cidadeId = String(event.params.id || '').trim();
+    if (!isUuid(cidadeId)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data, error } = await client
       .from('cidades')
@@ -36,12 +39,12 @@ export async function GET(event) {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return json({ error: 'Cidade nao encontrada' }, { status: 404 });
+        return json({ error: 'Cidade nao encontrada' }, { status: 404, headers: NO_STORE_HEADERS });
       }
       throw error;
     }
 
-    return json(data);
+    return json(data, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar cidade.');
   }
@@ -62,7 +65,8 @@ export async function PATCH(event) {
       ensureModuloAccess(scope, ['Cidades'], 3, 'Sem permissao para editar cidades.');
     }
 
-    const cidadeId = event.params.id;
+    const cidadeId = String(event.params.id || '').trim();
+    if (!isUuid(cidadeId)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
@@ -74,7 +78,7 @@ export async function PATCH(event) {
     if (body.descricao !== undefined) updateData.descricao = body.descricao?.trim() || null;
 
     if (Object.keys(updateData).length === 0) {
-      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data, error } = await client
@@ -87,7 +91,7 @@ export async function PATCH(event) {
     if (error) throw error;
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ success: true, data });
+    return json({ success: true, data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar cidade.');
   }
@@ -106,7 +110,8 @@ export async function DELETE(event) {
       ensureModuloAccess(scope, ['Cidades'], 4, 'Sem permissao para excluir cidades.');
     }
 
-    const cidadeId = event.params.id;
+    const cidadeId = String(event.params.id || '').trim();
+    if (!isUuid(cidadeId)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error } = await client
       .from('cidades')
@@ -116,7 +121,7 @@ export async function DELETE(event) {
     if (error) throw error;
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ success: true });
+    return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir cidade.');
   }

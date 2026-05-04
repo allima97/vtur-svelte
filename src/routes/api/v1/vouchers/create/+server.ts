@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_VOUCHER_CREATE_BODY_BYTES = 512 * 1024;
@@ -49,7 +50,7 @@ export async function POST(event) {
 
     if (error) throw error;
 
-    return json({ success: true, item: data });
+    return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err: any) {
     return toErrorResponse(err, 'Erro ao criar voucher.');
   }

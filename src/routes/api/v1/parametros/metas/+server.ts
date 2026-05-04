@@ -17,6 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_PARAMETROS_METAS_BODY_BYTES = 512 * 1024;
@@ -402,7 +403,7 @@ export async function GET(event) {
               vendedores: scopedVendedores,
               produtos: [],
               periodo: periodo.slice(0, 7),
-            });
+            }, { headers: DYNAMIC_READ_HEADERS });
           }
           throw queryError;
         }
@@ -435,7 +436,7 @@ export async function GET(event) {
       vendedores: scopedVendedores,
       produtos,
       periodo: periodo.slice(0, 7),
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar metas.");
   }
@@ -469,7 +470,7 @@ export async function POST(event) {
       ? body.items
       : [body];
     if (inputs.length === 0)
-      return json({ error: "Nenhuma meta informada." }, { status: 400 });
+      return json({ error: "Nenhuma meta informada." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const scopedVendedores = await loadScopedVendedores(client, scope);
     const allowedIds = new Set(
@@ -492,14 +493,14 @@ export async function POST(event) {
     for (const input of inputs) {
       const targetVendedorId = String(input?.vendedor_id || "").trim();
       if (!isUuid(targetVendedorId))
-        return json({ error: "Vendedor inválido." }, { status: 400 });
+        return json({ error: "Vendedor inválido." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const allowed =
         scope.isAdmin ||
         allowedIds.has(targetVendedorId) ||
         (await assertTargetAllowed(client, scope, targetVendedorId));
       if (!allowed)
-        return json({ error: "Vendedor fora do seu escopo." }, { status: 403 });
+        return json({ error: "Vendedor fora do seu escopo." }, { status: 403, headers: NO_STORE_HEADERS });
 
       targetVendedorIds.push(targetVendedorId);
       ids.push(await upsertMeta(client, input, fallbackPeriod));
@@ -528,7 +529,7 @@ export async function POST(event) {
       scopeTags: metaScopeTags,
     });
 
-    return json({ ok: true, ids, id: ids[0] || null });
+    return json({ ok: true, ids, id: ids[0] || null }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao salvar meta.");
   }
@@ -553,7 +554,7 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get("id") || "").trim();
-    if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400 });
+    if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: meta, error: metaError } = await client
       .from("metas_vendedor")
@@ -568,7 +569,7 @@ export async function DELETE(event) {
         !vendedorId ||
         !(await assertTargetAllowed(client, scope, vendedorId))
       ) {
-        return json({ error: "Meta fora do seu escopo." }, { status: 403 });
+        return json({ error: "Meta fora do seu escopo." }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -603,7 +604,7 @@ export async function DELETE(event) {
       }),
     });
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao excluir meta.");
   }

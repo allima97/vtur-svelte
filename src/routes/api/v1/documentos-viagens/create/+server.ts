@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_DOCUMENTO_VIAGEM_CREATE_BODY_BYTES = 64 * 1024;
@@ -41,7 +42,7 @@ export async function POST(event: RequestEvent) {
         ? (bodyResult.data as Record<string, any>)
         : {};
     const rawFileName = String(body?.file_name || '').trim();
-    if (!rawFileName) return json({ error: 'file_name obrigatorio.' }, { status: 400 });
+    if (!rawFileName) return json({ error: 'file_name obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const fileName = sanitizeFileName(rawFileName);
     const displayName = String(body?.display_name || '').trim() || fileName;
@@ -67,7 +68,7 @@ export async function POST(event: RequestEvent) {
       .single();
     if (error) throw error;
 
-    return json({ ok: true, doc: data });
+    return json({ ok: true, doc: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao preparar upload.');
   }

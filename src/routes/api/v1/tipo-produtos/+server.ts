@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_PRODUTOS_BODY_BYTES = 64 * 1024;
@@ -87,10 +88,13 @@ export async function GET(event) {
       .order('nome')
       .limit(100);
 
-    return json({
-      items: data || [],
-      regras: regras || []
-    });
+    return json(
+      {
+        items: data || [],
+        regras: regras || []
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tipos de produto.');
   }
@@ -120,7 +124,9 @@ export async function POST(event) {
       descontar_meta_geral, exibe_kpi_comissao } = body;
 
     const nomeTrimmed = String(nome || '').trim();
-    if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!nomeTrimmed) {
+      return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     const payload = {
       nome: nomeTrimmed,
@@ -187,7 +193,7 @@ export async function POST(event) {
       }
     }
 
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar tipo de produto.');
   }
@@ -207,12 +213,12 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('tipo_produtos').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir tipo de produto.');
   }

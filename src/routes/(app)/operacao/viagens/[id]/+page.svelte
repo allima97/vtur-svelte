@@ -603,7 +603,7 @@
             {#each viagem.venda.recibos as recibo}
               <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <div class="flex flex-wrap items-start justify-between gap-4">
-                  <div class="flex-1 min-w-[300px]">
+                  <div class="min-w-0 flex-1 sm:min-w-[300px]">
                     <div class="flex items-center gap-2 mb-2">
                       <Briefcase size={18} class="text-clientes-600" />
                       <span class="font-semibold text-slate-900"

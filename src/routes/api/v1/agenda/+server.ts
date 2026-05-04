@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { buildAgendaRangeParams, buildAgendaOverlapFilter, ensureAgendaAccess, mapAgendaRowToEvent } from '$lib/server/agenda';
+import { buildAgendaRangeParams, buildAgendaOverlapFilter, ensureAgendaAccess, isIsoDate, mapAgendaRowToEvent } from '$lib/server/agenda';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 export async function GET(event) {
@@ -10,6 +11,9 @@ export async function GET(event) {
     ensureAgendaAccess(scope, 1, 'Sem acesso a Agenda.');
 
     const { inicio, fim } = buildAgendaRangeParams(event.url.searchParams);
+    if ((inicio || fim) && (!isIsoDate(inicio) || !isIsoDate(fim))) {
+      return json({ error: 'inicio e fim devem estar no formato YYYY-MM-DD.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     let query = client
       .from('agenda_itens')
@@ -27,7 +31,7 @@ export async function GET(event) {
 
     return json({
       items: (data || []).map(mapAgendaRowToEvent).filter(Boolean)
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar agenda.');
   }

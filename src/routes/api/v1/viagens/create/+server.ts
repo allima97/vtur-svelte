@@ -10,6 +10,7 @@ import {
 } from "$lib/server/v1";
 import { resolveViagemStatus } from "$lib/viagens/status";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_CREATE_BODY_BYTES = 256 * 1024;
@@ -56,7 +57,7 @@ export async function POST(event: RequestEvent) {
       : null;
 
     if (!origem || !destino || !dataInicio || !clienteId) {
-      return json({ error: "Dados obrigatorios ausentes." }, { status: 400 });
+      return json({ error: "Dados obrigatorios ausentes." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: clienteRow, error: clienteError } = await client
@@ -67,7 +68,7 @@ export async function POST(event: RequestEvent) {
 
     if (clienteError) throw clienteError;
     if (!clienteRow?.id) {
-      return json({ error: "Cliente não encontrado." }, { status: 400 });
+      return json({ error: "Cliente não encontrado." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const clienteCompanyId = isUuid(clienteRow.company_id)
@@ -79,7 +80,7 @@ export async function POST(event: RequestEvent) {
     if (!companyId) {
       return json(
         { error: "Não foi possível determinar a empresa da viagem." },
-        { status: 400 },
+        { status: 400, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -90,7 +91,7 @@ export async function POST(event: RequestEvent) {
     ) {
       return json(
         { error: "Sem acesso ao cliente selecionado." },
-        { status: 403 },
+        { status: 403, headers: NO_STORE_HEADERS },
       );
     }
 
@@ -123,7 +124,7 @@ export async function POST(event: RequestEvent) {
       userId: user.id,
     });
 
-    return json({ ok: true, viagem: data });
+    return json({ ok: true, viagem: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao criar viagem.");
   }

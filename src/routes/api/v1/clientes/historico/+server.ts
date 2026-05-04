@@ -13,6 +13,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
   return [...items].sort((left, right) =>
@@ -288,7 +289,7 @@ export async function GET(event) {
       }
     });
 
-    return json(result);
+    return json(result, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar historico de clientes.');
   }

@@ -5,6 +5,7 @@ import {
   isUuid,
   requireAuthenticatedUser,
   resolveUserScope,
+  sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
 import {
@@ -13,6 +14,7 @@ import {
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PAISES_BODY_BYTES = 64 * 1024;
@@ -28,7 +30,7 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
-    const q = String(searchParams.get('q') || '').trim();
+    const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
 
     const items = await getCachedReadModel<any[]>({
       key: buildReadModelCacheKey('paises:list', { q }),
@@ -56,7 +58,7 @@ export async function GET(event) {
       }
     });
 
-    return json({ items });
+    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar países.');
   }
@@ -83,7 +85,7 @@ export async function POST(event) {
         : {};
     const { id, nome, codigo_iso, continente } = body;
 
-    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
+    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       nome: String(nome).trim(),
@@ -103,7 +105,7 @@ export async function POST(event) {
     }
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar país.');
   }
@@ -123,13 +125,13 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('paises').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir país.');
   }

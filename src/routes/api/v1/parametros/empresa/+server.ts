@@ -7,6 +7,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { invalidateUserReadModels } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_EMPRESA_BODY_BYTES = 64 * 1024;
@@ -22,7 +23,7 @@ export async function GET(event) {
     }
 
     const companyId = scope.companyId;
-    if (!companyId) return json({ error: 'Usuário não vinculado a uma empresa.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Usuário não vinculado a uma empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     // Tenta com todas as colunas, faz fallback para colunas básicas
     let { data, error: queryError } = await client
@@ -32,9 +33,9 @@ export async function GET(event) {
       .maybeSingle();
 
     if (queryError) throw queryError;
-    if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404 });
+    if (!data) return json({ error: 'Empresa não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json(data);
+    return json(data, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar dados da empresa.');
   }
@@ -56,7 +57,7 @@ export async function PATCH(event) {
     }
 
     const companyId = scope.companyId;
-    if (!companyId) return json({ error: 'Usuário não vinculado a uma empresa.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Usuário não vinculado a uma empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -72,7 +73,7 @@ export async function PATCH(event) {
     }
 
     if (Object.keys(payload).length === 0) {
-      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { error: updateError } = await client.from('companies').update(payload).eq('id', companyId);
@@ -82,7 +83,7 @@ export async function PATCH(event) {
       companyIds: [companyId],
       userId: user.id
     });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar dados da empresa.');
   }

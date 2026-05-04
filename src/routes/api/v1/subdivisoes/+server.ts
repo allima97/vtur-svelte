@@ -15,6 +15,7 @@ import {
   invalidateCatalogReadModels,
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_SUBDIVISOES_BODY_BYTES = 64 * 1024;
@@ -35,6 +36,10 @@ export async function GET(event) {
     const paisId = String(searchParams.get('pais_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
     const pageSize = Math.min(200, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 100)));
+
+    if (paisId && !isUuid(paisId)) {
+      return json({ error: 'pais_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
       key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
@@ -63,7 +68,7 @@ export async function GET(event) {
       }
     });
 
-    return json({ items, total, page, pageSize });
+    return json({ items, total, page, pageSize }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar estados/subdivisões.');
   }
@@ -90,8 +95,8 @@ export async function POST(event) {
         : {};
     const { id, nome, pais_id, codigo_admin1, tipo } = body;
 
-    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
-    if (!pais_id || !isUuid(pais_id)) return json({ error: 'País obrigatório.' }, { status: 400 });
+    if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!pais_id || !isUuid(pais_id)) return json({ error: 'País obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       nome: String(nome).trim(),
@@ -112,7 +117,7 @@ export async function POST(event) {
     }
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar estado.');
   }
@@ -132,13 +137,13 @@ export async function DELETE(event) {
     }
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client.from('subdivisoes').delete().eq('id', id);
     if (deleteError) throw deleteError;
 
     invalidateCatalogReadModels({ userId: user.id });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir estado.');
   }

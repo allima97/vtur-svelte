@@ -7,7 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
@@ -37,7 +37,7 @@ export async function GET(event) {
     const url = new URL(event.request.url);
     const companyId = resolveScopedCompanyId(scope, url.searchParams.get('companyId'));
 
-    if (!companyId) return json({ error: 'Selecione uma empresa para listar dias sem movimento.' }, { status: 400 });
+    if (!companyId) return json({ error: 'Selecione uma empresa para listar dias sem movimento.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data, error } = await client
       .from('conciliacao_dias_sem_movimento')
@@ -48,12 +48,12 @@ export async function GET(event) {
 
     if (error) {
       if (isTableMissingError(error, 'conciliacao_dias_sem_movimento')) {
-        return json({ ok: true, dias: [], tabela_nao_existe: true }, { headers: NO_STORE_HEADERS });
+        return json({ ok: true, dias: [], tabela_nao_existe: true }, { headers: DYNAMIC_READ_HEADERS });
       }
       throw error;
     }
 
-    return json({ ok: true, dias: data || [] }, { headers: NO_STORE_HEADERS });
+    return json({ ok: true, dias: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao listar dias sem movimento.');
   }

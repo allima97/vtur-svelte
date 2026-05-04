@@ -246,7 +246,7 @@ export async function POST(event) {
       }
     }
 
-    return json({ id: companyId, saved: true });
+    return json({ id: companyId, saved: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar empresa.');
   }

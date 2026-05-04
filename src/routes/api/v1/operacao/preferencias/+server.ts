@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -85,7 +86,7 @@ export async function GET(event) {
       },
     });
 
-    return json(result);
+    return json(result, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar preferências.");
   }
@@ -118,7 +119,7 @@ export async function POST(event) {
     ensurePreferenciasAccess(scope, id && isUuid(id) ? 3 : 2);
 
     if (!String(nome || "").trim())
-      return json({ error: "Nome obrigatório." }, { status: 400 });
+      return json({ error: "Nome obrigatório." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       created_by: scope.userId,
@@ -157,7 +158,7 @@ export async function POST(event) {
       companyIds: scope.companyId ? [scope.companyId] : [],
       userId: scope.userId,
     });
-    return json({ ok: true, id: result?.id });
+    return json({ ok: true, id: result?.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao salvar preferência.");
   }
@@ -174,7 +175,7 @@ export async function DELETE(event) {
     ensurePreferenciasAccess(scope, 4);
 
     const id = String(event.url.searchParams.get("id") || "").trim();
-    if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400 });
+    if (!isUuid(id)) return json({ error: "ID inválido." }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { error: deleteError } = await client
       .from("minhas_preferencias")
@@ -187,7 +188,7 @@ export async function DELETE(event) {
       companyIds: scope.companyId ? [scope.companyId] : [],
       userId: scope.userId,
     });
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao excluir preferência.");
   }
@@ -214,14 +215,14 @@ export async function PATCH(event) {
     if (action === "share") {
       const { preferencia_id, shared_with_email } = body;
       if (!isUuid(preferencia_id))
-        return json({ error: "preferencia_id invalido." }, { status: 400 });
+        return json({ error: "preferencia_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
       if (!shared_with_email)
         return json(
           { error: "shared_with_email obrigatorio." },
-          { status: 400 },
+          { status: 400, headers: NO_STORE_HEADERS },
         );
       if (!scope.companyId)
-        return json({ error: "Empresa inválida." }, { status: 400 });
+        return json({ error: "Empresa inválida." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const { data: preferencia, error: preferenciaError } = await client
         .from("minhas_preferencias")
@@ -233,7 +234,7 @@ export async function PATCH(event) {
 
       if (preferenciaError) throw preferenciaError;
       if (!preferencia)
-        return json({ error: "Preferência não encontrada." }, { status: 404 });
+        return json({ error: "Preferência não encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
 
       const { data: targetUser } = await client
         .from("users")
@@ -243,11 +244,11 @@ export async function PATCH(event) {
         .eq("active", true)
         .maybeSingle();
       if (!targetUser)
-        return json({ error: "Usuario nao encontrado." }, { status: 404 });
+        return json({ error: "Usuario nao encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
       if (String(targetUser.id) === scope.userId)
         return json(
           { error: "Não é possível compartilhar com você mesmo." },
-          { status: 400 },
+          { status: 400, headers: NO_STORE_HEADERS },
         );
 
       const payload = {
@@ -267,13 +268,13 @@ export async function PATCH(event) {
         companyIds: [scope.companyId],
         userId: scope.userId,
       });
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === "accept") {
       const { share_id } = body;
       if (!isUuid(share_id))
-        return json({ error: "share_id invalido." }, { status: 400 });
+        return json({ error: "share_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const { data, error } = await client
         .from("minhas_preferencias_shares")
@@ -285,19 +286,19 @@ export async function PATCH(event) {
 
       if (error) throw error;
       if (!data)
-        return json({ error: "Convite não encontrado." }, { status: 404 });
+        return json({ error: "Convite não encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
 
       invalidatePreferenceReadModels({
         companyIds: scope.companyId ? [scope.companyId] : [],
         userId: scope.userId,
       });
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === "revoke") {
       const { share_id } = body;
       if (!isUuid(share_id))
-        return json({ error: "share_id invalido." }, { status: 400 });
+        return json({ error: "share_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const { data, error } = await client
         .from("minhas_preferencias_shares")
@@ -311,17 +312,17 @@ export async function PATCH(event) {
       if (!data)
         return json(
           { error: "Compartilhamento não encontrado." },
-          { status: 404 },
+          { status: 404, headers: NO_STORE_HEADERS },
         );
 
       invalidatePreferenceReadModels({
         companyIds: scope.companyId ? [scope.companyId] : [],
         userId: scope.userId,
       });
-      return json({ ok: true });
+      return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    return json({ error: "Acao invalida." }, { status: 400 });
+    return json({ error: "Acao invalida." }, { status: 400, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao gerenciar compartilhamento.");
   }

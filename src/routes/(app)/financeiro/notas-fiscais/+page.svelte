@@ -3,7 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { Badge, FieldSelect } from '$lib/components/ui';
+  import { Badge, FieldSelect, LoadingState } from '$lib/components/ui';
   import { apiGet } from '$lib/services/api';
   import { Building2, FileCheck2, FileText, PlugZap, ReceiptText, Settings } from 'lucide-svelte';
 
@@ -70,7 +70,7 @@
     <Card title="Escopo fiscal" color="financeiro">
       <div class="grid gap-4 md:grid-cols-[minmax(260px,360px)_1fr] md:items-end">
         {#if loadingContext}
-          <div class="h-16 animate-pulse rounded-lg bg-slate-100"></div>
+          <LoadingState compact={true} />
         {:else}
           <FieldSelect
             id="notas-fiscais-empresa"

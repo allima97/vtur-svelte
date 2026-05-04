@@ -32,7 +32,8 @@
   type ReciboCandidate = {
     id: string;
     venda_id: string;
-    numero_recibo: string;
+    numero_recibo: string | null;
+    numero_recibo_normalizado?: string | null;
     numero_reserva: string | null;
     data_venda: string | null;
     valor_total: number;
@@ -104,6 +105,10 @@
 
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function displayCandidateDoc(candidate: ReciboCandidate) {
+    return candidate.numero_recibo || candidate.numero_reserva || candidate.numero_recibo_normalizado || candidate.id;
   }
 
   async function fetchDocs(options: { suppressSuccessMessage?: boolean } = {}) {
@@ -377,7 +382,7 @@
                   on:click={() => (selectedCandidateId = candidate.id)}
                 >
                   <span class="flex flex-col items-start gap-0.5">
-                    <span class="font-semibold">{candidate.numero_recibo}</span>
+                    <span class="font-semibold">{displayCandidateDoc(candidate)}</span>
                     <span class="text-xs text-slate-500">
                       {candidate.vendedor_nome} · {candidate.data_venda || 'sem data'}
                     </span>

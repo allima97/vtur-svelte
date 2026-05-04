@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_DOCUMENTO_VIAGEM_TEMPLATE_BODY_BYTES = 512 * 1024;
@@ -65,7 +66,7 @@ export async function POST(event: RequestEvent) {
         ? (bodyResult.data as Record<string, any>)
         : {};
     const id = String(body?.id || '').trim();
-    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data: currentDoc, error: currentDocError } = await client
       .from('documentos_viagens')
@@ -73,7 +74,7 @@ export async function POST(event: RequestEvent) {
       .eq('id', id)
       .maybeSingle();
     if (currentDocError) throw currentDocError;
-    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+    if (!currentDoc) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
       const allowedCompanyIds = new Set(
@@ -81,7 +82,7 @@ export async function POST(event: RequestEvent) {
       );
       const targetCompanyId = String((currentDoc as { company_id?: string | null })?.company_id || '').trim();
       if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
-        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403 });
+        return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
@@ -89,8 +90,8 @@ export async function POST(event: RequestEvent) {
     const templateText = clampText(body?.template_text, 200_000);
     const templateFields = normalizeFields(body?.template_fields);
 
-    if (!title) return json({ error: 'title obrigatorio.' }, { status: 400 });
-    if (!templateText.trim()) return json({ error: 'template_text obrigatorio.' }, { status: 400 });
+    if (!title) return json({ error: 'title obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!templateText.trim()) return json({ error: 'template_text obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const { data, error } = await client
       .from('documentos_viagens')
@@ -105,9 +106,9 @@ export async function POST(event: RequestEvent) {
       .select('id, file_name, display_name, title, template_text, template_fields, storage_bucket, storage_path, mime_type, size_bytes, created_at, updated_at')
       .maybeSingle();
     if (error) throw error;
-    if (!data) return json({ error: 'Documento nao encontrado.' }, { status: 404 });
+    if (!data) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json({ ok: true, doc: data });
+    return json({ ok: true, doc: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar modelo.');
   }

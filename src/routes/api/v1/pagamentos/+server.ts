@@ -76,6 +76,13 @@ export async function GET(event) {
     const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
+    if (vendaId && !isUuid(vendaId)) {
+      return json({ error: 'venda_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+    if (formaPagamentoId && !isUuid(formaPagamentoId)) {
+      return json({ error: 'forma_pagamento_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
     const selectPagamentos = `
       id, venda_id, forma_pagamento_id, company_id, forma_nome, operacao, plano,
       valor_bruto, desconto_valor, valor_total, parcelas_qtd, parcelas_valor,

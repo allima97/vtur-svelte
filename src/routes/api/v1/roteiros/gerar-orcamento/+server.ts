@@ -5,10 +5,12 @@ import {
   requireAuthenticatedUser,
   resolveUserScope,
   ensureModuloAccess,
+  isUuid,
   toErrorResponse
 } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_GERAR_ORCAMENTO_BODY_BYTES = 64 * 1024;
 
@@ -29,13 +31,13 @@ export async function POST(event: RequestEvent) {
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
         : null;
-    if (!body) return new Response('Body invalido.', { status: 400 });
+    if (!body) return new Response('Body invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const roteiroId = String(body.roteiro_id || '').trim();
-    if (!roteiroId) return new Response('roteiro_id obrigatorio.', { status: 400 });
+    if (!isUuid(roteiroId)) return new Response('roteiro_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const clientName = String(body.client_name || '').trim();
-    if (!clientName) return new Response('client_name obrigatorio.', { status: 400 });
+    if (!clientName) return new Response('client_name obrigatorio.', { status: 400, headers: NO_STORE_HEADERS });
 
     // Carregar roteiro
     const { data: roteiro, error: roteiroErr } = await client
@@ -45,7 +47,7 @@ export async function POST(event: RequestEvent) {
       .maybeSingle();
 
     if (roteiroErr) throw roteiroErr;
-    if (!roteiro) return new Response('Roteiro nao encontrado.', { status: 404 });
+    if (!roteiro) return new Response('Roteiro nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
 
     // Carregar pagamentos do roteiro
     const { data: pagamentos, error: pagErr } = await client
@@ -69,6 +71,9 @@ export async function POST(event: RequestEvent) {
     let clientWhatsapp: string | null = String(body.client_whatsapp || '').trim() || null;
     let clientEmail: string | null = String(body.client_email || '').trim() || null;
     const clientId: string | null = String(body.client_id || '').trim() || null;
+    if (clientId && !isUuid(clientId)) {
+      return new Response('client_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     if (clientId) {
       const { data: cliente } = await client
@@ -80,7 +85,7 @@ export async function POST(event: RequestEvent) {
       if (cliente) {
         const clienteCompanyId = String((cliente as any).company_id || '').trim();
         if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-          return new Response('Cliente fora do seu escopo.', { status: 403 });
+          return new Response('Cliente fora do seu escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
         clientWhatsapp = clientWhatsapp || (cliente as any).whatsapp || null;
         clientEmail = clientEmail || (cliente as any).email || null;
@@ -140,7 +145,7 @@ export async function POST(event: RequestEvent) {
       userId: user.id
     });
 
-    return json({ ok: true, quote_id: quote.id });
+    return json({ ok: true, quote_id: quote.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao gerar orcamento.');
   }

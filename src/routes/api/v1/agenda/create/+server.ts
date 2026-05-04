@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess, isIsoDate } from '$lib/server/agenda';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   getAdminClient,
@@ -51,11 +52,11 @@ export async function POST(event) {
     const payload = normalizePayload(body);
 
     if (!payload.titulo) {
-      return json({ error: 'titulo obrigatorio.' }, { status: 400 });
+      return json({ error: 'titulo obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!isIsoDate(payload.startDate) || !isIsoDate(payload.endDate)) {
-      return json({ error: 'start_date e end_date devem estar no formato YYYY-MM-DD.' }, { status: 400 });
+      return json({ error: 'start_date e end_date devem estar no formato YYYY-MM-DD.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
@@ -66,7 +67,7 @@ export async function POST(event) {
     if (!scope.isAdmin && !companyId) {
       return json(
         { error: requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa não identificada para criar evento.' },
-        { status: requestedCompanyId ? 403 : 400 }
+        { status: requestedCompanyId ? 403 : 400, headers: NO_STORE_HEADERS }
       );
     }
 
@@ -91,7 +92,7 @@ export async function POST(event) {
 
     if (error) throw error;
 
-    return json({ ok: true, item: data });
+    return json({ ok: true, item: data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao criar evento.');
   }

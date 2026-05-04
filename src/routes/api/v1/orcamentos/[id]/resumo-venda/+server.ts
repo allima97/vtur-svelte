@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 export async function GET(event) {
@@ -24,7 +25,7 @@ export async function GET(event) {
         'Sem acesso ao resumo do orçamento para venda.'
       );
     }
-    if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400 });
+    if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
       companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id'),
@@ -38,7 +39,7 @@ export async function GET(event) {
       .maybeSingle();
     if (quoteError) throw quoteError;
     if (!quote || !isQuoteCreatorAllowed(quoteScope, quote.created_by)) {
-      return json({ error: 'Orcamento nao encontrado.' }, { status: 404 });
+      return json({ error: 'Orcamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     let cliente = null;
@@ -60,7 +61,7 @@ export async function GET(event) {
       observacoes: quote.last_interaction_notes || null,
       status: quote.status,
       status_negociacao: quote.status_negociacao
-    });
+    }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar resumo do orçamento.');
   }

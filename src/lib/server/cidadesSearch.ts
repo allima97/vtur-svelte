@@ -184,7 +184,8 @@ function sortRanked(rows: CidadeBuscaRow[], query: string) {
 }
 
 async function fetchFromRpc(client: any, term: string, limit: number) {
-  const { data, error } = await client.rpc("buscar_cidades", { q: term, limite: limit });
+  const safeTerm = sanitizePostgrestSearchTerm(term, 120);
+  const { data, error } = await client.rpc("buscar_cidades", { q: safeTerm, limite: limit });
   if (error) throw error;
   return (Array.isArray(data) ? data : []) as CidadeBuscaRow[];
 }
