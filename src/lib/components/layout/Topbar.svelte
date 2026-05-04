@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import { Dropdown, DropdownItem, DropdownDivider, Tooltip } from '$lib/components/ui';
   import { auth } from '$lib/stores/auth';
@@ -40,7 +39,9 @@
         headers: { Accept: 'application/json' }
       });
       if (!response.ok) throw new Error('logout_failed');
-      await goto('/auth/login');
+      // Usa window.location.assign em vez de goto() para evitar uncaught promise
+      // quando o Supabase dispara SIGNED_OUT via BroadcastChannel ao mesmo tempo
+      window.location.assign('/auth/login');
     } catch {
       toast.error('Erro ao fazer logout.');
       loggingOut = false;

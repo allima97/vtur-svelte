@@ -112,7 +112,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
         : {};
     const disabledList = Array.isArray(body?.disabled) ? body.disabled : [];
 
-    const normalized = Array.from(
+    // Módulos que devem ficar DESABILITADOS (lista recebida do frontend)
+    const disabledNormalized = Array.from(
       new Map(
         disabledList
           .map((item: any) => ({
@@ -122,17 +123,40 @@ export const POST: RequestHandler = async ({ locals, request }) => {
           .filter((item: any) => Boolean(item.module_key))
           .map((item: any) => [item.module_key, item])
       ).values()
-    );
+    ) as { module_key: string; reason: string | null }[];
 
-    const { error: deleteError } = await client
+    const disabledKeys = new Set(disabledNormalized.map((i) => i.module_key));
+
+    // Módulos que devem ficar HABILITADOS (catálogo menos os desabilitados)
+    const enabledKeys = SYSTEM_MODULES_CATALOG
+      .map(normalizeModuleKey)
+      .filter((k) => k && !disabledKeys.has(k));
+
+    // Monta payload completo: desabilitados + habilitados
+    const upsertPayload = [
+      ...disabledNormalized.map((item) => ({
+        module_key: item.module_key,
+        enabled: false,
+        reason: item.reason,
+        updated_by: user.id
+      })),
+      ...enabledKeys.map((key) => ({
+        module_key: key,
+        enabled: true,
+        reason: null,
+        updated_by: user.id
+      }))
+    ];
+
+    // Usa upsert para evitar DELETE + INSERT que causa duplicate key
+    const { error: upsertError } = await client
       .from('system_module_settings')
-      .delete()
-      .neq('module_key', '');
+      .upsert(upsertPayload, { onConflict: 'module_key' });
 
-    if (deleteError) {
-      const code = String(deleteError.code || '').toLowerCase();
-      const message = String(deleteError.message || '').toLowerCase();
-      const tableMissing = code === '42P01' || message.includes('does not exist');
+    if (upsertError) {
+      const code = String(upsertError.code || '').toLowerCase();
+      const message = String(upsertError.message || '').toLowerCase();
+      const tableMissing = code === '42p01' || message.includes('does not exist');
 
       if (tableMissing) {
         return json(
@@ -140,24 +164,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
           { status: 400, headers: NO_STORE_HEADERS }
         );
       }
-      throw deleteError;
+      throw upsertError;
     }
 
-    if (normalized.length > 0) {
-      const payload = normalized.map((item: any) => ({
-        module_key: item.module_key,
-        enabled: false,
-        reason: item.reason,
-        updated_by: user.id
-      }));
-
-      const { error: insertError } = await client
-        .from('system_module_settings')
-        .insert(payload);
-      if (insertError) throw insertError;
-    }
-
-    return json({ ok: true, disabled: normalized.map((item: any) => item.module_key) }, { headers: NO_STORE_HEADERS });
+    return json({ ok: true, disabled: disabledNormalized.map((item) => item.module_key) }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     logServerError('[admin/system-modules] falha ao salvar modulos globais', err);
     return toErrorResponse(err, 'Erro ao salvar modulos globais.');
