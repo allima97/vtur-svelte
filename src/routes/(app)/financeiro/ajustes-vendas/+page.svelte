@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -57,6 +57,9 @@
   let filtroVendedor = '';
   let filtroApenasRateados = 'false';
   let busca = '';
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
 
@@ -184,7 +187,34 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    void (async () => {
+      await load();
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    })();
+  });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [inicio, fim, filtroVendedor, filtroApenasRateados, busca.trim()].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void load();
+    }, 300);
+  }
+
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -243,7 +273,6 @@
       placeholder="Buscar..."
       class_name="min-w-[200px]"
     />
-    <Button variant="secondary" color="financeiro" on:click={load}>Filtrar</Button>
   </div>
 </Card>
 

@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { FileText, RefreshCw } from 'lucide-svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { RefreshCw } from 'lucide-svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import SimpleTable from '$lib/components/ui/SimpleTable.svelte';
@@ -43,6 +42,9 @@
   let pageSize = 50;
   let tipo = '';
   let userId = '';
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   function formatDetails(value: unknown) {
     if (!value) return '-';
@@ -78,10 +80,6 @@
     }
   }
 
-  function applyFilters() {
-    void loadLogs(1);
-  }
-
   function nextPage() {
     if (page * pageSize >= total) return;
     void loadLogs(page + 1);
@@ -92,7 +90,34 @@
     void loadLogs(page - 1);
   }
 
-  onMount(() => loadLogs(1));
+  onMount(() => {
+    void (async () => {
+      await loadLogs(1);
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    })();
+  });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [tipo.trim(), userId.trim()].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void loadLogs(1);
+    }, 300);
+  }
+
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -113,7 +138,7 @@
 
 <div class="space-y-6">
   <Card title="Filtros">
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+    <div class="grid gap-4 lg:grid-cols-2">
       <FieldInput
         id="log-modulo"
         label="Módulo"
@@ -126,10 +151,6 @@
         bind:value={userId}
         placeholder="UUID do usuário"
       />
-      <Button variant="primary" color="financeiro" on:click={applyFilters}>
-        <FileText size={16} class="mr-2" />
-        Filtrar
-      </Button>
     </div>
   </Card>
 

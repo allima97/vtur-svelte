@@ -372,7 +372,7 @@
 />
 
 <Card title="Filtros" padding="md" class="mb-6">
-  <div class="grid gap-4 md:grid-cols-[220px_minmax(220px,320px)_auto] md:items-end">
+  <div class="grid gap-4 md:grid-cols-[220px_minmax(220px,320px)] md:items-end">
     <FieldSelect
       id="metas-periodo-filtro"
       label="Mês"
@@ -390,11 +390,6 @@
       placeholder={null}
       on:change={load}
     />
-
-    <Button variant="secondary" color="financeiro" on:click={load} loading={loading}>
-      <RefreshCw size={16} class="mr-2" />
-      Atualizar
-    </Button>
   </div>
 </Card>
 

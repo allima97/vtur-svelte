@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -32,6 +32,9 @@
   let editingId: string | null = null;
   let busca = '';
   let filtroSubdivisao = '';
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   let form = { nome: '', subdivisao_id: '', descricao: '' };
 
@@ -123,7 +126,30 @@
 
   onMount(async () => {
     await Promise.all([load(), loadSubdivisoes()]);
+    lastAutoReloadKey = buildAutoReloadKey();
+    autoReloadEnabled = true;
   });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [busca.trim(), filtroSubdivisao].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void load();
+    }, 300);
+  }
+
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -158,7 +184,6 @@
       options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
     />
-    <Button variant="secondary" size="sm" on:click={load}>Filtrar</Button>
   </div>
 </Card>
 

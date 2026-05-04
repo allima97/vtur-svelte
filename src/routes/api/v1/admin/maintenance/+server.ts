@@ -2,19 +2,28 @@ import { json } from '@sveltejs/kit';
 import {
   getAdminClient,
   requireAuthenticatedUser,
-  resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { isSystemAdminRole, extractUserTypeName } from '$lib/server/admin';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkRateLimit } from '$lib/server/rateLimit';
+
+async function requireSystemAdmin(client: ReturnType<typeof getAdminClient>, userId: string) {
+  const { data, error } = await client
+    .from('users')
+    .select('id, user_types(name)')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return isSystemAdminRole(extractUserTypeName(data));
+}
 
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
-    const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!(await requireSystemAdmin(client, user.id))) {
       return json({ error: 'Sem acesso.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -42,9 +51,8 @@ export async function POST(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
-    const scope = await resolveUserScope(client, user.id);
 
-    if (!scope.isAdmin) {
+    if (!(await requireSystemAdmin(client, user.id))) {
       return json({ error: 'Sem acesso.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 

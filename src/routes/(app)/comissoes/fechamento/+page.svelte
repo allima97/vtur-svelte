@@ -48,6 +48,9 @@
   let filtroStatus = 'todas';
 
   let abortController: AbortController | null = null;
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ─── KPIs derivados ───────────────────────────────────────────────────────
   $: totalComissoes    = comissoes.reduce((acc, c) => acc + c.valor_comissao, 0);
@@ -150,9 +153,25 @@
 
   onMount(async () => {
     await Promise.all([load(), loadVendedores()]);
+    lastAutoReloadKey = buildAutoReloadKey();
+    autoReloadEnabled = true;
   });
 
-  onDestroy(() => { if (abortController) abortController.abort(); });
+  onDestroy(() => {
+    if (abortController) abortController.abort();
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [filtroMes, filtroAno, filtroStatus, filtroVendedor].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void load();
+    }, 250);
+  }
 
   function buildMonthOptions() {
     return Array.from({ length: 12 }, (_, i) => ({
@@ -175,6 +194,11 @@
       label: v.nome_completo || v.email || v.id
     }))
   ];
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -235,7 +259,6 @@
       options={vendedorOptions}
       placeholder={null}
     />
-    <Button variant="secondary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" on:click={handleExport}>Exportar CSV</Button>
   </div>
 </Card>

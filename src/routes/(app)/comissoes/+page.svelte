@@ -11,7 +11,7 @@
     Calculator, DollarSign, TrendingUp, Users,
     RefreshCw, FileText, ChevronRight
   } from 'lucide-svelte';
-  import { parseISODateParts, todayISODateLocal } from '$lib/date';
+  import { todayISODateLocal } from '$lib/date';
 
   // ─── Tipos ──────────────────────────────────────────────────────────────────
   interface ComissaoItem {
@@ -42,12 +42,13 @@
   let resumo: ResumoVendedor[] = [];
   let loading = true;
 
-  const todayParts = parseISODateParts(todayISODateLocal());
-  let filtroMes = todayParts?.month || new Date().getMonth() + 1;
-  let filtroAno = todayParts?.year || new Date().getFullYear();
+  let filtroMes = todayISODateLocal().slice(0, 7);
   let filtroStatus = 'todas';
 
   let abortController: AbortController | null = null;
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ─── KPIs derivados ─────────────────────────────────────────────────────────
   $: totalComissao   = resumo.reduce((a, r) => a + r.total_comissao, 0);
@@ -65,13 +66,6 @@
     return Math.min(100, Math.round((r.total_pago / r.total_comissao) * 100));
   }
 
-  function buildMonthOptions() {
-    return Array.from({ length: 12 }, (_, i) => ({
-      value: i + 1,
-      label: new Date(2024, i, 1).toLocaleDateString('pt-BR', { month: 'long' })
-    }));
-  }
-
   // ─── Fetch ──────────────────────────────────────────────────────────────────
   async function load() {
     if (abortController) abortController.abort();
@@ -80,7 +74,7 @@
     loading = true;
     try {
       const data = await apiGet<any>('/api/v1/financeiro/comissoes', {
-        ano: filtroAno,
+        mes: filtroMes || undefined,
         status: filtroStatus !== 'todas' ? filtroStatus : undefined
       }, abortController.signal);
       items   = data.items   ?? [];
@@ -93,8 +87,35 @@
     }
   }
 
-  onMount(() => void load());
-  onDestroy(() => { if (abortController) abortController.abort(); });
+  onMount(() => {
+    void (async () => {
+      await load();
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    })();
+  });
+
+  onDestroy(() => {
+    if (abortController) abortController.abort();
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [filtroMes, filtroStatus].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void load();
+    }, 250);
+  }
+
+  $: autoReloadKey = buildAutoReloadKey();
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 </script>
 
 <svelte:head>
@@ -124,13 +145,11 @@
 <Card color="comissoes" class="mb-6">
   <div class="flex flex-wrap gap-4 items-end">
     <FieldInput
-      id="c-ano"
-      label="Ano"
-      type="number"
-      bind:value={filtroAno}
-      min="2020"
-      max="2100"
-      class_name="w-24"
+      id="c-mes"
+      label="Mês"
+      type="month"
+      bind:value={filtroMes}
+      class_name="min-w-[180px]"
     />
     <FieldSelect
       id="c-status"
@@ -143,7 +162,6 @@
         { value: 'pago', label: 'Pagas' }
       ]}
     />
-    <Button variant="secondary" color="comissoes" on:click={load}>Filtrar</Button>
     <Button variant="secondary" href="/comissoes/fechamento">
       <FileText size={16} class="mr-2" />
       Fechamento mensal
