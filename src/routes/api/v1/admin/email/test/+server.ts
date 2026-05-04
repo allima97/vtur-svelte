@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import {
   getAdminClient,
@@ -44,7 +45,7 @@ export async function POST(event) {
     }
 
     const fromEmails = buildFromEmails(settings);
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -57,7 +58,7 @@ export async function POST(event) {
         html: '<p>Configuracao de e-mail validada com sucesso.</p>',
         text: 'Configuracao de e-mail validada com sucesso.'
       })
-    });
+    }, 12_000);
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {

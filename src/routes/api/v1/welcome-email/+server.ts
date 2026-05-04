@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { resolveResendApiKey, resolveFromEmails, resolveSmtpConfig } from '$lib/server/emailSettings';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const TEMPLATE_NOME = "Bem-Vindo!";
@@ -98,7 +99,7 @@ async function enviarEmailResend(params: {
   if (!key || !fromEmail) {
     return { ok: false, status: "resend_not_configured" };
   }
-  const resp = await fetch("https://api.resend.com/emails", {
+  const resp = await fetchWithTimeout("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -111,7 +112,7 @@ async function enviarEmailResend(params: {
       html: params.html,
       text: params.text,
     }),
-  });
+  }, 12_000);
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     logServerError("[welcome-email] falha no Resend", new Error("Resend provider error"), {

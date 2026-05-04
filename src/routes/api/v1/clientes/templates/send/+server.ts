@@ -7,6 +7,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { fetchWithTimeout } from "$lib/server/fetchWithTimeout";
 import { escapeHtml } from "$lib/utils/html";
 
 type Body = {
@@ -120,7 +121,7 @@ async function enviarEmailResend(params: {
   if (!params.apiKey || !params.fromEmail) {
     return { ok: false, status: "resend_not_configured" };
   }
-  const resp = await fetch("https://api.resend.com/emails", {
+  const resp = await fetchWithTimeout("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${params.apiKey}`,
@@ -133,7 +134,7 @@ async function enviarEmailResend(params: {
       html: params.html,
       text: params.text,
     }),
-  });
+  }, 12_000);
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || !data?.id) {
     return {
@@ -161,7 +162,7 @@ async function enviarEmailSendGrid(params: {
     return { ok: false, status: "sendgrid_not_configured" };
   }
   const personalizations = params.to.map((dest) => ({ to: [{ email: dest }] }));
-  const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
+  const resp = await fetchWithTimeout("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${SENDGRID_API_KEY}`,
@@ -176,7 +177,7 @@ async function enviarEmailSendGrid(params: {
         { type: "text/html", value: params.html },
       ],
     }),
-  });
+  }, 12_000);
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "");
     return {

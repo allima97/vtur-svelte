@@ -10,6 +10,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
+import { fetchWithTimeout } from "$lib/server/fetchWithTimeout";
 import { buildConciliacaoMetrics } from "$lib/conciliacao/business";
 import {
   resolveResendApiKey,
@@ -139,7 +140,7 @@ async function notificarTrocaVendedor(params: {
 
     await Promise.allSettled(
       destinatarios.map((dest) =>
-        fetch("https://api.resend.com/emails", {
+        fetchWithTimeout("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${resendKey}`,
@@ -151,7 +152,7 @@ async function notificarTrocaVendedor(params: {
             subject: assunto,
             html: bodyHtml,
           }),
-        }).catch((err) => {
+        }, 12_000).catch((err) => {
           logServerError("CONCILIACAO_ASSIGN_EMAIL_ERROR", err);
         }),
       ),

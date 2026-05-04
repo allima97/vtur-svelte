@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { applyTemplate, buildFromEmails, loadAvisoTemplates, loadEmailSettings, loadManagedUser } from '$lib/server/admin';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { escapeHtml } from '$lib/utils/html';
 import {
@@ -92,7 +93,7 @@ export async function POST(event) {
     const subject = applyTemplate(String(template.assunto || ''), vars);
     const message = applyTemplate(String(template.mensagem || ''), vars);
 
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetchWithTimeout('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -105,7 +106,7 @@ export async function POST(event) {
         html: renderHtml(message),
         text: message
       })
-    });
+    }, 12_000);
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
