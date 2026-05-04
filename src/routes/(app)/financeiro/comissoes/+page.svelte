@@ -463,7 +463,6 @@
           on:change={loadComissoes}
         />
       {/if}
-      <Button variant="secondary" on:click={loadComissoes}><Clock size={16} class="mr-2" />Atualizar</Button>
       <Button variant="secondary" on:click={handleExport}><Download size={16} class="mr-2" />Exportar</Button>
     </div>
 
