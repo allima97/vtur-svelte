@@ -9,13 +9,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const client = locals.supabase;
 
     const body = await request.json().catch(() => ({}));
-    const endpoint = body?.endpoint;
+    const endpoint = String(body?.endpoint || "").trim();
 
     if (!endpoint) {
-      return json({ error: "Endpoint invalido." }, { status: 400 });
+      return json({ error: "Endpoint invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
-    if (String(endpoint).length > 2048) {
-      return json({ error: "Endpoint muito grande." }, { status: 413 });
+    if (endpoint.length > 2048) {
+      return json({ error: "Endpoint muito grande." }, { status: 413, headers: NO_STORE_HEADERS });
+    }
+    try {
+      const parsedEndpoint = new URL(endpoint);
+      if (parsedEndpoint.protocol !== "https:") {
+        return json({ error: "Endpoint invalido." }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+    } catch {
+      return json({ error: "Endpoint invalido." }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { error } = await client
@@ -26,12 +34,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (error) {
       logServerError("[push/unsubscribe] falha ao desativar subscription", error);
-      return json({ error: "Erro ao desativar subscription." }, { status: 500 });
+      return json({ error: "Erro ao desativar subscription." }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[push/unsubscribe] falha interna", error);
-    return json({ error: "Erro interno ao desativar subscription." }, { status: 500 });
+    return json({ error: "Erro interno ao desativar subscription." }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };

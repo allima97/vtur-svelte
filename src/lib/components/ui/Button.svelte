@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button as FlowbiteButton } from 'flowbite-svelte';
+  import { sanitizeHref } from '$lib/security/url';
 
   export let variant: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' | 'selected' = 'primary';
   export let size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
@@ -91,11 +92,12 @@
   $: flowbiteColor = neutralVariants.has(variant) ? 'none' : (resolvedColor as any);
 
   $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
+  $: safeHref = href ? sanitizeHref(href) || undefined : undefined;
 </script>
 
-{#if href}
+{#if safeHref}
   <FlowbiteButton
-    {href}
+    href={safeHref}
     id={id ?? undefined}
     {size}
     color={flowbiteColor}

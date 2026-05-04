@@ -1001,10 +1001,12 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/debug": [
+		"src/routes/(app)/debug/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/diagnostico": [
+		"src/routes/(app)/diagnostico/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
