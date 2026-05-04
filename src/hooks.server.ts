@@ -157,7 +157,7 @@ function buildCspPolicy() {
 		"style-src 'self' 'unsafe-inline' https:",
 		dev
 			? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com"
-			: "script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+			: "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
 		`connect-src ${Array.from(new Set(connectSrc)).join(' ')}`,
 		"frame-src https://challenges.cloudflare.com",
 		"worker-src 'self' blob:",

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -11,6 +11,8 @@
   import { toast } from '$lib/stores/ui';
   import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
   import { apiGet, apiPatch } from '$lib/services/api';
+  import { addDaysISODate, todayISODateLocal } from '$lib/date';
+  import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
   type FollowUpItem = {
     id: string;
@@ -39,15 +41,10 @@
     { key: 'followUpResumo', label: 'Follow-up', sortable: true }
   ];
 
-  const todayIso = (() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  })();
+  const todayIso = todayISODateLocal();
 
   function thirtyDaysAgo() {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return addDaysISODate(todayIso, -30);
   }
 
   let loading = true;
@@ -58,6 +55,9 @@
   let inicio = thirtyDaysAgo();
   let fim = todayIso;
   let items: FollowUpItem[] = [];
+  let autoReloadEnabled = false;
+  let lastAutoReloadKey = '';
+  let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   let modalOpen = false;
   let selectedItem: FollowUpItem | null = null;
@@ -67,10 +67,7 @@
   };
 
   function formatDate(value?: string | null) {
-    if (!value) return '-';
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString('pt-BR');
+    return formatDateValue(value);
   }
 
   function sanitizePhone(value?: string | null) {
@@ -97,8 +94,27 @@
   }
 
   onMount(() => {
-    loadFollowUps();
+    void (async () => {
+      await loadFollowUps();
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    })();
   });
+
+  onDestroy(() => {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+  });
+
+  function buildAutoReloadKey() {
+    return [inicio, fim, statusFilter].join('|');
+  }
+
+  function scheduleAutoReload() {
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    autoReloadTimer = setTimeout(() => {
+      void loadFollowUps();
+    }, 250);
+  }
 
   $: rows = items
     .map((item) => ({
@@ -128,6 +144,13 @@
     semTexto: items.filter((item) => !String(item.follow_up_text || '').trim()).length,
     fechados: items.filter((item) => item.follow_up_fechado).length
   };
+
+  $: autoReloadKey = buildAutoReloadKey();
+
+  $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
+    lastAutoReloadKey = autoReloadKey;
+    scheduleAutoReload();
+  }
 
   function openItem(item: FollowUpItem) {
     selectedItem = item;
@@ -220,7 +243,6 @@
   </div>
 
   <div class="mt-4 flex flex-wrap gap-2">
-    <Button variant="primary" size="sm" on:click={loadFollowUps}>Aplicar periodo</Button>
     <Button
       variant="ghost"
       size="sm"
