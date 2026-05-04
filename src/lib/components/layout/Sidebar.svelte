@@ -22,10 +22,12 @@
     FileSpreadsheet,
     FileText,
     Gift,
+    Globe,
     LayoutDashboard,
     LogOut,
     Mail,
     Map as MapIcon,
+    MapPin,
     MapPinned,
     Megaphone,
     Menu,
@@ -41,6 +43,7 @@
     Ticket,
     Trophy,
     TrendingUp,
+    Truck,
     Users,
     UserCircle,
     Video,
@@ -160,6 +163,20 @@
         { key: 'crm', name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
         { key: 'avisos', name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
         { key: 'empresa', name: 'Empresa', href: '/parametros/empresa', icon: Building2 }
+      ]
+    },
+    {
+      title: 'CADASTROS',
+      collapsible: true,
+      items: [
+        { key: 'cadastros_produtos', name: 'Produtos', href: '/cadastros/produtos', icon: Package },
+        { key: 'cadastros_circuitos', name: 'Circuitos', href: '/cadastros/circuitos', icon: MapIcon },
+        { key: 'cadastros_paises', name: 'Países', href: '/cadastros/paises', icon: Globe },
+        { key: 'cadastros_estados', name: 'Estados', href: '/cadastros/estados', icon: MapPinned },
+        { key: 'cadastros_cidades', name: 'Cidades', href: '/cadastros/cidades', icon: MapPin },
+        { key: 'cadastros_destinos', name: 'Destinos', href: '/cadastros/destinos', icon: MapIcon },
+        { key: 'cadastros_lote', name: 'Lote', href: '/cadastros/lote', icon: Package },
+        { key: 'cadastros_fornecedores', name: 'Fornecedores', href: '/cadastros/fornecedores', icon: Truck }
       ]
     },
     {

@@ -160,6 +160,11 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/cadastros/produtos': 'Produtos',
   '/cadastros/circuitos': 'Circuitos',
   '/cadastros/lote': 'ProdutosLote',
+  '/cadastros/paises': 'Paises',
+  '/cadastros/estados': 'Subdivisoes',
+  '/cadastros/cidades': 'Cidades',
+  '/cadastros/destinos': 'Destinos',
+  '/cadastros/fornecedores': 'Fornecedores',
 
   // Relatórios
   '/relatorios': 'Relatorios',
