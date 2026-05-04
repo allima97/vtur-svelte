@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
@@ -12,13 +12,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_PUSH_SUBSCRIBE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(request, MAX_PUSH_SUBSCRIBE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
 
-    const body = await request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const subscription = body?.subscription || body;
     const endpoint = String(subscription?.endpoint || "").trim();
     const keys = subscription?.keys || {};

@@ -1,9 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { ensureTodoAccess, normalizeTodoStatus } from "$lib/server/agenda";
-import {
-  rejectCrossOriginRequest,
-  rejectLargePayload,
-} from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateTodoReadModels } from "$lib/server/readModelCache";
 import {
   getAdminClient,
@@ -22,6 +19,15 @@ type UpdateInput = {
 };
 
 const MAX_TODO_BATCH_BODY_BYTES = 128 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function normalizeUpdates(raw: unknown): UpdateInput[] {
   if (!Array.isArray(raw)) return [];
@@ -67,27 +73,34 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_TODO_BATCH_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_TODO_BATCH_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     ensureTodoAccess(scope, 2, "Sem permissao para atualizar tarefas.");
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const updates = normalizeUpdates(body?.updates).slice(0, 120);
     if (updates.length === 0) {
       return json({ error: "updates obrigatorio." }, { status: 400 });
     }
 
     const ids = updates.map((item) => item.id);
-    const { data: existingRows, error: existingError } = await client
-      .from("agenda_itens")
-      .select("id, user_id, tipo")
-      .in("id", ids);
+    const existingRows: any[] = [];
+    for (const batch of chunkArray(ids)) {
+      const { data, error: existingError } = await client
+        .from("agenda_itens")
+        .select("id, user_id, tipo")
+        .in("id", batch);
 
-    if (existingError) throw existingError;
+      if (existingError) throw existingError;
+      existingRows.push(...(data || []));
+    }
 
     const existingMap = new Map(
       (existingRows || []).map((row: any) => [String(row.id), row]),

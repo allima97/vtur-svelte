@@ -14,7 +14,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const FORMA_PAGAMENTO_SELECT =
   'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
@@ -97,8 +97,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -106,7 +106,10 @@ export async function POST(event) {
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissão para criar formas de pagamento.');
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const companyId = resolveScopedCompanyId(scope, body.empresa_id || body.company_id);
 
     // Validar campos obrigatórios
@@ -159,8 +162,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_FORMA_PAGAMENTO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -168,7 +171,10 @@ export async function PATCH(event) {
 
     ensureModuloAccess(scope, ['financeiro'], 3, 'Sem permissão para editar formas de pagamento.');
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
 
     if (!body.id) {
       return json(

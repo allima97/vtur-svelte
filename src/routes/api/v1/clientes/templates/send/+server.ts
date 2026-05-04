@@ -12,7 +12,7 @@ import { escapeHtml } from "$lib/utils/html";
 import { env } from "$env/dynamic/private";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { checkPersistentRateLimit } from "$lib/server/persistentRateLimit";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { resolveThemeAssetMeta } from "$lib/cards/themeAssetMeta";
 
 const MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES = 128 * 1024;
@@ -218,8 +218,8 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(request, MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
@@ -241,7 +241,10 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     }
     const dataClient = client;
 
-    const body = (await request.json().catch(() => ({}))) as Body;
+    const body =
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as Body)
+        : ({} as Body);
 
     const templateId = String(body.templateId || "").trim();
     const clienteId = String(body.clienteId || "").trim();

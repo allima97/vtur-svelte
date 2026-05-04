@@ -12,9 +12,18 @@ import { getAdminClient } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ORCAMENTO_SAVE_BODY_BYTES = 2 * 1024 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 const EXCLUDED_PRODUTO_TIPOS = new Set(
   [
@@ -141,8 +150,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_ORCAMENTO_SAVE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ORCAMENTO_SAVE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
@@ -150,7 +159,10 @@ export async function POST(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
     ensureModuloAccess(scope, ['Orcamentos'], 3, 'Sem acesso para editar Orcamentos.');
 
-    const body = await event.request.json().catch(() => null);
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : null;
     const quoteId = String(body?.quote_id || '').trim();
     if (!isUuid(quoteId)) return new Response('Quote invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
@@ -195,13 +207,15 @@ export async function POST(event: RequestEvent) {
     );
     const allowedExistingItemIds = new Set<string>();
     if (requestedItemIds.length) {
-      const { data: existingItems, error: existingItemsError } = await client
-        .from('quote_item')
-        .select('id')
-        .eq('quote_id', quoteId)
-        .in('id', requestedItemIds);
-      if (existingItemsError) throw existingItemsError;
-      (existingItems || []).forEach((row: any) => allowedExistingItemIds.add(String(row.id)));
+      for (const batch of chunkArray(requestedItemIds)) {
+        const { data: existingItems, error: existingItemsError } = await client
+          .from('quote_item')
+          .select('id')
+          .eq('quote_id', quoteId)
+          .in('id', batch);
+        if (existingItemsError) throw existingItemsError;
+        (existingItems || []).forEach((row: any) => allowedExistingItemIds.add(String(row.id)));
+      }
     }
 
     const payload = items.map((item, index) => ({
@@ -233,27 +247,31 @@ export async function POST(event: RequestEvent) {
       .filter((id) => isUuid(id) && allowedExistingItemIds.has(id));
 
     if (scopedRemovedItemIds.length) {
-      const { error: deleteRemovedSegs } = await client
-        .from('quote_item_segment')
-        .delete()
-        .in('quote_item_id', scopedRemovedItemIds);
-      if (deleteRemovedSegs) throw deleteRemovedSegs;
+      for (const batch of chunkArray(scopedRemovedItemIds)) {
+        const { error: deleteRemovedSegs } = await client
+          .from('quote_item_segment')
+          .delete()
+          .in('quote_item_id', batch);
+        if (deleteRemovedSegs) throw deleteRemovedSegs;
 
-      const { error: deleteRemovedItems } = await client
-        .from('quote_item')
-        .delete()
-        .eq('quote_id', quoteId)
-        .in('id', scopedRemovedItemIds);
-      if (deleteRemovedItems) throw deleteRemovedItems;
+        const { error: deleteRemovedItems } = await client
+          .from('quote_item')
+          .delete()
+          .eq('quote_id', quoteId)
+          .in('id', batch);
+        if (deleteRemovedItems) throw deleteRemovedItems;
+      }
     }
 
     const itemIds = payload.map((item) => item.id).filter(Boolean) as string[];
     if (itemIds.length) {
-      const { error: deleteSegErr } = await client
-        .from('quote_item_segment')
-        .delete()
-        .in('quote_item_id', itemIds);
-      if (deleteSegErr) throw deleteSegErr;
+      for (const batch of chunkArray(itemIds)) {
+        const { error: deleteSegErr } = await client
+          .from('quote_item_segment')
+          .delete()
+          .in('quote_item_id', batch);
+        if (deleteSegErr) throw deleteSegErr;
+      }
 
       const segmentPayloads = items
         .flatMap((item) =>

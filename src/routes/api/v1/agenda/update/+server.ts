@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { ensureAgendaAccess } from '$lib/server/agenda';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
 function normalizeUpdate(body: any) {
@@ -55,8 +55,8 @@ async function handleUpdate(event: any) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_AGENDA_UPDATE_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_AGENDA_UPDATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -64,7 +64,10 @@ async function handleUpdate(event: any) {
     ensureAgendaAccess(scope, 3, 'Sem permissao para editar agenda.');
 
     const id = String(event.url.searchParams.get('id') || '').trim();
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const targetId = id || String(body?.id || '').trim();
 
     if (!targetId) {

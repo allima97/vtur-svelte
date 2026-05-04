@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { readFormDataBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -9,7 +9,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
+import { validateUploadedFile } from '$lib/server/uploadValidation';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
 
@@ -43,12 +43,13 @@ export async function POST(event) {
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissão para anexar comprovantes.');
 
-    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
-    if (!requestSize.ok) {
-      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 5MB.' }, { status: 413, headers: NO_STORE_HEADERS });
-    }
-
-    const formData = await event.request.formData();
+    const formDataResult = await readFormDataBodyLimited(
+      event.request,
+      MAX_REQUEST_SIZE_BYTES,
+      'Arquivo muito grande. Tamanho máximo: 5MB.'
+    );
+    if (!formDataResult.ok) return formDataResult.response;
+    const formData = formDataResult.formData;
     const file = formData.get('file') as File;
     const pagamentoId = formData.get('pagamento_id') as string;
 

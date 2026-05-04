@@ -23,9 +23,18 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateUserReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PERMISSIONS_BODY_BYTES = 256 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event: RequestEvent) {
   try {
@@ -39,15 +48,25 @@ export async function GET(event: RequestEvent) {
 
     const users = await listManagedUsers(client, scope);
     const userIds = users.map((row) => row.id);
-    const permissionsRes =
-      userIds.length > 0
-        ? await client
-            .from('modulo_acesso')
-            .select('usuario_id, modulo, permissao, ativo')
-            .in('usuario_id', userIds)
-        : { data: [], error: null };
+    const permissionsRows: any[] = [];
 
-    if (permissionsRes.error) throw permissionsRes.error;
+    for (const batch of chunkArray(userIds)) {
+      if (batch.length === 0) continue;
+      const permissionsRes = await client
+        .from('modulo_acesso')
+        .select('usuario_id, modulo, permissao, ativo')
+        .in('usuario_id', batch);
+
+      if (permissionsRes.error) throw permissionsRes.error;
+      permissionsRows.push(...(permissionsRes.data || []));
+    }
+
+    const activePermissionCounts = new Map<string, number>();
+    permissionsRows.forEach((item: any) => {
+      const userId = String(item?.usuario_id || '').trim();
+      if (!userId || item?.ativo === false || item?.permissao === 'none') return;
+      activePermissionCounts.set(userId, Number(activePermissionCounts.get(userId) || 0) + 1);
+    });
 
     let globalModules: any[] = [];
     try {
@@ -61,9 +80,6 @@ export async function GET(event: RequestEvent) {
     return json(
       {
         items: users.map((row) => {
-          const userPermissions = (permissionsRes.data || []).filter(
-            (item: any) => item.usuario_id === row.id
-          );
           return {
             id: row.id,
             nome: row.nome_completo || row.email || 'Usuario sem nome',
@@ -75,9 +91,7 @@ export async function GET(event: RequestEvent) {
               (Array.isArray(row.companies)
                 ? (row.companies[0] as any)?.nome_fantasia || (row.companies[0] as any)?.nome_empresa
                 : (row.companies as any)?.nome_fantasia || (row.companies as any)?.nome_empresa) || 'Sem empresa',
-            ativos: userPermissions.filter(
-              (item: any) => item.ativo !== false && item.permissao !== 'none'
-            ).length
+            ativos: Number(activePermissionCounts.get(row.id) || 0)
           };
         }),
         sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES),
@@ -98,8 +112,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PERMISSIONS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PERMISSIONS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
@@ -109,7 +123,10 @@ export async function POST(event: RequestEvent) {
 
     ensureCanManagePermissions(scope);
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
     const action = String(body.action || 'user').trim().toLowerCase();
 
     if (action === 'global') {

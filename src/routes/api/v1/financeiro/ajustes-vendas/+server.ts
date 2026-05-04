@@ -12,7 +12,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 const MAX_AJUSTES_VENDAS_BODY_BYTES = 32 * 1024;
@@ -144,19 +144,21 @@ export async function GET(event) {
     // Busca rateios separadamente (evita joins problemáticos)
     let rateioMap = new Map<string, any>();
     if (reciboIds.length > 0) {
-      const { data: rateioData, error: rateioError } = await client
-        .from('vendas_recibos_rateio')
-        .select(`
-          id, venda_recibo_id, ativo,
-          vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
-          vendedor_destino:users!vendedor_destino_id(id, nome_completo)
-        `)
-        .in('venda_recibo_id', reciboIds);
+      for (const batch of chunkArray(reciboIds)) {
+        const { data: rateioData, error: rateioError } = await client
+          .from('vendas_recibos_rateio')
+          .select(`
+            id, venda_recibo_id, ativo,
+            vendedor_destino_id, percentual_origem, percentual_destino, observacao, updated_at,
+            vendedor_destino:users!vendedor_destino_id(id, nome_completo)
+          `)
+          .in('venda_recibo_id', batch);
 
-      if (rateioError && !String(rateioError.code || '').includes('42P01')) throw rateioError;
-      (rateioData || []).forEach((r: any) => {
-        if (r.venda_recibo_id) rateioMap.set(r.venda_recibo_id, r);
-      });
+        if (rateioError && !String(rateioError.code || '').includes('42P01')) throw rateioError;
+        (rateioData || []).forEach((r: any) => {
+          if (r.venda_recibo_id) rateioMap.set(r.venda_recibo_id, r);
+        });
+      }
     }
 
     // Busca nomes dos vendedores
@@ -213,8 +215,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_AJUSTES_VENDAS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_AJUSTES_VENDAS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -236,7 +238,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { ajuste_id, vendedor_destino_id, percentual_destino, observacao } = body;
 
     const ajusteIdRaw = String(ajuste_id || '').trim();

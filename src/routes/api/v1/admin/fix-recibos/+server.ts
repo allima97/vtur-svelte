@@ -13,7 +13,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { isSameOriginRequest, readJsonBodyLimited } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_DOC_VARIANTS = 200;
@@ -430,10 +430,8 @@ export async function POST(event: RequestEvent) {
       return adminJson({ error: 'Origem inválida.' }, { status: 403 });
     }
 
-    const contentLength = Number(event.request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > MAX_FIX_BODY_BYTES) {
-      return adminJson({ error: 'Payload muito grande.' }, { status: 413 });
-    }
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_FIX_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -441,7 +439,10 @@ export async function POST(event: RequestEvent) {
     const denied = requireAdmin(scope);
     if (denied) return denied;
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
     const action = String(body.action || '').trim();
     const id = String(body.id || '').trim();
     if (!isUuid(id)) return adminJson({ error: 'Registro inválido.' }, { status: 400 });

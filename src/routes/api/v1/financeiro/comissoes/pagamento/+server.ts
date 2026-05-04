@@ -17,8 +17,8 @@ import {
 import { fetchSalesReportRows } from '$lib/server/relatorios';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
 
@@ -93,8 +93,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -110,7 +110,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { comissao_ids, data_pagamento = todayISODateLocal(), observacoes = '' } = body;
 
     if (!comissao_ids || !Array.isArray(comissao_ids) || comissao_ids.length === 0) {
@@ -247,7 +250,15 @@ export async function POST(event) {
     }
 
     if (result.pagas > 0) {
-      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+      const companyIdsForInvalidation =
+        companyIds.length > 0
+          ? companyIds
+          : uniqueIds(paymentRows.map((row) => row.company_id));
+      invalidateCommissionReadModels({
+        companyIds: companyIdsForInvalidation,
+        vendedorIds: vendedoresSelecionados,
+        userId: user.id
+      });
     }
     return json({
       success: true,
@@ -265,8 +276,8 @@ export async function PUT(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -282,7 +293,10 @@ export async function PUT(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { comissao_ids, data_pagamento = null, observacoes = '' } = body;
 
     if (!Array.isArray(comissao_ids) || comissao_ids.length === 0) {
@@ -325,7 +339,7 @@ export async function PUT(event) {
     }
 
     if (updatedRows.length > 0) {
-      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+      invalidateCommissionReadModels({ companyIds, userId: user.id });
     }
     return json({
       success: true,
@@ -341,8 +355,8 @@ export async function DELETE(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_COMISSOES_PAYMENT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -358,7 +372,10 @@ export async function DELETE(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { comissao_ids, observacoes = '' } = body;
 
     if (!Array.isArray(comissao_ids) || comissao_ids.length === 0) {
@@ -402,7 +419,7 @@ export async function DELETE(event) {
     }
 
     if (cancelledRows.length > 0) {
-      invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+      invalidateCommissionReadModels({ companyIds, userId: user.id });
     }
     return json({
       success: true,

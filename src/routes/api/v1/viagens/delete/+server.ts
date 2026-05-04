@@ -9,9 +9,18 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_DELETE_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function vendedorOwnsViagem(userId: string, viagem: any) {
   const responsavelId = String(viagem?.responsavel_user_id || "").trim();
@@ -23,8 +32,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_DELETE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VIAGEM_DELETE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -39,7 +48,10 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const id = String(body?.id || "").trim();
     const vendaId = String(body?.venda_id || "").trim();
 
@@ -70,38 +82,38 @@ export async function POST(event: RequestEvent) {
       .from("viagens")
       .select(
         "id, company_id, responsavel_user_id, venda_id, venda:vendas!venda_id(id, vendedor_id)",
-      )
-      .in("company_id", companyIds);
+      );
     const { data: affectedRows } = vendaId
       ? await affectedQuery.eq("venda_id", vendaId)
       : await affectedQuery.eq("id", id);
 
-    const scopedAffectedRows = scope.isVendedor
-      ? (affectedRows || []).filter((row: any) =>
-          vendedorOwnsViagem(user.id, row),
-        )
-      : affectedRows || [];
+    if (!affectedRows || affectedRows.length === 0) {
+      return json({ error: "Viagem nao encontrada." }, { status: 404 });
+    }
+
+    const companySet = new Set(companyIds.map((companyId) => String(companyId || "").trim()).filter(Boolean));
+    const scopedAffectedRows = (affectedRows || []).filter((row: any) => {
+      const companyId = String(row?.company_id || "").trim();
+      if (companySet.size > 0 && !companySet.has(companyId)) return false;
+      if (scope.isVendedor && !vendedorOwnsViagem(user.id, row)) return false;
+      return true;
+    });
 
     if ((affectedRows || []).length > 0 && scopedAffectedRows.length === 0) {
       return json({ error: "Sem acesso a esta viagem." }, { status: 403 });
     }
 
-    let query = client.from("viagens").delete().in("company_id", companyIds);
-    if (scope.isVendedor) {
-      const allowedIds = scopedAffectedRows
-        .map((row: any) => String(row?.id || "").trim())
-        .filter(Boolean);
-      if (allowedIds.length === 0) {
-        return json({ error: "Viagem nao encontrada." }, { status: 404 });
-      }
-      query = query.in("id", allowedIds);
+    const allowedIds = scopedAffectedRows
+      .map((row: any) => String(row?.id || "").trim())
+      .filter((rowId) => isUuid(rowId));
+    if (allowedIds.length === 0) {
+      return json({ error: "Viagem nao encontrada." }, { status: 404 });
     }
 
-    const result = vendaId
-      ? await query.eq("venda_id", vendaId)
-      : await query.eq("id", id);
-
-    if (result.error) throw result.error;
+    for (const batch of chunkArray(allowedIds)) {
+      const { error: deleteError } = await client.from("viagens").delete().in("id", batch);
+      if (deleteError) throw deleteError;
+    }
 
     invalidateTripReadModels({
       companyIds: Array.from(

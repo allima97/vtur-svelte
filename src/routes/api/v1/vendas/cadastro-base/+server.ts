@@ -34,6 +34,24 @@ function getImportanceRank(value: unknown) {
 
 const INITIAL_CLIENTES_LIMIT = 300;
 const INITIAL_CIDADES_LIMIT = 500;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 export async function GET(event: RequestEvent) {
   try {
@@ -74,14 +92,34 @@ export async function GET(event: RequestEvent) {
         .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR'));
     }
 
-    let clientesQuery = canLoadClientes
-      ? client
-          .from('clientes')
-          .select('id, nome, cpf, telefone, email, whatsapp, company_id')
-          .order('nome', { ascending: true })
-          .limit(INITIAL_CLIENTES_LIMIT)
-      : null;
-    if (clientesQuery && activeCompanyIds.length > 0) clientesQuery = clientesQuery.in('company_id', activeCompanyIds);
+    const buildClientesQuery = (idsFilter: string[]) => {
+      let query = client
+        .from('clientes')
+        .select('id, nome, cpf, telefone, email, whatsapp, company_id')
+        .order('nome', { ascending: true })
+        .limit(INITIAL_CLIENTES_LIMIT);
+      if (idsFilter.length > 0) query = query.in('company_id', idsFilter);
+      return query;
+    };
+
+    const fetchClientesBase = async () => {
+      if (!canLoadClientes) return { data: [], error: null };
+      if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildClientesQuery(activeCompanyIds);
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(activeCompanyIds)) {
+        const result = await buildClientesQuery(batch);
+        if (result.error) return result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows)
+          .sort((left, right) => String(left?.nome || '').localeCompare(String(right?.nome || ''), 'pt-BR'))
+          .slice(0, INITIAL_CLIENTES_LIMIT),
+        error: null
+      };
+    };
 
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
     const cidadesQuery = client
@@ -97,21 +135,62 @@ export async function GET(event: RequestEvent) {
       .limit(2000);
     const tiposQuery = client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200);
     const pacotesQuery = client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200);
-    let formasQuery = client
-      .from('formas_pagamento')
-      .select('id, nome, paga_comissao, permite_desconto, desconto_padrao_pct')
-      .order('nome', { ascending: true })
-      .limit(200);
-    if (activeCompanyIds.length > 0) formasQuery = formasQuery.in('company_id', activeCompanyIds);
+    const buildFormasQuery = (idsFilter: string[]) => {
+      let query = client
+        .from('formas_pagamento')
+        .select('id, nome, paga_comissao, permite_desconto, desconto_padrao_pct')
+        .order('nome', { ascending: true })
+        .limit(200);
+      if (idsFilter.length > 0) query = query.in('company_id', idsFilter);
+      return query;
+    };
 
-    const empresasQuery =
-      activeCompanyIds.length > 0
-        ? client
-            .from('companies')
-            .select('id, nome_fantasia, nome_empresa')
-            .in('id', activeCompanyIds)
-            .order('nome_fantasia', { ascending: true })
-        : null;
+    const fetchFormasBase = async () => {
+      if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildFormasQuery(activeCompanyIds);
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(activeCompanyIds)) {
+        const result = await buildFormasQuery(batch);
+        if (result.error) return result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows)
+          .sort((left, right) => String(left?.nome || '').localeCompare(String(right?.nome || ''), 'pt-BR'))
+          .slice(0, 200),
+        error: null
+      };
+    };
+
+    const buildEmpresasQuery = (idsFilter: string[]) =>
+      client
+        .from('companies')
+        .select('id, nome_fantasia, nome_empresa')
+        .in('id', idsFilter)
+        .order('nome_fantasia', { ascending: true });
+
+    const fetchEmpresasBase = async () => {
+      if (activeCompanyIds.length === 0) return { data: [], error: null };
+      if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildEmpresasQuery(activeCompanyIds);
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(activeCompanyIds)) {
+        const result = await buildEmpresasQuery(batch);
+        if (result.error) return result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows).sort((left, right) =>
+          String(left?.nome_fantasia || left?.nome_empresa || '').localeCompare(
+            String(right?.nome_fantasia || right?.nome_empresa || ''),
+            'pt-BR'
+          )
+        ),
+        error: null
+      };
+    };
 
     const [
       clientesRes,
@@ -122,13 +201,13 @@ export async function GET(event: RequestEvent) {
       formasRes,
       empresasRes
     ] = await Promise.all([
-      clientesQuery ?? Promise.resolve({ data: [], error: null }),
+      fetchClientesBase(),
       cidadesQuery,
       produtosQuery,
       tiposQuery,
       pacotesQuery,
-      formasQuery,
-      empresasQuery ?? Promise.resolve({ data: [], error: null })
+      fetchFormasBase(),
+      fetchEmpresasBase()
     ]);
 
     clientes = safeRows(clientesRes);

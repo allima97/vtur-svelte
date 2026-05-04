@@ -93,19 +93,3 @@ export async function validateUploadedFile(file: File | null, options: UploadVal
 
   return { ok: true as const, mimeType: claimedMime, extension };
 }
-
-export function validateUploadRequestSize(request: Request, maxSizeBytes: number) {
-  const rawLength = String(request.headers.get("content-length") || "").trim();
-  if (!rawLength) return { ok: true as const };
-
-  const length = Number(rawLength);
-  if (!Number.isFinite(length) || length < 0) {
-    return { ok: false as const, error: "Tamanho do envio inválido." };
-  }
-
-  if (length > maxSizeBytes) {
-    return { ok: false as const, error: "Arquivo muito grande." };
-  }
-
-  return { ok: true as const };
-}

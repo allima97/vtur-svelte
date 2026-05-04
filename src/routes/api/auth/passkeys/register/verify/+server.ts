@@ -1,26 +1,26 @@
 import { json } from '@sveltejs/kit';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { toPasskeyErrorResponse, verifyRegistration } from '$lib/server/passkeys';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import type { RequestHandler } from './$types';
+
+const MAX_PASSKEY_REGISTER_BODY_BYTES = 32 * 1024;
 
 export const POST: RequestHandler = async (event) => {
   try {
-    if (!isSameOriginRequest(event.request)) {
-      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
-    }
+    const originError = rejectCrossOriginRequest(event.request, 'Origem inválida.');
+    if (originError) return originError;
 
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) {
       return json({ error: 'Sessao invalida.' }, { status: 401, headers: NO_STORE_HEADERS });
     }
 
-    const contentLength = Number(event.request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
-      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
-    }
-
-    const body = await event.request.json().catch(() => ({}));
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_REGISTER_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data && typeof bodyResult.data === 'object'
+      ? (bodyResult.data as Record<string, any>)
+      : {};
     const challengeId = String(body?.challengeId || '').trim();
     const response = body?.response;
     const name = String(body?.name || 'Passkey').trim();

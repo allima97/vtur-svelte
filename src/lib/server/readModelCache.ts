@@ -368,6 +368,27 @@ export function invalidateCatalogReadModels(params?: {
   });
 }
 
+export function invalidateCommissionReadModels(params?: {
+  companyIds?: string[] | null;
+  vendedorIds?: string[] | null;
+  userId?: string | null;
+}) {
+  const hasDataScope =
+    normalizeIds(params?.companyIds).length > 0 ||
+    normalizeIds(params?.vendedorIds).length > 0;
+  const scopedTags = hasDataScope ? scopeCacheTags(params || {}) : [];
+  invalidateReadModelCache({
+    tags: [
+      READ_MODEL_TAGS.comissoes,
+      READ_MODEL_TAGS.finance,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+    ],
+    scopeTags: scopedTags,
+  });
+}
+
 export function invalidateUserReadModels(params?: {
   companyIds?: string[] | null;
   vendedorIds?: string[] | null;

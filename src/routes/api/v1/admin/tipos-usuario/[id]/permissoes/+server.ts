@@ -18,7 +18,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_USUARIO_PERMISSOES_BODY_BYTES = 256 * 1024;
 
@@ -53,14 +53,17 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_TIPO_USUARIO_PERMISSOES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_TIPO_USUARIO_PERMISSOES_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     const userTypeId = String(event.params.id || '').trim();
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     ensureCanManagePermissions(scope);
 

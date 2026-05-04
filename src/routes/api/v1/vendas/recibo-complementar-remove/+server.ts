@@ -10,8 +10,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { isSaleInScope } from '$lib/server/salesScope';
 
 const MAX_RECIBO_COMPLEMENTAR_REMOVE_BODY_BYTES = 16 * 1024;
 
@@ -27,8 +28,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_COMPLEMENTAR_REMOVE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_RECIBO_COMPLEMENTAR_REMOVE_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -38,7 +39,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as { ids?: unknown[] } | null;
     const ids = Array.isArray(body?.ids)
       ? body.ids.map((item) => String(item || '').trim()).filter((item) => isUuid(item)).slice(0, 50)
@@ -57,8 +58,6 @@ export async function POST(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
     const { data: links, error: linksError } = await client
       .from('vendas_recibos_complementares')
       .select('id, venda:vendas!venda_id(id, company_id, vendedor_id)')
@@ -68,10 +67,7 @@ export async function POST(event: RequestEvent) {
     const allowedIds = (links || [])
       .filter((link: any) => {
         const venda = Array.isArray(link?.venda) ? link.venda[0] : link?.venda;
-        if (!venda) return false;
-        if (!scope.isAdmin && companyIds.length > 0 && !companyIds.includes(String(venda.company_id || ''))) return false;
-        if (shouldApplySellerScope && vendedorIds.length > 0 && !vendedorIds.includes(String(venda.vendedor_id || ''))) return false;
-        return true;
+        return isSaleInScope(venda, { scope, companyIds, vendedorIds });
       })
       .map((link: any) => String(link.id));
 

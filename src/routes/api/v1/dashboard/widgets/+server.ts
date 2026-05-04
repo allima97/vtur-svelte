@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
@@ -107,8 +107,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_DASHBOARD_WIDGETS_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const textResult = await readTextBodyLimited(event.request, MAX_DASHBOARD_WIDGETS_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -118,7 +118,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['dashboard'], 1, 'Sem acesso ao Dashboard.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     if (rawBody.length > MAX_DASHBOARD_WIDGETS_BODY_BYTES) {
       return new Response('Payload muito grande.', { status: 413, headers: NO_STORE_TEXT_HEADERS });
     }

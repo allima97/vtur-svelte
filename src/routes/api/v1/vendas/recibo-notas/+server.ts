@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
 export async function GET(event: RequestEvent) {
   try {
@@ -35,14 +36,7 @@ export async function GET(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
-    let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
-    if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
-
-    const { data: sale, error: saleError } = await saleQuery.maybeSingle();
-    if (saleError) throw saleError;
+    const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }

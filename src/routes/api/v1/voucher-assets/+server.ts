@@ -9,9 +9,9 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { validateUploadedFile, validateUploadRequestSize } from '$lib/server/uploadValidation';
+import { validateUploadedFile } from '$lib/server/uploadValidation';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { readFormDataBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -203,12 +203,13 @@ export async function POST(event) {
 
     canAccessVoucherAssets(scope, 2);
 
-    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
-    if (!requestSize.ok) {
-      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 8MB.' }, { status: 413 });
-    }
-
-    const formData = await event.request.formData();
+    const formDataResult = await readFormDataBodyLimited(
+      event.request,
+      MAX_REQUEST_SIZE_BYTES,
+      'Arquivo muito grande. Tamanho máximo: 8MB.'
+    );
+    if (!formDataResult.ok) return formDataResult.response;
+    const formData = formDataResult.formData;
     const provider = validateProvider(normalizeText(formData.get('provider')));
     const assetKind = validateAssetKind(normalizeText(formData.get('asset_kind')));
     const label = normalizeOptionalText(formData.get('label'));
@@ -275,32 +276,37 @@ export async function PATCH(event) {
 
     canAccessVoucherAssets(scope, 2);
 
-    const requestSize = validateUploadRequestSize(event.request, MAX_REQUEST_SIZE_BYTES);
-    if (!requestSize.ok) {
-      return json({ success: false, error: 'Arquivo muito grande. Tamanho máximo: 8MB.' }, { status: 413 });
-    }
-
-    const formData = await event.request.formData();
+    const formDataResult = await readFormDataBodyLimited(
+      event.request,
+      MAX_REQUEST_SIZE_BYTES,
+      'Arquivo muito grande. Tamanho máximo: 8MB.'
+    );
+    if (!formDataResult.ok) return formDataResult.response;
+    const formData = formDataResult.formData;
     const id = normalizeText(formData.get('id'));
     if (!isUuid(id)) {
       return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
     }
 
-    let assetQuery = client
+    const assetQuery = client
       .from('voucher_assets')
       .select('id, company_id, provider, asset_kind, label, storage_bucket, storage_path, mime_type, size_bytes, ativo, ordem, created_at, updated_at')
       .eq('id', id);
 
     const scopedCompanyIds = resolveScopedCompanyIds(scope, normalizeText(formData.get('company_id')));
-    if (!scope.isAdmin || scopedCompanyIds.length > 0) {
-      assetQuery = assetQuery.in('company_id', scopedCompanyIds);
-    }
 
-    const { data: existing, error: existingError } = await assetQuery.maybeSingle();
+    const { data: existingRaw, error: existingError } = await assetQuery.maybeSingle();
     if (existingError) throw existingError;
-    if (!existing) {
+    const existingCompanyId = String(existingRaw?.company_id || '').trim();
+    const allowedCompanySet = new Set(scopedCompanyIds.map((companyId) => String(companyId || '').trim()).filter(Boolean));
+    const isAllowed =
+      Boolean(existingRaw) &&
+      ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||
+        (!scope.isAdmin && allowedCompanySet.has(existingCompanyId)));
+    if (!existingRaw || !isAllowed) {
       return json({ success: false, error: 'Voucher asset não encontrado.' }, { status: 404 });
     }
+    const existing = existingRaw;
 
     const provider = validateProvider(normalizeText(formData.get('provider')) || existing.provider);
     const assetKind = validateAssetKind(normalizeText(formData.get('asset_kind')) || existing.asset_kind);
@@ -388,21 +394,25 @@ export async function DELETE(event) {
       return json({ success: false, error: 'ID do asset inválido.' }, { status: 400 });
     }
 
-    let assetQuery = client
+    const assetQuery = client
       .from('voucher_assets')
       .select('id, company_id, storage_bucket, storage_path')
       .eq('id', id);
 
     const scopedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
-    if (!scope.isAdmin || scopedCompanyIds.length > 0) {
-      assetQuery = assetQuery.in('company_id', scopedCompanyIds);
-    }
 
-    const { data: existing, error: existingError } = await assetQuery.maybeSingle();
+    const { data: existingRaw, error: existingError } = await assetQuery.maybeSingle();
     if (existingError) throw existingError;
-    if (!existing) {
+    const existingCompanyId = String(existingRaw?.company_id || '').trim();
+    const allowedCompanySet = new Set(scopedCompanyIds.map((companyId) => String(companyId || '').trim()).filter(Boolean));
+    const isAllowed =
+      Boolean(existingRaw) &&
+      ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||
+        (!scope.isAdmin && allowedCompanySet.has(existingCompanyId)));
+    if (!existingRaw || !isAllowed) {
       return json({ success: false, error: 'Voucher asset não encontrado.' }, { status: 404 });
     }
+    const existing = existingRaw;
 
     const { error: deleteError } = await client.from('voucher_assets').delete().eq('id', existing.id);
     if (deleteError) throw deleteError;

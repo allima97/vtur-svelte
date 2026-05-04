@@ -1,8 +1,5 @@
 import { isUuid, logServerError } from "$lib/server/v1";
-import {
-  rejectCrossOriginRequest,
-  rejectLargePayload,
-} from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import {
   assertCompanyAccess,
   noStoreJsonResponse,
@@ -17,11 +14,14 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_MURAL_READ_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_MURAL_READ_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const { client, user, scope } = await requireMuralScope(event);
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const id = String(body?.id || "").trim();
     if (!isUuid(id)) return noStoreTextResponse("ID inválido.", 400);
 

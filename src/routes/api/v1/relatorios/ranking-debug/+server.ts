@@ -33,7 +33,7 @@ import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
 import { monthRangeFromKey } from '$lib/date';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
@@ -717,8 +717,8 @@ export async function POST(event) {
     }
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_RANKING_DEBUG_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_RANKING_DEBUG_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -727,7 +727,10 @@ export async function POST(event) {
       return debugJson({ error: 'Sem acesso.' }, { status: 403 });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { action, id } = body;
 
     if (!id || typeof id !== 'string') {

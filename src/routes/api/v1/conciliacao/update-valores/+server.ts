@@ -8,7 +8,7 @@ import {
   isUuid,
 } from "$lib/server/v1";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 // Espelha: vtur-app/src/pages/api/v1/conciliacao/update-valores.ts
@@ -32,8 +32,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_UPDATE_VALORES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_UPDATE_VALORES_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -54,7 +54,10 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body = await event.request.json().catch(() => null);
+    const body =
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as Record<string, any>)
+        : null;
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
     if (!isUuid(conciliacaoId)) {

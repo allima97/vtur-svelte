@@ -14,7 +14,7 @@ import {
   invalidateClientReadModels,
   invalidateTripReadModels,
 } from "$lib/server/readModelCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_DOSSIE_BODY_BYTES = 512 * 1024;
 
@@ -156,8 +156,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_DOSSIE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VIAGEM_DOSSIE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -172,7 +172,10 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const viagemId = String(body?.viagemId || "").trim();
     const action = String(body?.action || "").trim();
     const data = body?.data || {};

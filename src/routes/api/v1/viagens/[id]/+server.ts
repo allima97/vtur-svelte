@@ -11,7 +11,7 @@ import {
 import { resolveViagemStatus } from "$lib/viagens/status";
 import { syncViagemStatusIfNeeded } from "$lib/server/viagensStatus";
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_VIAGEM_UPDATE_BODY_BYTES = 256 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -332,8 +332,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VIAGEM_UPDATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VIAGEM_UPDATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -349,7 +349,10 @@ export async function PATCH(event) {
     }
 
     const { id } = event.params;
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const companyIds = resolveScopedCompanyIds(scope, body.company_id);
 
     const { data: existing, error: checkError } = await client

@@ -16,7 +16,7 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_VENDA_CREATE_BODY_BYTES = 512 * 1024;
@@ -25,8 +25,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_CREATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VENDA_CREATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -41,7 +41,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const venda = body?.venda || {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];

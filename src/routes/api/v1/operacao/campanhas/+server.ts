@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -14,6 +14,15 @@ import {
 } from '$lib/server/v1';
 
 const MAX_CAMPANHA_BODY_BYTES = 128 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function canManageCampanhas(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return Boolean(
@@ -45,21 +54,43 @@ export async function GET(event) {
       return json({ items: [], can_write: false });
     }
 
-    let query = client
-      .from('campanhas')
-      .select('id, company_id, titulo, imagem_url, imagem_path, link_url, link_instagram, link_facebook, data_campanha, validade_ate, regras, status, created_at, arquivada_em')
-      .order('data_campanha', { ascending: false })
-      .limit(200);
+    const buildQuery = (companyIdsFilter?: string[]) => {
+      let query = client
+        .from('campanhas')
+        .select('id, company_id, titulo, imagem_url, imagem_path, link_url, link_instagram, link_facebook, data_campanha, validade_ate, regras, status, created_at, arquivada_em')
+        .order('data_campanha', { ascending: false })
+        .limit(200);
 
-    if (!scope.isAdmin && companyIds.length === 1) query = query.eq('company_id', companyIds[0]);
-    else if (!scope.isAdmin && companyIds.length > 1) query = query.in('company_id', companyIds);
-    if (status) query = query.eq('status', status);
+      if (!scope.isAdmin && companyIdsFilter && companyIdsFilter.length === 1) query = query.eq('company_id', companyIdsFilter[0]);
+      else if (!scope.isAdmin && companyIdsFilter && companyIdsFilter.length > 1) query = query.in('company_id', companyIdsFilter);
+      if (status) query = query.eq('status', status);
 
-    const { data, error: queryError } = await query;
-    if (queryError) throw queryError;
+      return query;
+    };
+
+    const fetchItems = async () => {
+      if (scope.isAdmin || companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        const { data, error: queryError } = await buildQuery(companyIds);
+        if (queryError) throw queryError;
+        return data || [];
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(companyIds)) {
+        const { data, error: queryError } = await buildQuery(batch);
+        if (queryError) throw queryError;
+        rows.push(...(data || []));
+      }
+
+      return Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
+        .sort((left: any, right: any) =>
+          String(right?.data_campanha || '').localeCompare(String(left?.data_campanha || ''))
+        )
+        .slice(0, 200);
+    };
 
     return json({
-      items: data || [],
+      items: await fetchItems(),
       can_write: canManageCampanhas(scope) && (scope.isAdmin || hasModuloAccess(scope, ['Campanhas'], 2))
     });
   } catch (err) {
@@ -71,8 +102,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_CAMPANHA_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CAMPANHA_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -86,7 +117,10 @@ export async function POST(event) {
       return json({ error: 'Somente gestor/master podem gerenciar campanhas.' }, { status: 403 });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { id, titulo, imagem_url, link_url, link_instagram, link_facebook, data_campanha, validade_ate, regras, status } = body;
     const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);

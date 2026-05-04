@@ -11,7 +11,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 
@@ -107,8 +107,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -121,7 +121,10 @@ export async function PATCH(event) {
       return json({ error: 'Empresa fora do escopo permitido.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     // Apenas campos que existem na tabela companies
     const ALLOWED = [
@@ -130,9 +133,8 @@ export async function PATCH(event) {
     ] as const;
 
     const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    const typedBody = body as Record<string, unknown>;
     for (const field of ALLOWED) {
-      if (typedBody[field] !== undefined) updatePayload[field] = typedBody[field];
+      if (body[field] !== undefined) updatePayload[field] = body[field];
     }
 
     if (Object.keys(updatePayload).length === 1) {

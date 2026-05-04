@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -80,8 +80,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_PAGAMENTO_UPDATE_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PAGAMENTO_UPDATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -102,7 +102,10 @@ export async function PATCH(event) {
       }
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const allowed = [
       'forma_nome', 'forma_pagamento_id', 'valor_total', 'valor_bruto',
       'desconto_valor', 'paga_comissao', 'observacoes',

@@ -15,10 +15,19 @@ import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatus
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -444,8 +453,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -458,7 +467,10 @@ export async function POST(event) {
       'Sem permissão para importar vendas.'
     );
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const contratos: ContratoDraft[] = Array.isArray(body?.contratos) ? body.contratos : [];
     const principalIndex = Number(body?.principalIndex || 0);
     const dataVenda = String(body?.dataVenda || '').trim();
@@ -633,14 +645,16 @@ export async function POST(event) {
     );
     const cidadeNomeMap = new Map<string, string>();
     if (cidadeIds.length > 0) {
-      const { data: cidadesData, error: cidadesError } = await client
-        .from('cidades')
-        .select('id, nome')
-        .in('id', cidadeIds);
-      if (cidadesError) throw cidadesError;
-      (cidadesData || []).forEach((cidade: any) => {
-        cidadeNomeMap.set(String(cidade.id), String(cidade.nome || '').trim());
-      });
+      for (const batch of chunkArray(cidadeIds)) {
+        const { data: cidadesData, error: cidadesError } = await client
+          .from('cidades')
+          .select('id, nome')
+          .in('id', batch);
+        if (cidadesError) throw cidadesError;
+        (cidadesData || []).forEach((cidade: any) => {
+          cidadeNomeMap.set(String(cidade.id), String(cidade.nome || '').trim());
+        });
+      }
     }
 
     const { data: tiposProdutoData, error: tiposProdutoError } = await client

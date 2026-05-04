@@ -18,7 +18,7 @@ import {
   toNullableString
 } from '$lib/server/vendasSave';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
@@ -30,14 +30,17 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_CADASTRO_SAVE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VENDA_CADASTRO_SAVE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const adminClient = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(adminClient, user.id);
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { venda, recibos = [], pagamentos = [], orcamento_id } = body ?? {};
 
     // Validações mínimas
@@ -109,19 +112,17 @@ export async function POST(event: RequestEvent) {
     }
 
     if (isEdit) {
-      let saleScopeQuery = adminClient
+      const { data: existingSale, error: existingSaleError } = await adminClient
         .from('vendas')
         .select('id, company_id')
-        .eq('id', vendaId);
-      if (!scope.isAdmin && scopedCompanyIds.length > 0) {
-        saleScopeQuery = saleScopeQuery.in('company_id', scopedCompanyIds);
-      }
-      const { data: existingSale, error: existingSaleError } = await saleScopeQuery.maybeSingle();
+        .eq('id', vendaId)
+        .maybeSingle();
       if (existingSaleError) throw existingSaleError;
-      if (!existingSale?.id) {
+      const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
+      const scopedCompanySet = new Set(scopedCompanyIds.map((id) => String(id || '').trim()).filter(Boolean));
+      if (!existingSale?.id || (!scope.isAdmin && scopedCompanySet.size > 0 && !scopedCompanySet.has(existingCompanyId))) {
         return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403 });
       }
-      const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
       if (isUuid(existingCompanyId)) targetCompanyId = existingCompanyId;
     }
 

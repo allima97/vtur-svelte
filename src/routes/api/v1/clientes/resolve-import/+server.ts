@@ -12,9 +12,18 @@ import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { titleCaseNome } from '$lib/normalizeText';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES = 128 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function normalizeCpf(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
@@ -24,8 +33,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -40,7 +49,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const cpf = normalizeCpf(body.cpf);
     const nome = titleCaseNome(sanitizeImportedClienteNome(body.nome)) || null;
     const nascimento = String(body.nascimento || '').trim() || null;
@@ -60,20 +72,46 @@ export async function POST(event) {
     // ✅ Filtra clientes pelo escopo da empresa do usuário
     const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
     const allowedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
-
-    let existingQuery = client
-      .from('clientes')
-      .select(
-        'id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email'
-      )
-      .in('cpf', [cpf, formattedCpf])
-      .limit(1);
-
-    if (!scope.isAdmin && allowedCompanyIds.length > 0) {
-      existingQuery = existingQuery.in('company_id', allowedCompanyIds);
+    if (!scope.isAdmin && allowedCompanyIds.length === 0) {
+      return json(
+        { error: requestedCompanyId ? 'Empresa fora do escopo.' : 'Empresa não identificada.' },
+        { status: requestedCompanyId ? 403 : 400, headers: NO_STORE_HEADERS }
+      );
     }
 
-    const { data: existing } = await existingQuery.maybeSingle();
+    const buildExistingQuery = (companyIdsFilter?: string[]) => {
+      let query = client
+        .from('clientes')
+        .select(
+          'id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email'
+        )
+        .in('cpf', [cpf, formattedCpf])
+        .limit(1);
+
+      if (!scope.isAdmin && companyIdsFilter && companyIdsFilter.length > 0) {
+        query = query.in('company_id', companyIdsFilter);
+      }
+
+      return query;
+    };
+
+    const findExistingCliente = async () => {
+      if (scope.isAdmin || allowedCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        const { data, error } = await buildExistingQuery(allowedCompanyIds).maybeSingle();
+        if (error) throw error;
+        return data || null;
+      }
+
+      for (const batch of chunkArray(allowedCompanyIds)) {
+        const { data, error } = await buildExistingQuery(batch).maybeSingle();
+        if (error) throw error;
+        if (data) return data;
+      }
+
+      return null;
+    };
+
+    const existing = await findExistingCliente();
 
     if (existing) {
       const existingNome = String(existing.nome || '').trim();

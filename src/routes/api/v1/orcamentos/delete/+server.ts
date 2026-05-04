@@ -1,5 +1,5 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -18,8 +18,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_DELETE_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ORCAMENTO_DELETE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -29,7 +29,10 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['Orcamentos'], 4, 'Sem acesso para excluir Orcamentos.');
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const id = String(body?.id || '').trim();
     if (!id || !isUuid(id)) {
       return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });

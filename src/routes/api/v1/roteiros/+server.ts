@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -72,8 +72,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ROTEIRO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
@@ -81,7 +81,10 @@ export async function POST(event: RequestEvent) {
       return new Response('Sessao invalida.', { status: 401 });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { id, nome, duracao, inicio_cidade, fim_cidade, dias, itinerario_config } = body;
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400 });
@@ -224,8 +227,8 @@ export async function PATCH(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_ROTEIRO_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ROTEIRO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const supabase = event.locals.supabase;
     const { session, user } = await event.locals.safeGetSession();
@@ -233,7 +236,10 @@ export async function PATCH(event: RequestEvent) {
       return new Response('Sessao invalida.', { status: 401 });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { action } = body;
 
     if (action === 'sugestoes-busca') {

@@ -17,7 +17,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 
 const MAX_PARAMETROS_METAS_BODY_BYTES = 512 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -445,8 +445,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_METAS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PARAMETROS_METAS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -461,7 +461,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const inputs: MetaInput[] = Array.isArray(body?.items)
       ? body.items
       : [body];
@@ -474,8 +477,17 @@ export async function POST(event) {
         .map((row: any) => String(row?.id || "").trim())
         .filter(isUuid),
     );
+    const vendedorCompanyById = new Map(
+      scopedVendedores
+        .map((row: any) => [
+          String(row?.id || "").trim(),
+          String(row?.company_id || "").trim(),
+        ] as const)
+        .filter(([vendedorId]) => isUuid(vendedorId)),
+    );
     const fallbackPeriod = normalizePeriod(body?.periodo);
     const ids: string[] = [];
+    const targetVendedorIds: string[] = [];
 
     for (const input of inputs) {
       const targetVendedorId = String(input?.vendedor_id || "").trim();
@@ -489,20 +501,27 @@ export async function POST(event) {
       if (!allowed)
         return json({ error: "Vendedor fora do seu escopo." }, { status: 403 });
 
+      targetVendedorIds.push(targetVendedorId);
       ids.push(await upsertMeta(client, input, fallbackPeriod));
     }
 
+    const targetCompanyIds = Array.from(
+      new Set(
+        targetVendedorIds
+          .map((vendedorId) => vendedorCompanyById.get(vendedorId) || "")
+          .filter(Boolean),
+      ),
+    );
     const metaScopeTags = scopeCacheTags({
-      companyIds: scope.companyIds,
-      vendedorIds: inputs
-        .map((input) => String(input?.vendedor_id || "").trim())
-        .filter(Boolean),
+      companyIds: targetCompanyIds.length > 0 ? targetCompanyIds : scope.companyIds,
+      vendedorIds: targetVendedorIds,
       userId: user.id,
     });
     invalidateReadModelCache({
       tags: [
         READ_MODEL_TAGS.metas,
         READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.vendasKpis,
         READ_MODEL_TAGS.ranking,
         READ_MODEL_TAGS.comissoes,
       ],
@@ -573,6 +592,7 @@ export async function DELETE(event) {
       tags: [
         READ_MODEL_TAGS.metas,
         READ_MODEL_TAGS.dashboard,
+        READ_MODEL_TAGS.vendasKpis,
         READ_MODEL_TAGS.ranking,
         READ_MODEL_TAGS.comissoes,
       ],

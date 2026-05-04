@@ -10,8 +10,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_RECIBO_EDIT_BODY_BYTES = 64 * 1024;
 
@@ -40,8 +41,8 @@ export async function PATCH(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_EDIT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_RECIBO_EDIT_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -51,7 +52,7 @@ export async function PATCH(event: RequestEvent) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar recibos.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as {
       venda_id?: string;
       recibo_id?: string;
@@ -98,15 +99,8 @@ export async function PATCH(event: RequestEvent) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
     // Verifica se a venda pertence ao escopo do usuário
-    let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
-    if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
-
-    const { data: sale, error: saleError } = await saleQuery.maybeSingle();
-    if (saleError) throw saleError;
+    const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }

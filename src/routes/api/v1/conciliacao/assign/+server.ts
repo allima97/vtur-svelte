@@ -18,7 +18,7 @@ import {
 } from "$lib/server/emailSettings";
 import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_CONCILIACAO_ASSIGN_BODY_BYTES = 64 * 1024;
@@ -210,8 +210,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_ASSIGN_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CONCILIACAO_ASSIGN_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -226,7 +226,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();

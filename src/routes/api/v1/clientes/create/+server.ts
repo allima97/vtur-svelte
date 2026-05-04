@@ -17,7 +17,7 @@ import {
 import { ensureClienteModuloAccess } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CLIENTE_CREATE_BODY_BYTES = 128 * 1024;
 
@@ -25,8 +25,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_CREATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CLIENTE_CREATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -34,7 +34,10 @@ export async function POST(event) {
 
     if (!scope.isAdmin) ensureClienteModuloAccess(scope, 2, 'Sem permissao para criar clientes.');
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
 
     // ✅ Valida company_id contra o escopo do usuário
     const requestedCompanyId = String(body?.company_id || '').trim();

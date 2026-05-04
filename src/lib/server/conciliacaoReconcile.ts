@@ -323,15 +323,21 @@ async function moveDuplicateRateioToWinner(params: {
   if (params.loserIds.length === 0) return;
 
   try {
-    const { data: rateios, error } = await params.client
-      .from('vendas_recibos_rateio')
-      .select('id, conciliacao_recibo_id')
-      .in('conciliacao_recibo_id', [params.winnerId, ...params.loserIds]);
-    if (error) throw error;
+    const rateios: any[] = [];
+    const loserIdSet = new Set(params.loserIds.map((id) => String(id || '').trim()).filter(Boolean));
+    const idsToLookup = Array.from(new Set([params.winnerId, ...params.loserIds].map((id) => String(id || '').trim()).filter(Boolean)));
+    for (const batch of chunkArray(idsToLookup)) {
+      const { data, error } = await params.client
+        .from('vendas_recibos_rateio')
+        .select('id, conciliacao_recibo_id')
+        .in('conciliacao_recibo_id', batch);
+      if (error) throw error;
+      rateios.push(...(data || []));
+    }
 
     const rows = Array.isArray(rateios) ? rateios : [];
     const winnerHasRateio = rows.some((row: any) => String(row?.conciliacao_recibo_id || '') === params.winnerId);
-    const loserRateios = rows.filter((row: any) => params.loserIds.includes(String(row?.conciliacao_recibo_id || '')));
+    const loserRateios = rows.filter((row: any) => loserIdSet.has(String(row?.conciliacao_recibo_id || '')));
     const [firstLoserRateio, ...extraLoserRateios] = loserRateios;
 
     if (!winnerHasRateio && firstLoserRateio?.id) {
@@ -344,7 +350,10 @@ async function moveDuplicateRateioToWinner(params: {
     const rateiosToDelete = winnerHasRateio ? loserRateios : extraLoserRateios;
     const idsToDelete = rateiosToDelete.map((row: any) => String(row?.id || '').trim()).filter(Boolean);
     if (idsToDelete.length > 0) {
-      await params.client.from('vendas_recibos_rateio').delete().in('id', idsToDelete);
+      for (const batch of chunkArray(idsToDelete)) {
+        const { error: deleteError } = await params.client.from('vendas_recibos_rateio').delete().in('id', batch);
+        if (deleteError) throw deleteError;
+      }
     }
   } catch (error) {
     const code = String((error as any)?.code || '').trim();
@@ -425,13 +434,18 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
 
     await moveDuplicateRateioToWinner({ client, winnerId: String(winner.id), loserIds });
 
-    await client
-      .from('conciliacao_recibo_changes')
-      .update({ conciliacao_recibo_id: winner.id })
-      .in('conciliacao_recibo_id', loserIds);
+    for (const batch of chunkArray(loserIds)) {
+      const { error: changesError } = await client
+        .from('conciliacao_recibo_changes')
+        .update({ conciliacao_recibo_id: winner.id })
+        .in('conciliacao_recibo_id', batch);
+      if (changesError) throw changesError;
+    }
 
-    const { error: deleteError } = await client.from('conciliacao_recibos').delete().in('id', loserIds);
-    if (deleteError) throw deleteError;
+    for (const batch of chunkArray(loserIds)) {
+      const { error: deleteError } = await client.from('conciliacao_recibos').delete().in('id', batch);
+      if (deleteError) throw deleteError;
+    }
     removed += loserIds.length;
   }
 
@@ -506,11 +520,15 @@ async function fetchReciboCandidates(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
-  const { data: vendas, error: vendasErr } = await client
-    .from('vendas')
-    .select('id, company_id, vendedor_id')
-    .in('id', vendaIds);
-  if (vendasErr) throw vendasErr;
+  const vendas: any[] = [];
+  for (const batch of chunkArray(vendaIds)) {
+    const { data, error } = await client
+      .from('vendas')
+      .select('id, company_id, vendedor_id')
+      .in('id', batch);
+    if (error) throw error;
+    vendas.push(...(data || []));
+  }
 
   const vendasMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
   for (const row of vendas || []) {
@@ -583,11 +601,15 @@ async function fetchRexturReciboCandidatesByReserva(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
-  const { data: vendas, error: vendasErr } = await client
-    .from('vendas')
-    .select('id, company_id, vendedor_id')
-    .in('id', vendaIds);
-  if (vendasErr) throw vendasErr;
+  const vendas: any[] = [];
+  for (const batch of chunkArray(vendaIds)) {
+    const { data, error } = await client
+      .from('vendas')
+      .select('id, company_id, vendedor_id')
+      .in('id', batch);
+    if (error) throw error;
+    vendas.push(...(data || []));
+  }
 
   const vendasMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
   for (const row of vendas || []) {

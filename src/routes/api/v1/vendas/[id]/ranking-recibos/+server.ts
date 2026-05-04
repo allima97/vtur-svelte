@@ -17,6 +17,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { buildVendaRankingConciliacaoSnapshot } from '$lib/conciliacao/vendaRanking';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
 export async function GET(event) {
   try {
@@ -33,18 +34,10 @@ export async function GET(event) {
     }
 
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
-    let vendaBaseQuery = client
-      .from('vendas')
-      .select('id, company_id, cancelada')
-      .eq('id', id);
-
-    if (companyIds.length > 0) {
-      vendaBaseQuery = vendaBaseQuery.in('company_id', companyIds);
+    const venda = await fetchSaleForScope({ client, scope, saleId: id, companyIds, extraSelect: 'cancelada' });
+    if (!venda || venda.cancelada) {
+      return json({ recibos: [], totais: null });
     }
-
-    const { data: venda, error: vendaErr } = await vendaBaseQuery.maybeSingle();
-    if (vendaErr) throw vendaErr;
-    if (!venda || (venda as any).cancelada) return json({ recibos: [], totais: null });
 
     const { data: recibosData, error: recibosErr } = await client
       .from('vendas_recibos')

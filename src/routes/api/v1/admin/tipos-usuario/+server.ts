@@ -13,9 +13,18 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_USUARIO_BODY_BYTES = 32 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event) {
   try {
@@ -28,23 +37,26 @@ export async function GET(event) {
     const userTypes = await loadManagedUserTypes(client, scope);
     const typeIds = userTypes.map((row) => row.id);
 
-    const [defaultPermsRes, usersRes] = await Promise.all([
-      typeIds.length
-        ? client
-            .from('user_type_default_perms')
-            .select('user_type_id, modulo, permissao, ativo')
-            .in('user_type_id', typeIds)
-        : Promise.resolve({ data: [], error: null } as any),
-      typeIds.length
-        ? client.from('users').select('id, user_type_id').in('user_type_id', typeIds)
-        : Promise.resolve({ data: [], error: null } as any)
-    ]);
+    const defaultPermRows: any[] = [];
+    const userRows: any[] = [];
+    for (const batch of chunkArray(typeIds)) {
+      if (batch.length === 0) continue;
+      const [defaultPermsRes, usersRes] = await Promise.all([
+        client
+          .from('user_type_default_perms')
+          .select('user_type_id, modulo, permissao, ativo')
+          .in('user_type_id', batch),
+        client.from('users').select('id, user_type_id').in('user_type_id', batch)
+      ]);
 
-    if (defaultPermsRes.error) throw defaultPermsRes.error;
-    if (usersRes.error) throw usersRes.error;
+      if (defaultPermsRes.error) throw defaultPermsRes.error;
+      if (usersRes.error) throw usersRes.error;
+      defaultPermRows.push(...(defaultPermsRes.data || []));
+      userRows.push(...(usersRes.data || []));
+    }
 
     const defaultPermCounts = new Map<string, number>();
-    (defaultPermsRes.data || []).forEach((row: any) => {
+    defaultPermRows.forEach((row: any) => {
       if (row?.ativo === false || !row?.user_type_id) return;
       defaultPermCounts.set(
         String(row.user_type_id),
@@ -53,7 +65,7 @@ export async function GET(event) {
     });
 
     const userCounts = new Map<string, number>();
-    (usersRes.data || []).forEach((row: any) => {
+    userRows.forEach((row: any) => {
       if (!row?.user_type_id) return;
       userCounts.set(String(row.user_type_id), Number(userCounts.get(String(row.user_type_id)) || 0) + 1);
     });
@@ -80,13 +92,16 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_TIPO_USUARIO_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_TIPO_USUARIO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     ensureCanManagePermissions(scope);
 

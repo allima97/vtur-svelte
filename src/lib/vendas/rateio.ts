@@ -21,6 +21,8 @@ export type RateioRow = {
   ativo?: boolean | null;
 };
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
 // ---------------------------------------------------------------------------
 // HELPERS INTERNOS
 // ---------------------------------------------------------------------------
@@ -52,6 +54,14 @@ function normalizeCompanyScopeIds(companyId?: string | null, companyIds?: string
   return Array.from(
     new Set([companyId, ...(companyIds || [])].map((value) => toStr(value)).filter(Boolean))
   );
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 export function isUuid(value?: string | null) {
@@ -135,8 +145,7 @@ export async function fetchRateioByReciboIds(
 
   const byConcReciboRows: any[] = [];
 
-  for (let index = 0; index < ids.length; index += 200) {
-    const chunk = ids.slice(index, index + 200);
+  for (const chunk of chunkArray(ids)) {
     const { data: byVendaRecibo, error: byVendaErr } = await client
       .from('vendas_recibos_rateio')
       .select(
@@ -176,8 +185,7 @@ export async function fetchRateioByReciboIds(
     )
   );
   if (concIds.length > 0) {
-    for (let index = 0; index < concIds.length; index += 200) {
-      const chunk = concIds.slice(index, index + 200);
+    for (const chunk of chunkArray(concIds)) {
       const { data: concRows, error: concErr } = await client
         .from('conciliacao_recibos')
         .select('id, venda_recibo_id')
@@ -216,19 +224,26 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   );
   if (scopedVendedorIds.length === 0) return [];
 
-  let splitQuery = client
-    .from('vendas_recibos_rateio')
-    .select('venda_recibo_id, conciliacao_recibo_id')
-    .eq('ativo', true)
-    .in('vendedor_destino_id', scopedVendedorIds);
-  if (scopedCompanyIds.length === 1) {
-    splitQuery = splitQuery.eq('company_id', scopedCompanyIds[0]);
-  } else if (scopedCompanyIds.length > 1) {
-    splitQuery = splitQuery.in('company_id', scopedCompanyIds);
-  }
+  const splitRows: any[] = [];
+  const companyBatches = scopedCompanyIds.length > 0 ? chunkArray(scopedCompanyIds) : [null];
+  for (const companyBatch of companyBatches) {
+    for (const vendedorBatch of chunkArray(scopedVendedorIds)) {
+      let splitQuery = client
+        .from('vendas_recibos_rateio')
+        .select('venda_recibo_id, conciliacao_recibo_id')
+        .eq('ativo', true)
+        .in('vendedor_destino_id', vendedorBatch);
+      if (companyBatch && companyBatch.length === 1) {
+        splitQuery = splitQuery.eq('company_id', companyBatch[0]);
+      } else if (companyBatch && companyBatch.length > 1) {
+        splitQuery = splitQuery.in('company_id', companyBatch);
+      }
 
-  const { data: splitRows, error: splitErr } = await splitQuery;
-  if (splitErr) throw splitErr;
+      const { data, error: splitErr } = await splitQuery;
+      if (splitErr) throw splitErr;
+      splitRows.push(...(data || []));
+    }
+  }
 
   const vendaReciboIds = Array.from(
     new Set((splitRows || []).map((row: any) => toStr(row?.venda_recibo_id)).filter(isUuid))
@@ -240,27 +255,31 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   const vendaIds = new Set<string>();
 
   if (vendaReciboIds.length > 0) {
-    const { data: recibosRows, error: recibosErr } = await client
-      .from('vendas_recibos')
-      .select('id, venda_id')
-      .in('id', vendaReciboIds);
-    if (recibosErr) throw recibosErr;
-    (recibosRows || []).forEach((row: any) => {
-      const vendaId = toStr(row?.venda_id);
-      if (isUuid(vendaId)) vendaIds.add(vendaId);
-    });
+    for (const batch of chunkArray(vendaReciboIds)) {
+      const { data: recibosRows, error: recibosErr } = await client
+        .from('vendas_recibos')
+        .select('id, venda_id')
+        .in('id', batch);
+      if (recibosErr) throw recibosErr;
+      (recibosRows || []).forEach((row: any) => {
+        const vendaId = toStr(row?.venda_id);
+        if (isUuid(vendaId)) vendaIds.add(vendaId);
+      });
+    }
   }
 
   if (concReciboIds.length > 0) {
-    const { data: concRows, error: concErr } = await client
-      .from('conciliacao_recibos')
-      .select('id, venda_id')
-      .in('id', concReciboIds);
-    if (concErr) throw concErr;
-    (concRows || []).forEach((row: any) => {
-      const vendaId = toStr(row?.venda_id);
-      if (isUuid(vendaId)) vendaIds.add(vendaId);
-    });
+    for (const batch of chunkArray(concReciboIds)) {
+      const { data: concRows, error: concErr } = await client
+        .from('conciliacao_recibos')
+        .select('id, venda_id')
+        .in('id', batch);
+      if (concErr) throw concErr;
+      (concRows || []).forEach((row: any) => {
+        const vendaId = toStr(row?.venda_id);
+        if (isUuid(vendaId)) vendaIds.add(vendaId);
+      });
+    }
   }
 
   return Array.from(vendaIds);

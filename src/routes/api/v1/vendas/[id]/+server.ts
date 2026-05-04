@@ -17,11 +17,21 @@ import {
   syncVendaChildren,
 } from "$lib/server/vendasSave";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { fetchSaleForScope } from "$lib/server/salesScope";
 
 const MAX_VENDA_UPDATE_BODY_BYTES = 512 * 1024;
 const MAX_VENDA_DELETE_BODY_BYTES = 8 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
   logServerError(context, err, extra);
@@ -148,7 +158,8 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
+    const scopedSale = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
+    if (!scopedSale) throw error(404, "Venda não encontrada.");
 
     const selectClauses = [
       `*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,
@@ -159,12 +170,7 @@ export async function GET(event) {
     let lastError: any = null;
 
     for (const selectClause of selectClauses) {
-      let query = client.from("vendas").select(selectClause).eq("id", id);
-      if (companyIds.length > 0) query = query.in("company_id", companyIds);
-      if (shouldApplySellerScope && vendedorIds.length > 0)
-        query = query.in("vendedor_id", vendedorIds);
-
-      const result = await query.maybeSingle();
+      const result = await client.from("vendas").select(selectClause).eq("id", id).maybeSingle();
       if (!result.error) {
         data = result.data;
         lastError = null;
@@ -185,8 +191,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_UPDATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VENDA_UPDATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -213,20 +219,7 @@ export async function PATCH(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
-    let saleScopeQuery = client
-      .from("vendas")
-      .select("id, company_id, vendedor_id")
-      .eq("id", id);
-    if (companyIds.length > 0)
-      saleScopeQuery = saleScopeQuery.in("company_id", companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0)
-      saleScopeQuery = saleScopeQuery.in("vendedor_id", vendedorIds);
-
-    const { data: saleScopeData, error: saleScopeError } =
-      await saleScopeQuery.maybeSingle();
-    if (saleScopeError) throw saleScopeError;
+    const saleScopeData = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
     if (!saleScopeData?.id) throw error(404, "Venda não encontrada.");
 
     const targetCompanyId =
@@ -244,7 +237,10 @@ export async function PATCH(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const venda = body?.venda || body || {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
@@ -413,10 +409,11 @@ export async function PATCH(event) {
       throw err;
     }
 
-    let query = client.from("vendas").update(payload).eq("id", id);
-    if (companyIds.length > 0) query = query.in("company_id", companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0)
-      query = query.in("vendedor_id", vendedorIds);
+    const query = client
+      .from("vendas")
+      .update(payload)
+      .eq("id", id)
+      .eq("company_id", targetCompanyId);
     const { data, error: updateError } = await query.select("id").maybeSingle();
     if (updateError) {
       logVendaError("[PATCH venda] update vendas error:", updateError);
@@ -491,20 +488,7 @@ export async function DELETE(event) {
       scope,
       event.url.searchParams.get("vendedor_id"),
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
-    let saleScopeQuery = client
-      .from("vendas")
-      .select("id, company_id")
-      .eq("id", id);
-    if (companyIds.length > 0)
-      saleScopeQuery = saleScopeQuery.in("company_id", companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0)
-      saleScopeQuery = saleScopeQuery.in("vendedor_id", vendedorIds);
-
-    const { data: saleScopeData, error: saleScopeError } =
-      await saleScopeQuery.maybeSingle();
-    if (saleScopeError) throw saleScopeError;
+    const saleScopeData = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
     if (!saleScopeData?.id) throw error(404, "Venda não encontrada.");
 
     const { data: recibosData, error: recibosError } = await client
@@ -536,33 +520,40 @@ export async function DELETE(event) {
       diff_taxas: null,
     };
 
-    let clearConciliacaoQuery = client
+    const clearConciliacaoByVendaQuery = client
       .from("conciliacao_recibos")
-      .update(clearConciliacaoPayload);
+      .update(clearConciliacaoPayload)
+      .eq("venda_id", id);
+    const { error: clearConciliacaoByVendaError } = await clearConciliacaoByVendaQuery;
+    if (clearConciliacaoByVendaError && !ignoreMissingTable(clearConciliacaoByVendaError))
+      throw clearConciliacaoByVendaError;
+
     if (reciboIds.length > 0) {
-      clearConciliacaoQuery = clearConciliacaoQuery.or(
-        `venda_id.eq.${id},venda_recibo_id.in.(${reciboIds.join(",")})`,
-      );
-    } else {
-      clearConciliacaoQuery = clearConciliacaoQuery.eq("venda_id", id);
+      for (const batch of chunkArray(reciboIds)) {
+        const { error: clearConciliacaoByReciboError } = await client
+          .from("conciliacao_recibos")
+          .update(clearConciliacaoPayload)
+          .in("venda_recibo_id", batch);
+        if (clearConciliacaoByReciboError && !ignoreMissingTable(clearConciliacaoByReciboError))
+          throw clearConciliacaoByReciboError;
+      }
     }
-    const { error: clearConciliacaoError } = await clearConciliacaoQuery;
-    if (clearConciliacaoError && !ignoreMissingTable(clearConciliacaoError))
-      throw clearConciliacaoError;
 
     if (reciboIds.length > 0) {
-      const { error: rateioError } = await client
-        .from("vendas_recibos_rateio")
-        .delete()
-        .in("venda_recibo_id", reciboIds);
-      if (rateioError && !ignoreMissingTable(rateioError)) throw rateioError;
+      for (const batch of chunkArray(reciboIds)) {
+        const { error: rateioError } = await client
+          .from("vendas_recibos_rateio")
+          .delete()
+          .in("venda_recibo_id", batch);
+        if (rateioError && !ignoreMissingTable(rateioError)) throw rateioError;
 
-      const { error: notasPorReciboError } = await client
-        .from("vendas_recibos_notas")
-        .delete()
-        .in("recibo_id", reciboIds);
-      if (notasPorReciboError && !ignoreMissingTable(notasPorReciboError))
-        throw notasPorReciboError;
+        const { error: notasPorReciboError } = await client
+          .from("vendas_recibos_notas")
+          .delete()
+          .in("recibo_id", batch);
+        if (notasPorReciboError && !ignoreMissingTable(notasPorReciboError))
+          throw notasPorReciboError;
+      }
     }
 
     const { error: notasError } = await client
@@ -599,7 +590,8 @@ export async function DELETE(event) {
     const { error: deleteError } = await client
       .from("vendas")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("company_id", String(saleScopeData.company_id || "").trim());
     if (deleteError) throw deleteError;
 
     const deletedSaleScope = saleScopeData as any;

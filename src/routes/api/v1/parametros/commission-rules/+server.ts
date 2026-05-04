@@ -10,8 +10,8 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES = 128 * 1024;
 
@@ -101,6 +101,13 @@ function getRequestedCompanyId(event: RequestEvent, body?: any) {
       event.url.searchParams.get('company_id') ||
       ''
   ).trim();
+}
+
+function invalidateCommissionRuleReadModels(params?: {
+  companyIds?: string[] | null;
+  userId?: string | null;
+}) {
+  invalidateCommissionReadModels(params);
 }
 
 function resolveWritableCompanyId(access: Awaited<ReturnType<typeof requireAccess>>, requested: string) {
@@ -239,13 +246,13 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const access = await requireAccess(event, 3);
     const client = access.client;
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as any;
     const nome = String(body?.nome || '').trim();
     const requestedCompanyId = getRequestedCompanyId(event, body);
@@ -354,7 +361,10 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    invalidateCommissionRuleReadModels({
+      companyIds: writableCompanyId ? [writableCompanyId] : [],
+      userId: access.user.id
+    });
     return json({ ok: true, id: persistedId }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar regra de comissão.');
@@ -365,13 +375,13 @@ export async function PATCH(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const access = await requireAccess(event, 3);
     const client = access.client;
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as any;
     const id = String(body?.id || '').trim();
 
@@ -409,7 +419,10 @@ export async function PATCH(event: RequestEvent) {
       throw error;
     }
 
-    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    invalidateCommissionRuleReadModels({
+      companyIds: writeAccess.companyId ? [writeAccess.companyId] : [],
+      userId: access.user.id
+    });
     return json({ ok: true, id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra de comissão.');
@@ -420,13 +433,13 @@ export async function DELETE(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const access = await requireAccess(event, 3);
     const client = access.client;
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as any;
     const id = String(body?.id || '').trim();
 
@@ -460,7 +473,10 @@ export async function DELETE(event: RequestEvent) {
       throw error;
     }
 
-    invalidateReadModelCache({ tags: [READ_MODEL_TAGS.comissoes] });
+    invalidateCommissionRuleReadModels({
+      companyIds: writeAccess.companyId ? [writeAccess.companyId] : [],
+      userId: access.user.id
+    });
     return json({ ok: true, id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra de comissão.');

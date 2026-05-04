@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { fetchProdutoTarifas, sanitizeTarifasPayload } from '$lib/server/cadastros-base';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PRODUTO_TARIFAS_BODY_BYTES = 256 * 1024;
 
@@ -30,8 +30,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PRODUTO_TARIFAS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PRODUTO_TARIFAS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -41,7 +41,10 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Produtos'], 3, 'Sem permissão para editar produtos.');
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const produtoId = String(body?.produto_id || '').trim();
     if (!produtoId) throw error(400, 'produto_id é obrigatório.');
 

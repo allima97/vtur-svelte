@@ -20,7 +20,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CAIXA_MOVIMENTACAO_BODY_BYTES = 32 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -222,8 +222,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CAIXA_MOVIMENTACAO_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CAIXA_MOVIMENTACAO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -231,7 +231,10 @@ export async function POST(event) {
 
     ensureModuloAccess(scope, ['financeiro'], 2, 'Sem permissao para criar movimentacoes.');
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     if (!body.tipo || !body.descricao || body.valor === undefined || !body.data_movimentacao) {
       return json(
         { success: false, error: 'Tipo, descricao, valor e data sao obrigatorios.' },

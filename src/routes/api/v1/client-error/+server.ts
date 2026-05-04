@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_FIELD_CHARS = 1200;
@@ -31,9 +31,8 @@ function sanitizePayload(payload: any) {
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   try {
-    if (!isSameOriginRequest(request)) {
-      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
-    }
+    const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
+    if (originError) return originError;
 
     const clientAddress = getClientAddress();
     const rateLimit = await checkPersistentRateLimit('client-error', clientAddress || 'unknown', {
@@ -47,12 +46,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       );
     }
 
-    const contentLength = Number(request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
-    }
-
-    const payload = await request.json().catch(() => null);
+    const payloadResult = await readJsonBodyLimited(request, MAX_BODY_BYTES);
+    if (!payloadResult.ok) return payloadResult.response;
+    const payload = payloadResult.data;
     const url = new URL(request.url);
     const safePayload = sanitizePayload(payload);
 

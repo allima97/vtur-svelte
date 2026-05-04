@@ -1,22 +1,18 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { verifyTurnstileToken } from '$lib/server/turnstile';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
+const MAX_LOGIN_BODY_BYTES = 8 * 1024;
+
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   try {
-    if (!isSameOriginRequest(request)) {
-      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
-    }
-
-    const contentLength = Number(request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > 8 * 1024) {
-      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
-    }
+    const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
+    if (originError) return originError;
 
     let remoteIp: string | null = null;
     try {
@@ -25,7 +21,9 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
       remoteIp = null;
     }
 
-    const body = await request.json().catch(() => null);
+    const bodyResult = await readJsonBodyLimited(request, MAX_LOGIN_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data as Record<string, any> | null;
     if (!body || typeof body !== 'object') {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }

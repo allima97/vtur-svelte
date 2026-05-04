@@ -11,13 +11,17 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
-type SaleScopeRow = {
-  id: string;
-  cliente_id: string | null;
-  vendedor_id: string | null;
-  company_id: string | null;
-};
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function getResumo(recibo?: {
   numero_recibo?: string | null;
@@ -70,15 +74,14 @@ export async function GET(event: RequestEvent) {
     );
     const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
-    let saleQuery = client
-      .from('vendas')
-      .select('id, cliente_id, vendedor_id, company_id')
-      .eq('id', vendaId);
-    if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
-
-    const { data: currentSale, error: currentSaleError } = await saleQuery.maybeSingle();
-    if (currentSaleError) throw currentSaleError;
+    const currentSale = await fetchSaleForScope({
+      client,
+      scope,
+      saleId: vendaId,
+      companyIds,
+      vendedorIds,
+      extraSelect: 'cliente_id'
+    });
     if (!currentSale) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }
@@ -104,20 +107,21 @@ export async function GET(event: RequestEvent) {
       .map((row: any) => String(row?.recibo_id || '').trim())
       .filter(Boolean);
 
-    const { data: linkedReceiptsData, error: linkedReceiptsError } =
-      linkedReceiptIds.length > 0
-        ? await client
-            .from('vendas_recibos')
-            .select(`
-              id,
-              venda_id,
-              numero_recibo,
-              valor_total,
-              produto_resolvido:produtos!produto_resolvido_id (nome)
-            `)
-            .in('id', linkedReceiptIds)
-        : { data: [], error: null as any };
-    if (linkedReceiptsError) throw linkedReceiptsError;
+    const linkedReceiptsData: any[] = [];
+    for (const batch of chunkArray(linkedReceiptIds)) {
+      const { data, error: linkedReceiptsError } = await client
+        .from('vendas_recibos')
+        .select(`
+          id,
+          venda_id,
+          numero_recibo,
+          valor_total,
+          produto_resolvido:produtos!produto_resolvido_id (nome)
+        `)
+        .in('id', batch);
+      if (linkedReceiptsError) throw linkedReceiptsError;
+      linkedReceiptsData.push(...(data || []));
+    }
 
     const linkedSalesIds = Array.from(
       new Set(
@@ -127,22 +131,23 @@ export async function GET(event: RequestEvent) {
       )
     );
 
-    const { data: linkedSalesData, error: linkedSalesError } =
-      linkedSalesIds.length > 0
-        ? await client
-            .from('vendas')
-            .select(`
-              id,
-              cliente_id,
-              destino_id,
-              destino_cidade_id,
-              clientes (nome),
-              destinos:produtos!destino_id (nome),
-              destino_cidade:cidades!destino_cidade_id (nome)
-            `)
-            .in('id', linkedSalesIds)
-        : { data: [], error: null as any };
-    if (linkedSalesError) throw linkedSalesError;
+    const linkedSalesData: any[] = [];
+    for (const batch of chunkArray(linkedSalesIds)) {
+      const { data, error: linkedSalesError } = await client
+        .from('vendas')
+        .select(`
+          id,
+          cliente_id,
+          destino_id,
+          destino_cidade_id,
+          clientes (nome),
+          destinos:produtos!destino_id (nome),
+          destino_cidade:cidades!destino_cidade_id (nome)
+        `)
+        .in('id', batch);
+      if (linkedSalesError) throw linkedSalesError;
+      linkedSalesData.push(...(data || []));
+    }
 
     const linkedReceiptsById = Object.fromEntries(
       (linkedReceiptsData || []).map((row: any) => [
@@ -169,11 +174,16 @@ export async function GET(event: RequestEvent) {
     );
 
     const pairSaleIds = Array.from(new Set(linkedSalesIds));
-    const { data: pairReceiptsData, error: pairReceiptsError } =
-      pairSaleIds.length > 0
-        ? await client.from('vendas_recibos').select('id, venda_id').in('venda_id', [vendaId, ...pairSaleIds])
-        : { data: [], error: null as any };
-    if (pairReceiptsError) throw pairReceiptsError;
+    const pairReceiptSaleIds = [vendaId, ...pairSaleIds];
+    const pairReceiptsData: any[] = [];
+    for (const batch of chunkArray(pairReceiptSaleIds)) {
+      const { data, error: pairReceiptsError } = await client
+        .from('vendas_recibos')
+        .select('id, venda_id')
+        .in('venda_id', batch);
+      if (pairReceiptsError) throw pairReceiptsError;
+      pairReceiptsData.push(...(data || []));
+    }
 
     const receiptsBySale = new Map<string, string[]>();
     for (const row of pairReceiptsData || []) {
@@ -185,14 +195,15 @@ export async function GET(event: RequestEvent) {
       receiptsBySale.set(saleRef, current);
     }
 
-    const { data: allPairLinksData, error: allPairLinksError } =
-      pairSaleIds.length > 0
-        ? await client
-            .from('vendas_recibos_complementares')
-            .select('id, venda_id, recibo_id')
-            .in('venda_id', [vendaId, ...pairSaleIds])
-        : { data: [], error: null as any };
-    if (allPairLinksError && String(allPairLinksError.code || '') !== '42P01') throw allPairLinksError;
+    const allPairLinksData: any[] = [];
+    for (const batch of chunkArray(pairReceiptSaleIds)) {
+      const { data, error: allPairLinksError } = await client
+        .from('vendas_recibos_complementares')
+        .select('id, venda_id, recibo_id')
+        .in('venda_id', batch);
+      if (allPairLinksError && String(allPairLinksError.code || '') !== '42P01') throw allPairLinksError;
+      allPairLinksData.push(...(data || []));
+    }
 
     const allPairLinks = Array.isArray(allPairLinksData) ? allPairLinksData : [];
 
@@ -226,31 +237,42 @@ export async function GET(event: RequestEvent) {
 
     let suggestions: any[] = [];
     if (busca.length >= 2) {
-      let receiptsQuery = client
-        .from('vendas_recibos')
-        .select(`
-          id,
-          venda_id,
-          numero_recibo,
-          valor_total,
-          produto_resolvido:produtos!produto_resolvido_id (nome),
-          vendas!inner (
+      const buildReceiptsQuery = (companyIdsFilter?: string[], vendedorIdsFilter?: string[]) => {
+        let receiptsQuery = client
+          .from('vendas_recibos')
+          .select(`
             id,
-            cliente_id,
-            vendedor_id,
-            company_id,
-            clientes (nome),
-            destinos:produtos!destino_id (nome),
-            destino_cidade:cidades!destino_cidade_id (nome)
-          )
-        `)
-        .limit(400);
+            venda_id,
+            numero_recibo,
+            valor_total,
+            produto_resolvido:produtos!produto_resolvido_id (nome),
+            vendas!inner (
+              id,
+              cliente_id,
+              vendedor_id,
+              company_id,
+              clientes (nome),
+              destinos:produtos!destino_id (nome),
+              destino_cidade:cidades!destino_cidade_id (nome)
+            )
+          `)
+          .limit(400);
 
-      if (companyIds.length > 0) receiptsQuery = receiptsQuery.in('vendas.company_id', companyIds);
-      if (shouldApplySellerScope && vendedorIds.length > 0) receiptsQuery = receiptsQuery.in('vendas.vendedor_id', vendedorIds);
+        if (companyIdsFilter && companyIdsFilter.length > 0) receiptsQuery = receiptsQuery.in('vendas.company_id', companyIdsFilter);
+        if (shouldApplySellerScope && vendedorIdsFilter && vendedorIdsFilter.length > 0) receiptsQuery = receiptsQuery.in('vendas.vendedor_id', vendedorIdsFilter);
+        return receiptsQuery;
+      };
 
-      const { data: scopedReceiptsData, error: scopedReceiptsError } = await receiptsQuery;
-      if (scopedReceiptsError) throw scopedReceiptsError;
+      const scopedReceiptsData: any[] = [];
+      const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [undefined];
+      const vendedorBatches = shouldApplySellerScope && vendedorIds.length > 0 ? chunkArray(vendedorIds) : [undefined];
+      for (const companyBatch of companyBatches) {
+        for (const vendedorBatch of vendedorBatches) {
+          const { data, error: scopedReceiptsError } = await buildReceiptsQuery(companyBatch, vendedorBatch);
+          if (scopedReceiptsError) throw scopedReceiptsError;
+          scopedReceiptsData.push(...(data || []));
+        }
+      }
 
       const currentLinkedIds = new Set(current.map((item) => item.recibo_id));
 

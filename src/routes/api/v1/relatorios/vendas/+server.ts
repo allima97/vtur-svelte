@@ -541,16 +541,20 @@ export async function GET(event) {
 
     let conciliacaoSobrepoeVendas = false;
     if (companyIds.length > 0) {
-      const { data: parametrosRows, error: parametrosError } = await client
-        .from("parametros_comissao")
-        .select("company_id, conciliacao_sobrepoe_vendas")
-        .in("company_id", companyIds)
-        .limit(1000);
-      if (!parametrosError) {
-        conciliacaoSobrepoeVendas = (parametrosRows || []).some((row: any) =>
-          Boolean(row?.conciliacao_sobrepoe_vendas),
-        );
+      const parametrosRows: any[] = [];
+      for (const companyBatch of chunkArray(companyIds)) {
+        const { data, error: parametrosError } = await client
+          .from("parametros_comissao")
+          .select("company_id, conciliacao_sobrepoe_vendas")
+          .in("company_id", companyBatch)
+          .limit(1000);
+        if (!parametrosError) {
+          parametrosRows.push(...(data || []));
+        }
       }
+      conciliacaoSobrepoeVendas = parametrosRows.some((row: any) =>
+        Boolean(row?.conciliacao_sobrepoe_vendas),
+      );
     }
 
     const mergeRowsById = (baseRows: any[], extraRows: any[]) => {
@@ -684,25 +688,34 @@ export async function GET(event) {
           : null;
 
       if (vendedorIds.length > 0) {
-        let splitConcQuery = client
-          .from("vendas_recibos_rateio")
-          .select("conciliacao_recibo_id")
-          .eq("ativo", true)
-          .gt("percentual_destino", 0)
-          .in("vendedor_destino_id", vendedorIds)
-          .not("conciliacao_recibo_id", "is", null);
+        const splitConcRows: any[] = [];
+        const splitConcCompanyBatches =
+          companyIds.length > 0 ? chunkArray(companyIds) : [null];
+        const splitConcVendedorBatches = chunkArray(vendedorIds);
+        for (const companyBatch of splitConcCompanyBatches) {
+          for (const vendedorBatch of splitConcVendedorBatches) {
+            let splitConcQuery = client
+              .from("vendas_recibos_rateio")
+              .select("conciliacao_recibo_id")
+              .eq("ativo", true)
+              .gt("percentual_destino", 0)
+              .in("vendedor_destino_id", vendedorBatch)
+              .not("conciliacao_recibo_id", "is", null);
 
-        if (companyIds.length > 0) {
-          splitConcQuery = splitConcQuery.in("company_id", companyIds);
-        }
+            if (companyBatch && companyBatch.length > 0) {
+              splitConcQuery = splitConcQuery.in("company_id", companyBatch);
+            }
 
-        const { data: splitConcRows, error: splitConcErr } =
-          await splitConcQuery;
-        if (splitConcErr) {
-          logServerError(
-            "[relatorios/vendas] split conciliation indisponivel",
-            splitConcErr,
-          );
+            const { data, error: splitConcErr } = await splitConcQuery;
+            if (splitConcErr) {
+              logServerError(
+                "[relatorios/vendas] split conciliation indisponivel",
+                splitConcErr,
+              );
+              continue;
+            }
+            splitConcRows.push(...(data || []));
+          }
         }
 
         const splitConcIdSet = new Set(

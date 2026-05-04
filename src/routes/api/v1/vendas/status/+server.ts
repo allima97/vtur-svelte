@@ -10,8 +10,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_VENDA_STATUS_BODY_BYTES = 8 * 1024;
 
@@ -19,8 +20,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_STATUS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VENDA_STATUS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -35,7 +36,10 @@ export async function PATCH(event) {
       return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const newStatus = String(body?.status || '').trim();
     if (!newStatus) {
       return json({ success: false, error: 'Status obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -47,23 +51,18 @@ export async function PATCH(event) {
       scope,
       event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
     // ✅ Confirma ownership antes de atualizar
-    let checkQuery = client.from('vendas').select('id').eq('id', id);
-    if (companyIds.length > 0) checkQuery = checkQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) checkQuery = checkQuery.in('vendedor_id', vendedorIds);
-    const { data: sale } = await checkQuery.maybeSingle();
+    const sale = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
     if (!sale) {
       return json({ success: false, error: 'Venda nao encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
+    const saleCompanyId = String(sale.company_id || '').trim();
 
-    let updateQuery = client
+    const updateQuery = client
       .from('vendas')
       .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', id);
-    if (companyIds.length > 0) updateQuery = updateQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) updateQuery = updateQuery.in('vendedor_id', vendedorIds);
+      .eq('id', id)
+      .eq('company_id', saleCompanyId);
 
     const { data, error } = await updateQuery.select('id, status, updated_at').single();
     if (error) throw error;

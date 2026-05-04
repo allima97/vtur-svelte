@@ -78,6 +78,32 @@
   let mostrarSugestoesCliente = false;
   let carregandoClientes = false;
 
+  /**
+   * clienteDisplay: valor que aparece no <input> de busca.
+   * Quando um cliente é selecionado, exibe o nome dele.
+   * Quando o usuário digita, segue o que foi digitado (clienteBusca).
+   * Usamos bind:value no FieldInput para evitar problemas do Flowbite
+   * com value= (prop unidirecional) que não reflete corretamente após
+   * selecionar uma opção.
+   */
+  let clienteDisplay = '';
+
+  function handleClienteInput(valor: string) {
+    clienteDisplay = valor;
+    clienteBusca = valor;
+    clienteId = '';
+    clienteSelecionado = null;
+    mostrarSugestoesCliente = true;
+  }
+
+  function selecionarCliente(c: ClienteOption) {
+    clienteId = c.id;
+    clienteSelecionado = c;
+    clienteDisplay = c.nome;
+    clienteBusca = '';
+    mostrarSugestoesCliente = false;
+  }
+
   $: clientesFiltrados = clienteBusca.trim().length >= 1
     ? clientes.filter((c) => {
         const q = clienteBusca.toLowerCase();
@@ -410,6 +436,7 @@
     clienteId = '';
     clienteSelecionado = null;
     clienteBusca = '';
+    clienteDisplay = '';
   }
 
   // ── Salvar ────────────────────────────────────────────────────────────────
@@ -590,15 +617,10 @@
         <FieldInput
           label="Cliente *"
           icon={Search}
-          value={clienteSelecionado ? clienteSelecionado.nome : clienteBusca}
+          bind:value={clienteDisplay}
           placeholder={carregandoClientes ? 'Carregando clientes...' : 'Buscar cliente por nome ou CPF...'}
           disabled={carregandoClientes}
-          on:input={(e) => {
-            clienteBusca = inputValue(e);
-            clienteId = '';
-            clienteSelecionado = null;
-            mostrarSugestoesCliente = true;
-          }}
+          on:input={(e) => handleClienteInput(inputValue(e))}
           on:focus={() => { mostrarSugestoesCliente = true; }}
           on:blur={() => setTimeout(() => { mostrarSugestoesCliente = false; }, 150)}
         />
@@ -614,10 +636,7 @@
                   class_name="w-full justify-start rounded-none px-4 py-2.5 text-left text-sm hover:!bg-slate-50 {clienteId === c.id ? 'bg-blue-50 font-medium text-blue-700 hover:!bg-blue-50' : 'text-slate-800'}"
                   on:mousedown={(e) => {
                     e.preventDefault();
-                    clienteId = c.id;
-                    clienteSelecionado = c;
-                    clienteBusca = '';
-                    mostrarSugestoesCliente = false;
+                    selecionarCliente(c);
                   }}
                 >
                   <div class="font-medium">{c.nome}</div>
@@ -628,7 +647,7 @@
           </div>
         {/if}
         {#if clienteSelecionado}
-          <p class="mt-1 text-xs text-green-600">Cliente selecionado</p>
+          <p class="mt-1 text-xs text-green-600">✓ {clienteSelecionado.nome}</p>
         {/if}
       </div>
 

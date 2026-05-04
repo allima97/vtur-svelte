@@ -3,7 +3,9 @@ import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+
+const MAX_CONVITE_ACTIVATE_BODY_BYTES = 32 * 1024;
 
 function errorJson(message: string, status: number) {
   return json({ error: message }, { status, headers: NO_STORE_HEADERS });
@@ -26,11 +28,14 @@ function authAlreadyExists(error: unknown) {
 
 export const POST: RequestHandler = async (event) => {
   try {
-    if (!isSameOriginRequest(event.request)) {
-      return errorJson('Origem inválida.', 403);
-    }
+    const originError = rejectCrossOriginRequest(event.request, 'Origem inválida.');
+    if (originError) return originError;
 
-    const body = await event.request.json().catch(() => ({}));
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CONVITE_ACTIVATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data && typeof bodyResult.data === 'object'
+      ? (bodyResult.data as Record<string, any>)
+      : {};
     const inviteId = String(body.invite_id || '').trim();
     const email = normalizeEmail(body.email);
     const password = String(body.password || '');

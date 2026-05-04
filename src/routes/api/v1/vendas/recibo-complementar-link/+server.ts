@@ -9,10 +9,19 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function safeJsonParse(text: string) {
   try {
@@ -26,8 +35,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -37,7 +46,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as
       | {
           primary_venda_id?: string;
@@ -56,6 +65,30 @@ export async function POST(event: RequestEvent) {
       scope,
       body?.company_id || body?.empresa_id || event.url.searchParams.get('empresa_id')
     );
+    const companySet = new Set(companyIds.map((id) => String(id || '').trim()).filter(Boolean));
+
+    const fetchScopedSales = async (saleIds: string[]) => {
+      const rows: any[] = [];
+      const uniqueSaleIds = Array.from(new Set(saleIds.map((id) => String(id || '').trim()).filter((id) => isUuid(id))));
+      for (const batch of chunkArray(uniqueSaleIds)) {
+        const { data, error } = await client
+          .from('vendas')
+          .select('id, company_id')
+          .in('id', batch);
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
+
+      const map = new Map<string, any>();
+      for (const row of rows) {
+        const id = String(row?.id || '').trim();
+        const companyId = String(row?.company_id || '').trim();
+        if (!id) continue;
+        if (!scope.isAdmin && companySet.size > 0 && !companySet.has(companyId)) continue;
+        map.set(id, row);
+      }
+      return map;
+    };
 
     if (Array.isArray(body?.links)) {
       const primaryVendaId = String(body?.primary_venda_id || '').trim();
@@ -74,12 +107,12 @@ export async function POST(event: RequestEvent) {
         return new Response('Sem links validos.', { status: 400 });
       }
 
-      let primarySaleQuery = client.from('vendas').select('id').eq('id', primaryVendaId);
-      if (companyIds.length > 0) primarySaleQuery = primarySaleQuery.in('company_id', companyIds);
-      const { data: primarySale, error: primarySaleError } = await primarySaleQuery.maybeSingle();
-      if (primarySaleError) throw primarySaleError;
-      if (!primarySale) {
+      const scopedSales = await fetchScopedSales([primaryVendaId, ...links.map((link) => link.venda_id)]);
+      if (!scopedSales.has(primaryVendaId)) {
         return new Response('Venda nao encontrada.', { status: 404 });
+      }
+      if (links.some((link) => !scopedSales.has(link.venda_id))) {
+        return new Response('Venda complementar fora do escopo.', { status: 403 });
       }
 
       const { error: batchError } = await client
@@ -107,22 +140,14 @@ export async function POST(event: RequestEvent) {
       return new Response('recibo_cruzado_id invalido.', { status: 400 });
     }
 
-    let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
-    if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    const { data: sale, error: saleError } = await saleQuery.maybeSingle();
-    if (saleError) throw saleError;
-    if (!sale) {
+    const saleIdsToValidate = [vendaId, vendaCruzadaId].filter(Boolean);
+    const scopedSales = await fetchScopedSales(saleIdsToValidate);
+    if (!scopedSales.has(vendaId)) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }
 
-    if (vendaCruzadaId) {
-      let crossSaleQuery = client.from('vendas').select('id').eq('id', vendaCruzadaId);
-      if (companyIds.length > 0) crossSaleQuery = crossSaleQuery.in('company_id', companyIds);
-      const { data: crossSale, error: crossSaleError } = await crossSaleQuery.maybeSingle();
-      if (crossSaleError) throw crossSaleError;
-      if (!crossSale) {
-        return new Response('Venda cruzada nao encontrada.', { status: 404 });
-      }
+    if (vendaCruzadaId && !scopedSales.has(vendaCruzadaId)) {
+      return new Response('Venda cruzada nao encontrada.', { status: 404 });
     }
 
     const primaryLink = { venda_id: vendaId, recibo_id: reciboId };

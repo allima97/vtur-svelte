@@ -1,5 +1,5 @@
 import { isUuid } from "$lib/server/v1";
-import { rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
+import { readTextBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import {
   buildNoStoreJsonResponse,
   buildNoStoreTextResponse,
@@ -15,10 +15,10 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_PREFERENCIAS_SAVE_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const textResult = await readTextBodyLimited(event.request, MAX_PREFERENCIAS_SAVE_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     if (rawBody.length > MAX_PREFERENCIAS_SAVE_BODY_BYTES) {
       return buildNoStoreTextResponse("Payload muito grande.", 413);
     }

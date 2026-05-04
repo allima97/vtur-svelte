@@ -9,7 +9,7 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
 
@@ -57,8 +57,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_TIPO_PACOTES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_TIPO_PACOTES_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -68,7 +68,10 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros'], 2, 'Sem permissão para salvar tipos de pacote.');
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta } = body;
 
     const nomeTrimmed = String(nome || '').trim().slice(0, 120);

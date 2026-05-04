@@ -1,5 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   requireAuthenticatedUser,
   resolveUserScope,
@@ -18,8 +18,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(event.request, MAX_ORCAMENTO_CLIENTE_CREATE_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ORCAMENTO_CLIENTE_CREATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
@@ -27,7 +27,10 @@ export async function POST(event: RequestEvent) {
 
     ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para criar Orcamentos.');
 
-    const body = await event.request.json().catch(() => null);
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : null;
     const nome = titleCaseNome(String(body?.nome || '').trim());
     const telefone = String(body?.telefone || '').trim();
     if (!nome || !telefone) return new Response('Nome e telefone obrigatorios.', { status: 400 });

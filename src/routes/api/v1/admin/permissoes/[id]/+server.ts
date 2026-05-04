@@ -24,7 +24,7 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateUserReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PERMISSIONS_BODY_BYTES = 256 * 1024;
 
@@ -79,8 +79,8 @@ export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_PERMISSIONS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_PERMISSIONS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const { session, user } = await event.locals.safeGetSession();
     if (!session || !user) return new Response('Sessao invalida.', { status: 401, headers: NO_STORE_HEADERS });
@@ -93,7 +93,10 @@ export async function POST(event: RequestEvent) {
     const userId = String(event.params.id || '').trim();
     if (!isUuid(userId)) return new Response('ID invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     const targetUser = await loadManagedUser(client, scope, userId);
     if (!targetUser) return new Response('Usuario fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });

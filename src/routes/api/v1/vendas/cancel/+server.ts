@@ -10,8 +10,9 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_VENDA_CANCEL_BODY_BYTES = 8 * 1024;
 
@@ -27,8 +28,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_CANCEL_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_VENDA_CANCEL_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -38,7 +39,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 4, 'Sem permissao para cancelar vendas.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as { venda_id?: string } | null;
     const vendaId = String(body?.venda_id || '').trim();
 
@@ -55,22 +56,18 @@ export async function POST(event) {
       scope,
       event.url.searchParams.get('vendedor_id') || event.url.searchParams.get('vendedor_ids')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
-
-    let saleQuery = client.from('vendas').select('id').eq('id', vendaId);
-    if (companyIds.length > 0) saleQuery = saleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) saleQuery = saleQuery.in('vendedor_id', vendedorIds);
-
-    const { data: sale, error: saleError } = await saleQuery.maybeSingle();
-    if (saleError) throw saleError;
+    const sale = await fetchSaleForScope({ client, scope, saleId: vendaId, companyIds, vendedorIds });
     if (!sale) {
       return new Response('Venda nao encontrada.', { status: 404 });
     }
+    const saleCompanyId = String(sale.company_id || '').trim();
 
     // Soft-delete: vendas.cancelada boolean NOT NULL DEFAULT false
-    let cancelQuery = client.from('vendas').update({ cancelada: true }).eq('id', vendaId);
-    if (companyIds.length > 0) cancelQuery = cancelQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) cancelQuery = cancelQuery.in('vendedor_id', vendedorIds);
+    const cancelQuery = client
+      .from('vendas')
+      .update({ cancelada: true })
+      .eq('id', vendaId)
+      .eq('company_id', saleCompanyId);
 
     const { error: cancelError } = await cancelQuery;
     if (cancelError) throw cancelError;

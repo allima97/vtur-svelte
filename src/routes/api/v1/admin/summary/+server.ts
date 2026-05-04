@@ -20,6 +20,15 @@ const TEXT_NO_STORE_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
   ...NO_STORE_HEADERS
 };
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event) {
   try {
@@ -53,11 +62,6 @@ export async function GET(event) {
 
     let pendingMasterLinks = 0;
     try {
-      let pendingQuery = client
-        .from('master_empresas')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
       if (!scope.isAdmin) {
         const companyIds = (scope.companyIds || []).filter(Boolean);
         if (scope.companyId) companyIds.push(scope.companyId);
@@ -65,12 +69,22 @@ export async function GET(event) {
         if (!uniqueIds.length) {
           pendingMasterLinks = 0;
         } else {
-          pendingQuery = pendingQuery.in('company_id', uniqueIds);
+          for (const batch of chunkArray(uniqueIds)) {
+            const { count } = await client
+              .from('master_empresas')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'pending')
+              .in('company_id', batch);
+            pendingMasterLinks += Number(count || 0);
+          }
         }
+      } else {
+        const { count } = await client
+          .from('master_empresas')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        pendingMasterLinks = Number(count || 0);
       }
-
-      const { count } = await pendingQuery;
-      pendingMasterLinks = Number(count || 0);
     } catch {
       pendingMasterLinks = 0;
     }
@@ -95,17 +109,24 @@ export async function GET(event) {
     let billingRows: any[] = [];
     if (companyIds.length > 0) {
       try {
-        let billingQuery = client
-          .from('company_billing')
-          .select('company_id, status, valor_mensal, proximo_vencimento');
-
-        if (!scope.isAdmin) {
-          billingQuery = billingQuery.in('company_id', companyIds);
+        if (scope.isAdmin) {
+          const { data, error } = await client
+            .from('company_billing')
+            .select('company_id, status, valor_mensal, proximo_vencimento');
+          if (error) throw error;
+          billingRows = data || [];
+        } else {
+          const rows: any[] = [];
+          for (const batch of chunkArray(companyIds)) {
+            const { data, error } = await client
+              .from('company_billing')
+              .select('company_id, status, valor_mensal, proximo_vencimento')
+              .in('company_id', batch);
+            if (error) throw error;
+            rows.push(...(data || []));
+          }
+          billingRows = rows;
         }
-
-        const { data, error } = await billingQuery;
-        if (error) throw error;
-        billingRows = data || [];
       } catch {
         billingRows = [];
       }

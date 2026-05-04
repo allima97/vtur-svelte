@@ -9,6 +9,17 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { fetchSaleForScope } from '$lib/server/salesScope';
+
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event) {
   try {
@@ -36,17 +47,23 @@ export async function GET(event) {
     );
     const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
-    let currentSaleQuery = client
-      .from('vendas')
-      .select('id, cliente_id, vendedor_id, company_id')
-      .eq('id', vendaId);
-    if (companyIds.length > 0) currentSaleQuery = currentSaleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && requestedVendedorIds.length > 0) currentSaleQuery = currentSaleQuery.in('vendedor_id', requestedVendedorIds);
+    const companyScopeSet = new Set(companyIds);
+    const vendedorScopeSet = new Set(requestedVendedorIds);
 
-    const { data: currentSale, error: currentSaleError } = await currentSaleQuery.maybeSingle();
-    if (currentSaleError) throw currentSaleError;
+    const currentSale = await fetchSaleForScope({
+      client,
+      scope,
+      saleId: vendaId,
+      companyIds,
+      vendedorIds: requestedVendedorIds,
+      extraSelect: 'cliente_id'
+    });
     if (!currentSale) {
       return new Response('Venda nao encontrada.', { status: 404 });
+    }
+    const currentVendedorId = String(currentSale.vendedor_id || '').trim();
+    if (scope.isMaster && requestedVendedorIds.length > 0 && !vendedorScopeSet.has(currentVendedorId)) {
+      return json({ items: [] });
     }
 
     let query = client
@@ -68,34 +85,41 @@ export async function GET(event) {
         destino_cidade:cidades!destino_cidade_id (id, nome),
         vendedor:users!vendedor_id (nome_completo)
       `)
-      .eq('cliente_id', currentSale.cliente_id)
-      .eq('vendedor_id', currentSale.vendedor_id)
+      .eq('cliente_id', String(currentSale.cliente_id || ''))
+      .eq('vendedor_id', currentVendedorId)
       .neq('id', currentSale.id)
       .order('data_venda', { ascending: false });
 
-    if (companyIds.length > 0) query = query.in('company_id', companyIds);
-
-    if (scope.isMaster && requestedVendedorIds.length > 0) {
-      query = query.in('vendedor_id', requestedVendedorIds);
+    if (companyIds.length > 0 && companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+      query = query.in('company_id', companyIds);
     }
 
     const { data: salesData, error: salesError } = await query;
     if (salesError) throw salesError;
 
-    const saleIds = (salesData || [])
+    const scopedSalesData = (salesData || []).filter((row: any) => {
+      if (companyIds.length === 0 || companyIds.length <= SUPABASE_IN_BATCH_SIZE) return true;
+      return companyScopeSet.has(String(row?.company_id || '').trim());
+    });
+
+    const saleIds = scopedSalesData
       .map((row: any) => String(row?.id || '').trim())
       .filter(Boolean);
 
     const receiptsBySale = new Map<string, string[]>();
     if (saleIds.length > 0) {
-      const { data: receiptsData, error: receiptsError } = await client
-        .from('vendas_recibos')
-        .select('venda_id, numero_recibo')
-        .in('venda_id', saleIds)
-        .order('numero_recibo', { ascending: true });
-      if (receiptsError) throw receiptsError;
+      const receiptsData: any[] = [];
+      for (const batch of chunkArray(saleIds)) {
+        const { data, error: receiptsError } = await client
+          .from('vendas_recibos')
+          .select('venda_id, numero_recibo')
+          .in('venda_id', batch)
+          .order('numero_recibo', { ascending: true });
+        if (receiptsError) throw receiptsError;
+        receiptsData.push(...(data || []));
+      }
 
-      for (const row of receiptsData || []) {
+      for (const row of receiptsData) {
         const refSaleId = String((row as any)?.venda_id || '').trim();
         const numeroRecibo = String((row as any)?.numero_recibo || '').trim();
         if (!refSaleId || !numeroRecibo) continue;
@@ -105,7 +129,7 @@ export async function GET(event) {
       }
     }
 
-    const items = (salesData || []).map((row: any) => {
+    const items = scopedSalesData.map((row: any) => {
       const numerosRecibo = Array.from(new Set(receiptsBySale.get(String(row?.id || '')) || []));
       const cidadeId = row?.destino_cidade_id || row?.destinos?.cidade_id || '';
       return {

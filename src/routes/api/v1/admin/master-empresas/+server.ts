@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { ensureCanManageCompanies, getAccessibleCompanyIds } from '$lib/server/admin';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
@@ -10,6 +10,15 @@ import {
 } from '$lib/server/v1';
 
 const MAX_MASTER_EMPRESAS_BODY_BYTES = 16 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export async function GET(event) {
   try {
@@ -20,22 +29,46 @@ export async function GET(event) {
     ensureCanManageCompanies(scope);
 
     const companyId = String(event.url.searchParams.get('company_id') || '').trim();
-    let query = client
-      .from('master_empresas')
-      .select('id, master_id, company_id, status, created_at, approved_at')
-      .order('created_at', { ascending: false });
+    const buildQuery = (companyIdsFilter: string[] | null) => {
+      let query = client
+        .from('master_empresas')
+        .select('id, master_id, company_id, status, created_at, approved_at')
+        .order('created_at', { ascending: false });
 
-    if (companyId) query = query.eq('company_id', companyId);
-    if (!scope.isAdmin) {
+      if (companyId) query = query.eq('company_id', companyId);
+      else if (companyIdsFilter && companyIdsFilter.length > 0) query = query.in('company_id', companyIdsFilter);
+
+      return query;
+    };
+
+    const fetchRows = async () => {
+      if (scope.isAdmin || companyId) {
+        const { data, error: queryError } = await buildQuery(null);
+        if (queryError) throw queryError;
+        return data || [];
+      }
+
       const accessible = getAccessibleCompanyIds(scope);
-      if (!accessible.length) return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
-      query = query.in('company_id', accessible);
-    }
+      if (!accessible.length) return [];
+      if (accessible.length <= SUPABASE_IN_BATCH_SIZE) {
+        const { data, error: queryError } = await buildQuery(accessible);
+        if (queryError) throw queryError;
+        return data || [];
+      }
 
-    const { data, error: queryError } = await query;
-    if (queryError) throw queryError;
+      const rows: any[] = [];
+      for (const batch of chunkArray(accessible)) {
+        const { data, error: queryError } = await buildQuery(batch);
+        if (queryError) throw queryError;
+        rows.push(...(data || []));
+      }
 
-    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
+      return rows.sort((left, right) =>
+        String(right?.created_at || '').localeCompare(String(left?.created_at || ''))
+      );
+    };
+
+    return json({ items: await fetchRows() }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar vinculos master.');
   }
@@ -45,13 +78,16 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_MASTER_EMPRESAS_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_MASTER_EMPRESAS_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     ensureCanManageCompanies(scope);
 

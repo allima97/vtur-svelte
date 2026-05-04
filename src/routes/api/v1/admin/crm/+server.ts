@@ -8,7 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
 
 const MAX_ADMIN_CRM_BODY_BYTES = 256 * 1024;
@@ -64,8 +64,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_CRM_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ADMIN_CRM_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -75,7 +75,10 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['admin', 'parametros_avisos', 'avisos', 'parametros'], 3, 'Sem permissão para editar CRM Admin.');
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const { entity, action, data: payload, id } = body;
 
     const tableMap: Record<string, string> = {

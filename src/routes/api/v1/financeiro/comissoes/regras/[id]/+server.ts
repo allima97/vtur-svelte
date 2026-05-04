@@ -7,8 +7,8 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
 
@@ -19,16 +19,11 @@ function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, c
   return scope.companyIds.includes(normalized);
 }
 
-function invalidateCommissionRuleReadModels() {
-  invalidateReadModelCache({
-    tags: [
-      READ_MODEL_TAGS.comissoes,
-      READ_MODEL_TAGS.finance,
-      READ_MODEL_TAGS.dashboard,
-      READ_MODEL_TAGS.vendasKpis,
-      READ_MODEL_TAGS.ranking
-    ]
-  });
+function invalidateCommissionRuleReadModels(params?: {
+  companyIds?: string[] | null;
+  userId?: string | null;
+}) {
+  invalidateCommissionReadModels(params);
 }
 
 export async function GET(event) {
@@ -65,8 +60,8 @@ export async function PUT(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_COMMISSION_RULE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_COMMISSION_RULE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -77,7 +72,10 @@ export async function PUT(event) {
     }
 
     const { id } = event.params;
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
 
     const { data: current, error: currentError } = await client
       .from('commission_rule')
@@ -125,7 +123,10 @@ export async function PUT(event) {
       }
     }
 
-    invalidateCommissionRuleReadModels();
+    invalidateCommissionRuleReadModels({
+      companyIds: current.company_id ? [current.company_id] : [],
+      userId: user.id
+    });
     return json({ success: true, data }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar regra.');
@@ -164,7 +165,10 @@ export async function DELETE(event) {
     const { error } = await query;
     if (error) throw error;
 
-    invalidateCommissionRuleReadModels();
+    invalidateCommissionRuleReadModels({
+      companyIds: current.company_id ? [current.company_id] : [],
+      userId: user.id
+    });
     return json({ success: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao excluir regra.');

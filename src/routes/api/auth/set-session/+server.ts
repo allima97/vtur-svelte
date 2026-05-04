@@ -1,23 +1,21 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
 import { dev } from '$app/environment';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { isSameOriginRequest } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
+const MAX_SET_SESSION_BODY_BYTES = 16 * 1024;
+
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    if (!isSameOriginRequest(request)) {
-      return json({ error: 'Origem inválida.' }, { status: 403, headers: NO_STORE_HEADERS });
-    }
+    const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
+    if (originError) return originError;
 
-    const contentLength = Number(request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > 16 * 1024) {
-      return json({ error: 'Payload muito grande.' }, { status: 413, headers: NO_STORE_HEADERS });
-    }
-
-    const body = await request.json().catch(() => null);
+    const bodyResult = await readJsonBodyLimited(request, MAX_SET_SESSION_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data as Record<string, any> | null;
     if (!body || typeof body !== 'object') {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }

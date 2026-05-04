@@ -9,10 +9,19 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_CONCILIACAO_REVERT_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -30,8 +39,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_REVERT_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CONCILIACAO_REVERT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -41,7 +50,10 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem acesso à Conciliação.');
     }
 
-    const body = await event.request.json().catch(() => null);
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : null;
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     const companyId = companyIds[0] || null;
     if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -73,14 +85,17 @@ export async function POST(event) {
       targetReciboIds = Array.from(new Set(rows.map((r: any) => String(r?.venda_recibo_id || '')).filter(Boolean)));
       changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
     } else {
-      const { data, error } = await client
-        .from('conciliacao_recibo_changes')
-        .select('id, venda_recibo_id')
-        .in('id', ids.slice(0, 500))
-        .eq('company_id', companyId)
-        .is('reverted_at', null);
-      if (error) throw error;
-      const rows = data || [];
+      const rows: any[] = [];
+      for (const batch of chunkArray(ids.slice(0, 500))) {
+        const { data, error } = await client
+          .from('conciliacao_recibo_changes')
+          .select('id, venda_recibo_id')
+          .in('id', batch)
+          .eq('company_id', companyId)
+          .is('reverted_at', null);
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
       targetReciboIds = Array.from(new Set(rows.map((r: any) => String(r?.venda_recibo_id || '')).filter(Boolean)));
       // Somente os IDs confirmados pelo banco (company_id validado acima)
       changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
@@ -91,15 +106,19 @@ export async function POST(event) {
     }
 
     // Busca detalhes das alterações para agrupar os changeIds por recibo
-    const { data: pendingChanges, error: pendingErr } = await client
-      .from('conciliacao_recibo_changes')
-      .select('id, venda_recibo_id, changed_at')
-      .eq('company_id', companyId)
-      .in('id', changeIdsParaReverter)
-      .is('reverted_at', null)
-      .order('changed_at', { ascending: true })
-      .limit(2000);
-    if (pendingErr) throw pendingErr;
+    const pendingChanges: any[] = [];
+    for (const batch of chunkArray(changeIdsParaReverter)) {
+      const { data, error } = await client
+        .from('conciliacao_recibo_changes')
+        .select('id, venda_recibo_id, changed_at')
+        .eq('company_id', companyId)
+        .in('id', batch)
+        .is('reverted_at', null)
+        .order('changed_at', { ascending: true })
+        .limit(2000);
+      if (error) throw error;
+      pendingChanges.push(...(data || []));
+    }
 
     // Agrupa changeIds por recibo (apenas para contagem e agrupamento do audit trail)
     const changesByRecibo = new Map<string, { changeIds: string[] }>();
@@ -123,17 +142,25 @@ export async function POST(event) {
       attempted += 1;
 
       // Marca como revertido os registros de audit desta série
-      const { error: revErr } = await client
-        .from('conciliacao_recibo_changes')
-        .update({
-          reverted_at: nowIso,
-          reverted_by: user.id,
-          revert_reason: 'manual'
-        })
-        .eq('company_id', companyId)
-        .in('id', meta.changeIds);
+      let hasError = false;
+      for (const batch of chunkArray(meta.changeIds)) {
+        const { error: revErr } = await client
+          .from('conciliacao_recibo_changes')
+          .update({
+            reverted_at: nowIso,
+            reverted_by: user.id,
+            revert_reason: 'manual'
+          })
+          .eq('company_id', companyId)
+          .in('id', batch);
 
-      if (revErr) {
+        if (revErr) {
+          hasError = true;
+          break;
+        }
+      }
+
+      if (hasError) {
         errored += 1;
         continue;
       }

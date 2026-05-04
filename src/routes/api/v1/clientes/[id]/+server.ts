@@ -20,7 +20,7 @@ import {
 } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
 
 const MAX_CLIENTE_UPDATE_BODY_BYTES = 128 * 1024;
 const MAX_CLIENTE_DELETE_BODY_BYTES = 8 * 1024;
@@ -83,15 +83,15 @@ async function fetchResumoRelacionamentos(
   clienteId: string,
   filters: ClienteScopedFilters
 ) {
-  const buildVendasQuery = (vendedorIds?: string[]) => {
+  const buildVendasQuery = (companyIds?: string[], vendedorIds?: string[]) => {
     let vendasQuery = client
       .from('vendas')
       .select('id, data_venda, valor_total')
       .eq('cliente_id', clienteId)
       .eq('cancelada', false);
 
-    if (filters.companyIds.length > 0) {
-      vendasQuery = vendasQuery.in('company_id', filters.companyIds);
+    if (companyIds && companyIds.length > 0) {
+      vendasQuery = vendasQuery.in('company_id', companyIds);
     }
     if (vendedorIds && vendedorIds.length > 0) {
       vendasQuery = vendasQuery.in('vendedor_id', vendedorIds);
@@ -101,19 +101,16 @@ async function fetchResumoRelacionamentos(
   };
 
   let vendasData: any[] = [];
-  if (filters.vendedorIds.length > SUPABASE_IN_BATCH_SIZE) {
-    for (const batch of chunkArray(filters.vendedorIds)) {
-      const { data, error: vendasError } = await buildVendasQuery(batch);
+  const companyBatches = filters.companyIds.length > 0 ? chunkArray(filters.companyIds) : [undefined];
+  const vendedorBatches = filters.vendedorIds.length > 0 ? chunkArray(filters.vendedorIds) : [undefined];
+  for (const companyBatch of companyBatches) {
+    for (const vendedorBatch of vendedorBatches) {
+      const { data, error: vendasError } = await buildVendasQuery(companyBatch, vendedorBatch);
       if (vendasError) throw vendasError;
       vendasData.push(...(data || []));
     }
-  } else {
-    const { data, error: vendasError } = await buildVendasQuery(
-      filters.vendedorIds.length > 0 ? filters.vendedorIds : undefined
-    );
-    if (vendasError) throw vendasError;
-    vendasData = data || [];
   }
+  vendasData = Array.from(new Map(vendasData.map((row: any) => [String(row?.id || ''), row])).values());
 
   const buildQuotesQuery = (creatorIds?: string[]) => {
     let quotesQuery = client
@@ -209,8 +206,8 @@ export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CLIENTE_UPDATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CLIENTE_UPDATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -229,7 +226,10 @@ export async function PATCH(event) {
     const existing = await fetchCliente(client, id);
     if (!existing) return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const form: ClienteFormData = {
       ...createInitialClienteForm(),
       ...fillClienteFormFromApi(existing),

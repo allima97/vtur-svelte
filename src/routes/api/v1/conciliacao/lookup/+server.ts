@@ -1,10 +1,19 @@
 import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CONCILIACAO_LOOKUP_BODY_BYTES = 256 * 1024;
 const MAX_LOOKUP_DOCUMENTOS = 500;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 function normalizeNumeroRecibo(value: string) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -128,18 +137,25 @@ async function fetchReciboCandidates(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
-  const { data: vendas } = await client
-    .from('vendas')
-    .select('id, company_id, vendedor_id')
-    .in('id', vendaIds)
-    .in('company_id', companyIds);
+  const companySet = new Set(companyIds.map((id) => String(id || '').trim()).filter(Boolean));
+  const vendas: any[] = [];
+  for (const batch of chunkArray(vendaIds)) {
+    const { data, error } = await client
+      .from('vendas')
+      .select('id, company_id, vendedor_id')
+      .in('id', batch);
+    if (error) throw error;
+    vendas.push(...(data || []));
+  }
 
   const vendaMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
   for (const row of vendas || []) {
     const id = String((row as any)?.id || '').trim();
     if (!id) continue;
+    const companyId = String((row as any)?.company_id || '').trim();
+    if (!companySet.has(companyId)) continue;
     vendaMap.set(id, {
-      company_id: String((row as any)?.company_id || '').trim() || null,
+      company_id: companyId || null,
       vendedor_id: String((row as any)?.vendedor_id || '').trim() || null
     });
   }
@@ -204,8 +220,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_CONCILIACAO_LOOKUP_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_CONCILIACAO_LOOKUP_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -215,7 +231,10 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     if (companyIds.length === 0) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 

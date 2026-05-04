@@ -6,7 +6,7 @@ import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/se
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CONVITE_SEND_BODY_BYTES = 64 * 1024;
 
@@ -146,8 +146,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_CONVITE_SEND_BODY_BYTES);
-    if (payloadError) return payloadError;
 
     const user = await requireAuthenticatedUser({ locals } as any);
     const adminClient = getAdminClient();
@@ -160,7 +158,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    const bodyResult = await readJsonBodyLimited(request, MAX_CONVITE_SEND_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data && typeof bodyResult.data === 'object'
+      ? (bodyResult.data as Record<string, any>)
+      : {};
     const email = String(body.email || "").trim().toLowerCase();
     const companyId = String(body.company_id || "").trim();
     const userTypeId = String(body.user_type_id || "").trim();

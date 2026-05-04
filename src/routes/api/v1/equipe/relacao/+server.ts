@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   getAdminClient,
   requireAuthenticatedUser,
@@ -16,15 +16,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const sizeError = rejectLargePayload(request, MAX_EQUIPE_RELACAO_BODY_BYTES);
-    if (sizeError) return sizeError;
+    const bodyResult = await readJsonBodyLimited(request, MAX_EQUIPE_RELACAO_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const user = await requireAuthenticatedUser({ locals } as any);
     const client = locals.supabase;
     const adminClient = getAdminClient();
     const scope = await resolveUserScope(adminClient, user.id);
 
-    const body = await request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const gestorId = String(body.gestor_id || "").trim();
     const vendedorId = String(body.vendedor_id || "").trim();
     const ativo = body.ativo === true;

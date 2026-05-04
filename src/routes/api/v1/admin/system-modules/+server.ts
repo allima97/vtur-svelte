@@ -8,7 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_SYSTEM_MODULES_BODY_BYTES = 64 * 1024;
 
@@ -95,8 +95,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_SYSTEM_MODULES_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(request, MAX_SYSTEM_MODULES_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
@@ -106,7 +106,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       return json({ error: 'Sem acesso aos modulos do sistema.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const disabledList = Array.isArray(body?.disabled) ? body.disabled : [];
 
     const normalized = Array.from(

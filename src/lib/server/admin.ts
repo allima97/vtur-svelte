@@ -635,11 +635,13 @@ export async function syncFinanceiroCompanyLinks(
     .filter(Boolean);
 
   if (idsToDelete.length > 0) {
-    const { error: deleteError } = await client
-      .from('financeiro_empresas')
-      .delete()
-      .in('id', idsToDelete);
-    if (deleteError) throw deleteError;
+    for (const batch of chunkArray(idsToDelete)) {
+      const { error: deleteError } = await client
+        .from('financeiro_empresas')
+        .delete()
+        .in('id', batch);
+      if (deleteError) throw deleteError;
+    }
   }
 
   const rowsToInsert = cleanedCompanyIds

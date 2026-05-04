@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CONVITE_ACCEPT_BODY_BYTES = 32 * 1024;
 
@@ -26,13 +26,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_CONVITE_ACCEPT_BODY_BYTES);
-    if (payloadError) return payloadError;
 
     const user = await requireAuthenticatedUser({ locals } as any);
     const adminClient = getAdminClient();
 
-    const body = await request.json().catch(() => ({}));
+    const bodyResult = await readJsonBodyLimited(request, MAX_CONVITE_ACCEPT_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+    const body = bodyResult.data && typeof bodyResult.data === 'object'
+      ? (bodyResult.data as Record<string, any>)
+      : {};
     const inviteId = String(body.invite_id || "").trim();
     if (!inviteId) return errorJson("invite_id e obrigatorio.", 400);
     if (!isUuid(inviteId)) return errorJson("invite_id invalido.", 400);

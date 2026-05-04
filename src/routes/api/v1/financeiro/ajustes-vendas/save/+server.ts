@@ -9,7 +9,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
 
 const MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES = 32 * 1024;
@@ -47,8 +47,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -70,7 +70,10 @@ export async function POST(event) {
       );
     }
 
-    const body = await event.request.json().catch(() => null);
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : null;
     const ajusteId = String(body?.ajuste_id || '').trim();
     const vendaReciboIdRaw = String(body?.venda_recibo_id || '').trim();
     const vendedorDestinoId = String(body?.vendedor_destino_id || '').trim();

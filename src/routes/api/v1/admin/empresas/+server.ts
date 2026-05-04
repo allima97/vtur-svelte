@@ -11,46 +11,84 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
   // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active
-  const queryWithBilling = client
-    .from('companies')
-    .select(
-      `
-        id,
-        nome_fantasia,
-        nome_empresa,
-        cnpj,
-        telefone,
-        endereco,
-        cidade,
-        estado,
-        active,
-        billing:company_billing (
+  const buildBillingQuery = (idsFilter: string[] | null) => {
+    const queryWithBilling = client
+      .from('companies')
+      .select(
+        `
           id,
-          status,
-          valor_mensal,
-          ultimo_pagamento,
-          proximo_vencimento,
-          plan:plans (id, nome)
-        )
-      `
-    )
-    .order('nome_fantasia', { ascending: true });
+          nome_fantasia,
+          nome_empresa,
+          cnpj,
+          telefone,
+          endereco,
+          cidade,
+          estado,
+          active,
+          billing:company_billing (
+            id,
+            status,
+            valor_mensal,
+            ultimo_pagamento,
+            proximo_vencimento,
+            plan:plans (id, nome)
+          )
+        `
+      )
+      .order('nome_fantasia', { ascending: true });
 
-  const scopedQuery =
-    companyIds && companyIds.length > 0 ? queryWithBilling.in('id', companyIds) : queryWithBilling;
+    return idsFilter && idsFilter.length > 0 ? queryWithBilling.in('id', idsFilter) : queryWithBilling;
+  };
 
-  const withBilling = await scopedQuery;
-  if (!withBilling.error) return withBilling.data || [];
+  const loadWithBilling = async () => {
+    if (!companyIds || companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+      const withBilling = await buildBillingQuery(companyIds);
+      if (withBilling.error) throw withBilling.error;
+      return withBilling.data || [];
+    }
 
-  const message = String(withBilling.error.message || '').toLowerCase();
-  if (!message.includes('company_billing') && !message.includes('plans')) {
-    throw withBilling.error;
+    const rows: any[] = [];
+    for (const batch of chunkArray(companyIds)) {
+      const withBilling = await buildBillingQuery(batch);
+      if (withBilling.error) throw withBilling.error;
+      rows.push(...(withBilling.data || []));
+    }
+    return dedupeById(rows).sort((left, right) =>
+      String(left?.nome_fantasia || '').localeCompare(String(right?.nome_fantasia || ''), 'pt-BR')
+    );
+  };
+
+  try {
+    return await loadWithBilling();
+  } catch (withBillingError: any) {
+    const message = String(withBillingError.message || '').toLowerCase();
+    if (!message.includes('company_billing') && !message.includes('plans')) {
+      throw withBillingError;
+    }
   }
 
   const fallback = await client
@@ -79,17 +117,19 @@ export async function GET(event) {
     let masterLinkCounts = new Map<string, number>();
 
     try {
-      const masterLinksRes =
-        companyIds.length > 0
-          ? await client.from('master_empresas').select('company_id').in('company_id', companyIds)
-          : { data: [], error: null };
-      if (masterLinksRes.error) throw masterLinksRes.error;
+      for (const batch of chunkArray(companyIds)) {
+        const masterLinksRes =
+          batch.length > 0
+            ? await client.from('master_empresas').select('company_id').in('company_id', batch)
+            : { data: [], error: null };
+        if (masterLinksRes.error) throw masterLinksRes.error;
 
-      (masterLinksRes.data || []).forEach((row: any) => {
-        const companyId = String(row.company_id || '').trim();
-        if (!companyId) return;
-        masterLinkCounts.set(companyId, Number(masterLinkCounts.get(companyId) || 0) + 1);
-      });
+        (masterLinksRes.data || []).forEach((row: any) => {
+          const companyId = String(row.company_id || '').trim();
+          if (!companyId) return;
+          masterLinkCounts.set(companyId, Number(masterLinkCounts.get(companyId) || 0) + 1);
+        });
+      }
     } catch {
       masterLinkCounts = new Map<string, number>();
     }
@@ -120,13 +160,16 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ADMIN_COMPANY_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, unknown>)
+        : {};
 
     ensureCanManageCompanies(scope);
 

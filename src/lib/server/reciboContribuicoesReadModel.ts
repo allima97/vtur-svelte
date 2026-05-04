@@ -293,15 +293,22 @@ async function fetchStatusRows(
   companyIds: string[],
   monthStarts: string[],
 ) {
-  const { data, error } = await client
-    .from(TABLE_STATUS)
-    .select("company_id, mes, status, dirty_at, rebuilt_at")
-    .eq("modelo", MODEL_NAME)
-    .in("company_id", companyIds)
-    .in("mes", monthStarts);
+  const rows: StatusRow[] = [];
+  for (const companyBatch of chunkArray(companyIds)) {
+    for (const monthBatch of chunkArray(monthStarts)) {
+      const { data, error } = await client
+        .from(TABLE_STATUS)
+        .select("company_id, mes, status, dirty_at, rebuilt_at")
+        .eq("modelo", MODEL_NAME)
+        .in("company_id", companyBatch)
+        .in("mes", monthBatch);
 
-  if (error) throw error;
-  return (data || []) as StatusRow[];
+      if (error) throw error;
+      rows.push(...((data || []) as StatusRow[]));
+    }
+  }
+
+  return rows;
 }
 
 async function upsertStatus(

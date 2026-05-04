@@ -7,7 +7,7 @@ import {
 } from '$lib/server/v1';
 import { ensureClienteAccess } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ACOMPANHANTE_CREATE_BODY_BYTES = 64 * 1024;
 
@@ -40,8 +40,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_ACOMPANHANTE_CREATE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_ACOMPANHANTE_CREATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -50,7 +50,10 @@ export async function POST(event) {
 
     await ensureClienteAccess(client, scope, clienteId, null, null, 2);
 
-    const body = await event.request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
     const nomeCompleto = String(body?.nome_completo || '').trim();
     if (!nomeCompleto) {
       return json({ error: 'Informe o nome completo do acompanhante.' }, { status: 400, headers: NO_STORE_HEADERS });

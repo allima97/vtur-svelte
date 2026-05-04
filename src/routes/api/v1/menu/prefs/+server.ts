@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { normalizeMenuPrefs } from '$lib/server/menuPrefs';
 
@@ -56,12 +56,12 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
 
-    const contentLength = Number(event.request.headers.get('content-length') || 0);
-    if (Number.isFinite(contentLength) && contentLength > MAX_PREFS_BODY_BYTES) {
+    const textResult = await readTextBodyLimited(event.request, MAX_PREFS_BODY_BYTES);
+    if (!textResult.ok) {
       return new Response('Payload muito grande.', { status: 413, headers: TEXT_NO_STORE_HEADERS });
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     if (rawBody.length > MAX_PREFS_BODY_BYTES) {
       return new Response('Payload muito grande.', { status: 413, headers: TEXT_NO_STORE_HEADERS });
     }

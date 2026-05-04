@@ -9,11 +9,20 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const TEMPLATE_DISPATCH_SELECT =
   'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
 const MAX_TEMPLATE_DISPATCH_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   try {
@@ -28,30 +37,52 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const clienteId = String(url.searchParams.get('cliente_id') || '').trim();
     const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50)));
 
-    let query = client
-      .from('cliente_template_dispatches')
-      .select(TEMPLATE_DISPATCH_SELECT)
-      .order('sent_at', { ascending: false })
-      .limit(limit);
+    const buildQuery = (companyIdsFilter?: string[]) => {
+      let query = client
+        .from('cliente_template_dispatches')
+        .select(TEMPLATE_DISPATCH_SELECT)
+        .order('sent_at', { ascending: false })
+        .limit(limit);
 
-    if (!scope.isAdmin) {
-      if (scope.isVendedor && !scope.isGestor && !scope.isMaster) {
-        query = query.eq('user_id', user.id);
-      } else if (scope.companyIds.length > 0) {
-        query = query.in('company_id', scope.companyIds);
-      } else {
-        query = query.eq('user_id', user.id);
+      if (!scope.isAdmin) {
+        if (scope.isVendedor && !scope.isGestor && !scope.isMaster) {
+          query = query.eq('user_id', user.id);
+        } else if (companyIdsFilter && companyIdsFilter.length > 0) {
+          query = query.in('company_id', companyIdsFilter);
+        } else {
+          query = query.eq('user_id', user.id);
+        }
       }
-    }
 
-    if (clienteId && isUuid(clienteId)) {
-      query = query.eq('cliente_id', clienteId);
-    }
+      if (clienteId && isUuid(clienteId)) {
+        query = query.eq('cliente_id', clienteId);
+      }
 
-    const { data, error } = await query;
-    if (error) throw error;
+      return query;
+    };
 
-    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
+    const fetchItems = async () => {
+      if (scope.isAdmin || scope.companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        const { data, error } = await buildQuery(scope.companyIds);
+        if (error) throw error;
+        return data || [];
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(scope.companyIds)) {
+        const { data, error } = await buildQuery(batch);
+        if (error) throw error;
+        rows.push(...(data || []));
+      }
+
+      return Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
+        .sort((left: any, right: any) =>
+          String(right?.sent_at || right?.created_at || '').localeCompare(String(left?.sent_at || left?.created_at || ''))
+        )
+        .slice(0, limit);
+    };
+
+    return json({ items: await fetchItems() }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar envios de templates.');
   }
@@ -61,8 +92,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(request, MAX_TEMPLATE_DISPATCH_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const bodyResult = await readJsonBodyLimited(request, MAX_TEMPLATE_DISPATCH_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser({ locals } as any);
@@ -72,7 +103,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ensureModuloAccess(scope, ['parametros_crm', 'crm', 'clientes'], 2, 'Sem acesso a enviar templates.');
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
 
     const clienteId = String(body.clienteId || body.cliente_id || '').trim();
     const templateId = String(body.templateId || body.template_id || '').trim();

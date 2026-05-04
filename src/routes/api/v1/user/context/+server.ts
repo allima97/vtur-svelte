@@ -1,20 +1,64 @@
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const empresas =
-      scope.companyIds.length > 0
-        ? await client
-            .from('companies')
-            .select('id, nome_fantasia, nome_empresa')
-            .in('id', scope.companyIds)
-            .order('nome_fantasia', { ascending: true })
-        : { data: [], error: null };
+    const fetchEmpresas = async () => {
+      if (scope.companyIds.length === 0) return { data: [], error: null };
+      if (scope.companyIds.length <= SUPABASE_IN_BATCH_SIZE) {
+        return client
+          .from('companies')
+          .select('id, nome_fantasia, nome_empresa')
+          .in('id', scope.companyIds)
+          .order('nome_fantasia', { ascending: true });
+      }
+
+      const rows: any[] = [];
+      for (const batch of chunkArray(scope.companyIds)) {
+        const result = await client
+          .from('companies')
+          .select('id, nome_fantasia, nome_empresa')
+          .in('id', batch)
+          .order('nome_fantasia', { ascending: true });
+        if (result.error) return result;
+        rows.push(...(result.data || []));
+      }
+
+      return {
+        data: dedupeById(rows).sort((left, right) =>
+          String(left?.nome_fantasia || left?.nome_empresa || '').localeCompare(
+            String(right?.nome_fantasia || right?.nome_empresa || ''),
+            'pt-BR'
+          )
+        ),
+        error: null
+      };
+    };
+
+    const empresas = await fetchEmpresas();
 
     if (empresas.error) throw empresas.error;
 

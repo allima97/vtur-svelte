@@ -10,10 +10,12 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/requestGuards';
+import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { isSaleInScope } from '$lib/server/salesScope';
 
 const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
+const SUPABASE_IN_BATCH_SIZE = 100;
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -32,6 +34,14 @@ function safeJsonParse(text: string) {
   } catch {
     return null;
   }
+}
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function normalizeText(value?: string | null) {
@@ -159,8 +169,8 @@ export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
-    const payloadError = rejectLargePayload(event.request, MAX_VENDA_MERGE_BODY_BYTES);
-    if (payloadError) return payloadError;
+    const textResult = await readTextBodyLimited(event.request, MAX_VENDA_MERGE_BODY_BYTES);
+    if (!textResult.ok) return textResult.response;
 
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -170,7 +180,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 3, 'Sem permissao para editar vendas.');
     }
 
-    const rawBody = await event.request.text();
+    const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as {
       venda_id?: string;
       merge_ids?: unknown;
@@ -199,7 +209,6 @@ export async function POST(event) {
       scope,
       event.url.searchParams.get('vendedor_ids') || event.url.searchParams.get('vendedor_id')
     );
-    const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     const bodyVendedorIds = parseBodyIds(body?.vendedor_ids);
     if (scope.isMaster && bodyVendedorIds.length > 0) {
@@ -208,83 +217,87 @@ export async function POST(event) {
 
     const saleIds = [vendaId, ...mergeIds];
 
-    let salesQuery = client
-      .from('vendas')
-      .select('id, vendedor_id, desconto_comercial_aplicado, desconto_comercial_valor, data_embarque, data_final, company_id')
-      .in('id', saleIds);
-
-    if (companyIds.length > 0) salesQuery = salesQuery.in('company_id', companyIds);
-
-    if (shouldApplySellerScope && vendedorIds.length > 0) {
-      salesQuery = salesQuery.in('vendedor_id', vendedorIds);
+    const salesData: any[] = [];
+    for (const batch of chunkArray(saleIds)) {
+      const { data, error: salesError } = await client
+        .from('vendas')
+        .select('id, vendedor_id, desconto_comercial_aplicado, desconto_comercial_valor, data_embarque, data_final, company_id')
+        .in('id', batch);
+      if (salesError) throw salesError;
+      salesData.push(...(data || []));
     }
 
-    const { data: salesData, error: salesError } = await salesQuery;
-    if (salesError) throw salesError;
-
-    const sales = Array.isArray(salesData) ? salesData : [];
+    const sales = salesData.filter((item: any) => isSaleInScope(item, { scope, companyIds, vendedorIds }));
     const foundIds = new Set(sales.map((item: any) => String(item?.id || '')));
     if (saleIds.some((id) => !foundIds.has(id))) {
       return new Response('Vendas invalidas para mescla.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const { data: receiptsData, error: receiptsError } = await client
-      .from('vendas_recibos')
-      .select('id, venda_id, valor_total, valor_taxas, data_inicio, data_fim')
-      .in('venda_id', saleIds);
-    if (receiptsError) throw receiptsError;
-
-    const { data: paymentsData, error: paymentsError } = await client
-      .from('vendas_pagamentos')
-      .select('id, venda_id, forma_pagamento_id, forma_nome, valor_total, valor_bruto, desconto_valor, parcelas, parcelas_qtd, parcelas_valor, paga_comissao, operacao, plano')
-      .in('venda_id', saleIds);
-    if (paymentsError) throw paymentsError;
+    const receiptsData: any[] = [];
+    const paymentsData: any[] = [];
+    for (const batch of chunkArray(saleIds)) {
+      const [receiptsResult, paymentsResult] = await Promise.all([
+        client
+          .from('vendas_recibos')
+          .select('id, venda_id, valor_total, valor_taxas, data_inicio, data_fim')
+          .in('venda_id', batch),
+        client
+          .from('vendas_pagamentos')
+          .select('id, venda_id, forma_pagamento_id, forma_nome, valor_total, valor_bruto, desconto_valor, parcelas, parcelas_qtd, parcelas_valor, paga_comissao, operacao, plano')
+          .in('venda_id', batch)
+      ]);
+      if (receiptsResult.error) throw receiptsResult.error;
+      if (paymentsResult.error) throw paymentsResult.error;
+      receiptsData.push(...(receiptsResult.data || []));
+      paymentsData.push(...(paymentsResult.data || []));
+    }
 
     const pagamentos = Array.isArray(paymentsData) ? paymentsData : [];
     const { deduped, duplicateIds } = dedupePagamentos(pagamentos, vendaId);
 
     if (duplicateIds.length > 0) {
-      const { error: deleteDuplicatePaymentsError } = await client
-        .from('vendas_pagamentos')
-        .delete()
-        .in('id', duplicateIds);
-      if (deleteDuplicatePaymentsError) throw deleteDuplicatePaymentsError;
+      for (const batch of chunkArray(duplicateIds)) {
+        const { error: deleteDuplicatePaymentsError } = await client
+          .from('vendas_pagamentos')
+          .delete()
+          .in('id', batch);
+        if (deleteDuplicatePaymentsError) throw deleteDuplicatePaymentsError;
+      }
     }
 
     if (mergeIds.length > 0) {
-      const { error: updatePaymentsError } = await client
-        .from('vendas_pagamentos')
-        .update({ venda_id: vendaId })
-        .in('venda_id', mergeIds);
-      if (updatePaymentsError) throw updatePaymentsError;
+      for (const batch of chunkArray(mergeIds)) {
+        const { error: updatePaymentsError } = await client
+          .from('vendas_pagamentos')
+          .update({ venda_id: vendaId })
+          .in('venda_id', batch);
+        if (updatePaymentsError) throw updatePaymentsError;
 
-      const { error: updateReceiptNotesError } = await client
-        .from('vendas_recibos_notas')
-        .update({ venda_id: vendaId })
-        .in('venda_id', mergeIds);
-      if (updateReceiptNotesError && String(updateReceiptNotesError.code || '') !== '42P01') {
-        throw updateReceiptNotesError;
+        const { error: updateReceiptNotesError } = await client
+          .from('vendas_recibos_notas')
+          .update({ venda_id: vendaId })
+          .in('venda_id', batch);
+        if (updateReceiptNotesError && String(updateReceiptNotesError.code || '') !== '42P01') {
+          throw updateReceiptNotesError;
+        }
+
+        const { error: updateReceiptsError } = await client
+          .from('vendas_recibos')
+          .update({ venda_id: vendaId })
+          .in('venda_id', batch);
+        if (updateReceiptsError) throw updateReceiptsError;
+
+        const { error: updateTripsError } = await client
+          .from('viagens')
+          .update({ venda_id: vendaId })
+          .in('venda_id', batch);
+        if (updateTripsError && String(updateTripsError.code || '') !== '42P01') {
+          throw updateTripsError;
+        }
+
+        const { error: deleteMergedSalesError } = await client.from('vendas').delete().in('id', batch);
+        if (deleteMergedSalesError) throw deleteMergedSalesError;
       }
-
-      const { error: updateReceiptsError } = await client
-        .from('vendas_recibos')
-        .update({ venda_id: vendaId })
-        .in('venda_id', mergeIds);
-      if (updateReceiptsError) throw updateReceiptsError;
-
-      const { error: updateTripsError } = await client
-        .from('viagens')
-        .update({ venda_id: vendaId })
-        .in('venda_id', mergeIds);
-      if (updateTripsError && String(updateTripsError.code || '') !== '42P01') {
-        throw updateTripsError;
-      }
-
-      let deleteMergedSalesQuery = client.from('vendas').delete().in('id', mergeIds);
-      if (companyIds.length > 0) deleteMergedSalesQuery = deleteMergedSalesQuery.in('company_id', companyIds);
-      if (shouldApplySellerScope && vendedorIds.length > 0) deleteMergedSalesQuery = deleteMergedSalesQuery.in('vendedor_id', vendedorIds);
-      const { error: deleteMergedSalesError } = await deleteMergedSalesQuery;
-      if (deleteMergedSalesError) throw deleteMergedSalesError;
     }
 
     const receipts = Array.isArray(receiptsData) ? receiptsData : [];
@@ -318,7 +331,7 @@ export async function POST(event) {
       .sort();
     const dataFinal = datasFim.length > 0 ? datasFim[datasFim.length - 1] : principalSale?.data_final || null;
 
-    let updateSaleQuery = client
+    const updateSaleQuery = client
       .from('vendas')
       .update({
         valor_total_bruto: totalBrutoRecibos || null,
@@ -332,9 +345,6 @@ export async function POST(event) {
         data_final: dataFinal
       })
       .eq('id', vendaId);
-
-    if (companyIds.length > 0) updateSaleQuery = updateSaleQuery.in('company_id', companyIds);
-    if (shouldApplySellerScope && vendedorIds.length > 0) updateSaleQuery = updateSaleQuery.in('vendedor_id', vendedorIds);
 
     const { error: updateSaleError } = await updateSaleQuery;
     if (updateSaleError) throw updateSaleError;

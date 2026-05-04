@@ -18,6 +18,25 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 
+const SUPABASE_IN_BATCH_SIZE = 100;
+
+function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || "").trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -80,10 +99,11 @@ export async function GET(event) {
       staleTtlMs: 90_000,
       loader: async () => {
         // Busca viagens do cliente específico
-        let query = client
-          .from("viagens")
-          .select(
-            `
+        const fetchViagens = async (companyBatch?: string[]) => {
+          let query = client
+            .from("viagens")
+            .select(
+              `
         id, 
         venda_id, 
         orcamento_id, 
@@ -102,19 +122,34 @@ export async function GET(event) {
         updated_at,
         recibo_id
       `,
-          )
-          .eq("cliente_id", clienteId)
-          .order("data_inicio", { ascending: false })
-          .limit(100);
+            )
+            .eq("cliente_id", clienteId)
+            .order("data_inicio", { ascending: false })
+            .limit(100);
 
-        if (companyIds.length > 0) {
-          query = query.in("company_id", companyIds);
-        }
+          if (companyBatch && companyBatch.length > 0) {
+            query = query.in("company_id", companyBatch);
+          }
 
-        const { data, error } = await query;
+          const { data, error } = await query;
 
-        if (error) {
-          throw error;
+          if (error) {
+            throw error;
+          }
+
+          return (data || []) as any[];
+        };
+
+        let data: any[] = [];
+        if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
+          for (const batch of chunkArray(companyIds)) {
+            data.push(...(await fetchViagens(batch)));
+          }
+          data = dedupeRowsById(data).sort((a: any, b: any) =>
+            String(b?.data_inicio || "").localeCompare(String(a?.data_inicio || "")),
+          );
+        } else {
+          data = await fetchViagens(companyIds.length > 0 ? companyIds : undefined);
         }
 
         let scopedRows = (data || []) as any[];
@@ -129,12 +164,18 @@ export async function GET(event) {
           let vendaIdsPermitidas = new Set<string>();
 
           if (vendaIds.length > 0) {
-            const { data: vendasRows, error: vendasError } = await client
-              .from("vendas")
-              .select("id")
-              .in("id", vendaIds)
-              .in("vendedor_id", filters.vendedorIds);
-            if (vendasError) throw vendasError;
+            const vendasRows: any[] = [];
+            for (const vendaBatch of chunkArray(vendaIds)) {
+              for (const vendedorBatch of chunkArray(filters.vendedorIds)) {
+                const { data: batchRows, error: vendasError } = await client
+                  .from("vendas")
+                  .select("id")
+                  .in("id", vendaBatch)
+                  .in("vendedor_id", vendedorBatch);
+                if (vendasError) throw vendasError;
+                vendasRows.push(...(batchRows || []));
+              }
+            }
             vendaIdsPermitidas = new Set(
               (vendasRows || [])
                 .map((row: any) => String(row?.id || "").trim())
