@@ -146,6 +146,9 @@
 	"/api/v1/admin/empresas/[id]": [
 		"src/routes/api/v1/admin/empresas/[id]/+server.ts"
 	],
+	"/api/v1/admin/fix-recibos": [
+		"src/routes/api/v1/admin/fix-recibos/+server.ts"
+	],
 	"/api/v1/admin/logs": [
 		"src/routes/api/v1/admin/logs/+server.ts"
 	],

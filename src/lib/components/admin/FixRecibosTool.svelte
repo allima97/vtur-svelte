@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Search, Wrench } from 'lucide-svelte';
   import AlertMessage from '$lib/components/ui/AlertMessage.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -9,6 +8,8 @@
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import { apiGet, apiPost } from '$lib/services/api';
+
+  const API_ENDPOINT = '/api/v1/admin/fix-recibos';
 
   type ConcRow = {
     id: string;
@@ -33,7 +34,7 @@
     { value: 'fix_valor', label: 'Corrigir valores financeiros' }
   ];
 
-  let docs = '084185,083862,084186';
+  let docs = '';
   let rows: ConcRow[] = [];
   let loading = false;
   let message = '';
@@ -58,13 +59,30 @@
     });
   }
 
+  function parseMoneyInput(value: string) {
+    const normalized = String(value || '')
+      .trim()
+      .replace(/\s/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   async function fetchDocs() {
+    if (!docs.trim()) {
+      errorMsg = 'Informe pelo menos um recibo/documento.';
+      rows = [];
+      message = '';
+      return;
+    }
+
     loading = true;
     errorMsg = '';
     rows = [];
 
     try {
-      const data: any = await apiGet('/api/v1/relatorios/ranking-debug', { docs });
+      const data: any = await apiGet(API_ENDPOINT, { docs });
       rows = data.conciliacao_rows || [];
       message = `${rows.length} linha(s) encontrada(s)`;
     } catch (err: any) {
@@ -81,7 +99,7 @@
     userResults = [];
 
     try {
-      const data: any = await apiGet('/api/v1/relatorios/ranking-debug', { busca_usuario: userSearch });
+      const data: any = await apiGet(API_ENDPOINT, { busca_usuario: userSearch });
       userResults = data.usuarios || [];
     } finally {
       userSearchLoading = false;
@@ -109,11 +127,27 @@
         }
         body.vendedor_id = fixVendedorId.trim();
       } else if (fixAction === 'fix_valor') {
-        if (fixValorLancamentos) body.valor_lancamentos = parseFloat(fixValorLancamentos);
-        if (fixValorVendaReal) body.valor_venda_real = parseFloat(fixValorVendaReal);
+        if (fixValorLancamentos) {
+          const parsed = parseMoneyInput(fixValorLancamentos);
+          if (parsed == null) {
+            errorMsg = 'valor_lancamentos invalido.';
+            loading = false;
+            return;
+          }
+          body.valor_lancamentos = parsed;
+        }
+        if (fixValorVendaReal) {
+          const parsed = parseMoneyInput(fixValorVendaReal);
+          if (parsed == null) {
+            errorMsg = 'valor_venda_real invalido.';
+            loading = false;
+            return;
+          }
+          body.valor_venda_real = parsed;
+        }
       }
 
-      const data: any = await apiPost('/api/v1/relatorios/ranking-debug', body);
+      const data: any = await apiPost(API_ENDPOINT, body);
       message = `Correção aplicada. Registro atualizado: ${JSON.stringify(data.updated)}`;
       await fetchDocs();
     } catch (err: any) {
@@ -137,8 +171,6 @@
     userResults = [];
     userSearch = user.nome_completo;
   }
-
-  onMount(fetchDocs);
 </script>
 
 <PageHeader
@@ -157,8 +189,8 @@
       <FieldInput
         label="Documentos"
         bind:value={docs}
-        placeholder="Numeros separados por virgula: 084185,083862,084186"
-        helper="Use apenas os numeros ou recibos completos. O endpoint normaliza a busca."
+        placeholder="Ex.: 5630-0000084181, 084181 ou 84181"
+        helper="Use recibos completos ou apenas os números. A busca normaliza os formatos CVC."
       />
       <Button variant="primary" color="financeiro" loading={loading} on:click={fetchDocs}>
         <Search size={16} class="mr-2" />
