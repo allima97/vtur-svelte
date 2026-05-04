@@ -100,61 +100,87 @@ async function fetchGestorCompanyScopeIds(
   );
 
   if (userIds.length === 0 && companyIds.length > 0) {
-    return (await fetchRankingVendedoresByCompanyIds(client, companyIds))
-      .map((row: any) => String(row?.id || "").trim())
-      .filter(Boolean);
+    return getCachedReadModel<string[]>({
+      key: buildReadModelCacheKey("dashboard-summary:scope-users-ranking", {
+        companyIds,
+      }),
+      tags: [
+        READ_MODEL_TAGS.users,
+        ...scopeCacheTags({ companyIds }),
+      ],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () =>
+        (await fetchRankingVendedoresByCompanyIds(client, companyIds))
+          .map((row: any) => String(row?.id || "").trim())
+          .filter(Boolean),
+    });
   }
 
-  try {
-    const rows: any[] = [];
-    const idBatches =
-      userIds.length > 0 ? chunkArray(userIds) : companyIds.length > 0 ? [] : [null];
-    const companyBatches =
-      userIds.length === 0 && companyIds.length > 0 ? chunkArray(companyIds) : [];
+  return getCachedReadModel<string[]>({
+    key: buildReadModelCacheKey("dashboard-summary:scope-users", {
+      companyIds,
+      userIds,
+    }),
+    tags: [
+      READ_MODEL_TAGS.users,
+      ...scopeCacheTags({ companyIds, vendedorIds: userIds }),
+    ],
+    ttlMs: 30_000,
+    staleTtlMs: 120_000,
+    loader: async () => {
+      try {
+        const rows: any[] = [];
+        const idBatches =
+          userIds.length > 0 ? chunkArray(userIds) : companyIds.length > 0 ? [] : [null];
+        const companyBatches =
+          userIds.length === 0 && companyIds.length > 0 ? chunkArray(companyIds) : [];
 
-    const fetchBatch = async (filters?: { userIds?: string[] | null; companyIds?: string[] | null }) => {
-      let query = client
-        .from("users")
-        .select(
-          "id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name), company_id",
-        )
-        .limit(1000);
+        const fetchBatch = async (filters?: { userIds?: string[] | null; companyIds?: string[] | null }) => {
+          let query = client
+            .from("users")
+            .select(
+              "id, nome_completo, email, active, uso_individual, participa_ranking, user_types(name), company_id",
+            )
+            .limit(1000);
 
-      if (filters?.userIds && filters.userIds.length > 0) {
-        query =
-          filters.userIds.length === 1
-            ? query.eq("id", filters.userIds[0])
-            : query.in("id", filters.userIds);
-      } else if (filters?.companyIds && filters.companyIds.length > 0) {
-        query =
-          filters.companyIds.length === 1
-            ? query.eq("company_id", filters.companyIds[0])
-            : query.in("company_id", filters.companyIds);
+          if (filters?.userIds && filters.userIds.length > 0) {
+            query =
+              filters.userIds.length === 1
+                ? query.eq("id", filters.userIds[0])
+                : query.in("id", filters.userIds);
+          } else if (filters?.companyIds && filters.companyIds.length > 0) {
+            query =
+              filters.companyIds.length === 1
+                ? query.eq("company_id", filters.companyIds[0])
+                : query.in("company_id", filters.companyIds);
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          rows.push(...(data || []));
+        };
+
+        for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
+        for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
+
+        return rows
+          .filter((row: any) => {
+            if (!row?.id) return false;
+            if (row?.active === false) return false;
+            if (row?.uso_individual === true) return false;
+            if (!isRankingEligibleUser(row)) return false;
+            if (companyIds.length > 0)
+              return companyIds.includes(String(row?.company_id || "").trim());
+            return true;
+          })
+          .map((row: any) => String(row?.id || "").trim())
+          .filter(Boolean);
+      } catch {
+        return [];
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      rows.push(...(data || []));
-    };
-
-    for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
-    for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
-
-    return rows
-      .filter((row: any) => {
-        if (!row?.id) return false;
-        if (row?.active === false) return false;
-        if (row?.uso_individual === true) return false;
-        if (!isRankingEligibleUser(row)) return false;
-        if (companyIds.length > 0)
-          return companyIds.includes(String(row?.company_id || "").trim());
-        return true;
-      })
-      .map((row: any) => String(row?.id || "").trim())
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

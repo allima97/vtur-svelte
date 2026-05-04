@@ -7,6 +7,7 @@
   import Card from "$lib/components/ui/Card.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import LoadingState from "$lib/components/ui/LoadingState.svelte";
+  import { FieldInput } from "$lib/components/ui";
   import KPICard from "$lib/components/kpis/KPICard.svelte";
   import {
     ArrowLeft,
@@ -44,6 +45,14 @@
   import { ApiError, apiDelete, apiFetch, apiPatch } from "$lib/services/api";
   const orcamentoId = $page.params.id;
   let previewingPdf = false;
+
+  // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
+  let exportDesconto = '';
+  $: exportDescontoNum = (() => {
+    const v = String(exportDesconto).replace(',', '.').trim();
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  })();
 
   let orcamento: any = null;
   let interacoes: any[] = [];
@@ -166,6 +175,7 @@
         quoteId: orcamentoId,
         supabase: supabaseBrowser as any,
         showItemValues: true,
+        discount: exportDescontoNum,
       });
     } catch (err) {
       toast.error(
@@ -853,25 +863,38 @@
             Registrar Interação
           </Button>
 
-          <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200">
-            <Button
-              variant="primary"
-              on:click={() => goto(`/orcamentos/${orcamentoId}/editar`)}
-              class_name="w-full justify-center"
-            >
-              <Edit size={16} class="mr-2" />
-              Editar
-            </Button>
+          <!-- Desconto para PDF -->
+          <div class="pt-3 border-t border-slate-200 space-y-3">
+            <FieldInput
+              label="Desconto no PDF (R$)"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              bind:value={exportDesconto}
+              helper="Aplicado apenas no PDF exportado, não altera o orçamento."
+            />
 
-            <Button
-              variant="secondary"
-              on:click={handleImprimir}
-              loading={previewingPdf}
-              class_name="w-full justify-center"
-            >
-              <Printer size={16} class="mr-2" />
-              {previewingPdf ? "Gerando..." : "Visualizar PDF"}
-            </Button>
+            <div class="grid grid-cols-2 gap-3">
+              <Button
+                variant="primary"
+                on:click={() => goto(`/orcamentos/${orcamentoId}/editar`)}
+                class_name="w-full justify-center"
+              >
+                <Edit size={16} class="mr-2" />
+                Editar
+              </Button>
+
+              <Button
+                variant="secondary"
+                on:click={handleImprimir}
+                loading={previewingPdf}
+                class_name="w-full justify-center"
+              >
+                <Printer size={16} class="mr-2" />
+                {previewingPdf ? "Gerando..." : "Visualizar PDF"}
+              </Button>
+            </div>
           </div>
 
           <Button

@@ -112,7 +112,21 @@ export function invalidateMuralReadModels(params?: {
 
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map(stableValue);
+    const normalized = value.map(stableValue);
+    if (
+      normalized.every(
+        (item) =>
+          item == null ||
+          typeof item === "string" ||
+          typeof item === "number" ||
+          typeof item === "boolean",
+      )
+    ) {
+      return [...normalized].sort((left, right) =>
+        String(left ?? "").localeCompare(String(right ?? "")),
+      );
+    }
+    return normalized;
   }
 
   if (value && typeof value === "object") {

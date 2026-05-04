@@ -10,6 +10,12 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 function isIgnorableQueryError(err: any) {
   const code = String(err?.code || '');
@@ -81,8 +87,18 @@ export async function GET(event: RequestEvent) {
       !scope.isFinanceiro ||
       hasModuloAccess(scope, ['clientes', 'clientes_consulta'], 1);
 
+    const cacheScopeTags = scopeCacheTags({ companyIds: activeCompanyIds, userId: user.id });
+
     if ((scope.isGestor || scope.isMaster || scope.isFinanceiro) && activeCompanyIds.length > 0) {
-      const data = await fetchRankingVendedoresByCompanyIds(client, activeCompanyIds);
+      const data = await getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey('vendas-cadastro-base:vendedores', {
+          companyIds: activeCompanyIds
+        }),
+        tags: [READ_MODEL_TAGS.users, ...cacheScopeTags],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: () => fetchRankingVendedoresByCompanyIds(client, activeCompanyIds)
+      });
       vendedoresEquipe = (data || [])
         .map((row: any) => ({
           id: row.id,
@@ -122,19 +138,45 @@ export async function GET(event: RequestEvent) {
     };
 
     // cidades schema: id, nome, subdivisao_id — state comes from subdivisoes join (nome, codigo_admin1)
-    const cidadesQuery = client
-      .from('cidades')
-      .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
-      .order('grau_importancia', { ascending: true, nullsFirst: false })
-      .order('nome', { ascending: true })
-      .limit(INITIAL_CIDADES_LIMIT);
-    const produtosQuery = client
-      .from('produtos')
-      .select('id, nome, cidade_id, tipo_produto, destino, todas_as_cidades, ativo, informacoes_importantes, fornecedor_id')
-      .order('nome', { ascending: true })
-      .limit(2000);
-    const tiposQuery = client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200);
-    const pacotesQuery = client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200);
+    const cidadesQuery = getCachedReadModel({
+      key: buildReadModelCacheKey('vendas-cadastro-base:cidades', {}),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () =>
+        await client
+          .from('cidades')
+          .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
+          .order('grau_importancia', { ascending: true, nullsFirst: false })
+          .order('nome', { ascending: true })
+          .limit(INITIAL_CIDADES_LIMIT)
+    });
+    const produtosQuery = getCachedReadModel({
+      key: buildReadModelCacheKey('vendas-cadastro-base:produtos', {}),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () =>
+        await client
+          .from('produtos')
+          .select('id, nome, cidade_id, tipo_produto, destino, todas_as_cidades, ativo, informacoes_importantes, fornecedor_id')
+          .order('nome', { ascending: true })
+          .limit(2000)
+    });
+    const tiposQuery = getCachedReadModel({
+      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-produto', {}),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => await client.from('tipo_produtos').select('id, nome, tipo').order('nome', { ascending: true }).limit(200)
+    });
+    const pacotesQuery = getCachedReadModel({
+      key: buildReadModelCacheKey('vendas-cadastro-base:tipos-pacote', {}),
+      tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.comissoes],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => await client.from('tipo_pacotes').select('id, nome, ativo').order('nome', { ascending: true }).limit(200)
+    });
     const buildFormasQuery = (idsFilter: string[]) => {
       let query = client
         .from('formas_pagamento')
@@ -200,15 +242,40 @@ export async function GET(event: RequestEvent) {
       pacotesRes,
       formasRes,
       empresasRes
-    ] = await Promise.all([
-      fetchClientesBase(),
+    ] = (await Promise.all([
+      getCachedReadModel({
+        key: buildReadModelCacheKey('vendas-cadastro-base:clientes', {
+          companyIds: activeCompanyIds,
+          canLoadClientes
+        }),
+        tags: [READ_MODEL_TAGS.clients, ...cacheScopeTags],
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: fetchClientesBase
+      }),
       cidadesQuery,
       produtosQuery,
       tiposQuery,
       pacotesQuery,
-      fetchFormasBase(),
-      fetchEmpresasBase()
-    ]);
+      getCachedReadModel({
+        key: buildReadModelCacheKey('vendas-cadastro-base:formas-pagamento', {
+          companyIds: activeCompanyIds
+        }),
+        tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.finance, ...cacheScopeTags],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: fetchFormasBase
+      }),
+      getCachedReadModel({
+        key: buildReadModelCacheKey('vendas-cadastro-base:empresas', {
+          companyIds: activeCompanyIds
+        }),
+        tags: [READ_MODEL_TAGS.users, ...cacheScopeTags],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: fetchEmpresasBase
+      })
+    ])) as any[];
 
     clientes = safeRows(clientesRes);
     const cidadesRaw = safeRows(cidadesRes);

@@ -8,6 +8,13 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags
+} from '$lib/server/readModelCache';
 
 // ── Helpers de negócio (espelha vtur-app/src/lib/conciliacao/business.ts) ──
 
@@ -74,38 +81,59 @@ export async function GET(event) {
       return json({ error: 'Empresa não identificada.' }, { status: 400 });
     }
 
-    const rows: any[] = [];
-    const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-    for (const companyBatch of companyBatches) {
-      let query = client
-        .from('conciliacao_recibos')
-        .select(`
-        id, company_id, documento, numero_reserva, movimento_data, status, descricao,
-        valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos,
-        valor_nao_comissionavel, valor_calculada_loja, valor_visao_master,
-        valor_opfax, valor_saldo, valor_venda_real, valor_comissao_loja,
-        percentual_comissao_loja, faixa_comissao, is_seguro_viagem, origem,
-        conciliado, match_total, match_taxas, sistema_valor_total, sistema_valor_taxas,
-        diff_total, diff_taxas, venda_id, venda_recibo_id,
-        ranking_vendedor_id, ranking_produto_id, ranking_assigned_at,
-        is_baixa_rac, last_checked_at,
-        ranking_vendedor:users!ranking_vendedor_id(id, nome_completo),
-        ranking_produto:tipo_produtos!ranking_produto_id(id, nome)
-      `)
-        .order('movimento_data', { ascending: false })
-        .limit(5000);
+    const rows = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('conciliacao:list:rows', {
+        companyIds,
+        inicio,
+        fim,
+        status,
+        conciliado
+      }),
+      tags: [
+        READ_MODEL_TAGS.conciliacao,
+        READ_MODEL_TAGS.sales,
+        READ_MODEL_TAGS.finance,
+        READ_MODEL_TAGS.ranking,
+        ...scopeCacheTags({ companyIds, userId: user.id })
+      ],
+      ttlMs: 10_000,
+      staleTtlMs: 45_000,
+      loader: async () => {
+        const dataRows: any[] = [];
+        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+        for (const companyBatch of companyBatches) {
+          let query = client
+            .from('conciliacao_recibos')
+            .select(`
+              id, company_id, documento, numero_reserva, movimento_data, status, descricao,
+              valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos,
+              valor_nao_comissionavel, valor_calculada_loja, valor_visao_master,
+              valor_opfax, valor_saldo, valor_venda_real, valor_comissao_loja,
+              percentual_comissao_loja, faixa_comissao, is_seguro_viagem, origem,
+              conciliado, match_total, match_taxas, sistema_valor_total, sistema_valor_taxas,
+              diff_total, diff_taxas, venda_id, venda_recibo_id,
+              ranking_vendedor_id, ranking_produto_id, ranking_assigned_at,
+              is_baixa_rac, last_checked_at,
+              ranking_vendedor:users!ranking_vendedor_id(id, nome_completo),
+              ranking_produto:tipo_produtos!ranking_produto_id(id, nome)
+            `)
+            .order('movimento_data', { ascending: false })
+            .limit(5000);
 
-      if (companyBatch) query = query.in('company_id', companyBatch);
-      if (inicio) query = query.gte('movimento_data', inicio);
-      if (fim) query = query.lte('movimento_data', fim);
-      if (status) query = query.eq('status', status);
-      if (conciliado === 'true') query = query.eq('conciliado', true);
-      if (conciliado === 'false') query = query.eq('conciliado', false);
+          if (companyBatch) query = query.in('company_id', companyBatch);
+          if (inicio) query = query.gte('movimento_data', inicio);
+          if (fim) query = query.lte('movimento_data', fim);
+          if (status) query = query.eq('status', status);
+          if (conciliado === 'true') query = query.eq('conciliado', true);
+          if (conciliado === 'false') query = query.eq('conciliado', false);
 
-      const { data, error: queryError } = await query;
-      if (queryError) throw queryError;
-      rows.push(...(data || []));
-    }
+          const { data, error: queryError } = await query;
+          if (queryError) throw queryError;
+          dataRows.push(...(data || []));
+        }
+        return dataRows;
+      }
+    });
 
     // Add parity-friendly display field for status
     const formatStatusLabel = (s?: string | null) => {
@@ -140,19 +168,22 @@ export async function GET(event) {
     const pendentes = efetivados.filter((row: any) => !row.conciliado);
     const semRanking = efetivados.filter((row: any) => !row.venda_id && !row.ranking_vendedor_id);
 
-    return json({
-      items: paginatedItems,
-      total,
-      page,
-      pageSize,
-      kpis: {
-        total: items.length,
-        efetivados: efetivados.length,
-        pendentes: pendentes.length,
-        semRanking: semRanking.length,
-        totalValor: efetivados.reduce((acc: number, row: any) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0), 0)
-      }
-    });
+    return json(
+      {
+        items: paginatedItems,
+        total,
+        page,
+        pageSize,
+        kpis: {
+          total: items.length,
+          efetivados: efetivados.length,
+          pendentes: pendentes.length,
+          semRanking: semRanking.length,
+          totalValor: efetivados.reduce((acc: number, row: any) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0), 0)
+        }
+      },
+      { headers: DYNAMIC_READ_HEADERS }
+    );
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar conciliação.');
   }

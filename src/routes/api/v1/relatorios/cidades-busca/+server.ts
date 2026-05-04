@@ -1,5 +1,10 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -26,10 +31,19 @@ export async function GET(event: RequestEvent) {
       return json([]);
     }
 
-    const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
-    if (error) throw error;
+    const data = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('relatorios:cidades-busca:query', { query, limite }),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
+        if (error) throw error;
+        return data || [];
+      }
+    });
 
-    return json(data || []);
+    return json(data);
   } catch (err) {
     logServerError('[relatorios/cidades-busca] falha ao buscar cidades', err);
     return new Response('Erro ao buscar cidades.', { status: 500 });

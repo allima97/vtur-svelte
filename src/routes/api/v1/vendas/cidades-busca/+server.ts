@@ -7,6 +7,11 @@ import {
   sanitizePostgrestSearchTerm,
   toErrorResponse
 } from '$lib/server/v1';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS
+} from '$lib/server/readModelCache';
 
 function parseLimit(value: string | null) {
   const parsed = Number(value);
@@ -85,94 +90,110 @@ export async function GET(event) {
     const limite = parseLimit(event.url.searchParams.get('limite'));
 
     if (cidadeId) {
-      let data: any = null;
-      const detailed = await client
-        .from('cidades')
-        .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
-        .eq('id', cidadeId)
-        .maybeSingle();
+      const item = await getCachedReadModel<ReturnType<typeof mapCidade> | null>({
+        key: buildReadModelCacheKey('vendas:cidades-busca:id', { cidadeId }),
+        tags: [READ_MODEL_TAGS.catalog],
+        ttlMs: 60_000,
+        staleTtlMs: 300_000,
+        loader: async () => {
+          let data: any = null;
+          const detailed = await client
+            .from('cidades')
+            .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
+            .eq('id', cidadeId)
+            .maybeSingle();
 
-      if (detailed.error) {
-        const fallback = await client
-          .from('cidades')
-          .select('id, nome, grau_importancia')
-          .eq('id', cidadeId)
-          .maybeSingle();
-        if (fallback.error) throw fallback.error;
-        data = fallback.data;
-      } else {
-        data = detailed.data;
-      }
+          if (detailed.error) {
+            const fallback = await client
+              .from('cidades')
+              .select('id, nome, grau_importancia')
+              .eq('id', cidadeId)
+              .maybeSingle();
+            if (fallback.error) throw fallback.error;
+            data = fallback.data;
+          } else {
+            data = detailed.data;
+          }
 
-      if (!data) return json(null);
+          return data ? mapCidade(data) : null;
+        }
+      });
 
-      return json(mapCidade(data));
+      return json(item);
     }
 
     if (query.length < 2) {
       return json([]);
     }
 
-    let rows: any[] = [];
+    const filtered = await getCachedReadModel<Array<ReturnType<typeof mapCidade>>>({
+      key: buildReadModelCacheKey('vendas:cidades-busca:query', { query, limite }),
+      tags: [READ_MODEL_TAGS.catalog],
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
+      loader: async () => {
+        let rows: any[] = [];
 
-    try {
-      const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
-      if (error) throw error;
-      rows = Array.isArray(data) ? data : [];
-    } catch {
-      const fallbackWithSubdivisao = await client
-        .from('cidades')
-        .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
-        .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
-        .order('grau_importancia', { ascending: true, nullsFirst: false })
-        .order('nome', { ascending: true })
-        .limit(limite);
+        try {
+          const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
+          if (error) throw error;
+          rows = Array.isArray(data) ? data : [];
+        } catch {
+          const fallbackWithSubdivisao = await client
+            .from('cidades')
+            .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
+            .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
+            .order('grau_importancia', { ascending: true, nullsFirst: false })
+            .order('nome', { ascending: true })
+            .limit(limite);
 
-      if (fallbackWithSubdivisao.error) {
-        const fallbackBase = await client
-          .from('cidades')
-          .select('id, nome, grau_importancia')
-          .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
-          .order('grau_importancia', { ascending: true, nullsFirst: false })
-          .order('nome', { ascending: true })
-          .limit(limite);
-        if (fallbackBase.error) throw fallbackBase.error;
-        rows = fallbackBase.data || [];
-      } else {
-        rows = fallbackWithSubdivisao.data || [];
-      }
-    }
+          if (fallbackWithSubdivisao.error) {
+            const fallbackBase = await client
+              .from('cidades')
+              .select('id, nome, grau_importancia')
+              .ilike('nome', `%${sanitizePostgrestSearchTerm(query)}%`)
+              .order('grau_importancia', { ascending: true, nullsFirst: false })
+              .order('nome', { ascending: true })
+              .limit(limite);
+            if (fallbackBase.error) throw fallbackBase.error;
+            rows = fallbackBase.data || [];
+          } else {
+            rows = fallbackWithSubdivisao.data || [];
+          }
+        }
 
-    if (!rows.length) return json([]);
+        if (!rows.length) return [];
 
-    const normalizedQuery = normalizeText(query);
-    const dedup = new Map<string, ReturnType<typeof mapCidade>>();
+        const normalizedQuery = normalizeText(query);
+        const dedup = new Map<string, ReturnType<typeof mapCidade>>();
 
-    rows.forEach((row) => {
-      const mapped = mapCidade(row);
-      if (!mapped.id || !mapped.nome) return;
-      if (!dedup.has(mapped.id)) {
-        dedup.set(mapped.id, mapped);
+        rows.forEach((row) => {
+          const mapped = mapCidade(row);
+          if (!mapped.id || !mapped.nome) return;
+          if (!dedup.has(mapped.id)) {
+            dedup.set(mapped.id, mapped);
+          }
+        });
+
+        return Array.from(dedup.values())
+          .filter((item) => normalizeText(`${item.nome} ${item.subdivisao_nome || ''} ${item.pais_nome || ''}`).includes(normalizedQuery))
+          .sort((a, b) => {
+            const scoreDiff = getCidadeSearchScore(a, normalizedQuery) - getCidadeSearchScore(b, normalizedQuery);
+            if (scoreDiff !== 0) return scoreDiff;
+
+            const importanceDiff = getImportanceRank(a.grau_importancia) - getImportanceRank(b.grau_importancia);
+            if (importanceDiff !== 0) return importanceDiff;
+
+            const nomeDiff = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+            if (nomeDiff !== 0) return nomeDiff;
+
+            return String(a.subdivisao_nome || '').localeCompare(String(b.subdivisao_nome || ''), 'pt-BR', {
+              sensitivity: 'base'
+            });
+          })
+          .slice(0, limite);
       }
     });
-
-    const filtered = Array.from(dedup.values())
-      .filter((item) => normalizeText(`${item.nome} ${item.subdivisao_nome || ''} ${item.pais_nome || ''}`).includes(normalizedQuery))
-      .sort((a, b) => {
-        const scoreDiff = getCidadeSearchScore(a, normalizedQuery) - getCidadeSearchScore(b, normalizedQuery);
-        if (scoreDiff !== 0) return scoreDiff;
-
-        const importanceDiff = getImportanceRank(a.grau_importancia) - getImportanceRank(b.grau_importancia);
-        if (importanceDiff !== 0) return importanceDiff;
-
-        const nomeDiff = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
-        if (nomeDiff !== 0) return nomeDiff;
-
-        return String(a.subdivisao_nome || '').localeCompare(String(b.subdivisao_nome || ''), 'pt-BR', {
-          sensitivity: 'base'
-        });
-      })
-      .slice(0, limite);
 
     return json(filtered);
   } catch (err) {

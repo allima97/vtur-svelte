@@ -229,17 +229,31 @@ export async function GET(event) {
     const clienteMap = new Map<string, { nome: string; email: string }>();
 
     if (clientIdsFromData.length > 0) {
-      for (const batch of chunkArray(clientIdsFromData)) {
-        const { data: clientesData } = await client
-          .from('clientes')
-          .select('id, nome, email')
-          .in('id', batch)
-          .limit(500);
+      const clientesData = await getCachedReadModel<Array<{ id?: string | null; nome?: string | null; email?: string | null }>>({
+        key: buildReadModelCacheKey('orcamentos-list:clientes-map', {
+          clientIds: clientIdsFromData
+        }),
+        tags: listCacheTags,
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: async () => {
+          const rows: Array<{ id?: string | null; nome?: string | null; email?: string | null }> = [];
+          for (const batch of chunkArray(clientIdsFromData)) {
+            const { data: batchRows, error } = await client
+              .from('clientes')
+              .select('id, nome, email')
+              .in('id', batch)
+              .limit(500);
+            if (error) throw error;
+            rows.push(...(batchRows || []));
+          }
+          return rows;
+        }
+      });
 
-        (clientesData || []).forEach((c: any) => {
-          clienteMap.set(String(c.id || ''), { nome: String(c.nome || 'Cliente'), email: String(c.email || '') });
-        });
-      }
+      clientesData.forEach((c: any) => {
+        clienteMap.set(String(c.id || ''), { nome: String(c.nome || 'Cliente'), email: String(c.email || '') });
+      });
     }
 
     const quoteIds = ((data || []) as OrcamentoRow[])
@@ -304,22 +318,36 @@ export async function GET(event) {
     const creatorMap = new Map<string, { nome: string; email: string }>();
 
     if (rowCreatorIds.length > 0) {
-      for (const batch of chunkArray(rowCreatorIds)) {
-        const { data: creators } = await client
-          .from('users')
-          .select('id, nome_completo, email')
-          .in('id', batch)
-          .limit(500);
+      const creators = await getCachedReadModel<Array<{ id?: string | null; nome_completo?: string | null; email?: string | null }>>({
+        key: buildReadModelCacheKey('orcamentos-list:creators-map', {
+          creatorIds: rowCreatorIds
+        }),
+        tags: listCacheTags,
+        ttlMs: 10_000,
+        staleTtlMs: 45_000,
+        loader: async () => {
+          const rows: Array<{ id?: string | null; nome_completo?: string | null; email?: string | null }> = [];
+          for (const batch of chunkArray(rowCreatorIds)) {
+            const { data: batchRows, error } = await client
+              .from('users')
+              .select('id, nome_completo, email')
+              .in('id', batch)
+              .limit(500);
+            if (error) throw error;
+            rows.push(...(batchRows || []));
+          }
+          return rows;
+        }
+      });
 
-        (creators || []).forEach((row: { id?: string | null; nome_completo?: string | null; email?: string | null }) => {
-          const id = String(row?.id || '').trim();
-          if (!id) return;
-          creatorMap.set(id, {
-            nome: String(row?.nome_completo || 'Equipe VTUR'),
-            email: String(row?.email || '')
-          });
+      creators.forEach((row) => {
+        const id = String(row?.id || '').trim();
+        if (!id) return;
+        creatorMap.set(id, {
+          nome: String(row?.nome_completo || 'Equipe VTUR'),
+          email: String(row?.email || '')
         });
-      }
+      });
     }
 
     let items = ((data || []) as OrcamentoRow[]).map((row) => {
