@@ -27,7 +27,8 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
-    const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
+    const rawQ = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
+    const q = rawQ.length >= 2 ? rawQ : '';
     const subdivisaoId = String(searchParams.get('subdivisao_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
     const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));

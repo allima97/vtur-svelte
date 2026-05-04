@@ -8,6 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
+import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const TEMPLATE_DISPATCH_SELECT =
   'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
@@ -31,6 +32,16 @@ export const GET: RequestHandler = async ({ locals, url }) => {
       .order('sent_at', { ascending: false })
       .limit(limit);
 
+    if (!scope.isAdmin) {
+      if (scope.isVendedor && !scope.isGestor && !scope.isMaster) {
+        query = query.eq('user_id', user.id);
+      } else if (scope.companyIds.length > 0) {
+        query = query.in('company_id', scope.companyIds);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+    }
+
     if (clienteId && isUuid(clienteId)) {
       query = query.eq('cliente_id', clienteId);
     }
@@ -38,7 +49,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    return json({ items: data || [] });
+    return json({ items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar envios de templates.');
   }
@@ -65,16 +76,47 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const categoria = String(body.categoria || '').trim();
 
     if (!clienteId || !isUuid(clienteId)) {
-      return json({ error: 'clienteId invalido.' }, { status: 400 });
+      return json({ error: 'clienteId invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     if (!recipientContact) {
-      return json({ error: 'recipientContact obrigatorio.' }, { status: 400 });
+      return json({ error: 'recipientContact obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    const { data: cliente, error: clienteError } = await client
+      .from('clientes')
+      .select('id, company_id')
+      .eq('id', clienteId)
+      .maybeSingle();
+    if (clienteError) throw clienteError;
+    if (!cliente) {
+      return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
+    }
+
+    const clienteCompanyId = String((cliente as any).company_id || '').trim();
+    if (!scope.isAdmin) {
+      const dentroDaEmpresa = clienteCompanyId && scope.companyIds.includes(clienteCompanyId);
+      if (!dentroDaEmpresa) {
+        return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+      }
+
+      if (scope.isVendedor && !scope.isGestor && !scope.isMaster) {
+        const { data: vendaDoUsuario, error: vendaError } = await client
+          .from('vendas')
+          .select('id')
+          .eq('cliente_id', clienteId)
+          .eq('vendedor_id', user.id)
+          .limit(1);
+        if (vendaError) throw vendaError;
+        if (!vendaDoUsuario || vendaDoUsuario.length === 0) {
+          return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+        }
+      }
     }
 
     const payload = {
       user_id: user.id,
-      company_id: scope.companyId || null,
+      company_id: clienteCompanyId || scope.companyId || null,
       cliente_id: clienteId,
       template_id: templateId || null,
       canal,
@@ -93,7 +135,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     if (error) throw error;
 
-    return json({ success: true, dispatch: data }, { status: 201 });
+    return json({ success: true, dispatch: data }, { status: 201, headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao registrar envio de template.');
   }

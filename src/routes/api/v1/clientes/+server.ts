@@ -43,7 +43,8 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['clientes', 'vendas_consulta', 'vendas'], 1, 'Sem acesso a Clientes.');
     }
 
-    const search = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
+    const rawSearch = sanitizePostgrestSearchTerm(event.url.searchParams.get('search')).toLowerCase();
+    const search = rawSearch.length >= 2 ? rawSearch : '';
     const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
     const vendedorIds = await resolveScopedVendedorIds(client, scope, event.url.searchParams.get('vendedor_id'));
     const tipoNome = String(scope.tipoNome || '').toUpperCase();

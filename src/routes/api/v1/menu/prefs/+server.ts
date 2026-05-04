@@ -14,6 +14,8 @@ const TEXT_NO_STORE_HEADERS = {
   Vary: 'Cookie'
 };
 
+const MAX_PREFS_BODY_BYTES = 16 * 1024;
+
 function safeJsonParse(text: string) {
   try {
     return JSON.parse(text);
@@ -51,7 +53,17 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const client = getAdminClient();
 
-    const body = safeJsonParse(await event.request.text()) as any;
+    const contentLength = Number(event.request.headers.get('content-length') || 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_PREFS_BODY_BYTES) {
+      return new Response('Payload muito grande.', { status: 413, headers: TEXT_NO_STORE_HEADERS });
+    }
+
+    const rawBody = await event.request.text();
+    if (rawBody.length > MAX_PREFS_BODY_BYTES) {
+      return new Response('Payload muito grande.', { status: 413, headers: TEXT_NO_STORE_HEADERS });
+    }
+
+    const body = safeJsonParse(rawBody) as any;
     const nextPrefs = normalizeMenuPrefs(body?.prefs);
 
     const payload = {

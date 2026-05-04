@@ -48,7 +48,8 @@ export async function GET(event: RequestEvent) {
     const inicio = String(url.searchParams.get("inicio") || "").trim();
     const fim = String(url.searchParams.get("fim") || "").trim();
     const vendedorId = String(url.searchParams.get("vendedor_id") || "").trim();
-    const termo = sanitizePostgrestSearchTerm(url.searchParams.get("q"));
+    const termoRaw = sanitizePostgrestSearchTerm(url.searchParams.get("q"));
+    const termo = termoRaw.length >= 2 ? termoRaw : "";
     const apenasRateados = url.searchParams.get("apenas_rateados") === "true";
     const limitRaw = Number(url.searchParams.get("limit") || 80);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 80;

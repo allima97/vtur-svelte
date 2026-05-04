@@ -19,7 +19,7 @@ const MAX_DEBUG_ITEMS = 500;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
   return json(body, { ...init, headers });
 }
 
@@ -75,7 +75,7 @@ export async function GET(event) {
     });
   } catch (err) {
     const response = toErrorResponse(err, 'Erro ao gerar diff de recibos de vendas.');
-    response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   }
 }

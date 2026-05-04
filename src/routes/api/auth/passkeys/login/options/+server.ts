@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { buildAuthenticationOptions, toPasskeyErrorResponse } from '$lib/server/passkeys';
 import type { RequestHandler } from './$types';
 
@@ -16,7 +16,7 @@ export const POST: RequestHandler = async (event) => {
     const email = String(body?.email || '').trim();
     const remoteIp = event.getClientAddress?.() || 'unknown';
 
-    const rateLimit = checkRateLimit(`passkey-login-options:${remoteIp}:${email.toLowerCase() || 'no-email'}`, {
+    const rateLimit = await checkPersistentRateLimit('passkey-login-options', `${remoteIp}:${email.toLowerCase() || 'no-email'}`, {
       max: 30,
       windowMs: 60_000
     });

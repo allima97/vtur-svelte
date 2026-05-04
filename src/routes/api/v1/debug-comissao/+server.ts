@@ -28,7 +28,7 @@ const DEBUG_HEADERS = NO_STORE_HEADERS;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
+  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
   return json(body, { ...init, headers });
 }
 

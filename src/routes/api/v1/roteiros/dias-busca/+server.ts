@@ -30,8 +30,10 @@ export async function GET(event: RequestEvent) {
 
     ensureModuloAccess(scope, ['Orcamentos'], 1, 'Sem acesso a Roteiros.');
 
-    const q = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'));
-    const cidade = sanitizePostgrestSearchTerm(event.url.searchParams.get('cidade'));
+    const rawQ = sanitizePostgrestSearchTerm(event.url.searchParams.get('q'));
+    const rawCidade = sanitizePostgrestSearchTerm(event.url.searchParams.get('cidade'));
+    const q = rawQ.length >= 2 ? rawQ : '';
+    const cidade = rawCidade.length >= 2 ? rawCidade : '';
     const companyId = scope.companyId;
 
     const runQuery = async (withPercurso: boolean) => {

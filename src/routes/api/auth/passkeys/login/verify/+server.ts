@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { toPasskeyErrorResponse, verifyAuthentication } from '$lib/server/passkeys';
 import type { RequestHandler } from './$types';
 
@@ -7,7 +7,7 @@ const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
 
 export const POST: RequestHandler = async (event) => {
   try {
-    const rateLimit = checkRateLimit(`passkey-login-verify:${event.getClientAddress?.() || 'unknown'}`, {
+    const rateLimit = await checkPersistentRateLimit('passkey-login-verify', event.getClientAddress?.() || 'unknown', {
       max: 30,
       windowMs: 60_000
     });

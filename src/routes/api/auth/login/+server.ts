@@ -1,5 +1,5 @@
 import { createSupabaseServerClient, getSupabaseAuthStorageKey } from '$lib/db/supabase';
-import { checkRateLimit } from '$lib/server/rateLimit';
+import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { verifyTurnstileToken } from '$lib/server/turnstile';
 import { logServerError } from '$lib/server/v1';
 import { json } from '@sveltejs/kit';
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
       return json({ error: 'Email e senha obrigatorios.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const rateLimit = checkRateLimit(`auth-login:${remoteIp || 'unknown'}:${email.toLowerCase()}`, {
+    const rateLimit = await checkPersistentRateLimit('auth-login', `${remoteIp || 'unknown'}:${email.toLowerCase()}`, {
       max: 12,
       windowMs: 60_000
     });

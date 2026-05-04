@@ -15,6 +15,10 @@ function isMissingColumn(error: any, column: string) {
   return code === "42703" && message.includes(column.toLowerCase());
 }
 
+function errorJson(message: string, status: number) {
+  return json({ error: message }, { status, headers: NO_STORE_HEADERS });
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = await requireAuthenticatedUser({ locals } as any);
@@ -22,11 +26,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const body = await request.json().catch(() => ({}));
     const inviteId = String(body.invite_id || "").trim();
-    if (!inviteId) return json({ error: "invite_id e obrigatorio." }, { status: 400 });
-    if (!isUuid(inviteId)) return json({ error: "invite_id invalido." }, { status: 400 });
+    if (!inviteId) return errorJson("invite_id e obrigatorio.", 400);
+    if (!isUuid(inviteId)) return errorJson("invite_id invalido.", 400);
 
     const email = String(user.email || "").trim().toLowerCase();
-    if (!email) return json({ error: "Conta sem e-mail." }, { status: 400 });
+    if (!email) return errorJson("Conta sem e-mail.", 400);
 
     const { data: convite, error: conviteErr } = await adminClient
       .from("user_convites")
@@ -39,30 +43,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     if (conviteErr) {
       if (isTableMissing(conviteErr)) {
-        return json(
-          { error: "Tabela public.user_convites nao existe. Aplique a migration." },
-          { status: 500 }
-        );
+        return errorJson("Tabela public.user_convites nao existe. Aplique a migration.", 500);
       }
       if (isMissingColumn(conviteErr, "expires_at")) {
-        return json(
-          { error: "Coluna public.user_convites.expires_at ausente. Aplique a migration." },
-          { status: 500 }
-        );
+        return errorJson("Coluna public.user_convites.expires_at ausente. Aplique a migration.", 500);
       }
       throw conviteErr;
     }
 
-    if (!convite?.id) return json({ error: "Convite nao encontrado." }, { status: 404 });
+    if (!convite?.id) return errorJson("Convite nao encontrado.", 404);
 
     const status = String((convite as any)?.status || "").toLowerCase();
     if (status !== "pending") {
-      return json({ error: "Convite nao esta pendente." }, { status: 409 });
+      return errorJson("Convite nao esta pendente.", 409);
     }
 
     const invitedEmail = String((convite as any)?.invited_email || "").trim().toLowerCase();
     if (invitedEmail !== email) {
-      return json({ error: "Convite nao corresponde a este e-mail." }, { status: 403 });
+      return errorJson("Convite nao corresponde a este e-mail.", 403);
     }
 
     const expiresAtRaw = String((convite as any)?.expires_at || "");
@@ -73,19 +71,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .from("user_convites")
           .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
           .eq("id", inviteId);
-        return json({ error: "Convite expirado. Solicite um novo convite." }, { status: 410 });
+        return errorJson("Convite expirado. Solicite um novo convite.", 410);
       }
     }
 
     const alreadyBoundId = (convite as any)?.invited_user_id as string | null;
     if (alreadyBoundId && alreadyBoundId !== user.id) {
-      return json({ error: "Convite ja foi associado a outro usuario." }, { status: 409 });
+      return errorJson("Convite ja foi associado a outro usuario.", 409);
     }
 
     const companyId = String((convite as any)?.company_id || "").trim();
     const userTypeId = String((convite as any)?.user_type_id || "").trim();
     if (!companyId || !userTypeId) {
-      return json({ error: "Convite invalido (empresa/cargo ausente)." }, { status: 400 });
+      return errorJson("Convite invalido (empresa/cargo ausente).", 400);
     }
 
     const { data: perfilExistente, error: perfilErr } = await adminClient
@@ -99,7 +97,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const usoAtual = (perfilExistente as any)?.uso_individual as boolean | null | undefined;
 
     if (companyAtual && companyAtual !== companyId && usoAtual === false) {
-      return json({ error: "Usuario ja vinculado a outra empresa." }, { status: 409 });
+      return errorJson("Usuario ja vinculado a outra empresa.", 409);
     }
 
     const createdByGestor = String((convite as any)?.invited_by_role || "").toUpperCase() === "GESTOR";
@@ -139,6 +137,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     logServerError("[convites/accept] falha ao aceitar convite", error);
-    return json({ error: "Erro interno ao aceitar convite." }, { status: 500 });
+    return errorJson("Erro interno ao aceitar convite.", 500);
   }
 };

@@ -31,9 +31,10 @@ export async function GET(event) {
       );
     }
 
-    const search = sanitizePostgrestSearchTerm(
+    const rawSearch = sanitizePostgrestSearchTerm(
       event.url.searchParams.get("search"),
     ).toLowerCase();
+    const search = rawSearch.length >= 2 ? rawSearch : "";
     const companyIds = resolveScopedCompanyIds(
       scope,
       event.url.searchParams.get("empresa_id"),

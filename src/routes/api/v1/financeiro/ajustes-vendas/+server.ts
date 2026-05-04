@@ -32,7 +32,8 @@ export async function GET(event) {
     const inicio = String(searchParams.get('inicio') || '').trim();
     const fim = String(searchParams.get('fim') || '').trim();
     const vendedorId = String(searchParams.get('vendedor_id') || '').trim();
-    const q = sanitizePostgrestSearchTerm(searchParams.get('q'));
+    const qRaw = sanitizePostgrestSearchTerm(searchParams.get('q'));
+    const q = qRaw.length >= 2 ? qRaw : '';
     const limit = 120;
 
     // Query principal: vendas_recibos com vendas!inner para filtrar corretamente

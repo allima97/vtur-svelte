@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, toErrorResponse } from '$lib/server/v1';
+import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 export async function GET(event) {
   try {
@@ -18,9 +19,9 @@ export async function GET(event) {
       .maybeSingle();
 
     if (queryError) throw queryError;
-    if (!data) return json({ error: 'Perfil não encontrado.' }, { status: 404 });
+    if (!data) return json({ error: 'Perfil não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    return json(data);
+    return json(data, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar perfil.');
   }
@@ -37,7 +38,7 @@ export async function PATCH(event) {
     const allowed = [
       'nome_completo', 'cpf', 'data_nascimento',
       'telefone', 'whatsapp', 'rg', 'cep', 'endereco', 'numero',
-      'complemento', 'cidade', 'estado', 'uso_individual'
+      'complemento', 'cidade', 'estado'
     ];
 
     const payload: Record<string, any> = {};
@@ -47,14 +48,27 @@ export async function PATCH(event) {
       }
     }
 
+    if ('uso_individual' in body && typeof body.uso_individual === 'boolean') {
+      const { data: currentProfile, error: currentProfileError } = await client
+        .from('users')
+        .select('uso_individual')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (currentProfileError) throw currentProfileError;
+
+      if (currentProfile?.uso_individual === null || currentProfile?.uso_individual === undefined) {
+        payload.uso_individual = body.uso_individual;
+      }
+    }
+
     if (Object.keys(payload).length === 0) {
-      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400 });
+      return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { error: updateError } = await client.from('users').update(payload).eq('id', user.id);
     if (updateError) throw updateError;
 
-    return json({ ok: true });
+    return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar perfil.');
   }
