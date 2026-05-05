@@ -8,6 +8,7 @@
   import { buildVturInputClasses } from '$lib/components/ui/inputContract';
   import { toast } from '$lib/stores/ui';
   import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
+  import SubdivisaoAutocomplete from '$lib/components/cadastros/SubdivisaoAutocomplete.svelte';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
   import { Plus, Trash2, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
@@ -48,7 +49,6 @@
   let form = { nome: '', subdivisao_id: '', descricao: '' };
   const searchInputClasses = buildVturInputClasses('w-full', 'pl-10', 'text-sm', 'focus:ring-blue-200');
   const subdivisaoSearchInputClasses = buildVturInputClasses('w-full', 'text-sm', 'focus:ring-blue-200');
-  const modalSubdivisaoSelectLabel = 'Selecione um estado/província';
 
   const columns = [
     { key: 'nome', label: 'Cidade', sortable: true },
@@ -358,16 +358,14 @@
       placeholder="Nome da cidade"
       class_name="w-full"
     />
-    <FieldSelect
+    <SubdivisaoAutocomplete
       id="cid-sub-form"
       label="Estado/Província"
       bind:value={form.subdivisao_id}
-      options={loadingModalSubdivisoes
-        ? [{ value: '', label: 'Carregando estados...' }]
-        : [{ value: '', label: modalSubdivisaoSelectLabel }, ...modalSubdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
-      placeholder={null}
-      class_name="w-full"
-      disabled={loadingModalSubdivisoes}
+      options={modalSubdivisoes}
+      loading={loadingModalSubdivisoes}
+      placeholder="Digite para buscar estados..."
+      helper="Digite pelo menos o nome do estado/província e use Enter ou clique na opção."
     />
     <FieldInput
       id="cid-desc"
