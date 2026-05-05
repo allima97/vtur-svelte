@@ -47,23 +47,23 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
+        // Evita count exact caro em base grande; prioriza resposta rápida.
         let query = client
           .from('subdivisoes')
-          .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)', {
-            count: 'exact'
-          })
+          .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)')
           .order('nome')
           .range((page - 1) * pageSize, page * pageSize - 1);
 
         if (paisId) query = query.eq('pais_id', paisId);
         if (q) query = query.ilike('nome', `%${q}%`);
 
-        const { data, count, error: queryError } = await query;
+        const { data, error: queryError } = await query;
         if (queryError) throw queryError;
 
+        const rows = data || [];
         return {
-          items: data || [],
-          total: Number(count ?? data?.length ?? 0)
+          items: rows,
+          total: rows.length
         };
       }
     });
