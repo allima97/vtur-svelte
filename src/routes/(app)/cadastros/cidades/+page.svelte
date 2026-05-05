@@ -27,10 +27,8 @@
 
   let cidades: Cidade[] = [];
   let subdivisoes: Subdivisao[] = [];
-  let modalSubdivisoes: Subdivisao[] = [];
   let loading = true;
   let loadingSubdivisoes = true;
-  let loadingModalSubdivisoes = false;
   let modalOpen = false;
   let saving = false;
   let deletingId = '';
@@ -84,22 +82,6 @@
     }
   }
 
-  async function loadModalSubdivisoes() {
-    if (loadingModalSubdivisoes || modalSubdivisoes.length > 0) {
-      return;
-    }
-
-    loadingModalSubdivisoes = true;
-    try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { page: 1, pageSize: 5000 });
-      modalSubdivisoes = Array.isArray(payload?.items) ? payload.items : [];
-    } catch {
-      modalSubdivisoes = [];
-    } finally {
-      loadingModalSubdivisoes = false;
-    }
-  }
-
   async function load() {
     const term = busca.trim();
     const hasCityTerm = term.length >= 2;
@@ -133,14 +115,12 @@
     editingId = null;
     form = { nome: '', subdivisao_id: '', descricao: '' };
     modalOpen = true;
-    void loadModalSubdivisoes();
   }
 
   function openEdit(c: Cidade) {
     editingId = c.id;
     form = { nome: c.nome, subdivisao_id: c.subdivisao_id || '', descricao: c.descricao || '' };
     modalOpen = true;
-    void loadModalSubdivisoes();
   }
 
   async function save() {
@@ -362,8 +342,6 @@
       id="cid-sub-form"
       label="Estado/Província"
       bind:value={form.subdivisao_id}
-      options={modalSubdivisoes}
-      loading={loadingModalSubdivisoes}
       placeholder="Digite para buscar estados..."
       helper="Digite pelo menos o nome do estado/província e use Enter ou clique na opção."
     />
