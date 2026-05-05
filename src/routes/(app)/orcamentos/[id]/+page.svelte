@@ -330,6 +330,14 @@
       Voltar para Orçamentos
     </Button>
   </div>
+{:else if !orcamento}
+  <div class="text-center py-12">
+    <p class="text-slate-500 mb-4">Orçamento não encontrado ou sem permissão de acesso.</p>
+    <Button variant="secondary" on:click={() => goto("/orcamentos")}>
+      <ArrowLeft size={16} class="mr-2" />
+      Voltar para Orçamentos
+    </Button>
+  </div>
 {:else if orcamento}
   <PageHeader
     title="Orçamento {orcamento.codigo}"

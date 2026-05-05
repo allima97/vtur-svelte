@@ -201,6 +201,14 @@
       Voltar para clientes
     </Button>
   </div>
+{:else if !cliente}
+  <div class="text-center py-12">
+    <p class="text-slate-500 mb-4">Cliente não encontrado ou sem permissão de acesso.</p>
+    <Button variant="secondary" on:click={() => goto('/clientes')}>
+      <ArrowLeft size={16} class="mr-2" />
+      Voltar para Clientes
+    </Button>
+  </div>
 {:else if cliente}
   <PageHeader
     title={cliente.nome}

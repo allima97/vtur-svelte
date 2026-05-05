@@ -255,6 +255,14 @@
 
 {#if loading}
   <LoadingState />
+{:else if !voucher}
+  <div class="text-center py-12">
+    <p class="text-slate-500 mb-4">Voucher não encontrado ou sem permissão de acesso.</p>
+    <Button variant="secondary" on:click={() => goto('/operacao/vouchers')}>
+      <ArrowLeft size={16} class="mr-2" />
+      Voltar para Vouchers
+    </Button>
+  </div>
 {:else if voucher}
   <div class="w-full space-y-6 pb-10" in:fade>
     <!-- Header Card -->

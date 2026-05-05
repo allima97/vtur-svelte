@@ -226,6 +226,12 @@ function resolveConciliacaoRankingValue(sourceRow: any) {
   };
 }
 
+function isTableMissingError(error: any) {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42p01' || message.includes('does not exist') || message.includes('relation');
+}
+
 async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string[]) {
   const byVendaRecibo = new Map<string, any>();
   const byConciliacao = new Map<string, any>();
@@ -237,7 +243,11 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
       .select('id, venda_recibo_id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
       .eq('ativo', true)
       .in('venda_recibo_id', batch);
-    if (error) throw error;
+    // Tabela pode não existir ainda — retorna mapa vazio sem lançar
+    if (error) {
+      if (isTableMissingError(error)) return { byVendaRecibo, byConciliacao };
+      throw error;
+    }
     (data || []).forEach((row: any) => {
       const id = toStr(row?.venda_recibo_id);
       if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) return;
@@ -252,7 +262,10 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
       .select('id, venda_recibo_id, conciliacao_recibo_id, vendedor_destino_id, percentual_origem, percentual_destino, ativo, observacao, vendedor_destino:users!vendedor_destino_id(id, nome_completo)')
       .eq('ativo', true)
       .in('conciliacao_recibo_id', batch);
-    if (error) throw error;
+    if (error) {
+      if (isTableMissingError(error)) return { byVendaRecibo, byConciliacao };
+      throw error;
+    }
     (data || []).forEach((row: any) => {
       const id = toStr(row?.conciliacao_recibo_id);
       if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) return;

@@ -217,10 +217,17 @@
   }
 
   onMount(async () => {
-    await ensureServerSessionCookie();
-    await loadReciboBaseData();
-    await carregarVenda();
-    await carregarRankingRecibos();
+    // Timeout de segurança: se após 15s ainda estiver carregando, libera a tela
+    const safetyTimeout = setTimeout(() => { loading = false; }, 15_000);
+    try {
+      await ensureServerSessionCookie();
+      // Base data e venda em paralelo — independentes entre si
+      await Promise.all([loadReciboBaseData(), carregarVenda()]);
+      // Ranking após a venda estar carregada (não bloqueia tela — tem loading próprio)
+      void carregarRankingRecibos();
+    } finally {
+      clearTimeout(safetyTimeout);
+    }
   });
 
   async function ensureProduto(produtoId: string) {
@@ -409,6 +416,14 @@
 {:else if error}
   <div class="text-center py-12">
     <p class="text-red-600 mb-4">{error}</p>
+    <Button variant="secondary" on:click={() => goto('/vendas')}>
+      <ArrowLeft size={16} class="mr-2" />
+      Voltar para Vendas
+    </Button>
+  </div>
+{:else if !venda}
+  <div class="text-center py-12">
+    <p class="text-slate-500 mb-4">Venda não encontrada ou sem permissão de acesso.</p>
     <Button variant="secondary" on:click={() => goto('/vendas')}>
       <ArrowLeft size={16} class="mr-2" />
       Voltar para Vendas
