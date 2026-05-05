@@ -141,4 +141,17 @@
     padding: 0.75rem 1rem 1.5rem;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Inputs dentro do bottom sheet precisam de fonte legível em mobile.
+     16px evita zoom automático no iOS Safari e melhora acessibilidade. */
+  :global(.vtur-bottom-sheet__content .vtur-input),
+  :global(.vtur-bottom-sheet__content input),
+  :global(.vtur-bottom-sheet__content select),
+  :global(.vtur-bottom-sheet__content textarea) {
+    font-size: 16px !important;
+  }
+
+  :global(.vtur-bottom-sheet__content label) {
+    font-size: 0.9375rem !important;
+  }
 </style>
