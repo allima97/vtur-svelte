@@ -26,12 +26,14 @@
   let cidades: Cidade[] = [];
   let subdivisoes: Subdivisao[] = [];
   let loading = true;
+  let loadingSubdivisoes = true;
   let modalOpen = false;
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
   let busca = '';
   let filtroSubdivisao = '';
+  let totalCidades = 0;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,12 +56,14 @@
   ];
 
   async function loadSubdivisoes() {
+    loadingSubdivisoes = true;
     try {
-      // pageSize alto para carregar todas as subdivisões de uma vez (uso em dropdown)
       const payload = await apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 });
       subdivisoes = payload.items || [];
     } catch {
       subdivisoes = [];
+    } finally {
+      loadingSubdivisoes = false;
     }
   }
 
@@ -69,9 +73,10 @@
       const payload = await apiGet<any>('/api/v1/cidades', {
         q: busca.trim() || undefined,
         subdivisao_id: filtroSubdivisao || undefined,
-        pageSize: 100
+        pageSize: 5000
       });
       cidades = payload.items || [];
+      totalCidades = payload.total || cidades.length;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
     } finally {
@@ -125,10 +130,13 @@
     }
   }
 
-  onMount(async () => {
-    await Promise.all([load(), loadSubdivisoes()]);
-    lastAutoReloadKey = buildAutoReloadKey();
-    autoReloadEnabled = true;
+  onMount(() => {
+    // Carrega as duas listas em paralelo mas sem bloquear uma pela outra
+    void loadSubdivisoes();
+    void load().then(() => {
+      lastAutoReloadKey = buildAutoReloadKey();
+      autoReloadEnabled = true;
+    });
   });
 
   onDestroy(() => {
@@ -182,8 +190,11 @@
       id="cid-sub"
       label="Estado/Província"
       bind:value={filtroSubdivisao}
-      options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      options={loadingSubdivisoes
+        ? [{ value: '', label: 'Carregando...' }]
+        : [{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
+      disabled={loadingSubdivisoes}
     />
   </div>
 </Card>
@@ -221,9 +232,12 @@
       id="cid-sub-form"
       label="Estado/Província"
       bind:value={form.subdivisao_id}
-      options={[{ value: '', label: 'Selecione uma opção' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      options={loadingSubdivisoes
+        ? [{ value: '', label: 'Carregando estados...' }]
+        : [{ value: '', label: 'Selecione um estado/província' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
       class_name="w-full"
+      disabled={loadingSubdivisoes}
     />
     <FieldInput
       id="cid-desc"

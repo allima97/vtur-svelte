@@ -6,9 +6,9 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, Button, FieldInput, FieldSelect } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { ArrowLeft, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
+  import { ArrowLeft, SlidersHorizontal, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
@@ -67,6 +67,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   async function loadBase() {
     try {
@@ -309,7 +310,18 @@
   ]}
 />
 
-<FilterPanel color="financeiro">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if empresaSelecionada || vendedorSelecionado || categoriaSelecionada}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<FilterPanel color="financeiro" className="hidden sm:block">
   <FieldSelect
     id="rel-clientes-periodo-modo"
     label="Período"
@@ -393,6 +405,96 @@
     class_name="w-full"
   />
 </FilterPanel>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Clientes">
+  <div class="space-y-4">
+    <FieldSelect
+      id="rel-clientes-periodo-modo-mobile"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="rel-clientes-mes-mobile"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+      />
+    {:else}
+      <FieldInput
+        id="rel-clientes-data-inicio-mobile"
+        label="Data Início"
+        type="date"
+        bind:value={dataInicio}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="rel-clientes-data-fim-mobile"
+        label="Data Fim"
+        type="date"
+        bind:value={dataFim}
+        min={dataInicio || null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showEmpresaFiltro}
+      <FieldSelect
+        id="rel-clientes-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showVendedorFiltro}
+      <FieldSelect
+        id="rel-clientes-vendedor-mobile"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    <FieldSelect
+      id="rel-clientes-categoria-mobile"
+      label="Categoria"
+      bind:value={categoriaSelecionada}
+      options={[
+        { value: '', label: 'Todas' },
+        { value: 'VIP', label: 'VIP' },
+        { value: 'Regular', label: 'Regular' },
+        { value: 'Ocasional', label: 'Ocasional' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="rel-clientes-ordenacao-mobile"
+      label="Ordenar Por"
+      bind:value={ordenacao}
+      options={[
+        { value: 'total_gasto', label: 'Total Gasto' },
+        { value: 'total_compras', label: 'Quantidade' },
+        { value: 'ticket_medio', label: 'Ticket Medio' },
+        { value: 'ultima_compra', label: 'Ultima Compra' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <div class="vtur-kpi-grid mb-6">
   <div class="vtur-kpi-card">

@@ -35,7 +35,7 @@ export async function GET(event) {
     const q = rawQ.length >= 2 ? rawQ : '';
     const subdivisaoId = String(searchParams.get('subdivisao_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
-    const pageSize = Math.min(100, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 50)));
+    const pageSize = Math.min(5000, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 200)));
 
     if (subdivisaoId && !isUuid(subdivisaoId)) {
       return json({ error: 'subdivisao_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
