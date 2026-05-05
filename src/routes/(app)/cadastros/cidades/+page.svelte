@@ -237,6 +237,11 @@
       icon={Search}
       placeholder="Buscar cidade..."
       class_name="flex-1 min-w-[200px]"
+      on:input={(event) => {
+        const target = event.target as HTMLInputElement | null;
+        busca = target?.value ?? busca;
+        scheduleAutoReload();
+      }}
     />
     <FieldSelect
       id="cid-sub"
@@ -255,6 +260,11 @@
       bind:value={buscaSubdivisao}
       placeholder="Digite 2+ letras para carregar estados..."
       class_name="min-w-[260px]"
+      on:input={(event) => {
+        const target = event.target as HTMLInputElement | null;
+        buscaSubdivisao = target?.value ?? buscaSubdivisao;
+        scheduleSubdivisoesReload();
+      }}
     />
   </div>
 </Card>
