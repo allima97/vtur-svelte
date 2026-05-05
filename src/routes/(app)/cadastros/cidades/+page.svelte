@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import { buildVturInputClasses } from '$lib/components/ui/inputContract';
   import { toast } from '$lib/stores/ui';
   import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -25,8 +26,10 @@
 
   let cidades: Cidade[] = [];
   let subdivisoes: Subdivisao[] = [];
+  let modalSubdivisoes: Subdivisao[] = [];
   let loading = true;
   let loadingSubdivisoes = true;
+  let loadingModalSubdivisoes = false;
   let modalOpen = false;
   let saving = false;
   let deletingId = '';
@@ -43,6 +46,9 @@
   let showFilterSheet = false;
 
   let form = { nome: '', subdivisao_id: '', descricao: '' };
+  const searchInputClasses = buildVturInputClasses('w-full', 'pl-10', 'text-sm', 'focus:ring-blue-200');
+  const subdivisaoSearchInputClasses = buildVturInputClasses('w-full', 'text-sm', 'focus:ring-blue-200');
+  const modalSubdivisaoSelectLabel = 'Selecione um estado/província';
 
   const columns = [
     { key: 'nome', label: 'Cidade', sortable: true },
@@ -75,6 +81,22 @@
       subdivisoes = [];
     } finally {
       loadingSubdivisoes = false;
+    }
+  }
+
+  async function loadModalSubdivisoes() {
+    if (loadingModalSubdivisoes || modalSubdivisoes.length > 0) {
+      return;
+    }
+
+    loadingModalSubdivisoes = true;
+    try {
+      const payload = await apiGet<any>('/api/v1/subdivisoes', { page: 1, pageSize: 5000 });
+      modalSubdivisoes = Array.isArray(payload?.items) ? payload.items : [];
+    } catch {
+      modalSubdivisoes = [];
+    } finally {
+      loadingModalSubdivisoes = false;
     }
   }
 
@@ -111,12 +133,14 @@
     editingId = null;
     form = { nome: '', subdivisao_id: '', descricao: '' };
     modalOpen = true;
+    void loadModalSubdivisoes();
   }
 
   function openEdit(c: Cidade) {
     editingId = c.id;
     form = { nome: c.nome, subdivisao_id: c.subdivisao_id || '', descricao: c.descricao || '' };
     modalOpen = true;
+    void loadModalSubdivisoes();
   }
 
   async function save() {
@@ -232,17 +256,15 @@
 
 <Card class="mb-6 hidden sm:block">
   <div class="flex flex-wrap gap-4 items-end">
-    <FieldInput
-      bind:value={busca}
-      icon={Search}
-      placeholder="Buscar cidade..."
-      class_name="flex-1 min-w-[200px]"
-      on:input={(event) => {
-        const target = event.target as HTMLInputElement | null;
-        busca = target?.value ?? busca;
-        scheduleAutoReload();
-      }}
-    />
+    <div class="relative flex-1 min-w-[200px]">
+      <Search size={16} class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400" />
+      <input
+        bind:value={busca}
+        class={searchInputClasses}
+        placeholder="Buscar cidade..."
+        on:input={scheduleAutoReload}
+      />
+    </div>
     <FieldSelect
       id="cid-sub"
       label="Estado/Província"
@@ -254,30 +276,31 @@
       placeholder={null}
       disabled={loadingSubdivisoes || buscaSubdivisao.trim().length < 2}
     />
-    <FieldInput
-      id="cid-sub-search"
-      label="Buscar Estado/Província"
-      bind:value={buscaSubdivisao}
-      placeholder="Digite 2+ letras para carregar estados..."
-      class_name="min-w-[260px]"
-      on:input={(event) => {
-        const target = event.target as HTMLInputElement | null;
-        buscaSubdivisao = target?.value ?? buscaSubdivisao;
-        scheduleSubdivisoesReload();
-      }}
-    />
+    <div class="min-w-[260px]">
+      <label for="cid-sub-search" class="mb-1.5 block text-sm font-medium text-slate-700">Buscar Estado/Província</label>
+      <input
+        id="cid-sub-search"
+        bind:value={buscaSubdivisao}
+        class={subdivisaoSearchInputClasses}
+        placeholder="Digite 2+ letras para carregar estados..."
+        on:input={scheduleSubdivisoesReload}
+      />
+    </div>
   </div>
 </Card>
 
 <BottomSheet bind:open={showFilterSheet} title="Filtrar Cidades">
   <div class="space-y-4">
-    <FieldInput
-      id="cid-busca-mobile"
-      bind:value={busca}
-      icon={Search}
-      placeholder="Buscar cidade..."
-      class_name="w-full"
-    />
+    <div class="relative w-full">
+      <Search size={16} class="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400" />
+      <input
+        id="cid-busca-mobile"
+        bind:value={busca}
+        class={buildVturInputClasses('w-full', 'pl-10', 'text-sm', 'focus:ring-blue-200')}
+        placeholder="Buscar cidade..."
+        on:input={scheduleAutoReload}
+      />
+    </div>
     <FieldSelect
       id="cid-sub-mobile"
       label="Estado/Província"
@@ -290,13 +313,16 @@
       class_name="w-full"
       disabled={loadingSubdivisoes || buscaSubdivisao.trim().length < 2}
     />
-    <FieldInput
-      id="cid-sub-search-mobile"
-      label="Buscar Estado/Província"
-      bind:value={buscaSubdivisao}
-      placeholder="Digite 2+ letras para carregar estados..."
-      class_name="w-full"
-    />
+    <div class="w-full">
+      <label for="cid-sub-search-mobile" class="mb-1.5 block text-sm font-medium text-slate-700">Buscar Estado/Província</label>
+      <input
+        id="cid-sub-search-mobile"
+        bind:value={buscaSubdivisao}
+        class={buildVturInputClasses('w-full', 'text-sm', 'focus:ring-blue-200')}
+        placeholder="Digite 2+ letras para carregar estados..."
+        on:input={scheduleSubdivisoesReload}
+      />
+    </div>
   </div>
   <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
     Aplicar filtros
@@ -336,12 +362,12 @@
       id="cid-sub-form"
       label="Estado/Província"
       bind:value={form.subdivisao_id}
-      options={loadingSubdivisoes
+      options={loadingModalSubdivisoes
         ? [{ value: '', label: 'Carregando estados...' }]
-        : [{ value: '', label: 'Selecione um estado/província' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+        : [{ value: '', label: modalSubdivisaoSelectLabel }, ...modalSubdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
       class_name="w-full"
-      disabled={loadingSubdivisoes}
+      disabled={loadingModalSubdivisoes}
     />
     <FieldInput
       id="cid-desc"
