@@ -3,13 +3,13 @@
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
-  import { FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, Button, FieldSelect } from '$lib/components/ui';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
-  import { CalendarDays, RefreshCw, Gift } from 'lucide-svelte';
+  import { CalendarDays, RefreshCw, Gift, SlidersHorizontal } from 'lucide-svelte';
   import { escapeHtml } from '$lib/utils/html';
 
   type Aniversariante = {
@@ -27,6 +27,7 @@
   let loading = true;
   let diasAfrente = 30;
   let diasAfrenteFiltro = '30';
+  let showFilterSheet = false;
 
   const columns = [
     {
@@ -120,7 +121,18 @@
   <KPICard title={`Próximos ${diasAfrente} dias`} value={aniversariantes.length} color="clientes" icon={CalendarDays} />
 </div>
 
-<Card color="clientes" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if diasAfrenteFiltro !== '30'}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-clientes-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<Card color="clientes" class="mb-6 hidden sm:block">
   <div class="max-w-xs">
     <FieldSelect
       id="dias-afrente"
@@ -138,6 +150,28 @@
     />
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Aniversariantes">
+  <div class="space-y-4">
+    <FieldSelect
+      id="dias-afrente-mobile"
+      label="Mostrar próximos"
+      bind:value={diasAfrenteFiltro}
+      placeholder={null}
+      options={[
+        { value: '7', label: '7 dias' },
+        { value: '15', label: '15 dias' },
+        { value: '30', label: '30 dias' },
+        { value: '60', label: '60 dias' },
+        { value: '90', label: '90 dias' }
+      ]}
+      on:change={load}
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <DataTable
   {columns}

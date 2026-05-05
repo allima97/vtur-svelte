@@ -265,6 +265,11 @@ Wrappers consolidados em `src/lib/components/ui`:
   - **Admin**:
     - `admin/usuarios` — perfil, status, empresa, escopo
     - `admin/aniversariantes` — mês
+    - `master/usuarios` — perfil, status, empresa, escopo
+  - **Clientes**:
+    - `aniversariantes` — dias à frente
+  - **Financeiro**:
+    - `financeiro/formas-pagamento` — empresa, filtro rápido (ativas/inativas/sem comissão/com desconto)
   - **Outros**:
     - `financeiro/caixa` — período, empresa, data início/fim
     - `operacao/acompanhamento` — busca, status, data início/fim

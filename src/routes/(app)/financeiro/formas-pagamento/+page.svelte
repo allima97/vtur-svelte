@@ -3,12 +3,12 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { 
     Plus, Edit2, Trash2, CreditCard, 
-    CheckCircle, XCircle
+    CheckCircle, XCircle, SlidersHorizontal
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiDelete, apiGet, apiPatch, apiPost } from '$lib/services/api';
@@ -43,6 +43,7 @@
   let empresas: EmpresaOption[] = [];
   let empresaId = '';
   let filtroRapido: 'todas' | 'ativas' | 'inativas' | 'sem_comissao' | 'com_desconto' = 'todas';
+  let showFilterSheet = false;
 
   let form = {
     nome: '',
@@ -287,7 +288,18 @@
   A tela agora ajuda a revisar rapidamente formas <strong>ativas</strong>, <strong>inativas</strong>, sem comissão e com política de desconto.
 </div>
 
-<Card color="financeiro" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if empresaId || filtroRapido !== 'todas'}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<Card color="financeiro" class="mb-6 hidden sm:block">
   <div class="flex flex-wrap items-end gap-3">
     {#if temVariasEmpresas}
       <FieldSelect
@@ -345,6 +357,72 @@
     </Button>
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Formas de Pagamento">
+  <div class="space-y-4">
+    {#if temVariasEmpresas}
+      <FieldSelect
+        id="formas-pagamento-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={carregarFormasPagamento}
+      />
+    {/if}
+
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-slate-700">Filtro rápido</p>
+      <Button
+        variant={filtroRapido === 'todas' ? 'selected' : 'secondary'}
+        size="sm"
+        class_name="w-full rounded-full"
+        on:click={() => (filtroRapido = 'todas')}
+      >
+        Todas ({formasPagamento.length})
+      </Button>
+      <Button
+        variant={filtroRapido === 'ativas' ? 'selected' : 'secondary'}
+        size="sm"
+        color="green"
+        class_name="w-full rounded-full"
+        on:click={() => (filtroRapido = 'ativas')}
+      >
+        Ativas ({ativas.length})
+      </Button>
+      <Button
+        variant={filtroRapido === 'inativas' ? 'selected' : 'secondary'}
+        size="sm"
+        class_name="w-full rounded-full"
+        on:click={() => (filtroRapido = 'inativas')}
+      >
+        Inativas ({inativas.length})
+      </Button>
+      <Button
+        variant={filtroRapido === 'sem_comissao' ? 'selected' : 'secondary'}
+        size="sm"
+        color="orange"
+        class_name="w-full rounded-full"
+        on:click={() => (filtroRapido = 'sem_comissao')}
+      >
+        Sem comissão ({semComissao.length})
+      </Button>
+      <Button
+        variant={filtroRapido === 'com_desconto' ? 'selected' : 'secondary'}
+        size="sm"
+        color="blue"
+        class_name="w-full rounded-full"
+        on:click={() => (filtroRapido = 'com_desconto')}
+      >
+        Com desconto ({comDesconto.length})
+      </Button>
+    </div>
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <DataTable
   {columns}
