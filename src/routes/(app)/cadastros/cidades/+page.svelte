@@ -55,7 +55,8 @@
 
   async function loadSubdivisoes() {
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes');
+      // pageSize alto para carregar todas as subdivisões de uma vez (uso em dropdown)
+      const payload = await apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 });
       subdivisoes = payload.items || [];
     } catch {
       subdivisoes = [];

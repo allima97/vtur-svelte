@@ -2,11 +2,12 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldInput } from '$lib/components/ui';
+  import { FieldInput, BottomSheet } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-svelte';
+  import { ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, SlidersHorizontal } from 'lucide-svelte';
   import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
@@ -95,6 +96,7 @@
     meta_total: 0
   };
   let vendedoresSeguro: VendedorRanking[] = [];
+  let showFilterSheet = false;
 
   function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -358,8 +360,35 @@
   ]}
 />
 
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if mesSelecionado !== defaultRange.month}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar ranking">
+  <div class="flex flex-col gap-4">
+    <FieldInput
+      id="rank-mes-mobile"
+      type="month"
+      label="Mês"
+      helper="Selecione o mês desejado"
+      bind:value={mesReferenciaData}
+      on:change={handleMesReferenciaChange}
+    />
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
 <!-- Filtros -->
-<Card color="financeiro" class="mb-6">
+<Card color="financeiro" class="mb-6 hidden sm:block">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
     <FieldInput
       id="rank-mes"

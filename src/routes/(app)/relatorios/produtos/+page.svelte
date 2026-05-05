@@ -6,9 +6,10 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import Button from '$lib/components/ui/Button.svelte';
+  import { FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { ArrowLeft, Wallet, TrendingUp, BarChart2, Trophy } from 'lucide-svelte';
+  import { ArrowLeft, Wallet, TrendingUp, BarChart2, Trophy, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
@@ -64,6 +65,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   async function loadBase() {
     try {
@@ -312,7 +314,103 @@
   ]}
 />
 
-<FilterPanel color="financeiro">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if empresaSelecionada || vendedorSelecionado || tipoSelecionado}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar produtos">
+  <div class="flex flex-col gap-4">
+    <FieldSelect
+      id="rel-produtos-periodo-modo-mobile"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="rel-produtos-mes-mobile"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+      />
+    {:else}
+      <FieldInput
+        id="rel-produtos-data-inicio-mobile"
+        label="Data Início"
+        type="date"
+        bind:value={dataInicio}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="rel-produtos-data-fim-mobile"
+        label="Data Fim"
+        type="date"
+        bind:value={dataFim}
+        min={dataInicio || null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showEmpresaFiltro}
+      <FieldSelect
+        id="rel-produtos-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((e) => ({ value: e.id, label: e.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showVendedorFiltro}
+      <FieldSelect
+        id="rel-produtos-vendedor-mobile"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    <FieldSelect
+      id="rel-produtos-tipo-mobile"
+      label="Tipo"
+      bind:value={tipoSelecionado}
+      options={[{ value: '', label: 'Todos' }, ...tiposDisponiveis.map((t) => ({ value: t, label: t }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="rel-produtos-ordenacao-mobile"
+      label="Ordenar Por"
+      bind:value={ordenacao}
+      options={[
+        { value: 'receita', label: 'Receita' },
+        { value: 'lucro', label: 'Lucro' },
+        { value: 'margem', label: 'Margem' },
+        { value: 'quantidade', label: 'Quantidade' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+<FilterPanel color="financeiro" className="hidden sm:block">
   <FieldSelect
     id="rel-produtos-periodo-modo"
     label="Período"

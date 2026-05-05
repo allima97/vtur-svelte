@@ -245,7 +245,15 @@ Wrappers consolidados em `src/lib/components/ui`:
 
 ### Wrappers de UI Adicionais ✅
 - **`BottomSheet`** (`src/lib/components/ui/BottomSheet.svelte`): Wrapper mobile-first baseado em `svelte-bottom-sheet` (compatível com Svelte 5). API simplificada com `title`, `maxHeight`, `snapPoints`, `position`, `onclose` e slot de conteúdo. Estilização alinhada ao design system do VTUR (bordas arredondadas, handle padronizado, backdrop com blur).
-  - **Adoção piloto**: `relatorios/vendas/+page.svelte` — filtros do relatório agora abrem em bottom sheet no mobile, mantendo o layout em grid no desktop (`hidden sm:block`). Botão "Filtros" com indicador de ativo (`SlidersHorizontal`) visível apenas em mobile (`sm:hidden`).
+  - **Telas com BottomSheet mobile**:
+    - `relatorios/vendas` — período, mês/data, empresa, vendedor, status
+    - `relatorios/ranking` — mês de referência
+    - `relatorios/produtos` — período, mês/data, empresa, vendedor, tipo, ordenação
+    - `relatorios/destinos` — período, mês/data, empresa, vendedor, ordenação, recorte
+    - `financeiro/comissoes` — empresa, mês, status, vendedor
+    - `financeiro/ajustes-vendas` — empresa, data início/fim, vendedor, rateio, busca
+    - `operacao/tarefas` — busca, coluna, prioridade, categoria, modo de visualização
+  - **Padrão aplicado**: botão "Filtros" largura total visível apenas em mobile (`sm:hidden`) com dot indicador quando há filtros ativos. Filtros desktop ficam `hidden sm:block`. BottomSheet contém os mesmos campos com IDs sufixo `-mobile` e botão "Aplicar filtros" para fechar.
 
 ### Não Migrados (Exceções Legítimas) ✅
   - KPI card buttons em `vendas/[id]` e `clientes/[id]` — estruturais com lógica visual complexa (cores condicionais, múltiplos ícones/conteúdo).

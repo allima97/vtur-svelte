@@ -35,7 +35,7 @@ export async function GET(event) {
     const q = rawQ.length >= 2 ? rawQ : '';
     const paisId = String(searchParams.get('pais_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
-    const pageSize = Math.min(200, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 100)));
+    const pageSize = Math.min(5000, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 100)));
 
     if (paisId && !isUuid(paisId)) {
       return json({ error: 'pais_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });

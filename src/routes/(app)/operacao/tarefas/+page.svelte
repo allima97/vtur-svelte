@@ -6,7 +6,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState, BottomSheet } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { confirmAction } from '$lib/stores/confirm';
@@ -18,6 +18,7 @@
     List,
     Plus,
     Search,
+    SlidersHorizontal,
     SquareCheckBig,
     Tag
   } from 'lucide-svelte';
@@ -124,6 +125,7 @@
   let filtroPrioridade = 'todas';
   let filtroCategoria = 'todas';
   let archivedExpanded = false;
+  let showFilterSheet = false;
 
   let taskModalOpen = false;
   let taskLoading = false;
@@ -525,7 +527,91 @@
   <KPICard title="Arquivadas" value={resumo.arquivadas} color="operacao" icon={Archive} />
 </div>
 
-<Card color="operacao" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if searchQuery || filtroStatus !== 'todas' || filtroPrioridade !== 'todas' || filtroCategoria !== 'todas'}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-operacao-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar tarefas">
+  <div class="flex flex-col gap-4">
+    <FieldInput
+      id="todo-search-mobile"
+      label="Busca"
+      bind:value={searchQuery}
+      icon={Search}
+      placeholder="Titulo, descricao, categoria ou prioridade"
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      id="todo-status-mobile"
+      label="Coluna"
+      bind:value={filtroStatus}
+      options={[{ value: 'todas', label: 'Todas' }, ...STATUS_COLUMNS.map((c) => ({ value: c.value, label: c.label }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      id="todo-priority-mobile"
+      label="Prioridade"
+      bind:value={filtroPrioridade}
+      options={[{ value: 'todas', label: 'Todas' }, ...PRIORITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      id="todo-category-mobile"
+      label="Categoria"
+      bind:value={filtroCategoria}
+      options={[
+        { value: 'todas', label: 'Todas' },
+        { value: 'sem_categoria', label: 'Sem categoria' },
+        ...categorias.map((c) => ({ value: c.id, label: c.nome }))
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+
+    <div>
+      <p class="block text-sm font-medium text-slate-700 mb-1">Visualizacao</p>
+      <div class="flex gap-2">
+        <Button
+          variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
+          class_name="flex-1"
+          on:click={() => (viewMode = 'kanban')}
+        >
+          Kanban
+        </Button>
+        <Button
+          variant={viewMode === 'lista' ? 'selected' : 'secondary'}
+          class_name="flex-1"
+          on:click={() => (viewMode = 'lista')}
+        >
+          Lista
+        </Button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <Button variant="ghost" size="sm" on:click={clearFilters}>Limpar filtros</Button>
+      <Button variant="secondary" size="sm" on:click={loadBoard}>Atualizar board</Button>
+    </div>
+
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+<Card color="operacao" class="mb-6 hidden sm:block">
   <div class="grid grid-cols-1 lg:grid-cols-[1.6fr_repeat(4,minmax(0,1fr))] gap-4">
     <div>
       <FieldInput

@@ -5,12 +5,12 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, FieldTextarea, LoadingState, BottomSheet } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, AlertCircle, Wallet, TrendingUp } from 'lucide-svelte';
+  import { DollarSign, Users, CheckCircle, Clock, Download, Settings, FileText, AlertCircle, Wallet, TrendingUp, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
@@ -79,6 +79,7 @@
   let detalhesDataPagamento = '';
   let detalhesObservacoes = '';
   let salvandoDetalhes = false;
+  let showFilterSheet = false;
 
   $: statusOptions = [
     { value: 'todas', label: 'Todas' },
@@ -503,7 +504,50 @@
     </Button>
   </KPIGrid>
 
-  <Card header="Filtros" color="financeiro" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if filtroVendedor || filtroStatus !== 'todas'}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar comissões">
+  <div class="flex flex-col gap-4">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="comissoes-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
+    <FieldInput id="comissoes-mes-mobile" label="Mês" type="month" bind:value={filtroMes} class_name="w-full" on:change={loadComissoes} />
+    <FieldSelect id="comissoes-status-mobile" label="Status" bind:value={filtroStatus} options={statusOptions} class_name="w-full" on:change={loadComissoes} />
+    {#if podeFiltrarVendedor}
+      <FieldSelect
+        id="comissoes-vendedor-mobile"
+        label="Vendedor"
+        bind:value={filtroVendedor}
+        options={vendedorOptions}
+        placeholder="Selecione uma opção"
+        class_name="w-full"
+        on:change={loadComissoes}
+      />
+    {/if}
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+  <Card header="Filtros" color="financeiro" class="mb-6 hidden sm:block">
     <div class="flex flex-wrap gap-4 items-end">
       {#if canSelectEmpresa}
         <FieldSelect

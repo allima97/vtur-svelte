@@ -5,10 +5,10 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { RefreshCw, RotateCcw, Search } from 'lucide-svelte';
+  import { RefreshCw, RotateCcw, Search, SlidersHorizontal } from 'lucide-svelte';
   import { todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
   import { escapeHtml } from '$lib/utils/html';
@@ -63,6 +63,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
 
@@ -278,7 +279,75 @@
   ]}
 />
 
-<Card color="financeiro" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if filtroVendedor || filtroApenasRateados !== 'false' || busca}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar ajustes">
+  <div class="flex flex-col gap-4">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="aj-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
+    <FieldInput
+      id="aj-inicio-mobile"
+      label="Data início"
+      type="date"
+      bind:value={inicio}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="aj-fim-mobile"
+      label="Data fim"
+      type="date"
+      bind:value={fim}
+      min={inicio || null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="aj-vendedor-mobile"
+      label="Vendedor"
+      bind:value={filtroVendedor}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((v) => ({ value: v.id, label: v.nome_completo || 'Vendedor' }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="aj-rateados-mobile"
+      label="Rateio"
+      bind:value={filtroApenasRateados}
+      options={[{ value: 'false', label: 'Todos' }, { value: 'true', label: 'Apenas rateados' }]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="aj-busca-mobile"
+      bind:value={busca}
+      icon={Search}
+      placeholder="Buscar..."
+      class_name="w-full"
+    />
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+<Card color="financeiro" class="mb-6 hidden sm:block">
   <div class="flex flex-wrap gap-4 items-end">
     {#if canSelectEmpresa}
       <FieldSelect

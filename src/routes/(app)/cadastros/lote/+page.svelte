@@ -25,7 +25,7 @@
   async function loadBase() {
     const [tiposPayload, subPayload] = await Promise.all([
       apiGet<any>('/api/v1/tipo-produtos', { all: 1 }),
-      apiGet<any>('/api/v1/subdivisoes')
+      apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 })
     ]);
     tipos = tiposPayload.items || [];
     subdivisoes = subPayload.items || [];
