@@ -32,11 +32,14 @@
   let deletingId = '';
   let editingId: string | null = null;
   let busca = '';
+  let buscaSubdivisao = '';
   let filtroSubdivisao = '';
   let totalCidades = 0;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSubdivisoesKey = '';
+  let subdivisoesReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
 
   let form = { nome: '', subdivisao_id: '', descricao: '' };
@@ -57,10 +60,17 @@
   ];
 
   async function loadSubdivisoes() {
+    const term = buscaSubdivisao.trim();
+    if (term.length < 2) {
+      subdivisoes = [];
+      loadingSubdivisoes = false;
+      return;
+    }
+
     loadingSubdivisoes = true;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 });
-      subdivisoes = payload.items || [];
+      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 });
+      subdivisoes = Array.isArray(payload?.items) ? payload.items : [];
     } catch {
       subdivisoes = [];
     } finally {
@@ -69,15 +79,27 @@
   }
 
   async function load() {
+    const term = busca.trim();
+    const hasCityTerm = term.length >= 2;
+    const hasSubdivisaoFilter = Boolean(filtroSubdivisao);
+
+    if (!hasCityTerm && !hasSubdivisaoFilter) {
+      cidades = [];
+      totalCidades = 0;
+      loading = false;
+      return;
+    }
+
     loading = true;
     try {
       const payload = await apiGet<any>('/api/v1/cidades', {
-        q: busca.trim() || undefined,
-        subdivisao_id: filtroSubdivisao || undefined,
-        pageSize: 5000
+        q: hasCityTerm ? term : undefined,
+        subdivisao_id: hasSubdivisaoFilter ? filtroSubdivisao : undefined,
+        page: 1,
+        pageSize: 200
       });
-      cidades = payload.items || [];
-      totalCidades = payload.total || cidades.length;
+      cidades = Array.isArray(payload?.items) ? payload.items : [];
+      totalCidades = Number(payload?.total || cidades.length);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
     } finally {
@@ -132,20 +154,25 @@
   }
 
   onMount(() => {
-    // Carrega as duas listas em paralelo mas sem bloquear uma pela outra
+    // Modo sob demanda: evita carregar a tabela inteira sem filtro.
+    lastAutoReloadKey = buildAutoReloadKey();
+    lastSubdivisoesKey = buildSubdivisoesKey();
+    autoReloadEnabled = true;
+    void load();
     void loadSubdivisoes();
-    void load().then(() => {
-      lastAutoReloadKey = buildAutoReloadKey();
-      autoReloadEnabled = true;
-    });
   });
 
   onDestroy(() => {
     if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
   });
 
   function buildAutoReloadKey() {
     return [busca.trim(), filtroSubdivisao].join('|');
+  }
+
+  function buildSubdivisoesKey() {
+    return buscaSubdivisao.trim();
   }
 
   function scheduleAutoReload() {
@@ -155,10 +182,23 @@
     }, 300);
   }
 
+  function scheduleSubdivisoesReload() {
+    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
+    subdivisoesReloadTimer = setTimeout(() => {
+      void loadSubdivisoes();
+    }, 300);
+  }
+
   $: autoReloadKey = buildAutoReloadKey();
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
     scheduleAutoReload();
+  }
+
+  $: subdivisoesKey = buildSubdivisoesKey();
+  $: if (autoReloadEnabled && subdivisoesKey !== lastSubdivisoesKey) {
+    lastSubdivisoesKey = subdivisoesKey;
+    scheduleSubdivisoesReload();
   }
 </script>
 
@@ -202,11 +242,19 @@
       id="cid-sub"
       label="Estado/Província"
       bind:value={filtroSubdivisao}
-      options={loadingSubdivisoes
-        ? [{ value: '', label: 'Carregando...' }]
-        : [{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      options={[
+        { value: '', label: 'Todos' },
+        ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))
+      ]}
       placeholder={null}
-      disabled={loadingSubdivisoes}
+      disabled={loadingSubdivisoes || buscaSubdivisao.trim().length < 2}
+    />
+    <FieldInput
+      id="cid-sub-search"
+      label="Buscar Estado/Província"
+      bind:value={buscaSubdivisao}
+      placeholder="Digite 2+ letras para carregar estados..."
+      class_name="min-w-[260px]"
     />
   </div>
 </Card>
@@ -224,8 +272,19 @@
       id="cid-sub-mobile"
       label="Estado/Província"
       bind:value={filtroSubdivisao}
-      options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      options={[
+        { value: '', label: 'Todos' },
+        ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))
+      ]}
       placeholder={null}
+      class_name="w-full"
+      disabled={loadingSubdivisoes || buscaSubdivisao.trim().length < 2}
+    />
+    <FieldInput
+      id="cid-sub-search-mobile"
+      label="Buscar Estado/Província"
+      bind:value={buscaSubdivisao}
+      placeholder="Digite 2+ letras para carregar estados..."
       class_name="w-full"
     />
   </div>
