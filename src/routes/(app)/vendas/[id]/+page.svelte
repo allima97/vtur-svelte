@@ -192,8 +192,11 @@
       const data: any = await apiGet(`/api/v1/vendas/${vendaId}/ranking-recibos`);
       rankingRecibos = data.recibos || [];
       rankingTotais = data.totais || null;
-    } catch {
-      // Não bloqueia a tela principal
+    } catch (err) {
+      // Não bloqueia a tela principal, mas loga para facilitar diagnóstico
+      console.warn('[ranking-recibos] erro ao carregar snapshot:', err);
+      rankingRecibos = [];
+      rankingTotais = null;
     } finally {
       rankingLoading = false;
     }

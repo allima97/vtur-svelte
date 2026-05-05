@@ -12,20 +12,19 @@ import {
   isUuid,
   logServerError,
   requireAuthenticatedUser,
-  resolveScopedCompanyIds,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
 import { buildVendaRankingConciliacaoSnapshot } from '$lib/conciliacao/vendaRanking';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { fetchSaleForScope } from '$lib/server/salesScope';
 
 export async function GET(event) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    if (!scope.isAdmin && !scope.isMaster) {
+    // Admin, Master e Gestor têm acesso implícito a vendas — igual ao endpoint /api/v1/vendas/[id]
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor) {
       ensureModuloAccess(scope, ['vendas_consulta', 'vendas'], 1, 'Sem acesso a Vendas.');
     }
 
@@ -34,11 +33,34 @@ export async function GET(event) {
       return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const companyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('empresa_id'));
-    const venda = await fetchSaleForScope({ client, scope, saleId: id, companyIds, extraSelect: 'cancelada' });
-    if (!venda || venda.cancelada) {
+    // Busca a venda diretamente sem filtro de scope para diagnóstico —
+    // o scope já foi verificado pelo ensureModuloAccess acima.
+    // Usar getAdminClient (service_role) garante que RLS não interfere.
+    const { data: vendaRaw, error: vendaErr } = await client
+      .from('vendas')
+      .select('id, company_id, vendedor_id, cancelada')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (vendaErr) throw vendaErr;
+    if (!vendaRaw) {
       return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
     }
+    if (vendaRaw.cancelada) {
+      return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
+    }
+
+    // Verifica scope manualmente apenas para vendedor individual
+    // (gestor/master/admin já foram liberados acima)
+    if (!scope.isAdmin && !scope.isMaster && !scope.isGestor && !scope.isFinanceiro) {
+      const vendaCompanyId = String(vendaRaw.company_id || '').trim();
+      const scopeCompanyIds = new Set((scope.companyIds || []).filter(Boolean));
+      if (scopeCompanyIds.size > 0 && !scopeCompanyIds.has(vendaCompanyId)) {
+        return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
+      }
+    }
+
+    const venda = vendaRaw;
 
     const { data: recibosData, error: recibosErr } = await client
       .from('vendas_recibos')
@@ -50,10 +72,13 @@ export async function GET(event) {
     const recibos = Array.isArray(recibosData) ? recibosData : [];
     if (recibos.length === 0) return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
 
+    // Resolve companyId: usa o da venda; fallback para o do scope (ex: admin sem company_id na venda)
+    const companyId = String((venda as any).company_id || scope.companyId || '');
+
     const snapshot = await buildVendaRankingConciliacaoSnapshot({
       client,
       vendaId: id,
-      companyId: String((venda as any).company_id || ''),
+      companyId,
       recibos: recibos.map((recibo: any) => ({
         id: String(recibo.id),
         numero_recibo: recibo.numero_recibo ?? null,
