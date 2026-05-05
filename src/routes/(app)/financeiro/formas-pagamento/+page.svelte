@@ -119,8 +119,9 @@
     }
   }
 
-  async function carregarFormasPagamento() {
-    loading = true;
+  async function carregarFormasPagamento(opts: { silent?: boolean } = {}) {
+    const silent = opts.silent ?? false;
+    if (!silent) loading = true;
     try {
       const data = await apiGet<{ items?: FormaPagamento[] }>('/api/v1/financeiro/formas-pagamento', {
         empresa_id: empresaId || undefined
@@ -182,7 +183,7 @@
 
       toast.success(editando ? 'Forma de pagamento atualizada!' : 'Forma de pagamento criada!');
       showFormDialog = false;
-      await carregarFormasPagamento();
+      await carregarFormasPagamento({ silent: true });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar');
     } finally {
@@ -199,7 +200,7 @@
       toast.success(result.message || 'Forma de pagamento excluída!');
       showDeleteDialog = false;
       excluindo = null;
-      await carregarFormasPagamento();
+      await carregarFormasPagamento({ silent: true });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir');
     } finally {
@@ -309,7 +310,7 @@
         options={empresaOptions}
         placeholder={null}
         class_name="min-w-[240px]"
-        on:change={carregarFormasPagamento}
+        on:change={() => carregarFormasPagamento()}
       />
     {/if}
     <Button
@@ -368,7 +369,7 @@
         options={empresaOptions}
         placeholder={null}
         class_name="w-full"
-        on:change={carregarFormasPagamento}
+        on:change={() => carregarFormasPagamento()}
       />
     {/if}
 

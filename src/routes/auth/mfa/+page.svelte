@@ -144,7 +144,7 @@
       <div class="vtur-auth-brand-lockup">
         <div class="vtur-auth-brand-row">
           <img
-            src="/brand/vtur-symbol.png"
+            src="/brand/vtur-symbol.png?v=7"
             alt="VTUR"
             class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_12px_24px_rgba(15,23,42,0.16)]"
           />

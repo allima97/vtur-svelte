@@ -62,8 +62,9 @@
     }
   ];
 
-  async function load() {
-    loading = true;
+  async function load(opts: { silent?: boolean } = {}) {
+    const silent = opts.silent ?? false;
+    if (!silent) loading = true;
     try {
       const payload = await apiGet<{ roteiros?: Roteiro[] }>('/api/v1/roteiros');
       roteiros = payload.roteiros || [];
@@ -104,7 +105,7 @@
       });
       toast.success(editingId ? 'Roteiro atualizado.' : 'Roteiro criado.');
       modalOpen = false;
-      await load();
+      await load({ silent: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
     } finally {
@@ -118,7 +119,7 @@
     try {
       await apiDelete('/api/v1/roteiros', { id });
       toast.success('Roteiro excluído.');
-      await load();
+      await load({ silent: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao excluir.');
     } finally {
@@ -142,7 +143,7 @@
     { label: 'Roteiros' }
   ]}
   actions={[
-    { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw },
+    { label: 'Atualizar', onClick: () => load(), variant: 'secondary', icon: RefreshCw },
     { label: 'Novo Roteiro', onClick: openNew, variant: 'primary', icon: Plus }
   ]}
 />

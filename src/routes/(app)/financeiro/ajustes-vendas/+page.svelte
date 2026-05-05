@@ -124,8 +124,9 @@
     }
   ];
 
-  async function load() {
-    loading = true;
+  async function load(opts: { silent?: boolean } = {}) {
+    const silent = opts.silent ?? false;
+    if (!silent) loading = true;
     try {
       const payload = await apiGet<{ items?: AjusteItem[]; vendedores?: Vendedor[] }>(
         '/api/v1/financeiro/ajustes-vendas/list',
@@ -172,7 +173,7 @@
       });
       toast.success('Rateio salvo com sucesso.');
       modalOpen = false;
-      await load();
+      await load({ silent: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar rateio.');
     } finally {
@@ -193,7 +194,7 @@
       });
       toast.success('Rateio desfeito. O recibo voltou ao valor integral do vendedor de origem.');
       modalOpen = false;
-      await load();
+      await load({ silent: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao desfazer rateio.');
     } finally {
@@ -251,7 +252,7 @@
   function scheduleAutoReload() {
     if (autoReloadTimer) clearTimeout(autoReloadTimer);
     autoReloadTimer = setTimeout(() => {
-      void load();
+      void load({ silent: true });
     }, 300);
   }
 
@@ -275,7 +276,7 @@
     { label: 'Ajustes de Vendas' }
   ]}
   actions={[
-    { label: 'Atualizar', onClick: load, variant: 'secondary', icon: RefreshCw }
+    { label: 'Atualizar', onClick: () => load(), variant: 'secondary', icon: RefreshCw }
   ]}
 />
 

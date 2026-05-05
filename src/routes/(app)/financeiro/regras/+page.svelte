@@ -173,8 +173,9 @@
     }
   }
 
-  async function loadRules() {
-    loading = true;
+  async function loadRules(opts: { silent?: boolean } = {}) {
+    const silent = opts.silent ?? false;
+    if (!silent) loading = true;
     errorMessage = '';
 
     try {
@@ -384,7 +385,7 @@
       });
 
       toast.success(editId ? 'Regra atualizada com sucesso.' : 'Regra criada com sucesso.');
-      await loadRules();
+      await loadRules({ silent: true });
       cancelForm();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao salvar regra.';
@@ -427,7 +428,7 @@
         toast.success('Regra excluída com sucesso.');
       }
 
-      await loadRules();
+      await loadRules({ silent: true });
       closeConfirm();
     } catch (err) {
       const message =

@@ -327,8 +327,10 @@
   >
 </svelte:head>
 
-{#if loading}
-  <LoadingState />
+{#if loading && !orcamento}
+  <div class="py-12">
+    <LoadingState compact={true} />
+  </div>
 {:else if error}
   <div class="text-center py-12">
     <p class="text-red-600 mb-4">{error}</p>

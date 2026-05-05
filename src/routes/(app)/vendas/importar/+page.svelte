@@ -679,7 +679,7 @@
       }
       toast.success('Venda importada com sucesso!');
       contatoModalOpen = false;
-      goto(`/vendas?id=${encodeURIComponent(result.venda_id)}`);
+      goto(`/vendas/${encodeURIComponent(result.venda_id)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar importação.');
     } finally {

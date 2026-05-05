@@ -26,6 +26,7 @@
 
   let venda: any = null;
   let loading = true;
+  let refreshing = false;
   let error: string | null = null;
   let processando = false;
   let showMesclar = false;
@@ -164,7 +165,7 @@
       showEditReciboDialog = false;
       isEditingReciboDetails = false;
       editingReciboId = null;
-      await carregarVenda();
+      await carregarVenda({ preserveData: true });
       toast.success('Recibo atualizado');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar recibo');
@@ -243,9 +244,11 @@
     produtosCache = { ...produtosCache };
   }
 
-  async function carregarVenda() {
+  async function carregarVenda(opts: { preserveData?: boolean } = {}) {
+    const preserveData = opts.preserveData ?? false;
     try {
-      loading = true;
+      refreshing = preserveData && Boolean(venda);
+      if (!preserveData || !venda) loading = true;
       error = null;
 
       const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
@@ -286,6 +289,7 @@
       toast.error('Erro ao carregar venda');
     } finally {
       loading = false;
+      refreshing = false;
     }
   }
 
@@ -411,8 +415,10 @@
   <title>{venda ? `Venda ${venda.codigo || vendaIdSafe.slice(0, 8).toUpperCase()}` : 'Venda'} | VTUR</title>
 </svelte:head>
 
-{#if loading}
-  <LoadingState />
+{#if loading && !venda}
+  <div class="py-12">
+    <LoadingState compact={true} />
+  </div>
 {:else if error}
   <div class="text-center py-12">
     <p class="text-red-600 mb-4">{error}</p>
@@ -458,6 +464,13 @@
       }
     ]}
   />
+
+  {#if refreshing}
+    <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+      <span class="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
+      Atualizando detalhes da venda
+    </div>
+  {/if}
 
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -1046,6 +1059,6 @@
     {vendaId}
     vendaCodigo={venda?.codigo || ''}
     onClose={() => (showMesclar = false)}
-    onMerged={() => { showMesclar = false; carregarVenda(); }}
+    onMerged={() => { showMesclar = false; carregarVenda({ preserveData: true }); }}
   />
 {/if}
