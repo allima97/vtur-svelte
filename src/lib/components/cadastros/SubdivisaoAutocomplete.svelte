@@ -184,16 +184,18 @@
     }
   }
 
-  $: if (value) {
+  $: {
     const selected = getSelectedOption();
-    if (selected && !open) {
+    if (selected) {
       const labelValue = getOptionLabel(selected);
-      if (searchText !== labelValue) {
+      if (!open && searchText !== labelValue) {
+        searchText = labelValue;
+      } else if (!searchText.trim() && value) {
         searchText = labelValue;
       }
+    } else if (!open && !searchText.trim()) {
+      searchText = '';
     }
-  } else if (!open && !searchText.trim()) {
-    searchText = '';
   }
 
   $: filteredOptions = getFilteredOptions(searchText);
@@ -226,7 +228,7 @@
   />
 
   {#if open}
-    <div class="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+    <div class="mt-2 max-h-72 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
       {#if loading}
         <div class="px-3 py-2 text-sm text-slate-500">Carregando estados...</div>
       {:else if filteredOptions.length === 0}
