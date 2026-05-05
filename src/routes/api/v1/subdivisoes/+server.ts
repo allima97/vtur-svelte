@@ -19,8 +19,24 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
+    const id = String(searchParams.get('id') || '').trim();
     const q = String(searchParams.get('q') || '').trim();
     const paisId = String(searchParams.get('pais_id') || '').trim();
+
+    if (id) {
+      if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400 });
+
+      const { data, error: queryError } = await client
+        .from('subdivisoes')
+        .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (queryError) throw queryError;
+      if (!data) return json({ error: 'Estado/Subdivisão não encontrado.' }, { status: 404 });
+
+      return json(data);
+    }
 
     let query = client
       .from('subdivisoes')

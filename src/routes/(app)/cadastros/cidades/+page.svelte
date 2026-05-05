@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import SubdivisaoAutocomplete from '$lib/components/cadastros/SubdivisaoAutocomplete.svelte';
   import { toast } from '$lib/stores/ui';
   import { Plus, Pencil, Trash2, RefreshCw, Search } from 'lucide-svelte';
 
@@ -177,13 +178,13 @@
       <input id="cid-nome" bind:value={form.nome} class="vtur-input w-full" placeholder="Nome da cidade" />
     </div>
     <div>
-      <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-sub-form">Estado/Província</label>
-      <select id="cid-sub-form" bind:value={form.subdivisao_id} class="vtur-input w-full">
-        <option value="">Selecione...</option>
-        {#each subdivisoes as s}
-          <option value={s.id}>{s.nome}</option>
-        {/each}
-      </select>
+      <SubdivisaoAutocomplete
+        id="cid-sub-form"
+        label="Estado/Província"
+        bind:value={form.subdivisao_id}
+        placeholder="Digite para buscar estados..."
+        helper="Digite pelo menos 2 letras e selecione a opção desejada."
+      />
     </div>
     <div>
       <label class="mb-1 block text-sm font-medium text-slate-700" for="cid-desc">Descrição</label>
