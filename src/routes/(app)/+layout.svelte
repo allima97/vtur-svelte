@@ -48,30 +48,32 @@
   onMount(() => {
     handleResize();
 
-    const startApp = async () => {
-      // Aguarda a sessão estar sincronizada antes de inicializar permissões
+    const startApp = () => {
+      // Libera a tela imediatamente — permissões carregam em background.
+      // Aguardar initPermissoes() aqui bloqueava appReady por 4+ queries Supabase,
+      // causando tela branca após navegações client-side.
+      appReady = true;
       const currentState = get(auth);
       if (currentState.user && !permsInitialized) {
         permsInitialized = true;
-        await initPermissoes();
+        void initPermissoes();
       }
-      appReady = true;
     };
 
     if (get(sessionSynced)) {
-      void startApp();
+      startApp();
       return;
     }
 
     const timeout = setTimeout(() => {
       appReady = true;
-    }, 5000);
+    }, 3000);
 
-    const unsub = sessionSynced.subscribe(async (ready) => {
+    const unsub = sessionSynced.subscribe((ready) => {
       if (ready) {
         clearTimeout(timeout);
         unsub();
-        await startApp();
+        startApp();
       }
     });
 
