@@ -261,6 +261,13 @@ Wrappers consolidados em `src/lib/components/ui`:
     - `consultoria-online` — status (abertas/fechadas/todas), período, busca
     - `cadastros/cidades` — busca, filtro por estado/província
     - `cadastros/estados` — filtro por país
+    - `cadastros/circuitos` — busca, tipo, duração, status
+  - **Admin**:
+    - `admin/usuarios` — perfil, status, empresa, escopo
+    - `admin/aniversariantes` — mês
+  - **Outros**:
+    - `financeiro/caixa` — período, empresa, data início/fim
+    - `operacao/acompanhamento` — busca, status, data início/fim
   - **Padrão aplicado**: botão "Filtros" largura total visível apenas em mobile (`sm:hidden`) com dot indicador quando há filtros ativos. Filtros desktop ficam `hidden sm:block`. BottomSheet contém os mesmos campos com IDs sufixo `-mobile` e botão "Aplicar filtros" para fechar.
 
 ### Não Migrados (Exceções Legítimas) ✅

@@ -6,10 +6,10 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldCheckbox, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
-  import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search } from 'lucide-svelte';
+  import { CalendarDays, ExternalLink, MessageCircle, RefreshCw, Search, SlidersHorizontal } from 'lucide-svelte';
   import { apiGet, apiPatch } from '$lib/services/api';
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
@@ -58,6 +58,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   let modalOpen = false;
   let selectedItem: FollowUpItem | null = null;
@@ -213,7 +214,18 @@
   <KPICard title="Fechados" value={resumo.fechados} color="operacao" icon={ExternalLink} />
 </div>
 
-<Card color="operacao" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if searchQuery.trim() || statusFilter !== 'abertos' || inicio || fim}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-operacao-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<Card color="operacao" class="mb-6 hidden sm:block">
   <div class="grid grid-cols-1 lg:grid-cols-[1.6fr_repeat(3,minmax(0,1fr))] gap-4">
     <FieldInput
       id="follow-search"
@@ -257,6 +269,34 @@
     </Button>
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar acompanhamento">
+  <div class="space-y-4">
+    <FieldInput
+      id="follow-search-mobile"
+      label="Busca"
+      bind:value={searchQuery}
+      class_name="w-full"
+      placeholder="Cliente, destino ou texto do follow-up"
+      icon={Search}
+    />
+    <FieldSelect
+      id="follow-status-mobile"
+      label="Status"
+      bind:value={statusFilter}
+      options={[
+        { value: 'abertos', label: 'Abertos' },
+        { value: 'todos', label: 'Todos' },
+        { value: 'fechados', label: 'Fechados' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldInput id="follow-start-mobile" label="Inicio" type="date" bind:value={inicio} class_name="w-full" />
+    <FieldInput id="follow-end-mobile" label="Fim" type="date" bind:value={fim} min={inicio || null} class_name="w-full" />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>Aplicar filtros</Button>
+</BottomSheet>
 
 <Card color="operacao">
   {#if loading}

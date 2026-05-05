@@ -5,9 +5,9 @@
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, FieldSelect } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Plus, RefreshCw, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
+  import { Plus, RefreshCw, SlidersHorizontal, Users, UserCheck, UserX, UserCog } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { escapeHtml } from '$lib/utils/html';
 
@@ -36,6 +36,7 @@
   let filtroStatus = '';
   let filtroEmpresa = '';
   let filtroEscopo = '';
+  let showFilterSheet = false;
 
   function formatDateTime(value?: string | null) {
     if (!value) return '-';
@@ -185,7 +186,18 @@
     </div>
   </div>
 
-  <Card color="financeiro" title="Filtros">
+  <!-- Mobile: botão de filtros -->
+  <div class="mb-4 sm:hidden">
+    <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+      <SlidersHorizontal size={16} class="mr-2" />
+      Filtros
+      {#if filtroTipo || filtroStatus || filtroEmpresa || filtroEscopo}
+        <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+      {/if}
+    </Button>
+  </div>
+
+  <Card color="financeiro" title="Filtros" class="hidden sm:block">
     <div class="grid gap-4 md:grid-cols-4">
       <FieldSelect
         id="usuarios-tipo"
@@ -230,6 +242,50 @@
       />
     </div>
   </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar usuários">
+  <div class="space-y-4">
+    <FieldSelect
+      id="usuarios-tipo-mobile"
+      label="Perfil"
+      bind:value={filtroTipo}
+      options={Array.from(new Set(usuarios.map((row) => row.tipo))).sort((a, b) => a.localeCompare(b)).map((tipo) => ({ value: tipo, label: tipo }))}
+      placeholder="Todos"
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="usuarios-status-mobile"
+      label="Status"
+      bind:value={filtroStatus}
+      options={[
+        { value: 'true', label: 'Ativo' },
+        { value: 'false', label: 'Inativo' }
+      ]}
+      placeholder="Todos"
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="usuarios-empresa-mobile"
+      label="Empresa"
+      bind:value={filtroEmpresa}
+      options={empresas.map((empresa) => ({ value: empresa, label: empresa }))}
+      placeholder="Todas"
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="usuarios-escopo-mobile"
+      label="Escopo"
+      bind:value={filtroEscopo}
+      options={[
+        { value: 'corporativo', label: 'Corporativo' },
+        { value: 'individual', label: 'Individual' }
+      ]}
+      placeholder="Todos"
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>Aplicar filtros</Button>
+</BottomSheet>
 
   <DataTable
     title="Usuarios administrados"

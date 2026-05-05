@@ -3,9 +3,9 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldSelect, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldSelect, LoadingState } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { Gift, RefreshCw, Users } from 'lucide-svelte';
+  import { Gift, RefreshCw, SlidersHorizontal, Users } from 'lucide-svelte';
   import { apiGet } from '$lib/services/api';
   import { parseISODateParts } from '$lib/date';
 
@@ -25,6 +25,7 @@
   let colaboradores: Colaborador[] = [];
   let loading = true;
   let mesSelecionado = String(new Date().getMonth() + 1);
+  let showFilterSheet = false;
 
   async function load() {
     loading = true;
@@ -65,7 +66,18 @@
   ]}
 />
 
-<Card class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if mesSelecionado !== String(new Date().getMonth() + 1)}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-pink-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<Card class="mb-6 hidden sm:block">
   <div class="flex items-center gap-4">
     <FieldSelect
       id="mes-colab"
@@ -84,6 +96,21 @@
     {/if}
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar aniversariantes">
+  <div class="space-y-4">
+    <FieldSelect
+      id="mes-colab-mobile"
+      label="Mês"
+      bind:value={mesSelecionado}
+      options={MESES.map((mes, i) => ({ value: String(i + 1), label: mes }))}
+      placeholder=""
+      class_name="w-full"
+      on:change={load}
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>Aplicar filtros</Button>
+</BottomSheet>
 
 {#if loading}
   <LoadingState />

@@ -5,7 +5,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
@@ -13,7 +13,7 @@
     TrendingUp, TrendingDown, DollarSign, Calendar,
     Plus, Download, ArrowUpRight, ArrowDownRight,
     Wallet, CreditCard, Banknote, FileText,
-    AlertCircle, CheckCircle
+    AlertCircle, CheckCircle, SlidersHorizontal
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { todayISODateLocal } from '$lib/date';
@@ -71,6 +71,7 @@
   let porFormaPagamento: FormaPagamentoResumo[] = [];
   let showMovimentacaoDialog = false;
   let processando = false;
+  let showFilterSheet = false;
 
   let novaMovimentacao = {
     tipo: 'entrada' as 'entrada' | 'saida',
@@ -385,7 +386,18 @@
     </Button>
   </KPIGrid>
 
-  <Card color="financeiro" class="mb-6">
+  <!-- Mobile: botão de filtros -->
+  <div class="mb-4 sm:hidden">
+    <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+      <SlidersHorizontal size={16} class="mr-2" />
+      Filtros
+      {#if periodo || empresaId || dataInicio || dataFim}
+        <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+      {/if}
+    </Button>
+  </div>
+
+  <Card color="financeiro" class="mb-6 hidden sm:block">
     <div class="flex flex-col sm:flex-row gap-4 items-end">
       <div class="flex-1 flex flex-wrap gap-4">
         <FieldSelect
@@ -435,6 +447,52 @@
       </Button>
     </div>
   </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar caixa">
+  <div class="space-y-4">
+    <FieldSelect
+      id="caixa-periodo-mobile"
+      label="Periodo"
+      bind:value={periodo}
+      options={periodoOptions}
+      placeholder={null}
+      class_name="w-full"
+      on:change={carregarDados}
+    />
+    {#if temVariasEmpresas}
+      <FieldSelect
+        id="caixa-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={() => {
+          carregarDados();
+          carregarFormasPagamento();
+        }}
+      />
+    {/if}
+    <FieldInput
+      id="caixa-data-inicio-mobile"
+      label="Data Inicio"
+      type="date"
+      bind:value={dataInicio}
+      class_name="w-full"
+      on:change={carregarDados}
+    />
+    <FieldInput
+      id="caixa-data-fim-mobile"
+      label="Data Fim"
+      type="date"
+      bind:value={dataFim}
+      min={dataInicio || null}
+      class_name="w-full"
+      on:change={carregarDados}
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>Aplicar filtros</Button>
+</BottomSheet>
 
   <KPIGrid className="mb-6" columns={6}>
     <KPICard title="Total Recebido" value={formatCurrency(resumo.totalEntradas)} color="financeiro" icon={ArrowUpRight} />
