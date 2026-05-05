@@ -34,6 +34,8 @@
   let formData = {
     client_id: '',
     cliente_nome: '',
+    cliente_telefone: '',
+    cliente_email: '',
     status: 'pendente',
     status_negociacao: 'novo',
     currency: 'BRL',
@@ -137,6 +139,8 @@
   function selecionarCliente(cliente: ClienteOption) {
     formData.client_id = cliente.id;
     formData.cliente_nome = cliente.nome;
+    formData.cliente_telefone = cliente.telefone || '';
+    formData.cliente_email = cliente.email || '';
     searchClienteQuery = '';
     showClienteSearch = false;
     clientesFiltrados = [];
@@ -146,7 +150,6 @@
 
   function limparCliente() {
     formData.client_id = '';
-    formData.cliente_nome = '';
     searchClienteQuery = '';
     clientesFiltrados = [];
   }
@@ -168,8 +171,8 @@
   function validateForm(): boolean {
     errors = {};
 
-    if (!formData.client_id) {
-      errors.cliente = 'Selecione um cliente';
+    if (!formData.cliente_nome.trim()) {
+      errors.cliente = 'Informe o nome do cliente';
     }
 
     if (!formData.valid_until) {
@@ -198,6 +201,9 @@
     try {
       const payload = {
         client_id: formData.client_id,
+        client_name: formData.cliente_nome.trim(),
+        client_whatsapp: formData.cliente_telefone.trim() || null,
+        client_email: formData.cliente_email.trim() || null,
         status: enviar ? 'enviado' : formData.status,
         status_negociacao: enviar ? 'enviado' : formData.status_negociacao,
         currency: formData.currency,
@@ -269,9 +275,29 @@
   <!-- ── Dados do Cliente ─────────────────────────────────────────────────── -->
   <Card header="Dados do Cliente" color="orcamentos">
     <div class="space-y-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <FieldInput
+          label="Nome do cliente *"
+          bind:value={formData.cliente_nome}
+          error={errors.cliente || null}
+          placeholder="Digite o nome do cliente"
+        />
+        <FieldInput
+          label="Telefone/WhatsApp"
+          bind:value={formData.cliente_telefone}
+          placeholder="(00) 00000-0000"
+        />
+        <FieldInput
+          label="E-mail"
+          type="email"
+          bind:value={formData.cliente_email}
+          placeholder="cliente@email.com"
+        />
+      </div>
+
       <div>
         <label for="orcamento-novo-cliente" class="block text-sm font-medium text-slate-700 mb-1">
-          Cliente <span class="text-red-500">*</span>
+          Vincular cliente cadastrado <span class="text-slate-400 font-normal">(opcional)</span>
         </label>
 
         {#if formData.client_id}
@@ -282,7 +308,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <p class="font-medium text-slate-900 truncate">{formData.cliente_nome}</p>
-              <p class="text-sm text-slate-500">Cliente selecionado</p>
+              <p class="text-sm text-slate-500">Cliente cadastrado selecionado</p>
             </div>
             <Button variant="ghost" size="sm" type="button" on:click={limparCliente}>
               <X size={16} />
@@ -299,8 +325,7 @@
               on:input={handleSearchInput}
               on:focus={handleSearchFocus}
               on:blur={handleSearchBlur}
-              placeholder="Buscar cliente por nome, email ou CPF..."
-              error={errors.cliente || null}
+              placeholder="Buscar para vincular por nome, email ou CPF..."
               class_name="w-full"
               autocomplete="off"
             />
@@ -327,7 +352,7 @@
                   {/each}
                 {:else}
                   <div class="px-4 py-3 text-sm text-slate-500">
-                    Nenhum cliente encontrado.
+                    Nenhum cliente encontrado. O orçamento pode ser salvo com os dados manuais acima.
                     <a href="/clientes/novo" class="text-orcamentos-600 hover:underline ml-1" target="_self">
                       Cadastrar novo cliente
                     </a>
@@ -336,13 +361,9 @@
               </div>
             {/if}
           </div>
-
-          {#if errors.cliente}
-            <p class="mt-1 text-sm text-red-600">{errors.cliente}</p>
           {/if}
-        {/if}
+        </div>
       </div>
-    </div>
   </Card>
 
   <!-- ── Dados do Orçamento ───────────────────────────────────────────────── -->

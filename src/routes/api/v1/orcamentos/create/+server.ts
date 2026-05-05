@@ -34,23 +34,33 @@ export async function POST(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
 
-    if (!body.client_id || !isUuid(body.client_id)) {
-      return json({ error: 'Cliente valido e obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
+    const clientId = String(body.client_id || '').trim() || null;
+    const clientName = String(body.client_name || body.cliente_nome || '').trim();
+    const clientWhatsapp = String(body.client_whatsapp || body.cliente_telefone || '').trim() || null;
+    const clientEmail = String(body.client_email || '').trim() || null;
+
+    if (!clientId && !clientName) {
+      return json({ error: 'Informe o nome do cliente.' }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+    if (clientId && !isUuid(clientId)) {
+      return json({ error: 'Cliente invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const { data: cliente, error: clienteError } = await client
-      .from('clientes')
-      .select('id, company_id')
-      .eq('id', body.client_id)
-      .maybeSingle();
-    if (clienteError) throw clienteError;
-    if (!cliente?.id) {
-      return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-    }
-    if (!scope.isAdmin) {
-      const clienteCompanyId = String((cliente as any).company_id || '').trim();
-      if (clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-        return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+    if (clientId) {
+      const { data: cliente, error: clienteError } = await client
+        .from('clientes')
+        .select('id, company_id')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (clienteError) throw clienteError;
+      if (!cliente?.id) {
+        return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
+      }
+      if (!scope.isAdmin) {
+        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        if (clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+          return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+        }
       }
     }
 
@@ -67,7 +77,10 @@ export async function POST(event) {
     const { data: quote, error: quoteError } = await client
       .from('quote')
       .insert({
-        client_id: body.client_id,
+        client_id: clientId,
+        client_name: clientName || null,
+        client_whatsapp: clientWhatsapp,
+        client_email: clientEmail,
         status: body.status || 'DRAFT',
         status_negociacao: body.status_negociacao || 'Enviado',
         total: total,
@@ -77,7 +90,7 @@ export async function POST(event) {
         data_final: body.data_final || null,
         last_interaction_notes: body.notes || body.observacoes || null
       })
-      .select('id, client_id, status, status_negociacao, total, currency, created_by, data_embarque, data_final, created_at')
+      .select('id, client_id, client_name, client_whatsapp, client_email, status, status_negociacao, total, currency, created_by, data_embarque, data_final, created_at')
       .single();
 
     if (quoteError) {
@@ -121,6 +134,9 @@ export async function POST(event) {
           id: quote.id,
           codigo: `ORC-${quote.id.slice(0, 8).toUpperCase()}`,
           client_id: quote.client_id,
+          client_name: quote.client_name,
+          client_whatsapp: quote.client_whatsapp,
+          client_email: quote.client_email,
           total: quote.total,
           status: quote.status,
           created_at: quote.created_at

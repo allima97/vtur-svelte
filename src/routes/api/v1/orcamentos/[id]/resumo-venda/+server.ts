@@ -34,7 +34,7 @@ export async function GET(event) {
 
     const { data: quote, error: quoteError } = await client
       .from('quote')
-      .select('id, client_id, created_by, status, status_negociacao, last_interaction_notes')
+      .select('id, client_id, client_name, client_whatsapp, client_email, created_by, status, status_negociacao, last_interaction_notes')
       .eq('id', id)
       .maybeSingle();
     if (quoteError) throw quoteError;
@@ -56,7 +56,10 @@ export async function GET(event) {
       id: quote.id,
       codigo: `ORC-${quote.id.slice(0, 8).toUpperCase()}`,
       client_id: quote.client_id,
-      cliente,
+      client_name: quote.client_name || cliente?.nome || null,
+      client_whatsapp: quote.client_whatsapp || null,
+      client_email: quote.client_email || cliente?.email || null,
+      cliente: cliente || { nome: quote.client_name || 'Cliente manual', email: quote.client_email || null, telefone: quote.client_whatsapp || null },
       notes: quote.last_interaction_notes || null,
       observacoes: quote.last_interaction_notes || null,
       status: quote.status,

@@ -82,6 +82,9 @@
   let clienteSelecionado: ClienteOption | null = null;
   let mostrarSugestoesCliente = false;
   let carregandoClientes = false;
+  let clienteNomeManual = '';
+  let clienteTelefoneManual = '';
+  let clienteEmailManual = '';
 
   /**
    * clienteDisplay: valor que aparece no <input> de busca.
@@ -104,6 +107,9 @@
   function selecionarCliente(c: ClienteOption) {
     clienteId = c.id;
     clienteSelecionado = c;
+    clienteNomeManual = c.nome;
+    clienteTelefoneManual = c.whatsapp || '';
+    clienteEmailManual = c.email || '';
     clienteDisplay = c.nome;
     clienteBusca = '';
     mostrarSugestoesCliente = false;
@@ -224,7 +230,7 @@
   $: totalComTaxas = totalGeral + taxasGeral;
   $: itensPendentes = itensFiltrados.filter((e) => !itemValido(e.item)).length;
   $: canExtract = textInput.trim().length > 0;
-  $: canSave = draft !== null && clienteId !== '' && itensFiltrados.length > 0;
+  $: canSave = draft !== null && clienteNomeManual.trim() !== '' && itensFiltrados.length > 0;
 
   // ── Carregar clientes ─────────────────────────────────────────────────────
 
@@ -442,6 +448,9 @@
     clienteSelecionado = null;
     clienteBusca = '';
     clienteDisplay = '';
+    clienteNomeManual = '';
+    clienteTelefoneManual = '';
+    clienteEmailManual = '';
   }
 
   // ── Salvar ────────────────────────────────────────────────────────────────
@@ -459,10 +468,10 @@
 
       const payload = await apiPost<ImportarOrcamentoResponse>('/api/v1/orcamentos/importar', {
         draft: draftParaSalvar,
-        client_id: clienteId,
-        client_name: clienteSelecionado?.nome || null,
-        client_whatsapp: clienteSelecionado?.whatsapp || null,
-        client_email: clienteSelecionado?.email || null,
+        client_id: clienteId || null,
+        client_name: clienteNomeManual.trim(),
+        client_whatsapp: clienteTelefoneManual.trim() || null,
+        client_email: clienteEmailManual.trim() || null,
         destino_cidade_id: cidadeId || null,
         data_embarque: dataEmbarque || null,
         data_final: dataFinal || null
@@ -513,7 +522,7 @@
       <div class="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</p>
-          <p class="font-medium text-slate-800">{clienteSelecionado ? clienteSelecionado.nome : '—'}</p>
+          <p class="font-medium text-slate-800">{clienteNomeManual || '—'}</p>
         </div>
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Modo</p>
@@ -622,13 +631,32 @@
   <Card title="Dados do orçamento">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-      <!-- Cliente -->
+      <FieldInput
+        label="Nome do cliente *"
+        bind:value={clienteNomeManual}
+        placeholder="Digite o nome do cliente"
+      />
+
+      <FieldInput
+        label="Telefone/WhatsApp"
+        bind:value={clienteTelefoneManual}
+        placeholder="(00) 00000-0000"
+      />
+
+      <FieldInput
+        label="E-mail"
+        type="email"
+        bind:value={clienteEmailManual}
+        placeholder="cliente@email.com"
+      />
+
+      <!-- Cliente cadastrado opcional -->
       <div class="relative">
         <FieldInput
-          label="Cliente *"
+          label="Vincular cliente cadastrado (opcional)"
           icon={Search}
           bind:value={clienteDisplay}
-          placeholder={carregandoClientes ? 'Carregando clientes...' : 'Buscar cliente por nome ou CPF...'}
+          placeholder={carregandoClientes ? 'Carregando clientes...' : 'Buscar para vincular por nome ou CPF...'}
           disabled={carregandoClientes}
           on:input={(e) => handleClienteInput(inputValue(e))}
           on:focus={() => { mostrarSugestoesCliente = true; }}

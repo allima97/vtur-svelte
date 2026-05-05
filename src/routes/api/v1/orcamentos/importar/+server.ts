@@ -54,9 +54,9 @@ export async function POST(event: RequestEvent) {
         : {};
 
     const clientId: string | null = body.client_id || null;
-    const clientName: string | null = body.client_name || null;
-    const clientWhatsapp: string | null = body.client_whatsapp || null;
-    const clientEmail: string | null = body.client_email || null;
+    const clientName: string | null = String(body.client_name || '').trim() || null;
+    const clientWhatsapp: string | null = String(body.client_whatsapp || '').trim() || null;
+    const clientEmail: string | null = String(body.client_email || '').trim() || null;
     const destinoCidadeId: string | null = body.destino_cidade_id || null;
     const dataEmbarque: string | null = body.data_embarque || null;
     const dataFinal: string | null = body.data_final || null;
@@ -66,25 +66,27 @@ export async function POST(event: RequestEvent) {
       return json({ error: 'Nenhum item encontrado no rascunho.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    if (!clientId) {
-      return json({ error: 'Selecione um cliente antes de salvar.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!clientId && !clientName) {
+      return json({ error: 'Informe o nome do cliente antes de salvar.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
-    if (!isUuid(clientId)) {
+    if (clientId && !isUuid(clientId)) {
       return json({ error: 'Cliente invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const { data: cliente, error: clienteError } = await client
-      .from('clientes')
-      .select('id, company_id')
-      .eq('id', clientId)
-      .maybeSingle();
-    if (clienteError) throw clienteError;
-    if (!cliente?.id) {
-      return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-    }
-    const clienteCompanyId = String((cliente as any).company_id || '').trim();
-    if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
-      return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+    if (clientId) {
+      const { data: cliente, error: clienteError } = await client
+        .from('clientes')
+        .select('id, company_id')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (clienteError) throw clienteError;
+      if (!cliente?.id) {
+        return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
+      }
+      const clienteCompanyId = String((cliente as any).company_id || '').trim();
+      if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+        return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+      }
     }
 
     const items = draft.items as Array<Record<string, unknown>>;

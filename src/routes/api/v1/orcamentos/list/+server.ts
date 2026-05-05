@@ -28,6 +28,9 @@ type OrcamentoRow = {
   total: number | null;
   currency: string | null;
   client_id: string | null;
+  client_name?: string | null;
+  client_whatsapp?: string | null;
+  client_email?: string | null;
   created_by: string | null;
   last_interaction_at?: string | null;
   last_interaction_notes?: string | null;
@@ -162,13 +165,16 @@ export async function GET(event) {
         total,
         currency,
         client_id,
+        client_name,
+        client_whatsapp,
+        client_email,
         created_by,
         last_interaction_at,
         last_interaction_notes,
         cliente:client_id (id, nome, cpf, email)
       `;
     const fallbackSelect =
-      'id, created_at, status, status_negociacao, total, currency, client_id, created_by, last_interaction_at, last_interaction_notes';
+      'id, created_at, status, status_negociacao, total, currency, client_id, client_name, client_whatsapp, client_email, created_by, last_interaction_at, last_interaction_notes';
 
     const buildQuoteQuery = (selectClause: string, creatorIdsFilter?: string[]) => {
       let query = client
@@ -360,9 +366,10 @@ export async function GET(event) {
       return {
         id: row.id,
         codigo: `ORC-${row.id.slice(0, 8).toUpperCase()}`,
-        cliente: String(row.cliente?.nome || clienteMap.get(String(row.client_id || ''))?.nome || 'Cliente sem nome'),
+        cliente: String(row.cliente?.nome || row.client_name || clienteMap.get(String(row.client_id || ''))?.nome || 'Cliente sem nome'),
         cliente_id: String(row.client_id || ''),
-        cliente_email: String(row.cliente?.email || clienteMap.get(String(row.client_id || ''))?.email || ''),
+        cliente_email: String(row.cliente?.email || row.client_email || clienteMap.get(String(row.client_id || ''))?.email || ''),
+        cliente_telefone: String(row.client_whatsapp || ''),
         destino: String(
           firstItem?.city_name || firstItem?.product_name || firstItem?.title || 'Orçamento sem itens'
         ),

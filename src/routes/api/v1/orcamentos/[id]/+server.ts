@@ -13,7 +13,7 @@ import { invalidateQuoteReadModels } from '$lib/server/readModelCache';
 import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orcamentos';
 
 const QUOTE_SELECT_FIELDS =
-  'id, created_at, updated_at, created_by, client_id, status, status_negociacao, currency, total, data_embarque, data_final, last_interaction_at, last_interaction_notes';
+  'id, created_at, updated_at, created_by, client_id, client_name, client_whatsapp, client_email, status, status_negociacao, currency, total, data_embarque, data_final, last_interaction_at, last_interaction_notes';
 
 const QUOTE_ITEM_SELECT_FIELDS =
   'id, quote_id, item_type, title, product_name, city_name, cidade_id, quantity, unit_price, total_amount, taxes_amount, start_date, end_date, currency, confidence, raw, order_index, created_at, updated_at';
@@ -83,8 +83,11 @@ export async function GET(event) {
       total: quote.total,
       currency: quote.currency || 'BRL',
       client_id: quote.client_id,
-      cliente: cliente || { nome: 'Cliente nao encontrado' },
-      cliente_email: cliente?.email,
+      cliente: cliente || { nome: quote.client_name || 'Cliente manual' },
+      client_name: quote.client_name || cliente?.nome || null,
+      client_whatsapp: quote.client_whatsapp || null,
+      client_email: quote.client_email || cliente?.email || null,
+      cliente_email: quote.client_email || cliente?.email,
       created_at: quote.created_at,
       updated_at: quote.updated_at,
       data_criacao: quote.created_at?.slice(0, 10),
@@ -161,6 +164,13 @@ export async function PATCH(event) {
       }
       updateData.client_id = nextClientId || null;
     }
+    if (body.client_name !== undefined || body.cliente_nome !== undefined) {
+      updateData.client_name = String(body.client_name ?? body.cliente_nome ?? '').trim() || null;
+    }
+    if (body.client_whatsapp !== undefined || body.cliente_telefone !== undefined) {
+      updateData.client_whatsapp = String(body.client_whatsapp ?? body.cliente_telefone ?? '').trim() || null;
+    }
+    if (body.client_email !== undefined) updateData.client_email = String(body.client_email || '').trim() || null;
     if (body.data_embarque !== undefined) updateData.data_embarque = body.data_embarque;
     if (body.data_final !== undefined) updateData.data_final = body.data_final;
 

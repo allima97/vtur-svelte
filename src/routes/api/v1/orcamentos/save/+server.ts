@@ -171,6 +171,13 @@ export async function POST(event: RequestEvent) {
       ? (body.removed_item_ids as string[])
       : [];
     const clienteId = String(body?.client_id || '').trim() || null;
+    const clientName = String(body?.client_name ?? body?.cliente_nome ?? '').trim();
+    const clientWhatsapp = String(body?.client_whatsapp ?? body?.cliente_telefone ?? '').trim();
+    const clientEmail = String(body?.client_email ?? '').trim();
+
+    if (!clienteId && !clientName) {
+      return new Response('Informe o nome do cliente.', { status: 400, headers: NO_STORE_HEADERS });
+    }
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
       companyId: event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
@@ -306,6 +313,9 @@ export async function POST(event: RequestEvent) {
       total,
       status: nextStatus,
       client_id: clienteId,
+      client_name: clientName || null,
+      client_whatsapp: clientWhatsapp || null,
+      client_email: clientEmail || null,
       updated_at: new Date().toISOString(),
     };
     if (body?.raw_json && typeof body.raw_json === 'object' && !Array.isArray(body.raw_json)) {
