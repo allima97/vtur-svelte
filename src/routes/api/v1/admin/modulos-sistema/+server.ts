@@ -118,25 +118,18 @@ export async function POST(event) {
 
     if (!module_key) return json({ error: 'module_key obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const { data: existing } = await client
-      .from('system_module_settings')
-      .select('id')
-      .eq('module_key', module_key)
-      .maybeSingle();
-
     const payload = {
       module_key,
       enabled: enabled !== false,
       reason: String(reason || '').trim() || null
     };
 
-    if (existing?.id) {
-      const { error: updateError } = await client.from('system_module_settings').update(payload).eq('id', existing.id);
-      if (updateError) throw updateError;
-    } else {
-      const { error: insertError } = await client.from('system_module_settings').insert(payload);
-      if (insertError) throw insertError;
-    }
+    // Upsert direto — elimina a race condition do check-then-insert
+    // (SELECT seguido de INSERT pode causar duplicate key se dois requests chegam ao mesmo tempo)
+    const { error: upsertError } = await client
+      .from('system_module_settings')
+      .upsert(payload, { onConflict: 'module_key' });
+    if (upsertError) throw upsertError;
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {

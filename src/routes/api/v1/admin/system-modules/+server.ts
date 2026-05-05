@@ -127,26 +127,41 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     const disabledKeys = new Set(disabledNormalized.map((i) => i.module_key));
 
-    // Módulos que devem ficar HABILITADOS (catálogo menos os desabilitados)
-    const enabledKeys = SYSTEM_MODULES_CATALOG
-      .map(normalizeModuleKey)
-      .filter((k) => k && !disabledKeys.has(k));
+    // Módulos que devem ficar HABILITADOS (catálogo deduplificado, menos os desabilitados)
+    // O SYSTEM_MODULES_CATALOG tem entradas duplicadas (ex: 'vendas', 'orcamentos' aparecem 2x)
+    // — deduplificamos via Set para evitar duplicate key no upsert
+    const enabledKeys = Array.from(
+      new Set(
+        SYSTEM_MODULES_CATALOG
+          .map(normalizeModuleKey)
+          .filter((k) => k && !disabledKeys.has(k))
+      )
+    );
 
-    // Monta payload completo: desabilitados + habilitados
-    const upsertPayload = [
-      ...disabledNormalized.map((item) => ({
+    // Monta payload completo: desabilitados + habilitados (sem duplicatas)
+    // Usa Map para garantir unicidade por module_key antes de enviar ao banco
+    const payloadMap = new Map<string, { module_key: string; enabled: boolean; reason: string | null; updated_by: string }>();
+
+    for (const item of disabledNormalized) {
+      payloadMap.set(item.module_key, {
         module_key: item.module_key,
         enabled: false,
         reason: item.reason,
         updated_by: user.id
-      })),
-      ...enabledKeys.map((key) => ({
-        module_key: key,
-        enabled: true,
-        reason: null,
-        updated_by: user.id
-      }))
-    ];
+      });
+    }
+    for (const key of enabledKeys) {
+      if (!payloadMap.has(key)) {
+        payloadMap.set(key, {
+          module_key: key,
+          enabled: true,
+          reason: null,
+          updated_by: user.id
+        });
+      }
+    }
+
+    const upsertPayload = Array.from(payloadMap.values());
 
     // Usa upsert para evitar DELETE + INSERT que causa duplicate key
     const { error: upsertError } = await client
