@@ -30,6 +30,7 @@
   let saving = false;
   let deletingId = '';
   let editingId: string | null = null;
+  let busca = '';
   let filtroPais = '';
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
@@ -54,10 +55,23 @@
   }
 
   async function load() {
+    const term = busca.trim();
+    const hasSearch = term.length >= 2;
+    const hasPaisFilter = Boolean(filtroPais);
+
+    if (!hasSearch && !hasPaisFilter) {
+      subdivisoes = [];
+      loading = false;
+      return;
+    }
+
     loading = true;
     try {
       const payload = await apiGet<any>('/api/v1/subdivisoes', {
-        pais_id: filtroPais || undefined
+        q: hasSearch ? term : undefined,
+        pais_id: hasPaisFilter ? filtroPais : undefined,
+        page: 1,
+        pageSize: 200
       });
       subdivisoes = payload.items || [];
     } catch (err) {
@@ -116,7 +130,7 @@
   }
 
   onMount(async () => {
-    await Promise.all([load(), loadPaises()]);
+    await loadPaises();
     lastAutoReloadKey = buildAutoReloadKey();
     autoReloadEnabled = true;
   });
@@ -126,7 +140,7 @@
   });
 
   function buildAutoReloadKey() {
-    return filtroPais;
+    return [busca.trim(), filtroPais].join('|');
   }
 
   function scheduleAutoReload() {
@@ -161,7 +175,14 @@
 />
 
 <Card class="mb-6">
-  <div class="flex gap-4 items-end">
+  <div class="flex flex-wrap gap-4 items-end">
+    <FieldInput
+      id="est-busca"
+      label="Buscar Estado/Província"
+      bind:value={busca}
+      placeholder="Digite 2+ letras..."
+      class_name="flex-1 min-w-[220px]"
+    />
     <FieldSelect
       id="est-pais"
       label="País"
@@ -172,7 +193,7 @@
   </div>
 </Card>
 
-<DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={true} emptyMessage="Nenhum estado encontrado"
+<DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={false} emptyMessage="Nenhum estado encontrado"
   onRowClick={(row) => openEdit(row)}>
   <svelte:fragment slot="row-actions" let:row>
     <Button

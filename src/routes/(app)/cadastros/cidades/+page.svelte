@@ -32,11 +32,14 @@
   let deletingId = '';
   let editingId: string | null = null;
   let busca = '';
+  let buscaSubdivisao = '';
   let filtroSubdivisao = '';
   let totalCidades = 0;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSubdivisoesKey = '';
+  let subdivisoesReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
   let form = { nome: '', subdivisao_id: '', descricao: '' };
 
@@ -55,30 +58,18 @@
     { key: 'descricao', label: 'Descrição', sortable: false, formatter: (v: string | null) => `<span>${escapeHtml(v || '-')}</span>` }
   ];
 
-  async function fetchAllPages<T>(path: string, baseQuery: Record<string, any>, pageSize = 5000): Promise<T[]> {
-    const all: T[] = [];
-    let page = 1;
-    let total = 0;
-
-    while (true) {
-      const payload = await apiGet<any>(path, { ...baseQuery, page, pageSize });
-      const items = Array.isArray(payload?.items) ? (payload.items as T[]) : [];
-      total = Number(payload?.total || 0);
-      all.push(...items);
-
-      if (items.length === 0) break;
-      if (all.length >= total && total > 0) break;
-      page += 1;
-      if (page > 1000) break;
+  async function loadSubdivisoes() {
+    const term = buscaSubdivisao.trim();
+    if (term.length < 2) {
+      subdivisoes = [];
+      loadingSubdivisoes = false;
+      return;
     }
 
-    return all;
-  }
-
-  async function loadSubdivisoes() {
     loadingSubdivisoes = true;
     try {
-      subdivisoes = await fetchAllPages<Subdivisao>('/api/v1/subdivisoes', {});
+      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 });
+      subdivisoes = Array.isArray(payload?.items) ? payload.items : [];
     } catch {
       subdivisoes = [];
     } finally {
@@ -87,14 +78,28 @@
   }
 
   async function load() {
+    const term = busca.trim();
+    const hasCityTerm = term.length >= 2;
+    const hasSubdivisaoFilter = Boolean(filtroSubdivisao);
+
+    // Não carrega tudo por padrão; só busca quando houver critério.
+    if (!hasCityTerm && !hasSubdivisaoFilter) {
+      cidades = [];
+      totalCidades = 0;
+      loading = false;
+      return;
+    }
+
     loading = true;
     try {
-      const baseQuery = {
-        q: busca.trim() || undefined,
-        subdivisao_id: filtroSubdivisao || undefined
-      };
-      cidades = await fetchAllPages<Cidade>('/api/v1/cidades', baseQuery);
-      totalCidades = cidades.length;
+      const payload = await apiGet<any>('/api/v1/cidades', {
+        q: hasCityTerm ? term : undefined,
+        subdivisao_id: hasSubdivisaoFilter ? filtroSubdivisao : undefined,
+        page: 1,
+        pageSize: 200
+      });
+      cidades = Array.isArray(payload?.items) ? payload.items : [];
+      totalCidades = Number(payload?.total || cidades.length);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
     } finally {
@@ -149,20 +154,23 @@
   }
 
   onMount(() => {
-    // Carrega as duas listas em paralelo mas sem bloquear uma pela outra
-    void loadSubdivisoes();
-    void load().then(() => {
-      lastAutoReloadKey = buildAutoReloadKey();
-      autoReloadEnabled = true;
-    });
+    // Modo sob demanda: não pré-carrega cidade/subdivisão sem busca/filtro.
+    lastAutoReloadKey = buildAutoReloadKey();
+    lastSubdivisoesKey = buildSubdivisoesKey();
+    autoReloadEnabled = true;
   });
 
   onDestroy(() => {
     if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
   });
 
   function buildAutoReloadKey() {
     return [busca.trim(), filtroSubdivisao].join('|');
+  }
+
+  function buildSubdivisoesKey() {
+    return buscaSubdivisao.trim();
   }
 
   function scheduleAutoReload() {
@@ -172,10 +180,23 @@
     }, 300);
   }
 
+  function scheduleSubdivisoesReload() {
+    if (subdivisoesReloadTimer) clearTimeout(subdivisoesReloadTimer);
+    subdivisoesReloadTimer = setTimeout(() => {
+      void loadSubdivisoes();
+    }, 300);
+  }
+
   $: autoReloadKey = buildAutoReloadKey();
   $: if (autoReloadEnabled && autoReloadKey !== lastAutoReloadKey) {
     lastAutoReloadKey = autoReloadKey;
     scheduleAutoReload();
+  }
+
+  $: subdivisoesKey = buildSubdivisoesKey();
+  $: if (autoReloadEnabled && subdivisoesKey !== lastSubdivisoesKey) {
+    lastSubdivisoesKey = subdivisoesKey;
+    scheduleSubdivisoesReload();
   }
 </script>
 
@@ -208,11 +229,16 @@
       id="cid-sub"
       label="Estado/Província"
       bind:value={filtroSubdivisao}
-      options={loadingSubdivisoes
-        ? [{ value: '', label: 'Carregando...' }]
-        : [{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
+      options={[{ value: '', label: 'Todos' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
-      disabled={loadingSubdivisoes}
+      disabled={loadingSubdivisoes || buscaSubdivisao.trim().length < 2}
+    />
+    <FieldInput
+      id="cid-sub-search"
+      label="Buscar Estado/Província"
+      bind:value={buscaSubdivisao}
+      placeholder="Digite 2+ letras para carregar estados..."
+      class_name="min-w-[260px]"
     />
   </div>
 </Card>
@@ -255,7 +281,7 @@
         : [{ value: '', label: 'Selecione um estado/província' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
       placeholder={null}
       class_name="w-full"
-      disabled={loadingSubdivisoes}
+      disabled={loadingSubdivisoes || subdivisoes.length === 0}
     />
     <FieldInput
       id="cid-desc"
