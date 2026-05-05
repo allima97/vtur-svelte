@@ -364,6 +364,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 
 	const rotasPublicas = [
 		'/auth/login',
+		'/auth/logout',
 		'/auth/register',
 		'/auth/recover',
 		'/auth/recuperar-senha',
