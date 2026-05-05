@@ -63,16 +63,20 @@
   let loadingInteracoes = false;
 
   onMount(async () => {
-    await ensureServerSessionCookie();
-    // Ambas as chamadas usam apenas orcamentoId (da URL) — são independentes entre si.
-    await Promise.all([carregarOrcamento(), carregarInteracoes()]);
+    loading = true;
+    error = null;
+    try {
+      await ensureServerSessionCookie();
+      // Ambas as chamadas usam apenas orcamentoId (da URL) — são independentes entre si.
+      // O controle de loading fica no onMount para garantir que sempre seja liberado.
+      await Promise.all([carregarOrcamento(), carregarInteracoes()]);
+    } finally {
+      loading = false;
+    }
   });
 
   async function carregarOrcamento() {
     try {
-      loading = true;
-      error = null;
-
       const data = await apiFetch<any>(`/api/v1/orcamentos/${orcamentoId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false,
@@ -98,8 +102,6 @@
       }
       error = `Erro ao carregar dados do orçamento: ${err.message}`;
       toast.error("Erro ao carregar orçamento");
-    } finally {
-      loading = false;
     }
   }
 

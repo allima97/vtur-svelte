@@ -49,31 +49,27 @@ export async function GET(event) {
       return errorResponse('Orcamento nao encontrado.', 404);
     }
 
-    const { data: items } = await client
-      .from('quote_item')
-      .select(QUOTE_ITEM_SELECT_FIELDS)
-      .eq('quote_id', id)
-      .order('order_index', { ascending: true });
+    // As 3 queries são completamente independentes entre si — executar em paralelo.
+    const [
+      { data: items },
+      clienteResult,
+      vendedorResult
+    ] = await Promise.all([
+      client
+        .from('quote_item')
+        .select(QUOTE_ITEM_SELECT_FIELDS)
+        .eq('quote_id', id)
+        .order('order_index', { ascending: true }),
+      quote.client_id
+        ? client.from('clientes').select('id, nome, email, telefone').eq('id', quote.client_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      quote.created_by
+        ? client.from('users').select('nome_completo').eq('id', quote.created_by).maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
 
-    let cliente = null;
-    if (quote.client_id) {
-      const { data: clienteData } = await client
-        .from('clientes')
-        .select('id, nome, email, telefone')
-        .eq('id', quote.client_id)
-        .maybeSingle();
-      cliente = clienteData;
-    }
-
-    let vendedor = 'Equipe VTUR';
-    if (quote.created_by) {
-      const { data: vendedorData } = await client
-        .from('users')
-        .select('nome_completo')
-        .eq('id', quote.created_by)
-        .maybeSingle();
-      vendedor = vendedorData?.nome_completo || 'Equipe VTUR';
-    }
+    const cliente = clienteResult.data ?? null;
+    const vendedor = vendedorResult.data?.nome_completo || 'Equipe VTUR';
 
     return json({
       id: quote.id,
