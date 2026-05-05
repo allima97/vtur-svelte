@@ -268,8 +268,8 @@ export async function fetchRankingVendedoresByCompanyIds(
       READ_MODEL_TAGS.ranking,
       ...scopeCacheTags({ companyIds: scopedCompanyIds }),
     ],
-    ttlMs: 15_000,
-    staleTtlMs: 60_000,
+    ttlMs: 60_000,
+    staleTtlMs: 300_000,
     loader: async () => {
       const rows: any[] = [];
       for (const companyBatch of chunkArray(scopedCompanyIds)) {
@@ -459,8 +459,8 @@ export async function fetchMasterEmpresas(
       masterId: scopedMasterId,
     }),
     tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId: scopedMasterId })],
-    ttlMs: 15_000,
-    staleTtlMs: 60_000,
+    ttlMs: 60_000,
+    staleTtlMs: 300_000,
     loader: async () => {
       const { data, error: companiesError } = await client
         .from("master_empresas")
@@ -502,8 +502,8 @@ export async function fetchFinanceiroEmpresas(
       READ_MODEL_TAGS.finance,
       ...scopeCacheTags({ userId: scopedFinanceiroId }),
     ],
-    ttlMs: 15_000,
-    staleTtlMs: 60_000,
+    ttlMs: 60_000,
+    staleTtlMs: 300_000,
     loader: async () => {
       const { data, error: companiesError } = await client
         .from("financeiro_empresas")
@@ -599,7 +599,7 @@ export async function resolveUserScope(
   return getCachedReadModel({
     key,
     ttlMs: 30_000,
-    staleTtlMs: 30_000,
+    staleTtlMs: 120_000, // era 30s igual ao fresh — stale deve ser maior para evitar bloqueio na expiração
     tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId })],
     loader: () => resolveUserScopeUncached(client, userId),
   });
@@ -785,8 +785,8 @@ export async function resolveAccessibleClientIds(
       READ_MODEL_TAGS.sales,
       ...scopeCacheTags({ companyIds, vendedorIds }),
     ],
-    ttlMs: 10_000,
-    staleTtlMs: 45_000,
+    ttlMs: 30_000,
+    staleTtlMs: 120_000,
     loader: async () => {
       const clientIds = new Set<string>();
       const hasVendedorScope = vendedorIds.length > 0;

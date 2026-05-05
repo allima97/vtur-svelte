@@ -27,8 +27,8 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_API_TIMEOUT_MS = 90_000;
-const DEFAULT_GET_CACHE_TTL_MS = 5_000;
+const DEFAULT_API_TIMEOUT_MS = 20_000;  // era 90s — reduzido para 20s (falha rápida, não trava a tela)
+const DEFAULT_GET_CACHE_TTL_MS = 15_000; // era 5s — aumentado para 15s (navegações rápidas reaproveitam cache)
 
 type CachedGetEntry = {
   expiresAt: number;
