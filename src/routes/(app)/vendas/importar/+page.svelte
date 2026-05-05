@@ -354,6 +354,24 @@
     return contrato.usar_cidade_padrao === false ? String(contrato.destino_cidade_id || '') : cidadeId;
   }
 
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitVendaReadable(vendaId: string) {
+    const id = String(vendaId || '').trim();
+    if (!id) return;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        await apiGet(`/api/v1/vendas/${encodeURIComponent(id)}`);
+        return;
+      } catch (err) {
+        if (!(err instanceof ApiError) || ![404, 403, 0].includes(err.status)) return;
+        await sleep(300 * (attempt + 1));
+      }
+    }
+  }
+
   function normalizeImportedClienteNames(c: ContratoDraft): ContratoDraft {
     const contratanteNome = sanitizeImportedClienteNome(c.contratante?.nome);
     return {
@@ -679,6 +697,7 @@
       }
       toast.success('Venda importada com sucesso!');
       contatoModalOpen = false;
+      await waitVendaReadable(result.venda_id);
       goto(`/vendas/${encodeURIComponent(result.venda_id)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar importação.');

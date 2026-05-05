@@ -218,17 +218,9 @@
   }
 
   onMount(async () => {
-    // Timeout de segurança: se após 15s ainda estiver carregando, libera a tela
-    const safetyTimeout = setTimeout(() => { loading = false; }, 15_000);
-    try {
-      await ensureServerSessionCookie();
-      // Base data e venda em paralelo — independentes entre si
-      await Promise.all([loadReciboBaseData(), carregarVenda()]);
-      // Ranking após a venda estar carregada (não bloqueia tela — tem loading próprio)
-      void carregarRankingRecibos();
-    } finally {
-      clearTimeout(safetyTimeout);
-    }
+    await ensureServerSessionCookie();
+    await Promise.all([loadReciboBaseData(), carregarVenda()]);
+    if (venda) void carregarRankingRecibos();
   });
 
   async function ensureProduto(produtoId: string) {
