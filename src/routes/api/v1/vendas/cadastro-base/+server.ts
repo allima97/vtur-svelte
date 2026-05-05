@@ -249,8 +249,8 @@ export async function GET(event: RequestEvent) {
           canLoadClientes
         }),
         tags: [READ_MODEL_TAGS.clients, ...cacheScopeTags],
-        ttlMs: 10_000,
-        staleTtlMs: 45_000,
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
         loader: fetchClientesBase
       }),
       cidadesQuery,

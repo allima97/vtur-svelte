@@ -64,8 +64,8 @@ export async function GET(event) {
           companyIds: selectedCompanyId ? [selectedCompanyId] : [],
         }),
       ],
-      ttlMs: 5_000,
-      staleTtlMs: 60_000,
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
       loader: async () => {
         let usuariosEmpresa: any[] = [];
         let recados: any[] = [];

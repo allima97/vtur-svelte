@@ -207,8 +207,8 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
       metaIds: [...metaIds].sort(),
     }),
     tags: [READ_MODEL_TAGS.metas, READ_MODEL_TAGS.catalog],
-    ttlMs: 15_000,
-    staleTtlMs: 60_000,
+    ttlMs: 45_000,
+    staleTtlMs: 180_000,
     loader: async () => {
       const rows: any[] = [];
       for (const metaBatch of chunkArray(metaIds)) {
@@ -415,7 +415,14 @@ export async function GET(event) {
     const metaIds = metas
       .map((row: any) => String(row?.id || "").trim())
       .filter(isUuid);
-    const produtoMetasMap = await loadProdutoMetas(client, metaIds);
+
+    // produtoMetasMap depende de metaIds; loadProdutosDiferenciados é independente.
+    // Executar em paralelo para eliminar round-trip sequencial.
+    const [produtoMetasMap, produtos] = await Promise.all([
+      loadProdutoMetas(client, metaIds),
+      loadProdutosDiferenciados(client)
+    ]);
+
     const vendedorMap = new Map(
       scopedVendedores.map((row: any) => [String(row?.id || ""), row]),
     );
@@ -428,8 +435,6 @@ export async function GET(event) {
         meta_produtos: detalhes,
       };
     });
-
-    const produtos = await loadProdutosDiferenciados(client);
 
     return json({
       items,

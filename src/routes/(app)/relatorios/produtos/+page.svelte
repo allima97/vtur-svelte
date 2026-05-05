@@ -140,8 +140,8 @@
 
   onMount(() => {
     void (async () => {
-      await loadBase();
-      await loadRelatorio();
+      // loadBase carrega filtros (empresas/vendedores); loadRelatorio não depende deles no mount.
+      await Promise.all([loadBase(), loadRelatorio()]);
       lastAutoReloadKey = buildAutoReloadKey();
       autoReloadEnabled = true;
     })();

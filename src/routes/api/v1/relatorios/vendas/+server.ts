@@ -1084,7 +1084,7 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 15_000,
+      ttlMs: 45_000,
       staleTtlMs: 120_000,
       loader: () => loadRowsViewForPeriod(dataInicio, dataFim),
     });
@@ -1342,7 +1342,7 @@ export async function GET(event) {
               READ_MODEL_TAGS.users,
               ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
             ],
-            ttlMs: 15_000,
+            ttlMs: 45_000,
             staleTtlMs: 120_000,
             loader: () => loadRowsViewForPeriod(seriesStart, dataFim),
           })

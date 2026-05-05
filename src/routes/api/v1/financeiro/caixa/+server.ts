@@ -67,75 +67,59 @@ export async function GET(event) {
       fim = range.fim;
     }
 
-    const pagamentos = await getCachedReadModel<any[]>({
-      key: buildReadModelCacheKey('caixa:pagamentos', {
-        companyIds,
-        inicio,
-        fim
-      }),
-      tags: [
-        READ_MODEL_TAGS.finance,
-        READ_MODEL_TAGS.payments,
-        READ_MODEL_TAGS.sales,
-        ...scopeCacheTags({ companyIds, userId: user.id })
-      ],
-      ttlMs: 10_000,
-      staleTtlMs: 45_000,
-      loader: async () => {
-        const rows: any[] = [];
-        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-        for (const companyBatch of companyBatches) {
-          let pagamentosQuery = client
-            .from('vendas_pagamentos')
-            .select('id, venda_id, forma_nome, valor_total, created_at, venda:vendas!venda_id(numero_venda, cliente_id, data_venda, company_id)')
-            .gte('created_at', inicio + 'T00:00:00')
-            .lte('created_at', fim + 'T23:59:59');
-
-          if (companyBatch) pagamentosQuery = pagamentosQuery.in('company_id', companyBatch);
-
-          const { data, error: pagError } = await pagamentosQuery;
-          if (pagError) {
-            logServerError('[caixa] Erro pagamentos', pagError);
-            continue;
+    // Pagamentos e movimentações são completamente independentes — executar em paralelo.
+    const [pagamentos, movimentacoes] = await Promise.all([
+      getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey('caixa:pagamentos', { companyIds, inicio, fim }),
+        tags: [
+          READ_MODEL_TAGS.finance,
+          READ_MODEL_TAGS.payments,
+          READ_MODEL_TAGS.sales,
+          ...scopeCacheTags({ companyIds, userId: user.id })
+        ],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: async () => {
+          const rows: any[] = [];
+          const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          for (const companyBatch of companyBatches) {
+            let pagamentosQuery = client
+              .from('vendas_pagamentos')
+              .select('id, venda_id, forma_nome, valor_total, created_at, venda:vendas!venda_id(numero_venda, cliente_id, data_venda, company_id)')
+              .gte('created_at', inicio + 'T00:00:00')
+              .lte('created_at', fim + 'T23:59:59');
+            if (companyBatch) pagamentosQuery = pagamentosQuery.in('company_id', companyBatch);
+            const { data, error: pagError } = await pagamentosQuery;
+            if (pagError) { logServerError('[caixa] Erro pagamentos', pagError); continue; }
+            rows.push(...(data || []));
           }
-          rows.push(...(data || []));
+          return rows;
         }
-        return rows;
-      }
-    });
-
-    const movimentacoes = await getCachedReadModel<any[]>({
-      key: buildReadModelCacheKey('caixa:movimentacoes', {
-        companyIds,
-        inicio,
-        fim
       }),
-      tags: [READ_MODEL_TAGS.finance, ...scopeCacheTags({ companyIds, userId: user.id })],
-      ttlMs: 10_000,
-      staleTtlMs: 45_000,
-      loader: async () => {
-        const rows: any[] = [];
-        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-        for (const companyBatch of companyBatches) {
-          let movQuery = client
-            .from('caixa_movimentacoes')
-            .select('id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento:forma_pagamento_id(id, nome)')
-            .gte('data_movimentacao', inicio)
-            .lte('data_movimentacao', fim)
-            .order('data_movimentacao', { ascending: false });
-
-          if (companyBatch) movQuery = movQuery.in('company_id', companyBatch);
-
-          const { data, error: movError } = await movQuery;
-          if (movError) {
-            logServerError('[caixa] caixa_movimentacoes', movError);
-            continue;
+      getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey('caixa:movimentacoes', { companyIds, inicio, fim }),
+        tags: [READ_MODEL_TAGS.finance, ...scopeCacheTags({ companyIds, userId: user.id })],
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
+        loader: async () => {
+          const rows: any[] = [];
+          const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          for (const companyBatch of companyBatches) {
+            let movQuery = client
+              .from('caixa_movimentacoes')
+              .select('id, tipo, categoria, descricao, valor, data_movimentacao, forma_pagamento:forma_pagamento_id(id, nome)')
+              .gte('data_movimentacao', inicio)
+              .lte('data_movimentacao', fim)
+              .order('data_movimentacao', { ascending: false });
+            if (companyBatch) movQuery = movQuery.in('company_id', companyBatch);
+            const { data, error: movError } = await movQuery;
+            if (movError) { logServerError('[caixa] caixa_movimentacoes', movError); continue; }
+            rows.push(...(data || []));
           }
-          rows.push(...(data || []));
+          return rows;
         }
-        return rows;
-      }
-    });
+      })
+    ]);
 
     const pagItems = pagamentos || [];
     const movItems = movimentacoes || [];

@@ -35,8 +35,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ userId: scope.userId, companyIds: [companyId] }),
       ],
-      ttlMs: 5_000,
-      staleTtlMs: 60_000,
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
       loader: async () => {
         const [usuariosEmpresa, recadosResp] = await Promise.all([
           fetchUsuariosEmpresa(client, companyId),

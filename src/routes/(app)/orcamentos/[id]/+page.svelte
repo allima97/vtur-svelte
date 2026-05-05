@@ -64,8 +64,8 @@
 
   onMount(async () => {
     await ensureServerSessionCookie();
-    await carregarOrcamento();
-    if (orcamento) await carregarInteracoes();
+    // Ambas as chamadas usam apenas orcamentoId (da URL) — são independentes entre si.
+    await Promise.all([carregarOrcamento(), carregarInteracoes()]);
   });
 
   async function carregarOrcamento() {

@@ -581,18 +581,18 @@
     />
 
     <div>
-      <p class="block text-sm font-medium text-slate-700 mb-1">Visualizacao</p>
+      <p class="mb-1.5 block text-sm font-medium text-slate-700">Visualização</p>
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="flex-1"
+          class_name="h-[42px] flex-1 rounded-lg"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="flex-1"
+          class_name="h-[42px] flex-1 rounded-lg"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
@@ -656,18 +656,18 @@
     />
 
     <div>
-      <p class="block text-sm font-medium text-slate-700 mb-1">Visualizacao</p>
+      <p class="mb-1.5 block text-sm font-medium text-slate-700">Visualização</p>
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="flex-1"
+          class_name="h-[42px] flex-1 rounded-lg"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="flex-1"
+          class_name="h-[42px] flex-1 rounded-lg"
           on:click={() => (viewMode = 'lista')}
         >
           Lista

@@ -209,8 +209,8 @@ export async function GET(event) {
           READ_MODEL_TAGS.ranking,
           ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
         ],
-        ttlMs: 15_000,
-        staleTtlMs: 60_000,
+        ttlMs: 45_000,
+        staleTtlMs: 180_000,
         loader: async () => {
           const rows: any[] = [];
           const vendedorBatches = chunkArray(vendedorIds);
@@ -359,8 +359,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 10_000,
-          staleTtlMs: 45_000,
+          ttlMs: 30_000,
+          staleTtlMs: 120_000,
           loader: () =>
             buildRankingSimple(client, {
               dataInicio,
@@ -382,8 +382,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 10_000,
-          staleTtlMs: 45_000,
+          ttlMs: 30_000,
+          staleTtlMs: 120_000,
           loader: () =>
             buildRankingSimple(client, {
               dataInicio: previousPeriod.dataInicio,
@@ -403,8 +403,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 10_000,
-          staleTtlMs: 45_000,
+          ttlMs: 30_000,
+          staleTtlMs: 120_000,
           loader: async () => {
             const rows: any[] = [];
             const vendedorBatches =
@@ -438,8 +438,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.ranking,
             ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
           ],
-          ttlMs: 10_000,
-          staleTtlMs: 45_000,
+          ttlMs: 30_000,
+          staleTtlMs: 120_000,
           loader: async () => {
             const metasReference =
               getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();

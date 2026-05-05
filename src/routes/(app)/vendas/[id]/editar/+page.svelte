@@ -163,10 +163,11 @@
     formasPagamento = data.formasPagamento || [];
   }
 
-  async function loadVenda() {
-    let data: any;
+  // Busca os dados brutos da venda via HTTP — não usa nenhum dado de loadBase.
+  // Pode ser disparado em paralelo com loadBase().
+  async function fetchVendaData(): Promise<any | null> {
     try {
-      data = await apiFetch<any>(`/api/v1/vendas/${vendaId}`, {
+      return await apiFetch<any>(`/api/v1/vendas/${vendaId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false
       });
@@ -175,20 +176,25 @@
         toast.error('Sessão expirada. Faça login novamente para continuar.');
         const next = `${$page.url.pathname}${$page.url.search}`;
         await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
-        return;
+        return null;
       }
       if (error instanceof ApiError && error.status === 403) {
         toast.error(error.message || 'Você não tem permissão para editar esta venda.');
         await goto('/vendas');
-        return;
+        return null;
       }
       if (error instanceof ApiError && error.status === 404) {
         toast.error(error.message || 'Venda não encontrada.');
         await goto('/vendas');
-        return;
+        return null;
       }
       throw error;
     }
+  }
+
+  // Processa os dados da venda após loadBase() ter populado produtos/cidades/clientes/etc.
+  async function processVendaData(data: any) {
+    if (!data) return;
 
     const sale = data || {};
     const destinoProduto = produtoResolvidoToOption(sale?.destino);
@@ -358,8 +364,11 @@
     loading = true;
     try {
       await ensureServerSessionCookie();
-      await loadBase();
-      await loadVenda();
+      // Disparar as duas chamadas HTTP em paralelo: loadBase carrega o catálogo
+      // e fetchVendaData busca os dados da venda. A rede não espera — só o
+      // processamento da venda aguarda o catálogo estar pronto.
+      const [, vendaRaw] = await Promise.all([loadBase(), fetchVendaData()]);
+      await processVendaData(vendaRaw);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados da venda.');
     } finally {

@@ -608,8 +608,8 @@ export async function GET(event) {
           clientCount: clientIds.length
         }),
         tags: listCacheTags,
-        ttlMs: 10_000,
-        staleTtlMs: 45_000,
+        ttlMs: 30_000,
+        staleTtlMs: 120_000,
         loader: async () => {
           const result = await fetchQuotes();
           if (result.error) throw result.error;

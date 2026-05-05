@@ -132,8 +132,8 @@ export async function GET(event) {
         pageSize
       }),
       tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.sales, ...scopeCacheTags({ companyIds, userId: user.id })],
-      ttlMs: 10_000,
-      staleTtlMs: 45_000,
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
       loader: async () => {
         if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
           const rows: any[] = [];

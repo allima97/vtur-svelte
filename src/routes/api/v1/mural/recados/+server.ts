@@ -38,8 +38,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.mural,
         ...scopeCacheTags({ userId: user.id, companyIds: [companyId] }),
       ],
-      ttlMs: 5_000,
-      staleTtlMs: 60_000,
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
       loader: async () => {
         const recadosResp = await fetchRecados(client, companyId);
         return {
