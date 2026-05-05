@@ -67,17 +67,22 @@
       appReady = true;
     }, 5000);
 
-    const unsub = sessionSynced.subscribe(async (ready) => {
+    // Evita race de inicialização: subscribe dispara imediatamente com o valor atual.
+    // Se esse valor virar true entre get(sessionSynced) e subscribe, o callback pode
+    // executar antes da variável receber a função de unsubscribe.
+    let unsubscribeSessionSynced: (() => void) | null = null;
+    const handleSessionSynced = async (ready: boolean) => {
       if (ready) {
         clearTimeout(timeout);
-        unsub();
+        unsubscribeSessionSynced?.();
         await startApp();
       }
-    });
+    };
+    unsubscribeSessionSynced = sessionSynced.subscribe(handleSessionSynced);
 
     return () => {
       clearTimeout(timeout);
-      unsub();
+      unsubscribeSessionSynced?.();
     };
   });
 

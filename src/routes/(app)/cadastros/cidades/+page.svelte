@@ -55,11 +55,30 @@
     { key: 'descricao', label: 'Descrição', sortable: false, formatter: (v: string | null) => `<span>${escapeHtml(v || '-')}</span>` }
   ];
 
+  async function fetchAllPages<T>(path: string, baseQuery: Record<string, any>, pageSize = 5000): Promise<T[]> {
+    const all: T[] = [];
+    let page = 1;
+    let total = 0;
+
+    while (true) {
+      const payload = await apiGet<any>(path, { ...baseQuery, page, pageSize });
+      const items = Array.isArray(payload?.items) ? (payload.items as T[]) : [];
+      total = Number(payload?.total || 0);
+      all.push(...items);
+
+      if (items.length === 0) break;
+      if (all.length >= total && total > 0) break;
+      page += 1;
+      if (page > 1000) break;
+    }
+
+    return all;
+  }
+
   async function loadSubdivisoes() {
     loadingSubdivisoes = true;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 });
-      subdivisoes = payload.items || [];
+      subdivisoes = await fetchAllPages<Subdivisao>('/api/v1/subdivisoes', {});
     } catch {
       subdivisoes = [];
     } finally {
@@ -70,13 +89,12 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/cidades', {
+      const baseQuery = {
         q: busca.trim() || undefined,
-        subdivisao_id: filtroSubdivisao || undefined,
-        pageSize: 5000
-      });
-      cidades = payload.items || [];
-      totalCidades = payload.total || cidades.length;
+        subdivisao_id: filtroSubdivisao || undefined
+      };
+      cidades = await fetchAllPages<Cidade>('/api/v1/cidades', baseQuery);
+      totalCidades = cidades.length;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
     } finally {

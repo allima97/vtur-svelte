@@ -1296,7 +1296,7 @@
 {:else if loadError}
   <div class="flex flex-col items-center justify-center py-16 text-center">
     <p class="mb-6 text-red-600 dark:text-red-400">{loadError}</p>
-    <Button color="alternative" href="/orcamentos/roteiros">
+    <Button variant="secondary" href="/orcamentos/roteiros">
       <ArrowLeft size={16} class="mr-2" />
       Voltar para Roteiros
     </Button>
