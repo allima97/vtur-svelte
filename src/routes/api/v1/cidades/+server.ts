@@ -57,23 +57,20 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
-        let query = client
-          .from('cidades')
-          .select(selectFields, { count: 'exact' })
-          .order('nome')
-          .range((page - 1) * pageSize, page * pageSize - 1);
+        let query = client.from('cidades').select(selectFields).order('nome').range((page - 1) * pageSize, page * pageSize - 1);
 
         if (subdivisaoId) query = query.eq('subdivisao_id', subdivisaoId);
         if (q) {
           query = query.or(`nome.ilike.%${q}%,descricao.ilike.%${q}%`);
         }
 
-        const { data, count, error: queryError } = await query;
+        const { data, error: queryError } = await query;
         if (queryError) throw queryError;
 
+        const rows = data || [];
         return {
-          items: data || [],
-          total: Number(count ?? data?.length ?? 0)
+          items: rows,
+          total: rows.length
         };
       }
     });
