@@ -4,11 +4,11 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
-  import { Calculator, DollarSign, RefreshCw, TrendingUp, Users } from 'lucide-svelte';
+  import { Calculator, DollarSign, RefreshCw, SlidersHorizontal, TrendingUp, Users } from 'lucide-svelte';
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
 
@@ -60,6 +60,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   // ─── KPIs derivados ───────────────────────────────────────────────────────
   $: totalComissoes    = comissoes.reduce((acc, c) => acc + c.valor_comissao, 0);
@@ -270,8 +271,19 @@
   <KPICard title="Vendedores"      value={vendedoresUnicos}                color="comissoes" icon={Users}       />
 </div>
 
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if filtroVendedor || filtroStatus !== 'todas'}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-comissoes-500"></span>
+    {/if}
+  </Button>
+</div>
+
 <!-- Filtros -->
-<Card color="comissoes" class="mb-6">
+<Card color="comissoes" class="mb-6 hidden sm:block">
   <div class="flex flex-wrap gap-4 items-end">
     <FieldSelect
       id="fech-mes"
@@ -315,6 +327,57 @@
     <Button variant="secondary" on:click={handleExport}>Exportar CSV</Button>
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Fechamento de Comissões">
+  <div class="space-y-4">
+    <FieldSelect
+      id="fech-mes-mobile"
+      label="Mês"
+      bind:value={filtroMes as any}
+      options={buildMonthOptions()}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="fech-ano-mobile"
+      label="Ano"
+      type="number"
+      bind:value={filtroAno}
+      min="2020"
+      max="2100"
+      class_name="w-full"
+    />
+    {#if canSelectEmpresa}
+      <FieldSelect
+        id="fech-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    <FieldSelect
+      id="fech-status-mobile"
+      label="Status"
+      bind:value={filtroStatus}
+      options={statusOptions}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="fech-vendedor-mobile"
+      label="Vendedor"
+      bind:value={filtroVendedor}
+      options={vendedorOptions}
+      placeholder={null}
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <!-- Tabela -->
 <DataTable

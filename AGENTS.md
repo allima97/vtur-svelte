@@ -250,9 +250,17 @@ Wrappers consolidados em `src/lib/components/ui`:
     - `relatorios/ranking` — mês de referência
     - `relatorios/produtos` — período, mês/data, empresa, vendedor, tipo, ordenação
     - `relatorios/destinos` — período, mês/data, empresa, vendedor, ordenação, recorte
+    - `relatorios/clientes` — período, mês/data, empresa, vendedor, categoria, ordenação
     - `financeiro/comissoes` — empresa, mês, status, vendedor
+    - `financeiro/conciliacao` — documento, status, vendedor, mês, dia, recibo encontrado, ranking, conciliado
     - `financeiro/ajustes-vendas` — empresa, data início/fim, vendedor, rateio, busca
+    - `comissoes/fechamento` — mês, ano, empresa, status, vendedor
     - `operacao/tarefas` — busca, coluna, prioridade, categoria, modo de visualização
+    - `operacao/viagens` — recorte por embarque, status, ordenação
+    - `operacao/agenda` — busca de compromissos
+    - `consultoria-online` — status (abertas/fechadas/todas), período, busca
+    - `cadastros/cidades` — busca, filtro por estado/província
+    - `cadastros/estados` — filtro por país
   - **Padrão aplicado**: botão "Filtros" largura total visível apenas em mobile (`sm:hidden`) com dot indicador quando há filtros ativos. Filtros desktop ficam `hidden sm:block`. BottomSheet contém os mesmos campos com IDs sufixo `-mobile` e botão "Aplicar filtros" para fechar.
 
 ### Não Migrados (Exceções Legítimas) ✅

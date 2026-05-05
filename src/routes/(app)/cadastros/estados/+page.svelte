@@ -6,9 +6,9 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldSelect } from '$lib/components/ui';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
-  import { Plus, Trash2, RefreshCw } from 'lucide-svelte';
+  import { Plus, Trash2, RefreshCw, SlidersHorizontal } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
   type Subdivisao = {
@@ -34,6 +34,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   let form = { nome: '', pais_id: '', codigo_admin1: '', tipo: '' };
 
@@ -160,7 +161,18 @@
   ]}
 />
 
-<Card class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if filtroPais}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<Card class="mb-6 hidden sm:block">
   <div class="flex gap-4 items-end">
     <FieldSelect
       id="est-pais"
@@ -171,6 +183,22 @@
     />
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Estados">
+  <div class="space-y-4">
+    <FieldSelect
+      id="est-pais-mobile"
+      label="País"
+      bind:value={filtroPais}
+      options={[{ value: '', label: 'Todos' }, ...paises.map((p) => ({ value: p.id, label: p.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <DataTable {columns} data={subdivisoes} {loading} title="Estados/Províncias" searchable={true} emptyMessage="Nenhum estado encontrado"
   onRowClick={(row) => openEdit(row)}>

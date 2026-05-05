@@ -9,7 +9,7 @@
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import FieldCheckbox from '$lib/components/ui/form/FieldCheckbox.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldSelect, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
   import { parseConciliacaoImportFile, parseConciliacaoImportText } from '$lib/conciliacao/importParser';
@@ -33,6 +33,7 @@
     Save,
     Pencil,
     ShieldAlert,
+    SlidersHorizontal,
     Upload,
     Users
   } from 'lucide-svelte';
@@ -360,6 +361,7 @@
   let semMovimentoData = '';
   let semMovimentoObservacao = '';
   let semMovimentoLoading = false;
+  let showFilterSheet = false;
 
   $: rankingStatusOptions = [
     { value: 'all', label: 'Todos' },
@@ -2221,8 +2223,19 @@
     </div>
   </Card>
 {:else if activeTab === 'visao_geral'}
+  <!-- Mobile: botão de filtros -->
+  <div class="mb-4 sm:hidden">
+    <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+      <SlidersHorizontal size={16} class="mr-2" />
+      Filtros
+      {#if vgFiltroDocumento || vgFiltroVendedor !== 'all' || vgFiltroStatus !== 'all' || vgFiltroMes !== 'all' || vgFiltroDia !== 'all' || vgFiltroReciboEncontrado !== 'all' || vgFiltroRanking !== 'all' || vgFiltroConciliado !== 'all'}
+        <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+      {/if}
+    </Button>
+  </div>
+
   <Card title="Visão geral" color="financeiro" class="mb-6">
-    <div class="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
+    <div class="hidden sm:grid mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
       <FieldInput id="vg-documento" label="Recibo" type="text" bind:value={vgFiltroDocumento} placeholder="Buscar..." class_name="w-full" />
       <FieldSelect id="vg-status" label="Status" bind:value={vgFiltroStatus} options={vgStatusSelectOptions} class_name="w-full" />
       <FieldSelect id="vg-vendedor" label="Vendedor ranking" bind:value={vgFiltroVendedor} options={vgVendedorSelectOptions} class_name="w-full" />
@@ -2233,7 +2246,7 @@
       <FieldSelect id="vg-conciliado" label="Conciliado" bind:value={vgFiltroConciliado} options={[{ value: 'all', label: 'Todos' }, { value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} class_name="w-full" />
     </div>
 
-    <div class="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+    <div class="hidden sm:flex mb-3 flex-wrap items-center gap-2 text-sm text-slate-600">
       <span><strong>{visaoGeralFiltrados.length}</strong> de <strong>{visaoGeralRows.length}</strong> registro(s)</span>
       <Button
         variant="secondary"
@@ -2252,6 +2265,22 @@
         Limpar
       </Button>
     </div>
+
+    <BottomSheet bind:open={showFilterSheet} title="Filtrar Visão Geral">
+      <div class="space-y-4">
+        <FieldInput id="vg-documento-mobile" label="Recibo" type="text" bind:value={vgFiltroDocumento} placeholder="Buscar..." class_name="w-full" />
+        <FieldSelect id="vg-status-mobile" label="Status" bind:value={vgFiltroStatus} options={vgStatusSelectOptions} class_name="w-full" />
+        <FieldSelect id="vg-vendedor-mobile" label="Vendedor ranking" bind:value={vgFiltroVendedor} options={vgVendedorSelectOptions} class_name="w-full" />
+        <FieldSelect id="vg-mes-mobile" label="Mês" bind:value={vgFiltroMes} options={vgMesSelectOptions} class_name="w-full" />
+        <FieldSelect id="vg-dia-mobile" label="Dia" bind:value={vgFiltroDia} options={vgDiaSelectOptions} class_name="w-full" />
+        <FieldSelect id="vg-recibo-encontrado-mobile" label="Recibo encontrado" bind:value={vgFiltroReciboEncontrado} options={[{ value: 'all', label: 'Todos' }, { value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} class_name="w-full" />
+        <FieldSelect id="vg-ranking-mobile" label="Ranking" bind:value={vgFiltroRanking} options={[{ value: 'all', label: 'Todos' }, { value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} class_name="w-full" />
+        <FieldSelect id="vg-conciliado-mobile" label="Conciliado" bind:value={vgFiltroConciliado} options={[{ value: 'all', label: 'Todos' }, { value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} class_name="w-full" />
+      </div>
+      <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+        Aplicar filtros
+      </Button>
+    </BottomSheet>
 
     {#if registrosLoading || loading}
       <LoadingState />

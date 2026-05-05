@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
-  import { FieldInput, FieldTextarea, FieldCheckbox, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldTextarea, FieldCheckbox, LoadingState } from '$lib/components/ui';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import { diffDaysISODate, formatISODateBR, todayISODateLocal, toISODateLocal } from '$lib/date';
   import { toast } from '$lib/stores/ui';
@@ -19,6 +19,7 @@
     Plus,
     RefreshCw,
     Search,
+    SlidersHorizontal,
     UserRound
   } from 'lucide-svelte';
 
@@ -68,6 +69,7 @@
   let items: AgendaItem[] = [];
   let visibleRange = { inicio: todayIso, fim: todayIso };
   let searchQuery = '';
+  let showFilterSheet = false;
   let currentView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' = 'timeGridDay';
   let initializingCalendar = false;
 
@@ -490,13 +492,24 @@
   </div>
 </Card>
 
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if searchQuery.trim()}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-operacao-500"></span>
+    {/if}
+  </Button>
+</div>
+
 <Card color="operacao">
   <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
     <div>
       <h3 class="text-lg font-semibold text-slate-900">Compromissos do periodo</h3>
       <p class="text-sm text-slate-500">Lista operacional do intervalo visivel no calendario.</p>
     </div>
-    <div class="max-w-md w-full">
+    <div class="max-w-md w-full hidden sm:block">
       <FieldInput
         bind:value={searchQuery}
         icon={Search}
@@ -518,6 +531,21 @@
     emptyMessage="Nenhum compromisso encontrado para o periodo"
   />
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Compromissos">
+  <div class="space-y-4">
+    <FieldInput
+      id="agenda-search-mobile"
+      bind:value={searchQuery}
+      icon={Search}
+      placeholder="Buscar por assunto, data ou descricao"
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <Dialog
   bind:open={eventModalOpen}

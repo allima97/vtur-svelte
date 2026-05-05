@@ -3,14 +3,14 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
-  import { FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldInput, FieldSelect, FieldTextarea, LoadingState } from '$lib/components/ui';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import EmptyState from '$lib/components/ui/EmptyState.svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet, apiPatch, apiPost } from '$lib/services/api';
   import { safeOpenNewTab } from '$lib/security/url';
-  import { Calendar, Download, Plus, RefreshCw, Video, X } from 'lucide-svelte';
+  import { Calendar, Download, Plus, RefreshCw, SlidersHorizontal, Video, X } from 'lucide-svelte';
 
   type Consultoria = {
     id: string;
@@ -58,6 +58,7 @@
   let showModal = false;
   let editingId: string | null = null;
   let statusFilter = '';
+  let showFilterSheet = false;
 
   function defaultForm(): ConsultoriaForm {
     return {
@@ -199,8 +200,19 @@
 />
 
 <div class="space-y-4">
+  <!-- Mobile: botão de filtros -->
+  <div class="mb-4 sm:hidden">
+    <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+      <SlidersHorizontal size={16} class="mr-2" />
+      Filtros
+      {#if statusFilter !== ''}
+        <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-operacao-500"></span>
+      {/if}
+    </Button>
+  </div>
+
   <!-- Filtros -->
-  <Card>
+  <Card class="hidden sm:block">
     <div class="flex flex-wrap items-center gap-3">
       <span class="text-sm font-medium text-slate-600">Filtrar por status:</span>
       {#each statusOptions as opt}
@@ -235,6 +247,27 @@
       </div>
     </div>
   </Card>
+
+  <BottomSheet bind:open={showFilterSheet} title="Filtrar Consultorias">
+    <div class="space-y-4">
+      <span class="text-sm font-medium text-slate-600">Filtrar por status:</span>
+      <div class="flex flex-col gap-2">
+        {#each statusOptions as opt}
+          <Button
+            variant={statusFilter === opt.value ? 'primary' : 'outline'}
+            size="sm"
+            class_name="rounded-full justify-start"
+            on:click={() => { statusFilter = opt.value; }}
+          >
+            {opt.label}
+          </Button>
+        {/each}
+      </div>
+    </div>
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </BottomSheet>
 
   <!-- Lista -->
   {#if loading}

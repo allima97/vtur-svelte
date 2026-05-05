@@ -4,10 +4,11 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
+  import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
-  import { Plus, Plane, Calendar, FileText, Clock, CreditCard } from 'lucide-svelte';
+  import { Plus, Plane, Calendar, FileText, Clock, CreditCard, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { compareISODate, diffDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
@@ -45,6 +46,7 @@
   let filtroStatus = '';
   let filtroPeriodo: PeriodoEmbarque = '';
   let ordenacao: OrdenacaoViagem = 'embarque_asc';
+  let showFilterSheet = false;
 
   const statusOptions = [
     { value: '', label: 'Todos' },
@@ -338,11 +340,22 @@
   />
 </div>
 
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if filtroStatus || filtroPeriodo}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-clientes-500"></span>
+    {/if}
+  </Button>
+</div>
+
 <Card
   title="Ordem de embarque"
   subtitle="Use os recortes rápidos para acompanhar quem embarca nos próximos dias."
   color="clientes"
-  class="mb-6"
+  class="mb-6 hidden sm:block"
 >
   <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
     <div class="min-w-0 flex-1">
@@ -391,6 +404,53 @@
     </div>
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Viagens">
+  <div class="space-y-4">
+    <div class="flex flex-col gap-2">
+      <span class="text-sm font-medium text-slate-700">Recorte por embarque</span>
+      {#each periodoOptions as option}
+        <Button
+          variant={filtroPeriodo === option.value ? 'primary' : 'secondary'}
+          color="clientes"
+          size="sm"
+          ariaPressed={filtroPeriodo === option.value}
+          on:click={() => setPeriodo(option.value)}
+        >
+          <span class="flex flex-col items-start leading-tight">
+            <span>{option.label}</span>
+            <span class={filtroPeriodo === option.value ? 'text-[11px] text-white/80' : 'text-[11px] text-slate-500'}>
+              {option.helper}
+            </span>
+          </span>
+        </Button>
+      {/each}
+    </div>
+    <FieldSelect
+      id="viagens-status-mobile"
+      label="Status"
+      bind:value={filtroStatus}
+      options={statusOptions}
+      placeholder={null}
+      disabled={loading}
+      on:change={loadViagens}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="viagens-ordenacao-mobile"
+      label="Mostrar por"
+      bind:value={ordenacao}
+      options={ordenacaoOptions}
+      placeholder={null}
+      disabled={loading}
+      on:change={loadViagens}
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
 
 <DataTable
   {columns}
