@@ -243,6 +243,10 @@ Wrappers consolidados em `src/lib/components/ui`:
 - **`diagnostico/+page.svelte`**: 1 botão "Executar Diagnostico" migrado para `Button` color financeiro.
 - **`debug/+page.svelte`**: 1 botão "Atualizar" com icon refresh migrado para `Button` secondary.
 
+### Wrappers de UI Adicionais ✅
+- **`BottomSheet`** (`src/lib/components/ui/BottomSheet.svelte`): Wrapper mobile-first baseado em `svelte-bottom-sheet` (compatível com Svelte 5). API simplificada com `title`, `maxHeight`, `snapPoints`, `position`, `onclose` e slot de conteúdo. Estilização alinhada ao design system do VTUR (bordas arredondadas, handle padronizado, backdrop com blur).
+  - **Adoção piloto**: `relatorios/vendas/+page.svelte` — filtros do relatório agora abrem em bottom sheet no mobile, mantendo o layout em grid no desktop (`hidden sm:block`). Botão "Filtros" com indicador de ativo (`SlidersHorizontal`) visível apenas em mobile (`sm:hidden`).
+
 ### Não Migrados (Exceções Legítimas) ✅
   - KPI card buttons em `vendas/[id]` e `clientes/[id]` — estruturais com lógica visual complexa (cores condicionais, múltiplos ícones/conteúdo).
   - Theme selector gallery em `parametros/crm/+page.svelte` (linha 539) — card seletor visual complexo com imagem + overlay.

@@ -56,7 +56,8 @@
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-svelte": "^1.0.1",
-    "pdfjs-dist": "^5.7.284"
+    "pdfjs-dist": "^5.7.284",
+    "svelte-bottom-sheet": "^2.3.0"
   },
   "type": "module",
   "overrides": {

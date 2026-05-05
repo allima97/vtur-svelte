@@ -160,6 +160,7 @@
   const roteiroId = $page.params.id;
 
   let loading = $state(true);
+  let loadError = $state('');
   let saving = $state(false);
   let previewingPdf = $state(false);
   let abaAtiva: AbaId = $state('itinerario');
@@ -562,7 +563,8 @@
           return;
         }
       }
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar roteiro.');
+      loadError = err instanceof Error ? err.message : 'Erro ao carregar roteiro.';
+      toast.error(loadError);
     } finally {
       loading = false;
     }
@@ -1291,6 +1293,14 @@
 
 {#if loading}
   <LoadingState />
+{:else if loadError}
+  <div class="flex flex-col items-center justify-center py-16 text-center">
+    <p class="mb-6 text-red-600 dark:text-red-400">{loadError}</p>
+    <Button color="alternative" href="/orcamentos/roteiros">
+      <ArrowLeft size={16} class="mr-2" />
+      Voltar para Roteiros
+    </Button>
+  </div>
 {:else}
   <PageHeader
     title={nome || 'Roteiro'}

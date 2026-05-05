@@ -8,11 +8,11 @@
   import Button from '$lib/components/ui/Button.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import { FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
-  import { ArrowLeft, X, TrendingUp, DollarSign, Users, ShoppingCart } from 'lucide-svelte';
+  import { ArrowLeft, X, TrendingUp, DollarSign, Users, ShoppingCart, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import {
@@ -289,6 +289,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let showFilterSheet = false;
 
   const columnsBase = [
     { key: 'numero_recibo', label: 'Recibo', sortable: true, width: '140px' },
@@ -727,7 +728,83 @@
   ]}
 />
 
-<Card color="financeiro" class="mb-6">
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if empresaSelecionada || vendedorSelecionado || statusSelecionado}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar vendas">
+  <div class="flex flex-col gap-4">
+    <FieldSelect
+      id="rel-vendas-periodo-modo-mobile"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="rel-vendas-mes-mobile"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+      />
+    {:else}
+      <FieldInput id="rel-vendas-data-inicio-mobile" label="Data início" type="date" bind:value={dataInicio} class_name="w-full" />
+      <FieldInput id="rel-vendas-data-fim-mobile" label="Data fim" type="date" bind:value={dataFim} min={dataInicio || null} class_name="w-full" />
+    {/if}
+    {#if showEmpresaFiltro}
+      <FieldSelect
+        id="rel-vendas-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showVendedorFiltro}
+      <FieldSelect
+        id="rel-vendas-vendedor-mobile"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    <FieldSelect
+      id="rel-vendas-status-mobile"
+      label="Status"
+      bind:value={statusSelecionado}
+      options={[
+        { value: '', label: 'Todos' },
+        { value: 'confirmada', label: 'Confirmada' },
+        { value: 'pendente', label: 'Pendente' },
+        { value: 'concluida', label: 'Concluída' },
+        { value: 'cancelada', label: 'Cancelada' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+<Card color="financeiro" class="mb-6 hidden sm:block">
   <div class="flex flex-col gap-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
       <FieldSelect
