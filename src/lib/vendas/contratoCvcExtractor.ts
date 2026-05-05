@@ -286,6 +286,20 @@ function extractCurrencyAfterLabel(block: string, labelPattern: string) {
   return parseCurrency(match?.[1] || null);
 }
 
+function inferPagamentoDesconto(valorBruto: number | null, parcelasTotal: number) {
+  if (valorBruto == null || parcelasTotal <= 0 || parcelasTotal >= valorBruto) return null;
+  const diff = Number((valorBruto - parcelasTotal).toFixed(2));
+  return diff > 0 && diff <= valorBruto ? diff : null;
+}
+
+function extractPagamentoDesconto(block: string, valorBruto: number | null, parcelasTotal: number) {
+  const explicit =
+    extractCurrencyAfterLabel(block, "Descontos?(?!\\s+(?:Comerciais|por\\s+Promo[cç][aã]o))") ??
+    extractCurrencyAfterLabel(block, "Abatimento");
+  if (explicit != null) return explicit;
+  return inferPagamentoDesconto(valorBruto, parcelasTotal);
+}
+
 function parseDateBr(value?: string | null) {
   if (!value) return null;
   const match = value.match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -2487,9 +2501,6 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
     const plano = extractLineValue(block, "Plano") || null;
     const valorRaw = extractLineValue(block, "Valor") || "";
     const valorBrutoRaw = extractCurrency(valorRaw);
-    const desconto =
-      extractCurrencyAfterLabel(block, "Descontos?(?!\\s+Comerciais)") ??
-      extractCurrency(extractLineValue(block, "Desconto"));
     const totalRaw = extractCurrency(extractLineValue(block, "Total"));
     const total =
       totalRaw != null && valorBrutoRaw != null && totalRaw > valorBrutoRaw * 1.05
@@ -2507,8 +2518,12 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
     }
     const totalParcelas = parcelas.reduce((sum, parcela) => sum + Number(parcela.valor || 0), 0);
     const valor_bruto = valorBrutoRaw ?? (totalParcelas > 0 ? totalParcelas : null);
+    const desconto = extractPagamentoDesconto(block, valor_bruto, totalParcelas);
     const totalLiquido =
       total ??
+      (totalParcelas > 0 && valor_bruto != null && totalParcelas < valor_bruto
+        ? totalParcelas
+        : null) ??
       (valor_bruto != null
         ? Math.max(valor_bruto - Number(desconto || 0), 0)
         : null);

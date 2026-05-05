@@ -130,15 +130,21 @@ function totalParcelasPagamento(pagamento: PagamentoDraft) {
   return (pagamento.parcelas || []).reduce((sum, parcela) => sum + parseMoney(parcela.valor), 0);
 }
 
+function inferPagamentoDesconto(valorBruto: number, parcelasTotal: number) {
+  if (valorBruto <= 0 || parcelasTotal <= 0 || parcelasTotal >= valorBruto) return 0;
+  return Number((valorBruto - parcelasTotal).toFixed(2));
+}
+
 function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   return pagamentos.reduce((acc, pagamento) => {
     const parcelasTotal = totalParcelasPagamento(pagamento);
     const bruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
-    const desconto = parseMoney(pagamento.desconto);
+    const desconto = parseMoney(pagamento.desconto) || inferPagamentoDesconto(bruto, parcelasTotal);
     const total = parseMoney(pagamento.total);
     if (pagamento.total != null && (bruto <= 0 || total <= bruto * 1.05)) {
       return acc + total;
     }
+    if (parcelasTotal > 0 && bruto > parcelasTotal) return acc + parcelasTotal;
     if (bruto > 0) return acc + Math.max(bruto - desconto, 0);
     return acc;
   }, 0);
@@ -867,10 +873,12 @@ export async function POST(event) {
 
       const parcelasTotal = totalParcelasPagamento(pagamento);
       const valorBruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
-      const descontoValor = parseMoney(pagamento.desconto);
+      const descontoValor = parseMoney(pagamento.desconto) || inferPagamentoDesconto(valorBruto, parcelasTotal);
       const valorTotalPagamento =
         pagamento.total != null
           ? parseMoney(pagamento.total)
+          : parcelasTotal > 0 && valorBruto > parcelasTotal
+            ? parcelasTotal
           : valorBruto > 0
             ? Math.max(valorBruto - descontoValor, 0)
             : 0;

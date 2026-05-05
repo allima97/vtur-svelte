@@ -89,15 +89,22 @@ function isRlsInsertError(error: any) {
 
 function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   return pagamentos.reduce((acc, pagamento) => {
-    const bruto = parseMoney(pagamento.valor_bruto);
-    const desconto = parseMoney(pagamento.desconto);
+    const parcelasTotal = (pagamento.parcelas || []).reduce((sum, parcela) => sum + parseMoney(parcela.valor), 0);
+    const bruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
+    const desconto = parseMoney(pagamento.desconto) || inferPagamentoDesconto(bruto, parcelasTotal);
     const total = parseMoney(pagamento.total);
     if (pagamento.total != null && (bruto <= 0 || total <= bruto * 1.05)) {
       return acc + total;
     }
+    if (parcelasTotal > 0 && bruto > parcelasTotal) return acc + parcelasTotal;
     if (bruto > 0) return acc + Math.max(bruto - desconto, 0);
     return acc;
   }, 0);
+}
+
+function inferPagamentoDesconto(valorBruto: number, parcelasTotal: number) {
+  if (valorBruto <= 0 || parcelasTotal <= 0 || parcelasTotal >= valorBruto) return 0;
+  return Number((valorBruto - parcelasTotal).toFixed(2));
 }
 
 function validateContratoUploadFile(file: File) {
@@ -1104,16 +1111,20 @@ export async function saveContratoImport(params: {
     const pagaComissao = isFormaNaoComissionavel(pagamento.forma, termosNaoComissionaveis)
       ? false
       : pagaComissaoBase;
-    const valorBruto = parseMoney(pagamento.valor_bruto);
-    const desconto = parseMoney(pagamento.desconto);
-    const total = pagamento.total != null ? parseMoney(pagamento.total) : valorBruto - desconto;
+    const parcelas = pagamento.parcelas || [];
+    const parcelasTotal = parcelas.reduce((sum, parcela) => sum + parseMoney(parcela.valor), 0);
+    const valorBruto = parseMoney(pagamento.valor_bruto) || parcelasTotal;
+    const desconto = parseMoney(pagamento.desconto) || inferPagamentoDesconto(valorBruto, parcelasTotal);
+    const total = pagamento.total != null
+      ? parseMoney(pagamento.total)
+      : parcelasTotal > 0 && valorBruto > parcelasTotal
+        ? parcelasTotal
+        : valorBruto - desconto;
 
     if (!pagaComissao) {
       const baseNaoComissionado = valorBruto || total || 0;
       totalCreditosNaoComissionados += baseNaoComissionado;
     }
-
-    const parcelas = pagamento.parcelas || [];
 
     await supabaseBrowser.from("vendas_pagamentos").insert({
       venda_id: venda.id,
