@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import SubdivisaoAutocomplete from '$lib/components/cadastros/SubdivisaoAutocomplete.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
   import { toast } from '$lib/stores/ui';
@@ -332,16 +333,12 @@
       placeholder="Nome da cidade"
       class_name="w-full"
     />
-    <FieldSelect
+    <SubdivisaoAutocomplete
       id="cid-sub-form"
       label="Estado/Província"
       bind:value={form.subdivisao_id}
-      options={loadingSubdivisoes
-        ? [{ value: '', label: 'Carregando estados...' }]
-        : [{ value: '', label: 'Selecione um estado/província' }, ...subdivisoes.map((s) => ({ value: s.id, label: s.nome }))]}
-      placeholder={null}
-      class_name="w-full"
-      disabled={loadingSubdivisoes}
+      placeholder="Digite para buscar estados..."
+      helper="Digite pelo menos 2 letras e selecione a opção desejada."
     />
     <FieldInput
       id="cid-desc"

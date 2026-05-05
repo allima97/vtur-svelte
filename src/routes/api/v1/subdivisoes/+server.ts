@@ -31,11 +31,41 @@ export async function GET(event) {
     }
 
     const { searchParams } = event.url;
+    const id = String(searchParams.get('id') || '').trim();
     const rawQ = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
     const q = rawQ.length >= 2 ? rawQ : '';
     const paisId = String(searchParams.get('pais_id') || '').trim();
     const page = Math.max(1, parseIntSafe(searchParams.get('page'), 1));
     const pageSize = Math.min(5000, Math.max(1, parseIntSafe(searchParams.get('pageSize'), 100)));
+
+    if (id) {
+      if (!isUuid(id)) {
+        return json({ error: 'id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+
+      const item = await getCachedReadModel<any | null>({
+        key: buildReadModelCacheKey('subdivisoes:get', { id }),
+        tags: [READ_MODEL_TAGS.catalog],
+        ttlMs: 60_000,
+        staleTtlMs: 300_000,
+        loader: async () => {
+          const { data, error: queryError } = await client
+            .from('subdivisoes')
+            .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)')
+            .eq('id', id)
+            .maybeSingle();
+
+          if (queryError) throw queryError;
+          return data || null;
+        }
+      });
+
+      if (!item) {
+        return json({ error: 'Estado/Subdivisão não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
+      }
+
+      return json(item, { headers: DYNAMIC_READ_HEADERS });
+    }
 
     if (paisId && !isUuid(paisId)) {
       return json({ error: 'pais_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
