@@ -140,8 +140,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.clients,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 20_000,
-      staleTtlMs: 90_000,
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
       loader: async () => {
         const buildBaseQuery = (limit: number) =>
           client

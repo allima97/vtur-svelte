@@ -692,8 +692,15 @@
       kpiVisible = kpiStorage.visible;
     }
 
-    await loadBase();
-    await Promise.all([loadDashboard(), loadOperacional()]);
+    // Disparar loadBase em paralelo com loadDashboard + loadOperacional.
+    // loadBase carrega apenas empresas/vendedores para os filtros de UI e
+    // não é prerequisito dos dados principais — executar em série causava
+    // um round-trip extra de rede antes de qualquer dado aparecer na tela.
+    await Promise.all([
+      loadBase(),
+      loadDashboard(),
+      loadOperacional()
+    ]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });

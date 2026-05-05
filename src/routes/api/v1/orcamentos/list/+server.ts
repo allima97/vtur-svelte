@@ -214,8 +214,8 @@ export async function GET(event) {
     const data = await getCachedReadModel<OrcamentoRow[]>({
       key: buildReadModelCacheKey('orcamentos-list:rows', listCacheParts),
       tags: listCacheTags,
-      ttlMs: 10_000,
-      staleTtlMs: 45_000,
+      ttlMs: 45_000,
+      staleTtlMs: 180_000,
       loader: async () => {
         const queryResult = await fetchQuoteRows(joinedSelect);
         const queryError = queryResult.error;

@@ -28,6 +28,15 @@ export class ApiError extends Error {
 }
 
 const DEFAULT_API_TIMEOUT_MS = 90_000;
+const DEFAULT_GET_CACHE_TTL_MS = 5_000;
+
+type CachedGetEntry = {
+  expiresAt: number;
+  promise?: Promise<unknown>;
+  value?: unknown;
+};
+
+const getCache = new Map<string, CachedGetEntry>();
 
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
   if (!query) return '';
@@ -87,6 +96,25 @@ async function readError(response: Response) {
 export async function apiFetch<T = unknown>(path: string, options: ApiOptions = {}): Promise<T> {
   const queryString = buildQueryString(options.query);
   const url = `${path}${queryString}`;
+  const method = options.method || 'GET';
+  const isCacheableGet =
+    browser &&
+    method === 'GET' &&
+    !options.signal &&
+    !options.headers &&
+    !options.body;
+
+  if (isCacheableGet) {
+    const cached = getCache.get(url);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) {
+      if (cached.promise) return cached.promise as Promise<T>;
+      return cached.value as T;
+    }
+  } else if (browser && method !== 'GET') {
+    getCache.clear();
+  }
+
   const timeoutMs = Math.max(1_000, Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS));
   const controller = options.signal ? null : new AbortController();
   const timeout = controller
@@ -110,51 +138,73 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
       : JSON.stringify(options.body)
     : undefined;
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: options.method || 'GET',
-      headers,
-      body: requestBody,
-      signal: options.signal || controller?.signal,
-      credentials: 'same-origin'
-    });
-  } catch (err) {
-    const aborted = err instanceof DOMException && err.name === 'AbortError';
-    throw new ApiError(
-      aborted ? 'A requisição demorou demais. Tente novamente.' : 'Falha de conexão com o servidor.',
-      0,
-      err
-    );
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-
-  if (response.status === 401) {
-    if (options.redirectOnUnauthorized !== false) {
-      handleUnauthorized();
+  const requestPromise = (async () => {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body: requestBody,
+        signal: options.signal || controller?.signal,
+        credentials: 'same-origin'
+      });
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === 'AbortError';
+      throw new ApiError(
+        aborted ? 'A requisição demorou demais. Tente novamente.' : 'Falha de conexão com o servidor.',
+        0,
+        err
+      );
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
-    throw new ApiError('Sessão expirada. Faça login novamente.', 401);
-  }
 
-  if (response.status === 403) {
-    if (options.redirectOnForbidden !== false) {
-      handleForbidden();
+    if (response.status === 401) {
+      if (options.redirectOnUnauthorized !== false) {
+        handleUnauthorized();
+      }
+      throw new ApiError('Sessão expirada. Faça login novamente.', 401);
     }
-    throw new ApiError('Acesso negado.', 403);
+
+    if (response.status === 403) {
+      if (options.redirectOnForbidden !== false) {
+        handleForbidden();
+      }
+      throw new ApiError('Acesso negado.', 403);
+    }
+
+    if (!response.ok) {
+      const error = await readError(response);
+      throw new ApiError(error.message, response.status, error.payload);
+    }
+
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
+      return undefined as T;
+    }
+
+    return response.json() as Promise<T>;
+  })();
+
+  if (isCacheableGet) {
+    const entry: CachedGetEntry = {
+      expiresAt: Date.now() + DEFAULT_GET_CACHE_TTL_MS,
+      promise: requestPromise
+    };
+    getCache.set(url, entry);
+    try {
+      const value = await requestPromise;
+      entry.value = value;
+      entry.promise = undefined;
+      entry.expiresAt = Date.now() + DEFAULT_GET_CACHE_TTL_MS;
+      return value as T;
+    } catch (err) {
+      getCache.delete(url);
+      throw err;
+    }
   }
 
-  if (!response.ok) {
-    const error = await readError(response);
-    throw new ApiError(error.message, response.status, error.payload);
-  }
-
-  const contentLength = response.headers.get('content-length');
-  if (response.status === 204 || contentLength === '0') {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+  return requestPromise;
 }
 
 export function apiGet<T = unknown>(path: string, query?: ApiOptions['query'], signal?: AbortSignal) {

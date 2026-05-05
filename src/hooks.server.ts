@@ -195,8 +195,30 @@ const AUTHENTICATED_API_UPLOAD_PREFIXES = [
 	'/api/v1/pagamentos/upload'
 ];
 
+const API_ACTIVE_STATUS_CACHE_TTL_MS = 30_000;
+const apiActiveStatusCache = new Map<string, { active: boolean; expiresAt: number }>();
+
 function isAuthenticatedUploadApi(pathname: string) {
 	return AUTHENTICATED_API_UPLOAD_PREFIXES.some((prefix) => pathMatchesPrefix(pathname, prefix));
+}
+
+async function getCachedApiActiveStatus(event: Parameters<Handle>[0]['event'], userId: string) {
+	const id = String(userId || '').trim();
+	if (!id) return true;
+	const now = Date.now();
+	const cached = apiActiveStatusCache.get(id);
+	if (cached && cached.expiresAt > now) return cached.active;
+
+	const { data, error } = await event.locals.supabase
+		.from('users')
+		.select('id, active')
+		.eq('id', id)
+		.maybeSingle();
+	if (error || !data) return true;
+
+	const active = data.active !== false;
+	apiActiveStatusCache.set(id, { active, expiresAt: now + API_ACTIVE_STATUS_CACHE_TTL_MS });
+	return active;
 }
 
 function resolveClientAddress(event: Parameters<Handle>[0]['event']) {
@@ -297,12 +319,17 @@ const supabaseHook: Handle = async ({ event, resolve }) => {
 		}
 	});
 
+	let safeSessionPromise: ReturnType<typeof event.locals.safeGetSession> | null = null;
 	event.locals.safeGetSession = async () => {
+		if (safeSessionPromise) return safeSessionPromise;
+		safeSessionPromise = (async () => {
 		const { data: { session } } = await event.locals.supabase.auth.getSession();
 		if (!session) return { session: null, user: null };
 		const { data: { user }, error } = await event.locals.supabase.auth.getUser();
 		if (error) return { session: null, user: null };
 		return { session, user };
+		})();
+		return safeSessionPromise;
 	};
 
 	return resolve(event, {
@@ -504,12 +531,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isSystemAdminBlockedApi = SYSTEM_ADMIN_BLOCKED_API_PREFIXES.some((prefix) =>
 			pathMatchesPrefix(pathname, prefix)
 		);
-		const { data: apiProfile, error: apiProfileError } = await event.locals.supabase
-			.from('users')
-			.select('id, active')
-			.eq('id', user.id)
-			.maybeSingle();
-		if (!apiProfileError && apiProfile && apiProfile.active === false) {
+		const apiUserActive = await getCachedApiActiveStatus(event, user.id);
+		if (!apiUserActive) {
 			return new Response(JSON.stringify({ error: 'Usuario inativo.' }), {
 				status: 403,
 				headers: {

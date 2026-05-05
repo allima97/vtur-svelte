@@ -51,7 +51,6 @@
   let filterValues: Record<string, string> = {};
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
-  let summaryRequestSeq = 0;
   let lastSummaryKey = '';
   let summary = {
     total: 0,
@@ -219,10 +218,13 @@
   async function loadClientes() {
     const seq = ++requestSeq;
     loading = true;
+    loadingSummary = true;
     errorMessage = null;
 
     try {
-      const query = {
+      // Uma única chamada com include_summary=1 elimina o segundo round-trip
+      // que antes era disparado separadamente por loadClientesResumo().
+      const payload = await apiGet<{ items?: Cliente[]; total?: number; summary?: Partial<typeof summary> }>('/api/v1/clientes/list', {
         page: String(listPage),
         pageSize: String(listPageSize),
         busca: searchTerm,
@@ -230,18 +232,26 @@
         estado: filterValues.estado || '',
         tipo_pessoa: filterValues.tipo_pessoa || '',
         classificacao: filterValues.classificacao || '',
-        aniversario_hoje: filterValues.aniversario_hoje || ''
-      };
+        aniversario_hoje: filterValues.aniversario_hoje || '',
+        include_summary: '1'
+      });
 
-      const payload = await apiGet<{ items?: Cliente[]; total?: number }>('/api/v1/clientes/list', query);
       if (seq !== requestSeq) return;
+
       clientes = Array.isArray(payload?.items) ? payload.items : [];
       totalClientes = Number(payload?.total || clientes.length || 0);
-      const summaryKey = getSummaryKey();
-      if (summaryKey !== lastSummaryKey) {
-        lastSummaryKey = summaryKey;
-        void loadClientesResumo(seq, summaryKey);
-      }
+      lastSummaryKey = getSummaryKey();
+
+      // Usar summary retornado pela API; se ausente, derivar dos itens da página
+      const s = payload?.summary;
+      summary = {
+        total: Number(s?.total ?? totalClientes),
+        ativos: Number(s?.ativos ?? clientes.filter((item) => item.status === 'ativo').length),
+        aniversariantesHoje: Number(s?.aniversariantesHoje ?? clientes.filter((item) => item.aniversario_hoje).length),
+        totalCarteira: Number(s?.totalCarteira ?? clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0)),
+        comViagem: Number(s?.comViagem ?? clientes.filter((item) => item.total_viagens > 0).length),
+        emNegociacao: Number(s?.emNegociacao ?? clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length)
+      };
     } catch (error) {
       if (seq !== requestSeq) return;
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar clientes.';
@@ -249,36 +259,8 @@
       totalClientes = 0;
       toast.error(errorMessage);
     } finally {
-      if (seq === requestSeq) loading = false;
-    }
-  }
-
-  async function loadClientesResumo(seq = requestSeq, summaryKey = getSummaryKey()) {
-    const summarySeq = ++summaryRequestSeq;
-    loadingSummary = true;
-    try {
-      const payload = await apiGet<{ summary?: Partial<typeof summary> }>('/api/v1/clientes/list', {
-        all: '1',
-        busca: searchTerm,
-        status: filterValues.status || '',
-        estado: filterValues.estado || '',
-        tipo_pessoa: filterValues.tipo_pessoa || '',
-        classificacao: filterValues.classificacao || '',
-        aniversario_hoje: filterValues.aniversario_hoje || '',
-        include_summary: '1',
-        summary_only: '1'
-      });
-      if (seq !== requestSeq || summarySeq !== summaryRequestSeq || summaryKey !== getSummaryKey()) return;
-      summary = {
-        total: Number(payload?.summary?.total ?? totalClientes),
-        ativos: Number(payload?.summary?.ativos ?? clientes.filter((item) => item.status === 'ativo').length),
-        aniversariantesHoje: Number(payload?.summary?.aniversariantesHoje ?? clientes.filter((item) => item.aniversario_hoje).length),
-        totalCarteira: Number(payload?.summary?.totalCarteira ?? clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0)),
-        comViagem: Number(payload?.summary?.comViagem ?? clientes.filter((item) => item.total_viagens > 0).length),
-        emNegociacao: Number(payload?.summary?.emNegociacao ?? clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length)
-      };
-    } finally {
-      if (seq === requestSeq && summarySeq === summaryRequestSeq && summaryKey === getSummaryKey()) {
+      if (seq === requestSeq) {
+        loading = false;
         loadingSummary = false;
       }
     }

@@ -1054,8 +1054,8 @@ export async function GET(event) {
             READ_MODEL_TAGS.users,
             ...scopeCacheTags({ companyIds, vendedorIds: effectiveVendedorIds, userId: user.id })
           ],
-          ttlMs: 10_000,
-          staleTtlMs: 45_000,
+          ttlMs: 45_000,
+          staleTtlMs: 180_000,
           loader: () =>
             fetchVendaRowsWithFallback(client, {
               openId,

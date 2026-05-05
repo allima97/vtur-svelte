@@ -802,7 +802,8 @@ async function fetchResolvedRows(
 
   return getCachedReadModel({
     key,
-    ttlMs: 20_000,
+    ttlMs: 60_000,       // era 20s — aumentado para 60s; cálculo de KPIs de vendas é custoso
+    staleTtlMs: 300_000, // stale por até 5min enquanto recarrega em background
     tags: [
       READ_MODEL_TAGS.sales,
       READ_MODEL_TAGS.conciliacao,

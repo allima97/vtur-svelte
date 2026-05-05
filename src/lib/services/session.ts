@@ -1,8 +1,8 @@
 import { browser } from '$app/environment';
 import { supabase } from '$lib/db/supabase';
 
-const SESSION_SYNC_TIMEOUT_MS = 1_500;
-const SESSION_SYNC_COOLDOWN_MS = 15_000;
+const SESSION_SYNC_TIMEOUT_MS = 600;
+const SESSION_SYNC_COOLDOWN_MS = 60_000;
 
 let pendingServerSessionSync: Promise<void> | null = null;
 let lastServerSessionSyncAttemptAt = 0;

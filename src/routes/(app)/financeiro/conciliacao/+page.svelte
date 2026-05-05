@@ -851,7 +851,8 @@
       if (empresas.length > 0 && !empresaId) {
         throw new Error('Selecione uma empresa para carregar a conciliação.');
       }
-      await Promise.all([loadSummary(), loadRegistros(), loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
+      await Promise.all([loadSummary(), loadRegistros()]);
+      void Promise.allSettled([loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao atualizar dados da conciliação.');
     } finally {

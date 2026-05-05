@@ -294,7 +294,8 @@ export async function GET(event) {
 
     const payload = await getCachedReadModel({
       key: dashboardCacheKey,
-      ttlMs: 15_000,
+      ttlMs: 60_000,      // era 15s — aumentado para 60s; dados de dashboard não precisam de refresh sub-minuto
+      staleTtlMs: 300_000, // stale por até 5min enquanto recarrega em background
       tags: [
         READ_MODEL_TAGS.dashboard,
         READ_MODEL_TAGS.sales,
@@ -311,16 +312,112 @@ export async function GET(event) {
               vendedorIds,
             })
           : [];
-        const vendasCanonical = await fetchVendasKpiReciboContributions(
-          client,
-          {
-            dataInicio: inicio,
-            dataFim: fim,
-            companyIds,
-            vendedorIds,
-            accessibleClientIds,
-          },
-        );
+        // -------------------------------------------------------------------------
+        // 4-7. Disparar vendas KPIs, metas, orçamentos e widget prefs em paralelo.
+        // Antes eram executados sequencialmente: vendas → metas → orçamentos → prefs.
+        // Agora rodamos os 4 ao mesmo tempo, reduzindo o tempo total de resposta
+        // ao tempo da query mais lenta (geralmente fetchVendasKpiReciboContributions).
+        // -------------------------------------------------------------------------
+
+        const buildMetasQuery = () =>
+          client
+            .from("metas_vendedor")
+            .select(
+              "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
+            )
+            .eq("ativo", true)
+            .gte("periodo", inicio)
+            .lte("periodo", fim)
+            .limit(500);
+
+        const fetchMetasParallel = async (): Promise<any[]> => {
+          const rows: any[] = [];
+          if (vendedorIds.length > 0) {
+            for (const vendedorBatch of chunkArray(vendedorIds)) {
+              const { data, error: metasError } = await buildMetasQuery().in("vendedor_id", vendedorBatch);
+              if (metasError) throw metasError;
+              rows.push(...(data || []));
+            }
+          } else {
+            const { data, error: metasError } = await buildMetasQuery();
+            if (metasError) throw metasError;
+            rows.push(...(data || []));
+          }
+          return rows;
+        };
+
+        const buildQuotesQuery = () =>
+          client
+            .from("quote")
+            .select(
+              `
+          id, created_at, status, status_negociacao, total, client_id,
+          cliente:client_id (id, nome),
+          quote_item (id, title, product_name, item_type, city_name)
+        `,
+            )
+            .gte("created_at", `${inicio}T00:00:00`)
+            .lte("created_at", `${fim}T23:59:59.999`)
+            .order("created_at", { ascending: false })
+            .limit(DASHBOARD_QUOTES_LIMIT);
+
+        const fetchQuotesByIds = async (field: "created_by" | "client_id", ids: string[]) => {
+          const normalizedIds = Array.from(
+            new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
+          );
+          if (normalizedIds.length === 0) return [] as DashboardQuoteRow[];
+          if (normalizedIds.length <= SUPABASE_IN_BATCH_SIZE) {
+            const { data, error } = await buildQuotesQuery().in(field, normalizedIds);
+            if (error) throw error;
+            return (data || []) as DashboardQuoteRow[];
+          }
+          const rows: DashboardQuoteRow[] = [];
+          for (const batch of chunkArray(normalizedIds)) {
+            const { data, error } = await buildQuotesQuery().in(field, batch);
+            if (error) throw error;
+            rows.push(...((data || []) as DashboardQuoteRow[]));
+          }
+          return dedupeDashboardQuotes(rows);
+        };
+
+        const fetchOrcamentosParallel = async (): Promise<DashboardQuoteRow[]> => {
+          if (!includeOrcamentos) return [];
+          if (vendedorIds.length > 0) {
+            return fetchQuotesByIds("created_by", vendedorIds);
+          } else if (companyIds.length > 0) {
+            const creatorIds = await fetchGestorCompanyScopeIds(client, { companyIds });
+            return fetchQuotesByIds("created_by", creatorIds);
+          } else {
+            const { data: quotesData, error: quotesError } = await buildQuotesQuery();
+            if (quotesError) throw quotesError;
+            return (quotesData || []) as DashboardQuoteRow[];
+          }
+        };
+
+        const fetchWidgetPrefsParallel = async () => {
+          const { data } = await client
+            .from("dashboard_widgets")
+            .select("widget, ordem, visivel, settings")
+            .eq("usuario_id", user.id)
+            .order("ordem", { ascending: true })
+            .limit(100);
+          return data;
+        };
+
+        const [vendasCanonical, metasData, orcamentos, widgetPrefsData] =
+          await Promise.all([
+            fetchVendasKpiReciboContributions(client, {
+              dataInicio: inicio,
+              dataFim: fim,
+              companyIds,
+              vendedorIds,
+              accessibleClientIds,
+            }),
+            fetchMetasParallel(),
+            fetchOrcamentosParallel(),
+            fetchWidgetPrefsParallel(),
+          ]);
+
         const vendasKpis = vendasCanonical.agg;
 
         const timelineMap = new Map<string, number>();
@@ -379,102 +476,6 @@ export async function GET(event) {
             value: curProd.value + bruto,
           });
         });
-
-        // -------------------------------------------------------------------------
-        // 5. Metas
-        // -------------------------------------------------------------------------
-        const buildMetasQuery = () =>
-          client
-            .from("metas_vendedor")
-            .select(
-              "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
-            )
-            .eq("ativo", true)
-            .gte("periodo", inicio)
-            .lte("periodo", fim)
-            .limit(500);
-
-        let metasData: any[] = [];
-        if (vendedorIds.length > 0) {
-          for (const vendedorBatch of chunkArray(vendedorIds)) {
-            const { data, error: metasError } = await buildMetasQuery().in(
-              "vendedor_id",
-              vendedorBatch,
-            );
-            if (metasError) throw metasError;
-            metasData.push(...(data || []));
-          }
-        } else {
-          const { data, error: metasError } = await buildMetasQuery();
-          if (metasError) throw metasError;
-          metasData = data || [];
-        }
-
-        // -------------------------------------------------------------------------
-        // 6. Orçamentos
-        // -------------------------------------------------------------------------
-        let orcamentos: DashboardQuoteRow[] = [];
-
-        if (includeOrcamentos) {
-          const buildQuotesQuery = () =>
-            client
-              .from("quote")
-              .select(
-                `
-          id, created_at, status, status_negociacao, total, client_id,
-          cliente:client_id (id, nome),
-          quote_item (id, title, product_name, item_type, city_name)
-        `,
-              )
-              .gte("created_at", `${inicio}T00:00:00`)
-              .lte("created_at", `${fim}T23:59:59.999`)
-              .order("created_at", { ascending: false })
-              .limit(DASHBOARD_QUOTES_LIMIT);
-
-          const fetchQuotesByIds = async (field: "created_by" | "client_id", ids: string[]) => {
-            const normalizedIds = Array.from(
-              new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
-            );
-            if (normalizedIds.length === 0) return [] as DashboardQuoteRow[];
-
-            if (normalizedIds.length <= SUPABASE_IN_BATCH_SIZE) {
-              const { data, error } = await buildQuotesQuery().in(field, normalizedIds);
-              if (error) throw error;
-              return (data || []) as DashboardQuoteRow[];
-            }
-
-            const rows: DashboardQuoteRow[] = [];
-            for (const batch of chunkArray(normalizedIds)) {
-              const { data, error } = await buildQuotesQuery().in(field, batch);
-              if (error) throw error;
-              rows.push(...((data || []) as DashboardQuoteRow[]));
-            }
-            return dedupeDashboardQuotes(rows);
-          };
-
-          if (vendedorIds.length > 0) {
-            orcamentos = await fetchQuotesByIds("created_by", vendedorIds);
-          } else if (companyIds.length > 0) {
-            const creatorIds = await fetchGestorCompanyScopeIds(client, {
-              companyIds,
-            });
-            orcamentos = await fetchQuotesByIds("created_by", creatorIds);
-          } else {
-            const { data: quotesData, error: quotesError } = await buildQuotesQuery();
-            if (quotesError) throw quotesError;
-            orcamentos = (quotesData || []) as DashboardQuoteRow[];
-          }
-        }
-
-        // -------------------------------------------------------------------------
-        // 7. Widget prefs
-        // -------------------------------------------------------------------------
-        const { data: widgetPrefsData } = await client
-          .from("dashboard_widgets")
-          .select("widget, ordem, visivel, settings")
-          .eq("usuario_id", user.id)
-          .order("ordem", { ascending: true })
-          .limit(100);
 
         return {
           inicio,

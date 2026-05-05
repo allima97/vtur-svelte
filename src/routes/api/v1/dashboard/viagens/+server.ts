@@ -322,8 +322,8 @@ export async function GET(event) {
         READ_MODEL_TAGS.users,
         ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
       ],
-      ttlMs: 20_000,
-      staleTtlMs: 90_000,
+      ttlMs: 60_000,
+      staleTtlMs: 300_000,
       loader: async () => {
         const [proximasRows, emAndamentoRows] = await Promise.all([
           fetchDashboardViagens({
