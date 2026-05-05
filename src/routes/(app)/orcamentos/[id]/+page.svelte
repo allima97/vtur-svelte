@@ -64,7 +64,10 @@
 
   onMount(async () => {
     const safetyTimeout = setTimeout(() => {
-      loading = false;
+      if (loading && !orcamento) {
+        error = "O carregamento do orçamento demorou mais que o esperado. Tente atualizar a página.";
+        loading = false;
+      }
     }, 15_000);
     try {
       await ensureServerSessionCookie();

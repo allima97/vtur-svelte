@@ -44,6 +44,11 @@
 
   type ImportMode = 'produtos' | 'circuitos' | 'circuitos_produtos';
   type ImportKind = 'orcamento' | 'passagem_aerea';
+  type ImportarOrcamentoResponse = {
+    ok?: boolean;
+    quote_id?: string | null;
+    status?: string | null;
+  };
 
   const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
     { value: 'produtos', label: 'Produtos' },
@@ -452,7 +457,7 @@
         items: itensFiltrados.map((e) => e.item)
       };
 
-      const payload: any = await apiPost('/api/v1/orcamentos/importar', {
+      const payload = await apiPost<ImportarOrcamentoResponse>('/api/v1/orcamentos/importar', {
         draft: draftParaSalvar,
         client_id: clienteId,
         client_name: clienteSelecionado?.nome || null,
@@ -463,8 +468,13 @@
         data_final: dataFinal || null
       });
 
+      const quoteId = String(payload?.quote_id || '').trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(quoteId)) {
+        throw new Error('Orçamento importado, mas o servidor não retornou o ID para abertura.');
+      }
+
       toast.success('Orçamento importado com sucesso!');
-      goto(`/orcamentos/${payload.quote_id}`);
+      goto(`/orcamentos/${quoteId}`);
     } catch (err: unknown) {
       errorMessage = err instanceof Error ? err.message : 'Erro ao salvar.';
       toast.error(errorMessage);

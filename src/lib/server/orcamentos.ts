@@ -10,6 +10,7 @@ export type QuoteCreatorScope = {
   companyIds: string[];
   creatorIds: string[];
   allAccess: boolean;
+  userId: string;
 };
 
 export async function resolveQuoteCreatorScope(
@@ -25,13 +26,13 @@ export async function resolveQuoteCreatorScope(
 
   if (scope.isAdmin) {
     if (requestedCreatorIds.length > 0) {
-      return { companyIds, creatorIds: requestedCreatorIds, allAccess: false };
+      return { companyIds, creatorIds: requestedCreatorIds, allAccess: false, userId: scope.userId };
     }
     if (companyIds.length > 0) {
       const companyCreatorIds = await fetchVendedorIdsByCompanyIds(client, companyIds);
-      return { companyIds, creatorIds: companyCreatorIds, allAccess: false };
+      return { companyIds, creatorIds: companyCreatorIds, allAccess: false, userId: scope.userId };
     }
-    return { companyIds, creatorIds: [], allAccess: true };
+    return { companyIds, creatorIds: [], allAccess: true, userId: scope.userId };
   }
 
   if (scope.isMaster || scope.isFinanceiro || scope.isGestor) {
@@ -51,10 +52,10 @@ export async function resolveQuoteCreatorScope(
         ? requestedCreatorIds.filter((id) => allowedCreatorIds.has(id))
         : Array.from(allowedCreatorIds);
 
-    return { companyIds, creatorIds, allAccess: false };
+    return { companyIds, creatorIds, allAccess: false, userId: scope.userId };
   }
 
-  return { companyIds, creatorIds: [scope.userId], allAccess: false };
+  return { companyIds, creatorIds: [scope.userId], allAccess: false, userId: scope.userId };
 }
 
 export function isQuoteCreatorAllowed(
@@ -66,5 +67,8 @@ export function isQuoteCreatorAllowed(
   }
 
   const creatorId = String(createdBy || '').trim();
-  return Boolean(creatorId && creatorScope.creatorIds.includes(creatorId));
+  return Boolean(
+    creatorId &&
+      (creatorId === creatorScope.userId || creatorScope.creatorIds.includes(creatorId))
+  );
 }
