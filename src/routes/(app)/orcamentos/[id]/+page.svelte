@@ -63,19 +63,9 @@
   let loadingInteracoes = false;
 
   onMount(async () => {
-    const safetyTimeout = setTimeout(() => {
-      if (loading && !orcamento) {
-        error = "O carregamento do orçamento demorou mais que o esperado. Tente atualizar a página.";
-        loading = false;
-      }
-    }, 15_000);
-    try {
-      await ensureServerSessionCookie();
-      await carregarOrcamento();
-      await carregarInteracoes();
-    } finally {
-      clearTimeout(safetyTimeout);
-    }
+    await ensureServerSessionCookie();
+    await carregarOrcamento();
+    if (orcamento) await carregarInteracoes();
   });
 
   async function carregarOrcamento() {
