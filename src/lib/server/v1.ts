@@ -747,6 +747,10 @@ export function resolveScopedCompanyIds(
   }
   if (companyId) return [NO_MATCH_COMPANY_ID];
 
+  if (scope.isVendedor && scope.usoIndividual) {
+    return [];
+  }
+
   return scopedCompanyIds.length > 0
     ? scopedCompanyIds
     : [NO_MATCH_COMPANY_ID];

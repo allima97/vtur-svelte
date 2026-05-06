@@ -149,6 +149,7 @@ export async function GET(event) {
     const isAdminByType = tipoNome.includes("ADMIN");
     const isGestorByType = tipoNome.includes("GESTOR");
     const isMasterByType = tipoNome.includes("MASTER");
+    const isVendedorByType = tipoNome.includes("VENDEDOR");
 
     let vendedorIds =
       hasRequestedVendedorFilter && explicitRequestedVendedorIds.length === 0
@@ -156,7 +157,15 @@ export async function GET(event) {
         : explicitRequestedVendedorIds;
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
-    if (
+    if (isVendedorByType && !isGestorByType && !isMasterByType && !isAdminByType) {
+      if (hasRequestedVendedorFilter) {
+        vendedorIds = explicitRequestedVendedorIds.includes(user.id)
+          ? [user.id]
+          : [NO_MATCH_USER_ID];
+      } else {
+        vendedorIds = [user.id];
+      }
+    } else if (
       isGestorByType ||
       (!isAdminByType && !isMasterByType && companyIds.length > 0)
     ) {
@@ -247,8 +256,10 @@ export async function GET(event) {
 
       const scopedIds: string[] = [];
       (teamUsers || []).forEach((row: any) => {
-        if (!isRankingEligibleUser(row)) return;
         const id = String(row?.id || "").trim();
+        const isOwnIndividualSeller =
+          isVendedorByType && id === user.id && row?.active !== false;
+        if (!isOwnIndividualSeller && !isRankingEligibleUser(row)) return;
         const nome = String(row?.nome_completo || row?.email || "Equipe VTUR");
         if (isTechnicalRankingUserName(nome)) return;
         if (!id) return;
@@ -346,7 +357,6 @@ export async function GET(event) {
     // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
     const [
       currentContributionsResult,
-      previousContributionsResult,
       quotesDataResult,
       metasDataResult,
     ] = await Promise.allSettled([
@@ -369,29 +379,6 @@ export async function GET(event) {
             buildRankingSimple(client, {
               dataInicio,
               dataFim,
-              companyIds,
-              vendedorIds,
-            }),
-      }),
-      getCachedReadModel({
-          key: buildReadModelCacheKey("ranking:contributions", {
-            dataInicio: previousPeriod.dataInicio,
-            dataFim: previousPeriod.dataFim,
-            companyIds,
-            vendedorIds,
-          }),
-          tags: [
-            READ_MODEL_TAGS.sales,
-            READ_MODEL_TAGS.conciliacao,
-            READ_MODEL_TAGS.ranking,
-            ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
-          ],
-          ttlMs: 30_000,
-          staleTtlMs: 120_000,
-          loader: () =>
-            buildRankingSimple(client, {
-              dataInicio: previousPeriod.dataInicio,
-              dataFim: previousPeriod.dataFim,
               companyIds,
               vendedorIds,
             }),
@@ -481,9 +468,6 @@ export async function GET(event) {
       throw currentContributionsResult.reason;
     }
 
-    if (previousContributionsResult.status === "rejected") {
-      logServerError("[ranking] Erro ao buscar periodo anterior", previousContributionsResult.reason);
-    }
     if (quotesDataResult.status === "rejected") {
       logServerError("[ranking] Erro ao buscar orcamentos", quotesDataResult.reason);
     }
@@ -492,10 +476,6 @@ export async function GET(event) {
     }
 
     const currentContributions = currentContributionsResult.value || [];
-    const previousContributions =
-      previousContributionsResult.status === "fulfilled"
-        ? previousContributionsResult.value || []
-        : [];
     const quotesData =
       quotesDataResult.status === "fulfilled" ? quotesDataResult.value || [] : [];
     const metasData =
@@ -583,16 +563,6 @@ export async function GET(event) {
     rankingMap.forEach((current, vendedorId) => {
       current.total_vendas = salesCountMap.get(vendedorId)?.size || 0;
       current.total_recibos = receiptCountMap.get(vendedorId)?.size || 0;
-    });
-
-    previousContributions.forEach((contribution) => {
-      const vendedorId = String(contribution.vendedorId || "").trim();
-      if (!vendedorId) return;
-      previousRevenueMap.set(
-        vendedorId,
-        (previousRevenueMap.get(vendedorId) || 0) +
-          Number(contribution.bruto || 0),
-      );
     });
 
     (quotesData || []).forEach((quote: any) => {
@@ -697,7 +667,9 @@ export async function GET(event) {
           taxa_conversao: taxaConversao,
           alcance_meta: alcanceMeta,
           alcance_meta_seguro: alcanceMetaSeguro,
-          tendencia: normalizeTendencia(item.total_receita, previousRevenue),
+          tendencia: previousRevenueMap.size > 0
+            ? normalizeTendencia(item.total_receita, previousRevenue)
+            : "stable",
         };
       })
       .sort((left, right) => {

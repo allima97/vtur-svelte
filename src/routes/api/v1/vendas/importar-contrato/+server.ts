@@ -11,7 +11,7 @@ import {
 } from '$lib/server/v1';
 import { normalizeText, titleCaseNome } from '$lib/normalizeText';
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from '$lib/vendas/contratoCvcExtractor';
-import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatusPeriodo } from '$lib/server/vendasSave';
+import { ensureAssignableActiveSeller, ensureReciboReservaUnicos, calcularStatusPeriodo, markRankingReadModelDirty } from '$lib/server/vendasSave';
 import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
@@ -923,6 +923,7 @@ export async function POST(event) {
       vendedorIds: [vendedorId],
       userId: user.id
     });
+    await markRankingReadModelDirty({ client, companyId, dataVenda });
     return json({ venda_id: venda.id }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao salvar importação de contrato.');

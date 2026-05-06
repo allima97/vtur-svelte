@@ -79,6 +79,13 @@
       sortable: true
     },
     {
+      key: 'data_venda',
+      label: 'Data da venda',
+      sortable: true,
+      width: '130px',
+      formatter: (value: string | null) => formatDate(value)
+    },
+    {
       key: 'destino',
       label: 'Destino',
       sortable: true

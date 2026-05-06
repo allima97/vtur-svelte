@@ -43,7 +43,6 @@ import {
   todayISODateLocal,
 } from "$lib/date";
 import { resolveGroupedReceiptCommissions } from "$lib/server/comissoes";
-import { fetchAndComputeVendasKpis } from "$lib/server/vendas-kpis";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isEquipeVturNome } from "$lib/conciliacao/baixaRac";
 import { normalizeReceiptNumber } from "$lib/conciliacao/receiptNumber";
@@ -1311,49 +1310,10 @@ export async function GET(event) {
       .map(([id, nome]) => ({ id, nome }))
       .sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"));
 
-    const sharedKpis = await fetchAndComputeVendasKpis(client, {
-      dataInicio,
-      dataFim,
-      companyIds,
-      vendedorIds,
-      accessibleClientIds,
-    });
-
     const historyBuckets = getLastSixMonthBuckets(dataFim);
     const dayBuckets = getCurrentMonthDayBuckets(dataFim);
-    const seriesStart = [historyBuckets[0]?.start, dayBuckets[0]?.date, dataInicio]
-      .filter(Boolean)
-      .sort()[0] || dataInicio;
-    const seriesRowsRaw =
-      seriesStart < dataInicio
-        ? await getCachedReadModel({
-            key: buildReadModelCacheKey("relatorios:vendas:series-rows-view", {
-              userId: user.id,
-              seriesStart,
-              dataFim,
-              companyIds,
-              vendedorIds,
-              conciliacaoSobrepoeVendas,
-            }),
-            tags: [
-              READ_MODEL_TAGS.sales,
-              READ_MODEL_TAGS.conciliacao,
-              READ_MODEL_TAGS.payments,
-              READ_MODEL_TAGS.users,
-              ...scopeCacheTags({ companyIds, vendedorIds, userId: user.id }),
-            ],
-            ttlMs: 45_000,
-            staleTtlMs: 120_000,
-            loader: () => loadRowsViewForPeriod(seriesStart, dataFim),
-          })
-        : rowsViewRaw;
-    const seriesNaoComissionadoPorVenda =
-      seriesRowsRaw === rowsViewRaw
-        ? naoComissionadoPorVenda
-        : await fetchNaoComissionadoPorVenda(
-            client,
-            (seriesRowsRaw as any[]).map((row) => toStr(row?.id)).filter(Boolean),
-          );
+    const seriesRowsRaw = rowsViewRaw;
+    const seriesNaoComissionadoPorVenda = naoComissionadoPorVenda;
     const seriesRankingEntries = computeReceiptRankingEntries(
       seriesRowsRaw as any[],
       seriesNaoComissionadoPorVenda,
@@ -1387,7 +1347,11 @@ export async function GET(event) {
     const vendasCanceladas = items.filter(
       (i) => i.status === "cancelada",
     ).length;
-    const totalValor = Number(sharedKpis.totalVendas || 0);
+    const totalValor = Number(
+      items
+        .reduce((sum, item) => sum + Number(item.valor_total || 0), 0)
+        .toFixed(2),
+    );
     const totalComissao = items.reduce(
       (sum, item) => sum + Number(item.comissao || 0),
       0,

@@ -132,8 +132,9 @@ export async function GET(event) {
     const vendedores = usersRows
       .filter((row: any) => {
         if (row?.active === false) return false;
-        if (row?.uso_individual === true) return false;
+        if (row?.uso_individual === true && String(row?.id || '') !== user.id) return false;
         if (isGestorByType && scopedTeamIds.length > 0) return true;
+        if (String(row?.id || '') === user.id && scope.isVendedor) return true;
         return isRankingEligibleUser(row);
       })
       .map((row: any) => {

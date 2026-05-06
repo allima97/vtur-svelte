@@ -494,7 +494,7 @@ async function resolveVendaSearchIds(
       const { data: produtos, error: produtosError } = await client
         .from('produtos')
         .select('id, cidade_id')
-        .or(`nome.ilike.%${searchTerm}%,tipo_produto.ilike.%${searchTerm}%`)
+        .ilike('nome', `%${searchTerm}%`)
         .limit(300);
       if (produtosError) throw produtosError;
       productIds.push(...uniqueIds((produtos || []).map((row: any) => row?.id), 300));

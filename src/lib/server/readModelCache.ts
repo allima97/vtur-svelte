@@ -213,17 +213,30 @@ function pruneBySize() {
 export async function getCachedReadModel<T>(
   options: CacheOptions<T>,
 ): Promise<T> {
-  const ttlMs = Math.max(1_000, options.ttlMs ?? DEFAULT_TTL_MS);
-  const staleTtlMs = Math.max(
+  const optionTags = (options.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean);
+  const isFreshnessCritical = optionTags.some((tag) =>
+    [
+      READ_MODEL_TAGS.sales,
+      READ_MODEL_TAGS.dashboard,
+      READ_MODEL_TAGS.vendasKpis,
+      READ_MODEL_TAGS.ranking,
+      READ_MODEL_TAGS.comissoes,
+    ].includes(tag as any),
+  );
+  const ttlMs = Math.max(
+    1_000,
+    isFreshnessCritical
+      ? Math.min(options.ttlMs ?? DEFAULT_TTL_MS, 5_000)
+      : options.ttlMs ?? DEFAULT_TTL_MS,
+  );
+  const staleTtlMs = isFreshnessCritical ? ttlMs : Math.max(
     ttlMs,
     options.staleTtlMs ?? DEFAULT_STALE_TTL_MS,
   );
   const now = nowMs();
   const existing = cache.get(options.key) as CacheEntry<T> | undefined;
   const loaderEpoch = invalidationEpoch;
-  const tags = new Set(
-    (options.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean),
-  );
+  const tags = new Set(optionTags);
 
   const writeEntry = (value: T) => {
     if (loaderEpoch !== invalidationEpoch) return value;

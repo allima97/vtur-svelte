@@ -38,6 +38,16 @@ type CachedGetEntry = {
 
 const getCache = new Map<string, CachedGetEntry>();
 
+function shouldBypassLocalGetCache(url: string) {
+  return [
+    '/api/v1/dashboard/summary',
+    '/api/v1/relatorios/ranking',
+    '/api/v1/relatorios/vendas',
+    '/api/v1/vendas/kpis',
+    '/api/v1/vendas/list'
+  ].some((prefix) => url.startsWith(prefix));
+}
+
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
   if (!query) return '';
   const params = new URLSearchParams();
@@ -102,7 +112,8 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
     method === 'GET' &&
     !options.signal &&
     !options.headers &&
-    !options.body;
+    !options.body &&
+    !shouldBypassLocalGetCache(url);
 
   if (isCacheableGet) {
     const cached = getCache.get(url);

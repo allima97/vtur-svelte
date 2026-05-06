@@ -320,6 +320,23 @@ function normalizePagamentoPayload(item: any) {
   };
 }
 
+export async function markRankingReadModelDirty(params: {
+  client: any;
+  companyId?: string | null;
+  dataVenda?: string | null;
+}) {
+  const companyId = toNullableString(params.companyId);
+  const dataVenda = toNullableString(params.dataVenda);
+  if (!companyId || !isISODate(String(dataVenda || ""))) return;
+
+  await params.client
+    .rpc("fn_mark_ranking_read_model_dirty", {
+      p_company_id: companyId,
+      p_date: dataVenda,
+    })
+    .catch(() => undefined);
+}
+
 export async function syncVendaChildren(params: {
   client: any;
   vendaId: string;
@@ -366,6 +383,7 @@ export async function syncVendaChildren(params: {
     vendedorIds: vendedorId ? [vendedorId] : [],
     userId,
   });
+  await markRankingReadModelDirty({ client, companyId, dataVenda });
 }
 
 export async function closeQuoteIfNeeded(

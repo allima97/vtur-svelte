@@ -23,7 +23,7 @@
     todayISODateLocal
   } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
-  import { apiGet } from '$lib/services/api';
+  import { apiFetch, apiGet } from '$lib/services/api';
 
   interface Recibo {
     id: string | null;
@@ -419,7 +419,11 @@
 
   async function fetchRelatorioRange(start: string, end: string): Promise<RelatorioPayload> {
     const params = buildRelatorioParams(start, end);
-    return apiGet<RelatorioPayload>('/api/v1/relatorios/vendas', Object.fromEntries(params));
+    return apiFetch<RelatorioPayload>('/api/v1/relatorios/vendas', {
+      method: 'GET',
+      timeoutMs: 90_000,
+      query: Object.fromEntries(params)
+    });
   }
 
   async function loadRelatorio(showSuccess = false) {
