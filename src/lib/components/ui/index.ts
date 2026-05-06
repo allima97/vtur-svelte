@@ -30,7 +30,6 @@ export { default as OverlayModal } from './OverlayModal.svelte';
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as PaginationControls } from './PaginationControls.svelte';
 export { default as SimpleTable } from './SimpleTable.svelte';
-export { default as TableActions } from './TableActions.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Tooltip } from './Tooltip.svelte';
 export { default as ToastContainer } from './ToastContainer.svelte';

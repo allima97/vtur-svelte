@@ -154,7 +154,6 @@
     }
   }
 
-  // Funções de preview removidas - agora usamos o modal VoucherPreviewModal
 </script>
 
 <svelte:head>
