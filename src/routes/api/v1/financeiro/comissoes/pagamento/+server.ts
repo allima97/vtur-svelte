@@ -86,7 +86,7 @@ function normalizeRowsToReceiptPeriod(rows: any[]) {
 }
 
 function canManageCommissionPayments(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
-  return scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor;
+  return scope.isFinanceiro;
 }
 
 export async function POST(event) {
@@ -105,7 +105,7 @@ export async function POST(event) {
     }
     if (!canManageCommissionPayments(scope)) {
       return json(
-        { error: 'Vendedores não podem registrar pagamentos de comissões.' },
+        { error: 'Somente usuários financeiros podem registrar pagamentos de comissões.' },
         { status: 403, headers: NO_STORE_HEADERS }
       );
     }
@@ -288,7 +288,7 @@ export async function PUT(event) {
     }
     if (!canManageCommissionPayments(scope)) {
       return json(
-        { error: 'Vendedores não podem atualizar pagamentos de comissões.' },
+        { error: 'Somente usuários financeiros podem atualizar pagamentos de comissões.' },
         { status: 403, headers: NO_STORE_HEADERS }
       );
     }
@@ -367,7 +367,7 @@ export async function DELETE(event) {
     }
     if (!canManageCommissionPayments(scope)) {
       return json(
-        { error: 'Vendedores não podem cancelar comissões.' },
+        { error: 'Somente usuários financeiros podem cancelar comissões.' },
         { status: 403, headers: NO_STORE_HEADERS }
       );
     }

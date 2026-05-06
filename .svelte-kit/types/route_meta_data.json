@@ -968,6 +968,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/comissoes/fechamento": [
+		"src/routes/(app)/comissoes/fechamento/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],
@@ -1060,6 +1061,7 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/financeiro/notas-fiscais": [
+		"src/routes/(app)/financeiro/notas-fiscais/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

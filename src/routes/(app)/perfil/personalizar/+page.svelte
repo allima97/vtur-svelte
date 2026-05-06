@@ -109,6 +109,8 @@
   // Filtra um item de acordo com as permissões do usuário — mesma lógica do Sidebar.
   function podeVerItem(href: string): boolean {
     if (!$permissoes.ready) return true; // aguarda carregamento
+    if (href === '/comissoes/fechamento' && !$permissoes.isFinanceiro) return false;
+    if (href === '/financeiro/notas-fiscais' && !$permissoes.isFinanceiro) return false;
     if ($permissoes.isSystemAdmin) {
       return href.startsWith('/perfil') && !href.startsWith('/perfil/escala');
     }

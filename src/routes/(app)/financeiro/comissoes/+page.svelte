@@ -445,6 +445,7 @@
   $: labelSeguro = buildKpiLabel('Seguro Viagem', comissoes.map((c) => Number(c.percentual_seguro || 0)));
   $: valorSelecionado = comissoes.filter((c) => comissoesSelecionadas.includes(c.id)).reduce((acc, c) => acc + Number(c.valor_comissao || 0), 0);
   $: comissoesVisiveis = somentePendentes ? pendentes : comissoes;
+  $: canManagePagamentos = $permissoes.ready && $permissoes.isFinanceiro;
   $: podeFiltrarVendedor =
     $permissoes.ready && ($permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isFinanceiro || $permissoes.isGestor);
   $: if ($permissoes.ready && !podeFiltrarVendedor && filtroVendedor) {
@@ -454,7 +455,13 @@
 
 <svelte:head><title>Comissões | VTUR</title></svelte:head>
 
-<PageHeader title="Comissões" subtitle="Gerencie as comissões dos vendedores" color="financeiro" breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Comissões' }]} actions={[{ label: 'Regras', href: '/financeiro/regras', variant: 'secondary', icon: Settings }]} />
+<PageHeader
+  title="Comissões"
+  subtitle={canManagePagamentos ? 'Gerencie as comissões dos vendedores' : 'Consulte as comissões dos vendedores'}
+  color="financeiro"
+  breadcrumbs={[{ label: 'Financeiro', href: '/financeiro' }, { label: 'Comissões' }]}
+  actions={canManagePagamentos ? [{ label: 'Regras', href: '/financeiro/regras', variant: 'secondary' as const, icon: Settings }] : []}
+/>
 
 {#if loading}
   <LoadingState />
@@ -607,6 +614,9 @@
 
   <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
     A tela de comissões agora funciona também como fila operacional: <strong>{pendentes.length}</strong> pendências de pagamento somando <strong>{formatCurrency(totalPendente)}</strong>.
+    {#if !canManagePagamentos}
+      <span class="mt-2 block text-slate-500">Seu perfil possui acesso somente para consulta. Pagamentos de comissão são exclusivos do usuário financeiro.</span>
+    {/if}
   </div>
 
   {#if !persistenciaDisponivel}
@@ -627,26 +637,28 @@
     <Card header="Resumo por Vendedor" color="financeiro" class="mb-6"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{#each resumoVendedores as dados}<div class="p-4 bg-slate-50 rounded-lg"><p class="font-medium text-slate-900 truncate" title={dados.vendedor_nome}>{dados.vendedor_nome}</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-slate-500">Recibos:</span><span class="font-medium">{dados.total_vendas}</span></div><div class="flex justify-between"><span class="text-slate-500">Comissão:</span><span class="font-medium">{formatCurrency(dados.total_comissao)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pago:</span><span class="font-medium text-green-600">{formatCurrency(dados.total_pago)}</span></div><div class="flex justify-between"><span class="text-slate-500">Pendente:</span><span class="font-medium text-amber-600">{formatCurrency(dados.total_pendente)}</span></div></div></div>{/each}</div></Card>
   {/if}
 
-  {#if persistenciaDisponivel && comissoesSelecionadas.length > 0}
+  {#if canManagePagamentos && persistenciaDisponivel && comissoesSelecionadas.length > 0}
     <Card header="Pagamento em Lote" color="financeiro" class="mb-6"><div class="flex items-center justify-between"><div><p class="text-sm text-slate-600"><strong>{comissoesSelecionadas.length}</strong> comissões selecionadas</p><p class="text-lg font-semibold text-financeiro-600">{formatCurrency(valorSelecionado)}</p></div><Button variant="primary" color="financeiro" on:click={() => { dataPagamento = todayISODateLocal(); observacoesPagamento = ''; showPagamentoMultiploDialog = true; }}><CheckCircle size={16} class="mr-2" />Pagar Selecionadas</Button></div></Card>
   {/if}
 
-  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões por Recibo" searchable={true} filterable={false} exportable={false} selectable={persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
+  <DataTable {columns} data={comissoesVisiveis} color="financeiro" {loading} title="Comissões por Recibo" searchable={true} filterable={false} exportable={false} selectable={canManagePagamentos && persistenciaDisponivel && filtroStatus !== 'pago'} onSelectionChange={onSelectionChange} emptyMessage="Nenhuma comissão encontrada">
     <svelte:fragment slot="actions" let:row>
-      <div class="flex items-center gap-1"><Button variant="secondary" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
+      <div class="flex items-center gap-1"><Button variant="secondary" size="sm" on:click={() => abrirDetalhes(row)}><FileText size={16} /></Button>{#if canManagePagamentos && row.status === 'pendente'}<Button variant="primary" color="financeiro" size="sm" on:click={() => abrirPagamento(row)} disabled={!persistenciaDisponivel}>Pagar</Button>{/if}</div>
     </svelte:fragment>
   </DataTable>
 {/if}
 
-<Dialog bind:open={showPagamentoDialog} title="Confirmar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Confirmar Pagamento" onConfirm={handleConfirmarPagamento}>
-  {#if comissaoSelecionada}
-    <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Recibo</p><p class="font-medium">{comissaoSelecionada.numero_recibo || comissaoSelecionada.id}</p></div><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Produto</p><p class="font-medium">{comissaoSelecionada.produto || '-'}</p></div><div><p class="text-slate-500">Valor do Recibo</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><FieldInput id="comissao-data-pagamento" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações opcionais..." /></div>
-  {/if}
-</Dialog>
+{#if canManagePagamentos}
+  <Dialog bind:open={showPagamentoDialog} title="Confirmar Pagamento" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText="Confirmar Pagamento" onConfirm={handleConfirmarPagamento}>
+    {#if comissaoSelecionada}
+      <div class="space-y-4"><div class="p-4 bg-financeiro-50 rounded-lg"><div class="flex justify-between items-start mb-2"><div><p class="text-sm text-slate-500">Vendedor</p><p class="font-semibold text-slate-900">{comissaoSelecionada.vendedor}</p></div><p class="text-2xl font-bold text-financeiro-600">{formatCurrency(comissaoSelecionada.valor_comissao)}</p></div><div class="grid grid-cols-2 gap-4 mt-3 text-sm"><div><p class="text-slate-500">Recibo</p><p class="font-medium">{comissaoSelecionada.numero_recibo || comissaoSelecionada.id}</p></div><div><p class="text-slate-500">Venda</p><p class="font-medium">{comissaoSelecionada.numero_venda}</p></div><div><p class="text-slate-500">Cliente</p><p class="font-medium">{comissaoSelecionada.cliente}</p></div><div><p class="text-slate-500">Produto</p><p class="font-medium">{comissaoSelecionada.produto || '-'}</p></div><div><p class="text-slate-500">Valor do Recibo</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_venda)}</p></div><div><p class="text-slate-500">Já Pago</p><p class="font-medium">{formatCurrency(comissaoSelecionada.valor_pago)}</p></div></div></div><FieldInput id="comissao-data-pagamento" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações opcionais..." /></div>
+    {/if}
+  </Dialog>
 
-<Dialog bind:open={showPagamentoMultiploDialog} title="Pagamento em Lote" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={`Pagar ${comissoesSelecionadas.length} Comissões`} onConfirm={handlePagamentoMultiplo}>
-  <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><FieldInput id="comissao-data-pagamento-lote" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes-lote" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações para todos os pagamentos..." /></div>
-</Dialog>
+  <Dialog bind:open={showPagamentoMultiploDialog} title="Pagamento em Lote" color="financeiro" showCancel={true} cancelText="Cancelar" showConfirm={true} confirmText={`Pagar ${comissoesSelecionadas.length} Comissões`} onConfirm={handlePagamentoMultiplo}>
+    <div class="space-y-4"><div class="p-4 bg-blue-50 rounded-lg"><p class="font-medium text-blue-900">Resumo do Pagamento</p><div class="mt-2 space-y-1 text-sm"><div class="flex justify-between"><span class="text-blue-700">Comissões selecionadas:</span><span class="font-medium">{comissoesSelecionadas.length}</span></div><div class="flex justify-between"><span class="text-blue-700">Valor total:</span><span class="font-medium text-lg">{formatCurrency(valorSelecionado)}</span></div></div></div><FieldInput id="comissao-data-pagamento-lote" label="Data do Pagamento" type="date" bind:value={dataPagamento} class_name="w-full" /><FieldTextarea id="comissao-observacoes-lote" label="Observações" bind:value={observacoesPagamento} rows={2} class_name="w-full" placeholder="Observações para todos os pagamentos..." /></div>
+  </Dialog>
+{/if}
 
 <Dialog bind:open={showDetalhesDialog} title="Detalhes da Comissão" color="financeiro" showCancel={true} cancelText="Fechar" showConfirm={false}>
   {#if comissaoSelecionada}
@@ -681,7 +693,7 @@
         </div>
       </div>
 
-      {#if comissaoSelecionada.status === 'pago'}
+      {#if comissaoSelecionada.status === 'pago' && canManagePagamentos}
         <div class="border-t pt-4 space-y-4">
           <FieldInput id="detalhe-comissao-data-pagamento" label="Data do pagamento" type="date" bind:value={detalhesDataPagamento} class_name="w-full" />
           <FieldTextarea id="detalhe-comissao-observacoes" label="Observações do pagamento" bind:value={detalhesObservacoes} rows={3} class_name="w-full" placeholder="Observações internas do pagamento..." />
@@ -694,9 +706,26 @@
             </Button>
           </div>
         </div>
+      {:else if comissaoSelecionada.status === 'pago'}
+        <div class="border-t pt-4">
+          <p class="text-sm text-slate-500">Esta comissão já foi paga. Seu perfil possui acesso somente para consulta.</p>
+          {#if comissaoSelecionada.data_pagamento}
+            <p class="mt-2 text-sm text-slate-600">Data do pagamento: <strong>{formatDate(comissaoSelecionada.data_pagamento)}</strong></p>
+          {/if}
+          {#if comissaoSelecionada.observacoes_pagamento}
+            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">{comissaoSelecionada.observacoes_pagamento}</p>
+          {/if}
+        </div>
       {:else if comissaoSelecionada.status === 'pendente'}
         <div class="border-t pt-4">
-          <p class="text-sm text-slate-500">Esta comissão ainda está pendente de pagamento. Use a ação <strong>Pagar</strong> na listagem para registrar a baixa.</p>
+          <p class="text-sm text-slate-500">
+            Esta comissão ainda está pendente de pagamento.
+            {#if canManagePagamentos}
+              Use a ação <strong>Pagar</strong> na listagem para registrar a baixa.
+            {:else}
+              Seu perfil possui acesso somente para consulta.
+            {/if}
+          </p>
         </div>
       {:else if comissaoSelecionada.status === 'cancelada'}
         <div class="border-t pt-4">

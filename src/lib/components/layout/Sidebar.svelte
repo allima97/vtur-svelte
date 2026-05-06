@@ -264,6 +264,8 @@
 
     if (item.systemOnly && !$permissoes.isSystemAdmin) return false;
     if (item.key === 'vendas_financeiro' && !$permissoes.isFinanceiro) return false;
+    if (item.key === 'fechamento' && !$permissoes.isFinanceiro) return false;
+    if (item.key === 'notas_fiscais' && !$permissoes.isFinanceiro) return false;
 
     if ($permissoes.isFinanceiro) {
       if (item.key === 'vendas') return false;
