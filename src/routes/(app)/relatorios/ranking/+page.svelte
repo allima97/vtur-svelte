@@ -11,7 +11,7 @@
   import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
-  import { apiGet } from '$lib/services/api';
+  import { ApiError, apiFetch } from '$lib/services/api';
   import { diffDaysISODate, monthRangeFromKey, todayISODateLocal } from '$lib/date';
 
   interface VendedorRanking {
@@ -80,6 +80,8 @@
 
   let vendedores: VendedorRanking[] = [];
   let loading = true;
+  let errorMessage: string | null = null;
+  let rankingRequestSeq = 0;
   let mesSelecionado = defaultRange.month;
   let mesReferenciaData = defaultRange.month;
   let dataInicio = defaultRange.start;
@@ -224,22 +226,36 @@
   ];
 
   async function loadRanking(showSuccess = false) {
+    const requestSeq = ++rankingRequestSeq;
     loading = true;
+    errorMessage = null;
     try {
-      const data = await apiGet<{ items: VendedorRanking[]; resumo: Resumo }>('/api/v1/relatorios/ranking', {
-        data_inicio: dataInicio,
-        data_fim: dataFim
+      const data = await apiFetch<{ items: VendedorRanking[]; resumo: Resumo }>('/api/v1/relatorios/ranking', {
+        method: 'GET',
+        timeoutMs: 90_000,
+        query: {
+          data_inicio: dataInicio,
+          data_fim: dataFim
+        }
       });
+      if (requestSeq !== rankingRequestSeq) return;
 
       vendedores = data.items || [];
       resumo = data.resumo || resumo;
 
       if (showSuccess) toast.success('Ranking atualizado');
-    } catch {
+    } catch (err) {
+      if (requestSeq !== rankingRequestSeq) return;
       vendedores = [];
-      toast.error('Erro ao carregar ranking de vendas');
+      errorMessage =
+        err instanceof ApiError || err instanceof Error
+          ? err.message
+          : 'Erro ao carregar ranking de vendas.';
+      toast.error(errorMessage || 'Erro ao carregar ranking de vendas.');
     } finally {
-      loading = false;
+      if (requestSeq === rankingRequestSeq) {
+        loading = false;
+      }
     }
   }
 
@@ -403,6 +419,12 @@
     Mês selecionado: <span class="text-slate-900">{mesSelecionadoLabel}</span>
   </p>
 </Card>
+
+{#if errorMessage}
+  <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    {errorMessage}
+  </div>
+{/if}
 
 <!-- KPIs -->
 <KPIGrid className="mb-6" columns={5}>

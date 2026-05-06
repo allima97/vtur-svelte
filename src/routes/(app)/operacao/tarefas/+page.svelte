@@ -580,19 +580,19 @@
       class_name="w-full"
     />
 
-    <div>
-      <p class="mb-1.5 block text-sm font-medium text-slate-700">Visualização</p>
+    <div class="min-w-0">
+      <p class="mb-1.5 block text-xs font-medium leading-5 text-slate-700">Visualização</p>
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="h-[42px] flex-1 rounded-lg"
+          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="h-[42px] flex-1 rounded-lg"
+          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
@@ -655,19 +655,19 @@
       class_name="w-full"
     />
 
-    <div>
-      <p class="mb-1.5 block text-sm font-medium text-slate-700">Visualização</p>
+    <div class="min-w-0">
+      <p class="mb-1.5 block text-xs font-medium leading-5 text-slate-700">Visualização</p>
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="h-[42px] flex-1 rounded-lg"
+          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="h-[42px] flex-1 rounded-lg"
+          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista

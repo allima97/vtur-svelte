@@ -344,9 +344,13 @@ export async function GET(event) {
     }
 
     // Montagem simplificada do ranking: conciliação + vendas manuais, dedup por recibo
-    const [currentContributions, previousContributions, quotesData, metasData] =
-      await Promise.all([
-        getCachedReadModel({
+    const [
+      currentContributionsResult,
+      previousContributionsResult,
+      quotesDataResult,
+      metasDataResult,
+    ] = await Promise.allSettled([
+      getCachedReadModel({
           key: buildReadModelCacheKey("ranking:contributions", {
             dataInicio,
             dataFim,
@@ -368,8 +372,8 @@ export async function GET(event) {
               companyIds,
               vendedorIds,
             }),
-        }),
-        getCachedReadModel({
+      }),
+      getCachedReadModel({
           key: buildReadModelCacheKey("ranking:contributions", {
             dataInicio: previousPeriod.dataInicio,
             dataFim: previousPeriod.dataFim,
@@ -391,8 +395,8 @@ export async function GET(event) {
               companyIds,
               vendedorIds,
             }),
-        }),
-        getCachedReadModel({
+      }),
+      getCachedReadModel({
           key: buildReadModelCacheKey("ranking:quotes", {
             dataInicio,
             dataFim,
@@ -427,8 +431,8 @@ export async function GET(event) {
             }
             return rows;
           },
-        }),
-        getCachedReadModel({
+      }),
+      getCachedReadModel({
           key: buildReadModelCacheKey("ranking:metas", {
             mes: dataInicio.slice(0, 7),
             vendedorIds,
@@ -470,8 +474,32 @@ export async function GET(event) {
             }
             return rows;
           },
-        }),
-      ]);
+      }),
+    ]);
+
+    if (currentContributionsResult.status === "rejected") {
+      throw currentContributionsResult.reason;
+    }
+
+    if (previousContributionsResult.status === "rejected") {
+      logServerError("[ranking] Erro ao buscar periodo anterior", previousContributionsResult.reason);
+    }
+    if (quotesDataResult.status === "rejected") {
+      logServerError("[ranking] Erro ao buscar orcamentos", quotesDataResult.reason);
+    }
+    if (metasDataResult.status === "rejected") {
+      logServerError("[ranking] Erro ao buscar metas", metasDataResult.reason);
+    }
+
+    const currentContributions = currentContributionsResult.value || [];
+    const previousContributions =
+      previousContributionsResult.status === "fulfilled"
+        ? previousContributionsResult.value || []
+        : [];
+    const quotesData =
+      quotesDataResult.status === "fulfilled" ? quotesDataResult.value || [] : [];
+    const metasData =
+      metasDataResult.status === "fulfilled" ? metasDataResult.value || [] : [];
 
     const rankingMap = new Map<
       string,

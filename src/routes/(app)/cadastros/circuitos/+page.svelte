@@ -146,7 +146,7 @@
   <LoadingState />
 {:else}
   <!-- Stats -->
-  <div class="vtur-kpi-grid-5 mb-6">
+  <div class="vtur-kpi-grid vtur-kpi-grid-5 mb-6">
     <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-500">
         <Route size={20} />
