@@ -168,11 +168,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const userTypeId = String(body.user_type_id || "").trim();
     const nomeCompletoRaw = String(body.nome_completo || "").trim();
     const activeRaw = body.active;
+    const usoIndividual = Boolean(body.uso_individual);
 
     if (!email) return noStoreJson({ error: "E-mail e obrigatorio." }, { status: 400 });
-    if (!companyId) return noStoreJson({ error: "Empresa e obrigatoria." }, { status: 400 });
+    if (!usoIndividual && !companyId) return noStoreJson({ error: "Empresa e obrigatoria." }, { status: 400 });
     if (!userTypeId) return noStoreJson({ error: "Cargo e obrigatorio." }, { status: 400 });
-    if (!isUuid(companyId)) return noStoreJson({ error: "Empresa invalida." }, { status: 400 });
+    if (!usoIndividual && !isUuid(companyId)) return noStoreJson({ error: "Empresa invalida." }, { status: 400 });
     if (!isUuid(userTypeId)) return noStoreJson({ error: "Cargo invalido." }, { status: 400 });
 
     const scope = await resolveUserScope(adminClient, user.id);
@@ -181,23 +182,34 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (!scope.isAdmin) {
+      if (usoIndividual) {
+        return noStoreJson({ error: "Somente ADMIN pode convidar usuario de uso individual." }, { status: 403 });
+      }
+
       if (await isRestrictedUserType(adminClient, userTypeId)) {
         return noStoreJson({ error: "Tipo de usuario nao permitido." }, { status: 403 });
       }
     }
 
-    if (scope.isMaster) {
+    const tipoNome = await getUserTypeNameById(adminClient, userTypeId);
+    if (usoIndividual && tipoNome.includes("FINANCEIRO")) {
+      return noStoreJson(
+        { error: "Usuario financeiro deve ser corporativo e vinculado a empresa." },
+        { status: 400 }
+      );
+    }
+
+    if (scope.isMaster && !usoIndividual) {
       const podeAcessar =
         (scope.companyId && scope.companyId === companyId) ||
         (await masterCanAccessCompany(adminClient, user.id, companyId));
       if (!podeAcessar) return noStoreJson({ error: "Empresa fora do seu portfolio." }, { status: 403 });
     }
 
-    if (scope.isGestor) {
+    if (scope.isGestor && !usoIndividual) {
       if (!scope.companyId || scope.companyId !== companyId) {
         return noStoreJson({ error: "Gestor so pode convidar usuarios da propria empresa." }, { status: 403 });
       }
-      const tipoNome = await getUserTypeNameById(adminClient, userTypeId);
       if (!tipoNome.includes("VENDEDOR")) {
         return noStoreJson({ error: "Gestor so pode convidar usuarios do tipo VENDEDOR." }, { status: 403 });
       }
@@ -212,14 +224,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
 
-    const { data: existingInvite, error: existingErr } = await adminClient
+    let existingInviteQuery = adminClient
       .from("user_convites")
       .select("id, status")
-      .eq("company_id", companyId)
+      .eq("uso_individual", usoIndividual)
       .ilike("invited_email", email)
       .eq("status", "pending")
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    existingInviteQuery = usoIndividual
+      ? existingInviteQuery.is("company_id", null)
+      : existingInviteQuery.eq("company_id", companyId);
+
+    const { data: existingInvite, error: existingErr } = await existingInviteQuery.maybeSingle();
 
     if (existingErr) {
       if (isTableMissing(existingErr)) {
@@ -236,9 +253,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const { error: updateErr } = await adminClient
         .from("user_convites")
         .update({
+          company_id: usoIndividual ? null : companyId,
           user_type_id: userTypeId,
           invited_by: user.id,
           invited_by_role: invitedByRole,
+          uso_individual: usoIndividual,
           expires_at: expiresAt,
           cancelled_at: null,
         } as any)
@@ -258,10 +277,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .insert({
           invited_user_id: null,
           invited_email: email,
-          company_id: companyId,
+          company_id: usoIndividual ? null : companyId,
           user_type_id: userTypeId,
           invited_by: user.id,
           invited_by_role: invitedByRole,
+          uso_individual: usoIndividual,
           status: "pending",
           expires_at: expiresAt,
         } as any)
@@ -344,14 +364,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
 
-    const { data: companyRow } = await adminClient
-      .from("companies")
-      .select("nome_fantasia")
-      .eq("id", companyId)
-      .maybeSingle();
-    const companyName = String((companyRow as any)?.nome_fantasia || "sua empresa");
+    let companyName = "uso individual";
+    if (!usoIndividual) {
+      const { data: companyRow } = await adminClient
+        .from("companies")
+        .select("nome_fantasia")
+        .eq("id", companyId)
+        .maybeSingle();
+      companyName = String((companyRow as any)?.nome_fantasia || "sua empresa");
+    }
 
-    const roleName = await getUserTypeNameById(adminClient, userTypeId).catch(() => "");
+    const roleName = tipoNome;
 
     const raw = [
       `Voce recebeu um convite para acessar o vtur (${companyName}).`,

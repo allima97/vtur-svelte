@@ -11,7 +11,7 @@
   import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { ensureServerSessionCookie } from '$lib/services/session';
   import { toast } from '$lib/stores/ui';
-  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, Users } from 'lucide-svelte';
+  import { KeyRound, Mail, RefreshCw, ShieldAlert, ShieldCheck, UserPlus, Users } from 'lucide-svelte';
 
   type Option = {
     id: string;
@@ -36,6 +36,7 @@
 
   let loading = true;
   let saving = false;
+  let inviting = false;
   let userForm = { ...emptyForm };
   let userMeta: any = null;
   let permissionsSummary: any[] = [];
@@ -222,6 +223,43 @@
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar usuario.');
     } finally {
       saving = false;
+    }
+  }
+
+  async function sendInvite() {
+    inviting = true;
+    try {
+      if (!userForm.nome_completo.trim()) {
+        throw new Error('Informe o nome completo.');
+      }
+
+      if (!userForm.email.trim()) {
+        throw new Error('Informe o e-mail do usuario.');
+      }
+
+      if (!userForm.user_type_id) {
+        throw new Error('Selecione o tipo de usuario.');
+      }
+
+      if (!userForm.uso_individual && !userForm.company_id) {
+        throw new Error('Selecione uma empresa para enviar convite.');
+      }
+
+      await apiPost('/api/v1/convites/send', {
+        nome_completo: userForm.nome_completo,
+        email: userForm.email,
+        user_type_id: userForm.user_type_id,
+        company_id: userForm.uso_individual ? null : userForm.company_id,
+        uso_individual: userForm.uso_individual,
+        active: userForm.active
+      });
+
+      toast.success('Convite enviado com sucesso.');
+      await goto('/admin/usuarios');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar convite.');
+    } finally {
+      inviting = false;
     }
   }
 
@@ -461,6 +499,12 @@
 
     <div class="mt-6 flex flex-wrap gap-3">
       <Button variant="secondary" href="/admin/usuarios">Voltar</Button>
+      {#if isCreateMode}
+        <Button variant="outline" color="financeiro" on:click={sendInvite} loading={inviting}>
+          <UserPlus size={16} class="mr-2" />
+          Enviar convite
+        </Button>
+      {/if}
       <Button variant="primary" color="financeiro" on:click={saveUser} loading={saving}>
         Salvar usuario
       </Button>

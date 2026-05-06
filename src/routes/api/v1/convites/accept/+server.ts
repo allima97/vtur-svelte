@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const { data: convite, error: conviteErr } = await adminClient
       .from("user_convites")
       .select(
-        "id, status, invited_email, invited_user_id, company_id, user_type_id, invited_by_role, expires_at"
+        "id, status, invited_email, invited_user_id, company_id, user_type_id, invited_by_role, expires_at, uso_individual"
       )
       .eq("id", inviteId)
       .limit(1)
@@ -92,7 +92,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const companyId = String((convite as any)?.company_id || "").trim();
     const userTypeId = String((convite as any)?.user_type_id || "").trim();
-    if (!companyId || !userTypeId) {
+    const usoIndividual = Boolean((convite as any)?.uso_individual);
+    if ((!usoIndividual && !companyId) || !userTypeId) {
       return errorJson("Convite invalido (empresa/cargo ausente).", 400);
     }
 
@@ -106,7 +107,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const companyAtual = String((perfilExistente as any)?.company_id || "").trim();
     const usoAtual = (perfilExistente as any)?.uso_individual as boolean | null | undefined;
 
-    if (companyAtual && companyAtual !== companyId && usoAtual === false) {
+    if (!usoIndividual && companyAtual && companyAtual !== companyId && usoAtual === false) {
       return errorJson("Usuario ja vinculado a outra empresa.", 409);
     }
 
@@ -116,8 +117,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const { error: insertErr } = await adminClient.from("users").insert({
         id: user.id,
         email,
-        uso_individual: false,
-        company_id: companyId,
+        uso_individual: usoIndividual,
+        company_id: usoIndividual ? null : companyId,
         user_type_id: userTypeId,
         active: true,
         created_by_gestor: createdByGestor,
@@ -128,8 +129,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .from("users")
         .update({
           email,
-          uso_individual: false,
-          company_id: companyId,
+          uso_individual: usoIndividual,
+          company_id: usoIndividual ? null : companyId,
           user_type_id: userTypeId,
           active: true,
           created_by_gestor: createdByGestor,

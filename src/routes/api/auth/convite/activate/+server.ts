@@ -61,7 +61,7 @@ export const POST: RequestHandler = async (event) => {
     const adminClient = getAdminClient();
     const { data: convite, error: conviteErr } = await adminClient
       .from('user_convites')
-      .select('id, status, invited_email, invited_user_id, company_id, user_type_id, invited_by_role, expires_at')
+      .select('id, status, invited_email, invited_user_id, company_id, user_type_id, invited_by_role, expires_at, uso_individual')
       .eq('id', inviteId)
       .maybeSingle();
 
@@ -88,7 +88,8 @@ export const POST: RequestHandler = async (event) => {
 
     const companyId = String((convite as any).company_id || '').trim();
     const userTypeId = String((convite as any).user_type_id || '').trim();
-    if (!companyId || !userTypeId) return errorJson('Convite incompleto. Solicite um novo convite.', 400);
+    const usoIndividual = Boolean((convite as any).uso_individual);
+    if ((!usoIndividual && !companyId) || !userTypeId) return errorJson('Convite incompleto. Solicite um novo convite.', 400);
 
     let authUserId = String((convite as any).invited_user_id || '').trim();
     let createdAuthUser = false;
@@ -144,8 +145,8 @@ export const POST: RequestHandler = async (event) => {
           id: authUserId,
           email,
           nome_completo: nome,
-          uso_individual: false,
-          company_id: companyId,
+          uso_individual: usoIndividual,
+          company_id: usoIndividual ? null : companyId,
           user_type_id: userTypeId,
           active: true,
           created_by_gestor: createdByGestor,
