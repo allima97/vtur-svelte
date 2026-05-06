@@ -28,6 +28,13 @@
 
   type FollowUp = {
     id: string;
+    cliente_nome?: string | null;
+    destino_nome?: string | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    data_embarque?: string | null;
+    data_final?: string | null;
+    follow_up_fechado?: boolean | null;
     venda?: {
       data_embarque: string | null;
       clientes?: { nome: string | null } | null;
@@ -179,13 +186,25 @@
     ? `Follow-up de ${vendedorSelecionadoNome}`
     : 'Follow-up';
   $: followUpEmptyLabel = isFiltroVendedorAtivo
-    ? `Nenhum follow-up pendente de ${vendedorSelecionadoNome}.`
-    : 'Nenhum follow-up pendente.';
+    ? `Nenhum cliente retornado pendente de follow-up para ${vendedorSelecionadoNome}.`
+    : 'Nenhum cliente retornado pendente de follow-up.';
   $: comprasScopeLabel = userCtx?.papel === 'MASTER' ? 'todas as equipes' : 'equipe';
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
     if (!/^\d{4}-\d{2}$/.test(raw)) return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
     return monthRangeFromKey(raw) || { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
+  }
+
+  function getFollowUpCliente(item: FollowUp) {
+    return item.cliente_nome || item.venda?.clientes?.nome || '-';
+  }
+
+  function getFollowUpDestino(item: FollowUp) {
+    return item.destino_nome || item.venda?.destino_cidade?.nome || '';
+  }
+
+  function getFollowUpRetorno(item: FollowUp) {
+    return item.data_fim || item.data_final || item.venda?.data_embarque || null;
   }
 
   function goToRanking() {
@@ -278,6 +297,9 @@
     try {
       const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
         ...params,
+        inicio: '1900-01-01',
+        fim: todayISODateLocal(),
+        status: 'abertos',
         limit: 8
       });
       followUps = data.items || [];
@@ -673,7 +695,7 @@
       </div>
       <div>
         <h3 class="text-base font-bold text-slate-900">{followUpHeader}</h3>
-        <p class="text-xs text-slate-500">Pendências operacionais do período</p>
+        <p class="text-xs text-slate-500">Clientes que já retornaram de viagem</p>
       </div>
     </div>
     <div class="border-t border-slate-100 pt-4">
@@ -692,8 +714,11 @@
                 <Clock size={18} />
               </div>
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-slate-900">{item.venda?.clientes?.nome || '-'}</p>
-                <p class="text-xs text-slate-500">Embarque: {formatDate(item.venda?.data_embarque)}{#if item.venda?.destino_cidade?.nome} · {item.venda.destino_cidade.nome}{/if}</p>
+                <p class="truncate text-sm font-semibold text-slate-900">{getFollowUpCliente(item)}</p>
+                <p class="truncate text-xs text-slate-500">
+                  Retorno: {formatDate(getFollowUpRetorno(item))}
+                  {#if getFollowUpDestino(item)} · {getFollowUpDestino(item)}{/if}
+                </p>
               </div>
             </div>
           {/each}
