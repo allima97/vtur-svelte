@@ -178,6 +178,7 @@ export type ContratoDraft = {
   total_pago?: number | null;
   taxas_embarque?: number | null;
   taxa_du?: number | null;
+  rc?: number | null;
   desconto_comercial?: number | null;
   raw_text?: string;
   tipo_pacote?: string | null;

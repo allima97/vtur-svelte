@@ -4,7 +4,7 @@
  * Campos extraídos:
  *  - LOC (número de reserva)
  *  - Passageiros: sobrenome, nome, gênero
- *  - Tarifas totais: tarifa, tax. emb. (taxas), rav, total
+ *  - Tarifas totais: tarifa, tax. emb. (taxas), rav, rc, total
  *  - Segmentos de voo: origem, destino, datas
  *
  * Regras fixas:
@@ -49,11 +49,66 @@ function normalizeWS(s: string) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+function extractLoc(text: string) {
+  const reservaTitleMatch = text.match(/Reserva\s+A[eé]rea\s*-\s*(?:[^/\n]+\/\s*){3}([A-Z0-9]{5,8})\b/i);
+  if (reservaTitleMatch?.[1]) return reservaTitleMatch[1].trim().toUpperCase();
+
+  const infoGeraisMatch = text.match(/informa[cç][oõ]es\s+gerais[\s\S]*?\bloc\b[\s\S]*?dados\s+adicionais\s+([A-Z0-9]{5,8})\b/i);
+  if (infoGeraisMatch?.[1]) return infoGeraisMatch[1].trim().toUpperCase();
+
+  const bilheteLocMatch = text.match(/n[úu]mero\s+do\s+bilhete[\s\S]*?\bloc\b[\s\S]*?\b\d{3}\s+\d{10,}\s+([A-Z0-9]{5,8})\b/i);
+  if (bilheteLocMatch?.[1]) return bilheteLocMatch[1].trim().toUpperCase();
+
+  const ignored = new Set(['PRAZO', 'DADOS', 'FILIAL', 'GRUPO', 'STATUS', 'ROTA']);
+  const fallbackMatches = [...text.matchAll(/\bloc\b[\s\n:]+([A-Z0-9]{5,8})\b/gi)];
+  for (const match of fallbackMatches) {
+    const candidate = String(match[1] || '').trim().toUpperCase();
+    if (candidate && !ignored.has(candidate)) return candidate;
+  }
+
+  return '';
+}
+
+function extractTarifaTotals(text: string) {
+  const section = text.match(/tarifas[\s\S]*?(?=\btarifar\b|\bnotas\b|\bservi[cç]os\s+complementares\b)/i)?.[0] || text;
+  const rows = [...section.matchAll(/(?:US\$\s*[\d.,]+\s+)?((?:R\$\s*[\d.,]+(?:\s+|$)){4,5})/gi)]
+    .map((match) => [...String(match[1] || '').matchAll(/R\$\s*[\d.,]+/gi)].map((value) => parseCurrencyBR(value[0])))
+    .filter((values) => values.length >= 4 && values.every((value) => value != null)) as number[][];
+
+  if (rows.length === 0) return null;
+
+  const values = rows[rows.length - 1];
+  const hasRcColumn = /\brc\b/i.test(section);
+
+  if (hasRcColumn && values.length >= 5) {
+    const [tarifa, taxaEmb, rav, rc, total] = values;
+    return {
+      tarifa,
+      taxaEmbarque: (taxaEmb || 0) + (rc || 0),
+      taxaEmbarqueOriginal: taxaEmb,
+      rav,
+      rc,
+      total
+    };
+  }
+
+  const [tarifa, taxaEmbarque, rav, total] = values;
+  return {
+    tarifa,
+    taxaEmbarque,
+    taxaEmbarqueOriginal: taxaEmbarque,
+    rav,
+    rc: 0,
+    total
+  };
+}
+
 export interface RexturContrato {
   loc: string;
   passageiros: { nome: string; sobrenome: string; genero: string | null; nascimento: string | null; cpf: string }[];
   tarifa: number | null;
   taxa_embarque: number | null;
+  rc: number | null;
   rav: number | null;
   total: number | null;
   data_saida: string | null;
@@ -65,12 +120,8 @@ export interface RexturContrato {
 }
 
 export function extractRexturFromText(text: string): { contratos: ContratoDraft[]; raw_text: string } {
-  const raw = normalizeWS(text);
-
   // ── LOC ─────────────────────────────────────────────────────────────────────
-  const locMatch = text.match(/\bloc\b[\s\n]+([A-Z0-9]{5,8})\b/i)
-    || text.match(/LOC[\s\n:]+([A-Z0-9]{5,8})/i);
-  const loc = locMatch?.[1]?.trim() || '';
+  const loc = extractLoc(text);
   if (!loc) throw new Error('LOC não encontrado. Verifique se o texto é uma Reserva Fácil Rextur.');
 
   // ── SEGMENTOS (datas e destinos) ─────────────────────────────────────────────
@@ -144,17 +195,17 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
   let tarifa: number | null = null;
   let taxaEmbarque: number | null = null;
   let rav: number | null = null;
+  let rc: number | null = null;
   let total: number | null = null;
 
-  // Tentar pegar a linha de totais (última linha com múltiplos R$)
-  const totalTarifaLines = [...text.matchAll(/(R\$\s*[\d.,]+)\s+(R\$\s*[\d.,]+)\s+(R\$\s*[\d.,]+)\s+(R\$\s*[\d.,]+)/g)];
-  if (totalTarifaLines.length > 0) {
-    // Pegar a última ocorrência que provavelmente é o total
-    const last = totalTarifaLines[totalTarifaLines.length - 1];
-    tarifa = parseCurrencyBR(last[1]);
-    taxaEmbarque = parseCurrencyBR(last[2]);
-    rav = parseCurrencyBR(last[3]);
-    total = parseCurrencyBR(last[4]);
+  // Tentar pegar a linha de totais. Quando houver coluna RC, ela também compõe as taxas.
+  const totals = extractTarifaTotals(text);
+  if (totals) {
+    tarifa = totals.tarifa;
+    taxaEmbarque = totals.taxaEmbarque;
+    rav = totals.rav;
+    rc = totals.rc;
+    total = totals.total;
   }
 
   // Fallback: somar individual dos passageiros
@@ -201,6 +252,7 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
     total_pago: valorTotal,
     taxas_embarque: taxaEmbarque,
     taxa_du: rav,   // RAV mapeado como taxa_du
+    rc,
     tipo_pacote: 'Passagem Facial',
     raw_text: text,
   };
