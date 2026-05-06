@@ -6,7 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { BarChart2, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Calendar, Clock, MapPin, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { goto } from '$app/navigation';
@@ -26,22 +26,6 @@
     scope?: string | null;
   };
 
-  type Orcamento = {
-    id: string;
-    created_at: string;
-    status: string | null;
-    total: number | null;
-    cliente?: { id?: string | null; nome?: string | null } | null;
-  };
-
-  type Viagem = {
-    id: string;
-    data_inicio: string | null;
-    data_fim: string | null;
-    destino: string | null;
-    clientes?: { nome: string | null } | null;
-  };
-
   type FollowUp = {
     id: string;
     venda?: {
@@ -53,7 +37,6 @@
 
   type SummaryPayload = {
     userCtx?: { nome: string | null; papel: string; vendedorIds: string[] } | null;
-    podeVerOperacao?: boolean;
     vendasAgg?: {
       totalVendas: number;
       totalTaxas: number;
@@ -66,7 +49,6 @@
       porProduto: Array<{ id: string; name: string; value: number }>;
     };
     metas?: Meta[];
-    orcamentos?: Orcamento[];
   };
 
   type DashboardCompra = {
@@ -93,7 +75,6 @@
   let loading = true;
   let errorMessage: string | null = null;
   let userCtx: SummaryPayload['userCtx'] = null;
-  let podeVerOperacao = false;
 
   function getDefaultPeriod() {
     const today = todayISODateLocal();
@@ -129,8 +110,6 @@
     porProduto: []
   };
   let metas: Meta[] = [];
-  let orcamentos: Orcamento[] = [];
-  let viagens: Viagem[] = [];
   let followUps: FollowUp[] = [];
   let topVendedores: NonNullable<DashboardCompraPayload['topVendedores']> = [];
   let topClientes: NonNullable<DashboardCompraPayload['topClientes']> = [];
@@ -196,24 +175,12 @@
     : userCtx?.papel === 'MASTER'
       ? 'Top destinos das equipes'
       : 'Top destinos da equipe';
-  $: orcamentosHeader = isFiltroVendedorAtivo
-    ? `Orçamentos de ${vendedorSelecionadoNome}`
-    : 'Orçamentos recentes';
-  $: orcamentosEmptyLabel = isFiltroVendedorAtivo
-    ? `Nenhum orçamento de ${vendedorSelecionadoNome} no período.`
-    : 'Nenhum orçamento no período.';
   $: followUpHeader = isFiltroVendedorAtivo
     ? `Follow-up de ${vendedorSelecionadoNome}`
     : 'Follow-up';
   $: followUpEmptyLabel = isFiltroVendedorAtivo
     ? `Nenhum follow-up pendente de ${vendedorSelecionadoNome}.`
     : 'Nenhum follow-up pendente.';
-  $: viagensHeader = isFiltroVendedorAtivo
-    ? `Próximas viagens de ${vendedorSelecionadoNome}`
-    : 'Próximas viagens';
-  $: viagensEmptyLabel = isFiltroVendedorAtivo
-    ? `Nenhuma viagem próxima de ${vendedorSelecionadoNome}.`
-    : 'Nenhuma viagem próxima.';
   $: comprasScopeLabel = userCtx?.papel === 'MASTER' ? 'todas as equipes' : 'equipe';
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
@@ -287,7 +254,7 @@
       const payload = await apiGet<SummaryPayload>('/api/v1/dashboard/summary', {
         inicio: periodoInicio,
         fim: periodoFim,
-        include_orcamentos: 1,
+        include_orcamentos: 0,
         company_id: empresaSelecionada || undefined,
         vendedor_ids: vendedorSelecionado || undefined
       });
@@ -295,8 +262,6 @@
       userCtx = payload.userCtx || null;
       vendasAgg = payload.vendasAgg || vendasAgg;
       metas = payload.metas || [];
-      orcamentos = payload.orcamentos || [];
-      podeVerOperacao = Boolean(payload.podeVerOperacao);
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dashboard do gestor.';
       toast.error('Erro ao carregar dashboard do gestor.');
@@ -310,31 +275,15 @@
     if (empresaSelecionada) params.company_id = empresaSelecionada;
     if (vendedorSelecionado) params.vendedor_ids = vendedorSelecionado;
 
-    await Promise.allSettled([
-      (async () => {
-        try {
-          const data = await apiGet<{ items: Viagem[] }>('/api/v1/dashboard/viagens', {
-            ...params,
-            limit: 8,
-            em_andamento_limit: 8
-          });
-          viagens = data.items || [];
-        } catch {
-          viagens = [];
-        }
-      })(),
-      (async () => {
-        try {
-          const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
-            ...params,
-            limit: 8
-          });
-          followUps = data.items || [];
-        } catch {
-          followUps = [];
-        }
-      })()
-    ]);
+    try {
+      const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
+        ...params,
+        limit: 8
+      });
+      followUps = data.items || [];
+    } catch {
+      followUps = [];
+    }
   }
 
   async function loadComprasResumo() {
@@ -568,149 +517,188 @@
 </KPIGrid>
 
 <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
-  <Card header={evolucaoHeader} color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if vendasAgg.timeline.length === 0}
-      <p class="py-8 text-center text-sm text-slate-400">Sem vendas no período.</p>
-    {:else}
-      <ChartJS type="line" data={timelineChartData} height={220} />
-    {/if}
-  </Card>
-
-  <Card header={destinosHeader} color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if vendasAgg.topDestinos.length === 0}
-      <p class="py-8 text-center text-sm text-slate-400">Sem destinos no período.</p>
-    {:else}
-      <ChartJS type="doughnut" data={destinosChartData} height={220} />
-    {/if}
-  </Card>
-
-  <Card header={`Top 3 vendedores (${comprasScopeLabel})`} color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if topVendedores.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">Sem vendedores com compras no período.</p>
-    {:else}
-      <div class="space-y-3">
-        {#each topVendedores as item, index}
-          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-            <div class="flex min-w-0 items-center gap-3">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">{index + 1}</span>
-              <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-slate-900">{item.vendedor_nome}</p>
-                <p class="text-xs text-slate-500">{item.quantidade} compra(s)</p>
-              </div>
-            </div>
-            <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-          </div>
-        {/each}
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+        <TrendingUp size={18} />
       </div>
-    {/if}
-  </Card>
-
-  <Card header="Clientes que mais gastaram no mês" color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if topClientes.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">Sem clientes com compras no período.</p>
-    {:else}
-      <div class="divide-y divide-slate-100">
-        {#each topClientes as item}
-          <div class="py-3">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
-                <p class="text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
-              </div>
-              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-            </div>
-          </div>
-        {/each}
+      <div>
+        <h3 class="text-base font-bold text-slate-900">{evolucaoHeader}</h3>
+        <p class="text-xs text-slate-500">Receita por data no período selecionado</p>
       </div>
-    {/if}
-  </Card>
-
-  <Card header="Últimas compras" color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if ultimasCompras.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">Sem compras recentes no período.</p>
-    {:else}
-      <div class="divide-y divide-slate-100">
-        {#each ultimasCompras.slice(0, 5) as item}
-          <div class="py-3">
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
-                <p class="text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
-                <p class="text-xs text-slate-400">Compra: {formatDate(item.data_compra)} · {item.vendedor_nome}</p>
-              </div>
-              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </Card>
-
-  <Card header={orcamentosHeader} color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if orcamentos.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">{orcamentosEmptyLabel}</p>
-    {:else}
-      <div class="divide-y divide-slate-100">
-        {#each orcamentos.slice(0, 6) as item}
-          <div class="py-2.5 px-1">
-            <p class="truncate text-sm font-medium text-slate-900">{item.cliente?.nome || 'Cliente'}</p>
-            <p class="text-xs text-slate-400">{formatDate(item.created_at)} · {item.status || '-'} · {formatCurrency(item.total || 0)}</p>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </Card>
-
-  <Card header={followUpHeader} color="financeiro">
-    {#if loading}
-      <LoadingState compact={true} />
-    {:else if followUps.length === 0}
-      <p class="py-6 text-center text-sm text-slate-400">{followUpEmptyLabel}</p>
-    {:else}
-      <div class="divide-y divide-slate-100">
-        {#each followUps.slice(0, 6) as item}
-          <div class="py-2.5 px-1">
-            <p class="truncate text-sm font-medium text-slate-900">{item.venda?.clientes?.nome || '-'}</p>
-            <p class="text-xs text-slate-400">Embarque: {formatDate(item.venda?.data_embarque)}{#if item.venda?.destino_cidade?.nome} · {item.venda.destino_cidade.nome}{/if}</p>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </Card>
-
-  {#if podeVerOperacao}
-    <Card header={viagensHeader} color="financeiro" class="xl:col-span-2">
+    </div>
+    <div class="border-t border-slate-100 pt-4">
       {#if loading}
         <LoadingState compact={true} />
-      {:else if viagens.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">{viagensEmptyLabel}</p>
+      {:else if vendasAgg.timeline.length === 0}
+        <p class="py-8 text-center text-sm text-slate-400">Sem vendas no período.</p>
       {:else}
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {#each viagens.slice(0, 6) as item}
-            <a
-              href={`/operacao/viagens/${item.id}`}
-              class="block rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:border-orange-200 hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-300"
-              aria-label={`Abrir viagem de ${item.clientes?.nome || 'cliente'} para ${item.destino || 'destino não informado'}`}
-            >
-              <p class="truncate text-sm font-semibold text-slate-900">{item.clientes?.nome || '-'}</p>
-              <p class="mt-1 text-xs text-slate-500">{formatDate(item.data_inicio)} → {formatDate(item.data_fim)}</p>
-              <p class="mt-1 text-xs text-slate-500">{item.destino || '-'}</p>
-            </a>
+        <ChartJS type="line" data={timelineChartData} height={220} />
+      {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+        <MapPin size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">{destinosHeader}</h3>
+        <p class="text-xs text-slate-500">Destinos com maior receita</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if vendasAgg.topDestinos.length === 0}
+        <p class="py-8 text-center text-sm text-slate-400">Sem destinos no período.</p>
+      {:else}
+        <ChartJS type="doughnut" data={destinosChartData} height={220} />
+      {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+        <Award size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Top 3 vendedores</h3>
+        <p class="text-xs text-slate-500">Ranking de {comprasScopeLabel} por receita</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if topVendedores.length === 0}
+        <p class="py-6 text-center text-sm text-slate-400">Sem vendedores com compras no período.</p>
+      {:else}
+        <div class="space-y-3">
+          {#each topVendedores as item, index}
+            <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-orange-200 hover:bg-orange-50">
+              <div class="flex min-w-0 items-center gap-3">
+                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">{index + 1}</span>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-900">{item.vendedor_nome}</p>
+                  <p class="text-xs text-slate-500">{item.quantidade} compra(s)</p>
+                </div>
+              </div>
+              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+            </div>
           {/each}
         </div>
       {/if}
-    </Card>
-  {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600">
+        <Users size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Clientes que mais gastaram</h3>
+        <p class="text-xs text-slate-500">Maiores valores no mês selecionado</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if topClientes.length === 0}
+        <p class="py-6 text-center text-sm text-slate-400">Sem clientes com compras no período.</p>
+      {:else}
+        <div class="space-y-3">
+          {#each topClientes as item}
+            <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-green-200 hover:bg-green-50">
+              <div class="flex min-w-0 gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white">
+                  {item.cliente_nome.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
+                  <p class="truncate text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
+                </div>
+              </div>
+              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+        <ShoppingCart size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Últimas compras</h3>
+        <p class="text-xs text-slate-500">Compras mais recentes do período</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if ultimasCompras.length === 0}
+        <p class="py-6 text-center text-sm text-slate-400">Sem compras recentes no período.</p>
+      {:else}
+        <div class="space-y-3">
+          {#each ultimasCompras.slice(0, 5) as item}
+            <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50">
+              <div class="flex min-w-0 gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                  <Calendar size={18} />
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
+                  <p class="truncate text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
+                  <p class="text-xs text-slate-400">Compra: {formatDate(item.data_compra)} · {item.vendedor_nome}</p>
+                </div>
+              </div>
+              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+        <Clock size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">{followUpHeader}</h3>
+        <p class="text-xs text-slate-500">Pendências operacionais do período</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if followUps.length === 0}
+        <p class="py-6 text-center text-sm text-slate-400">{followUpEmptyLabel}</p>
+      {:else}
+        <div class="space-y-0">
+          {#each followUps.slice(0, 6) as item, idx}
+            <div class="relative flex items-start gap-4 py-3">
+              {#if idx < followUps.slice(0, 6).length - 1}
+                <span class="absolute left-[19px] top-12 h-[calc(100%-12px)] w-px bg-slate-200"></span>
+              {/if}
+              <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-violet-500 shadow-sm">
+                <Clock size={18} />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.venda?.clientes?.nome || '-'}</p>
+                <p class="text-xs text-slate-500">Embarque: {formatDate(item.venda?.data_embarque)}{#if item.venda?.destino_cidade?.nome} · {item.venda.destino_cidade.nome}{/if}</p>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </div>
 </div>
