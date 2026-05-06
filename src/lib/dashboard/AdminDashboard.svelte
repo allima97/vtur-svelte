@@ -4,9 +4,7 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
-  import { FieldCheckbox, FieldTextarea } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
-  import { formatDateTime as formatDateTimeValue } from '$lib/utils/formatters';
   import {
     AlertCircle,
     BellRing,
@@ -25,7 +23,7 @@
     Users,
     Wrench
   } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiGet } from '$lib/services/api';
 
   type SummaryPayload = {
     counts?: {
@@ -69,20 +67,8 @@
     iconClass: string;
   };
 
-  type MaintenancePayload = {
-    maintenance_enabled: boolean;
-    maintenance_message: string;
-    updated_at: string | null;
-  };
-
   let loading = true;
-  let saving = false;
   let summary: SummaryPayload | null = null;
-  let maintenance: MaintenancePayload = {
-    maintenance_enabled: false,
-    maintenance_message: '',
-    updated_at: null
-  };
 
   const resumoCards: ResumoCard[] = [
     {
@@ -144,44 +130,18 @@
     { title: 'Documentação', href: '/documentacao', icon: BookOpen, description: 'Guias e instruções' }
   ];
 
-  function formatDateTime(value: string | null | undefined) {
-    return value ? formatDateTimeValue(value) : 'Sem registro';
-  }
-
   async function loadSummary() {
     summary = await apiGet<SummaryPayload>('/api/v1/admin/summary');
-  }
-
-  async function loadMaintenance() {
-    const payload = await apiGet<MaintenancePayload>('/api/v1/admin/maintenance');
-    maintenance = {
-      maintenance_enabled: payload.maintenance_enabled === true,
-      maintenance_message: payload.maintenance_message || '',
-      updated_at: payload.updated_at || null
-    };
   }
 
   async function loadDashboard() {
     loading = true;
     try {
-      await Promise.all([loadSummary(), loadMaintenance()]);
+      await loadSummary();
     } catch (err) {
       toast.error('Não foi possível carregar o dashboard administrativo.');
     } finally {
       loading = false;
-    }
-  }
-
-  async function saveMaintenance() {
-    saving = true;
-    try {
-      await apiPost('/api/v1/admin/maintenance', maintenance);
-      toast.success('Modo de manutenção atualizado.');
-      await loadMaintenance();
-    } catch (err) {
-      toast.error('Não foi possível salvar a manutenção.');
-    } finally {
-      saving = false;
     }
   }
 
@@ -200,33 +160,6 @@
 />
 
 <div class="space-y-6">
-  <Card color="financeiro" title="Modo de manutenção" subtitle="Suspende o acesso do sistema e exibe a página de manutenção para todos os usuários.">
-    <div class="space-y-4">
-      <FieldCheckbox
-        id="maintenance-enabled"
-        label={maintenance.maintenance_enabled ? 'Manutenção ativa' : 'Manutenção desativada'}
-        checked={maintenance.maintenance_enabled}
-        on:change={(event) => {
-          const target = event.currentTarget as HTMLInputElement | null;
-          maintenance = { ...maintenance, maintenance_enabled: target?.checked === true };
-        }}
-      />
-      <FieldTextarea
-        id="maintenance-message"
-        label="Mensagem de manutenção"
-        bind:value={maintenance.maintenance_message}
-        rows={5}
-        helper={`Última atualização: ${formatDateTime(maintenance.updated_at)}`}
-      />
-      <div class="flex flex-wrap gap-3">
-        <Button variant="primary" color="financeiro" on:click={saveMaintenance} disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar'}
-        </Button>
-        <Button variant="outline" color="financeiro" href="/manutencao">Abrir página de manutenção</Button>
-      </div>
-    </div>
-  </Card>
-
   <Card color="financeiro" title="Resumo administrativo" subtitle="Visão consolidada de empresas, usuários, planos e cobranças.">
     {#if loading}
       <LoadingState compact={true} />
