@@ -229,6 +229,7 @@ export const OFFICIAL_CARD_THEMES: CardLibraryThemeRow[] = [
   createTheme({ categoria: "oportunidade", nome: "long-holiday", titleColor: "#1C6590", bodyColor: "#2D455A", signatureColor: "#416174" }),
   createTheme({ categoria: "recompra", nome: "repurchase-soft", titleColor: "#5B6A7B", bodyColor: "#46515E", signatureColor: "#5D6976" }),
   createTheme({ categoria: "relacionamento", nome: "special-date-soft", titleColor: "#A3526B", bodyColor: "#634A5D", signatureColor: "#7C6073" }),
+  createTheme({ categoria: "ultimas_compras", nome: "thank-you-purchase", titleColor: "#1F5F8B", bodyColor: "#31465A", signatureColor: "#49677C" }),
 ];
 
 export const OFFICIAL_CARD_TEMPLATES: CardLibraryTemplateRow[] = [
@@ -283,6 +284,7 @@ export const OFFICIAL_CARD_TEMPLATES: CardLibraryTemplateRow[] = [
   createTemplate({ nome: "Feriado Prolongado", categoria: "oportunidade", assunto: "Feriado chegando, [PRIMEIRO_NOME]!", titulo: "Feriado chegando!", corpo: "Um feriado prolongado pode ser a oportunidade ideal para uma viagem rápida e especial.\n\nSe quiser sugestões, estou à disposição.", theme_name: "long-holiday" }),
   createTemplate({ nome: "Oferta de Recompra", categoria: "recompra", assunto: "Vamos planejar a próxima, [PRIMEIRO_NOME]?", titulo: "Vamos planejar a próxima?", corpo: "Depois de uma boa viagem, sempre nasce a vontade da próxima.\n\nQuando quiser, posso te ajudar a planejar um novo roteiro.", theme_name: "repurchase-soft" }),
   createTemplate({ nome: "Data Especial Personalizada", categoria: "relacionamento", assunto: "Uma data especial para você, [PRIMEIRO_NOME]!", titulo: "Uma data especial", corpo: "Hoje é uma data especial e não poderia deixar de te enviar uma mensagem com carinho.\n\nDesejo momentos felizes e experiências incríveis!", theme_name: "special-date-soft" }),
+  createTemplate({ nome: "Agradecimento pela Compra", categoria: "ultimas_compras", assunto: "Obrigado pela compra, [PRIMEIRO_NOME]!", titulo: "Obrigado pela sua compra!", corpo: "Passando para agradecer pela confiança na sua compra.\n\nFoi um prazer ajudar no planejamento dessa viagem. Conte comigo para qualquer dúvida até o embarque.", theme_name: "thank-you-purchase" }),
 ];
 
 export const OFFICIAL_CARD_THEME_NAMES = OFFICIAL_CARD_THEMES.map((theme) => theme.nome);

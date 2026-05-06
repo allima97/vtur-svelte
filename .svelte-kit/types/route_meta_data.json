@@ -367,6 +367,9 @@
 	"/api/v1/dashboard/summary": [
 		"src/routes/api/v1/dashboard/summary/+server.ts"
 	],
+	"/api/v1/dashboard/ultimas-compras": [
+		"src/routes/api/v1/dashboard/ultimas-compras/+server.ts"
+	],
 	"/api/v1/dashboard/viagens": [
 		"src/routes/api/v1/dashboard/viagens/+server.ts"
 	],
@@ -1146,6 +1149,11 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/(app)/operacao/tarefas": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/(app)/operacao/ultimas-compras": [
+		"src/routes/(app)/operacao/ultimas-compras/+page.server.ts",
 		"src/routes/+layout.ts",
 		"src/routes/+layout.server.ts"
 	],

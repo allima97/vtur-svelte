@@ -208,6 +208,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/operacao/agenda': 'Agenda',
   '/operacao/tarefas': 'Tarefas',
   '/operacao/todo': 'Tarefas',
+  '/operacao/ultimas-compras': 'Operacao',
   '/operacao/acompanhamento': 'Operacao',
   '/operacao/recados': 'Mural de Recados',
   '/operacao/minhas-preferencias': 'Minhas Preferências',

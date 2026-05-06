@@ -16,6 +16,7 @@
   export let clienteTelefone: string = '';
   export let clienteEmail: string = '';
   export let clienteNascimento: string | null = null;
+  export let initialTema: string = 'all';
   export let onClose: () => void = () => {};
   export let onEnviar: (dados: any) => void = () => {};
 
@@ -49,6 +50,7 @@
     dia_dos_pais: 'Dia dos Pais',
     dia_da_mulher: 'Dia da Mulher',
     dia_do_viajante: 'Dia do Viajante',
+    ultimas_compras: 'Últimas Compras',
     geral: 'Geral'
   };
 
@@ -126,6 +128,12 @@
     if (normalizedThemeText.includes('dia dos pais') || normalizedThemeText.includes('father')) return 'dia_dos_pais';
     if (normalizedThemeText.includes('dia da mulher') || normalizedThemeText.includes('women')) return 'dia_da_mulher';
     if (normalizedThemeText.includes('viajant') || normalizedThemeText.includes('travel')) return 'dia_do_viajante';
+    if (
+      normalizedThemeText.includes('ultima compra') ||
+      normalizedThemeText.includes('ultimas compras') ||
+      normalizedThemeText.includes('agradecimento compra') ||
+      normalizedThemeText.includes('thank you purchase')
+    ) return 'ultimas_compras';
     return 'geral';
   }
 
@@ -150,6 +158,7 @@
     if (normalized.includes('dia dos pais') || normalized.includes('father')) return 'Feliz Dia dos Pais!';
     if (normalized.includes('dia da mulher') || normalized.includes('women')) return 'Feliz Dia da Mulher!';
     if (normalized.includes('viajant') || normalized.includes('travel')) return 'Boas viagens e muitas conquistas!';
+    if (normalized.includes('ultima compra') || normalized.includes('ultimas compras') || normalized.includes('agradecimento compra')) return 'Obrigado pela sua compra!';
     return '';
   }
 
@@ -184,13 +193,15 @@
 
   async function prepararModal() {
     canalAtivo = clienteTelefone ? 'whatsapp' : 'email';
-    temaSelecionado = 'all';
+    temaSelecionado = initialTema || 'all';
     templateSelecionado = '';
     mensagemPersonalizada = '';
     await Promise.all([carregarTemplates(), carregarHistorico()]);
 
     if (isAniversariante && templates.some((t: any) => t.tipo === 'aniversario')) {
       temaSelecionado = 'aniversario';
+    } else if (initialTema && templates.some((t: any) => t.tipo === initialTema)) {
+      temaSelecionado = initialTema;
     }
   }
 
@@ -340,6 +351,8 @@
       .replace(/\{nome\}/gi, clienteNome.split(' ')[0] || clienteNome)
       .replace(/\{nome_completo\}/gi, clienteNome)
       .replace(/\{email\}/gi, clienteEmail || '')
+      .replace(/\[PRIMEIRO_NOME\]/gi, clienteNome.split(' ')[0] || clienteNome)
+      .replace(/\[NOME_CLIENTE\]/gi, clienteNome)
       .replace(/\{\{primeiro_nome\}\}/gi, clienteNome.split(' ')[0] || clienteNome)
       .replace(/\{\{nome_cliente\}\}/gi, clienteNome)
       .replace(/\{\{consultor\}\}/gi, '');

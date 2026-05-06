@@ -120,6 +120,7 @@
       collapsible: true,
       items: [
         { key: 'vendas', name: 'Vendas', href: '/vendas', icon: ShoppingCart },
+        { key: 'ultimas_compras', name: 'Últimas Compras', href: '/operacao/ultimas-compras', icon: ShoppingCart },
         { key: 'clientes', name: 'Clientes', href: '/clientes', icon: Users },
         { key: 'viagens', name: 'Viagens', href: '/operacao/viagens', icon: Plane },
         { key: 'orcamentos', name: 'Orçamentos', href: '/orcamentos', icon: FileText },
@@ -264,6 +265,7 @@
 
     if (item.systemOnly && !$permissoes.isSystemAdmin) return false;
     if (item.key === 'vendas_financeiro' && !$permissoes.isFinanceiro) return false;
+    if (item.key === 'ultimas_compras' && !($permissoes.isMaster || $permissoes.isGestor)) return false;
     if (item.key === 'fechamento' && !$permissoes.isFinanceiro) return false;
     if (item.key === 'notas_fiscais' && !$permissoes.isFinanceiro) return false;
 
@@ -434,6 +436,7 @@
         { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
         { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },
         { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: ShoppingCart },
+        { key: 'ultimas_compras', name: 'Últimas Compras',href: '/operacao/ultimas-compras',      icon: ShoppingCart },
         { key: 'orcamentos',      name: 'Orçamentos',     href: '/orcamentos',                    icon: FileText },
         { key: 'roteiros',        name: 'Roteiros',       href: '/orcamentos/roteiros',           icon: MapIcon },
         { key: 'viagens',         name: 'Viagens',        href: '/operacao/viagens',              icon: Plane },

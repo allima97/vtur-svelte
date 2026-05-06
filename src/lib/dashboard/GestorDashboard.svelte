@@ -6,7 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { BarChart2, RefreshCw, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { BarChart2, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { goto } from '$app/navigation';
@@ -69,6 +69,27 @@
     orcamentos?: Orcamento[];
   };
 
+  type DashboardCompra = {
+    id: string;
+    cliente_id: string | null;
+    cliente_nome: string;
+    cliente_email: string | null;
+    cliente_telefone: string | null;
+    cliente_whatsapp: string | null;
+    cliente_nascimento: string | null;
+    vendedor_nome: string;
+    data_compra: string | null;
+    data_saida: string | null;
+    destino: string;
+    valor: number;
+  };
+
+  type DashboardCompraPayload = {
+    topVendedores?: Array<{ vendedor_id: string; vendedor_nome: string; valor: number; quantidade: number }>;
+    topClientes?: Array<{ cliente_id: string | null; cliente_nome: string; data_saida: string | null; destino: string; valor: number; quantidade: number }>;
+    ultimasCompras?: DashboardCompra[];
+  };
+
   let loading = true;
   let errorMessage: string | null = null;
   let userCtx: SummaryPayload['userCtx'] = null;
@@ -111,6 +132,9 @@
   let orcamentos: Orcamento[] = [];
   let viagens: Viagem[] = [];
   let followUps: FollowUp[] = [];
+  let topVendedores: NonNullable<DashboardCompraPayload['topVendedores']> = [];
+  let topClientes: NonNullable<DashboardCompraPayload['topClientes']> = [];
+  let ultimasCompras: DashboardCompra[] = [];
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -151,7 +175,11 @@
   $: vendedorSelecionadoNome =
     vendedoresFiltro.find((item) => item.id === vendedorSelecionado)?.nome?.trim() || '';
   $: isFiltroVendedorAtivo = Boolean(vendedorSelecionado && vendedorSelecionadoNome);
-  $: salesLabel = isFiltroVendedorAtivo ? `Vendas de ${vendedorSelecionadoNome}` : 'Vendas da equipe';
+  $: salesLabel = isFiltroVendedorAtivo
+    ? `Vendas de ${vendedorSelecionadoNome}`
+    : userCtx?.papel === 'MASTER'
+      ? 'Vendas das equipes'
+      : 'Vendas da equipe';
   $: countLabel = isFiltroVendedorAtivo ? `Qtd. vendas de ${vendedorSelecionadoNome}` : 'Qtd. vendas';
   $: metaLabel = isFiltroVendedorAtivo ? `Meta de ${vendedorSelecionadoNome}` : 'Meta da equipe';
   $: scopeLabel = isFiltroVendedorAtivo ? 'Vendedor no escopo' : 'Equipe no escopo';
@@ -160,10 +188,14 @@
     : `Papel: ${userCtx?.papel || '-'}`;
   $: evolucaoHeader = isFiltroVendedorAtivo
     ? `Evolução das vendas de ${vendedorSelecionadoNome}`
-    : 'Evolução das vendas';
+    : userCtx?.papel === 'MASTER'
+      ? 'Evolução das vendas das equipes'
+      : 'Evolução das vendas';
   $: destinosHeader = isFiltroVendedorAtivo
     ? `Top destinos de ${vendedorSelecionadoNome}`
-    : 'Top destinos da equipe';
+    : userCtx?.papel === 'MASTER'
+      ? 'Top destinos das equipes'
+      : 'Top destinos da equipe';
   $: orcamentosHeader = isFiltroVendedorAtivo
     ? `Orçamentos de ${vendedorSelecionadoNome}`
     : 'Orçamentos recentes';
@@ -182,6 +214,7 @@
   $: viagensEmptyLabel = isFiltroVendedorAtivo
     ? `Nenhuma viagem próxima de ${vendedorSelecionadoNome}.`
     : 'Nenhuma viagem próxima.';
+  $: comprasScopeLabel = userCtx?.papel === 'MASTER' ? 'todas as equipes' : 'equipe';
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
     if (!/^\d{4}-\d{2}$/.test(raw)) return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
@@ -304,11 +337,30 @@
     ]);
   }
 
+  async function loadComprasResumo() {
+    try {
+      const payload = await apiGet<DashboardCompraPayload>('/api/v1/dashboard/ultimas-compras', {
+        inicio: periodoInicio,
+        fim: periodoFim,
+        company_id: empresaSelecionada || undefined,
+        vendedor_ids: vendedorSelecionado || undefined,
+        limit: 5
+      });
+      topVendedores = payload.topVendedores || [];
+      topClientes = payload.topClientes || [];
+      ultimasCompras = payload.ultimasCompras || [];
+    } catch {
+      topVendedores = [];
+      topClientes = [];
+      ultimasCompras = [];
+    }
+  }
+
   async function atualizar() {
     if (empresaSelecionada !== lastBaseCompanyId) {
       await loadBase();
     }
-    await Promise.all([loadDashboard(), loadOperational()]);
+    await Promise.all([loadDashboard(), loadOperational(), loadComprasResumo()]);
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
@@ -343,7 +395,7 @@
     vendedorSelecionado = params.get('vendedor_id') || '';
 
     await loadBase();
-    await Promise.all([loadDashboard(), loadOperational()]);
+    await Promise.all([loadDashboard(), loadOperational(), loadComprasResumo()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
@@ -533,6 +585,74 @@
       <p class="py-8 text-center text-sm text-slate-400">Sem destinos no período.</p>
     {:else}
       <ChartJS type="doughnut" data={destinosChartData} height={220} />
+    {/if}
+  </Card>
+
+  <Card header={`Top 3 vendedores (${comprasScopeLabel})`} color="financeiro">
+    {#if loading}
+      <LoadingState compact={true} />
+    {:else if topVendedores.length === 0}
+      <p class="py-6 text-center text-sm text-slate-400">Sem vendedores com compras no período.</p>
+    {:else}
+      <div class="space-y-3">
+        {#each topVendedores as item, index}
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <div class="flex min-w-0 items-center gap-3">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">{index + 1}</span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.vendedor_nome}</p>
+                <p class="text-xs text-slate-500">{item.quantidade} compra(s)</p>
+              </div>
+            </div>
+            <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </Card>
+
+  <Card header="Clientes que mais gastaram no mês" color="financeiro">
+    {#if loading}
+      <LoadingState compact={true} />
+    {:else if topClientes.length === 0}
+      <p class="py-6 text-center text-sm text-slate-400">Sem clientes com compras no período.</p>
+    {:else}
+      <div class="divide-y divide-slate-100">
+        {#each topClientes as item}
+          <div class="py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
+                <p class="text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
+              </div>
+              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </Card>
+
+  <Card header="Últimas compras" color="financeiro">
+    {#if loading}
+      <LoadingState compact={true} />
+    {:else if ultimasCompras.length === 0}
+      <p class="py-6 text-center text-sm text-slate-400">Sem compras recentes no período.</p>
+    {:else}
+      <div class="divide-y divide-slate-100">
+        {#each ultimasCompras.slice(0, 5) as item}
+          <div class="py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
+                <p class="text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
+                <p class="text-xs text-slate-400">Compra: {formatDate(item.data_compra)} · {item.vendedor_nome}</p>
+              </div>
+              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+            </div>
+          </div>
+        {/each}
+      </div>
     {/if}
   </Card>
 
