@@ -207,10 +207,10 @@
 
   <!-- Filtros -->
   <Card color="financeiro" class="mb-6 hidden sm:block">
-    <div class="flex flex-col lg:flex-row gap-4 items-end">
-      <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <FieldInput
           id="filtro-circuito-busca"
+          label="Busca"
           placeholder="Nome ou código..."
           bind:value={searchQuery}
           icon={Search}
@@ -252,7 +252,6 @@
           class_name="w-full"
           on:change={carregarCircuitos}
         />
-      </div>
     </div>
   </Card>
 
