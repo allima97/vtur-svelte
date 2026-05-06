@@ -283,9 +283,14 @@ export function buildVendaPayload(
   };
 }
 
-function normalizeReciboPayload(item: any) {
+function normalizeReciboPayload(item: any, fallbackDataVenda?: string | null) {
   return {
     ...item,
+    data_venda: isISODate(String(item?.data_venda || "").trim())
+      ? String(item?.data_venda || "").trim()
+      : isISODate(String(fallbackDataVenda || "").trim())
+        ? String(fallbackDataVenda || "").trim()
+        : null,
     numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
     cidade_nome: sanitizeLabel(item?.cidade_nome) || null,
     produto_nome: sanitizeLabel(item?.produto_nome || item?.tipo_nome) || null,
@@ -322,6 +327,7 @@ export async function syncVendaChildren(params: {
   clienteId: string;
   vendedorId: string;
   userId: string;
+  dataVenda?: string | null;
   recibos: any[];
   pagamentos: any[];
 }) {
@@ -332,11 +338,12 @@ export async function syncVendaChildren(params: {
     clienteId,
     vendedorId,
     userId,
+    dataVenda,
     recibos,
     pagamentos,
   } = params;
 
-  const recibosNormalizados = recibos.map(normalizeReciboPayload);
+  const recibosNormalizados = recibos.map((recibo) => normalizeReciboPayload(recibo, dataVenda));
   const pagamentosNormalizados = pagamentos.map(normalizePagamentoPayload);
 
   const { error } = await client.rpc("sync_venda_children", {

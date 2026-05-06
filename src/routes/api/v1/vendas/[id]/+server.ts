@@ -429,6 +429,7 @@ export async function PATCH(event) {
         clienteId,
         vendedorId,
         userId: user.id,
+        dataVenda: String(payload.data_venda || ""),
         recibos: recibosForSync,
         pagamentos,
       });

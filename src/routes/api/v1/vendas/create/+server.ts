@@ -158,6 +158,7 @@ export async function POST(event) {
       clienteId,
       vendedorId,
       userId: user.id,
+      dataVenda: String(vendaPayload.data_venda || ""),
       recibos,
       pagamentos,
     });

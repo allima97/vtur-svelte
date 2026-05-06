@@ -752,6 +752,7 @@ export async function POST(event) {
           valor_total: parseMoney(contrato.total_pago ?? contrato.total_bruto),
           valor_taxas: parseMoney(contrato.taxas_embarque),
           valor_du: parseMoney(contrato.taxa_du),
+          data_venda: dataVenda,
           data_inicio: contrato.data_saida || null,
           data_fim: contrato.data_retorno || null,
           contrato_path: null,
