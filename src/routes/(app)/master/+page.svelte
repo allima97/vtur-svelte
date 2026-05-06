@@ -83,7 +83,7 @@
   {#if loading}
     <LoadingState />
   {:else}
-    <div class="vtur-kpi-grid mb-6">
+    <div class="vtur-kpi-grid vtur-kpi-grid-3 mb-6">
       <div class="vtur-kpi-card">
         <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><Users size={20} /></div>
         <div>
@@ -112,7 +112,7 @@
   {/if}
 
   <Card color="financeiro" title="Modulos master">
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid gap-4 lg:grid-cols-3">
       {#each modules as item}
         <Button
           type="button"
