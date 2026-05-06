@@ -194,25 +194,25 @@
     >
       <thead>
         <tr>
-          <th>Data</th>
-          <th>Módulo</th>
-          <th>Ação</th>
-          <th>Usuário</th>
-          <th>IP</th>
-          <th>Detalhes</th>
+          <th class="px-5 py-3 text-left">Data</th>
+          <th class="px-5 py-3 text-left">Módulo</th>
+          <th class="px-5 py-3 text-left">Ação</th>
+          <th class="px-5 py-3 text-left">Usuário</th>
+          <th class="px-5 py-3 text-left">IP</th>
+          <th class="px-5 py-3 text-left">Detalhes</th>
         </tr>
       </thead>
       <tbody>
         {#each logs as log}
           <tr>
-            <td class="whitespace-nowrap">{formatDateTime(log.created_at)}</td>
-            <td>
+            <td class="whitespace-nowrap px-5 py-3">{formatDateTime(log.created_at)}</td>
+            <td class="px-5 py-3">
               <Badge color="yellow" size="sm">{log.modulo || '-'}</Badge>
             </td>
-            <td class="font-medium text-slate-900">{log.acao || '-'}</td>
-            <td class="max-w-[240px] truncate">{userLabel(log)}</td>
-            <td class="font-mono text-xs text-slate-500">{log.ip || '-'}</td>
-            <td class="max-w-[420px] truncate text-xs text-slate-500">
+            <td class="px-5 py-3 font-medium text-slate-900">{log.acao || '-'}</td>
+            <td class="max-w-[240px] truncate px-5 py-3">{userLabel(log)}</td>
+            <td class="px-5 py-3 font-mono text-xs text-slate-500">{log.ip || '-'}</td>
+            <td class="max-w-[420px] truncate px-5 py-3 text-xs text-slate-500">
               {formatDetails(log.detalhes)}
             </td>
           </tr>
