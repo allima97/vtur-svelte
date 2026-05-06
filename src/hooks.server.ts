@@ -686,6 +686,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		const isSystemAdminAllowedRoute =
 			pathMatchesPrefix(pathname, '/admin') ||
 			pathMatchesPrefix(pathname, '/dashboard/admin') ||
+			pathMatchesPrefix(pathname, '/dashboard/logs') ||
 			(pathMatchesPrefix(pathname, '/perfil') && !pathMatchesPrefix(pathname, '/perfil/escala')) ||
 			pathMatchesPrefix(pathname, '/negado') ||
 			pathMatchesPrefix(pathname, '/documentacao');

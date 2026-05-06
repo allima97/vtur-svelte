@@ -4,14 +4,14 @@
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
+  import { BottomSheet, FieldCheckbox, FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import { addMonthsISODate, todayISODateLocal } from '$lib/date';
   import { formatCurrency, formatYearMonthLabel } from '$lib/utils/formatters';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { confirmAction } from '$lib/stores/confirm';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
-  import { CopyCheck, Pencil, Plus, RefreshCw, Target, Trash2 } from 'lucide-svelte';
+  import { CopyCheck, Pencil, Plus, RefreshCw, SlidersHorizontal, Target, Trash2 } from 'lucide-svelte';
 
   type Produto = {
     id: string;
@@ -68,6 +68,7 @@
   let deletingId = '';
   let modalOpen = false;
   let bulkOpen = false;
+  let showFilterSheet = false;
   let form = createForm();
   let bulkForm = createBulkForm();
 
@@ -371,7 +372,14 @@
   ]}
 />
 
-<Card title="Filtros" padding="md" class="mb-6">
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+  </Button>
+</div>
+
+<Card title="Filtros" padding="md" class="mb-6 hidden sm:block">
   <div class="grid gap-4 md:grid-cols-[220px_minmax(220px,320px)] md:items-end">
     <FieldSelect
       id="metas-periodo-filtro"
@@ -392,6 +400,32 @@
     />
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar metas">
+  <div class="space-y-4">
+    <FieldSelect
+      id="metas-periodo-filtro-mobile"
+      label="Mês"
+      bind:value={periodo}
+      options={monthOptions}
+      placeholder={null}
+      on:change={load}
+    />
+
+    <FieldSelect
+      id="metas-vendedor-filtro-mobile"
+      label="Vendedor"
+      bind:value={vendedorFiltro}
+      options={vendedorOptions}
+      placeholder={null}
+      on:change={load}
+    />
+
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
 
 <div class="vtur-kpi-grid vtur-kpi-grid-4 mb-6">
   <div class="vtur-kpi-card">

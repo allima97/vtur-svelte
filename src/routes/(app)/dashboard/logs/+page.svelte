@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import { RefreshCw } from 'lucide-svelte';
+  import { RefreshCw, SlidersHorizontal } from 'lucide-svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import Badge from '$lib/components/ui/Badge.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import SimpleTable from '$lib/components/ui/SimpleTable.svelte';
   import PaginationControls from '$lib/components/ui/PaginationControls.svelte';
-  import { FieldInput } from '$lib/components/ui';
+  import { BottomSheet, FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { formatDateTime } from '$lib/utils/formatters';
@@ -42,6 +43,7 @@
   let pageSize = 50;
   let tipo = '';
   let userId = '';
+  let showFilterSheet = false;
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -137,7 +139,14 @@
 />
 
 <div class="space-y-6">
-  <Card title="Filtros">
+  <div class="sm:hidden">
+    <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+      <SlidersHorizontal size={16} class="mr-2" />
+      Filtros
+    </Button>
+  </div>
+
+  <Card title="Filtros" class="hidden sm:block">
     <div class="grid gap-4 lg:grid-cols-2">
       <FieldInput
         id="log-modulo"
@@ -153,6 +162,27 @@
       />
     </div>
   </Card>
+
+  <BottomSheet bind:open={showFilterSheet} title="Filtrar logs">
+    <div class="space-y-4">
+      <FieldInput
+        id="log-modulo-mobile"
+        label="Módulo"
+        bind:value={tipo}
+        placeholder="Ex.: admin, vendas, conciliacao"
+      />
+      <FieldInput
+        id="log-user-mobile"
+        label="ID do usuário"
+        bind:value={userId}
+        placeholder="UUID do usuário"
+      />
+
+      <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+        Aplicar filtros
+      </Button>
+    </div>
+  </BottomSheet>
 
   {#if loading}
     <LoadingState />

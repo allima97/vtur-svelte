@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { PageHeader, Card, Button, Dialog, DataTable, FieldInput, FieldSelect, BottomSheet } from '$lib/components/ui';
   import { 
     Calculator, RefreshCw, AlertCircle,
-    DollarSign, TrendingUp, Wallet
+    DollarSign, TrendingUp, Wallet, SlidersHorizontal
   } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { currentMonthRangeISODate, parseISODateParts, todayISODateLocal } from '$lib/date';
@@ -38,6 +38,7 @@
   let calculando = false;
   let showConfirmDialog = false;
   let showResultDialog = false;
+  let showFilterSheet = false;
   let resultadoCalculo: {
     processadas: number;
     erro: number;
@@ -391,7 +392,14 @@
 />
 
 <!-- Filtros -->
-<Card header="Filtros de Cálculo" color="financeiro" class="mb-6">
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+  </Button>
+</div>
+
+<Card header="Filtros de Cálculo" color="financeiro" class="mb-6 hidden sm:block">
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
     {#if canSelectEmpresa}
       <FieldSelect
@@ -471,6 +479,90 @@
     </Button>
   </div>
 </Card>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar cálculo">
+  <div class="space-y-4">
+    {#if canSelectEmpresa}
+      <FieldSelect
+        label="Empresa"
+        bind:value={empresaId}
+        options={empresaOptions}
+        placeholder={null}
+        class_name="w-full"
+        on:change={handleEmpresaChange}
+      />
+    {/if}
+
+    <FieldInput
+      label="Data Início"
+      type="date"
+      bind:value={filtroDataInicio}
+      class_name="w-full"
+    />
+
+    <FieldInput
+      label="Data Fim"
+      type="date"
+      bind:value={filtroDataFim}
+      min={filtroDataInicio || null}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      label="Mês Referência"
+      bind:value={filtroMes}
+      options={Array.from({ length: 12 }, (_, i) => ({
+        value: String(i + 1),
+        label: formatMonthName(i + 1)
+      }))}
+      class_name="w-full"
+    />
+
+    <FieldInput
+      label="Ano"
+      type="number"
+      bind:value={filtroAno}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      label="Status"
+      bind:value={filtroStatus}
+      options={statusOptions}
+      class_name="w-full"
+    />
+
+    <FieldSelect
+      label="Vendedor (opcional)"
+      bind:value={filtroVendedor}
+      options={[
+        { value: '', label: 'Todos os vendedores' },
+        ...vendedores.map((v) => ({ value: getVendedorId(v), label: getVendedorNome(v) }))
+      ]}
+      class_name="w-full"
+    />
+
+    <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+
+    <Button
+      variant="primary"
+      color="financeiro"
+      class_name="w-full"
+      on:click={openConfirmDialog}
+      disabled={calculando}
+    >
+      {#if calculando}
+        <RefreshCw size={16} class="mr-2 animate-spin" />
+        Calculando...
+      {:else}
+        <Calculator size={16} class="mr-2" />
+        Calcular Comissões
+      {/if}
+    </Button>
+  </div>
+</BottomSheet>
 
 <!-- Resumo -->
 <div class="vtur-kpi-grid mb-6">
