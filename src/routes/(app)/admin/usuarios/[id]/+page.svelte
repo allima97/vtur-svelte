@@ -245,13 +245,17 @@
         throw new Error('Selecione uma empresa para enviar convite.');
       }
 
-      await apiPost('/api/v1/convites/send', {
-        nome_completo: userForm.nome_completo,
-        email: userForm.email,
-        user_type_id: userForm.user_type_id,
-        company_id: userForm.uso_individual ? null : userForm.company_id,
-        uso_individual: userForm.uso_individual,
-        active: userForm.active
+      await apiFetch('/api/v1/convites/send', {
+        method: 'POST',
+        timeoutMs: 60_000,
+        body: {
+          nome_completo: userForm.nome_completo,
+          email: userForm.email,
+          user_type_id: userForm.user_type_id,
+          company_id: userForm.uso_individual ? null : userForm.company_id,
+          uso_individual: userForm.uso_individual,
+          active: userForm.active
+        }
       });
 
       toast.success('Convite enviado com sucesso.');
