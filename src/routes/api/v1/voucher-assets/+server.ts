@@ -40,6 +40,7 @@ function dedupeById<T extends { id?: string | null }>(rows: T[]) {
 
 function canAccessVoucherAssets(scope: any, level: number) {
   if (scope.isAdmin) return true;
+  if (scope.isMaster || scope.isGestor) return true;
   ensureModuloAccess(scope, ['parametros', 'vouchers', 'operacao'], level, 'Sem acesso a Voucher Assets.');
   return true;
 }

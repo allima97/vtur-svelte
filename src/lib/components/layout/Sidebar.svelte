@@ -23,6 +23,7 @@
     FileText,
     Gift,
     Globe,
+    ImagePlus,
     LayoutDashboard,
     LogOut,
     Mail,
@@ -160,6 +161,7 @@
         { key: 'cambios', name: 'Câmbios', href: '/parametros/cambios', icon: Banknote },
         { key: 'tipo_pacotes', name: 'Tipo Pacotes', href: '/parametros/tipo-pacotes', icon: Package },
         { key: 'tipo_produtos', name: 'Tipo Produtos', href: '/parametros/tipo-produtos', icon: Package },
+        { key: 'vouchers_assets', name: 'Vouchers', href: '/parametros/vouchers', icon: ImagePlus },
         { key: 'orcamentos_pdf', name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
         { key: 'crm', name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
         { key: 'avisos', name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
@@ -266,6 +268,7 @@
     if (item.systemOnly && !$permissoes.isSystemAdmin) return false;
     if (item.key === 'vendas_financeiro' && !$permissoes.isFinanceiro) return false;
     if (item.key === 'ultimas_compras' && !($permissoes.isMaster || $permissoes.isGestor)) return false;
+    if (item.key === 'vouchers_assets' && !($permissoes.isMaster || $permissoes.isGestor || $permissoes.isSystemAdmin)) return false;
     if (item.key === 'fechamento' && !$permissoes.isFinanceiro) return false;
     if (item.key === 'notas_fiscais' && !$permissoes.isFinanceiro) return false;
 

@@ -64,12 +64,16 @@
   $: canEdit =
     !$permissoes.ready ||
     $permissoes.isSystemAdmin ||
+    $permissoes.isMaster ||
+    $permissoes.isGestor ||
     permissoes.can('parametros', 'edit') ||
     permissoes.can('parametros', 'admin') ||
     permissoes.can('operacao', 'edit');
   $: canDelete =
     !$permissoes.ready ||
     $permissoes.isSystemAdmin ||
+    $permissoes.isMaster ||
+    $permissoes.isGestor ||
     permissoes.can('parametros', 'delete') ||
     permissoes.can('parametros', 'admin') ||
     permissoes.can('operacao', 'delete');
@@ -241,11 +245,11 @@
 </script>
 
 <svelte:head>
-  <title>Vouchers: Logos, Ícones e Imagens | VTUR</title>
+  <title>Parâmetros Vouchers | VTUR</title>
 </svelte:head>
 
 <PageHeader
-  title="Vouchers: Logos, Ícones e Imagens"
+  title="Parâmetros Vouchers"
   subtitle="Gerencie os assets usados no preview e na impressão dos vouchers por fornecedor e tipo."
   color="operacao"
   breadcrumbs={[

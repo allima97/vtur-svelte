@@ -185,6 +185,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/parametros/cambios': 'Cambios',
   '/parametros/crm': 'CRM',
   '/parametros/avisos': 'Avisos',
+  '/parametros/vouchers': 'Parametros',
   '/parametros/orcamentos': 'Orcamentos (PDF)',
   '/parametros/formas-pagamento': 'Formas de Pagamento',
   '/parametros/metas': 'Metas',
