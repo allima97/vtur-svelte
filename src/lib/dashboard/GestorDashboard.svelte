@@ -6,7 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Award, BarChart2, Calendar, Clock, MapPin, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Calendar, Clock, Gift, MapPin, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { goto } from '$app/navigation';
@@ -79,6 +79,15 @@
     ultimasCompras?: DashboardCompra[];
   };
 
+  type Aniversariante = {
+    id: string;
+    nome: string;
+    nascimento: string | null;
+    telefone?: string | null;
+    whatsapp?: string | null;
+    aniversario_hoje?: boolean | null;
+  };
+
   let loading = true;
   let errorMessage: string | null = null;
   let userCtx: SummaryPayload['userCtx'] = null;
@@ -121,6 +130,7 @@
   let topVendedores: NonNullable<DashboardCompraPayload['topVendedores']> = [];
   let topClientes: NonNullable<DashboardCompraPayload['topClientes']> = [];
   let ultimasCompras: DashboardCompra[] = [];
+  let aniversariantes: Aniversariante[] = [];
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -128,6 +138,28 @@
 
   function formatDate(value: string | null | undefined) {
     return formatDateValue(value);
+  }
+
+  function getInitials(value: string | null | undefined) {
+    return String(value || '-')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join('')
+      .toUpperCase() || '-';
+  }
+
+  function formatBirthdayContext(value: string | null | undefined) {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^\d{4}-(\d{2})-(\d{2})/);
+    if (!match) return '-';
+    const today = todayISODateLocal();
+    const todayParts = today.match(/^\d{4}-(\d{2})-(\d{2})/);
+    const monthDay = `${match[1]}-${match[2]}`;
+    if (todayParts && monthDay === `${todayParts[1]}-${todayParts[2]}`) return 'Hoje';
+    return `${match[2]}/${match[1]}`;
   }
 
   function clamp(value: number, min: number, max: number) {
@@ -188,7 +220,6 @@
   $: followUpEmptyLabel = isFiltroVendedorAtivo
     ? `Nenhum cliente retornado pendente de follow-up para ${vendedorSelecionadoNome}.`
     : 'Nenhum cliente retornado pendente de follow-up.';
-  $: comprasScopeLabel = userCtx?.papel === 'MASTER' ? 'todas as equipes' : 'equipe';
   function getMonthRange(monthValue: string) {
     const raw = String(monthValue || '').trim();
     if (!/^\d{4}-\d{2}$/.test(raw)) return { inicio: defaultPeriod.inicio, fim: defaultPeriod.fim };
@@ -291,8 +322,10 @@
 
   async function loadOperational() {
     const params: Record<string, string> = {};
-    if (empresaSelecionada) params.company_id = empresaSelecionada;
-    if (vendedorSelecionado) params.vendedor_ids = vendedorSelecionado;
+    if (userCtx?.papel !== 'MASTER') {
+      if (empresaSelecionada) params.company_id = empresaSelecionada;
+      if (vendedorSelecionado) params.vendedor_ids = vendedorSelecionado;
+    }
 
     try {
       const data = await apiGet<{ items: FollowUp[] }>('/api/v1/dashboard/follow-ups', {
@@ -310,11 +343,12 @@
 
   async function loadComprasResumo() {
     try {
+      const isMaster = userCtx?.papel === 'MASTER';
       const payload = await apiGet<DashboardCompraPayload>('/api/v1/dashboard/ultimas-compras', {
         inicio: periodoInicio,
         fim: periodoFim,
-        company_id: empresaSelecionada || undefined,
-        vendedor_ids: vendedorSelecionado || undefined,
+        company_id: isMaster ? undefined : empresaSelecionada || undefined,
+        vendedor_ids: isMaster ? undefined : vendedorSelecionado || undefined,
         limit: 5
       });
       topVendedores = payload.topVendedores || [];
@@ -327,11 +361,25 @@
     }
   }
 
+  async function loadAniversariantes() {
+    try {
+      const data = await apiGet<{ items?: Aniversariante[] }>('/api/v1/dashboard/aniversariantes', {
+        dias: 30,
+        company_id: userCtx?.papel === 'MASTER' ? undefined : empresaSelecionada || undefined,
+        limit: 5
+      });
+      aniversariantes = data.items || [];
+    } catch {
+      aniversariantes = [];
+    }
+  }
+
   async function atualizar() {
     if (empresaSelecionada !== lastBaseCompanyId) {
       await loadBase();
     }
-    await Promise.all([loadDashboard(), loadOperational(), loadComprasResumo()]);
+    await loadDashboard();
+    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes()]);
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
@@ -366,7 +414,8 @@
     vendedorSelecionado = params.get('vendedor_id') || '';
 
     await loadBase();
-    await Promise.all([loadDashboard(), loadOperational(), loadComprasResumo()]);
+    await loadDashboard();
+    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
@@ -538,6 +587,40 @@
   </div>
 </KPIGrid>
 
+<div class="vtur-card mb-6 p-6">
+  <div class="mb-4 flex items-center gap-3">
+    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+      <Award size={18} />
+    </div>
+    <div>
+      <h3 class="text-base font-bold text-slate-900">Top 3 vendedores</h3>
+      <p class="text-xs text-slate-500">{userCtx?.papel === 'MASTER' ? 'Ranking de todas as lojas do master por receita' : 'Ranking da equipe por receita'}</p>
+    </div>
+  </div>
+  <div class="border-t border-slate-100 pt-4">
+    {#if loading}
+      <LoadingState compact={true} />
+    {:else if topVendedores.length === 0}
+      <p class="py-6 text-center text-sm text-slate-400">Sem vendedores com compras no período.</p>
+    {:else}
+      <div class="grid gap-3 md:grid-cols-3">
+        {#each topVendedores as item, index}
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-orange-200 hover:bg-orange-50">
+            <div class="flex min-w-0 items-center gap-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">{index + 1}</span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.vendedor_nome}</p>
+                <p class="text-xs text-slate-500">{item.quantidade} compra(s)</p>
+              </div>
+            </div>
+            <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</div>
+
 <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center gap-3">
@@ -580,41 +663,9 @@
       {/if}
     </div>
   </div>
+</div>
 
-  <div class="vtur-card p-6">
-    <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-        <Award size={18} />
-      </div>
-      <div>
-        <h3 class="text-base font-bold text-slate-900">Top 3 vendedores</h3>
-        <p class="text-xs text-slate-500">Ranking de {comprasScopeLabel} por receita</p>
-      </div>
-    </div>
-    <div class="border-t border-slate-100 pt-4">
-      {#if loading}
-        <LoadingState compact={true} />
-      {:else if topVendedores.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">Sem vendedores com compras no período.</p>
-      {:else}
-        <div class="space-y-3">
-          {#each topVendedores as item, index}
-            <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-orange-200 hover:bg-orange-50">
-              <div class="flex min-w-0 items-center gap-3">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">{index + 1}</span>
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-semibold text-slate-900">{item.vendedor_nome}</p>
-                  <p class="text-xs text-slate-500">{item.quantidade} compra(s)</p>
-                </div>
-              </div>
-              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </div>
-
+<div class="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-4">
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center gap-3">
       <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600">
@@ -636,7 +687,7 @@
             <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-green-200 hover:bg-green-50">
               <div class="flex min-w-0 gap-3">
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white">
-                  {item.cliente_nome.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()}
+                  {getInitials(item.cliente_nome)}
                 </div>
                 <div class="min-w-0">
                   <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
@@ -719,6 +770,39 @@
                   Retorno: {formatDate(getFollowUpRetorno(item))}
                   {#if getFollowUpDestino(item)} · {getFollowUpDestino(item)}{/if}
                 </p>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+        <Gift size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Aniversariantes</h3>
+        <p class="text-xs text-slate-500">Próximos aniversários dos clientes</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loading}
+        <LoadingState compact={true} />
+      {:else if aniversariantes.length === 0}
+        <p class="py-6 text-center text-sm text-slate-400">Sem aniversariantes nos próximos dias.</p>
+      {:else}
+        <div class="space-y-3">
+          {#each aniversariantes.slice(0, 5) as item}
+            <div class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-emerald-200 hover:bg-emerald-50">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">
+                {getInitials(item.nome)}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-slate-900">{item.nome}</p>
+                <p class="text-xs text-slate-500">{formatBirthdayContext(item.nascimento)}</p>
               </div>
             </div>
           {/each}
