@@ -1905,16 +1905,16 @@
         on:change={handleEmpresaChange}
       />
     {/if}
-    <Button variant="secondary" on:click={abrirImportacao}>
-      <Upload size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={abrirImportacao}>
+      <Upload size={14} class="mr-1.5" />
       Importar
     </Button>
-    <Button variant="secondary" on:click={exportRows}>
-      <Download size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={exportRows}>
+      <Download size={14} class="mr-1.5" />
       Exportar
     </Button>
-    <Button color="financeiro" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
-      <RefreshCcw size={16} class="mr-2" />Conciliar pendentes
+    <Button color="financeiro" size="sm" class_name="h-9 rounded-lg !px-3" on:click={() => runAutoConciliacao()} disabled={running} loading={running}>
+      <RefreshCcw size={14} class="mr-1.5" />Conciliar pendentes
     </Button>
     <div class="flex items-center gap-1">
       <FieldInput
@@ -1926,20 +1926,20 @@
         class_name="w-[150px]"
       />
     </div>
-    <Button variant="secondary" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
-      <Database size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={cleanupDuplicateRows} disabled={running || !monthFilter} loading={running}>
+      <Database size={14} class="mr-1.5" />
       Sanear duplicados
     </Button>
-    <Button variant="secondary" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
-      <RefreshCcw size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={forceRecalculateMonth} disabled={running || !monthFilter} loading={running}>
+      <RefreshCcw size={14} class="mr-1.5" />
       Recalcular mês
     </Button>
-    <Button variant="secondary" on:click={() => runFixVinculosAudit()} disabled={running || fixingVinculos} loading={fixingVinculos} title="Audita vínculos entre registros de conciliação e recibos de venda">
-      <ShieldAlert size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={() => runFixVinculosAudit()} disabled={running || fixingVinculos} loading={fixingVinculos} title="Audita vínculos entre registros de conciliação e recibos de venda">
+      <ShieldAlert size={14} class="mr-1.5" />
       Auditar vínculos
     </Button>
-    <Button variant="secondary" on:click={loadAll} disabled={loading} loading={loading}>
-      <RefreshCcw size={16} class="mr-2" />
+    <Button variant="secondary" size="sm" class_name="h-9 rounded-lg !px-3" on:click={loadAll} disabled={loading} loading={loading}>
+      <RefreshCcw size={14} class="mr-1.5" />
       Atualizar
     </Button>
   </div>

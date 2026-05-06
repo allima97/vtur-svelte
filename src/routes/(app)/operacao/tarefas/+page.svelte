@@ -585,14 +585,14 @@
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
@@ -660,14 +660,14 @@
       <div class="flex gap-2">
         <Button
           variant={viewMode === 'kanban' ? 'selected' : 'secondary'}
-          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
           on:click={() => (viewMode = 'kanban')}
         >
           Kanban
         </Button>
         <Button
           variant={viewMode === 'lista' ? 'selected' : 'secondary'}
-          class_name="box-border h-[42px] flex-1 rounded-lg text-xs leading-none"
+          class_name="box-border h-9 min-w-[96px] rounded-lg !px-3 !py-0 text-xs leading-none"
           on:click={() => (viewMode = 'lista')}
         >
           Lista
