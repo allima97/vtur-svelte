@@ -14,7 +14,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 
-import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
+import { fetchVendasKpiReciboContributionsRaw } from "$lib/server/vendas-kpis";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { addDaysISODate, diffDaysISODate, monthRangeFromKey } from "$lib/date";
 import {
@@ -71,7 +71,7 @@ async function buildRankingSimple(
   },
 ) {
   const { dataInicio, dataFim, companyIds, vendedorIds } = params;
-  const canonical = await fetchVendasKpiReciboContributions(client, {
+  const canonical = await fetchVendasKpiReciboContributionsRaw(client, {
     dataInicio,
     dataFim,
     companyIds,
