@@ -328,13 +328,49 @@ export async function markRankingReadModelDirty(params: {
   const companyId = toNullableString(params.companyId);
   const dataVenda = toNullableString(params.dataVenda);
   if (!companyId || !isISODate(String(dataVenda || ""))) return;
+  const dataVendaIso = String(dataVenda);
 
-  await params.client
-    .rpc("fn_mark_ranking_read_model_dirty", {
+  try {
+    const { error } = await params.client.rpc("fn_mark_ranking_read_model_dirty", {
       p_company_id: companyId,
-      p_date: dataVenda,
-    })
-    .catch(() => undefined);
+      p_date: dataVendaIso,
+    });
+    if (!error) return;
+  } catch {
+    // Ambientes antigos podem não ter a RPC; abaixo gravamos o status diretamente.
+  }
+
+  const mes = `${dataVendaIso.slice(0, 7)}-01`;
+  try {
+    const statusPayload = {
+      modelo: "recibo_contribuicoes_v1",
+      company_id: companyId,
+      mes,
+      status: "dirty",
+      dirty_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { data: existing, error: existingError } = await params.client
+      .from("ranking_read_model_status")
+      .select("id")
+      .eq("modelo", statusPayload.modelo)
+      .eq("company_id", companyId)
+      .eq("mes", mes)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) return;
+    if (existing?.id) {
+      await params.client
+        .from("ranking_read_model_status")
+        .update(statusPayload)
+        .eq("id", existing.id);
+      return;
+    }
+    await params.client.from("ranking_read_model_status").insert(statusPayload);
+  } catch {
+    // A ausência do read model não deve bloquear criação/importação de venda.
+  }
 }
 
 export async function syncVendaChildren(params: {
