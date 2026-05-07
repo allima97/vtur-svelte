@@ -11,7 +11,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { fetchAndComputeVendasKpis } from '$lib/server/vendas-kpis';
+import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -84,7 +84,7 @@ export async function GET(event) {
       ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
       : [];
 
-    const kpis = await fetchAndComputeVendasKpis(client, {
+    const { agg: kpis } = await fetchVendasKpiReciboContributionsRaw(client, {
       dataInicio: inicio,
       dataFim: fim,
       companyIds,
