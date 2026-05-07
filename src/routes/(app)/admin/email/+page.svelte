@@ -6,7 +6,7 @@
   import { FieldInput, FieldCheckbox } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { Send, RefreshCw } from 'lucide-svelte';
-  import { apiGet, apiPost } from '$lib/services/api';
+  import { apiFetch, apiGet, apiPost } from '$lib/services/api';
 
   let loading = true;
   let saving = false;
@@ -68,8 +68,14 @@
   async function sendTestEmail() {
     sendingTest = true;
     try {
-      await apiPost('/api/v1/admin/email/test', {
-        to: testEmail || form.admin_from_email || form.avisos_from_email
+      await apiFetch('/api/v1/admin/email/test', {
+        method: 'POST',
+        timeoutMs: 60_000,
+        body: {
+          to: testEmail || form.admin_from_email || form.avisos_from_email,
+          ...form,
+          smtp_port: Number(form.smtp_port)
+        }
       });
       toast.success('E-mail de teste enviado com sucesso.');
     } catch (err) {
@@ -99,7 +105,7 @@
 <div class="space-y-6">
   <Card color="financeiro" title="Envio principal">
     <div class="grid gap-4 md:grid-cols-2">
-      <FieldInput id="resend-key" label="Resend API key" bind:value={form.resend_api_key} class_name="md:col-span-2 w-full" />
+      <FieldInput id="resend-key" label="Resend API key" type="password" bind:value={form.resend_api_key} class_name="md:col-span-2 w-full" />
       <FieldInput id="smtp-host" label="SMTP host" bind:value={form.smtp_host} class_name="w-full" />
       <FieldInput id="smtp-port" label="SMTP port" bind:value={form.smtp_port} class_name="w-full" />
       <FieldInput id="smtp-user" label="SMTP user" bind:value={form.smtp_user} class_name="w-full" />

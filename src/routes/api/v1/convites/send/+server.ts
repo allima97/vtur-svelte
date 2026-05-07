@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { env } from '$env/dynamic/private';
 import { getAdminClient, isUuid, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { renderEmailHtml, renderEmailText } from '$lib/server/emailMarkdown';
 import { buildFromEmails, resolveFromEmails, resolveResendApiKey } from '$lib/server/emailSettings';
@@ -56,7 +57,20 @@ function isAuthAlreadyRegisteredError(error: any) {
 }
 
 function providerPayloadMessage(payload: any) {
-  return String(payload?.message || payload?.error || payload?.name || '').slice(0, 240);
+  if (!payload) return "";
+  if (typeof payload === "string") return payload.slice(0, 240);
+  const errors = Array.isArray(payload?.errors)
+    ? payload.errors
+        .map((item: any) => item?.message || item?.field || item?.help)
+        .filter(Boolean)
+        .join("; ")
+    : "";
+  return String(payload?.message || payload?.error || payload?.name || errors || "").slice(0, 240);
+}
+
+function providerErrorStatus(provider: string, status?: string | number, payload?: any) {
+  const detail = providerPayloadMessage(payload);
+  return detail ? `${provider}:${status || "erro"}:${detail}` : `${provider}:${status || "erro"}`;
 }
 
 async function getUserTypeNameById(client: ReturnType<typeof getAdminClient>, userTypeId: string) {
@@ -100,20 +114,26 @@ async function enviarEmailResend(params: {
   if (!key || !fromEmail) {
     return { ok: false, status: "resend_not_configured" };
   }
-  const resp = await fetchWithTimeout("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-      text: params.text,
-    }),
-  }, 6_000);
+  let resp: Response;
+  try {
+    resp = await fetchWithTimeout("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      }),
+    }, 12_000);
+  } catch (err: any) {
+    logServerError("[convites/send] excecao no Resend", err);
+    return { ok: false, status: err?.name === "AbortError" ? "resend_timeout" : "resend_exception", error: err?.message || err };
+  }
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     logServerError("[convites/send] falha no Resend", new Error("Resend provider error"), {
@@ -139,7 +159,45 @@ async function enviarEmailSendGrid(params: {
   text: string;
   fromEmail?: string;
 }) {
-  return { ok: false, status: "sendgrid_not_implemented" };
+  const apiKey = String(env.SENDGRID_API_KEY || "").trim();
+  const fromEmail = params.fromEmail || env.SENDGRID_FROM_EMAIL || env.ALERTA_FROM_EMAIL || env.ADMIN_FROM_EMAIL;
+  if (!apiKey || !fromEmail) {
+    return { ok: false, status: "sendgrid_not_configured" };
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetchWithTimeout("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: params.to.map((dest) => ({ to: [{ email: dest }] })),
+        from: { email: fromEmail },
+        subject: params.subject,
+        content: [
+          { type: "text/plain", value: params.text },
+          { type: "text/html", value: params.html },
+        ],
+      }),
+    }, 12_000);
+  } catch (err: any) {
+    logServerError("[convites/send] excecao no SendGrid", err);
+    return { ok: false, status: err?.name === "AbortError" ? "sendgrid_timeout" : "sendgrid_exception", error: err?.message || err };
+  }
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    logServerError("[convites/send] falha no SendGrid", new Error("SendGrid provider error"), {
+      status: resp.status,
+      message: providerPayloadMessage(errText),
+    });
+    return { ok: false, status: String(resp.status || "sendgrid_error"), error: errText };
+  }
+
+  return { ok: true, status: String(resp.status || 202) };
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -409,7 +467,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       const sendgridResp = await enviarEmailSendGrid({ to, subject, html, text, fromEmail });
       if (!sendgridResp.ok) {
         return noStoreJson(
-          { error: "Convite criado, mas falha ao enviar e-mail (Resend/SendGrid)." },
+          {
+            error: "Convite criado, mas falha ao enviar e-mail. Verifique a chave do Resend/SendGrid e o remetente configurado.",
+            delivery: {
+              resend: providerErrorStatus("resend", resendResp.status, (resendResp as any).error),
+              sendgrid: providerErrorStatus("sendgrid", sendgridResp.status, (sendgridResp as any).error),
+            },
+          },
           { status: 500 }
         );
       }

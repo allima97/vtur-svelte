@@ -102,9 +102,11 @@ export function buildFromEmails(settings: Partial<EmailSettingsRow> | null): Fro
     settings?.admin_from_email ||
     env.ALERTA_FROM_EMAIL ||
     env.ADMIN_FROM_EMAIL ||
+    env.RESEND_FROM_EMAIL ||
+    env.SENDGRID_FROM_EMAIL ||
     smtpUserEmail;
 
-  const avisos = settings?.avisos_from_email || env.AVISOS_FROM_EMAIL || defaultFrom;
+  const avisos = settings?.avisos_from_email || env.AVISOS_FROM_EMAIL || env.RESEND_FROM_EMAIL || env.SENDGRID_FROM_EMAIL || defaultFrom;
   const financeiro =
     settings?.financeiro_from_email ||
     env.FINANCEIRO_FROM_EMAIL ||
