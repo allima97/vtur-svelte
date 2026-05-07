@@ -12,6 +12,7 @@
     AlertCircle,
     Banknote,
     BarChart2,
+    BellRing,
     Building2,
     Calendar,
     ChevronDown,
@@ -165,7 +166,7 @@
         { key: 'vouchers_assets', name: 'Vouchers', href: '/parametros/vouchers', icon: ImagePlus },
         { key: 'orcamentos_pdf', name: 'Orçamentos PDF', href: '/parametros/orcamentos', icon: FileText },
         { key: 'crm', name: 'CRM', href: '/parametros/crm', icon: MessageSquare },
-        { key: 'avisos', name: 'Avisos', href: '/parametros/avisos', icon: MessageSquare },
+        { key: 'avisos', name: 'Avisos', href: '/parametros/avisos', icon: BellRing },
         { key: 'empresa', name: 'Empresa', href: '/parametros/empresa', icon: Building2 }
       ]
     },
