@@ -17,7 +17,7 @@
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    Coins,
+    CircleDollarSign,
     CreditCard,
     FileChartColumn,
     FileSpreadsheet,
@@ -121,7 +121,7 @@
       title: 'OPERAÇÃO',
       collapsible: true,
       items: [
-        { key: 'vendas', name: 'Vendas', href: '/vendas', icon: Coins },
+        { key: 'vendas', name: 'Vendas', href: '/vendas', icon: CircleDollarSign },
         { key: 'ultimas_compras', name: 'Últimas Compras', href: '/operacao/ultimas-compras', icon: ShoppingCart },
         { key: 'clientes', name: 'Clientes', href: '/clientes', icon: Users },
         { key: 'viagens', name: 'Viagens', href: '/operacao/viagens', icon: Plane },
@@ -141,7 +141,7 @@
       collapsible: true,
       items: [
         { key: 'caixa', name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
-        { key: 'vendas_financeiro', name: 'Vendas / Pagamentos', href: '/vendas', icon: Coins },
+        { key: 'vendas_financeiro', name: 'Vendas / Pagamentos', href: '/vendas', icon: CircleDollarSign },
         { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
         { key: 'comissoes', name: 'Comissionamento', href: '/financeiro/comissoes', icon: Wallet },
         { key: 'fechamento', name: 'Fechamento', href: '/comissoes/fechamento', icon: Wallet },
@@ -429,7 +429,7 @@
       ? [
           { key: 'dashboard', name: 'Dashboard', href: dashboardHref, icon: LayoutDashboard },
           { key: 'caixa', name: 'Caixa', href: '/financeiro/caixa', icon: TrendingUp },
-          { key: 'vendas_financeiro', name: 'Vendas', href: '/vendas', icon: Coins },
+          { key: 'vendas_financeiro', name: 'Vendas', href: '/vendas', icon: CircleDollarSign },
           { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
           { key: 'ajustes_vendas', name: 'Ajustes', href: '/financeiro/ajustes-vendas', icon: Settings },
           { key: 'comissoes', name: 'Comissões', href: '/financeiro/comissoes', icon: Wallet },
@@ -439,7 +439,7 @@
     : [
         { key: 'dashboard',       name: 'Dashboard',      href: dashboardHref,                    icon: LayoutDashboard },
         { key: 'clientes',        name: 'Clientes',       href: '/clientes',                      icon: Users },
-        { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: Coins },
+        { key: 'vendas',          name: 'Vendas',         href: '/vendas',                        icon: CircleDollarSign },
         { key: 'ultimas_compras', name: 'Últimas Compras',href: '/operacao/ultimas-compras',      icon: ShoppingCart },
         { key: 'orcamentos',      name: 'Orçamentos',     href: '/orcamentos',                    icon: FileText },
         { key: 'roteiros',        name: 'Roteiros',       href: '/orcamentos/roteiros',           icon: MapIcon },
