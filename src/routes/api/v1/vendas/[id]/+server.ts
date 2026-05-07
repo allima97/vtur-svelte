@@ -37,6 +37,47 @@ function logVendaError(context: string, err: unknown, extra?: Record<string, unk
   logServerError(context, err, extra);
 }
 
+async function fetchVendaLite(client: any, id: string) {
+  const { data, error: vendaError } = await client
+    .from("vendas")
+    .select(
+      "id, numero_venda, vendedor_id, cliente_id, company_id, data_lancamento, data_venda, data_embarque, data_final, valor_total, valor_total_bruto, valor_taxas, valor_total_pago, valor_nao_comissionado, status, cancelada, notas, created_at, updated_at, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (vendaError) throw vendaError;
+  if (!data) return null;
+
+  const [{ data: recibos, error: recibosError }, { data: pagamentos, error: pagamentosError }] =
+    await Promise.all([
+      client
+        .from("vendas_recibos")
+        .select(
+          "id, venda_id, produto_id, produto_resolvido_id, destino_cidade_id, numero_recibo, numero_recibo_normalizado, numero_reserva, tipo_pacote, valor_total, valor_taxas, valor_du, valor_rav, data_inicio, data_fim, contrato_url, contrato_path",
+        )
+        .eq("venda_id", id)
+        .limit(250),
+      client
+        .from("vendas_pagamentos")
+        .select(
+          "id, venda_id, forma_pagamento_id, forma_nome, operacao, plano, valor_bruto, desconto_valor, valor_total, parcelas, parcelas_qtd, parcelas_valor, vencimento_primeira, paga_comissao, observacoes, venda_recibo_id",
+        )
+        .eq("venda_id", id)
+        .limit(250),
+    ]);
+
+  if (recibosError) throw recibosError;
+  if (pagamentosError) throw pagamentosError;
+
+  return {
+    ...data,
+    recibos: recibos || [],
+    pagamentos: pagamentos || [],
+    _lite: true,
+  };
+}
+
 function mapSyncChildrenError(err: unknown) {
   const code = String((err as any)?.code || "").trim();
   const message = String((err as any)?.message || "").trim();
@@ -160,6 +201,12 @@ export async function GET(event) {
     );
     const scopedSale = await fetchSaleForScope({ client, scope, saleId: id, companyIds, vendedorIds });
     if (!scopedSale) throw error(404, "Venda não encontrada.");
+
+    if (event.url.searchParams.get("lite") === "1") {
+      const liteData = await fetchVendaLite(client, id);
+      if (!liteData) throw error(404, "Venda não encontrada.");
+      return json(liteData, { headers: NO_STORE_HEADERS });
+    }
 
     const selectClauses = [
       `*, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(*, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,

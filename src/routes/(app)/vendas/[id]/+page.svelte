@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -27,6 +27,8 @@
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
+  let showLoadingRecovery = false;
+  let loadingRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   let refreshing = false;
   let error: string | null = null;
   let processando = false;
@@ -224,6 +226,10 @@
     if (venda) void carregarRankingRecibos();
   });
 
+  onDestroy(() => {
+    stopLoadingRecoveryGuard();
+  });
+
   async function ensureProduto(produtoId: string) {
     const id = String(produtoId || '').trim();
     if (!id || produtosCache[id]) return;
@@ -241,8 +247,41 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  function startLoadingRecoveryGuard(delayMs = 6000) {
+    if (loadingRecoveryTimer) clearTimeout(loadingRecoveryTimer);
+    showLoadingRecovery = false;
+    loadingRecoveryTimer = setTimeout(() => {
+      showLoadingRecovery = true;
+    }, delayMs);
+  }
+
+  function stopLoadingRecoveryGuard() {
+    if (loadingRecoveryTimer) {
+      clearTimeout(loadingRecoveryTimer);
+      loadingRecoveryTimer = null;
+    }
+    showLoadingRecovery = false;
+  }
+
   function shouldRetryInitialLoad(err: unknown) {
     return err instanceof ApiError && [0, 404, 503, 504].includes(err.status);
+  }
+
+  async function applyVendaData(data: any, opts: { loadProdutos?: boolean } = {}) {
+    venda = data;
+
+    if (venda?.status === 'aberto') {
+      venda.status = 'pendente';
+    }
+
+    if (opts.loadProdutos !== false && Array.isArray(venda?.recibos)) {
+      const ids = new Set<string>();
+      venda.recibos.forEach((r: any) => {
+        if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
+        if (r?.produto_id) ids.add(String(r.produto_id));
+      });
+      await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
+    }
   }
 
   async function carregarVenda(opts: { preserveData?: boolean } = {}) {
@@ -259,6 +298,33 @@
       : 'Carregando os dados da venda...';
     error = null;
 
+    if (isInitialLoad) {
+      startLoadingRecoveryGuard(fromImport ? 3500 : 7000);
+    }
+
+    if (isInitialLoad && fromImport) {
+      try {
+        loadingHint = 'Abrindo a venda importada...';
+        const liteData: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+          redirectOnForbidden: false,
+          redirectOnUnauthorized: false,
+          timeoutMs: 6_000,
+          query: { lite: 1, t: Date.now() }
+        });
+        await applyVendaData(liteData, { loadProdutos: false });
+        loading = false;
+        refreshing = true;
+        stopLoadingRecoveryGuard();
+        void carregarVenda({ preserveData: true });
+        return;
+      } catch (err) {
+        lastError = err;
+        loading = true;
+        loadingHint = 'A venda foi importada. Estamos tentando abrir a ficha completa...';
+        startLoadingRecoveryGuard(3500);
+      }
+    }
+
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
@@ -267,22 +333,10 @@
           timeoutMs: 15_000,
           query: { t: Date.now() }
         });
-        venda = data;
-
-        if (venda?.status === 'aberto') {
-          venda.status = 'pendente';
-        }
-
-        if (Array.isArray(venda?.recibos)) {
-          const ids = new Set<string>();
-          venda.recibos.forEach((r: any) => {
-            if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
-            if (r?.produto_id) ids.add(String(r.produto_id));
-          });
-          await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
-        }
+        await applyVendaData(data);
         loading = false;
         refreshing = false;
+        stopLoadingRecoveryGuard();
         return;
       } catch (err: any) {
         lastError = err;
@@ -298,6 +352,14 @@
     }
 
     const err = lastError as any;
+    if (preserveData && venda) {
+      toast.error('Não foi possível atualizar todos os detalhes agora. A venda permanece aberta.');
+      loading = false;
+      refreshing = false;
+      stopLoadingRecoveryGuard();
+      return;
+    }
+
     if (err instanceof ApiError && err.status === 401) {
       toast.error('Sessão expirada. Faça login novamente para continuar.');
       const next = `${$page.url.pathname}${$page.url.search}`;
@@ -316,6 +378,7 @@
 
     loading = false;
     refreshing = false;
+    stopLoadingRecoveryGuard();
   }
 
   async function handleCancelar() {
@@ -452,16 +515,44 @@
         <div class="mt-4">
           <LoadingState compact={true} />
         </div>
+        {#if showLoadingRecovery}
+          <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p class="font-semibold">A abertura está demorando mais que o esperado.</p>
+            <p class="mt-1">A venda pode já estar salva. Você pode tentar novamente ou voltar para a lista de vendas sem perder a importação.</p>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <Button
+              variant="primary"
+              color="vendas"
+              on:click={() => carregarVenda()}
+            >
+              Tentar novamente
+            </Button>
+            <Button
+              variant="secondary"
+              on:click={() => goto('/vendas')}
+            >
+              <ArrowLeft size={16} class="mr-2" />
+              Voltar para Vendas
+            </Button>
+          </div>
+        {/if}
       </div>
     </div>
   </div>
 {:else if error}
-  <div class="text-center py-12">
-    <p class="text-red-600 mb-4">{error}</p>
-    <Button variant="secondary" on:click={() => goto('/vendas')}>
-      <ArrowLeft size={16} class="mr-2" />
-      Voltar para Vendas
-    </Button>
+  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-red-200 bg-white px-6 py-5 text-center shadow-sm">
+    <p class="mb-2 text-base font-semibold text-red-700">Não foi possível abrir a venda agora.</p>
+    <p class="mb-5 text-sm text-slate-600">{error}</p>
+    <div class="flex flex-wrap justify-center gap-2">
+      <Button variant="primary" color="vendas" on:click={() => carregarVenda()}>
+        Tentar novamente
+      </Button>
+      <Button variant="secondary" on:click={() => goto('/vendas')}>
+        <ArrowLeft size={16} class="mr-2" />
+        Voltar para Vendas
+      </Button>
+    </div>
   </div>
 {:else if !venda}
   <div class="text-center py-12">
