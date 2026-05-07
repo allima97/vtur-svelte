@@ -10,7 +10,7 @@ return {
 	assets: new Set(["apple-touch-icon-v2.png","apple-touch-icon-v3.png","apple-touch-icon-v4.png","apple-touch-icon.png","assets/cards/themes-master/anniversary-purchase.svg","assets/cards/themes-master/anniversary-trip.svg","assets/cards/themes-master/birthday-elegant.png","assets/cards/themes-master/birthday-elegant.svg","assets/cards/themes-master/christmas-gold.png","assets/cards/themes-master/christmas-gold.svg","assets/cards/themes-master/client-day-premium.svg","assets/cards/themes-master/countdown-travel.svg","assets/cards/themes-master/document-reminder-clean.svg","assets/cards/themes-master/easter-pastel.png","assets/cards/themes-master/easter-pastel.svg","assets/cards/themes-master/exclusive-offer.svg","assets/cards/themes-master/fathers-day-classic.svg","assets/cards/themes-master/inactive-soft-recovery.svg","assets/cards/themes-master/long-holiday.svg","assets/cards/themes-master/mothers-day-floral.png","assets/cards/themes-master/mothers-day-floral.svg","assets/cards/themes-master/new-year-celebration.png","assets/cards/themes-master/new-year-celebration.svg","assets/cards/themes-master/post-trip-light.svg","assets/cards/themes-master/pre-embark-clean.svg","assets/cards/themes-master/premium-elegant.svg","assets/cards/themes-master/referral-soft.svg","assets/cards/themes-master/repurchase-soft.svg","assets/cards/themes-master/seasonal-campaign.svg","assets/cards/themes-master/special-date-soft.svg","assets/cards/themes-master/surprise-soft.svg","assets/cards/themes-master/travel-opportunity.svg","assets/cards/themes-master/travel-return-soft.svg","assets/cards/themes-master/valentines-romantic.svg","assets/cards/themes-master/vip-gold.svg","assets/cards/themes-master/vip-upgrade.svg","assets/cards/themes-master/welcome-clean.svg","assets/cards/themes-master/womens-day-soft.png","assets/cards/themes-master/womens-day-soft.svg","brand/vtur-symbol.png","brand/vtur-symbol.svg","data/airports-iata-city.json","favicon.ico","favicon.png","favicon.svg","icon-192-v2.png","icon-192-v3.png","icon-192-v4.png","icon-192.png","icon-512-v2.png","icon-512-v3.png","icon-512-v4.png","icon-512.png","icon-source-v3.png","icon-source-v4.png","icons/icon-192x192.png","icons/icon-512x512.png","icons/maskable-192x192.png","icons/maskable-512x512.png","manifest-calculadora.webmanifest","manifest.webmanifest","sw-calculadora.js"]),
 	mimeTypes: {".png":"image/png",".svg":"image/svg+xml",".json":"application/json",".webmanifest":"application/manifest+json",".js":"text/javascript",".ttf":"font/ttf"},
 	_: {
-		client: {start:"_app/immutable/entry/start.v21OQDst.js",app:"_app/immutable/entry/app._b_aWwa9.js",imports:["_app/immutable/entry/start.v21OQDst.js","_app/immutable/chunks/BElbZFJs.js","_app/immutable/chunks/CFQbrZ2P.js","_app/immutable/chunks/-UyI9lYi.js","_app/immutable/chunks/Bo_4I_pR.js","_app/immutable/chunks/CKWQ2hRc.js","_app/immutable/chunks/B0XwC4Ot.js","_app/immutable/entry/app._b_aWwa9.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/CFQbrZ2P.js","_app/immutable/chunks/Ce_Frqd6.js","_app/immutable/chunks/BQXP_ywa.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/CKWQ2hRc.js","_app/immutable/chunks/CZxGSgI2.js","_app/immutable/chunks/6I6OdoZH.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
+		client: {start:"_app/immutable/entry/start.w9NpjGT_.js",app:"_app/immutable/entry/app.C0xQi9ZM.js",imports:["_app/immutable/entry/start.w9NpjGT_.js","_app/immutable/chunks/BXKw24qJ.js","_app/immutable/chunks/CFQbrZ2P.js","_app/immutable/chunks/-UyI9lYi.js","_app/immutable/chunks/DfeD5tbp.js","_app/immutable/chunks/CKWQ2hRc.js","_app/immutable/chunks/B0XwC4Ot.js","_app/immutable/entry/app.C0xQi9ZM.js","_app/immutable/chunks/C1FmrZbK.js","_app/immutable/chunks/CFQbrZ2P.js","_app/immutable/chunks/CrFFLsIc.js","_app/immutable/chunks/RJsFJ4xJ.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/CKWQ2hRc.js","_app/immutable/chunks/C1tGarK6.js","_app/immutable/chunks/6I6OdoZH.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:true},
 		nodes: [
 			__memo(() => import('../output/server/nodes/0.js')),
 			__memo(() => import('../output/server/nodes/1.js')),
@@ -148,7 +148,8 @@ return {
 			__memo(() => import('../output/server/nodes/133.js')),
 			__memo(() => import('../output/server/nodes/134.js')),
 			__memo(() => import('../output/server/nodes/135.js')),
-			__memo(() => import('../output/server/nodes/136.js'))
+			__memo(() => import('../output/server/nodes/136.js')),
+			__memo(() => import('../output/server/nodes/137.js'))
 		],
 		remotes: {
 			
@@ -953,6 +954,13 @@ return {
 				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/dashboard/summary/_server.ts.js'))
 			},
 			{
+				id: "/api/v1/dashboard/ultimas-compras",
+				pattern: /^\/api\/v1\/dashboard\/ultimas-compras\/?$/,
+				params: [],
+				page: null,
+				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/dashboard/ultimas-compras/_server.ts.js'))
+			},
+			{
 				id: "/api/v1/dashboard/viagens",
 				pattern: /^\/api\/v1\/dashboard\/viagens\/?$/,
 				params: [],
@@ -1555,6 +1563,13 @@ return {
 				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/qr/_server.ts.js'))
 			},
 			{
+				id: "/api/v1/read-model/rebuild",
+				pattern: /^\/api\/v1\/read-model\/rebuild\/?$/,
+				params: [],
+				page: null,
+				endpoint: __memo(() => import('../output/server/entries/endpoints/api/v1/read-model/rebuild/_server.ts.js'))
+			},
+			{
 				id: "/api/v1/relatorios/base",
 				pattern: /^\/api\/v1\/relatorios\/base\/?$/,
 				params: [],
@@ -2076,14 +2091,14 @@ return {
 				id: "/auth/convite",
 				pattern: /^\/auth\/convite\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 129 },
+				page: { layouts: [0,], errors: [1,], leaf: 130 },
 				endpoint: null
 			},
 			{
 				id: "/auth/login",
 				pattern: /^\/auth\/login\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 130 },
+				page: { layouts: [0,], errors: [1,], leaf: 131 },
 				endpoint: null
 			},
 			{
@@ -2097,28 +2112,28 @@ return {
 				id: "/auth/mfa",
 				pattern: /^\/auth\/mfa\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 131 },
+				page: { layouts: [0,], errors: [1,], leaf: 132 },
 				endpoint: null
 			},
 			{
 				id: "/auth/nova-senha",
 				pattern: /^\/auth\/nova-senha\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 132 },
+				page: { layouts: [0,], errors: [1,], leaf: 133 },
 				endpoint: null
 			},
 			{
 				id: "/auth/recuperar-senha",
 				pattern: /^\/auth\/recuperar-senha\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 133 },
+				page: { layouts: [0,], errors: [1,], leaf: 134 },
 				endpoint: null
 			},
 			{
 				id: "/auth/register",
 				pattern: /^\/auth\/register\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 134 },
+				page: { layouts: [0,], errors: [1,], leaf: 135 },
 				endpoint: null
 			},
 			{
@@ -2244,7 +2259,7 @@ return {
 				id: "/calculadora",
 				pattern: /^\/calculadora\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 135 },
+				page: { layouts: [0,], errors: [1,], leaf: 136 },
 				endpoint: null
 			},
 			{
@@ -2503,7 +2518,7 @@ return {
 				id: "/negado",
 				pattern: /^\/negado\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 136 },
+				page: { layouts: [0,], errors: [1,], leaf: 137 },
 				endpoint: null
 			},
 			{
@@ -2577,269 +2592,276 @@ return {
 				endpoint: null
 			},
 			{
+				id: "/(app)/operacao/ultimas-compras",
+				pattern: /^\/operacao\/ultimas-compras\/?$/,
+				params: [],
+				page: { layouts: [0,2,], errors: [1,,], leaf: 86 },
+				endpoint: null
+			},
+			{
 				id: "/(app)/operacao/viagens",
 				pattern: /^\/operacao\/viagens\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 86 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 87 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/operacao/viagens/nova",
 				pattern: /^\/operacao\/viagens\/nova\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 88 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 89 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/operacao/viagens/[id]",
 				pattern: /^\/operacao\/viagens\/([^/]+?)\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 87 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 88 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/operacao/vouchers",
 				pattern: /^\/operacao\/vouchers\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 89 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 90 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/operacao/vouchers/novo",
 				pattern: /^\/operacao\/vouchers\/novo\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 91 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 92 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/operacao/vouchers/[id]",
 				pattern: /^\/operacao\/vouchers\/([^/]+?)\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 90 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 91 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos",
 				pattern: /^\/orcamentos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 92 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 93 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/importar",
 				pattern: /^\/orcamentos\/importar\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 95 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 96 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/novo",
 				pattern: /^\/orcamentos\/novo\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 96 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 97 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/roteiros",
 				pattern: /^\/orcamentos\/roteiros\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 97 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 98 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/roteiros/[id]",
 				pattern: /^\/orcamentos\/roteiros\/([^/]+?)\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 98 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 99 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/[id]",
 				pattern: /^\/orcamentos\/([^/]+?)\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 93 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 94 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/orcamentos/[id]/editar",
 				pattern: /^\/orcamentos\/([^/]+?)\/editar\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 94 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 95 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros",
 				pattern: /^\/parametros\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 99 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 100 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/avisos",
 				pattern: /^\/parametros\/avisos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 100 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 101 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/cambios",
 				pattern: /^\/parametros\/cambios\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 101 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 102 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/crm",
 				pattern: /^\/parametros\/crm\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 102 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 103 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/empresa",
 				pattern: /^\/parametros\/empresa\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 103 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 104 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/equipe",
 				pattern: /^\/parametros\/equipe\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 104 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 105 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/escalas",
 				pattern: /^\/parametros\/escalas\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 105 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 106 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/integracoes",
 				pattern: /^\/parametros\/integracoes\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 106 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 107 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/metas",
 				pattern: /^\/parametros\/metas\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 107 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 108 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/notificacoes",
 				pattern: /^\/parametros\/notificacoes\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 108 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 109 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/orcamentos",
 				pattern: /^\/parametros\/orcamentos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 109 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 110 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/tipo-pacotes",
 				pattern: /^\/parametros\/tipo-pacotes\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 110 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 111 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/tipo-produtos",
 				pattern: /^\/parametros\/tipo-produtos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 111 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 112 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/parametros/vouchers",
 				pattern: /^\/parametros\/vouchers\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 112 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 113 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/perfil",
 				pattern: /^\/perfil\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 113 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 114 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/perfil/escala",
 				pattern: /^\/perfil\/escala\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 114 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 115 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/perfil/mfa",
 				pattern: /^\/perfil\/mfa\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 115 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 116 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/perfil/onboarding",
 				pattern: /^\/perfil\/onboarding\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 116 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 117 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/perfil/personalizar",
 				pattern: /^\/perfil\/personalizar\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 117 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 118 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios",
 				pattern: /^\/relatorios\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 118 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 119 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios/clientes",
 				pattern: /^\/relatorios\/clientes\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 119 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 120 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios/destinos",
 				pattern: /^\/relatorios\/destinos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 120 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 121 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios/produtos",
 				pattern: /^\/relatorios\/produtos\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 121 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 122 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios/ranking",
 				pattern: /^\/relatorios\/ranking\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 122 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 123 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/relatorios/vendas",
 				pattern: /^\/relatorios\/vendas\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 123 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 124 },
 				endpoint: null
 			},
 			{
@@ -2853,35 +2875,35 @@ return {
 				id: "/(app)/vendas",
 				pattern: /^\/vendas\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 124 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 125 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/vendas/importar",
 				pattern: /^\/vendas\/importar\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 127 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 128 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/vendas/nova",
 				pattern: /^\/vendas\/nova\/?$/,
 				params: [],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 128 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 129 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/vendas/[id]",
 				pattern: /^\/vendas\/([^/]+?)\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 125 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 126 },
 				endpoint: null
 			},
 			{
 				id: "/(app)/vendas/[id]/editar",
 				pattern: /^\/vendas\/([^/]+?)\/editar\/?$/,
 				params: [{"name":"id","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,2,], errors: [1,,], leaf: 126 },
+				page: { layouts: [0,2,], errors: [1,,], leaf: 127 },
 				endpoint: null
 			}
 		],

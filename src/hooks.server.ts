@@ -21,6 +21,7 @@ import { hasVerifiedTotpFactor, normalizeMfaRedirectPath } from '$lib/server/aut
 import { resolveDashboardPathByUserType } from '$lib/server/dashboardRedirect';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
+import { initKvNamespace, checkKvEpochAsync } from '$lib/server/kvInvalidation';
 
 const permLevel = (p?: string | null): number => {
 	switch ((p || '').toLowerCase()) {
@@ -319,6 +320,12 @@ const supabaseHook: Handle = async ({ event, resolve }) => {
 		}
 	});
 
+	// Inicializar KV namespace e verificar epoch de invalidação cross-instance.
+	// initKvNamespace é idempotente — apenas guarda referência na primeira chamada.
+	// checkKvEpochAsync é throttled (5s) e fire-and-forget — não bloqueia requests.
+	initKvNamespace((event.platform as any)?.env ?? null);
+	checkKvEpochAsync();
+
 	let safeSessionPromise: ReturnType<typeof event.locals.safeGetSession> | null = null;
 	event.locals.safeGetSession = async () => {
 		if (safeSessionPromise) return safeSessionPromise;
@@ -386,7 +393,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		'/api/v1/cards',
 		'/api/v1/client-error',
 		'/api/v1/health',
-		'/api/v1/cron/'
+		'/api/v1/cron/',
+		'/api/v1/read-model/rebuild'
 	];
 
 	const rotasPublicas = [

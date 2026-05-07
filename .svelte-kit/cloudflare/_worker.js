@@ -120,6 +120,44 @@ var worker_default = {
     return pragma && res.status < 400 ? c(req, res, ctx) : res;
   }
 };
-export {
-  worker_default as default
+// export default substituido pelo patch-worker-scheduled (ver abaixo)
+
+// __scheduled_handler_injected__
+// Handler de Cron Trigger - injetado por scripts/patch-worker-scheduled.js
+const __originalWorker = worker_default;
+const __patchedWorker = {
+  ...(__originalWorker || {}),
+
+  async scheduled(event, env, ctx) {
+    const cronSecret = String(env.CRON_SECRET || '').trim();
+    const baseUrl = String(env.WORKER_BASE_URL || '').trim();
+
+    if (!baseUrl) {
+      console.warn('[cron] WORKER_BASE_URL nao configurada. Pulando rebuild do read model.');
+      return;
+    }
+
+    const url = `${baseUrl}/api/v1/read-model/rebuild`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-cron-secret': cronSecret,
+          'user-agent': 'cf-cron-internal/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        console.error(`[cron] rebuild falhou: ${response.status} ${body.slice(0, 200)}`);
+      } else {
+        const body = await response.json().catch(() => ({}));
+        console.log(`[cron] rebuild concluido: ${JSON.stringify(body)}`);
+      }
+    } catch (err) {
+      console.error('[cron] erro ao chamar endpoint de rebuild:', err);
+    }
+  },
 };
+export { __patchedWorker as default };

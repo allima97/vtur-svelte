@@ -628,6 +628,9 @@
 	"/api/v1/qr": [
 		"src/routes/api/v1/qr/+server.ts"
 	],
+	"/api/v1/read-model/rebuild": [
+		"src/routes/api/v1/read-model/rebuild/+server.ts"
+	],
 	"/api/v1/relatorios/base": [
 		"src/routes/api/v1/relatorios/base/+server.ts"
 	],

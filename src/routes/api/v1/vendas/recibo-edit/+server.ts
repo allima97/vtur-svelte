@@ -12,6 +12,8 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_RECIBO_EDIT_BODY_BYTES = 64 * 1024;
@@ -153,6 +155,16 @@ export async function PATCH(event: RequestEvent) {
     if (updateError) throw updateError;
 
     invalidateSalesReadModels();
+
+    // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
+    triggerRebuildAsync({
+      companyIds: companyIds.filter(Boolean) as string[],
+      executionContext: (event.platform as any)?.ctx ?? null,
+    });
+
+    // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
+    publishKvInvalidationAsync({ companyIds: companyIds.filter(Boolean) as string[] });
+
     return json({ ok: true, recibo: updated }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao editar recibo.');

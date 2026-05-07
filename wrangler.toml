@@ -6,8 +6,25 @@ compatibility_date = "2026-04-19"
 #   wrangler secret put PUBLIC_SUPABASE_URL
 #   wrangler secret put PUBLIC_SUPABASE_ANON_KEY
 #   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#
+# Secrets para o Cron Trigger (rebuild do read model de ranking):
+#   wrangler secret put CRON_SECRET       # segredo validado pelo endpoint GET /api/v1/read-model/rebuild
+#   wrangler secret put WORKER_BASE_URL   # URL base do worker, ex: https://vtur-svelte.pages.dev
+#
 # Nao fixe credenciais/projetos de producao neste arquivo.
 
 [assets]
 directory = ".svelte-kit/cloudflare"
 binding = "ASSETS"
+
+# KV Cache: cache distribuído compartilhado entre todas as instâncias Workers.
+# Usado para broadcast de invalidação de cache cross-instance.
+[[kv_namespaces]]
+binding = "KV_BINDING"
+id = "60fa423718914712bec4f489d41c3dd6"
+
+# Cron Trigger: reconstrói o read model de ranking a cada 5 minutos.
+# O endpoint GET /api/v1/read-model/rebuild valida o header x-cron-secret
+# (configurado via: wrangler secret put CRON_SECRET)
+[triggers]
+crons = ["*/5 * * * *"]

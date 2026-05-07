@@ -12,6 +12,8 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_VENDA_CANCEL_BODY_BYTES = 8 * 1024;
@@ -73,6 +75,16 @@ export async function POST(event) {
     if (cancelError) throw cancelError;
 
     invalidateSalesReadModels();
+
+    // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
+    triggerRebuildAsync({
+      companyIds: isUuid(saleCompanyId) ? [saleCompanyId] : [],
+      executionContext: (event.platform as any)?.ctx ?? null,
+    });
+
+    // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
+    publishKvInvalidationAsync({ companyIds: isUuid(saleCompanyId) ? [saleCompanyId] : [] });
+
     return json({ ok: true, cancelled: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao cancelar venda.');

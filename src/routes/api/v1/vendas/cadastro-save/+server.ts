@@ -20,6 +20,8 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
@@ -208,6 +210,18 @@ export async function POST(event: RequestEvent) {
       companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
       vendedorIds: isUuid(vendedorId) ? [vendedorId] : [],
       userId: user.id,
+    });
+
+    // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
+    triggerRebuildAsync({
+      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
+      dataVenda: String(vendaPayload.data_venda || ''),
+      executionContext: (event.platform as any)?.ctx ?? null,
+    });
+
+    // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
+    publishKvInvalidationAsync({
+      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
     });
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });
