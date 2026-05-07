@@ -5,11 +5,13 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
+  import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
+  import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
   import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
-  import { todayISODateLocal } from '$lib/date';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
   import { formatDate } from '$lib/utils/formatters';
 
   interface Venda {
@@ -38,6 +40,15 @@
     countAtivas: number;
   }
 
+  type PeriodoModo = 'mes' | 'periodo';
+
+  const today = todayISODateLocal();
+  const currentMonth = today.slice(0, 7);
+  const currentMonthRange = monthRangeFromKey(currentMonth) || {
+    inicio: `${currentMonth}-01`,
+    fim: today
+  };
+
   let vendas: Venda[] = [];
   let loading = true;
   let loadingKpis = true;
@@ -48,6 +59,10 @@
   let totalVendas = 0;
   let searchTerm = '';
   let filterValues: Record<string, string> = {};
+  let filtroPeriodoModo: PeriodoModo = 'mes';
+  let mesSelecionado = currentMonth;
+  let periodoInicio = currentMonthRange.inicio;
+  let periodoFim = currentMonthRange.fim;
   let vendedoresOptions: Array<{ id: string; nome_completo: string }> = [];
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
@@ -161,8 +176,8 @@
         page: listPage,
         pageSize: listPageSize,
         q: searchTerm,
-        status: filterValues.status || undefined,
-        tipo: filterValues.tipo || undefined,
+        inicio: periodoInicio || undefined,
+        fim: periodoFim || undefined,
         vendedor_ids: filterValues.vendedor_id || undefined,
         include_vendedores: vendedoresOptions.length === 0 ? 1 : undefined
       });
@@ -195,10 +210,9 @@
   }
 
   function getCurrentMonthRange() {
-    const now = todayISODateLocal();
     return {
-      inicio: `${now.slice(0, 7)}-01`,
-      fim: now
+      inicio: currentMonthRange.inicio,
+      fim: currentMonthRange.fim
     };
   }
 
@@ -247,28 +261,6 @@
     : columnsBase.filter((column) => column.key !== 'vendedor');
 
   $: filters = [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [
-        { value: 'confirmada', label: 'Confirmada' },
-        { value: 'pendente', label: 'Pendente' },
-        { value: 'cancelada', label: 'Cancelada' },
-        { value: 'concluida', label: 'Concluída' }
-      ]
-    },
-    {
-      key: 'tipo',
-      label: 'Tipo',
-      type: 'select',
-      options: [
-        { value: 'pacote', label: 'Pacote' },
-        { value: 'hotel', label: 'Hotel' },
-        { value: 'passagem', label: 'Passagem' },
-        { value: 'servico', label: 'Serviço' }
-      ]
-    },
     ...(showVendedorFilter
       ? [
           {
@@ -286,6 +278,19 @@
         ]
       : [])
   ];
+
+  function syncPeriodoFromControls() {
+    if (filtroPeriodoModo === 'mes') {
+      const range = monthRangeFromKey(mesSelecionado) || currentMonthRange;
+      periodoInicio = range.inicio;
+      periodoFim = range.fim;
+    }
+  }
+
+  function handlePeriodoChange() {
+    syncPeriodoFromControls();
+    scheduleLoadVendas(true);
+  }
 
   function scheduleLoadVendas(resetPage = false) {
     if (!mounted) return;
@@ -375,6 +380,50 @@
     <KPICard title="Líquido (mês corrente)" value={formatCurrency(kpisMesCorrente.totalLiquido)} color="financeiro" icon={Calendar} />
   {/if}
 </KPIGrid>
+
+<div class="vtur-filter-panel mb-4">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <FieldSelect
+      id="vendas-periodo-modo"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      class_name="w-full"
+      on:change={handlePeriodoChange}
+    />
+
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="vendas-mes"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+    {:else}
+      <FieldInput
+        id="vendas-inicio"
+        label="Data início"
+        type="date"
+        bind:value={periodoInicio}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+      <FieldInput
+        id="vendas-fim"
+        label="Data fim"
+        type="date"
+        bind:value={periodoFim}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+    {/if}
+  </div>
+</div>
 
 <DataTable
   {columns}
