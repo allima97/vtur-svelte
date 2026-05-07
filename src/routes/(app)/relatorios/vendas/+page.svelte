@@ -277,7 +277,6 @@
   let dataFim = defaultRange.end;
   let vendedorSelecionado = '';
   let empresaSelecionada = '';
-  let statusSelecionado = '';
   let clienteIdFiltro = '';
   let destinoFiltro = '';
   let produtoFiltro = '';
@@ -364,7 +363,6 @@
 
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
     if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
-    if (statusSelecionado) params.set('status', statusSelecionado);
     if (clienteIdFiltro) params.set('cliente_id', clienteIdFiltro);
     if (destinoFiltro) params.set('destino', destinoFiltro);
     if (produtoFiltro) params.set('produto', produtoFiltro);
@@ -385,7 +383,6 @@
 
     if (empresaSelecionada) params.set('empresa_id', empresaSelecionada);
     if (vendedorSelecionado) params.set('vendedor_id', vendedorSelecionado);
-    if (statusSelecionado) params.set('status', statusSelecionado);
     if (clienteIdFiltro) params.set('cliente_id', clienteIdFiltro);
     if (destinoFiltro) params.set('destino', destinoFiltro);
     if (produtoFiltro) params.set('produto', produtoFiltro);
@@ -402,7 +399,6 @@
       dataFim,
       empresaSelecionada,
       vendedorSelecionado,
-      statusSelecionado,
       clienteIdFiltro,
       destinoFiltro,
       produtoFiltro,
@@ -495,7 +491,6 @@
 
     vendedorSelecionado = params.get('vendedor_id') || '';
     empresaSelecionada = params.get('empresa_id') || '';
-    statusSelecionado = params.get('status') || '';
     clienteIdFiltro = params.get('cliente_id') || '';
     destinoFiltro = params.get('destino') || '';
     produtoFiltro = params.get('produto') || '';
@@ -585,8 +580,8 @@
   }
 
   // Regra fiel de escopo: vendedor/uso individual não deve escolher empresa ou vendedor global.
-  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
-  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+  $: showEmpresaFiltro = $permissoes.ready && ($permissoes.isSystemAdmin || $permissoes.isMaster);
+  $: showVendedorFiltro = $permissoes.ready && !$permissoes.isVendedor && !$permissoes.usoIndividual;
   $: hideVendedorColumn = $permissoes.ready && ($permissoes.isVendedor || $permissoes.usoIndividual);
   $: columns = hideVendedorColumn
     ? columnsBase.filter((column) => column.key !== 'vendedor_nome')
@@ -737,7 +732,7 @@
   <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
     <SlidersHorizontal size={16} class="mr-2" />
     Filtros
-    {#if empresaSelecionada || vendedorSelecionado || statusSelecionado}
+    {#if empresaSelecionada || vendedorSelecionado}
       <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
     {/if}
   </Button>
@@ -788,20 +783,6 @@
         class_name="w-full"
       />
     {/if}
-    <FieldSelect
-      id="rel-vendas-status-mobile"
-      label="Status"
-      bind:value={statusSelecionado}
-      options={[
-        { value: '', label: 'Todos' },
-        { value: 'confirmada', label: 'Confirmada' },
-        { value: 'pendente', label: 'Pendente' },
-        { value: 'concluida', label: 'Concluída' },
-        { value: 'cancelada', label: 'Cancelada' }
-      ]}
-      placeholder={null}
-      class_name="w-full"
-    />
     <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
       Aplicar filtros
     </Button>
@@ -854,20 +835,6 @@
           class_name="w-full"
         />
       {/if}
-      <FieldSelect
-        id="rel-vendas-status"
-        label="Status"
-        bind:value={statusSelecionado}
-        options={[
-          { value: '', label: 'Todos' },
-          { value: 'confirmada', label: 'Confirmada' },
-          { value: 'pendente', label: 'Pendente' },
-          { value: 'concluida', label: 'Concluída' },
-          { value: 'cancelada', label: 'Cancelada' }
-        ]}
-        placeholder={null}
-        class_name="w-full"
-      />
     </div>
 
     {#if clienteIdFiltro || destinoFiltro || produtoFiltro || tipoProdutoFiltro}
