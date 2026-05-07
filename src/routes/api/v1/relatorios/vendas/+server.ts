@@ -1326,6 +1326,68 @@ export async function GET(event) {
       };
     });
 
+    if (reportVendedorSet) {
+      items = items
+        .map((item) => {
+          const recibos = (Array.isArray(item.recibos) ? item.recibos : []).filter(
+            (recibo: { vendedor_id?: string | null }) => {
+              const vendedorId = toStr(recibo?.vendedor_id);
+              return Boolean(vendedorId && reportVendedorSet.has(vendedorId));
+            },
+          );
+
+          if (recibos.length === 0) return null;
+
+          const valorTotal = roundToMoney(
+            recibos.reduce(
+              (
+                sum: number,
+                recibo: { valor_comissionavel?: number | null; valor_total?: number | null },
+              ) => sum + toNum(recibo.valor_comissionavel ?? recibo.valor_total),
+              0,
+            ),
+          );
+          const valorTaxas = roundToMoney(
+            recibos.reduce(
+              (
+                sum: number,
+                recibo: { valor_taxas_ranking?: number | null; valor_taxas?: number | null },
+              ) => sum + toNum(recibo.valor_taxas_ranking ?? recibo.valor_taxas),
+              0,
+            ),
+          );
+          const comissao = roundToMoney(
+            recibos.reduce(
+              (
+                sum: number,
+                recibo: { valor_comissao_calculada?: number | null; comissao?: number | null },
+              ) => sum + toNum(recibo.valor_comissao_calculada ?? recibo.comissao),
+              0,
+            ),
+          );
+          const vendedorId =
+            reportVendedorSet.size === 1
+              ? Array.from(reportVendedorSet)[0]
+              : toStr(recibos[0]?.vendedor_id) || item.vendedor_id;
+          const vendedorNome =
+            recibos.find((recibo: { vendedor_id?: string | null; vendedor_nome?: string | null }) =>
+              toStr(recibo.vendedor_id) === vendedorId && toStr(recibo.vendedor_nome),
+            )?.vendedor_nome || item.vendedor_nome;
+
+          return {
+            ...item,
+            vendedor_id: vendedorId,
+            vendedor_nome: vendedorNome,
+            valor_total: valorTotal,
+            valor_taxas: valorTaxas,
+            comissao,
+            recibos,
+            vendas_recibos: recibos,
+          };
+        })
+        .filter(Boolean) as typeof items;
+    }
+
     if (statusFilter) {
       items = items.filter((item) => item.status === statusFilter);
     }
@@ -1342,7 +1404,7 @@ export async function GET(event) {
 
     const historyBuckets = getLastSixMonthBuckets(dataFim);
     const dayBuckets = getCurrentMonthDayBuckets(dataFim);
-    const seriesRowsRaw = rowsViewRaw;
+    const seriesRowsRaw = rowsView;
     const seriesNaoComissionadoPorVenda = naoComissionadoPorVenda;
     const seriesRankingEntries = computeReceiptRankingEntries(
       seriesRowsRaw as any[],

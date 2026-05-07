@@ -1,6 +1,6 @@
 <script lang="ts">
   import { dev } from '$app/environment';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -288,6 +288,7 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let relatorioRequestSeq = 0;
   let showFilterSheet = false;
 
   const columnsBase = [
@@ -413,6 +414,14 @@
     }, 250);
   }
 
+  async function handleFilterChange() {
+    await tick();
+    if (!autoReloadEnabled) return;
+    if (autoReloadTimer) clearTimeout(autoReloadTimer);
+    lastAutoReloadKey = buildAutoReloadKey();
+    void loadRelatorio();
+  }
+
   async function fetchRelatorioRange(start: string, end: string): Promise<RelatorioPayload> {
     const params = buildRelatorioParams(start, end);
     return apiFetch<RelatorioPayload>('/api/v1/relatorios/vendas', {
@@ -423,10 +432,13 @@
   }
 
   async function loadRelatorio(showSuccess = false) {
+    const requestSeq = ++relatorioRequestSeq;
     loading = true;
 
     try {
       const principal = await fetchRelatorioRange(dataInicio, dataFim);
+      if (requestSeq !== relatorioRequestSeq) return;
+
       vendas = principal.items || [];
       resumo = principal.resumo || resumo;
       chartSeries = {
@@ -440,6 +452,8 @@
         toast.success('Relatório atualizado');
       }
     } catch (err) {
+      if (requestSeq !== relatorioRequestSeq) return;
+
       if (vendas.length === 0) {
         vendas = [];
       }
@@ -448,7 +462,9 @@
       if (dev) console.error('[loadRelatorio] Erro:', msg);
       toast.error(msg);
     } finally {
-      loading = false;
+      if (requestSeq === relatorioRequestSeq) {
+        loading = false;
+      }
     }
   }
 
@@ -781,6 +797,7 @@
         options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
         placeholder={null}
         class_name="w-full"
+        on:change={handleFilterChange}
       />
     {/if}
     <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
@@ -833,6 +850,7 @@
           options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
           placeholder={null}
           class_name="w-full"
+          on:change={handleFilterChange}
         />
       {/if}
     </div>
