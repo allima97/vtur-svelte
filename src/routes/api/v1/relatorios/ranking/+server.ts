@@ -157,19 +157,14 @@ export async function GET(event) {
         : explicitRequestedVendedorIds;
     const previousPeriod = getPreviousPeriod(dataInicio, dataFim);
 
-    if (isVendedorByType && !isGestorByType && !isMasterByType && !isAdminByType) {
-      if (hasRequestedVendedorFilter) {
-        vendedorIds = explicitRequestedVendedorIds.includes(user.id)
-          ? [user.id]
-          : [NO_MATCH_USER_ID];
-      } else {
-        vendedorIds = [user.id];
-      }
-    } else if (
+    if (
       isGestorByType ||
+      isVendedorByType ||
       (!isAdminByType && !isMasterByType && companyIds.length > 0)
     ) {
-      // Relatorio de ranking e leitura: gestor e vendedor veem todos os elegiveis da empresa.
+      // Relatório de ranking é leitura comparativa: gestor, financeiro e vendedor
+      // veem todos os elegíveis da empresa. O filtro explícito continua limitado
+      // ao escopo da empresa para evitar acesso cruzado.
       const companyRankingUsers =
         companyIds.length > 0
           ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
@@ -188,6 +183,16 @@ export async function GET(event) {
       } else {
         vendedorIds = companyEligibleIds;
       }
+    }
+
+    if (
+      isVendedorByType &&
+      !isGestorByType &&
+      !isMasterByType &&
+      !isAdminByType &&
+      vendedorIds.length === 0
+    ) {
+      vendedorIds = hasRequestedVendedorFilter ? [NO_MATCH_USER_ID] : [user.id];
     }
 
     if (

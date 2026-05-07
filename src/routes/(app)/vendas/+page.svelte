@@ -5,9 +5,11 @@
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import KPICard from '$lib/components/kpis/KPICard.svelte';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
+  import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
+  import Button from '$lib/components/ui/Button.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
   import FieldSelect from '$lib/components/ui/form/FieldSelect.svelte';
-  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar } from 'lucide-svelte';
+  import { Plus, FileSpreadsheet, ShoppingCart, DollarSign, Calendar, SlidersHorizontal } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { permissoes } from '$lib/stores/permissoes';
@@ -63,6 +65,7 @@
   let mesSelecionado = currentMonth;
   let periodoInicio = currentMonthRange.inicio;
   let periodoFim = currentMonthRange.fim;
+  let showFilterSheet = false;
   let vendedoresOptions: Array<{ id: string; nome_completo: string }> = [];
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let requestSeq = 0;
@@ -381,7 +384,62 @@
   {/if}
 </KPIGrid>
 
-<div class="vtur-filter-panel mb-4">
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full justify-center" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+  </Button>
+</div>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar vendas">
+  <div class="space-y-4">
+    <FieldSelect
+      id="vendas-periodo-modo-mobile"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      class_name="w-full"
+      on:change={handlePeriodoChange}
+    />
+
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="vendas-mes-mobile"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+    {:else}
+      <FieldInput
+        id="vendas-inicio-mobile"
+        label="Data início"
+        type="date"
+        bind:value={periodoInicio}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+      <FieldInput
+        id="vendas-fim-mobile"
+        label="Data fim"
+        type="date"
+        bind:value={periodoFim}
+        class_name="w-full"
+        on:change={handlePeriodoChange}
+      />
+    {/if}
+
+    <Button variant="primary" class_name="w-full justify-center" on:click={() => (showFilterSheet = false)}>
+      Aplicar filtros
+    </Button>
+  </div>
+</BottomSheet>
+
+<div class="vtur-filter-panel mb-4 hidden sm:block">
   <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
     <FieldSelect
       id="vendas-periodo-modo"

@@ -14,6 +14,7 @@
   } from "lucide-svelte";
   import Button from "./Button.svelte";
   import Checkbox from "./Checkbox.svelte";
+  import BottomSheet from "./BottomSheet.svelte";
   import FieldInput from "./form/FieldInput.svelte";
   import FieldSelect from "./form/FieldSelect.svelte";
   import type { ModuleColor } from "$lib/theme/colors";
@@ -109,6 +110,7 @@
   let searchQuery = "";
   let activeFilters: Record<string, any> = {};
   let showFilters = false;
+  let showFilterSheet = false;
   let currentPage = 1;
   let currentPageSize = pageSize;
   let sortKey: string | null = null;
@@ -260,6 +262,12 @@
   function clearFilters() {
     activeFilters = {};
     searchQuery = "";
+    if (serverSide) {
+      currentPage = 1;
+      onSearch?.("");
+      filters.forEach((filter) => onFilterChange?.(filter.key, ""));
+      onPageChange?.(1);
+    }
   }
 
   function applyFilter(key: string, value: any) {
@@ -324,6 +332,9 @@
   }
 
   $: pageSizeValue = String(currentPageSize);
+  $: activeFilterCount = Object.values(activeFilters).filter(
+    (value) => value !== "" && value != null,
+  ).length;
   $: skeletonRowCount = Math.max(4, Math.min(Number(currentPageSize) || 6, 8));
   $: tableColumnCount =
     columns.length +
@@ -354,18 +365,31 @@
         {#if filterable && filters.length > 0}
           <Button
             variant="secondary"
-            on:click={() => (showFilters = !showFilters)}
-            class_name={Object.keys(activeFilters).length > 0
-              ? "vtur-button--active-filter"
-              : ""}
+            on:click={() => (showFilterSheet = true)}
+            class_name={`sm:hidden ${activeFilterCount > 0 ? "vtur-button--active-filter" : ""}`}
           >
             <Filter size={16} class="mr-2" />
             Filtros
-            {#if Object.keys(activeFilters).length > 0}
+            {#if activeFilterCount > 0}
               <span
                 class="ml-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs text-white"
               >
-                {Object.keys(activeFilters).length}
+                {activeFilterCount}
+              </span>
+            {/if}
+          </Button>
+          <Button
+            variant="secondary"
+            on:click={() => (showFilters = !showFilters)}
+            class_name={`hidden sm:inline-flex ${activeFilterCount > 0 ? "vtur-button--active-filter" : ""}`}
+          >
+            <Filter size={16} class="mr-2" />
+            Filtros
+            {#if activeFilterCount > 0}
+              <span
+                class="ml-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs text-white"
+              >
+                {activeFilterCount}
               </span>
             {/if}
           </Button>
@@ -416,6 +440,55 @@
         </Button>
       </div>
     </div>
+  {/if}
+
+  {#if filterable && filters.length > 0}
+    <BottomSheet bind:open={showFilterSheet} title="Filtros">
+      <div class="space-y-4">
+        {#each filters as filter}
+          {#if filter.type === "select"}
+            <FieldSelect
+              id={`filter-${filter.key}-mobile`}
+              label={filter.label}
+              value={String(activeFilters[filter.key] || "")}
+              options={filter.options || []}
+              placeholder="Todos"
+              class_name="w-full"
+              on:change={(event) =>
+                applyFilter(filter.key, getEventValue(event))}
+            />
+          {:else}
+            <FieldInput
+              id={`filter-${filter.key}-mobile`}
+              label={filter.label}
+              type={filter.type === "date" ? "date" : "text"}
+              value={String(activeFilters[filter.key] || "")}
+              placeholder={`Filtrar ${filter.label.toLowerCase()}`}
+              class_name="w-full"
+              on:input={(event) =>
+                applyFilter(filter.key, getEventValue(event))}
+            />
+          {/if}
+        {/each}
+
+        <div class="flex flex-col gap-2 pt-2">
+          <Button
+            variant="primary"
+            class_name="w-full justify-center"
+            on:click={() => (showFilterSheet = false)}
+          >
+            Aplicar filtros
+          </Button>
+          <Button
+            variant="ghost"
+            class_name="w-full justify-center"
+            on:click={clearFilters}
+          >
+            Limpar filtros
+          </Button>
+        </div>
+      </div>
+    </BottomSheet>
   {/if}
 
   <div class="vtur-table-shell">
