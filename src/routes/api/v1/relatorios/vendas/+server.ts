@@ -1087,12 +1087,42 @@ export async function GET(event) {
       staleTtlMs: 120_000,
       loader: () => loadRowsViewForPeriod(dataInicio, dataFim),
     });
-    const rowsView = await hydrateMissingVendedores(client, rowsViewRaw);
+    const hydratedRowsView = await hydrateMissingVendedores(client, rowsViewRaw);
     const getReciboVendedorId = (row: any, recibo: any) =>
       toStr(recibo?.rateio_scope_vendor_id) ||
       toStr(recibo?.vendedor_id) ||
       toStr(row?.vendedor_id) ||
       null;
+    const reportVendedorSet =
+      vendedorIds.length > 0
+        ? new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean))
+        : null;
+    const rowsView = reportVendedorSet
+      ? hydratedRowsView
+          .map((row: any) => {
+            const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
+            const recibosDoVendedor = recibos.filter((recibo: any) => {
+              const vendedorId = getReciboVendedorId(row, recibo);
+              return Boolean(vendedorId && reportVendedorSet.has(vendedorId));
+            });
+
+            if (recibosDoVendedor.length > 0) {
+              return {
+                ...row,
+                recibos: recibosDoVendedor,
+                vendas_recibos: recibosDoVendedor,
+              };
+            }
+
+            const rowVendedorId = toStr(row?.vendedor_id);
+            if (recibos.length === 0 && rowVendedorId && reportVendedorSet.has(rowVendedorId)) {
+              return row;
+            }
+
+            return null;
+          })
+          .filter(Boolean)
+      : hydratedRowsView;
     const reciboVendedorIds = Array.from(
       new Set(
         rowsView
