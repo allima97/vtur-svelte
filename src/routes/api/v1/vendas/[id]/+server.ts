@@ -16,7 +16,7 @@ import {
   ensureReciboReservaUnicos,
   syncVendaChildren,
 } from "$lib/server/vendasSave";
-import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest, rejectLargePayload } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { fetchSaleForScope } from "$lib/server/salesScope";
@@ -181,7 +181,7 @@ export async function GET(event) {
 
     if (lastError) throw lastError;
     if (!data) throw error(404, "Venda não encontrada.");
-    return json(data, { headers: DYNAMIC_READ_HEADERS });
+    return json(data, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, "Erro ao carregar venda.");
   }

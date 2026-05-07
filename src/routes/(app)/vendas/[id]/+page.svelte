@@ -26,6 +26,7 @@
 
   let venda: any = null;
   let loading = true;
+  let loadingHint = 'Carregando os dados da venda...';
   let refreshing = false;
   let error: string | null = null;
   let processando = false;
@@ -236,53 +237,85 @@
     produtosCache = { ...produtosCache };
   }
 
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function shouldRetryInitialLoad(err: unknown) {
+    return err instanceof ApiError && [0, 404, 503, 504].includes(err.status);
+  }
+
   async function carregarVenda(opts: { preserveData?: boolean } = {}) {
     const preserveData = opts.preserveData ?? false;
-    try {
-      refreshing = preserveData && Boolean(venda);
-      if (!preserveData || !venda) loading = true;
-      error = null;
+    const fromImport = $page.url.searchParams.get('imported') === '1';
+    const isInitialLoad = !preserveData && !venda;
+    const maxAttempts = isInitialLoad && fromImport ? 6 : 2;
+    let lastError: unknown = null;
 
-      const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
-        redirectOnForbidden: false,
-        redirectOnUnauthorized: false
-      });
-      venda = data;
+    refreshing = preserveData && Boolean(venda);
+    if (!preserveData || !venda) loading = true;
+    loadingHint = fromImport
+      ? 'Finalizando a abertura da venda importada...'
+      : 'Carregando os dados da venda...';
+    error = null;
 
-      if (venda?.status === 'aberto') {
-        venda.status = 'pendente';
-      }
-
-      if (Array.isArray(venda?.recibos)) {
-        const ids = new Set<string>();
-        venda.recibos.forEach((r: any) => {
-          if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
-          if (r?.produto_id) ids.add(String(r.produto_id));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+          redirectOnForbidden: false,
+          redirectOnUnauthorized: false,
+          timeoutMs: 15_000,
+          query: { t: Date.now() }
         });
-        await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
-      }
-    } catch (err: any) {
-      if (err instanceof ApiError && err.status === 401) {
-        toast.error('Sessão expirada. Faça login novamente para continuar.');
-        const next = `${$page.url.pathname}${$page.url.search}`;
-        await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
+        venda = data;
+
+        if (venda?.status === 'aberto') {
+          venda.status = 'pendente';
+        }
+
+        if (Array.isArray(venda?.recibos)) {
+          const ids = new Set<string>();
+          venda.recibos.forEach((r: any) => {
+            if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
+            if (r?.produto_id) ids.add(String(r.produto_id));
+          });
+          await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
+        }
+        loading = false;
+        refreshing = false;
         return;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxAttempts - 1 && shouldRetryInitialLoad(err)) {
+          loadingHint = fromImport
+            ? 'A venda foi importada. Estamos sincronizando os dados para abrir a ficha...'
+            : 'Ainda estamos carregando a venda. Tentando novamente...';
+          await sleep(450 * (attempt + 1));
+          continue;
+        }
+        break;
       }
-      if (err instanceof ApiError && err.status === 403) {
-        error = 'Você não tem permissão para acessar esta venda';
-        await goto('/vendas');
-        return;
-      }
-      if (err instanceof ApiError && err.status === 404) {
-        error = 'Venda não encontrada';
-        return;
-      }
-      error = `Erro ao carregar dados da venda: ${err.message}`;
-      toast.error('Erro ao carregar venda');
-    } finally {
-      loading = false;
-      refreshing = false;
     }
+
+    const err = lastError as any;
+    if (err instanceof ApiError && err.status === 401) {
+      toast.error('Sessão expirada. Faça login novamente para continuar.');
+      const next = `${$page.url.pathname}${$page.url.search}`;
+      await goto(`/auth/login?session_expired=1&next=${encodeURIComponent(next)}`);
+    } else if (err instanceof ApiError && err.status === 403) {
+      error = 'Você não tem permissão para acessar esta venda';
+      await goto('/vendas');
+    } else if (err instanceof ApiError && err.status === 404) {
+      error = fromImport
+        ? 'Venda importada, mas ainda não foi possível abrir a ficha. Volte para Vendas e atualize a lista.'
+        : 'Venda não encontrada';
+    } else {
+      error = `Erro ao carregar dados da venda: ${err?.message || 'falha inesperada'}`;
+      toast.error('Erro ao carregar venda');
+    }
+
+    loading = false;
+    refreshing = false;
   }
 
   async function handleCancelar() {
@@ -408,8 +441,19 @@
 </svelte:head>
 
 {#if loading && !venda}
-  <div class="py-12">
-    <LoadingState compact={true} />
+  <div class="mx-auto mt-10 max-w-xl rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+    <div class="flex items-start gap-4">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-vendas-50 text-vendas-600">
+        <Clock size={20} />
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-slate-900">Carregando venda</p>
+        <p class="mt-1 text-sm text-slate-500">{loadingHint}</p>
+        <div class="mt-4">
+          <LoadingState compact={true} />
+        </div>
+      </div>
+    </div>
   </div>
 {:else if error}
   <div class="text-center py-12">
