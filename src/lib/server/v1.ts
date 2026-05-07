@@ -598,8 +598,11 @@ export async function resolveUserScope(
   const key = buildReadModelCacheKey("user-scope", { userId });
   return getCachedReadModel({
     key,
-    ttlMs: 30_000,
-    staleTtlMs: 120_000, // era 30s igual ao fresh — stale deve ser maior para evitar bloqueio na expiração
+    // user-scope é chamado em toda requisição autenticada. 60s fresh evita
+    // que o banco seja consultado em bursts de requisições do mesmo usuário.
+    // stale de 5min mantém o cache quente entre requisições espaçadas.
+    ttlMs: 60_000,
+    staleTtlMs: 300_000,
     tags: [READ_MODEL_TAGS.users, ...scopeCacheTags({ userId })],
     loader: () => resolveUserScopeUncached(client, userId),
   });

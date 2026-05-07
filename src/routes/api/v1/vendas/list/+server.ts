@@ -420,142 +420,126 @@ async function resolveVendaSearchIds(
   }
 
   const includeAll = params.campoBusca === 'todos';
-  const candidateVendaIds: string[] = [];
-  const candidateClienteIds: string[] = [];
-  const candidateVendedorIds: string[] = [];
   const vendaOrParts: string[] = [];
+  if (includeAll) {
+    if (searchTerm.length >= 2) vendaOrParts.push(`numero_venda.ilike.%${searchTerm}%`);
+    if (isUuid(raw)) vendaOrParts.push(`id.eq.${raw}`);
+  }
 
-  if (includeAll || params.campoBusca === 'recibo') {
-    const receiptOrParts = buildSearchParts(searchTerm, digits, [
-      'numero_recibo',
-      'numero_recibo_normalizado',
-      'numero_reserva'
-    ]);
-    if (receiptOrParts.length > 0) {
+  const companyBatches =
+    params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
+
+  // --- Disparar todos os lookups de candidatos em PARALELO ---
+  const [reciboVendaIds, clienteIds, vendedorIds, destinoAndProdutoIds] = await Promise.all([
+    // 1. Busca por recibo
+    (includeAll || params.campoBusca === 'recibo') ? (async () => {
+      const receiptOrParts = buildSearchParts(searchTerm, digits, [
+        'numero_recibo',
+        'numero_recibo_normalizado',
+        'numero_reserva'
+      ]);
+      if (receiptOrParts.length === 0) return [] as string[];
       const { data, error } = await client
         .from('vendas_recibos')
         .select('venda_id')
         .or(receiptOrParts.join(','))
         .limit(MAX_SEARCH_CANDIDATES);
       if (error) throw error;
-      candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
-    }
-  }
+      return uniqueIds((data || []).map((row: any) => row?.venda_id));
+    })() : Promise.resolve([] as string[]),
 
-  if (includeAll || params.campoBusca === 'cliente') {
-    const clienteOrParts = buildSearchParts(searchTerm, digits, [
-      'nome',
-      'email',
-      'cpf',
-      'telefone',
-      'whatsapp'
-    ]);
-    if (clienteOrParts.length > 0) {
-      const companyBatches =
-        params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
-      for (const companyBatch of companyBatches) {
-        let query = client
-          .from('clientes')
-          .select('id')
-          .or(clienteOrParts.join(','))
-          .limit(300);
-        if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
-        const { data, error } = await query;
-        if (error) throw error;
-        candidateClienteIds.push(...uniqueIds((data || []).map((row: any) => row?.id), 300));
-      }
-    }
-  }
+    // 2. Busca por cliente
+    (includeAll || params.campoBusca === 'cliente') ? (async () => {
+      const clienteOrParts = buildSearchParts(searchTerm, digits, [
+        'nome', 'email', 'cpf', 'telefone', 'whatsapp'
+      ]);
+      if (clienteOrParts.length === 0) return [] as string[];
+      const results = await Promise.all(
+        companyBatches.map(async (companyBatch) => {
+          let query = client.from('clientes').select('id').or(clienteOrParts.join(',')).limit(300);
+          if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
+          const { data, error } = await query;
+          if (error) throw error;
+          return uniqueIds((data || []).map((row: any) => row?.id), 300);
+        })
+      );
+      return results.flat();
+    })() : Promise.resolve([] as string[]),
 
-  if (includeAll || params.campoBusca === 'vendedor') {
-    if (searchTerm.length >= 2) {
-      const companyBatches =
-        params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
-      for (const companyBatch of companyBatches) {
-        let query = client
-          .from('users')
-          .select('id')
-          .or(`nome_completo.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-          .limit(100);
-        if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
-        const { data, error } = await query;
-        if (error) throw error;
-        candidateVendedorIds.push(...uniqueIds((data || []).map((row: any) => row?.id), 100));
-      }
-    }
-  }
+    // 3. Busca por vendedor
+    (includeAll || params.campoBusca === 'vendedor') && searchTerm.length >= 2 ? (async () => {
+      const results = await Promise.all(
+        companyBatches.map(async (companyBatch) => {
+          let query = client
+            .from('users')
+            .select('id')
+            .or(`nome_completo.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+            .limit(100);
+          if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
+          const { data, error } = await query;
+          if (error) throw error;
+          return uniqueIds((data || []).map((row: any) => row?.id), 100);
+        })
+      );
+      return results.flat();
+    })() : Promise.resolve([] as string[]),
 
-  if (includeAll || params.campoBusca === 'destino' || params.campoBusca === 'produto') {
-    if (searchTerm.length >= 2) {
-      const productIds: string[] = [];
-      const tipoProdutoIds: string[] = [];
-      const cityIds: string[] = [];
-
-      const { data: produtos, error: produtosError } = await client
-        .from('produtos')
-        .select('id, cidade_id')
-        .ilike('nome', `%${searchTerm}%`)
-        .limit(300);
-      if (produtosError) throw produtosError;
-      productIds.push(...uniqueIds((produtos || []).map((row: any) => row?.id), 300));
-      cityIds.push(...uniqueIds((produtos || []).map((row: any) => row?.cidade_id), 300));
-
-      if (params.campoBusca === 'produto' || includeAll) {
-        const { data: tipos, error: tiposError } = await client
-          .from('tipo_produtos')
-          .select('id')
-          .or(`nome.ilike.%${searchTerm}%,tipo.ilike.%${searchTerm}%`)
-          .limit(300);
-        if (tiposError) throw tiposError;
-        tipoProdutoIds.push(...uniqueIds((tipos || []).map((row: any) => row?.id), 300));
-      }
-
-      const { data: cidades, error: cidadesError } = await client
-        .from('cidades')
-        .select('id')
-        .ilike('nome', `%${searchTerm}%`)
-        .limit(300);
-      if (cidadesError) throw cidadesError;
-      cityIds.push(...uniqueIds((cidades || []).map((row: any) => row?.id), 300));
-
-      for (const batch of chunkArray(uniqueIds(productIds, 300))) {
-        const { data, error } = await client
-          .from('vendas_recibos')
-          .select('venda_id')
-          .in('produto_resolvido_id', batch)
-          .limit(MAX_SEARCH_CANDIDATES);
-        if (error) throw error;
-        candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
-      }
-
-      for (const batch of chunkArray(uniqueIds(tipoProdutoIds, 300))) {
-        const { data, error } = await client
-          .from('vendas_recibos')
-          .select('venda_id')
-          .in('produto_id', batch)
-          .limit(MAX_SEARCH_CANDIDATES);
-        if (error) throw error;
-        candidateVendaIds.push(...uniqueIds((data || []).map((row: any) => row?.venda_id)));
-      }
-
-      for (const batch of chunkArray(uniqueIds(cityIds, 300))) {
-        const [{ data: vendaRows, error: vendaError }, { data: reciboRows, error: reciboError }] =
-          await Promise.all([
-            client.from('vendas').select('id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES),
-            client.from('vendas_recibos').select('venda_id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES)
+    // 4. Busca por destino/produto — lookup em produtos, tipo_produtos e cidades em paralelo
+    (includeAll || params.campoBusca === 'destino' || params.campoBusca === 'produto') && searchTerm.length >= 2
+      ? (async () => {
+          const inclueProduto = params.campoBusca === 'produto' || includeAll;
+          const [produtosResult, tiposResult, cidadesResult] = await Promise.all([
+            client.from('produtos').select('id, cidade_id').ilike('nome', `%${searchTerm}%`).limit(300),
+            inclueProduto
+              ? client.from('tipo_produtos').select('id').or(`nome.ilike.%${searchTerm}%,tipo.ilike.%${searchTerm}%`).limit(300)
+              : Promise.resolve({ data: [], error: null }),
+            client.from('cidades').select('id').ilike('nome', `%${searchTerm}%`).limit(300),
           ]);
-        if (vendaError) throw vendaError;
-        if (reciboError) throw reciboError;
-        candidateVendaIds.push(...uniqueIds((vendaRows || []).map((row: any) => row?.id)));
-        candidateVendaIds.push(...uniqueIds((reciboRows || []).map((row: any) => row?.venda_id)));
-      }
-    }
-  }
+          if (produtosResult.error) throw produtosResult.error;
+          if (tiposResult.error) throw tiposResult.error;
+          if (cidadesResult.error) throw cidadesResult.error;
 
-  if (includeAll) {
-    if (searchTerm.length >= 2) vendaOrParts.push(`numero_venda.ilike.%${searchTerm}%`);
-    if (isUuid(raw)) vendaOrParts.push(`id.eq.${raw}`);
-  }
+          const productIds = uniqueIds((produtosResult.data || []).map((r: any) => r?.id), 300);
+          const tipoProdutoIds = uniqueIds((tiposResult.data || []).map((r: any) => r?.id), 300);
+          const cityIds = uniqueIds([
+            ...(produtosResult.data || []).map((r: any) => r?.cidade_id),
+            ...(cidadesResult.data || []).map((r: any) => r?.id),
+          ], 300);
+
+          // Lookup de vendas/recibos por produto, tipo e cidade — tudo em paralelo
+          const recibosByProductBatches = chunkArray(productIds).map((batch) =>
+            client.from('vendas_recibos').select('venda_id').in('produto_resolvido_id', batch).limit(MAX_SEARCH_CANDIDATES)
+          );
+          const recibosByTipoBatches = chunkArray(tipoProdutoIds).map((batch) =>
+            client.from('vendas_recibos').select('venda_id').in('produto_id', batch).limit(MAX_SEARCH_CANDIDATES)
+          );
+          const cityBatchLookups = chunkArray(cityIds).flatMap((batch) => [
+            client.from('vendas').select('id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES),
+            client.from('vendas_recibos').select('venda_id').in('destino_cidade_id', batch).limit(MAX_SEARCH_CANDIDATES),
+          ]);
+
+          const allResults = await Promise.all([
+            ...recibosByProductBatches,
+            ...recibosByTipoBatches,
+            ...cityBatchLookups,
+          ]);
+
+          const vendaIdSet = new Set<string>();
+          allResults.forEach((result) => {
+            if (result.error) return; // tolerante a falhas parciais
+            (result.data || []).forEach((row: any) => {
+              const id = String(row?.venda_id || row?.id || '').trim();
+              if (isUuid(id)) vendaIdSet.add(id);
+            });
+          });
+          return Array.from(vendaIdSet);
+        })()
+      : Promise.resolve([] as string[]),
+  ]);
+
+  const candidateVendaIds = uniqueIds([...reciboVendaIds, ...destinoAndProdutoIds]);
+  const candidateClienteIds = uniqueIds(clienteIds);
+  const candidateVendedorIds = uniqueIds(vendedorIds);
 
   const vendaIds = await fetchScopedVendaIds(client, {
     inicio: params.inicio,

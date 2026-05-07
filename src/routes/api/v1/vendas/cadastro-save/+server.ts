@@ -19,6 +19,7 @@ import {
 } from '$lib/server/vendasSave';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
@@ -201,6 +202,13 @@ export async function POST(event: RequestEvent) {
 
     // Fechar orçamento vinculado, se houver
     await closeQuoteIfNeeded(adminClient, orcamento_id);
+
+    // Invalidar cache de vendas/ranking/dashboard após criar ou editar venda
+    invalidateSalesReadModels({
+      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
+      vendedorIds: isUuid(vendedorId) ? [vendedorId] : [],
+      userId: user.id,
+    });
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });
   } catch (err: any) {

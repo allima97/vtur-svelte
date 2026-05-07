@@ -470,20 +470,24 @@ async function fetchResolvedRowsUncached(
   },
 ) {
   const normalizedCompanyIds = normalizeCompanyScopeIds(params.companyIds);
-  const baixaRacIds = await fetchBaixaRacVendedorIds(
-    client,
-    normalizedCompanyIds,
-  ).catch(() => [] as string[]);
+
+  // --- Fase 1: buscar dados independentes em paralelo ---
+  // baixaRac e conciliacaoCompanyIds são independentes entre si e das vendas.
+  const [baixaRacIds, conciliacaoCompanyIds, rawRows] = await Promise.all([
+    fetchBaixaRacVendedorIds(client, normalizedCompanyIds).catch(() => [] as string[]),
+    fetchConciliacaoCompanyIds(client, normalizedCompanyIds).catch(() => [] as string[]),
+    fetchSalesReportRows(client, {
+      companyIds: normalizedCompanyIds,
+      vendedorIds: params.vendedorIds,
+      includeCancelled: false,
+      dataInicio: params.dataInicio,
+      dataFim: params.dataFim,
+      filterByReceiptDate: true,
+    }),
+  ]);
+
   const baixaRacSet = new Set(baixaRacIds);
 
-  const rawRows = await fetchSalesReportRows(client, {
-    companyIds: normalizedCompanyIds,
-    vendedorIds: params.vendedorIds,
-    includeCancelled: false,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-    filterByReceiptDate: true,
-  });
   let rows = toRateioShape(rawRows).filter(
     (row) => !baixaRacSet.has(toStr(row?.vendedor_id)),
   );
@@ -495,123 +499,134 @@ async function fetchResolvedRowsUncached(
     rows = rows.filter((row) => clientScope.has(toStr(row?.cliente_id)));
   }
 
-  if (params.vendedorIds.length > 0) {
-    let splitSaleIds: string[] = [];
-    try {
-      splitSaleIds = await fetchSplitSaleIdsForDestinationVendedores(client, {
-        companyId: normalizedCompanyIds[0] || null,
-        companyIds: normalizedCompanyIds,
-        vendedorIds: params.vendedorIds,
-      });
-    } catch (error) {
-      logServerError("[vendas-kpis] split sales indisponivel, seguindo sem rateio destino", error);
-    }
-
-    if (splitSaleIds.length > 0) {
-      const splitRows = toRateioShape(
-        await fetchSalesReportRows(client, {
+  // --- Fase 2: buscar conciliação e split em paralelo ---
+  // splitSaleIds precisa de baixaRacIds (já disponível), mas independe de concReceipts.
+  // concReceipts precisa de baixaRacIds (já disponível).
+  const [splitSaleIds, concReceipts] = await Promise.all([
+    params.vendedorIds.length > 0
+      ? fetchSplitSaleIdsForDestinationVendedores(client, {
+          companyId: normalizedCompanyIds[0] || null,
           companyIds: normalizedCompanyIds,
-          vendaIds: splitSaleIds,
-          includeCancelled: false,
-          dataInicio: params.dataInicio,
-          dataFim: params.dataFim,
-          filterByReceiptDate: true,
-        }),
-      ).filter((row) => !baixaRacSet.has(toStr(row?.vendedor_id)));
-
-      rows = mergeRowsById(rows, splitRows);
-    }
-  }
-
-  // Busca quais empresas têm conciliacao_sobrepoe_vendas ativo (para controle de override)
-  let conciliacaoCompanyIds: string[] = [];
-  try {
-    conciliacaoCompanyIds = await fetchConciliacaoCompanyIds(
-      client,
-      normalizedCompanyIds,
-    );
-  } catch {
-    conciliacaoCompanyIds = [];
-  }
-
-  // Busca recibos de conciliacao para TODAS as empresas do escopo,
-  // nao apenas para as que tem conciliacao_sobrepoe_vendas=true.
-  // Vendedores que so tem recibos de conciliacao (sem venda manual)
-  // tambem devem aparecer no ranking.
-  let concReceipts: any[] = [];
-  if (normalizedCompanyIds.length > 0) {
-    try {
-      concReceipts = await fetchEffectiveConciliacaoReceipts({
-        client,
-        companyId: normalizedCompanyIds[0] || null,
-        companyIds: normalizedCompanyIds,
-        inicio: params.dataInicio,
-        fim: params.dataFim,
-        vendedorIds: params.vendedorIds,
-        excludeVendedorIds: baixaRacIds,
-      });
-    } catch (error) {
-      logServerError("[vendas-kpis] conciliacao indisponivel, seguindo sem overrides", error);
-      concReceipts = [];
-    }
-  }
-
-  if (params.vendedorIds.length > 0 && normalizedCompanyIds.length > 0) {
-    const splitConcRows: any[] = [];
-    for (const vendedorBatch of chunkArray(params.vendedorIds)) {
-      for (const companyBatch of chunkArray(normalizedCompanyIds)) {
-        const { data, error: splitConcErr } = await client
-          .from("vendas_recibos_rateio")
-          .select("conciliacao_recibo_id")
-          .eq("ativo", true)
-          .gt("percentual_destino", 0)
-          .in("vendedor_destino_id", vendedorBatch)
-          .not("conciliacao_recibo_id", "is", null)
-          .in("company_id", companyBatch);
-
-        if (splitConcErr) {
-          logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
-        } else {
-          splitConcRows.push(...(data || []));
-        }
-      }
-    }
-
-    const splitConcIdSet = new Set(
-      splitConcRows
-        .map((row: any) => String(row?.conciliacao_recibo_id || "").trim())
-        .filter(Boolean),
-    );
-
-    if (splitConcIdSet.size > 0) {
-      let concAll: any[] = [];
-      try {
-        concAll = await fetchEffectiveConciliacaoReceipts({
+          vendedorIds: params.vendedorIds,
+        }).catch((error) => {
+          logServerError("[vendas-kpis] split sales indisponivel, seguindo sem rateio destino", error);
+          return [] as string[];
+        })
+      : Promise.resolve([] as string[]),
+    normalizedCompanyIds.length > 0
+      ? fetchEffectiveConciliacaoReceipts({
           client,
           companyId: normalizedCompanyIds[0] || null,
           companyIds: normalizedCompanyIds,
           inicio: params.dataInicio,
           fim: params.dataFim,
-          vendedorIds: null,
+          vendedorIds: params.vendedorIds,
           excludeVendedorIds: baixaRacIds,
-        });
-      } catch (error) {
-        logServerError("[vendas-kpis] conciliation all indisponivel", error);
-        concAll = [];
-      }
+        }).catch((error) => {
+          logServerError("[vendas-kpis] conciliacao indisponivel, seguindo sem overrides", error);
+          return [] as any[];
+        })
+      : Promise.resolve([] as any[]),
+  ]);
 
-      const seenConcIds = new Set(
-        (concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)),
-      );
-      concAll.forEach((item: any) => {
-        const candidateIds = getConciliacaoIds(item);
-        if (candidateIds.length === 0) return;
-        if (!candidateIds.some((id: string) => splitConcIdSet.has(id))) return;
-        if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
-        candidateIds.forEach((id: string) => seenConcIds.add(id));
-        concReceipts.push(item);
+  // Carregar split rows se necessário (depende de splitSaleIds)
+  if (splitSaleIds.length > 0) {
+    const splitRows = toRateioShape(
+      await fetchSalesReportRows(client, {
+        companyIds: normalizedCompanyIds,
+        vendaIds: splitSaleIds,
+        includeCancelled: false,
+        dataInicio: params.dataInicio,
+        dataFim: params.dataFim,
+        filterByReceiptDate: true,
+      }),
+    ).filter((row) => !baixaRacSet.has(toStr(row?.vendedor_id)));
+    rows = mergeRowsById(rows, splitRows);
+  }
+
+  // --- Fase 3: split-conc e suppressedConcReceipts em paralelo ---
+  // Ambas são independentes entre si. splitConcRows depende de concReceipts (para merge),
+  // mas a query em si pode rodar em paralelo com suppressedConcReceipts.
+  const [splitConcRows, suppressedConcReceipts] = await Promise.all([
+    params.vendedorIds.length > 0 && normalizedCompanyIds.length > 0
+      ? (async () => {
+          const collectedRows: any[] = [];
+          const batches: Array<Promise<any>> = [];
+          for (const vendedorBatch of chunkArray(params.vendedorIds)) {
+            for (const companyBatch of chunkArray(normalizedCompanyIds)) {
+              // Wrap em Promise.resolve para garantir tipo Promise<any> compatível
+              batches.push(
+                Promise.resolve(
+                  client
+                    .from("vendas_recibos_rateio")
+                    .select("conciliacao_recibo_id")
+                    .eq("ativo", true)
+                    .gt("percentual_destino", 0)
+                    .in("vendedor_destino_id", vendedorBatch)
+                    .not("conciliacao_recibo_id", "is", null)
+                    .in("company_id", companyBatch)
+                ).then(({ data, error: splitConcErr }: any) => {
+                  if (splitConcErr) {
+                    logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
+                  } else {
+                    collectedRows.push(...(data || []));
+                  }
+                })
+              );
+            }
+          }
+          await Promise.all(batches);
+          return collectedRows;
+        })()
+      : Promise.resolve([] as any[]),
+    normalizedCompanyIds.length > 0
+      ? fetchSuppressedConciliacaoReceipts({
+          client,
+          companyId: normalizedCompanyIds[0] || null,
+          companyIds: normalizedCompanyIds,
+          inicio: params.dataInicio,
+          fim: params.dataFim,
+        }).catch((error) => {
+          logServerError("[vendas-kpis] conciliacao suprimida indisponivel", error);
+          return [] as Array<{ documento: string; numero_reserva?: string | null; linked_recibo_id: string | null }>;
+        })
+      : Promise.resolve([] as Array<{ documento: string; numero_reserva?: string | null; linked_recibo_id: string | null }>),
+  ]);
+
+  const splitConcIdSet = new Set(
+    splitConcRows
+      .map((row: any) => String(row?.conciliacao_recibo_id || "").trim())
+      .filter(Boolean),
+  );
+
+  if (splitConcIdSet.size > 0) {
+    let concAll: any[] = [];
+    try {
+      concAll = await fetchEffectiveConciliacaoReceipts({
+        client,
+        companyId: normalizedCompanyIds[0] || null,
+        companyIds: normalizedCompanyIds,
+        inicio: params.dataInicio,
+        fim: params.dataFim,
+        vendedorIds: null,
+        excludeVendedorIds: baixaRacIds,
       });
+    } catch (error) {
+      logServerError("[vendas-kpis] conciliation all indisponivel", error);
+      concAll = [];
     }
+
+    const seenConcIds = new Set(
+      (concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)),
+    );
+    concAll.forEach((item: any) => {
+      const candidateIds = getConciliacaoIds(item);
+      if (candidateIds.length === 0) return;
+      if (!candidateIds.some((id: string) => splitConcIdSet.has(id))) return;
+      if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
+      candidateIds.forEach((id: string) => seenConcIds.add(id));
+      concReceipts.push(item);
+    });
   }
 
   const overriddenReceiptIds = new Set(
@@ -619,23 +634,6 @@ async function fetchResolvedRowsUncached(
       .map((item) => String(item.linked_recibo_id || "").trim())
       .filter(Boolean),
   );
-  let suppressedConcReceipts: Array<{
-    documento: string;
-    numero_reserva?: string | null;
-    linked_recibo_id: string | null;
-  }> = [];
-  try {
-    suppressedConcReceipts = await fetchSuppressedConciliacaoReceipts({
-      client,
-      companyId: normalizedCompanyIds[0] || null,
-      companyIds: normalizedCompanyIds,
-      inicio: params.dataInicio,
-      fim: params.dataFim,
-    });
-  } catch (error) {
-    logServerError("[vendas-kpis] conciliacao suprimida indisponivel", error);
-    suppressedConcReceipts = [];
-  }
   const suppressedReceiptIds = new Set(
     suppressedConcReceipts
       .map((item) => toStr(item.linked_recibo_id))

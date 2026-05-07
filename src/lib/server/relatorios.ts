@@ -268,8 +268,11 @@ export async function fetchSalesReportRows(
       READ_MODEL_TAGS.catalog,
       ...scopeCacheTags({ companyIds, vendedorIds })
     ],
-    ttlMs: 10_000,
-    staleTtlMs: 45_000,
+    // 30s fresh / 120s stale: fetchSalesReportRows é uma query pesada (paginação)
+    // e é chamada por KPIs, ranking e relatórios. Manter em cache por mais tempo
+    // reduz drasticamente o número de queries ao banco em requisições concorrentes.
+    ttlMs: 30_000,
+    staleTtlMs: 120_000,
     loader: async () => {
       const executeQuery = async (selectClause: string) => {
         const rowsById = new Map<string, ReportVendaRow>();

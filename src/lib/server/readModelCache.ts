@@ -14,10 +14,23 @@ type CacheOptions<T> = {
   loader: () => Promise<T>;
 };
 
+// TTL padrão para dados que mudam frequentemente (vendas, ranking, KPIs)
 const DEFAULT_TTL_MS = 15_000;
+// Stale padrão — mantém cache válido para revalidação em background
 const DEFAULT_STALE_TTL_MS = 60_000;
-const MAX_ENTRIES = 250;
+// Aumentado de 250 para 600: sistema multi-tenant com múltiplas empresas/usuários
+// esgota 250 entradas rapidamente, causando expulsão prematura e recarga constante.
+const MAX_ENTRIES = 600;
 const MAX_CACHE_KEY_LENGTH = 900;
+
+// Tags de dados transacionais: vendas, ranking, KPIs, dashboard, conciliacao.
+// Em Cloudflare Workers cada instância tem seu próprio Map em memória —
+// o cache é local por instância e NÃO é compartilhado entre Workers.
+// Por isso evitamos TTLs muito curtos (não ajudam a desempenho e causam
+// thrash), e confiamos na invalidação explícita via invalidateSalesReadModels
+// após cada mutação. TTL de 30s é o equilíbrio entre frescura e throughput.
+const TRANSACTIONAL_TTL_MS = 30_000;
+const TRANSACTIONAL_STALE_TTL_MS = 120_000;
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
@@ -214,25 +227,27 @@ export async function getCachedReadModel<T>(
   options: CacheOptions<T>,
 ): Promise<T> {
   const optionTags = (options.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean);
-  const isFreshnessCritical = optionTags.some((tag) =>
+
+  // Dados transacionais: usamos TTL dedicado em vez de forçar 5s por instância.
+  // Em Workers o cache é local — forçar TTL baixo só gera thrash sem ganho
+  // de consistência cross-instance. A consistência é garantida pela
+  // invalidação explícita após mutações (invalidateSalesReadModels etc.).
+  const isTransactional = optionTags.some((tag) =>
     [
       READ_MODEL_TAGS.sales,
       READ_MODEL_TAGS.dashboard,
       READ_MODEL_TAGS.vendasKpis,
       READ_MODEL_TAGS.ranking,
       READ_MODEL_TAGS.comissoes,
+      READ_MODEL_TAGS.conciliacao,
     ].includes(tag as any),
   );
-  const ttlMs = Math.max(
-    1_000,
-    isFreshnessCritical
-      ? Math.min(options.ttlMs ?? DEFAULT_TTL_MS, 5_000)
-      : options.ttlMs ?? DEFAULT_TTL_MS,
-  );
-  const staleTtlMs = isFreshnessCritical ? ttlMs : Math.max(
-    ttlMs,
-    options.staleTtlMs ?? DEFAULT_STALE_TTL_MS,
-  );
+
+  const defaultTtl = isTransactional ? TRANSACTIONAL_TTL_MS : DEFAULT_TTL_MS;
+  const defaultStale = isTransactional ? TRANSACTIONAL_STALE_TTL_MS : DEFAULT_STALE_TTL_MS;
+
+  const ttlMs = Math.max(1_000, options.ttlMs ?? defaultTtl);
+  const staleTtlMs = Math.max(ttlMs, options.staleTtlMs ?? defaultStale);
   const now = nowMs();
   const existing = cache.get(options.key) as CacheEntry<T> | undefined;
   const loaderEpoch = invalidationEpoch;
