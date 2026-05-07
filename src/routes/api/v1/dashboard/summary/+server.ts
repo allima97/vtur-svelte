@@ -12,7 +12,7 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
-import { fetchVendasKpiReciboContributions } from "$lib/server/vendas-kpis";
+import { fetchVendasKpiReciboContributionsRaw } from "$lib/server/vendas-kpis";
 import {
   buildReadModelCacheKey,
   getCachedReadModel,
@@ -406,7 +406,7 @@ export async function GET(event) {
 
         const [vendasCanonical, metasData, orcamentos, widgetPrefsData] =
           await Promise.all([
-            fetchVendasKpiReciboContributions(client, {
+            fetchVendasKpiReciboContributionsRaw(client, {
               dataInicio: inicio,
               dataFim: fim,
               companyIds,
