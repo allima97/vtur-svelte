@@ -600,8 +600,7 @@
       const result = await apiPost<{ venda_id?: string }>('/api/v1/vendas/create', payload);
 
       toast.success('Venda cadastrada com sucesso!');
-      if (!result.venda_id) throw new Error('Venda salva sem identificador de retorno.');
-      goto(`/vendas/${result.venda_id}`);
+      goto('/vendas');
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao salvar venda.');
     } finally {

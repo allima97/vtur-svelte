@@ -41,10 +41,10 @@ export async function GET(event) {
       return json({ error: 'subdivisao_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const selectFields = `
-        id, nome, subdivisao_id, descricao, created_at,
-        subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id, pais:paises!pais_id(id, nome))
-      `;
+    // Na listagem usamos apenas campos da própria tabela + subdivisao simples (sem join de pais)
+    // para evitar queries lentas com joins aninhados. O join completo só é feito por ID.
+    const selectFields = `id, nome, subdivisao_id, descricao, created_at,
+        subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id)`;
 
     const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
       key: buildReadModelCacheKey('cidades:list', {

@@ -56,16 +56,26 @@
 
   async function load() {
     loading = true;
-    try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', {
-        pais_id: filtroPais || undefined
-      });
-      subdivisoes = payload.items || [];
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar estados.');
-    } finally {
-      loading = false;
+    let payload: any = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        payload = await apiGet<any>('/api/v1/subdivisoes', {
+          pais_id: filtroPais || undefined,
+          pageSize: 500
+        }, undefined, 30_000);
+        break;
+      } catch (err) {
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 800));
+          continue;
+        }
+        toast.error('Não foi possível carregar os estados. Tente novamente.');
+        loading = false;
+        return;
+      }
     }
+    subdivisoes = payload?.items || [];
+    loading = false;
   }
 
   function openNew() {

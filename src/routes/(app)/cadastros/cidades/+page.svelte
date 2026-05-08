@@ -70,7 +70,7 @@
 
     loadingSubdivisoes = true;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 });
+      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 }, undefined, 30_000);
       subdivisoes = Array.isArray(payload?.items) ? payload.items : [];
     } catch {
       subdivisoes = [];
@@ -92,20 +92,29 @@
     }
 
     loading = true;
-    try {
-      const payload = await apiGet<any>('/api/v1/cidades', {
-        q: hasCityTerm ? term : undefined,
-        subdivisao_id: hasSubdivisaoFilter ? filtroSubdivisao : undefined,
-        page: 1,
-        pageSize: 200
-      });
-      cidades = Array.isArray(payload?.items) ? payload.items : [];
-      totalCidades = Number(payload?.total || cidades.length);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar cidades.');
-    } finally {
-      loading = false;
+    let payload: any = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        payload = await apiGet<any>('/api/v1/cidades', {
+          q: hasCityTerm ? term : undefined,
+          subdivisao_id: hasSubdivisaoFilter ? filtroSubdivisao : undefined,
+          page: 1,
+          pageSize: 200
+        }, undefined, 30_000);
+        break;
+      } catch (err) {
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 800));
+          continue;
+        }
+        toast.error('Não foi possível carregar as cidades. Tente novamente.');
+        loading = false;
+        return;
+      }
     }
+    cidades = Array.isArray(payload?.items) ? payload.items : [];
+    totalCidades = Number(payload?.total || cidades.length);
+    loading = false;
   }
 
   function openNew() {

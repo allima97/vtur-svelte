@@ -218,8 +218,8 @@ export async function apiFetch<T = unknown>(path: string, options: ApiOptions = 
   return requestPromise;
 }
 
-export function apiGet<T = unknown>(path: string, query?: ApiOptions['query'], signal?: AbortSignal) {
-  return apiFetch<T>(path, { method: 'GET', query, signal });
+export function apiGet<T = unknown>(path: string, query?: ApiOptions['query'], signal?: AbortSignal, timeoutMs?: number) {
+  return apiFetch<T>(path, { method: 'GET', query, signal, ...(timeoutMs ? { timeoutMs } : {}) });
 }
 
 export function apiPost<T = unknown>(path: string, body: ApiOptions['body'], signal?: AbortSignal) {

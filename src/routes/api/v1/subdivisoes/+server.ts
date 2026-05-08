@@ -77,9 +77,10 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
+        // Sem join de pais na listagem — evita query lenta com join desnecessário
         let query = client
           .from('subdivisoes')
-          .select('id, nome, pais_id, codigo_admin1, tipo, created_at, pais:paises!pais_id(id, nome)')
+          .select('id, nome, pais_id, codigo_admin1, tipo, created_at')
           .order('nome')
           .range((page - 1) * pageSize, page * pageSize - 1);
 
