@@ -2340,7 +2340,7 @@ function cleanHotelName(line: string) {
 function extractProdutoPrincipal(text: string): { nome: string | null; tipo: string | null; detalhes: string | null } {
   const cleaned = cleanText(text);
   const sectionMatch = cleaned.match(
-    /SERVI[ÇC]OS INCLUSOS([\s\S]*?)(?:NOME DOS PASSAGEIROS|4\.|4\s+DO PRE[ÇC]O|5\.|VALOR E FORMA|$)/i
+    /SERVI[ÇC]OS INCLUSOS([\s\S]*?)(?:NOME DOS? PASSAGEIROS?|4\.|4\s+DO PRE[ÇC]O|5\.|VALOR E FORMA|$)/i
   );
   const section = sectionMatch?.[1] || cleaned;
   const normalized = section
@@ -3017,7 +3017,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   const filteredLines = lines.filter((l) => !isFooterLine(l));
   const sections = splitRoteiroSections(filteredLines);
   const servicosSectionMatch = cleaned.match(
-    /SERVI[ÇC]OS INCLUSOS([\s\S]*?)(?:NOME DOS PASSAGEIROS|4\.|4\s+DO PRE[ÇC]O|5\.|VALOR E FORMA|$)/i
+    /SERVI[ÇC]OS INCLUSOS([\s\S]*?)(?:NOME DOS? PASSAGEIROS?|4\.|4\s+DO PRE[ÇC]O|5\.|VALOR E FORMA|$)/i
   );
   const servicosSectionText = servicosSectionMatch?.[1] || "";
 
@@ -3424,8 +3424,10 @@ export async function extractContratosFromText(
       }
     });
     markers.sort((a, b) => a.index - b.index);
+    // Elimina markers sobrepostos: se dois markers estão a menos de 30 chars de distância,
+    // mantém apenas o primeiro (evita que "Nº Contrato: X" e "Contrato: X" gerem dois blocos).
     const uniqueMarkers = markers.filter(
-      (item, idx) => item.index !== markers[idx - 1]?.index
+      (item, idx) => idx === 0 || item.index - markers[idx - 1].index >= 30
     );
 
     if (uniqueMarkers.length === 0) {
