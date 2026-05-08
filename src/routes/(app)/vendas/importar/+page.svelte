@@ -922,26 +922,12 @@
                   disabled={true}
                 />
               {:else}
-                <FieldSelect
+                <FieldInput
                   id={`contrato-produto-${index}`}
                   label="Produto do recibo"
-                  value={contrato.produto_resolvido_id || ''}
-                  options={getProdutosPorCidade(getCidadeContratoId(contrato)).map((produto) => ({ value: produto.id, label: produto.nome }))}
-                  placeholder="Selecione uma opção"
-                  helper="Produto é individual do recibo. Destino continua sendo a cidade da viagem."
-                  on:change={(e) => {
-                    const value = (e.currentTarget as HTMLSelectElement).value;
-                    contratos = contratos.map((c, i) => (i === index ? { ...c, produto_resolvido_id: value || null } : c));
-                  }}
-                />
-              {/if}
-              {#if tipoImportacao !== 'facial_rextur' && tipoImportacao !== 'facial_cvc'}
-                <FieldInput
-                  id={`contrato-produto-extraido-${index}`}
-                  label="Produto extraído"
                   value={contrato.produto_principal || ''}
-                  placeholder="Nome do produto que será cadastrado"
-                  helper="Se nenhum produto existente for selecionado, este nome será cadastrado automaticamente ao salvar."
+                  placeholder="Nome do produto"
+                  helper="Será criado automaticamente ao salvar se não existir."
                   on:input={(e) =>
                     handleProdutoPrincipalChange(index, (e.currentTarget as HTMLInputElement).value)}
                 />
