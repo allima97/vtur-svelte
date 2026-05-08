@@ -189,20 +189,26 @@
   $: temBacklogFinanceiro = backlogFinanceiroValor > 0;
   $: entradasRecentes = movimentacoes.filter((m) => m.tipo === 'entrada').length;
   $: saidasRecentes = movimentacoes.filter((m) => m.tipo === 'saida').length;
+  const chartColors = [
+    '#f97316',
+    '#3b82f6',
+    '#10b981',
+    '#8b5cf6',
+    '#f59e0b',
+    '#ef4444',
+    '#06b6d4',
+    '#84cc16'
+  ];
 
   function getChartData() {
     const labels = porFormaPagamento.map(fp => fp.nome);
     const data = porFormaPagamento.map(fp => fp.valor);
-    const colors = [
-      '#f97316', '#3b82f6', '#10b981', '#8b5cf6',
-      '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'
-    ];
 
     return {
       labels,
       datasets: [{
         data,
-        backgroundColor: colors.slice(0, data.length),
+        backgroundColor: data.map((_, index) => chartColors[index % chartColors.length]),
         borderWidth: 0
       }]
     };
@@ -214,12 +220,7 @@
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: 'bottom' as const,
-          labels: {
-            padding: 15,
-            usePointStyle: true,
-            font: { size: 11 }
-          }
+          display: false
         }
       }
     };
@@ -336,7 +337,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/conciliacao')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${temBacklogFinanceiro ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}><AlertCircle size={20} /></div>
@@ -349,7 +350,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class={`flex h-10 w-10 items-center justify-center rounded-xl ${resumo.saldo >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}><DollarSign size={20} /></div>
@@ -362,7 +363,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><ArrowUpRight size={20} /></div>
@@ -375,7 +376,7 @@
     <Button
       type="button"
       variant="unstyled"
-      class_name="vtur-kpi-card !flex !w-full !p-0 hover:shadow-lg transition-all duration-200"
+      class_name="vtur-kpi-card !flex !w-full hover:shadow-lg transition-all duration-200"
       on:click={() => goto('/financeiro/caixa')}
     >
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500"><ArrowDownRight size={20} /></div>
@@ -542,16 +543,22 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <Card header="Por Forma de Pagamento" icon={CreditCard} color="financeiro" class="lg:col-span-1">
       {#if porFormaPagamento.length > 0}
-        <div class="h-64">
+        <div class="mx-auto h-56 max-w-[280px]">
           <ChartJS type="doughnut" data={getChartData()} options={getChartOptions()} />
         </div>
-        <div class="mt-4 space-y-2">
-          {#each porFormaPagamento.slice(0, 5) as fp}
-            <div class="flex justify-between items-center text-sm">
-              <span class="text-slate-600">{fp.nome}</span>
-              <div class="text-right">
-                <span class="font-medium text-slate-900">{formatCurrency(fp.valor)}</span>
-                <span class="text-xs text-slate-500 ml-2">({fp.quantidade})</span>
+        <div class="mt-5 space-y-3">
+          {#each porFormaPagamento.slice(0, 5) as fp, index}
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-sm">
+              <div class="flex min-w-0 items-center gap-2">
+                <span
+                  class="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={`background-color: ${chartColors[index % chartColors.length]}`}
+                ></span>
+                <span class="truncate text-slate-600" title={fp.nome}>{fp.nome}</span>
+              </div>
+              <div class="shrink-0 text-right leading-tight">
+                <p class="font-semibold text-slate-900">{formatCurrency(fp.valor)}</p>
+                <p class="text-xs text-slate-500">{fp.quantidade} mov.</p>
               </div>
             </div>
           {/each}

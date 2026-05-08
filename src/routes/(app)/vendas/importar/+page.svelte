@@ -437,6 +437,20 @@
     });
   }
 
+  function handleProdutoPrincipalChange(index: number, value: string) {
+    contratos = contratos.map((contrato, itemIndex) => {
+      if (itemIndex !== index) return contrato;
+      const nextProdutoPrincipal = value.trimStart();
+      return {
+        ...contrato,
+        produto_principal: nextProdutoPrincipal,
+        produto_resolvido_id:
+          contrato.produto_resolvido_id ||
+          guessProdutoId({ ...contrato, produto_principal: nextProdutoPrincipal }, getCidadeContratoId(contrato))
+      };
+    });
+  }
+
   function toggleContratoCidadePadrao(index: number, checked: boolean) {
     contratos = contratos.map((contrato, itemIndex) => {
       if (itemIndex !== index) return contrato;
@@ -905,6 +919,17 @@
                     const value = (e.currentTarget as HTMLSelectElement).value;
                     contratos = contratos.map((c, i) => (i === index ? { ...c, produto_resolvido_id: value || null } : c));
                   }}
+                />
+              {/if}
+              {#if tipoImportacao !== 'facial_rextur' && tipoImportacao !== 'facial_cvc'}
+                <FieldInput
+                  id={`contrato-produto-extraido-${index}`}
+                  label="Produto extraído"
+                  value={contrato.produto_principal || ''}
+                  placeholder="Nome do produto que será cadastrado"
+                  helper="Se nenhum produto existente for selecionado, este nome será cadastrado automaticamente ao salvar."
+                  on:input={(e) =>
+                    handleProdutoPrincipalChange(index, (e.currentTarget as HTMLInputElement).value)}
                 />
               {/if}
               <FieldInput id={`contrato-destino-${index}`} label="Destino" value={contrato.destino || '-'} disabled={true} />

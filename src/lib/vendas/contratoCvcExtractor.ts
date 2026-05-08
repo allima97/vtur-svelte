@@ -2162,6 +2162,10 @@ const SERVICO_NOISE_KEYWORDS = [
 const SERVICE_CLAUSE_LINE_RE = /^\.?\d+(?:\.\d+)*[\s\-–\.:]/;
 const SERVICE_DATE_LINE_RE = /^\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}/;
 
+function isHotelDiariasLine(normalized: string) {
+  return /^(?:\d+\s*)?diarias?\s+(?:no|na|em)\b/.test(normalized);
+}
+
 function inferHotelTipo(normalizedLines: string[], hotelName?: string | null) {
   const parts = [...normalizedLines];
   if (hotelName) {
@@ -2181,6 +2185,7 @@ function isServicoNoiseLine(normalized: string) {
   if (/^nr\b/.test(normalized)) return true;
   if (/^\[?res\d{3,}/.test(normalized)) return true;
   if (SERVICE_DATE_LINE_RE.test(normalized)) return true;
+  if (isHotelDiariasLine(normalized)) return false;
   if (SERVICE_CLAUSE_LINE_RE.test(normalized) && normalized.length > 60) return true;
   if (
     normalized.length > 60 &&
@@ -2288,6 +2293,7 @@ function cleanHotelName(line: string) {
     const dashMarkers = [
       "quarto",
       "apartamento",
+      "diarias em apartamento",
       "acomod",
       "todos os apartamentos",
       "os quartos",
