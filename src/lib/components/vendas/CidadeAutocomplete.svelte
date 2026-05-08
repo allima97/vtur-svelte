@@ -194,7 +194,15 @@
     ensuringId = idValue;
 
     try {
-      const payload: any = await apiGet('/api/v1/vendas/cidades-busca', { id: idValue });
+      let payload: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          payload = await apiGet('/api/v1/vendas/cidades-busca', { id: idValue }, undefined, 30_000);
+          break;
+        } catch {
+          if (attempt < 2) await new Promise(r => setTimeout(r, 600));
+        }
+      }
       if (!payload?.id) return;
       dispatch('loaded', [payload]);
       if (!showOptions) searchText = getCidadeLabel(payload);
@@ -213,16 +221,22 @@
     }
 
     loading = true;
-    try {
-      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: maxResults });
-      const items = sortCities(uniqueCities(parseItems(payload)), query).slice(0, maxResults);
-      searchResults = items;
-      dispatch('loaded', items);
-    } catch {
-      searchResults = [];
-    } finally {
-      loading = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: maxResults }, undefined, 30_000);
+        const items = sortCities(uniqueCities(parseItems(payload)), query).slice(0, maxResults);
+        searchResults = items;
+        dispatch('loaded', items);
+        break;
+      } catch {
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 600));
+        } else {
+          searchResults = [];
+        }
+      }
     }
+    loading = false;
   }
 
   function handleInput(event: Event) {

@@ -268,42 +268,47 @@
   }
 
   async function forcarCidadeIndefinida() {
-    try {
-      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: 'Indefinida', limite: 10 });
-      const items = sortCidades(parseCidadeItems(payload), 'Indefinida');
-      mergeCidadesDisponiveis(items);
-      const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
-      if (match?.id) {
-        cidadeAutoIndefinida = true;
-        cidadeId = match.id;
-        cidadeNome = match.nome;
-        cidadeSelecionadaLabel = getCidadeLabel(match);
-        buscaCidade = cidadeSelecionadaLabel;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: 'Indefinida', limite: 10 }, undefined, 30_000);
+        const items = sortCidades(parseCidadeItems(payload), 'Indefinida');
+        mergeCidadesDisponiveis(items);
+        const match = items.find((item: CidadeSugestao) => normalizeText(item.nome) === 'indefinida');
+        if (match?.id) {
+          cidadeAutoIndefinida = true;
+          cidadeId = match.id;
+          cidadeNome = match.nome;
+          cidadeSelecionadaLabel = getCidadeLabel(match);
+          buscaCidade = cidadeSelecionadaLabel;
+        }
+        return;
+      } catch {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 600));
       }
-    } catch {
-      // ignore
     }
   }
 
   async function buscarCidadeInicial(termo: string) {
     if (!termo || termo.length < 2) return;
     buscandoCidade = true;
-    try {
-      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: termo, limite: 10 });
-      const items = sortCidades(parseCidadeItems(payload), termo);
-      mergeCidadesDisponiveis(items);
-      if (items.length > 0) {
-        const first = items[0] as CidadeSugestao;
-        cidadeId = first.id;
-        cidadeNome = first.nome;
-        cidadeSelecionadaLabel = getCidadeLabel(first);
-        buscaCidade = cidadeSelecionadaLabel;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: termo, limite: 10 }, undefined, 30_000);
+        const items = sortCidades(parseCidadeItems(payload), termo);
+        mergeCidadesDisponiveis(items);
+        if (items.length > 0) {
+          const first = items[0] as CidadeSugestao;
+          cidadeId = first.id;
+          cidadeNome = first.nome;
+          cidadeSelecionadaLabel = getCidadeLabel(first);
+          buscaCidade = cidadeSelecionadaLabel;
+        }
+        break;
+      } catch {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 600));
       }
-    } catch {
-      // ignore
-    } finally {
-      buscandoCidade = false;
     }
+    buscandoCidade = false;
   }
 
   async function buscarCidade(query: string) {
@@ -312,15 +317,21 @@
       return;
     }
     buscandoCidade = true;
-    try {
-      const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: 20 });
-      resultadosCidade = sortCidades(parseCidadeItems(payload), query);
-      mergeCidadesDisponiveis(resultadosCidade);
-    } catch {
-      resultadosCidade = [];
-    } finally {
-      buscandoCidade = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const payload = await apiGet('/api/v1/vendas/cidades-busca', { q: query, limite: 20 }, undefined, 30_000);
+        resultadosCidade = sortCidades(parseCidadeItems(payload), query);
+        mergeCidadesDisponiveis(resultadosCidade);
+        break;
+      } catch {
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 600));
+        } else {
+          resultadosCidade = [];
+        }
+      }
     }
+    buscandoCidade = false;
   }
 
   let cidadeTimeout: ReturnType<typeof setTimeout> | null = null;
