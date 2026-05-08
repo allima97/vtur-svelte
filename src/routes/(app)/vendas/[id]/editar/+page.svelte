@@ -843,7 +843,7 @@
       await apiPatch(`/api/v1/vendas/${vendaId}`, payload);
 
       toast.success('Venda atualizada com sucesso!');
-      goto(`/vendas/${vendaId}`);
+      goto(`/vendas/${vendaId}?saved=1`);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao atualizar venda.');
     } finally {

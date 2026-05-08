@@ -180,7 +180,7 @@ export async function GET(event) {
     if (!scope.isAdmin && !scope.isMaster)
       ensureModuloAccess(
         scope,
-        ["vendas_consulta", "vendas"],
+        ["vendas_consulta", "vendas", "vendas_importar", "Importar Contratos"],
         1,
         "Sem acesso a Vendas.",
       );

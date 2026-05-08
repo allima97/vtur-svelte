@@ -32,7 +32,7 @@
   import { permissoes } from '$lib/stores/permissoes';
   import { sanitizeImportedClienteNome } from '$lib/features/clientes/form';
   import { todayISODateLocal } from '$lib/date';
-  import { ApiError, apiGet, apiPost } from '$lib/services/api';
+  import { ApiError, apiFetch, apiGet, apiPost } from '$lib/services/api';
   import type { ContratoDraft } from '$lib/vendas/contratoCvcExtractor';
 
   type ContratoDraftUI = ContratoDraft & {
@@ -363,7 +363,11 @@
     if (!id) return;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
-        await apiGet(`/api/v1/vendas/${encodeURIComponent(id)}`);
+        await apiFetch(`/api/v1/vendas/${encodeURIComponent(id)}`, {
+          redirectOnForbidden: false,
+          redirectOnUnauthorized: false,
+          query: { lite: 1, t: Date.now() }
+        });
         return;
       } catch (err) {
         if (!(err instanceof ApiError) || ![404, 403, 0].includes(err.status)) return;

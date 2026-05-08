@@ -287,8 +287,10 @@
   async function carregarVenda(opts: { preserveData?: boolean } = {}) {
     const preserveData = opts.preserveData ?? false;
     const fromImport = $page.url.searchParams.get('imported') === '1';
+    const fromSave = $page.url.searchParams.get('saved') === '1';
+    const fromRecentWrite = fromImport || fromSave;
     const isInitialLoad = !preserveData && !venda;
-    const maxAttempts = isInitialLoad && fromImport ? 6 : 2;
+    const maxAttempts = isInitialLoad && fromRecentWrite ? 6 : 2;
     let lastError: unknown = null;
 
     refreshing = preserveData && Boolean(venda);
@@ -299,12 +301,12 @@
     error = null;
 
     if (isInitialLoad) {
-      startLoadingRecoveryGuard(fromImport ? 3500 : 7000);
+      startLoadingRecoveryGuard(fromRecentWrite ? 3500 : 7000);
     }
 
-    if (isInitialLoad && fromImport) {
+    if (isInitialLoad && fromRecentWrite) {
       try {
-        loadingHint = 'Abrindo a venda importada...';
+        loadingHint = fromImport ? 'Abrindo a venda importada...' : 'Abrindo a venda...';
         const liteData: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
@@ -320,7 +322,9 @@
       } catch (err) {
         lastError = err;
         loading = true;
-        loadingHint = 'A venda foi importada. Estamos tentando abrir a ficha completa...';
+        loadingHint = fromImport
+          ? 'A venda foi importada. Estamos tentando abrir a ficha completa...'
+          : 'Atualizando os dados da venda...';
         startLoadingRecoveryGuard(3500);
       }
     }
@@ -343,6 +347,8 @@
         if (attempt < maxAttempts - 1 && shouldRetryInitialLoad(err)) {
           loadingHint = fromImport
             ? 'A venda foi importada. Estamos sincronizando os dados para abrir a ficha...'
+            : fromSave
+            ? 'Atualizando os dados da venda...'
             : 'Ainda estamos carregando a venda. Tentando novamente...';
           await sleep(450 * (attempt + 1));
           continue;
@@ -370,6 +376,8 @@
     } else if (err instanceof ApiError && err.status === 404) {
       error = fromImport
         ? 'Venda importada, mas ainda não foi possível abrir a ficha. Volte para Vendas e atualize a lista.'
+        : fromSave
+        ? 'Não foi possível carregar a venda após salvar. Volte para a lista e abra novamente.'
         : 'Venda não encontrada';
     } else {
       error = `Erro ao carregar dados da venda: ${err?.message || 'falha inesperada'}`;
