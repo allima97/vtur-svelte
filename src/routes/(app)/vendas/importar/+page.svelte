@@ -400,22 +400,36 @@
   }
 
   function guessProdutoId(contrato: ContratoDraftUI, cidadeIdAtual: string) {
-    const candidates = [
-      contrato.produto_principal,
-      contrato.produto_tipo,
-      contrato.produto_detalhes
-    ]
+    // Apenas produto_principal e produto_tipo participam do match — produto_detalhes é texto
+    // longo demais e gera falsos positivos em matches parciais.
+    const exactCandidates = [contrato.produto_principal, contrato.produto_tipo]
       .map((value) => normalizeText(String(value || ''), { trim: true, collapseWhitespace: true }))
       .filter(Boolean);
 
-    if (candidates.length === 0) return '';
+    if (exactCandidates.length === 0) return '';
 
     const produtosDisponiveis = getProdutosPorCidade(cidadeIdAtual);
-    for (const term of candidates) {
-      const exact = produtosDisponiveis.find((produto) => normalizeText(produto.nome, { trim: true, collapseWhitespace: true }) === term);
+
+    // 1. Busca match exato primeiro
+    for (const term of exactCandidates) {
+      const exact = produtosDisponiveis.find(
+        (produto) => normalizeText(produto.nome, { trim: true, collapseWhitespace: true }) === term
+      );
       if (exact?.id) return exact.id;
-      const partial = produtosDisponiveis.find((produto) => normalizeText(produto.nome, { trim: true, collapseWhitespace: true }).includes(term) || term.includes(normalizeText(produto.nome, { trim: true, collapseWhitespace: true })));
-      if (partial?.id) return partial.id;
+    }
+
+    // 2. Match parcial apenas com produto_principal, e só se o nome do produto
+    //    contiver o termo (não o contrário — evita match de termos curtos demais).
+    const principal = normalizeText(String(contrato.produto_principal || ''), { trim: true, collapseWhitespace: true });
+    if (principal.length >= 6) {
+      const partial = produtosDisponiveis.find((produto) => {
+        const nomeProduto = normalizeText(produto.nome, { trim: true, collapseWhitespace: true });
+        return nomeProduto.includes(principal) || principal.includes(nomeProduto);
+      });
+      // Só aceita se o nome do produto cadastrado tiver pelo menos 6 chars (evita matches triviais)
+      if (partial?.id && normalizeText(partial.nome, { trim: true, collapseWhitespace: true }).length >= 6) {
+        return partial.id;
+      }
     }
 
     return '';
