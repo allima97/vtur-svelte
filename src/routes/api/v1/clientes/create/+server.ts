@@ -42,17 +42,26 @@ export async function POST(event) {
     // ✅ Valida company_id contra o escopo do usuário
     const requestedCompanyId = String(body?.company_id || '').trim();
 
-    // Para admin sem company_id explícito, usa o primeiro disponível ou null
     let companyId: string | null = null;
     if (scope.isAdmin) {
+      // Admin: usa company_id explícito se válido, senão null
       companyId = isUuid(requestedCompanyId) ? requestedCompanyId : null;
+    } else if (isUuid(requestedCompanyId)) {
+      // Qualquer papel com company_id explícito: valida se está no escopo
+      const scopedIds = (scope.companyIds || []).filter(isUuid);
+      if (!scopedIds.includes(requestedCompanyId)) {
+        return json({ error: 'company_id fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
+      }
+      companyId = requestedCompanyId;
     } else {
-      // Não-admin: company_id deve estar no escopo
-      companyId = resolveScopedCompanyId(scope, requestedCompanyId || null);
+      // Sem company_id explícito: usa o primeiro disponível no escopo do usuário
+      // (funciona para Vendedor, Gestor, Master, Financeiro)
+      const scopedIds = (scope.companyIds || []).filter(isUuid);
+      companyId = scopedIds[0] ?? scope.companyId ?? null;
       if (!companyId) {
         return json(
-          { error: requestedCompanyId ? 'company_id fora do escopo.' : 'Empresa não identificada para criar cliente.' },
-          { status: requestedCompanyId ? 403 : 400, headers: NO_STORE_HEADERS }
+          { error: 'Empresa não identificada para criar cliente.' },
+          { status: 400, headers: NO_STORE_HEADERS }
         );
       }
     }
