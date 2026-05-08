@@ -19,15 +19,6 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
 
-function parseDecimal(value: any) {
-  if (value === null || value === undefined) return null;
-  const raw = String(value).trim();
-  if (!raw) return null;
-  const normalized = raw.replace(',', '.');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : Number.NaN;
-}
-
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -38,31 +29,23 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['parametros'], 1, 'Sem acesso a Parâmetros.');
     }
 
-    const { items, regras } = await getCachedReadModel<{ items: any[]; regras: any[] }>({
+    const { items } = await getCachedReadModel<{ items: any[] }>({
       key: buildReadModelCacheKey('parametros:tipo-pacotes:list', {}),
-      tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.comissoes],
+      tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
-        const [{ data, error: queryError }, { data: regras }] = await Promise.all([
-          client
-            .from('tipo_pacotes')
-            .select('id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta')
-            .order('nome'),
-          client
-            .from('commission_rule')
-            .select('id, nome, tipo')
-            .eq('ativo', true)
-            .order('nome')
-            .limit(100)
-        ]);
+        const { data, error: queryError } = await client
+          .from('tipo_pacotes')
+          .select('id, nome, ativo')
+          .order('nome');
 
         if (queryError) throw queryError;
-        return { items: data || [], regras: regras || [] };
+        return { items: data || [] };
       }
     });
 
-    return json({ items, regras }, { headers: DYNAMIC_READ_HEADERS });
+    return json({ items }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar tipos de pacote.');
   }
@@ -87,7 +70,7 @@ export async function POST(event) {
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
         : {};
-    const { id, nome, ativo, rule_id, fix_meta_nao_atingida, fix_meta_atingida, fix_super_meta } = body;
+    const { id, nome, ativo } = body;
 
     const nomeTrimmed = String(nome || '').trim().slice(0, 120);
     if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -105,21 +88,9 @@ export async function POST(event) {
       return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409, headers: NO_STORE_HEADERS });
     }
 
-    const fixMetaNaoAtingida = parseDecimal(fix_meta_nao_atingida);
-    const fixMetaAtingida = parseDecimal(fix_meta_atingida);
-    const fixSuperMeta = parseDecimal(fix_super_meta);
-
-    if (Number.isNaN(fixMetaNaoAtingida) || Number.isNaN(fixMetaAtingida) || Number.isNaN(fixSuperMeta)) {
-      return json({ error: 'Percentuais invalidos. Use apenas numeros (ex: 0.8).' }, { status: 400, headers: NO_STORE_HEADERS });
-    }
-
     const payload = {
       nome: nomeTrimmed,
-      ativo: ativo !== false,
-      rule_id: rule_id && isUuid(rule_id) ? rule_id : null,
-      fix_meta_nao_atingida: fixMetaNaoAtingida,
-      fix_meta_atingida: fixMetaAtingida,
-      fix_super_meta: fixSuperMeta
+      ativo: ativo !== false
     };
 
     let result;

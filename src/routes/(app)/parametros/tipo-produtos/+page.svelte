@@ -17,13 +17,6 @@
     tipo: string;
     descricao: string | null;
     ativo: boolean;
-    soma_na_meta: boolean;
-    regra_comissionamento: string;
-    usa_meta_produto: boolean | null;
-    meta_produto_valor: number | null;
-    comissao_produto_meta_pct: number | null;
-    descontar_meta_geral: boolean | null;
-    exibe_kpi_comissao: boolean | null;
   };
 
   let tipos: TipoProduto[] = [];
@@ -40,14 +33,7 @@
       nome: '',
       tipo: 'servico',
       descricao: '',
-      ativo: true,
-      soma_na_meta: true,
-      regra_comissionamento: 'geral',
-      usa_meta_produto: false,
-      meta_produto_valor: '',
-      comissao_produto_meta_pct: '',
-      descontar_meta_geral: false,
-      exibe_kpi_comissao: true
+      ativo: true
     };
   }
 
@@ -60,11 +46,6 @@
     { value: 'transfer', label: 'Transfer' },
     { value: 'cruzeiro', label: 'Cruzeiro' },
     { value: 'outro', label: 'Outro' }
-  ];
-
-  const REGRAS = [
-    { value: 'geral', label: 'Geral' },
-    { value: 'diferenciado', label: 'Diferenciado' }
   ];
 
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('parametros', 'edit');
@@ -81,16 +62,6 @@
         const found = TIPOS.find((t) => t.value === value);
         return found ? found.label : value;
       }
-    },
-    {
-      key: 'soma_na_meta',
-      label: 'Soma na meta',
-      sortable: true,
-      width: '120px',
-      formatter: (value: boolean) =>
-        value
-          ? '<span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Sim</span>'
-          : '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Não</span>'
     },
     {
       key: 'ativo',
@@ -128,14 +99,7 @@
       nome: tipo.nome || '',
       tipo: tipo.tipo || 'servico',
       descricao: tipo.descricao || '',
-      ativo: tipo.ativo,
-      soma_na_meta: tipo.soma_na_meta,
-      regra_comissionamento: tipo.regra_comissionamento || 'geral',
-      usa_meta_produto: Boolean(tipo.usa_meta_produto),
-      meta_produto_valor: tipo.meta_produto_valor != null ? String(tipo.meta_produto_valor) : '',
-      comissao_produto_meta_pct: tipo.comissao_produto_meta_pct != null ? String(tipo.comissao_produto_meta_pct) : '',
-      descontar_meta_geral: Boolean(tipo.descontar_meta_geral),
-      exibe_kpi_comissao: tipo.exibe_kpi_comissao !== false
+      ativo: tipo.ativo
     };
     modalOpen = true;
   }
@@ -145,20 +109,12 @@
 
     saving = true;
     try {
-      const toNum = (v: string) => (String(v).trim() === '' ? null : Number(v));
       await apiPost('/api/v1/tipo-produtos', {
         id: editingId || undefined,
         nome: form.nome.trim(),
         tipo: form.tipo,
         descricao: form.descricao || null,
-        ativo: form.ativo,
-        soma_na_meta: form.soma_na_meta,
-        regra_comissionamento: form.regra_comissionamento,
-        usa_meta_produto: form.usa_meta_produto,
-        meta_produto_valor: toNum(form.meta_produto_valor),
-        comissao_produto_meta_pct: toNum(form.comissao_produto_meta_pct),
-        descontar_meta_geral: form.descontar_meta_geral,
-        exibe_kpi_comissao: form.exibe_kpi_comissao
+        ativo: form.ativo
       });
       toast.success(editingId ? 'Tipo de produto atualizado.' : 'Tipo de produto criado.');
       modalOpen = false;
@@ -193,7 +149,7 @@
 
 <PageHeader
   title="Tipos de Produto"
-  subtitle="Gerencie os tipos de produto utilizados nos recibos e no comissionamento."
+  subtitle="Gerencie a lista global de tipos de produto utilizados nos recibos."
   color="financeiro"
   breadcrumbs={[
     { label: 'Parâmetros', href: '/parametros' },
@@ -250,19 +206,6 @@
       <FieldSelect id="tprod-tipo" label="Tipo" bind:value={form.tipo} options={TIPOS} placeholder="" class_name="w-full" />
     </div>
     <FieldInput id="tprod-descricao" label="Descrição" bind:value={form.descricao} placeholder="Descrição opcional" class_name="w-full" />
-    <FieldSelect id="tprod-regra" label="Regra de comissionamento" bind:value={form.regra_comissionamento} options={REGRAS} placeholder="" class_name="w-full" />
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <FieldCheckbox label="Soma na meta" bind:checked={form.soma_na_meta} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
-      <FieldCheckbox label="Exibe KPI de comissão" bind:checked={form.exibe_kpi_comissao} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
-      <FieldCheckbox label="Usa meta de produto" bind:checked={form.usa_meta_produto} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
-      <FieldCheckbox label="Descontar da meta geral" bind:checked={form.descontar_meta_geral} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
-    </div>
-    {#if form.usa_meta_produto}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FieldInput id="tprod-meta-valor" label="Meta do produto (R$)" type="number" step="0.01" bind:value={form.meta_produto_valor} class_name="w-full" />
-        <FieldInput id="tprod-comissao-pct" label="% Comissão produto" type="number" step="0.01" bind:value={form.comissao_produto_meta_pct} class_name="w-full" />
-      </div>
-    {/if}
     <FieldCheckbox label="Tipo ativo" bind:checked={form.ativo} color="financeiro" class_name="rounded-xl border border-slate-200 bg-white px-3 py-2" />
   </div>
 </Dialog>

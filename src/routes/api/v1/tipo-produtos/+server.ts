@@ -26,12 +26,6 @@ function isMissingColumnError(err: any) {
   );
 }
 
-function normalizeRegraComissionamento(value: unknown): 'geral' | 'diferenciado' {
-  const raw = String(value || '').trim().toLowerCase();
-  if (raw === 'diferenciado') return 'diferenciado';
-  return 'geral';
-}
-
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -44,10 +38,9 @@ export async function GET(event) {
 
     const all = event.url.searchParams.get('all') === '1';
 
-    // Tenta com todas as colunas, faz fallback para colunas básicas se falhar
     let query = client
       .from('tipo_produtos')
-      .select('id, nome, tipo, descricao, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct, descontar_meta_geral, exibe_kpi_comissao, created_at')
+      .select('id, nome, tipo, descricao, ativo, created_at')
       .order('nome', { ascending: true })
       .limit(200);
 
@@ -65,14 +58,7 @@ export async function GET(event) {
       if (!fallback.error) {
         data = (fallback.data || []).map((row: any) => ({
           ...row,
-          descricao: null,
-          soma_na_meta: true,
-          regra_comissionamento: 'geral',
-          usa_meta_produto: false,
-          meta_produto_valor: null,
-          comissao_produto_meta_pct: null,
-          descontar_meta_geral: false,
-          exibe_kpi_comissao: true
+          descricao: null
         })) as any;
         error = null;
       }
@@ -80,18 +66,9 @@ export async function GET(event) {
 
     if (error) throw error;
 
-    // Busca regras de comissão para o formulário
-    const { data: regras } = await client
-      .from('commission_rule')
-      .select('id, nome, tipo')
-      .eq('ativo', true)
-      .order('nome')
-      .limit(100);
-
     return json(
       {
-        items: data || [],
-        regras: regras || []
+        items: data || []
       },
       { headers: DYNAMIC_READ_HEADERS }
     );
@@ -119,9 +96,7 @@ export async function POST(event) {
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
         : {};
-    const { id, nome, tipo, descricao, ativo, soma_na_meta, regra_comissionamento,
-      usa_meta_produto, meta_produto_valor, comissao_produto_meta_pct,
-      descontar_meta_geral, exibe_kpi_comissao } = body;
+    const { id, nome, tipo, descricao, ativo } = body;
 
     const nomeTrimmed = String(nome || '').trim();
     if (!nomeTrimmed) {
@@ -132,22 +107,13 @@ export async function POST(event) {
       nome: nomeTrimmed,
       tipo: String(tipo || 'servico').trim() || 'servico',
       descricao: String(descricao || '').trim() || null,
-      ativo: ativo !== false,
-      soma_na_meta: Boolean(soma_na_meta),
-      regra_comissionamento: normalizeRegraComissionamento(regra_comissionamento),
-      usa_meta_produto: Boolean(usa_meta_produto),
-      meta_produto_valor: meta_produto_valor != null ? Number(meta_produto_valor) : null,
-      comissao_produto_meta_pct: comissao_produto_meta_pct != null ? Number(comissao_produto_meta_pct) : null,
-      descontar_meta_geral: Boolean(descontar_meta_geral),
-      exibe_kpi_comissao: Boolean(exibe_kpi_comissao)
+      ativo: ativo !== false
     };
 
     const fallbackPayload = {
       nome: payload.nome,
       tipo: payload.tipo,
-      ativo: payload.ativo,
-      soma_na_meta: payload.soma_na_meta,
-      regra_comissionamento: payload.regra_comissionamento
+      ativo: payload.ativo
     };
 
     let result;

@@ -1,11 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
-  import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import DataTable from '$lib/components/ui/DataTable.svelte';
-  import { FieldCheckbox, FieldInput, FieldSelect } from '$lib/components/ui';
+  import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { toast } from '$lib/stores/ui';
   import { permissoes } from '$lib/stores/permissoes';
   import { apiDelete, apiGet, apiPost } from '$lib/services/api';
@@ -16,16 +15,9 @@
     id: string;
     nome: string;
     ativo: boolean;
-    rule_id: string | null;
-    fix_meta_nao_atingida: number | null;
-    fix_meta_atingida: number | null;
-    fix_super_meta: number | null;
   };
 
-  type Regra = { id: string; nome: string; tipo: string };
-
   let tipos: TipoPacote[] = [];
-  let regras: Regra[] = [];
   let loading = true;
   let modalOpen = false;
   let saving = false;
@@ -37,11 +29,7 @@
   function createForm() {
     return {
       nome: '',
-      ativo: true,
-      rule_id: '',
-      fix_meta_nao_atingida: '',
-      fix_meta_atingida: '',
-      fix_super_meta: ''
+      ativo: true
     };
   }
 
@@ -59,36 +47,14 @@
         value
           ? '<span class="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Ativo</span>'
           : '<span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Inativo</span>'
-    },
-    {
-      key: 'fix_meta_nao_atingida',
-      label: '% Meta não batida',
-      sortable: true,
-      align: 'right' as const,
-      formatter: (value: number | null) => (value != null ? `${value}%` : '-')
-    },
-    {
-      key: 'fix_meta_atingida',
-      label: '% Meta batida',
-      sortable: true,
-      align: 'right' as const,
-      formatter: (value: number | null) => (value != null ? `${value}%` : '-')
-    },
-    {
-      key: 'fix_super_meta',
-      label: '% Super meta',
-      sortable: true,
-      align: 'right' as const,
-      formatter: (value: number | null) => (value != null ? `${value}%` : '-')
     }
   ];
 
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<{ items?: TipoPacote[]; regras?: Regra[] }>('/api/v1/parametros/tipo-pacotes');
+      const payload = await apiGet<{ items?: TipoPacote[] }>('/api/v1/parametros/tipo-pacotes');
       tipos = payload.items || [];
-      regras = payload.regras || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar tipos de pacote.');
     } finally {
@@ -106,11 +72,7 @@
     editingId = tipo.id;
     form = {
       nome: tipo.nome,
-      ativo: tipo.ativo,
-      rule_id: tipo.rule_id || '',
-      fix_meta_nao_atingida: tipo.fix_meta_nao_atingida != null ? String(tipo.fix_meta_nao_atingida) : '',
-      fix_meta_atingida: tipo.fix_meta_atingida != null ? String(tipo.fix_meta_atingida) : '',
-      fix_super_meta: tipo.fix_super_meta != null ? String(tipo.fix_super_meta) : ''
+      ativo: tipo.ativo
     };
     modalOpen = true;
   }
@@ -120,24 +82,10 @@
 
     saving = true;
     try {
-      const toNum = (v: string | number | null | undefined, label: string) => {
-        const raw = String(v ?? '').trim();
-        if (!raw) return null;
-        const normalized = raw.replace(',', '.');
-        const parsed = Number(normalized);
-        if (!Number.isFinite(parsed)) {
-          throw new Error(`Valor invalido em ${label}.`);
-        }
-        return parsed;
-      };
       await apiPost('/api/v1/parametros/tipo-pacotes', {
         id: editingId || undefined,
         nome: form.nome.trim(),
-        ativo: form.ativo,
-        rule_id: form.rule_id || null,
-        fix_meta_nao_atingida: toNum(form.fix_meta_nao_atingida, '% Meta nao batida'),
-        fix_meta_atingida: toNum(form.fix_meta_atingida, '% Meta batida'),
-        fix_super_meta: toNum(form.fix_super_meta, '% Super meta')
+        ativo: form.ativo
       });
       toast.success(editingId ? 'Tipo de pacote atualizado.' : 'Tipo de pacote criado.');
       modalOpen = false;
@@ -164,7 +112,6 @@
   }
 
   onMount(load);
-  $: regraOptions = regras.map((r) => ({ value: r.id, label: r.nome }));
 </script>
 
 <svelte:head>
@@ -173,7 +120,7 @@
 
 <PageHeader
   title="Tipos de Pacote"
-  subtitle="Gerencie os tipos de pacote utilizados nos recibos de vendas."
+  subtitle="Gerencie a lista global de tipos de pacote utilizados nos recibos."
   color="financeiro"
   breadcrumbs={[
     { label: 'Parâmetros', href: '/parametros' },
@@ -236,49 +183,6 @@
       placeholder="Ex: Pacote Completo"
       required={true}
     />
-
-    {#if regras.length > 0}
-      <FieldSelect
-        id="tp-regra"
-        label="Regra de comissão"
-        bind:value={form.rule_id}
-        options={regraOptions}
-        class_name="w-full"
-        placeholder="Sem regra específica"
-      />
-    {/if}
-
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <FieldInput
-        id="tp-nao-batida"
-        label="% Meta não batida"
-        type="number"
-        step="0.01"
-        bind:value={form.fix_meta_nao_atingida}
-        class_name="w-full"
-        placeholder="-"
-      />
-      <FieldInput
-        id="tp-batida"
-        label="% Meta batida"
-        type="number"
-        step="0.01"
-        bind:value={form.fix_meta_atingida}
-        class_name="w-full"
-        placeholder="-"
-      />
-      <FieldInput
-        id="tp-super"
-        label="% Super meta"
-        type="number"
-        step="0.01"
-        bind:value={form.fix_super_meta}
-        class_name="w-full"
-        placeholder="-"
-      />
-    </div>
-    <p class="text-xs text-slate-500">Percentuais fixos de comissão para este tipo de pacote. Deixe em branco para usar a regra geral.</p>
-
     <FieldCheckbox
       label="Tipo ativo"
       bind:checked={form.ativo}
