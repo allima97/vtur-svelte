@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import {
+  ensureModuloAccess,
+  fetchVendedorIdsByCompanyIds,
   getAdminClient,
+  isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveUserScope,
@@ -13,7 +16,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from '$lib/server/readModelCache';
-import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,7 +37,7 @@ export type AnoEvolucao = {
 
 export type EvolucaoAnualResult = {
   anos: AnoEvolucao[];
-  crescimentoYoY: Record<string, number | null>; // "2024->2025" -> pct or null
+  crescimentoYoY: Record<string, number | null>;
 };
 
 // ---------------------------------------------------------------------------
@@ -74,13 +77,15 @@ export async function GET(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
+    // Acesso: qualquer usuário com permissão de relatórios ou dashboard
+    if (!scope.isAdmin) {
+      ensureModuloAccess(scope, ['relatorios', 'dashboard'], 1, 'Sem acesso à análise de desempenho.');
+    }
+
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const isMaster = tipoNome.includes('MASTER');
     const isGestor = tipoNome.includes('GESTOR');
-
-    if (!isMaster && !isGestor) {
-      return json({ error: 'Acesso restrito.' }, { status: 403, headers: NO_STORE_HEADERS });
-    }
+    const isVendedor = !isMaster && !isGestor && !scope.isAdmin;
 
     const { searchParams } = event.url;
 
@@ -96,32 +101,53 @@ export async function GET(event) {
       : [currentYear - 1, currentYear];
 
     if (requestedAnos.length === 0) {
-      return json({ error: 'Nenhum ano válido informado.' }, { status: 400, headers: NO_STORE_HEADERS });
+      return json({ error: 'Nenhum ano válido informado.' }, { status: 400 });
     }
 
-    // company_id: MASTER pode filtrar por uma empresa específica
+    // Filtros opcionais
     const companyIdParam = searchParams.get('company_id') || null;
+    const vendedorIdParam = searchParams.get('vendedor_id') || null;
 
-    // Resolve empresas acessíveis pelo scope
-    let baseCompanyIds = resolveScopedCompanyIds(scope, null);
+    // --- Resolve escopo de companyIds e vendedorIds ---
+    let effectiveCompanyIds: string[];
+    let effectiveVendedorIds: string[] = []; // vazio = sem filtro extra de vendedor
 
-    // GESTOR usa somente sua própria empresa
-    if (!isMaster && scope.companyId) {
-      baseCompanyIds = [scope.companyId];
+    if (scope.isAdmin) {
+      // Admin: filtra só se passou company_id explícito
+      effectiveCompanyIds = isUuid(companyIdParam) ? [companyIdParam!] : [];
+    } else if (isMaster) {
+      const scopedIds = resolveScopedCompanyIds(scope, null);
+      // Filtro por empresa: só aceita empresas do escopo do master
+      if (companyIdParam && isUuid(companyIdParam) && scopedIds.includes(companyIdParam)) {
+        effectiveCompanyIds = [companyIdParam];
+      } else {
+        effectiveCompanyIds = scopedIds;
+      }
+      // Filtro por vendedor: só aceita se pertence a uma das empresas
+      if (vendedorIdParam && isUuid(vendedorIdParam)) {
+        effectiveVendedorIds = [vendedorIdParam];
+      }
+    } else if (isGestor) {
+      // Gestor: sua empresa + equipe
+      effectiveCompanyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, null);
+      const teamIds = await fetchVendedorIdsByCompanyIds(client, effectiveCompanyIds);
+      if (vendedorIdParam && isUuid(vendedorIdParam) && teamIds.includes(vendedorIdParam)) {
+        effectiveVendedorIds = [vendedorIdParam];
+      } else if (!vendedorIdParam) {
+        // sem filtro: busca todos da equipe (mas passaremos vazio para não duplar filtro na query SQL)
+        effectiveVendedorIds = [];
+      }
+    } else {
+      // Vendedor: apenas suas próprias vendas
+      effectiveCompanyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, null);
+      effectiveVendedorIds = [scope.userId];
     }
 
-    // MASTER pode filtrar por uma empresa
-    const companyIdFilter =
-      isMaster && companyIdParam && baseCompanyIds.includes(companyIdParam)
-        ? companyIdParam
-        : null;
-
-    const effectiveCompanyIds = companyIdFilter ? [companyIdFilter] : baseCompanyIds;
-
-    const cacheKey = buildReadModelCacheKey('dashboard:evolucao-anual', {
+    const cacheKey = buildReadModelCacheKey('dashboard:evolucao-anual-v2', {
       userId: user.id,
       anos: [...requestedAnos].sort(),
       effectiveCompanyIds: [...effectiveCompanyIds].sort(),
+      effectiveVendedorIds: [...effectiveVendedorIds].sort(),
     });
 
     const result = await getCachedReadModel<EvolucaoAnualResult>({
@@ -134,59 +160,48 @@ export async function GET(event) {
         ...scopeCacheTags({ companyIds: effectiveCompanyIds, userId: user.id }),
       ],
       loader: async () => {
-        // Buscar todos os vendedores das empresas no escopo
-        const vendedorCompanyMap = new Map<string, string>();
-        if (effectiveCompanyIds.length > 0) {
-          for (const batch of chunkArray(effectiveCompanyIds)) {
-            const { data, error } = await client
-              .from('users')
-              .select('id, company_id')
-              .in('company_id', batch)
-              .eq('active', true)
-              .limit(5000);
-            if (error) throw error;
-            (data || []).forEach((row: any) => {
-              vendedorCompanyMap.set(String(row.id), String(row.company_id));
-            });
-          }
-        }
+        const anosOrdenados = [...requestedAnos].sort();
+        const dataInicio = `${anosOrdenados[0]}-01-01`;
+        const dataFim = `${anosOrdenados[anosOrdenados.length - 1]}-12-31`;
 
-        const allVendedorIds = Array.from(vendedorCompanyMap.keys());
+        // IMPORTANTE: passamos vendedorIds vazio para que fetchSalesReportRows filtre
+        // apenas por companyIds (AND company_id IN ...) sem duplo filtro AND vendedor_id IN.
+        // Para filtro por vendedor específico, filtramos DEPOIS nas contributions.
+        const { contributions } = await fetchVendasKpiReciboContributionsRaw(client, {
+          dataInicio,
+          dataFim,
+          companyIds: effectiveCompanyIds,
+          vendedorIds: [],
+          accessibleClientIds: [],
+        });
 
-        // Para cada ano, agregar vendas por mês
+        // Inicializa buckets
         const anosMap = new Map<number, MesBucket[]>();
         for (const ano of requestedAnos) {
           anosMap.set(ano, emptyMeses());
         }
 
-        // Buscar contributions para o intervalo total (primeiro dia do menor ano ao último dia do maior ano)
-        const anosOrdenados = [...requestedAnos].sort();
-        const dataInicio = `${anosOrdenados[0]}-01-01`;
-        const dataFim = `${anosOrdenados[anosOrdenados.length - 1]}-12-31`;
+        const totalVendasMap = new Map<string, number>();
+        const vendaKeySets = new Map<string, Set<string>>();
 
-        const { contributions } = await fetchVendasKpiReciboContributionsRaw(client, {
-          dataInicio,
-          dataFim,
-          companyIds: effectiveCompanyIds,
-          vendedorIds: allVendedorIds,
-          accessibleClientIds: [],
-        });
-
-        // Aggregate using Sets for deduplication of qtdVendas
-        const totalVendasMap = new Map<string, number>(); // "ano-mes" -> totalVendas
-        const vendaKeySets = new Map<string, Set<string>>(); // "ano-mes" -> Set<vendaKey>
+        // Set de vendedorIds para filtro pós-query (quando há filtro específico)
+        const vendedorFilterSet = effectiveVendedorIds.length > 0
+          ? new Set(effectiveVendedorIds)
+          : null;
 
         for (const c of contributions) {
           const bruto = toNum(c.bruto);
           if (bruto <= 0) continue;
 
-          // Use reciboDate (format: "YYYY-MM-DD" or "YYYY-MM")
+          // Filtra por vendedor se necessário
+          if (vendedorFilterSet && !vendedorFilterSet.has(String(c.vendedorId || ''))) continue;
+
+          // Use reciboDate (format: "YYYY-MM-DD")
           const rawDate = String(c.reciboDate || '').trim();
           if (!rawDate || rawDate.length < 7) continue;
 
           const ano = parseInt(rawDate.slice(0, 4), 10);
           const mes = parseInt(rawDate.slice(5, 7), 10);
-
           if (!anosMap.has(ano) || mes < 1 || mes > 12) continue;
 
           const bucketKey = `${ano}-${mes}`;
@@ -198,7 +213,7 @@ export async function GET(event) {
           }
         }
 
-        // Apply aggregated values
+        // Aplica totais nos buckets
         for (const [ano, meses] of anosMap.entries()) {
           for (const bucket of meses) {
             const bucketKey = `${ano}-${bucket.mes}`;
@@ -207,7 +222,7 @@ export async function GET(event) {
           }
         }
 
-        // Build output
+        // Monta saída
         const anos: AnoEvolucao[] = requestedAnos.map((ano) => {
           const meses = anosMap.get(ano) || emptyMeses();
           const totalAno = meses.reduce((sum, m) => sum + m.totalVendas, 0);
@@ -215,17 +230,15 @@ export async function GET(event) {
           return { ano, meses, totalAno, qtdAno };
         });
 
-        // Calculate YoY growth
+        // YoY
         const crescimentoYoY: Record<string, number | null> = {};
         for (let i = 1; i < anos.length; i++) {
           const prev = anos[i - 1];
           const curr = anos[i];
           const key = `${prev.ano}->${curr.ano}`;
-          if (prev.totalAno > 0) {
-            crescimentoYoY[key] = Math.round(((curr.totalAno - prev.totalAno) / prev.totalAno) * 1000) / 10;
-          } else {
-            crescimentoYoY[key] = null;
-          }
+          crescimentoYoY[key] = prev.totalAno > 0
+            ? Math.round(((curr.totalAno - prev.totalAno) / prev.totalAno) * 1000) / 10
+            : null;
         }
 
         return { anos, crescimentoYoY };
@@ -233,11 +246,7 @@ export async function GET(event) {
     });
 
     return json(
-      {
-        anos: requestedAnos,
-        empresaFiltro: companyIdFilter,
-        data: result,
-      },
+      { anos: requestedAnos, data: result },
       { headers: DYNAMIC_READ_HEADERS },
     );
   } catch (err) {
