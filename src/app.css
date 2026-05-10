@@ -1019,7 +1019,18 @@
     .vtur-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   /* Variantes para grids com número fixo de colunas */
+
+  /* 1 coluna: sempre 1 */
+  .vtur-kpi-grid-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+
+  /* 2 colunas: mobile=1, sm+=2 */
+  .vtur-kpi-grid-2 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+  @media (min-width: 640px) {
+    .vtur-kpi-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  }
+
   /* 3 colunas: mobile=1, sm=2, md+=3 */
+  .vtur-kpi-grid-3 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
   @media (min-width: 640px) {
     .vtur-kpi-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   }
@@ -1027,7 +1038,17 @@
     .vtur-kpi-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   }
 
-  /* 5 colunas: mobile=2, sm=3, lg=5 */
+  /* 4 colunas: mobile=1, sm=2, lg+=4 */
+  .vtur-kpi-grid-4 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+  @media (min-width: 640px) {
+    .vtur-kpi-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  }
+  @media (min-width: 1024px) {
+    .vtur-kpi-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  }
+
+  /* 5 colunas: mobile=1, sm=3, lg=5 */
+  .vtur-kpi-grid-5 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
   @media (min-width: 640px) {
     .vtur-kpi-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   }
@@ -1035,7 +1056,8 @@
     .vtur-kpi-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
   }
 
-  /* 6 colunas: mobile=2, sm=3, lg=4, xl=6 */
+  /* 6 colunas: mobile=1, sm=3, lg=4, xl=6 */
+  .vtur-kpi-grid-6 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
   @media (min-width: 640px) {
     .vtur-kpi-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   }
@@ -1920,7 +1942,10 @@ thead.bg-slate-50 td {
 
   /* Grid de KPIs: 1 coluna no mobile para KPIs maiores e legíveis */
   .vtur-kpi-grid,
+  .vtur-kpi-grid-1,
+  .vtur-kpi-grid-2,
   .vtur-kpi-grid-3,
+  .vtur-kpi-grid-4,
   .vtur-kpi-grid-5,
   .vtur-kpi-grid-6 {
     grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
