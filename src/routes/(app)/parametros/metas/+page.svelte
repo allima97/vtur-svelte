@@ -238,7 +238,7 @@
     form = {
       id: meta?.id || '',
       vendedor_id: row.vendedor.id,
-      periodo,
+      periodo: meta?.periodo ? meta.periodo.slice(0, 7) : periodo,
       meta_geral: formatInputValue(meta?.meta_geral || ''),
       ativo: meta?.ativo !== false,
       meta_produtos: (meta?.meta_produtos || []).map((item) => ({
