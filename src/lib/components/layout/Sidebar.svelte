@@ -134,7 +134,8 @@
         { key: 'documentos', name: 'Documentos', href: '/operacao/documentos-viagens', icon: FileText },
         { key: 'consultoria_online', name: 'Consultoria Online', href: '/consultoria-online', icon: Video },
         { key: 'relatorios', name: 'Relatórios', href: '/relatorios', icon: FileChartColumn },
-        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: Trophy }
+        { key: 'rel_ranking', name: 'Ranking', href: '/relatorios/ranking', icon: Trophy },
+        { key: 'rel_desempenho', name: 'Análise de Desempenho', href: '/relatorios/desempenho', icon: BarChart2 }
       ]
     },
     {
@@ -273,6 +274,7 @@
     if (item.key === 'vouchers_assets' && !($permissoes.isMaster || $permissoes.isGestor || $permissoes.isSystemAdmin)) return false;
     if (item.key === 'fechamento' && !$permissoes.isFinanceiro) return false;
     if (item.key === 'notas_fiscais' && !$permissoes.isFinanceiro) return false;
+    if (item.key === 'rel_desempenho' && !($permissoes.isMaster || $permissoes.isGestor)) return false;
 
     if ($permissoes.isFinanceiro) {
       if (item.key === 'vendas') return false;
@@ -461,6 +463,7 @@
         { key: 'fechamento',      name: 'Fechamento',     href: '/comissoes/fechamento',          icon: Wallet },
         { key: 'relatorios',      name: 'Relatórios',     href: '/relatorios',                    icon: FileChartColumn },
         { key: 'rel_ranking',     name: 'Ranking',        href: '/relatorios/ranking',            icon: Trophy },
+        { key: 'rel_desempenho',  name: 'Análise Desempenho', href: '/relatorios/desempenho',     icon: BarChart2 },
         { key: 'parametros',      name: 'Parâmetros',     href: '/parametros',                    icon: Settings },
         $permissoes.isMaster
           ? { name: 'Master',     href: '/master',                 icon: Shield }

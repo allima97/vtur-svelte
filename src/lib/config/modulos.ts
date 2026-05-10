@@ -175,6 +175,7 @@ export const ROTAS_MODULOS: Record<string, string> = {
   '/relatorios/ranking-vendas': 'Ranking de vendas',
   '/relatorios/ranking': 'Ranking de vendas',
   '/relatorios/ranking-vendas/view': 'Dashboard',
+  '/relatorios/desempenho': 'Relatorios',
 
   // Parâmetros
   '/parametros': 'Parametros',
