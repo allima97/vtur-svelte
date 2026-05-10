@@ -529,9 +529,10 @@
   }
 
   async function loadComparativo() {
-    // Só carrega se MASTER e pelo menos um widget de comparativo visível
-    if (userCtx?.papel !== 'MASTER') return;
-    if (!widgetVisible.comparativo_vendas && !widgetVisible.comparativo_metas) return;
+    // Só carrega se MASTER (ou ADMIN) e pelo menos um widget de comparativo visível
+    const papel = userCtx?.papel;
+    if (papel !== 'MASTER' && papel !== 'ADMIN') return;
+    if (widgetVisible.comparativo_vendas === false && widgetVisible.comparativo_metas === false) return;
     loadingComparativo = true;
     try {
       const data = await apiGet<{ empresas: EmpresaComparativoItem[] }>(
@@ -539,7 +540,8 @@
         { inicio: periodoInicio, fim: periodoFim }
       );
       empresasComparativo = data.empresas || [];
-    } catch {
+    } catch (err) {
+      console.error('[comparativo] erro ao carregar:', err);
       empresasComparativo = [];
     } finally {
       loadingComparativo = false;

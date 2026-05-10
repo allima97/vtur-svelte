@@ -78,7 +78,7 @@ export async function GET(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, null);
 
-    const cacheKey = buildReadModelCacheKey('dashboard:comparativo-empresas', {
+    const cacheKey = buildReadModelCacheKey('dashboard:comparativo-empresas-v2', {
       userId: user.id,
       inicio,
       fim,
@@ -133,11 +133,14 @@ export async function GET(event) {
         const allVendedorIds = Array.from(vendedorCompanyMap.keys());
 
         // 3. Agregar vendas por empresa via contributions
+        // Passamos vendedorIds vazio para que o fetchSalesReportRows filtre APENAS por
+        // companyIds (AND company_id IN ...) sem adicionar o filtro AND vendedor_id IN (...),
+        // evitando que vendas sem vendedor_id correspondente sejam excluídas.
         const { contributions } = await fetchVendasKpiReciboContributionsRaw(client, {
           dataInicio: inicio,
           dataFim: fim,
           companyIds,
-          vendedorIds: allVendedorIds,
+          vendedorIds: [],
           accessibleClientIds: [],
         });
 
