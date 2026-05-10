@@ -11,7 +11,6 @@
   type Perfil = {
     id: string;
     nome_completo: string | null;
-    assinatura_exibicao: string | null;
     cpf: string | null;
     data_nascimento: string | null;
     telefone: string | null;
@@ -27,7 +26,6 @@
     uso_individual: boolean | null;
     avatar_url: string | null;
     company_id: string | null;
-    cargo: string | null;
     company?: {
       nome_empresa?: string | null;
       nome_fantasia?: string | null;
@@ -39,10 +37,11 @@
   let loading = true;
   let saving = false;
   let cepStatus: string | null = null;
+  let assinatura = '';
+  let savingAssinatura = false;
 
   let form = {
     nome_completo: '',
-    assinatura_exibicao: '',
     cpf: '',
     data_nascimento: '',
     telefone: '',
@@ -54,7 +53,6 @@
     complemento: '',
     cidade: '',
     estado: '',
-    cargo: '',
     uso_individual: null as boolean | null
   };
 
@@ -63,11 +61,15 @@
   async function load() {
     loading = true;
     try {
-      perfil = await apiGet<Perfil>('/api/v1/user/profile');
+      const [perfilData, sigData] = await Promise.all([
+        apiGet<Perfil>('/api/v1/user/profile'),
+        apiGet<{ signature?: string | null }>('/api/v1/profile/signature').catch(() => null)
+      ]);
+      perfil = perfilData;
+      assinatura = String(sigData?.signature || '').trim();
       if (perfil) {
         form = {
           nome_completo: perfil.nome_completo || '',
-          assinatura_exibicao: perfil.assinatura_exibicao || '',
           cpf: perfil.cpf || '',
           data_nascimento: perfil.data_nascimento || '',
           telefone: perfil.telefone || '',
@@ -79,7 +81,6 @@
           complemento: perfil.complemento || '',
           cidade: perfil.cidade || '',
           estado: perfil.estado || '',
-          cargo: perfil.cargo || '',
           uso_individual: perfil.uso_individual
         };
       }
@@ -87,6 +88,18 @@
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar perfil.');
     } finally {
       loading = false;
+    }
+  }
+
+  async function saveAssinatura() {
+    savingAssinatura = true;
+    try {
+      await apiPatch('/api/v1/profile/signature', { signature: assinatura.trim() });
+      toast.success('Assinatura atualizada.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar assinatura.');
+    } finally {
+      savingAssinatura = false;
     }
   }
 
@@ -124,6 +137,7 @@
     }
   }
 
+
   onMount(load);
 </script>
 
@@ -160,8 +174,6 @@
     <Card title="Dados pessoais" color="clientes">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <FieldInput id="perfil-nome" label="Nome completo" required bind:value={form.nome_completo} placeholder="Seu nome completo" icon={User} class_name="lg:col-span-2 w-full" />
-        <FieldInput id="perfil-cargo" label="Cargo" bind:value={form.cargo} placeholder="Ex: Consultor de Viagens" class_name="w-full" />
-        <FieldInput id="perfil-assinatura" label="Assinatura de exibição" bind:value={form.assinatura_exibicao} placeholder="Nome para exibição em documentos" class_name="w-full" />
         <FieldInput id="perfil-cpf" label="CPF" bind:value={form.cpf} placeholder="000.000.000-00" maxlength={14} mask="cpf" class_name="w-full" />
         <FieldInput id="perfil-rg" label="RG" bind:value={form.rg} placeholder="Documento de identidade" mask="rg" class_name="w-full" />
         <FieldInput id="perfil-nascimento" label="Data de nascimento" type="date" bind:value={form.data_nascimento} class_name="w-full" />
@@ -213,4 +225,24 @@
       </Button>
     </div>
   </form>
+
+  <!-- Assinatura separada pois é salva em tabela diferente -->
+  <div class="mt-6">
+    <Card title="Assinatura" color="clientes">
+      <p class="mb-3 text-sm text-slate-500">Usada nas mensagens de acompanhamento de clientes (WhatsApp, e-mail). Preencha com seu nome ou como prefere se apresentar.</p>
+      <div class="flex items-end gap-3">
+        <FieldInput
+          id="perfil-assinatura"
+          label="Assinatura de exibição"
+          bind:value={assinatura}
+          placeholder="Ex: André Lima"
+          class_name="flex-1 w-full"
+        />
+        <Button variant="primary" loading={savingAssinatura} on:click={saveAssinatura}>
+          <Save size={16} class="mr-2" />
+          Salvar
+        </Button>
+      </div>
+    </Card>
+  </div>
 {/if}

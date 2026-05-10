@@ -13,7 +13,7 @@ export async function GET(event) {
     const { data, error: queryError } = await client
       .from('users')
       .select(`
-        id, nome_completo, assinatura_exibicao, cpf, data_nascimento, telefone, whatsapp,
+        id, nome_completo, cpf, data_nascimento, telefone, whatsapp,
         rg, cep, endereco, numero, complemento, cidade, estado, email, uso_individual,
         avatar_url, company_id, created_by_gestor, must_change_password,
         company:companies!company_id(nome_empresa, nome_fantasia, cnpj, endereco, telefone, cidade, estado)
@@ -47,7 +47,7 @@ export async function PATCH(event) {
 
     // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
     const allowed = [
-      'nome_completo', 'assinatura_exibicao', 'cpf', 'data_nascimento',
+      'nome_completo', 'cpf', 'data_nascimento',
       'telefone', 'whatsapp', 'rg', 'cep', 'endereco', 'numero',
       'complemento', 'cidade', 'estado'
     ];

@@ -20,9 +20,9 @@
 
   async function loadUserProfile() {
     try {
-      const perfil = await apiGet<{ nome_completo?: string | null; assinatura_exibicao?: string | null }>('/api/v1/user/profile');
-      userNome = String(perfil?.nome_completo || '').trim();
-      userAssinatura = String(perfil?.assinatura_exibicao || perfil?.nome_completo || '').trim();
+      const sig = await apiGet<{ signature?: string | null; nome_completo?: string | null }>('/api/v1/profile/signature');
+      userNome = String(sig?.nome_completo || '').trim();
+      userAssinatura = String(sig?.signature || sig?.nome_completo || '').trim();
     } catch {
       // Silencioso — assinatura fica vazia
     }
