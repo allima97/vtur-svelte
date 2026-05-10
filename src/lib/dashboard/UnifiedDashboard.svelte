@@ -432,6 +432,7 @@
   $: activeKpiOrder = kpiOrder.filter((id) => {
     if (kpiVisible[id] === false) return false;
     if (id === 'seguro_viagem' && !loading && vendasAgg.totalSeguro <= 0) return false;
+    if (id === 'orcamentos' && !loading && qtdOrcamentos <= 0) return false;
     return true;
   });
 
@@ -807,6 +808,16 @@
             {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
             {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{vendasAgg.qtdVendas}</p>
               <p class="mt-0.5 truncate text-xs text-slate-400">Ticket: {formatCurrency(vendasAgg.ticketMedio)}</p>{/if}
+          </div>
+        </div>
+      {:else if kpiId === 'orcamentos'}
+        <div class="vtur-kpi-card">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><FileText size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">Orçamentos</p>
+            {#if loading}<div class="mt-1 h-7 w-16 animate-pulse rounded bg-slate-200"></div>
+            {:else}<p class="text-lg font-bold text-slate-900 sm:text-2xl">{qtdOrcamentos}</p>
+              <p class="mt-0.5 truncate text-xs text-slate-400">Conversão: {conversaoPct.toFixed(1)}%</p>{/if}
           </div>
         </div>
       {:else if kpiId === 'meta_mes'}
