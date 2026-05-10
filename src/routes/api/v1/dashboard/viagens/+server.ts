@@ -212,10 +212,55 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
     }
   }
 
-  return rows.map((row) => {
+  // Agrupa por venda_id: usa data_inicio mínima (1º embarque) e data_fim máxima (último retorno).
+  // Viagens avulsas (sem venda_id) são representadas individualmente pelo próprio id.
+  const grupos = new Map<string, {
+    id: string;
+    venda_id: string | null;
+    cliente_id: string | null;
+    responsavel_user_id: string | null;
+    destino: string | null;
+    data_inicio: string | null;
+    data_fim: string | null;
+    status: string;
+  }>();
+
+  for (const row of rows) {
+    const key = row.venda_id || row.id;
+    const status = resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status);
+    const existing = grupos.get(key);
+
+    if (!existing) {
+      grupos.set(key, {
+        id: row.id,
+        venda_id: row.venda_id,
+        cliente_id: row.cliente_id,
+        responsavel_user_id: row.responsavel_user_id,
+        destino: row.destino,
+        data_inicio: row.data_inicio,
+        data_fim: row.data_fim,
+        status,
+      });
+    } else {
+      // Mantém a data_inicio mínima (primeiro embarque da venda)
+      if (row.data_inicio && (!existing.data_inicio || row.data_inicio < existing.data_inicio)) {
+        existing.data_inicio = row.data_inicio;
+      }
+      // Mantém a data_fim máxima (último retorno da venda)
+      if (row.data_fim && (!existing.data_fim || row.data_fim > existing.data_fim)) {
+        existing.data_fim = row.data_fim;
+      }
+      // Destino do primeiro recibo (já está no existing)
+    }
+  }
+
+  // Reordena por data_inicio após agrupamento
+  const grouped = Array.from(grupos.values()).sort((a, b) =>
+    compareNullableDate(a.data_inicio, b.data_inicio)
+  );
+
+  return grouped.map((row) => {
     const cliente = row.cliente_id ? clientesMap.get(row.cliente_id) : null;
-    const status =
-      resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status);
 
     return {
       id: row.id,
@@ -232,7 +277,7 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
       vendedor_nome: row.responsavel_user_id
         ? vendedoresMap.get(row.responsavel_user_id) || null
         : null,
-      status,
+      status: row.status,
     };
   });
 }
