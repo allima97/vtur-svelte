@@ -27,11 +27,12 @@ export type EmpresaComparativoItem = {
 // ---------------------------------------------------------------------------
 
 const BATCH = 100;
+const PAGE  = 1000;
 
 function chunks<T>(arr: T[], size = BATCH): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
-  return result;
+  const r: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) r.push(arr.slice(i, i + size));
+  return r;
 }
 
 function toNum(v: unknown): number {
@@ -42,6 +43,8 @@ function toNum(v: unknown): number {
 function companyLabel(row: any): string {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa').trim() || 'Empresa';
 }
+
+const NO_MATCH = '00000000-0000-0000-0000-000000000000';
 
 // ---------------------------------------------------------------------------
 // GET
@@ -66,14 +69,13 @@ export async function GET(event) {
     const inicio = String(searchParams.get('inicio') || defInicio).trim();
     const fim    = String(searchParams.get('fim')    || defFim).trim();
 
-    const companyIds = resolveScopedCompanyIds(scope, null)
-      .filter(id => id !== '00000000-0000-0000-0000-000000000000');
+    const companyIds = resolveScopedCompanyIds(scope, null).filter(id => id !== NO_MATCH);
 
     if (companyIds.length === 0) {
       return json({ inicio, fim, empresas: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
-    // ── 1. Nomes das empresas ───────────────────────────────────────────────
+    // ── 1. Nomes das empresas ──────────────────────────────────────────────
     const empresaMap = new Map<string, string>();
     for (const batch of chunks(companyIds)) {
       const { data, error } = await client
@@ -85,57 +87,54 @@ export async function GET(event) {
       (data || []).forEach((r: any) => empresaMap.set(String(r.id), companyLabel(r)));
     }
 
-    // ── 2. Vendas por empresa ───────────────────────────────────────────────
-    // Usa a tabela `vendas_recibos` (recibos) com filtro de data do recibo (data_venda)
-    // e join com `vendas` para obter company_id e verificar cancelamento.
-    // PostgREST: select com relação + filtro por coluna da relação via !inner
+    // ── 2. Vendas por empresa ──────────────────────────────────────────────
+    // Usa exatamente o mesmo padrão do fetchSalesReportRows (relatorios.ts):
+    //   - tabela: vendas
+    //   - join:   recibos:vendas_recibos!inner  (só vendas que têm recibo no período)
+    //   - filtro: recibos.data_venda  (alias PostgREST)
+    //   - filtro: company_id IN (...)
+    //   - filtro: cancelada = false
     const vendasMap = new Map<string, { total: number; ids: Set<string> }>();
 
     for (const batch of chunks(companyIds)) {
-      // Busca todas as vendas não canceladas da empresa no período por data_venda da venda
-      // Filtramos pela data_venda da venda com margem de 60 dias para pegar recibos
-      // com datas diferentes (conciliação), e depois refinamos pelos recibos no período exato.
-      const margemInicio = inicio.slice(0, 7) + '-01'; // primeiro dia do mês de início
-      const { data, error } = await client
-        .from('vendas')
-        .select(`
-          id,
-          company_id,
-          recibos:vendas_recibos (
+      let offset = 0;
+      while (true) {
+        const { data, error } = await client
+          .from('vendas')
+          .select(`
             id,
-            venda_id,
-            data_venda,
-            valor_total
-          )
-        `)
-        .in('company_id', batch)
-        .eq('cancelada', false)
-        .gte('data_venda', margemInicio)
-        .lte('data_venda', fim)
-        .limit(50000);
+            company_id,
+            recibos:vendas_recibos!inner (
+              id,
+              valor_total
+            )
+          `)
+          .in('company_id', batch)
+          .eq('cancelada', false)
+          .gte('recibos.data_venda', inicio)
+          .lte('recibos.data_venda', fim)
+          .range(offset, offset + PAGE - 1);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      for (const venda of (data || []) as any[]) {
-        const cid = String(venda.company_id || '').trim();
-        if (!cid) continue;
+        const rows = (data || []) as any[];
 
-        const recibos: any[] = Array.isArray(venda.recibos) ? venda.recibos : [];
+        for (const venda of rows) {
+          const cid = String(venda.company_id || '').trim();
+          if (!cid || cid === NO_MATCH) continue;
 
-        // Filtra recibos no período
-        const recibosNoPeriodo = recibos.filter((r: any) => {
-          const d = String(r.data_venda || '');
-          return d >= inicio && d <= fim;
-        });
+          const recibos: any[] = Array.isArray(venda.recibos) ? venda.recibos : [];
+          const totalRecibos = recibos.reduce((s, r) => s + toNum(r.valor_total), 0);
+          if (totalRecibos <= 0) continue;
 
-        if (recibosNoPeriodo.length === 0) continue;
-
-        const entry = vendasMap.get(cid) ?? { total: 0, ids: new Set() };
-        for (const r of recibosNoPeriodo) {
-          entry.total += toNum(r.valor_total);
+          const entry = vendasMap.get(cid) ?? { total: 0, ids: new Set<string>() };
+          entry.total += totalRecibos;
+          entry.ids.add(String(venda.id));
+          vendasMap.set(cid, entry);
         }
-        entry.ids.add(String(venda.id));
-        vendasMap.set(cid, entry);
+
+        if (rows.length < PAGE) break;
+        offset += PAGE;
       }
     }
 
@@ -180,11 +179,11 @@ export async function GET(event) {
     const result: EmpresaComparativoItem[] = [];
 
     for (const cid of allCids) {
-      if (cid === '00000000-0000-0000-0000-000000000000') continue;
-      const v = vendasMap.get(cid);
-      const totalVendas = v?.total ?? 0;
-      const qtdVendas   = v?.ids.size ?? 0;
-      const totalMeta   = metaMap.get(cid) ?? 0;
+      if (cid === NO_MATCH) continue;
+      const v             = vendasMap.get(cid);
+      const totalVendas   = v?.total ?? 0;
+      const qtdVendas     = v?.ids.size ?? 0;
+      const totalMeta     = metaMap.get(cid) ?? 0;
       const atingimentoPct = totalMeta > 0
         ? Math.round((totalVendas / totalMeta) * 1000) / 10
         : 0;
