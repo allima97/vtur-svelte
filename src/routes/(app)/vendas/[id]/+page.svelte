@@ -270,8 +270,16 @@
   async function applyVendaData(data: any, opts: { loadProdutos?: boolean } = {}) {
     venda = data;
 
-    if (venda?.status === 'aberto') {
-      venda.status = 'pendente';
+    // Normaliza status legado 'aberto' e deriva status baseado em datas (igual à lógica da listagem)
+    if (venda && (!venda.status || venda.status === 'aberto') && !venda.cancelada) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      if (venda.data_final && venda.data_final < hoje) {
+        venda.status = 'concluida';
+      } else if (venda.data_embarque && venda.data_embarque >= hoje) {
+        venda.status = 'confirmada';
+      } else {
+        venda.status = 'pendente';
+      }
     }
 
     if (opts.loadProdutos !== false && Array.isArray(venda?.recibos)) {

@@ -25,6 +25,13 @@ function textNoStore(message: string, status: number) {
   return new Response(message, { status, headers: NO_STORE_HEADERS });
 }
 
+function deriveVendaStatus(dataEmbarque?: string | null, dataFinal?: string | null): string {
+  const hoje = todayISODateLocal();
+  if (dataFinal && dataFinal < hoje) return 'concluida';
+  if (dataEmbarque && dataEmbarque >= hoje) return 'confirmada';
+  return 'pendente';
+}
+
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];
   for (let index = 0; index < values.length; index += size) {
@@ -718,7 +725,7 @@ export async function POST(event) {
         valor_total_bruto: totalBruto || null,
         valor_total_pago: totalPagoFinal || null,
         valor_taxas: totalTaxas || null,
-        status: 'aberto',
+        status: deriveVendaStatus(dataInicioVenda, dataFimVenda),
         cancelada: false
       })
       .select('id')
