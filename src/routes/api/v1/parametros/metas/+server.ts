@@ -262,12 +262,12 @@ async function findExistingMetaId(
   vendedorId: string,
   periodo: string,
 ) {
+  // Não filtra por scope para encontrar metas existentes independente do tipo de usuário
   let query = client
     .from("metas_vendedor")
     .select("id")
     .eq("vendedor_id", vendedorId)
     .eq("periodo", periodo)
-    .eq("scope", "vendedor")
     .order("created_at", { ascending: true })
     .limit(1);
 
@@ -288,6 +288,27 @@ async function findExistingMetaId(
   return String(data?.[0]?.id || "");
 }
 
+async function resolveMetaUserScope(client: any, userId: string): Promise<"vendedor" | "gestor"> {
+  try {
+    const { data } = await client
+      .from("users")
+      .select("uso_individual, user_types(name)")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!data) return "vendedor";
+    const usoIndividual = Boolean(data?.uso_individual);
+    if (usoIndividual) return "vendedor";
+    const tipoNome = String(
+      Array.isArray(data?.user_types)
+        ? (data.user_types[0]?.name || "")
+        : (data?.user_types?.name || "")
+    ).toUpperCase();
+    return tipoNome.includes("GESTOR") ? "gestor" : "vendedor";
+  } catch {
+    return "vendedor";
+  }
+}
+
 async function upsertMeta(
   client: any,
   input: MetaInput,
@@ -302,13 +323,17 @@ async function upsertMeta(
   const metaDiferenciada =
     totalProduto > 0 ? totalProduto : toNumber(input?.meta_diferenciada);
 
+  // Determina o scope correto baseado no tipo do usuário alvo.
+  // A constraint do banco exige scope="gestor" para usuários do tipo GESTOR.
+  const userScope = await resolveMetaUserScope(client, targetVendedorId);
+
   const payload: Record<string, any> = {
     vendedor_id: targetVendedorId,
     periodo: periodoFull,
     meta_geral: toNumber(input?.meta_geral),
     meta_diferenciada: metaDiferenciada,
     ativo: input?.ativo !== false,
-    scope: "vendedor",
+    scope: userScope,
   };
 
   let metaId = String(input?.id || "").trim();
@@ -390,7 +415,7 @@ export async function GET(event) {
             "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
           )
           .in("vendedor_id", vendedorBatch)
-          .eq("scope", "vendedor")
+          .in("scope", ["vendedor", "gestor"])
           .gte("periodo", monthRange.inicio)
           .lte("periodo", monthRange.fim)
           .order("periodo", { ascending: false })
