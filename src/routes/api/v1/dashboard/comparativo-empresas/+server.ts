@@ -7,13 +7,6 @@ import {
   resolveUserScope,
   toErrorResponse,
 } from '$lib/server/v1';
-import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
-import {
-  buildReadModelCacheKey,
-  getCachedReadModel,
-  READ_MODEL_TAGS,
-  scopeCacheTags,
-} from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 // ---------------------------------------------------------------------------
@@ -33,18 +26,16 @@ export type EmpresaComparativoItem = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SUPABASE_IN_BATCH_SIZE = 100;
+const BATCH = 100;
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < values.length; i += size) {
-    chunks.push(values.slice(i, i + size));
-  }
-  return chunks;
+function chunks<T>(arr: T[], size = BATCH): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
+  return result;
 }
 
-function toNum(value: unknown): number {
-  const n = Number(value ?? 0);
+function toNum(v: unknown): number {
+  const n = Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -53,159 +44,161 @@ function companyLabel(row: any): string {
 }
 
 // ---------------------------------------------------------------------------
-// GET handler
+// GET
 // ---------------------------------------------------------------------------
 
 export async function GET(event) {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser(event);
-    const scope = await resolveUserScope(client, user.id);
+    const user   = await requireAuthenticatedUser(event);
+    const scope  = await resolveUserScope(client, user.id);
 
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const isMaster = tipoNome.includes('MASTER');
-    const isAdmin = tipoNome.includes('ADMIN');
+    const isAdmin  = tipoNome.includes('ADMIN');
 
-    // Apenas MASTER e ADMIN têm acesso a este endpoint
     if (!isMaster && !isAdmin) {
       return json({ error: 'Acesso restrito.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { searchParams } = event.url;
-    const { inicio: defaultInicio, fim: defaultFim } = getMonthRange();
-    const inicio = String(searchParams.get('inicio') || defaultInicio).trim();
-    const fim = String(searchParams.get('fim') || defaultFim).trim();
+    const { inicio: defInicio, fim: defFim } = getMonthRange();
+    const inicio = String(searchParams.get('inicio') || defInicio).trim();
+    const fim    = String(searchParams.get('fim')    || defFim).trim();
 
-    const companyIds = resolveScopedCompanyIds(scope, null);
+    const companyIds = resolveScopedCompanyIds(scope, null)
+      .filter(id => id !== '00000000-0000-0000-0000-000000000000');
 
-    const cacheKey = buildReadModelCacheKey('dashboard:comparativo-empresas-v2', {
-      userId: user.id,
-      inicio,
-      fim,
-      companyIds: [...companyIds].sort(),
-    });
+    if (companyIds.length === 0) {
+      return json({ inicio, fim, empresas: [] }, { headers: DYNAMIC_READ_HEADERS });
+    }
 
-    const result = await getCachedReadModel<EmpresaComparativoItem[]>({
-      key: cacheKey,
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
-      tags: [
-        READ_MODEL_TAGS.dashboard,
-        READ_MODEL_TAGS.sales,
-        READ_MODEL_TAGS.metas,
-        READ_MODEL_TAGS.users,
-        ...scopeCacheTags({ companyIds, userId: user.id }),
-      ],
-      loader: async () => {
-        // 1. Buscar nomes das empresas
-        const empresaMap = new Map<string, string>();
-        if (companyIds.length > 0) {
-          for (const batch of chunkArray(companyIds)) {
-            const { data, error } = await client
-              .from('companies')
-              .select('id, nome_fantasia, nome_empresa')
-              .in('id', batch)
-              .limit(500);
-            if (error) throw error;
-            (data || []).forEach((row: any) => {
-              empresaMap.set(String(row.id), companyLabel(row));
-            });
-          }
-        }
+    // ── 1. Nomes das empresas ───────────────────────────────────────────────
+    const empresaMap = new Map<string, string>();
+    for (const batch of chunks(companyIds)) {
+      const { data, error } = await client
+        .from('companies')
+        .select('id, nome_fantasia, nome_empresa')
+        .in('id', batch)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach((r: any) => empresaMap.set(String(r.id), companyLabel(r)));
+    }
 
-        // 2. Buscar vendedores de cada empresa (vendedor_id → company_id)
-        const vendedorCompanyMap = new Map<string, string>();
-        if (companyIds.length > 0) {
-          for (const batch of chunkArray(companyIds)) {
-            const { data, error } = await client
-              .from('users')
-              .select('id, company_id')
-              .in('company_id', batch)
-              .eq('active', true)
-              .limit(5000);
-            if (error) throw error;
-            (data || []).forEach((row: any) => {
-              vendedorCompanyMap.set(String(row.id), String(row.company_id));
-            });
-          }
-        }
+    // ── 2. Vendas por empresa ───────────────────────────────────────────────
+    // Usa a tabela `vendas_recibos` (recibos) com filtro de data do recibo (data_venda)
+    // e join com `vendas` para obter company_id e verificar cancelamento.
+    // PostgREST: select com relação + filtro por coluna da relação via !inner
+    const vendasMap = new Map<string, { total: number; ids: Set<string> }>();
 
-        const allVendedorIds = Array.from(vendedorCompanyMap.keys());
+    for (const batch of chunks(companyIds)) {
+      // Busca todas as vendas não canceladas da empresa no período por data_venda da venda
+      // Filtramos pela data_venda da venda com margem de 60 dias para pegar recibos
+      // com datas diferentes (conciliação), e depois refinamos pelos recibos no período exato.
+      const margemInicio = inicio.slice(0, 7) + '-01'; // primeiro dia do mês de início
+      const { data, error } = await client
+        .from('vendas')
+        .select(`
+          id,
+          company_id,
+          recibos:vendas_recibos (
+            id,
+            venda_id,
+            data_venda,
+            valor_total
+          )
+        `)
+        .in('company_id', batch)
+        .eq('cancelada', false)
+        .gte('data_venda', margemInicio)
+        .lte('data_venda', fim)
+        .limit(50000);
 
-        // 3. Agregar vendas por empresa via contributions
-        // Passamos vendedorIds vazio para que o fetchSalesReportRows filtre APENAS por
-        // companyIds (AND company_id IN ...) sem adicionar o filtro AND vendedor_id IN (...),
-        // evitando que vendas sem vendedor_id correspondente sejam excluídas.
-        const { contributions } = await fetchVendasKpiReciboContributionsRaw(client, {
-          dataInicio: inicio,
-          dataFim: fim,
-          companyIds,
-          vendedorIds: [],
-          accessibleClientIds: [],
+      if (error) throw error;
+
+      for (const venda of (data || []) as any[]) {
+        const cid = String(venda.company_id || '').trim();
+        if (!cid) continue;
+
+        const recibos: any[] = Array.isArray(venda.recibos) ? venda.recibos : [];
+
+        // Filtra recibos no período
+        const recibosNoPeriodo = recibos.filter((r: any) => {
+          const d = String(r.data_venda || '');
+          return d >= inicio && d <= fim;
         });
 
-        // Mapas: company_id → { totalVendas, qtdVendas (unique vendaKeys) }
-        const vendasMap = new Map<string, { totalVendas: number; vendaKeys: Set<string> }>();
+        if (recibosNoPeriodo.length === 0) continue;
 
-        for (const c of contributions) {
-          const bruto = toNum(c.bruto);
-          if (bruto <= 0) continue;
-
-          // companyId já está na contribution — usa direto
-          const cid = String(c.companyId || vendedorCompanyMap.get(String(c.vendedorId || '')) || '').trim();
-          if (!cid) continue;
-
-          const entry = vendasMap.get(cid) ?? { totalVendas: 0, vendaKeys: new Set() };
-          entry.totalVendas += bruto;
-          if (c.vendaKey) entry.vendaKeys.add(c.vendaKey);
-          vendasMap.set(cid, entry);
+        const entry = vendasMap.get(cid) ?? { total: 0, ids: new Set() };
+        for (const r of recibosNoPeriodo) {
+          entry.total += toNum(r.valor_total);
         }
+        entry.ids.add(String(venda.id));
+        vendasMap.set(cid, entry);
+      }
+    }
 
-        // 4. Buscar metas por empresa (via join vendedor_id → company_id)
-        const metaMap = new Map<string, number>();
+    // ── 3. Metas por empresa (via vendedores) ──────────────────────────────
+    const vendedorCompanyMap = new Map<string, string>();
+    for (const batch of chunks(companyIds)) {
+      const { data, error } = await client
+        .from('users')
+        .select('id, company_id')
+        .in('company_id', batch)
+        .eq('active', true)
+        .limit(5000);
+      if (error) throw error;
+      (data || []).forEach((r: any) =>
+        vendedorCompanyMap.set(String(r.id), String(r.company_id))
+      );
+    }
 
-        if (allVendedorIds.length > 0) {
-          for (const batch of chunkArray(allVendedorIds)) {
-            const { data, error } = await client
-              .from('metas_vendedor')
-              .select('vendedor_id, meta_geral, periodo, ativo')
-              .eq('ativo', true)
-              .gte('periodo', inicio.slice(0, 7))
-              .lte('periodo', fim.slice(0, 7))
-              .in('vendedor_id', batch)
-              .limit(2000);
-            if (error) throw error;
-            (data || []).forEach((row: any) => {
-              const vid = String(row.vendedor_id || '');
-              const cid = vendedorCompanyMap.get(vid) || '';
-              if (!cid) return;
-              metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(row.meta_geral));
-            });
-          }
-        }
+    const metaMap = new Map<string, number>();
+    const allVendedorIds = Array.from(vendedorCompanyMap.keys());
+    if (allVendedorIds.length > 0) {
+      for (const batch of chunks(allVendedorIds)) {
+        const { data, error } = await client
+          .from('metas_vendedor')
+          .select('vendedor_id, meta_geral')
+          .eq('ativo', true)
+          .gte('periodo', inicio.slice(0, 7))
+          .lte('periodo', fim.slice(0, 7))
+          .in('vendedor_id', batch)
+          .limit(2000);
+        if (error) throw error;
+        (data || []).forEach((r: any) => {
+          const cid = vendedorCompanyMap.get(String(r.vendedor_id)) || '';
+          if (!cid) return;
+          metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(r.meta_geral));
+        });
+      }
+    }
 
-        // 5. Montar resultado por empresa
-        const result: EmpresaComparativoItem[] = [];
+    // ── 4. Montar resultado ────────────────────────────────────────────────
+    const allCids = new Set([...companyIds, ...vendasMap.keys()]);
+    const result: EmpresaComparativoItem[] = [];
 
-        const allCompanyIds = new Set([
-          ...companyIds,
-          ...vendasMap.keys(),
-        ]);
+    for (const cid of allCids) {
+      if (cid === '00000000-0000-0000-0000-000000000000') continue;
+      const v = vendasMap.get(cid);
+      const totalVendas = v?.total ?? 0;
+      const qtdVendas   = v?.ids.size ?? 0;
+      const totalMeta   = metaMap.get(cid) ?? 0;
+      const atingimentoPct = totalMeta > 0
+        ? Math.round((totalVendas / totalMeta) * 1000) / 10
+        : 0;
+      result.push({
+        company_id: cid,
+        nome: empresaMap.get(cid) || 'Empresa',
+        totalVendas,
+        qtdVendas,
+        totalMeta,
+        atingimentoPct,
+      });
+    }
 
-        for (const cid of allCompanyIds) {
-          const vendas = vendasMap.get(cid);
-          const totalVendas = vendas?.totalVendas ?? 0;
-          const qtdVendas = vendas?.vendaKeys.size ?? 0;
-          const totalMeta = metaMap.get(cid) ?? 0;
-          const atingimentoPct = totalMeta > 0 ? Math.round((totalVendas / totalMeta) * 1000) / 10 : 0;
-          const nome = empresaMap.get(cid) || 'Empresa';
-
-          result.push({ company_id: cid, nome, totalVendas, qtdVendas, totalMeta, atingimentoPct });
-        }
-
-        return result.sort((a, b) => b.totalVendas - a.totalVendas);
-      },
-    });
+    result.sort((a, b) => b.totalVendas - a.totalVendas);
 
     return json({ inicio, fim, empresas: result }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
