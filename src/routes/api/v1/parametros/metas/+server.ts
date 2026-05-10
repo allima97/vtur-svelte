@@ -290,12 +290,12 @@ async function findExistingMetaId(
 
 async function resolveMetaUserScope(client: any, userId: string): Promise<"vendedor" | "gestor"> {
   try {
-    const { data } = await client
+    const { data, error } = await client
       .from("users")
       .select("uso_individual, user_types(name)")
       .eq("id", userId)
       .maybeSingle();
-    if (!data) return "vendedor";
+    if (error || !data) return "vendedor";
     const usoIndividual = Boolean(data?.uso_individual);
     if (usoIndividual) return "vendedor";
     const tipoNome = String(
@@ -349,10 +349,13 @@ async function upsertMeta(
   };
 
   let { data, error } = await savePayload(payload);
+
+  // Fallback 1: coluna scope não existe no banco
   if (error && isMissingSchemaError(error) && "scope" in payload) {
     const { scope: _scope, ...payloadWithoutScope } = payload;
     ({ data, error } = await savePayload(payloadWithoutScope));
   }
+
   if (error) throw error;
   metaId = String(data?.id || metaId);
 
@@ -409,11 +412,11 @@ export async function GET(event) {
     let metas: any[] = [];
     if (vendedorIds.length > 0) {
       for (const vendedorBatch of chunkArray(vendedorIds)) {
-        const { data, error: queryError } = await client
+        let batchData: any[] = [];
+        // Tenta com filtro de scope (coluna pode não existir em bancos antigos)
+        const withScope = await client
           .from("metas_vendedor")
-          .select(
-            "id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope",
-          )
+          .select("id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo, scope")
           .in("vendedor_id", vendedorBatch)
           .in("scope", ["vendedor", "gestor"])
           .gte("periodo", monthRange.inicio)
@@ -421,19 +424,38 @@ export async function GET(event) {
           .order("periodo", { ascending: false })
           .limit(1000);
 
-        if (queryError) {
-          if (isMissingSchemaError(queryError)) {
-            return json({
-              items: [],
-              vendedores: scopedVendedores,
-              produtos: [],
-              periodo: periodo.slice(0, 7),
-            }, { headers: DYNAMIC_READ_HEADERS });
+        if (withScope.error) {
+          if (isMissingSchemaError(withScope.error)) {
+            // Coluna scope não existe — busca sem filtro de scope
+            const withoutScope = await client
+              .from("metas_vendedor")
+              .select("id, vendedor_id, periodo, meta_geral, meta_diferenciada, ativo")
+              .in("vendedor_id", vendedorBatch)
+              .gte("periodo", monthRange.inicio)
+              .lte("periodo", monthRange.fim)
+              .order("periodo", { ascending: false })
+              .limit(1000);
+            if (withoutScope.error) {
+              // Tabela inteira não existe
+              if (isMissingSchemaError(withoutScope.error)) {
+                return json({
+                  items: [],
+                  vendedores: scopedVendedores,
+                  produtos: [],
+                  periodo: periodo.slice(0, 7),
+                }, { headers: DYNAMIC_READ_HEADERS });
+              }
+              throw withoutScope.error;
+            }
+            batchData = withoutScope.data || [];
+          } else {
+            throw withScope.error;
           }
-          throw queryError;
+        } else {
+          batchData = withScope.data || [];
         }
 
-        metas.push(...(data || []));
+        metas.push(...batchData);
       }
     }
 
