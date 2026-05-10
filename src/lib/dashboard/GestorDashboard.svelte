@@ -6,7 +6,7 @@
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
   import KPIGrid from '$lib/components/kpis/KPIGrid.svelte';
   import ChartJS from '$lib/components/charts/ChartJS.svelte';
-  import { Award, BarChart2, Calendar, Clock, Gift, MapPin, RefreshCw, ShoppingCart, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
+  import { Award, BarChart2, Building2, Calendar, Clock, Gift, MapPin, RefreshCw, ShoppingCart, SlidersHorizontal, Target, TrendingUp, Users, Wallet } from 'lucide-svelte';
   import { toast } from '$lib/stores/ui';
   import { apiGet } from '$lib/services/api';
   import { goto } from '$app/navigation';
@@ -15,6 +15,54 @@
 
   export let title = 'Dashboard do gestor';
   export let subtitle = 'Visão consolidada da equipe e desempenho comercial.';
+
+  // ── Widgets configuráveis (personalização) ──────────────────────────────
+  type GestorWidgetId =
+    | 'top_vendedores'
+    | 'timeline'
+    | 'top_destinos'
+    | 'clientes'
+    | 'ultimas_compras'
+    | 'followups'
+    | 'aniversariantes'
+    | 'comparativo_vendas'
+    | 'comparativo_metas';
+
+  const GESTOR_WIDGETS: Array<{ id: GestorWidgetId; titulo: string }> = [
+    { id: 'top_vendedores',     titulo: 'Top 3 vendedores' },
+    { id: 'timeline',          titulo: 'Evolução das vendas' },
+    { id: 'top_destinos',      titulo: 'Top destinos' },
+    { id: 'clientes',          titulo: 'Clientes que mais gastaram' },
+    { id: 'ultimas_compras',   titulo: 'Últimas compras' },
+    { id: 'followups',         titulo: 'Follow-up' },
+    { id: 'aniversariantes',   titulo: 'Aniversariantes' },
+    { id: 'comparativo_vendas', titulo: 'Comparativo de vendas por empresa' },
+    { id: 'comparativo_metas', titulo: 'Atingimento de meta por empresa' },
+  ];
+
+  const PREFS_KEY = 'gestor_dashboard_widgets';
+
+  function loadWidgetPrefs(): Record<GestorWidgetId, boolean> {
+    const defaults = Object.fromEntries(GESTOR_WIDGETS.map((w) => [w.id, true])) as Record<GestorWidgetId, boolean>;
+    if (typeof window === 'undefined') return defaults;
+    try {
+      const raw = window.localStorage.getItem(PREFS_KEY);
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw);
+      for (const w of GESTOR_WIDGETS) {
+        if (typeof parsed[w.id] === 'boolean') defaults[w.id] = parsed[w.id];
+      }
+    } catch { /* ignore */ }
+    return defaults;
+  }
+
+  function saveWidgetPrefs(prefs: Record<GestorWidgetId, boolean>) {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  }
+
+  let widgetVisible: Record<GestorWidgetId, boolean> = loadWidgetPrefs();
+  let showCustomize = false;
 
   type Meta = {
     id: string;
@@ -88,6 +136,15 @@
     aniversario_hoje?: boolean | null;
   };
 
+  type EmpresaComparativoItem = {
+    company_id: string;
+    nome: string;
+    totalVendas: number;
+    qtdVendas: number;
+    totalMeta: number;
+    atingimentoPct: number;
+  };
+
   let loading = true;
   let errorMessage: string | null = null;
   let userCtx: SummaryPayload['userCtx'] = null;
@@ -131,6 +188,8 @@
   let topClientes: NonNullable<DashboardCompraPayload['topClientes']> = [];
   let ultimasCompras: DashboardCompra[] = [];
   let aniversariantes: Aniversariante[] = [];
+  let empresasComparativo: EmpresaComparativoItem[] = [];
+  let loadingComparativo = false;
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -276,6 +335,101 @@
     ]
   } satisfies ChartData;
 
+  // Paleta de cores distintas por empresa (até 12 empresas)
+  const EMPRESA_COLORS = [
+    '#3b82f6', // blue-500
+    '#f97316', // orange-500
+    '#10b981', // emerald-500
+    '#a855f7', // purple-500
+    '#ef4444', // red-500
+    '#06b6d4', // cyan-500
+    '#eab308', // yellow-500
+    '#ec4899', // pink-500
+    '#14b8a6', // teal-500
+    '#8b5cf6', // violet-500
+    '#f59e0b', // amber-500
+    '#6366f1', // indigo-500
+  ];
+
+  $: comparativoVendasChartData = {
+    labels: empresasComparativo.map((e) => e.nome),
+    datasets: [
+      {
+        label: 'Vendas no período',
+        data: empresasComparativo.map((e) => e.totalVendas),
+        backgroundColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length]),
+        borderRadius: 6,
+        borderSkipped: false,
+      }
+    ]
+  } satisfies ChartData;
+
+  $: comparativoMetasChartData = {
+    labels: empresasComparativo.map((e) => e.nome),
+    datasets: [
+      {
+        label: 'Meta do período',
+        data: empresasComparativo.map((e) => e.totalMeta),
+        backgroundColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length] + '40'),
+        borderColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length]),
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+      },
+      {
+        label: 'Vendas realizadas',
+        data: empresasComparativo.map((e) => e.totalVendas),
+        backgroundColor: empresasComparativo.map((_, i) => EMPRESA_COLORS[i % EMPRESA_COLORS.length]),
+        borderRadius: 6,
+        borderSkipped: false,
+      }
+    ]
+  } satisfies ChartData;
+
+  // Opções para gráfico de barras horizontais
+  const horizontalBarOptions = {
+    indexAxis: 'y' as const,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            const value = ctx.parsed.x ?? ctx.parsed.y ?? 0;
+            return ' ' + new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(148,163,184,0.15)' },
+        ticks: {
+          color: '#94a3b8',
+          font: { size: 11 },
+          callback: (value: any) => {
+            if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`;
+            if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(0)}K`;
+            return `R$ ${value}`;
+          }
+        }
+      },
+      y: {
+        grid: { display: false },
+        ticks: { color: '#475569', font: { size: 12 } }
+      }
+    }
+  };
+
+  const metasBarOptions = {
+    ...horizontalBarOptions,
+    plugins: {
+      ...horizontalBarOptions.plugins,
+      legend: { display: true, position: 'bottom' as const, labels: { color: '#475569', font: { size: 12 }, boxWidth: 12 } },
+    }
+  };
+
   async function loadBase() {
     try {
       const data = await apiGet<{ empresas: { id: string; nome: string }[]; vendedores: { id: string; nome: string }[] }>(
@@ -374,12 +528,30 @@
     }
   }
 
+  async function loadComparativo() {
+    // Só carrega se MASTER e pelo menos um widget de comparativo visível
+    if (userCtx?.papel !== 'MASTER') return;
+    if (!widgetVisible.comparativo_vendas && !widgetVisible.comparativo_metas) return;
+    loadingComparativo = true;
+    try {
+      const data = await apiGet<{ empresas: EmpresaComparativoItem[] }>(
+        '/api/v1/dashboard/comparativo-empresas',
+        { inicio: periodoInicio, fim: periodoFim }
+      );
+      empresasComparativo = data.empresas || [];
+    } catch {
+      empresasComparativo = [];
+    } finally {
+      loadingComparativo = false;
+    }
+  }
+
   async function atualizar() {
     if (empresaSelecionada !== lastBaseCompanyId) {
       await loadBase();
     }
     await loadDashboard();
-    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes()]);
+    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes(), loadComparativo()]);
   }
 
   $: if (filtrosInicializados && currentFilterKey !== lastAppliedFilterKey) {
@@ -415,7 +587,7 @@
 
     await loadBase();
     await loadDashboard();
-    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes()]);
+    await Promise.all([loadOperational(), loadComprasResumo(), loadAniversariantes(), loadComparativo()]);
     lastAppliedFilterKey = currentFilterKey;
     filtrosInicializados = true;
   });
@@ -433,10 +605,61 @@
   color="financeiro"
   breadcrumbs={[{ label: 'Dashboard' }]}
   actions={[
+    { label: 'Personalizar', onClick: () => (showCustomize = true), variant: 'secondary', icon: SlidersHorizontal },
     { label: 'Ranking', onClick: goToRanking, variant: 'secondary', icon: BarChart2 },
     { label: 'Atualizar', onClick: atualizar, variant: 'secondary', icon: RefreshCw }
   ]}
 />
+
+<!-- Painel de personalização ─────────────────────────────────────────────── -->
+{#if showCustomize}
+  <div class="fixed inset-0 z-50 flex items-start justify-end" role="dialog" aria-modal="true">
+    <!-- Overlay -->
+    <button
+      type="button"
+      class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+      on:click={() => (showCustomize = false)}
+      aria-label="Fechar personalização"
+    ></button>
+    <!-- Painel lateral -->
+    <div class="relative z-10 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div class="flex items-center gap-2">
+          <SlidersHorizontal size={18} class="text-slate-500" />
+          <h2 class="text-base font-bold text-slate-900">Personalizar dashboard</h2>
+        </div>
+        <button
+          type="button"
+          on:click={() => (showCustomize = false)}
+          class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          aria-label="Fechar"
+        >✕</button>
+      </div>
+      <div class="flex-1 overflow-y-auto p-5 space-y-2">
+        <p class="mb-3 text-xs text-slate-500">Ative ou desative os widgets exibidos neste dashboard.</p>
+        {#each GESTOR_WIDGETS as widget}
+          <label class="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-100 px-4 py-3 hover:bg-slate-50 transition-colors">
+            <span class="text-sm font-medium text-slate-700">{widget.titulo}</span>
+            <input
+              type="checkbox"
+              class="h-4 w-4 rounded accent-orange-500"
+              checked={widgetVisible[widget.id] !== false}
+              on:change={(e) => {
+                widgetVisible = { ...widgetVisible, [widget.id]: (e.target as HTMLInputElement).checked };
+                saveWidgetPrefs(widgetVisible);
+                if ((widget.id === 'comparativo_vendas' || widget.id === 'comparativo_metas')
+                    && (e.target as HTMLInputElement).checked
+                    && empresasComparativo.length === 0) {
+                  void loadComparativo();
+                }
+              }}
+            />
+          </label>
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
 
 <Card color="financeiro" class="mb-6">
   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
@@ -587,6 +810,7 @@
   </div>
 </KPIGrid>
 
+{#if widgetVisible.top_vendedores !== false}
 <div class="vtur-card mb-6 p-6">
   <div class="mb-4 flex items-center gap-3">
     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
@@ -621,10 +845,27 @@
   </div>
 </div>
 
-<div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
+<!-- ── Grade unificada de gráficos: 1–4 painéis, sempre 100% da largura ── -->
+{@const chartsAtivos = [
+  widgetVisible.timeline       !== false,
+  widgetVisible.top_destinos   !== false,
+  widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER',
+  widgetVisible.comparativo_metas  !== false && userCtx?.papel === 'MASTER',
+].filter(Boolean).length}
+
+{#if chartsAtivos > 0}
+{@const gridCols =
+  chartsAtivos === 1 ? 'grid-cols-1' :
+  chartsAtivos === 2 ? 'grid-cols-1 lg:grid-cols-2' :
+  chartsAtivos === 3 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
+                       'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'}
+<div class="mb-6 grid gap-4 sm:gap-6 {gridCols}">
+
+  <!-- Evolução das vendas -->
+  {#if widgetVisible.timeline !== false}
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
         <TrendingUp size={18} />
       </div>
       <div>
@@ -642,10 +883,13 @@
       {/if}
     </div>
   </div>
+  {/if}
 
+  <!-- Top destinos -->
+  {#if widgetVisible.top_destinos !== false}
   <div class="vtur-card p-6">
     <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
         <MapPin size={18} />
       </div>
       <div>
@@ -663,151 +907,84 @@
       {/if}
     </div>
   </div>
+  {/if}
+
+  <!-- Comparativo de vendas por empresa (MASTER) -->
+  {#if widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER'}
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <Building2 size={18} />
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Vendas por empresa</h3>
+          <p class="text-xs text-slate-500">Receita total por empresa no período</p>
+        </div>
+      </div>
+      {#if !loadingComparativo && empresasComparativo.length > 0}
+        <span class="shrink-0 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600">
+          {empresasComparativo.length} empresa{empresasComparativo.length !== 1 ? 's' : ''}
+        </span>
+      {/if}
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loadingComparativo}
+        <LoadingState compact={true} />
+      {:else if empresasComparativo.length === 0}
+        <p class="py-8 text-center text-sm text-slate-400">Sem dados de vendas por empresa no período.</p>
+      {:else}
+        {@const chartH = Math.max(180, empresasComparativo.length * 44)}
+        <div style="height:{chartH}px">
+          <ChartJS type="bar" data={comparativoVendasChartData} options={horizontalBarOptions} height={chartH} />
+        </div>
+      {/if}
+    </div>
+  </div>
+  {/if}
+
+  <!-- Atingimento de meta por empresa (MASTER) -->
+  {#if widgetVisible.comparativo_metas !== false && userCtx?.papel === 'MASTER'}
+  <div class="vtur-card p-6">
+    <div class="mb-4 flex items-center gap-3">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+        <Target size={18} />
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Meta por empresa</h3>
+        <p class="text-xs text-slate-500">Meta vs. realizado por empresa</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 pt-4">
+      {#if loadingComparativo}
+        <LoadingState compact={true} />
+      {:else if empresasComparativo.length === 0}
+        <p class="py-8 text-center text-sm text-slate-400">Sem dados por empresa no período.</p>
+      {:else if empresasComparativo.every((e) => e.totalMeta === 0)}
+        <p class="py-8 text-center text-sm text-slate-400">Nenhuma empresa com meta cadastrada.</p>
+      {:else}
+        {@const metaEmpresas = empresasComparativo.filter((e) => e.totalMeta > 0)}
+        <!-- Mini badges de atingimento -->
+        <div class="mb-3 flex flex-wrap gap-2">
+          {#each metaEmpresas as emp}
+            {@const color = EMPRESA_COLORS[empresasComparativo.indexOf(emp) % EMPRESA_COLORS.length]}
+            <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+              style="background-color:{color}"
+              title="{emp.nome}: {emp.atingimentoPct.toFixed(1)}% da meta">
+              {emp.nome.length > 12 ? emp.nome.slice(0, 11) + '…' : emp.nome} · {emp.atingimentoPct.toFixed(0)}%
+            </span>
+          {/each}
+        </div>
+        {@const chartH = Math.max(180, metaEmpresas.length * 56)}
+        <div style="height:{chartH}px">
+          <ChartJS type="bar" data={comparativoMetasChartData} options={metasBarOptions} height={chartH} />
+        </div>
+      {/if}
+    </div>
+  </div>
+  {/if}
+
 </div>
+{/if}
 
-<div class="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-4">
-  <div class="vtur-card p-6">
-    <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600">
-        <Users size={18} />
-      </div>
-      <div>
-        <h3 class="text-base font-bold text-slate-900">Clientes que mais gastaram</h3>
-        <p class="text-xs text-slate-500">Maiores valores no mês selecionado</p>
-      </div>
-    </div>
-    <div class="border-t border-slate-100 pt-4">
-      {#if loading}
-        <LoadingState compact={true} />
-      {:else if topClientes.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">Sem clientes com compras no período.</p>
-      {:else}
-        <div class="space-y-3">
-          {#each topClientes as item}
-            <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-green-200 hover:bg-green-50">
-              <div class="flex min-w-0 gap-3">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-sm font-bold text-white">
-                  {getInitials(item.cliente_nome)}
-                </div>
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
-                  <p class="truncate text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
-                </div>
-              </div>
-              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <div class="vtur-card p-6">
-    <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-        <ShoppingCart size={18} />
-      </div>
-      <div>
-        <h3 class="text-base font-bold text-slate-900">Últimas compras</h3>
-        <p class="text-xs text-slate-500">Compras mais recentes do período</p>
-      </div>
-    </div>
-    <div class="border-t border-slate-100 pt-4">
-      {#if loading}
-        <LoadingState compact={true} />
-      {:else if ultimasCompras.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">Sem compras recentes no período.</p>
-      {:else}
-        <div class="space-y-3">
-          {#each ultimasCompras.slice(0, 5) as item}
-            <div class="flex items-start justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50">
-              <div class="flex min-w-0 gap-3">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-                  <Calendar size={18} />
-                </div>
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-semibold text-slate-900">{item.cliente_nome}</p>
-                  <p class="truncate text-xs text-slate-500">Saída: {formatDate(item.data_saida)} · {item.destino}</p>
-                  <p class="text-xs text-slate-400">Compra: {formatDate(item.data_compra)} · {item.vendedor_nome}</p>
-                </div>
-              </div>
-              <p class="shrink-0 text-sm font-semibold text-slate-900">{formatCurrency(item.valor)}</p>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <div class="vtur-card p-6">
-    <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-        <Clock size={18} />
-      </div>
-      <div>
-        <h3 class="text-base font-bold text-slate-900">{followUpHeader}</h3>
-        <p class="text-xs text-slate-500">Clientes que já retornaram de viagem</p>
-      </div>
-    </div>
-    <div class="border-t border-slate-100 pt-4">
-      {#if loading}
-        <LoadingState compact={true} />
-      {:else if followUps.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">{followUpEmptyLabel}</p>
-      {:else}
-        <div class="space-y-0">
-          {#each followUps.slice(0, 6) as item, idx}
-            <div class="relative flex items-start gap-4 py-3">
-              {#if idx < followUps.slice(0, 6).length - 1}
-                <span class="absolute left-[19px] top-12 h-[calc(100%-12px)] w-px bg-slate-200"></span>
-              {/if}
-              <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-100 bg-white text-violet-500 shadow-sm">
-                <Clock size={18} />
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-slate-900">{getFollowUpCliente(item)}</p>
-                <p class="truncate text-xs text-slate-500">
-                  Retorno: {formatDate(getFollowUpRetorno(item))}
-                  {#if getFollowUpDestino(item)} · {getFollowUpDestino(item)}{/if}
-                </p>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <div class="vtur-card p-6">
-    <div class="mb-4 flex items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-        <Gift size={18} />
-      </div>
-      <div>
-        <h3 class="text-base font-bold text-slate-900">Aniversariantes</h3>
-        <p class="text-xs text-slate-500">Próximos aniversários dos clientes</p>
-      </div>
-    </div>
-    <div class="border-t border-slate-100 pt-4">
-      {#if loading}
-        <LoadingState compact={true} />
-      {:else if aniversariantes.length === 0}
-        <p class="py-6 text-center text-sm text-slate-400">Sem aniversariantes nos próximos dias.</p>
-      {:else}
-        <div class="space-y-3">
-          {#each aniversariantes.slice(0, 5) as item}
-            <div class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:border-emerald-200 hover:bg-emerald-50">
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">
-                {getInitials(item.nome)}
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-slate-900">{item.nome}</p>
-                <p class="text-xs text-slate-500">{formatBirthdayContext(item.nascimento)}</p>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </div>
-</div>
+{/if}

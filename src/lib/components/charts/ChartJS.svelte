@@ -73,16 +73,33 @@
     }
   };
   
+  // Merge profundo: override prevalece sobre defaults mas preserva sub-objetos não sobrescritos
+  function deepMerge(base: any, override: any): any {
+    if (!override || typeof override !== 'object') return base;
+    const result = { ...base };
+    for (const key of Object.keys(override)) {
+      const ov = override[key];
+      const bv = base?.[key];
+      if (ov !== null && typeof ov === 'object' && !Array.isArray(ov)
+          && bv !== null && typeof bv === 'object' && !Array.isArray(bv)) {
+        result[key] = deepMerge(bv, ov);
+      } else {
+        result[key] = ov;
+      }
+    }
+    return result;
+  }
+
   onMount(() => {
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     chart = new Chart(ctx, {
       type,
       data,
-      options: { ...defaultOptions, ...options }
+      options: deepMerge(defaultOptions, options)
     });
   });
   
