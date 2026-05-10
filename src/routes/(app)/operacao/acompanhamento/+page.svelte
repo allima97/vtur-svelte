@@ -14,6 +14,60 @@
   import { addDaysISODate, todayISODateLocal } from '$lib/date';
   import { formatDate as formatDateValue } from '$lib/utils/formatters';
 
+  // Perfil do usuário logado (para assinatura da mensagem)
+  let userNome = '';
+  let userAssinatura = '';
+
+  async function loadUserProfile() {
+    try {
+      const perfil = await apiGet<{ nome_completo?: string | null; assinatura_exibicao?: string | null }>('/api/v1/user/profile');
+      userNome = String(perfil?.nome_completo || '').trim();
+      userAssinatura = String(perfil?.assinatura_exibicao || perfil?.nome_completo || '').trim();
+    } catch {
+      // Silencioso — assinatura fica vazia
+    }
+  }
+
+  function getSaudacao(): string {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) return 'Bom dia';
+    if (hora >= 12 && hora < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  function getPrimeiroNome(nomeCompleto: string): string {
+    return String(nomeCompleto || '').trim().split(/\s+/)[0] || nomeCompleto;
+  }
+
+  function buildMensagemFollowUp(clienteNome: string): string {
+    const saudacao = getSaudacao();
+    const primeiroNome = getPrimeiroNome(clienteNome);
+    const assinatura = userAssinatura || userNome || '';
+    return (
+      `${saudacao} ${primeiroNome}, tudo bem?\n` +
+      `Estou passando para saber como foi sua viagem. Espero que tenha corrido tudo bem!\n` +
+      `Quando tiver um tempinho, ficarei muito grato se puder me enviar um feedback sobre sua experiência.\n` +
+      `Muito obrigado!\n` +
+      (assinatura ? assinatura : '')
+    ).trim();
+  }
+
+  function getWhatsAppLink(item: FollowUpItem): string | null {
+    const phone = sanitizePhone(item.cliente_whatsapp || item.cliente_telefone);
+    if (!phone) return null;
+    const texto = encodeURIComponent(buildMensagemFollowUp(item.cliente_nome));
+    return `https://wa.me/${phone}?text=${texto}`;
+  }
+
+  function getEmailLink(item: FollowUpItem): string | null {
+    // Tenta pegar email do cliente se disponível
+    const email = (item as any).cliente_email || null;
+    if (!email) return null;
+    const assunto = encodeURIComponent('Como foi sua viagem?');
+    const corpo = encodeURIComponent(buildMensagemFollowUp(item.cliente_nome));
+    return `mailto:${email}?subject=${assunto}&body=${corpo}`;
+  }
+
   type FollowUpItem = {
     id: string;
     venda_id: string | null;
@@ -96,7 +150,7 @@
 
   onMount(() => {
     void (async () => {
-      await loadFollowUps();
+      await Promise.all([loadFollowUps(), loadUserProfile()]);
       lastAutoReloadKey = buildAutoReloadKey();
       autoReloadEnabled = true;
     })();
@@ -184,9 +238,7 @@
   }
 
   function currentWhatsAppLink(item: FollowUpItem) {
-    const phone = sanitizePhone(item.cliente_whatsapp || item.cliente_telefone);
-    if (!phone) return null;
-    return `https://wa.me/${phone}`;
+    return getWhatsAppLink(item);
   }
 </script>
 
@@ -371,9 +423,27 @@
         <FieldCheckbox label="Marcar follow-up como fechado" bind:checked={form.fechado} color="operacao" />
       </div>
 
+      <!-- Preview da mensagem de contato -->
+      <div class="rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+        <h4 class="text-sm font-semibold text-slate-900 mb-2">Mensagem sugerida</h4>
+        <p class="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{buildMensagemFollowUp(selectedItem.cliente_nome)}</p>
+      </div>
+
       <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-        <h4 class="text-sm font-semibold text-slate-900 mb-2">Vinculos operacionais</h4>
+        <h4 class="text-sm font-semibold text-slate-900 mb-2">Contato e vinculos</h4>
         <div class="flex flex-wrap gap-2">
+          {#if currentWhatsAppLink(selectedItem)}
+            <Button href={currentWhatsAppLink(selectedItem) || undefined} target="_blank" rel="noopener noreferrer" variant="primary" size="sm">
+              <MessageCircle size={14} class="mr-1.5" />
+              Enviar WhatsApp
+            </Button>
+          {/if}
+          {#if getEmailLink(selectedItem)}
+            <Button href={getEmailLink(selectedItem) || undefined} variant="secondary" size="sm">
+              <ExternalLink size={14} class="mr-1.5" />
+              Enviar E-mail
+            </Button>
+          {/if}
           {#if selectedItem.cliente_id}
             <Button href={`/clientes/${selectedItem.cliente_id}`} variant="secondary" size="sm">
               Cliente
@@ -387,12 +457,6 @@
           <Button href={`/operacao/viagens/${selectedItem.id}`} variant="secondary" size="sm">
             Viagem
           </Button>
-          {#if currentWhatsAppLink(selectedItem)}
-            <Button href={currentWhatsAppLink(selectedItem) || undefined} variant="secondary" size="sm">
-              <MessageCircle size={14} class="mr-1.5" />
-              WhatsApp
-            </Button>
-          {/if}
         </div>
       </div>
     </div>
