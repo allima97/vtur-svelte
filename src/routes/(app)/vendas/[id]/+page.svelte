@@ -587,7 +587,7 @@
 {:else if venda}
   <PageHeader
     title="Venda {venda.codigo || vendaIdSafe.slice(0, 8).toUpperCase()}"
-    subtitle="Criada em {formatDate(venda.created_at || venda.data_lancamento)} • Vendedor: {venda.vendedor?.nome || venda.vendedor || 'Não informado'}"
+    subtitle="Criada em {formatDate(venda.created_at || venda.data_lancamento)} • Vendedor: {venda.vendedor?.nome_completo || 'Não informado'}"
     color="vendas"
     breadcrumbs={[
       { label: 'Vendas', href: '/vendas' },
