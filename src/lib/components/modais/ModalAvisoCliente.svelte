@@ -481,12 +481,12 @@
     const base = [{ label: 'Todos', value: 'all' }];
     const seen = new Set<string>(['all']);
 
-    templates.forEach((item: any) => {
+    for (const item of templates) {
       const key = String(item?.tipo || 'geral').trim() || 'geral';
-      if (seen.has(key)) return;
+      if (seen.has(key)) continue;
       seen.add(key);
       base.push({ label: TEMA_LABELS[key] || key.replaceAll('_', ' '), value: key });
-    });
+    }
 
     return base;
   })();
