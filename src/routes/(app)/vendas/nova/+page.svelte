@@ -51,6 +51,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
   let loading = true;
   let saving = false;
@@ -440,12 +441,10 @@
       const importanceDiff = getCidadeImportanceRank(a) - getCidadeImportanceRank(b);
       if (importanceDiff !== 0) return importanceDiff;
 
-      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || ''));
       if (nomeDiff !== 0) return nomeDiff;
 
-      return String(a.estado || a.subdivisao_nome || '').localeCompare(String(b.estado || b.subdivisao_nome || ''), 'pt-BR', {
-        sensitivity: 'base'
-      });
+      return PT_BR_BASE_COLLATOR.compare(String(a.estado || a.subdivisao_nome || ''), String(b.estado || b.subdivisao_nome || ''));
     });
   }
 

@@ -88,6 +88,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
   let tipoImportacao: 'cvc' | 'roteiro' | 'facial_rextur' | 'facial_cvc' = 'cvc';
   let textInput = '';
@@ -211,12 +212,10 @@
       const importanceDiff = getCidadeImportanceRank(a) - getCidadeImportanceRank(b);
       if (importanceDiff !== 0) return importanceDiff;
 
-      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || ''));
       if (nomeDiff !== 0) return nomeDiff;
 
-      return String(a.subdivisao_nome || a.estado || '').localeCompare(String(b.subdivisao_nome || b.estado || ''), 'pt-BR', {
-        sensitivity: 'base'
-      });
+      return PT_BR_BASE_COLLATOR.compare(String(a.subdivisao_nome || a.estado || ''), String(b.subdivisao_nome || b.estado || ''));
     });
   }
 
