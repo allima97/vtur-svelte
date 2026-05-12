@@ -1121,14 +1121,20 @@ export async function GET(event) {
       return vendedor ? getVendaVendedorNome({ vendedor }) : fallback;
     };
 
+    const rowIds: string[] = [];
+    for (const row of rowsView) {
+      const id = toStr(row?.id);
+      if (id) rowIds.push(id);
+    }
+
     const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
       client,
-      rowsView.map((row) => toStr(row?.id)).filter(Boolean),
+      rowIds,
     );
 
     const paymentForms = await fetchLatestPaymentForms(
       client,
-      rowsView.map((row) => row.id),
+      rowIds,
     );
 
     const filteredRows = filterRowsForReport(rowsView);
