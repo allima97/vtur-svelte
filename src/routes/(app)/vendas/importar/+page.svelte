@@ -243,16 +243,18 @@
   }>) {
     if (!items.length) return;
     const byId = new Map<string, CidadeSugestao>();
-    cidadesDisponiveis.forEach((cidade) => byId.set(String(cidade.id), cidade));
-    items.forEach((cidade) => {
+    for (const cidade of cidadesDisponiveis) {
+      byId.set(String(cidade.id), cidade);
+    }
+    for (const cidade of items) {
       const cidadeIdAtual = String(cidade?.id || '').trim();
-      if (!cidadeIdAtual) return;
+      if (!cidadeIdAtual) continue;
       byId.set(cidadeIdAtual, {
         ...(byId.get(cidadeIdAtual) || {}),
         nome: String(cidade.nome || byId.get(cidadeIdAtual)?.nome || ''),
         ...cidade
       } as CidadeSugestao);
-    });
+    }
     cidadesDisponiveis = sortCidades(Array.from(byId.values()));
   }
 
