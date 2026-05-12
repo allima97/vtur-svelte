@@ -95,7 +95,12 @@ async function resolveEquipeIds(client: any, scope: Awaited<ReturnType<typeof re
   if (scope.isMaster || scope.isAdmin) {
     if (scope.isAdmin) {
       const { data } = await client.from('users').select('id').eq('active', true).limit(1000);
-      return (data || []).map((u: any) => String(u?.id || '')).filter(Boolean);
+      const ids: string[] = [];
+      for (const user of data || []) {
+        const id = String(user?.id || '');
+        if (id) ids.push(id);
+      }
+      return ids;
     }
 
     return fetchVendedorIdsByCompanyIds(client, scope.companyIds);
