@@ -23,6 +23,7 @@
   import { confirmAction } from '$lib/stores/confirm';
   const vendaId = $page.params.id;
   const vendaIdSafe = vendaId ?? '';
+  const INITIAL_LOAD_RETRY_STATUSES = new Set([0, 404, 503, 504]);
 
   let venda: any = null;
   let loading = true;
@@ -264,7 +265,7 @@
   }
 
   function shouldRetryInitialLoad(err: unknown) {
-    return err instanceof ApiError && [0, 404, 503, 504].includes(err.status);
+    return err instanceof ApiError && INITIAL_LOAD_RETRY_STATUSES.has(err.status);
   }
 
   async function applyVendaData(data: any, opts: { loadProdutos?: boolean } = {}) {
