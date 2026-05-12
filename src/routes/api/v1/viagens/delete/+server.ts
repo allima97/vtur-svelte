@@ -11,17 +11,9 @@ import {
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
+import { chunkArray } from "$lib/utils/array";
 
 const MAX_VIAGEM_DELETE_BODY_BYTES = 64 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function vendedorOwnsViagem(userId: string, viagem: any) {
   const responsavelId = String(viagem?.responsavel_user_id || "").trim();

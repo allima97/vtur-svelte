@@ -17,8 +17,8 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
-const SUPABASE_IN_BATCH_SIZE = 100;
 const DEFAULT_LIST_LIMIT = 300;
 const MAX_LIST_LIMIT = 500;
 const VIAGENS_LIST_SELECT = `
@@ -50,14 +50,6 @@ function clampInt(
   const parsed = Number.parseInt(String(value || ""), 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function getPeriodoFilter(
