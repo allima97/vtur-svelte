@@ -112,12 +112,16 @@
     return true;
   });
 
-  $: stats = {
-    total: fornecedores.length,
-    ativos: fornecedores.filter((item) => item.ativo !== false).length,
-    exterior: fornecedores.filter((item) => item.localizacao === 'exterior').length,
-    vinculados: fornecedores.filter((item) => (item.produtos_vinculados || 0) > 0).length
-  };
+  $: stats = fornecedores.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (item.ativo !== false) acc.ativos += 1;
+      if (item.localizacao === 'exterior') acc.exterior += 1;
+      if ((item.produtos_vinculados || 0) > 0) acc.vinculados += 1;
+      return acc;
+    },
+    { total: 0, ativos: 0, exterior: 0, vinculados: 0 }
+  );
 
   const columns = [
     { key: 'parceiro_nome', label: 'Nome fantasia', sortable: true },
