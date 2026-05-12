@@ -1903,8 +1903,16 @@ function groupTextLines(boxes: TextItemBox[], pageHeight: number) {
       y1: line.y1,
       x2: line.x2,
       y2: line.y2,
-      text: line.texts.sort((a, b) => a.x - b.x).map((t) => t.text).join(" ").trim(),
+      text: joinSortedLineTexts(line.texts),
     }));
+}
+
+function joinSortedLineTexts(texts: { x: number; text: string }[]) {
+  const parts: string[] = [];
+  for (const item of texts.sort((a, b) => a.x - b.x)) {
+    parts.push(item.text);
+  }
+  return parts.join(" ").trim();
 }
 
 function detectCardsFromTypeLabels(
