@@ -317,9 +317,13 @@ async function searchDocuments(event: RequestEvent) {
   let candidatos: any[] = [];
   if (companyIds.length > 0) {
     const candidateMap = new Map<string, any>();
-    const normalizedVariants = Array.from(
-      new Set(docVariants.map((variant) => normalizeReceiptNumber(variant)).filter(Boolean))
-    ).slice(0, MAX_DOC_VARIANTS);
+    const normalizedVariantSet = new Set<string>();
+    for (const variant of docVariants) {
+      const normalized = normalizeReceiptNumber(variant);
+      if (normalized) normalizedVariantSet.add(normalized);
+      if (normalizedVariantSet.size >= MAX_DOC_VARIANTS) break;
+    }
+    const normalizedVariants = Array.from(normalizedVariantSet);
     const candidateSelect =
       'id, venda_id, numero_recibo, numero_recibo_normalizado, numero_reserva, data_venda, valor_total, valor_taxas, produto_id, vendas!inner(id, company_id, vendedor_id, data_venda)';
 
