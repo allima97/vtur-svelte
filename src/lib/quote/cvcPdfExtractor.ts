@@ -2903,10 +2903,11 @@ function parseCircuitDaysFromLines(lines: string[]) {
 }
 
 function splitTextBlocks(text: string): TextBlock[] {
-  const lines = (text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const line of (text || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed) lines.push(trimmed);
+  }
   const blocks: TextBlock[] = [];
   let currentType = "";
   let current: string[] = [];
