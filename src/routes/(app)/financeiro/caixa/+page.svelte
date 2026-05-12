@@ -53,6 +53,11 @@
     nome: string;
   }
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+
   let loading = true;
   let periodo = 'mes_atual';
   let dataInicio = '';
@@ -175,10 +180,7 @@
   }
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   function formatDate(dateStr: string): string {
