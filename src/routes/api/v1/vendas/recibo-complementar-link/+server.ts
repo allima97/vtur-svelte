@@ -81,12 +81,14 @@ export async function POST(event: RequestEvent) {
         return new Response('primary_venda_id invalido.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
-      const links = body.links
-        .filter((item) => isUuid(String(item?.venda_id || '').trim()) && isUuid(String(item?.recibo_id || '').trim()))
-        .map((item) => ({
-          venda_id: String(item?.venda_id || '').trim(),
-          recibo_id: String(item?.recibo_id || '').trim()
-        }));
+      const links: Array<{ venda_id: string; recibo_id: string }> = [];
+      for (const item of body.links) {
+        const vendaId = String(item?.venda_id || '').trim();
+        const reciboId = String(item?.recibo_id || '').trim();
+        if (isUuid(vendaId) && isUuid(reciboId)) {
+          links.push({ venda_id: vendaId, recibo_id: reciboId });
+        }
+      }
 
       if (links.length === 0) {
         return new Response('Sem links validos.', { status: 400, headers: NO_STORE_HEADERS });
