@@ -141,13 +141,19 @@ function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
 }
 
 function parseBodyIds(value: unknown) {
+  const ids: string[] = [];
   if (Array.isArray(value)) {
-    return value.map((item) => String(item || '').trim()).filter((item) => isUuid(item));
+    for (const item of value) {
+      const id = String(item || '').trim();
+      if (isUuid(id)) ids.push(id);
+    }
+    return ids;
   }
-  return String(value || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => isUuid(item));
+  for (const item of String(value || '').split(',')) {
+    const id = item.trim();
+    if (isUuid(id)) ids.push(id);
+  }
+  return ids;
 }
 
 export async function POST(event) {
