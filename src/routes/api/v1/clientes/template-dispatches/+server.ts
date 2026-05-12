@@ -10,7 +10,7 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const TEMPLATE_DISPATCH_SELECT =
   'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
@@ -128,7 +128,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     const clienteCompanyId = String((cliente as any).company_id || '').trim();
     if (!scope.isAdmin) {
-      const dentroDaEmpresa = clienteCompanyId && scope.companyIds.includes(clienteCompanyId);
+      const scopedCompanySet = cleanStringSet(scope.companyIds);
+      const dentroDaEmpresa = clienteCompanyId && scopedCompanySet.has(clienteCompanyId);
       if (!dentroDaEmpresa) {
         return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
