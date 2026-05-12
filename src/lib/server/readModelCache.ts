@@ -190,11 +190,11 @@ export function scopeCacheTags(params: {
   vendedorIds?: string[] | null;
   userId?: string | null;
 }) {
-  return [
-    ...normalizeIds(params.companyIds).map((id) => `company:${id}`),
-    ...normalizeIds(params.vendedorIds).map((id) => `vendedor:${id}`),
-    ...(params.userId ? [`user:${String(params.userId).trim()}`] : []),
-  ].filter(Boolean);
+  const tags: string[] = [];
+  for (const id of normalizeIds(params.companyIds)) tags.push(`company:${id}`);
+  for (const id of normalizeIds(params.vendedorIds)) tags.push(`vendedor:${id}`);
+  if (params.userId) tags.push(`user:${String(params.userId).trim()}`);
+  return tags;
 }
 
 function isScopeTag(tag: string) {
