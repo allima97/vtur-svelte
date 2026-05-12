@@ -217,9 +217,13 @@
     void goto(`/relatorios/vendas?${params.toString()}`);
   }
 
-  $: tiposDisponiveis = Array.from(new Set(produtos.map((produto) => produto.tipo))).sort((left, right) =>
-    PT_BR_COLLATOR.compare(left, right)
-  );
+  $: tiposDisponiveis = (() => {
+    const tipos = new Set<string>();
+    for (const produto of produtos) {
+      tipos.add(produto.tipo);
+    }
+    return Array.from(tipos).sort((left, right) => PT_BR_COLLATOR.compare(left, right));
+  })();
 
   $: produtosFiltrados = produtos
     .filter((produto) => !tipoSelecionado || produto.tipo === tipoSelecionado)
