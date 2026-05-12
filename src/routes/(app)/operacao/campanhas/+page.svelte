@@ -181,8 +181,18 @@
 
   onMount(load);
 
-  $: ativas = campanhas.filter((c) => c.status === 'ativa').length;
-  $: vencidas = campanhas.filter((c) => c.validade_ate && compareISODate(c.validade_ate, todayISODateLocal()) < 0).length;
+  $: campanhasResumo = (() => {
+    const hoje = todayISODateLocal();
+    return campanhas.reduce(
+      (acc, campanha) => {
+        if (campanha.status === 'ativa') acc.ativas += 1;
+        if (campanha.validade_ate && compareISODate(campanha.validade_ate, hoje) < 0) acc.vencidas += 1;
+        return acc;
+      },
+      { ativas: 0, vencidas: 0 }
+    );
+  })();
+  $: ({ ativas, vencidas } = campanhasResumo);
 </script>
 
 <svelte:head>
