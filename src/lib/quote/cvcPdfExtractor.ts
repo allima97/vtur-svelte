@@ -1154,14 +1154,17 @@ function mapImportedAereoToQuoteItems(imported: ImportedRoteiroAereo[]): QuoteIt
     const taxes = Number(flight.taxas || 0);
     const itemStart = String(flight.data_inicio || flight.data_voo || "").trim();
     const itemEnd = String(flight.data_fim || itemStart || "").trim();
+    const fareTags: string[] = [];
+    for (const value of [flight.tarifa_nome, flight.reembolso_tipo]) {
+      const tag = String(value || "").trim();
+      if (tag) fareTags.push(tag);
+    }
 
     const details: FlightDetails = {
       route: trecho || undefined,
       airline: String(flight.cia_aerea || "").trim() || undefined,
       cabin: String(flight.classe_reserva || "").trim() || undefined,
-      fare_tags: [flight.tarifa_nome, flight.reembolso_tipo]
-        .map((value) => String(value || "").trim())
-        .filter(Boolean),
+      fare_tags: fareTags,
       directions: [
         {
           label: "Trecho",
