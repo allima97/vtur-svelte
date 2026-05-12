@@ -1,0 +1,507 @@
+<script lang="ts">
+  import { onDestroy, onMount } from 'svelte';
+  import { createDebouncedReload } from '$lib/utils/autoReload';
+  import { goto } from '$app/navigation';
+  import type { ChartData } from 'chart.js';
+  import PageHeader from '$lib/components/ui/PageHeader.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
+  import DataTable from '$lib/components/ui/DataTable.svelte';
+  import FilterPanel from '$lib/components/ui/FilterPanel.svelte';
+  import { BottomSheet, Button, FieldInput, FieldSelect } from '$lib/components/ui';
+  import ChartJS from '$lib/components/charts/ChartJS.svelte';
+  import { ArrowLeft, SlidersHorizontal, Users, Wallet, TrendingUp, Star } from 'lucide-svelte';
+  import { toast } from '$lib/stores/ui';
+  import { permissoes } from '$lib/stores/permissoes';
+  import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
+  import { formatCurrency, formatDate } from '$lib/utils/formatters';
+  import { apiGet } from '$lib/services/api';
+
+  interface ClienteRelatorio {
+    cliente_id?: string;
+    cliente: string;
+    cpf: string | null;
+    email: string | null;
+    total_compras: number;
+    total_gasto: number;
+    ticket_medio: number;
+    ultima_compra: string | null;
+    frequencia: number;
+    categoria: 'VIP' | 'Regular' | 'Ocasional';
+  }
+
+  interface EmpresaFiltro {
+    id: string;
+    nome: string;
+  }
+
+  interface VendedorFiltro {
+    id: string;
+    nome: string;
+  }
+
+  type PeriodoModo = 'mes' | 'periodo';
+
+  function getDefaultRange() {
+    const today = todayISODateLocal();
+    const monthRange = monthRangeFromKey(today.slice(0, 7));
+    return {
+      start: monthRange?.inicio || `${today.slice(0, 7)}-01`,
+      end: monthRange?.fim || today
+    };
+  }
+
+  const defaultRange = getDefaultRange();
+  const defaultMonth = todayISODateLocal().slice(0, 7);
+
+  let clientes: ClienteRelatorio[] = [];
+  let empresas: EmpresaFiltro[] = [];
+  let vendedores: VendedorFiltro[] = [];
+  let loading = true;
+  let filtroPeriodoModo: PeriodoModo = 'mes';
+  let mesSelecionado = defaultMonth;
+  let dataInicio = defaultRange.start;
+  let dataFim = defaultRange.end;
+  let empresaSelecionada = '';
+  let vendedorSelecionado = '';
+  let categoriaSelecionada = '';
+  let ordenacao = 'total_gasto';
+  const autoReload = createDebouncedReload(() => void load(), 300);
+  let showFilterSheet = false;
+
+  async function loadBase() {
+    try {
+      const data = await apiGet<{ empresas?: EmpresaFiltro[]; vendedores?: VendedorFiltro[] }>('/api/v1/relatorios/base');
+      empresas = data.empresas || [];
+      vendedores = data.vendedores || [];
+    } catch (err) {
+      empresas = [];
+      vendedores = [];
+      toast.error('Erro ao carregar filtros do relatório');
+    }
+  }
+
+  const columns = [
+    { key: 'cliente', label: 'Cliente', sortable: true },
+    { key: 'cpf', label: 'CPF', sortable: false, width: '130px' },
+    {
+      key: 'categoria',
+      label: 'Categoria',
+      sortable: true,
+      width: '110px',
+      formatter: (value: string) => getCategoriaBadge(value)
+    },
+    { key: 'total_compras', label: 'Compras', sortable: true, align: 'center' as const, width: '90px' },
+    {
+      key: 'total_gasto',
+      label: 'Total Gasto',
+      sortable: true,
+      align: 'right' as const,
+      formatter: (value: number) => formatCurrency(value)
+    },
+    {
+      key: 'ticket_medio',
+      label: 'Ticket Medio',
+      sortable: true,
+      align: 'right' as const,
+      formatter: (value: number) => formatCurrency(value)
+    },
+    {
+      key: 'frequencia',
+      label: 'Freq./Mes',
+      sortable: true,
+      align: 'center' as const,
+      width: '100px',
+      formatter: (value: number) => value.toFixed(1)
+    },
+    {
+      key: 'ultima_compra',
+      label: 'Ultima Compra',
+      sortable: true,
+      width: '130px',
+      formatter: (value: string | null) => formatDate(value)
+    }
+  ];
+
+  async function loadRelatorio(showSuccess = false) {
+    loading = true;
+
+    try {
+      const data = await apiGet<{ items?: ClienteRelatorio[] }>('/api/v1/relatorios/clientes', {
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        empresa_id: empresaSelecionada || undefined,
+        vendedor_id: vendedorSelecionado || undefined
+      });
+      clientes = data.items || [];
+
+      if (showSuccess) {
+        toast.success('Relatorio atualizado!');
+      }
+    } catch (err) {
+      clientes = [];
+      toast.error('Erro ao carregar relatorio de clientes');
+    } finally {
+      loading = false;
+    }
+  }
+
+  onMount(() => {
+    void (async () => {
+      // loadBase carrega filtros (empresas/vendedores); loadRelatorio não depende deles no mount.
+      await Promise.all([loadBase(), loadRelatorio()]);
+      autoReload.enable([filtroPeriodoModo, mesSelecionado, dataInicio, dataFim, empresaSelecionada, vendedorSelecionado]);
+    })();
+  });
+
+  onDestroy(autoReload.destroy);
+
+
+  function getCategoriaBadge(categoria: string): string {
+    const styles: Record<string, string> = {
+      VIP: 'bg-financeiro-500 text-white',
+      Regular: 'bg-financeiro-100 text-financeiro-700',
+      Ocasional: 'bg-slate-100 text-slate-700'
+    };
+
+    return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[categoria] || 'bg-slate-100 text-slate-700'}">${categoria}</span>`;
+  }
+
+  function handleExport() {
+    if (clientesFiltrados.length === 0) {
+      toast.info('Não há dados para exportar');
+      return;
+    }
+
+    const headers = ['Cliente', 'Categoria', 'Compras', 'Total Gasto', 'Ticket Médio', 'Frequência', 'Última Compra'];
+    const rows = clientesFiltrados.map((cliente) => [
+      cliente.cliente,
+      cliente.categoria,
+      cliente.total_compras,
+      cliente.total_gasto.toFixed(2).replace('.', ','),
+      cliente.ticket_medio.toFixed(2).replace('.', ','),
+      cliente.frequencia.toFixed(2).replace('.', ','),
+      cliente.ultima_compra ? formatDate(cliente.ultima_compra) : ''
+    ]);
+
+    const csv = ['\uFEFF' + headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `relatorio_clientes_${todayISODateLocal()}.csv`;
+    link.click();
+    toast.success('Relatório exportado com sucesso');
+  }
+
+  function handleRowClick(row: ClienteRelatorio) {
+    if (row.cliente_id) {
+      void goto(`/clientes/${row.cliente_id}`);
+    }
+  }
+
+  $: clientesFiltrados = clientes
+    .filter((cliente) => !categoriaSelecionada || cliente.categoria === categoriaSelecionada)
+    .sort((left, right) => {
+      if (ordenacao === 'total_compras') {
+        return right.total_compras - left.total_compras;
+      }
+
+      if (ordenacao === 'ticket_medio') {
+        return right.ticket_medio - left.ticket_medio;
+      }
+
+      if (ordenacao === 'ultima_compra') {
+        return String(right.ultima_compra || '').localeCompare(String(left.ultima_compra || ''));
+      }
+
+      return right.total_gasto - left.total_gasto;
+    });
+
+  $: totalClientes = clientesFiltrados.length;
+  $: totalGasto = clientesFiltrados.reduce((acc, cliente) => acc + cliente.total_gasto, 0);
+  $: ticketMedioGeral = totalClientes > 0 ? totalGasto / totalClientes : 0;
+  $: clientesVIP = clientesFiltrados.filter((cliente) => cliente.categoria === 'VIP').length;
+
+  $: if (filtroPeriodoModo === 'mes') {
+    const range = monthRangeFromKey(mesSelecionado) || defaultRange;
+    const inicio = 'inicio' in range ? range.inicio : range.start;
+    const fim = 'fim' in range ? range.fim : range.end;
+    if (dataInicio !== inicio) dataInicio = inicio;
+    if (dataFim !== fim) dataFim = fim;
+  }
+
+  $: categoriasData = {
+    labels: ['VIP', 'Regular', 'Ocasional'],
+    datasets: [
+      {
+        label: 'Clientes',
+        data: [
+          clientesFiltrados.filter((cliente) => cliente.categoria === 'VIP').length,
+          clientesFiltrados.filter((cliente) => cliente.categoria === 'Regular').length,
+          clientesFiltrados.filter((cliente) => cliente.categoria === 'Ocasional').length
+        ],
+        backgroundColor: ['#f97316', '#fb923c', '#cbd5e1']
+      }
+    ]
+  } satisfies ChartData;
+
+  $: gastoPorClienteData = {
+    labels: clientesFiltrados.slice(0, 5).map((cliente) => cliente.cliente.split(' ')[0]),
+    datasets: [
+      {
+        label: 'Total Gasto',
+        data: clientesFiltrados.slice(0, 5).map((cliente) => cliente.total_gasto),
+        backgroundColor: '#f97316'
+      }
+    ]
+  } satisfies ChartData;
+
+  // Regra de escopo: vendedor/uso individual não escolhe empresa ou vendedor global.
+  $: showEmpresaFiltro = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster;
+  $: showVendedorFiltro = !$permissoes.ready || (!$permissoes.isVendedor && !$permissoes.usoIndividual);
+
+  $: if ($permissoes.ready && !showEmpresaFiltro && empresaSelecionada) empresaSelecionada = '';
+  $: if ($permissoes.ready && !showVendedorFiltro && vendedorSelecionado) vendedorSelecionado = '';
+
+  $: autoReload.watch([filtroPeriodoModo, mesSelecionado, dataInicio, dataFim, empresaSelecionada, vendedorSelecionado]);
+</script>
+
+<svelte:head>
+  <title>Vendas por Cliente | VTUR</title>
+</svelte:head>
+
+<PageHeader
+  title="Vendas por Cliente"
+  subtitle="Analise de clientes e historico de compras"
+  color="financeiro"
+  actions={[{ label: 'Voltar', href: '/relatorios', variant: 'secondary', icon: ArrowLeft }]}
+  breadcrumbs={[
+    { label: 'Relatorios', href: '/relatorios' },
+    { label: 'Clientes' }
+  ]}
+/>
+
+<!-- Mobile: botão de filtros -->
+<div class="mb-4 sm:hidden">
+  <Button variant="secondary" class_name="w-full" on:click={() => (showFilterSheet = true)}>
+    <SlidersHorizontal size={16} class="mr-2" />
+    Filtros
+    {#if empresaSelecionada || vendedorSelecionado || categoriaSelecionada}
+      <span class="ml-2 inline-flex h-2 w-2 rounded-full bg-financeiro-500"></span>
+    {/if}
+  </Button>
+</div>
+
+<FilterPanel color="financeiro" className="hidden sm:block">
+  <FieldSelect
+    id="rel-clientes-periodo-modo"
+    label="Período"
+    bind:value={filtroPeriodoModo}
+    options={[
+      { value: 'mes', label: 'Mês completo' },
+      { value: 'periodo', label: 'Data específica' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
+  {#if filtroPeriodoModo === 'mes'}
+    <FieldInput
+      id="rel-clientes-mes"
+      label="Mês"
+      type="month"
+      bind:value={mesSelecionado}
+      class_name="w-full"
+    />
+  {:else}
+    <FieldInput
+      id="rel-clientes-data-inicio"
+      label="Data Início"
+      type="date"
+      bind:value={dataInicio}
+      class_name="w-full"
+    />
+    <FieldInput
+      id="rel-clientes-data-fim"
+      label="Data Fim"
+      type="date"
+      bind:value={dataFim}
+      min={dataInicio || null}
+      class_name="w-full"
+    />
+  {/if}
+  {#if showEmpresaFiltro}
+    <FieldSelect
+      id="rel-clientes-empresa"
+      label="Empresa"
+      bind:value={empresaSelecionada}
+      options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+  {/if}
+  {#if showVendedorFiltro}
+    <FieldSelect
+      id="rel-clientes-vendedor"
+      label="Vendedor"
+      bind:value={vendedorSelecionado}
+      options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+      placeholder={null}
+      class_name="w-full"
+    />
+  {/if}
+  <FieldSelect
+    id="rel-clientes-categoria"
+    label="Categoria"
+    bind:value={categoriaSelecionada}
+    options={[
+      { value: '', label: 'Todas' },
+      { value: 'VIP', label: 'VIP' },
+      { value: 'Regular', label: 'Regular' },
+      { value: 'Ocasional', label: 'Ocasional' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
+  <FieldSelect
+    id="rel-clientes-ordenacao"
+    label="Ordenar Por"
+    bind:value={ordenacao}
+    options={[
+      { value: 'total_gasto', label: 'Total Gasto' },
+      { value: 'total_compras', label: 'Quantidade' },
+      { value: 'ticket_medio', label: 'Ticket Medio' },
+      { value: 'ultima_compra', label: 'Ultima Compra' }
+    ]}
+    placeholder={null}
+    class_name="w-full"
+  />
+</FilterPanel>
+
+<BottomSheet bind:open={showFilterSheet} title="Filtrar Clientes">
+  <div class="space-y-4">
+    <FieldSelect
+      id="rel-clientes-periodo-modo-mobile"
+      label="Período"
+      bind:value={filtroPeriodoModo}
+      options={[
+        { value: 'mes', label: 'Mês completo' },
+        { value: 'periodo', label: 'Data específica' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    {#if filtroPeriodoModo === 'mes'}
+      <FieldInput
+        id="rel-clientes-mes-mobile"
+        label="Mês"
+        type="month"
+        bind:value={mesSelecionado}
+        class_name="w-full"
+      />
+    {:else}
+      <FieldInput
+        id="rel-clientes-data-inicio-mobile"
+        label="Data Início"
+        type="date"
+        bind:value={dataInicio}
+        class_name="w-full"
+      />
+      <FieldInput
+        id="rel-clientes-data-fim-mobile"
+        label="Data Fim"
+        type="date"
+        bind:value={dataFim}
+        min={dataInicio || null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showEmpresaFiltro}
+      <FieldSelect
+        id="rel-clientes-empresa-mobile"
+        label="Empresa"
+        bind:value={empresaSelecionada}
+        options={[{ value: '', label: 'Todas' }, ...empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    {#if showVendedorFiltro}
+      <FieldSelect
+        id="rel-clientes-vendedor-mobile"
+        label="Vendedor"
+        bind:value={vendedorSelecionado}
+        options={[{ value: '', label: 'Todos' }, ...vendedores.map((vendedor) => ({ value: vendedor.id, label: vendedor.nome }))]}
+        placeholder={null}
+        class_name="w-full"
+      />
+    {/if}
+    <FieldSelect
+      id="rel-clientes-categoria-mobile"
+      label="Categoria"
+      bind:value={categoriaSelecionada}
+      options={[
+        { value: '', label: 'Todas' },
+        { value: 'VIP', label: 'VIP' },
+        { value: 'Regular', label: 'Regular' },
+        { value: 'Ocasional', label: 'Ocasional' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+    <FieldSelect
+      id="rel-clientes-ordenacao-mobile"
+      label="Ordenar Por"
+      bind:value={ordenacao}
+      options={[
+        { value: 'total_gasto', label: 'Total Gasto' },
+        { value: 'total_compras', label: 'Quantidade' },
+        { value: 'ticket_medio', label: 'Ticket Medio' },
+        { value: 'ultima_compra', label: 'Ultima Compra' }
+      ]}
+      placeholder={null}
+      class_name="w-full"
+    />
+  </div>
+  <Button variant="primary" class_name="w-full mt-2" on:click={() => (showFilterSheet = false)}>
+    Aplicar filtros
+  </Button>
+</BottomSheet>
+
+<div class="vtur-kpi-grid mb-6">
+  <div class="vtur-kpi-card">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><Users size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Total de Clientes</p><p class="text-2xl font-bold text-slate-900">{totalClientes}</p></div>
+  </div>
+  <div class="vtur-kpi-card">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-500"><Wallet size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Receita Total</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(totalGasto)}</p></div>
+  </div>
+  <div class="vtur-kpi-card">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500"><TrendingUp size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Ticket Médio</p><p class="text-2xl font-bold text-slate-900">{formatCurrency(ticketMedioGeral)}</p></div>
+  </div>
+  <div class="vtur-kpi-card">
+    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-500"><Star size={20} /></div>
+    <div><p class="text-sm font-medium text-slate-500">Clientes VIP</p><p class="text-2xl font-bold text-slate-900">{clientesVIP}</p></div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <Card header="Clientes por Categoria" color="financeiro">
+    <ChartJS type="doughnut" data={categoriasData} height={250} />
+  </Card>
+  <Card header="Top 5 Clientes (Gasto)" color="financeiro">
+    <ChartJS type="bar" data={gastoPorClienteData} height={250} />
+  </Card>
+</div>
+
+<DataTable
+  {columns}
+  data={clientesFiltrados}
+  color="financeiro"
+  {loading}
+  title="Detalhamento por Cliente"
+  searchable={true}
+  exportable={true}
+  onExport={handleExport}
+  onRowClick={handleRowClick}
+/>

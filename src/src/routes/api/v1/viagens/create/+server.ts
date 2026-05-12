@@ -1,0 +1,131 @@
+import { json, type RequestEvent } from "@sveltejs/kit";
+import {
+  ensureModuloAccess,
+  getAdminClient,
+  isUuid,
+  requireAuthenticatedUser,
+  resolveScopedCompanyId,
+  resolveUserScope,
+  toErrorResponse,
+} from "$lib/server/v1";
+import { resolveViagemStatus } from "$lib/viagens/status";
+import { invalidateTripReadModels } from "$lib/server/readModelCache";
+import { NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
+
+const MAX_VIAGEM_CREATE_BODY_BYTES = 256 * 1024;
+
+export async function POST(event: RequestEvent) {
+  try {
+    const originError = rejectCrossOriginRequest(event.request);
+    if (originError) return originError;
+    const bodyResult = await readJsonBodyLimited(event.request, MAX_VIAGEM_CREATE_BODY_BYTES);
+    if (!bodyResult.ok) return bodyResult.response;
+
+    const client = getAdminClient();
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+
+    if (!scope.isAdmin) {
+      ensureModuloAccess(
+        scope,
+        ["operacao_viagens", "viagens", "operacao"],
+        2,
+        "Sem acesso a Viagens.",
+      );
+    }
+
+    const body =
+      bodyResult.data && typeof bodyResult.data === 'object'
+        ? (bodyResult.data as Record<string, any>)
+        : {};
+    const origem = String(body?.origem || "").trim();
+    const destino = String(body?.destino || "").trim();
+    const dataInicio = String(body?.data_inicio || "").trim();
+    const dataFim = String(body?.data_fim || "").trim() || null;
+    const status = resolveViagemStatus({
+      status: body?.status,
+      data_inicio: dataInicio,
+      data_fim: dataFim,
+    });
+    const clienteId = String(body?.cliente_id || "").trim();
+    const observacoes = String(body?.observacoes || "").trim() || null;
+    const followUpText = String(body?.follow_up_text || "").trim() || null;
+    const followUpFechado = Boolean(body?.follow_up_fechado);
+    const requestedCompanyId = isUuid(body?.company_id)
+      ? String(body.company_id)
+      : null;
+
+    if (!origem || !destino || !dataInicio || !clienteId) {
+      return json({ error: "Dados obrigatorios ausentes." }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    const { data: clienteRow, error: clienteError } = await client
+      .from("clientes")
+      .select("id, company_id")
+      .eq("id", clienteId)
+      .maybeSingle();
+
+    if (clienteError) throw clienteError;
+    if (!clienteRow?.id) {
+      return json({ error: "Cliente não encontrado." }, { status: 400, headers: NO_STORE_HEADERS });
+    }
+
+    const clienteCompanyId = isUuid(clienteRow.company_id)
+      ? String(clienteRow.company_id)
+      : null;
+    const requestedScopedCompanyId = resolveScopedCompanyId(scope, requestedCompanyId);
+    const companyId = clienteCompanyId || requestedScopedCompanyId;
+
+    if (!companyId) {
+      return json(
+        { error: "Não foi possível determinar a empresa da viagem." },
+        { status: 400, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (
+      !scope.isAdmin &&
+      (!scope.companyIds.includes(companyId) ||
+        (requestedCompanyId && requestedScopedCompanyId !== requestedCompanyId))
+    ) {
+      return json(
+        { error: "Sem acesso ao cliente selecionado." },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    const payload = {
+      company_id: companyId,
+      responsavel_user_id: user.id,
+      cliente_id: clienteId,
+      origem,
+      destino,
+      data_inicio: dataInicio,
+      data_fim: dataFim,
+      status,
+      observacoes,
+      follow_up_text: followUpText,
+      follow_up_fechado: followUpFechado,
+      orcamento_id: null,
+    };
+
+    const { data, error } = await client
+      .from("viagens")
+      .insert(payload)
+      .select("id, cliente_id, origem, destino, data_inicio, data_fim, status")
+      .single();
+
+    if (error) throw error;
+
+    invalidateTripReadModels({
+      companyIds: [companyId],
+      vendedorIds: [user.id],
+      userId: user.id,
+    });
+
+    return json({ ok: true, viagem: data }, { headers: NO_STORE_HEADERS });
+  } catch (err) {
+    return toErrorResponse(err, "Erro ao criar viagem.");
+  }
+}

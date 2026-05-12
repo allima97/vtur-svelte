@@ -1,0 +1,456 @@
+import { json } from '@sveltejs/kit';
+import {
+  ensureModuloAccess,
+  getAdminClient,
+  requireAuthenticatedUser,
+  resolveScopedCompanyIds,
+  resolveUserScope,
+  toErrorResponse,
+} from '$lib/server/v1';
+import {
+  dedupeConciliacaoRows,
+  isFormaNaoComissionavel,
+  isRankingEligibleStatus,
+  normalizeComputedFields,
+  normalizeTerm,
+} from '../_legacy';
+import { monthRangeFromKey } from '$lib/date';
+import {
+  buildReadModelCacheKey,
+  getCachedReadModel,
+  READ_MODEL_TAGS,
+  scopeCacheTags,
+} from '$lib/server/readModelCache';
+import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE_LARGE as SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+
+const DEFAULT_NAO_COMISSIONAVEIS = [
+  'credito diversos',
+  'credito pax',
+  'credito passageiro',
+  'credito de viagem',
+  'credipax',
+  'vale viagem',
+  'carta de credito',
+  'credito',
+];
+
+async function fetchBatched<T>(
+  values: string[],
+  loader: (
+    batch: string[],
+  ) => PromiseLike<{ data: T[] | null; error: unknown }>,
+) {
+  const rows: T[] = [];
+  for (const batch of chunkArray(values)) {
+    const { data, error } = await loader(batch);
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows;
+}
+
+export async function GET(event) {
+  try {
+    const client = getAdminClient();
+    const user = await requireAuthenticatedUser(event);
+    const scope = await resolveUserScope(client, user.id);
+
+    if (
+      !scope.isAdmin &&
+      !scope.isMaster &&
+      !scope.isFinanceiro &&
+      !scope.isGestor
+    ) {
+      ensureModuloAccess(
+        scope,
+        ['operacao_conciliacao', 'conciliacao'],
+        1,
+        'Sem acesso à Conciliação.',
+      );
+    }
+
+    const { searchParams } = event.url;
+    const companyIds = resolveScopedCompanyIds(
+      scope,
+      searchParams.get('company_id'),
+    );
+    const companyId = companyIds[0] || null;
+    if (!companyId) return json([], { headers: DYNAMIC_READ_HEADERS });
+
+    const somentePendentes = searchParams.get('pending') === '1';
+    const somenteConciliados = searchParams.get('conciliado') === '1';
+    const rankingPending = searchParams.get('ranking_pending') === '1';
+    const month = String(searchParams.get('month') || '').trim();
+    const day = String(searchParams.get('day') || '').trim();
+    const rankingStatus = String(
+      searchParams.get('ranking_status') || 'all',
+    ).trim();
+    const baixaRac = searchParams.get('baixa_rac') === '1';
+
+    const rows = await getCachedReadModel<any[]>({
+      key: buildReadModelCacheKey('conciliacao:list:legacy', {
+        companyId,
+        somentePendentes,
+        somenteConciliados,
+        rankingPending,
+        month,
+        day,
+        rankingStatus,
+        baixaRac,
+      }),
+      tags: [
+        READ_MODEL_TAGS.conciliacao,
+        READ_MODEL_TAGS.sales,
+        READ_MODEL_TAGS.finance,
+        READ_MODEL_TAGS.ranking,
+        READ_MODEL_TAGS.users,
+        READ_MODEL_TAGS.clients,
+        ...scopeCacheTags({ companyIds: [companyId], userId: user.id }),
+      ],
+      ttlMs: 30_000,
+      staleTtlMs: 120_000,
+      loader: async () => {
+        let query = client
+          .from('conciliacao_recibos')
+          .select(
+            `id, company_id, documento, numero_reserva, movimento_data, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_calculada_loja, valor_visao_master, valor_opfax, valor_saldo, valor_venda_real, valor_nao_comissionavel, valor_comissao_loja, percentual_comissao_loja, faixa_comissao, is_seguro_viagem, origem, conciliado, match_total, match_taxas, sistema_valor_total, sistema_valor_taxas, diff_total, diff_taxas, venda_id, venda_recibo_id, ranking_vendedor_id, ranking_produto_id, ranking_assigned_at, is_baixa_rac, ranking_vendedor:users!ranking_vendedor_id(id, nome_completo), ranking_produto:tipo_produtos!ranking_produto_id(id, nome), last_checked_at, conciliado_em, created_at, updated_at`,
+          )
+          .eq('company_id', companyId)
+          .order('movimento_data', { ascending: false })
+          .order('documento', { ascending: true })
+          .limit(500);
+
+        if (somentePendentes) query = query.eq('conciliado', false);
+        if (somenteConciliados) query = query.eq('conciliado', true);
+        if (/^\d{4}-\d{2}$/.test(month)) {
+          const range = monthRangeFromKey(month);
+          if (range)
+            query = query
+              .gte('movimento_data', range.inicio)
+              .lte('movimento_data', range.fim);
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+          query = query.eq('movimento_data', day);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        let rows = dedupeConciliacaoRows(Array.isArray(data) ? data : []).map(
+          normalizeComputedFields,
+        );
+
+        if (rankingPending) {
+          rows = rows.filter((row: any) => {
+            const status = String(row?.status || '')
+              .trim()
+              .toUpperCase();
+            const isEligivel = status === 'BAIXA' || status === 'OPFAX';
+            const semVenda = !String(row?.venda_id || '').trim();
+            const semRanking = !String(row?.ranking_vendedor_id || '').trim();
+            const isBaixaRac =
+              Boolean(row?.is_baixa_rac) ||
+              String(row?.ranking_vendedor_id || '').trim() === 'BAIXA_RAC';
+            return isEligivel && semVenda && semRanking && !isBaixaRac;
+          });
+        }
+
+        if (somentePendentes) {
+          rows = rows.filter((row: any) => {
+            const isBaixaRac =
+              Boolean(row?.is_baixa_rac) ||
+              String(row?.ranking_vendedor_id || '').trim() === 'BAIXA_RAC';
+            return !isBaixaRac;
+          });
+        }
+
+        if (baixaRac) {
+          rows = rows.filter((row: any) => {
+            const isBaixaRac =
+              Boolean(row?.is_baixa_rac) ||
+              String(row?.ranking_vendedor_id || '').trim() === 'BAIXA_RAC';
+            return isBaixaRac;
+          });
+        }
+
+        if (rankingStatus === 'pending') {
+          rows = rows.filter((row: any) => {
+            const vendaId = String(row?.venda_id || '').trim();
+            const rankingVendedorId = String(
+              row?.ranking_vendedor_id || '',
+            ).trim();
+            return (
+              isRankingEligibleStatus(row) && !vendaId && !rankingVendedorId
+            );
+          });
+        } else if (rankingStatus === 'assigned') {
+          rows = rows.filter((row: any) => {
+            if (!isRankingEligibleStatus(row)) return false;
+            const vendaId = String(row?.venda_id || '').trim();
+            const rankingVendedorId = String(
+              row?.ranking_vendedor_id || '',
+            ).trim();
+            const isBaixaRac = Boolean(row?.is_baixa_rac);
+            if (isBaixaRac) return false;
+            return !vendaId && Boolean(rankingVendedorId);
+          });
+        } else if (rankingStatus === 'system') {
+          rows = rows.filter(
+            (row: any) =>
+              isRankingEligibleStatus(row) &&
+              Boolean(String(row?.venda_id || '').trim()),
+          );
+        }
+
+        const vendaIds = Array.from(
+          new Set(
+            rows
+              .map((row: any) => String(row?.venda_id || '').trim())
+              .filter(Boolean),
+          ),
+        );
+        const flaggedVendas = new Set<string>();
+
+        if (vendaIds.length > 0) {
+          let termosNaoComissionaveis: string[] = DEFAULT_NAO_COMISSIONAVEIS;
+          try {
+            const { data: termosData } = await client
+              .from('parametros_pagamentos_nao_comissionaveis')
+              .select('termo, termo_normalizado, ativo')
+              .eq('ativo', true)
+              .order('termo', { ascending: true });
+            const termos = (termosData || [])
+              .map((row: any) =>
+                normalizeTerm(row?.termo_normalizado || row?.termo),
+              )
+              .filter(Boolean);
+            if (termos.length > 0)
+              termosNaoComissionaveis = Array.from(new Set(termos));
+          } catch {}
+
+          const pagamentos = await fetchBatched<any>(vendaIds, (batch) =>
+            client
+              .from('vendas_pagamentos')
+              .select('venda_id, forma_nome, paga_comissao')
+              .eq('company_id', companyId)
+              .in('venda_id', batch),
+          );
+
+          pagamentos.forEach((pagamento: any) => {
+            const vendaId = String(pagamento?.venda_id || '').trim();
+            if (!vendaId) return;
+            const naoComissiona =
+              pagamento?.paga_comissao === false ||
+              isFormaNaoComissionavel(
+                pagamento?.forma_nome,
+                termosNaoComissionaveis,
+              );
+            if (naoComissiona) flaggedVendas.add(vendaId);
+          });
+        }
+
+        const recibosByIdForAudit = new Map<
+          string,
+          { valor_total: number | null; valor_taxas: number | null }
+        >();
+        const reciboIdsForAudit = Array.from(
+          new Set(
+            rows
+              .map((row: any) => String(row?.venda_recibo_id || '').trim())
+              .filter(Boolean),
+          ),
+        );
+
+        if (reciboIdsForAudit.length > 0) {
+          const recibosAudit = await fetchBatched<any>(
+            reciboIdsForAudit,
+            (batch) =>
+              client
+                .from('vendas_recibos')
+                .select('id, valor_total, valor_taxas')
+                .in('id', batch),
+          );
+
+          recibosAudit.forEach((recibo: any) => {
+            const reciboId = String(recibo?.id || '').trim();
+            if (!reciboId) return;
+            recibosByIdForAudit.set(reciboId, {
+              valor_total: Number(recibo?.valor_total || 0),
+              valor_taxas: Number(recibo?.valor_taxas || 0),
+            });
+          });
+        }
+
+        rows = rows.map((row: any) => {
+          const vendaId = String(row?.venda_id || '').trim();
+          const reciboId = String(row?.venda_recibo_id || '').trim();
+          const reciboData = reciboId
+            ? recibosByIdForAudit.get(reciboId)
+            : null;
+
+          let auditUpdate = {};
+          if (reciboData) {
+            const sistemaTotal = reciboData.valor_total ?? 0;
+            const sistemaTaxas = reciboData.valor_taxas ?? 0;
+            const valorVendaReal = Number(row?.valor_venda_real || 0);
+            const valorTaxas = Number(row?.valor_taxas || 0);
+            const matches = (a: number, b: number) => Math.abs(a - b) <= 0.01;
+            const diff = (a: number, b: number) =>
+              Math.round((a - b) * 100) / 100;
+
+            auditUpdate = {
+              sistema_valor_total: sistemaTotal,
+              sistema_valor_taxas: sistemaTaxas,
+              match_total: matches(valorVendaReal, sistemaTotal),
+              match_taxas: matches(valorTaxas, sistemaTaxas),
+              diff_total: diff(valorVendaReal, sistemaTotal),
+              diff_taxas: diff(valorTaxas, sistemaTaxas),
+            };
+          }
+
+          return {
+            ...row,
+            ...auditUpdate,
+            is_nao_comissionavel:
+              (vendaId ? flaggedVendas.has(vendaId) : false) ||
+              Number(row?.valor_nao_comissionavel || 0) > 0,
+          };
+        });
+
+        const vendaIdsLinked = Array.from(
+          new Set(
+            rows
+              .map((row: any) => String(row?.venda_id || '').trim())
+              .filter(Boolean),
+          ),
+        );
+        const reciboIdsLinked = Array.from(
+          new Set(
+            rows
+              .map((row: any) => String(row?.venda_recibo_id || '').trim())
+              .filter(Boolean),
+          ),
+        );
+
+        const vendasById = new Map<string, any>();
+        const clientesById = new Map<string, string>();
+        const vendedoresById = new Map<string, string>();
+        const recibosById = new Map<string, any>();
+
+        if (vendaIdsLinked.length > 0) {
+          const vendasData = await fetchBatched<any>(vendaIdsLinked, (batch) =>
+            client
+              .from('vendas')
+              .select('id, numero_venda, cliente_id, vendedor_id')
+              .eq('company_id', companyId)
+              .in('id', batch),
+          );
+
+          vendasData.forEach((item: any) => {
+            const id = String(item?.id || '').trim();
+            if (id) vendasById.set(id, item);
+          });
+
+          const clienteIds = Array.from(
+            new Set(
+              vendasData
+                .map((item: any) => String(item?.cliente_id || '').trim())
+                .filter(Boolean),
+            ),
+          );
+          const vendedorIds = Array.from(
+            new Set(
+              vendasData
+                .map((item: any) => String(item?.vendedor_id || '').trim())
+                .filter(Boolean),
+            ),
+          );
+
+          if (clienteIds.length > 0) {
+            const clientesData = await fetchBatched<any>(clienteIds, (batch) =>
+              client.from('clientes').select('id, nome').in('id', batch),
+            );
+            clientesData.forEach((cliente: any) => {
+              const id = String(cliente?.id || '').trim();
+              const nome = String(cliente?.nome || '').trim();
+              if (id) clientesById.set(id, nome || '-');
+            });
+          }
+
+          if (vendedorIds.length > 0) {
+            const vendedoresData = await fetchBatched<any>(
+              vendedorIds,
+              (batch) =>
+                client
+                  .from('users')
+                  .select('id, nome_completo')
+                  .in('id', batch),
+            );
+            vendedoresData.forEach((vendedor: any) => {
+              const id = String(vendedor?.id || '').trim();
+              const nome = String(vendedor?.nome_completo || '').trim();
+              if (id) vendedoresById.set(id, nome || '-');
+            });
+          }
+        }
+
+        if (reciboIdsLinked.length > 0) {
+          const recibosData = await fetchBatched<any>(
+            reciboIdsLinked,
+            (batch) =>
+              client
+                .from('vendas_recibos')
+                .select('id, venda_id, numero_recibo, numero_reserva')
+                .in('id', batch),
+          );
+          recibosData.forEach((item: any) => {
+            const id = String(item?.id || '').trim();
+            if (id) recibosById.set(id, item);
+          });
+        }
+
+        rows = rows.map((row: any) => {
+          const vendaId = String(row?.venda_id || '').trim();
+          const reciboId = String(row?.venda_recibo_id || '').trim();
+          const venda = vendaId ? vendasById.get(vendaId) : null;
+          const recibo = reciboId ? recibosById.get(reciboId) : null;
+
+          const clienteNome = venda?.cliente_id
+            ? clientesById.get(String(venda.cliente_id)) || null
+            : null;
+          const vendedorNome = venda?.vendedor_id
+            ? vendedoresById.get(String(venda.vendedor_id)) || null
+            : null;
+          const numeroVenda = venda?.numero_venda
+            ? String(venda.numero_venda).trim()
+            : null;
+          const numeroRecibo = recibo?.numero_recibo
+            ? String(recibo.numero_recibo).trim()
+            : recibo?.numero_reserva
+              ? String(recibo.numero_reserva).trim()
+              : null;
+
+          return {
+            ...row,
+            venda_numero: numeroVenda,
+            venda_cliente_nome: clienteNome,
+            venda_vendedor_nome: vendedorNome,
+            recibo_numero: numeroRecibo,
+          };
+        });
+
+        return rows;
+      },
+    });
+
+    return json(rows, {
+      headers: {
+        'Cache-Control': 'private, max-age=5',
+        Vary: 'Cookie',
+      },
+    });
+  } catch (err) {
+    return toErrorResponse(err, 'Erro ao listar conciliacao.');
+  }
+}

@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/(app)/orcamentos/roteiros/[id]/+page.svelte";

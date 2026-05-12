@@ -1,1 +1,0 @@
-export { default as component } from "../../../../src/routes/(app)/cadastros/circuitos/[id]/editar/+page.svelte";
