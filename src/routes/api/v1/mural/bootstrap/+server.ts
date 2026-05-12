@@ -42,7 +42,10 @@ export async function GET(event) {
         }))
         .filter((e: any) => e.id);
 
-      const approvedIds = new Set(empresas.map((e) => e.id));
+      const approvedIds = new Set<string>();
+      for (const empresa of empresas) {
+        approvedIds.add(empresa.id);
+      }
       if (queryCompanyId && approvedIds.has(queryCompanyId)) {
         selectedCompanyId = queryCompanyId;
       } else if (!selectedCompanyId || !approvedIds.has(selectedCompanyId)) {
