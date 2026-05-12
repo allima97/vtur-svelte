@@ -220,13 +220,13 @@ export async function fetchProdutosBase(
   if (produtosResp.error) throw produtosResp.error;
 
   const cidadesMap = new Map<string, any>();
-  cidadesBase.forEach((row: any) => cidadesMap.set(String(row.id), { ...row }));
-  cidadesComPais.forEach((row: any) => {
+  for (const row of cidadesBase) cidadesMap.set(String(row.id), { ...row });
+  for (const row of cidadesComPais) {
     cidadesMap.set(String(row.id), {
       ...(cidadesMap.get(String(row.id)) || {}),
       ...row
     });
-  });
+  }
 
   let produtos = ((produtosResp.data || []) as any[]).map((row) => ({
     ...row,
