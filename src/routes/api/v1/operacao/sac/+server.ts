@@ -10,6 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_SAC_BODY_BYTES = 64 * 1024;
 
@@ -101,8 +102,10 @@ export async function POST(event) {
         .maybeSingle();
       if (existingError) throw existingError;
       if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-      const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
-      if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
+      const existingCompanyId = String((existing as any)?.company_id || '').trim();
+      const allowedCompanyIds = resolveScopedCompanyIds(scope, existingCompanyId || null);
+      const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+      if (!scope.isAdmin && !allowedCompanySet.has(existingCompanyId)) {
         return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
@@ -144,8 +147,10 @@ export async function DELETE(event) {
       .maybeSingle();
     if (existingError) throw existingError;
     if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-    const allowedCompanyIds = resolveScopedCompanyIds(scope, (existing as any)?.company_id || null);
-    if (!scope.isAdmin && !allowedCompanyIds.includes(String((existing as any)?.company_id || ''))) {
+    const existingCompanyId = String((existing as any)?.company_id || '').trim();
+    const allowedCompanyIds = resolveScopedCompanyIds(scope, existingCompanyId || null);
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+    if (!scope.isAdmin && !allowedCompanySet.has(existingCompanyId)) {
       return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
