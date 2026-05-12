@@ -112,10 +112,10 @@ export async function GET(event) {
     );
 
     const byDay = new Map<string, number>();
-    efetivados.forEach((row: any) => {
+    for (const row of efetivados) {
       const day = String(row.movimento_data || '').slice(0, 10);
       if (day) byDay.set(day, (byDay.get(day) || 0) + Number(row.valor_calculada_loja || row.valor_lancamentos || 0));
-    });
+    }
 
     const timeline = Array.from(byDay.entries())
       .sort(([a], [b]) => a.localeCompare(b))
