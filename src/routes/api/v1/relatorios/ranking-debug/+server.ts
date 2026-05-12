@@ -318,7 +318,11 @@ export async function GET(event) {
           (row: any) => !userIdSet.has(String(row?.ranking_vendedor_id || '').trim())
         );
         // Resolver nomes dos outros vendedores
-        const outrosIds = [...new Set((outrosRows || []).map((r: any) => r.ranking_vendedor_id).filter(Boolean))];
+        const outrosIdSet = new Set<string>();
+        for (const row of outrosRows || []) {
+          if (row.ranking_vendedor_id) outrosIdSet.add(row.ranking_vendedor_id);
+        }
+        const outrosIds = Array.from(outrosIdSet);
         const outrosUsers: any[] = [];
         for (const outrosBatch of chunkArray(outrosIds)) {
           const { data } = await client.from('users').select('id, nome_completo').in('id', outrosBatch);
