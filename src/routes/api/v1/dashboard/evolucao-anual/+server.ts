@@ -17,7 +17,7 @@ import {
   scopeCacheTags,
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray } from '$lib/utils/array';
+import { cleanStringSet } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
@@ -104,8 +104,9 @@ export async function GET(event) {
       effectiveCompanyIds = isUuid(companyIdParam) ? [companyIdParam!] : [];
     } else if (isMaster) {
       const scopedIds = resolveScopedCompanyIds(scope, null);
+      const scopedIdSet = cleanStringSet(scopedIds);
       // Filtro por empresa: só aceita empresas do escopo do master
-      if (companyIdParam && isUuid(companyIdParam) && scopedIds.includes(companyIdParam)) {
+      if (companyIdParam && isUuid(companyIdParam) && scopedIdSet.has(companyIdParam)) {
         effectiveCompanyIds = [companyIdParam];
       } else {
         effectiveCompanyIds = scopedIds;
@@ -118,7 +119,8 @@ export async function GET(event) {
       // Gestor: sua empresa + equipe
       effectiveCompanyIds = scope.companyId ? [scope.companyId] : resolveScopedCompanyIds(scope, null);
       const teamIds = await fetchVendedorIdsByCompanyIds(client, effectiveCompanyIds);
-      if (vendedorIdParam && isUuid(vendedorIdParam) && teamIds.includes(vendedorIdParam)) {
+      const teamIdSet = cleanStringSet(teamIds);
+      if (vendedorIdParam && isUuid(vendedorIdParam) && teamIdSet.has(vendedorIdParam)) {
         effectiveVendedorIds = [vendedorIdParam];
       } else if (!vendedorIdParam) {
         // sem filtro: busca todos da equipe (mas passaremos vazio para não duplar filtro na query SQL)
