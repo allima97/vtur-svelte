@@ -54,6 +54,9 @@
     'Colega',
     'Outro'
   ];
+  const parentescoSelectOptions = parentescoOptions
+    .filter((option) => option)
+    .map((option) => ({ value: option, label: option }));
 
   function createInitialForm(): AcompanhanteForm {
     return {
@@ -285,7 +288,7 @@
             id="acomp-parentesco"
             label="Parentesco"
             bind:value={form.grau_parentesco}
-            options={parentescoOptions.filter((option) => option).map((option) => ({ value: option, label: option }))}
+            options={parentescoSelectOptions}
             placeholder="Selecione uma opção"
           />
 
