@@ -22,6 +22,14 @@ const NO_STORE_TEXT_HEADERS = {
   ...NO_STORE_HEADERS,
 };
 
+const CONSULTORIA_PERMISSION_LEVELS = new Set([
+  "view",
+  "create",
+  "edit",
+  "delete",
+  "admin",
+]);
+
 function clampIntParam(
   value: string | null,
   fallback: number,
@@ -63,9 +71,7 @@ export async function GET(event: RequestEvent) {
             .toLowerCase();
           return (
             normalized === modulo &&
-            ["view", "create", "edit", "delete", "admin"].includes(
-              String(nivel),
-            )
+            CONSULTORIA_PERMISSION_LEVELS.has(String(nivel))
           );
         }),
       );
