@@ -858,7 +858,7 @@ function parseProvider2(
     const distributedTotals = splitTotalAcrossSegments(valorTotal, segmentCount);
     const distributedTaxes = splitTotalAcrossSegments(taxaTotal, segmentCount);
 
-    airlines.forEach((airline, index) => {
+    for (const [index, airline] of airlines.entries()) {
       const departure = parseProvider2DateTime(departures[index] || "");
       const arrival = parseProvider2DateTime(arrivals[index] || "");
       const origem = origins[index] || "";
@@ -886,7 +886,7 @@ function parseProvider2(
         valor_total: distributedTotals[index] ?? valorTotal,
         ordem: imported.length,
       });
-    });
+    }
   }
 
   return sortFlights(imported);
@@ -909,18 +909,18 @@ function parseProviderCards(
   const cards: string[][] = [];
   let currentCard: string[] = [];
 
-  rawLines.forEach((line) => {
+  for (const line of rawLines) {
     const normalized = normalizeText(line);
     if (normalized === "selecionado") {
       if (currentCard.length > 0) {
         cards.push(currentCard);
         currentCard = [];
       }
-      return;
+      continue;
     }
-    if (isProviderCardMarkerLine(line)) return;
+    if (isProviderCardMarkerLine(line)) continue;
     currentCard.push(line);
-  });
+  }
   if (currentCard.length > 0) cards.push(currentCard);
 
   if (cards.length === 0) {
@@ -931,9 +931,9 @@ function parseProviderCards(
   let lastDate: Date | null = null;
   const imported: ImportedRoteiroAereo[] = [];
 
-  cards.forEach((cardLines) => {
+  for (const cardLines of cards) {
     const lines = cardLines.filter(Boolean);
-    if (lines.length < 6) return;
+    if (lines.length < 6) continue;
 
     const firstAirlineIndex = lines.findIndex((line) => isProviderCardAirlineLine(line));
     const trechoCandidate = lines
@@ -948,16 +948,16 @@ function parseProviderCards(
 
     let cardTaxes = 0;
     let cardTotal = 0;
-    lines.forEach((line) => {
+    for (const line of lines) {
       const values = extractMoneyValues(line);
-      if (!values.length) return;
+      if (!values.length) continue;
       const value = values[values.length - 1] || 0;
       if (normalizeText(line).includes("taxa")) {
         cardTaxes = value;
       } else {
         cardTotal = value;
       }
-    });
+    }
 
     const cardSegments: Array<Omit<ImportedRoteiroAereo, "ordem" | "trecho" | "tarifa_nome" | "reembolso_tipo" | "qtd_adultos" | "qtd_criancas" | "taxas" | "valor_total"> & { direction: string }> = [];
 
@@ -1018,7 +1018,7 @@ function parseProviderCards(
       cursor += 7;
     }
 
-    if (cardSegments.length === 0) return;
+    if (cardSegments.length === 0) continue;
 
     const distributedTotals = splitTotalAcrossSegments(cardTotal, cardSegments.length);
     const distributedTaxes = splitTotalAcrossSegments(cardTaxes, cardSegments.length);
@@ -1058,7 +1058,7 @@ function parseProviderCards(
         ordem: imported.length,
       });
     });
-  });
+  }
 
   return sortFlights(imported);
 }
