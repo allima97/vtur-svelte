@@ -378,10 +378,10 @@ export async function POST(event) {
         .eq('ativo', true)
         .in('venda_recibo_id', batch);
       if (error) throw error;
-      (data || []).forEach((rateio: any) => {
+      for (const rateio of data || []) {
         const reciboId = toStr(rateio?.venda_recibo_id);
         if (reciboId) rateioByReciboId.set(reciboId, rateio);
-      });
+      }
     }
 
     const userIds = new Set<string>();
