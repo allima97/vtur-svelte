@@ -1932,7 +1932,7 @@ function detectCardsFromTypeLabels(
   const minHeight = Math.max(90, pageHeight * 0.09);
   const gapLimit = Math.max(24, pageHeight * 0.02);
 
-  anchors.forEach(({ line: anchorLine, idx }, anchorIdx) => {
+  for (const [anchorIdx, { line: anchorLine, idx }] of anchors.entries()) {
     const nextAnchor = anchors[anchorIdx + 1];
     let endIndex = lines.length - 1;
     for (let i = idx + 1; i < lines.length; i += 1) {
@@ -1947,10 +1947,10 @@ function detectCardsFromTypeLabels(
       }
     }
     const slice = lines.slice(idx, endIndex + 1);
-    if (!slice.length) return;
+    if (!slice.length) continue;
     const y1 = Math.max(0, anchorLine.y1 - padding);
     const y2 = Math.min(pageHeight, slice[slice.length - 1].y2 + padding);
-    if (y2 - y1 < minHeight) return;
+    if (y2 - y1 < minHeight) continue;
     cards.push({
       pageIndex,
       x1: 0,
@@ -1958,7 +1958,7 @@ function detectCardsFromTypeLabels(
       x2: pageWidth,
       y2,
     });
-  });
+  }
   return cards;
 }
 
@@ -2013,8 +2013,8 @@ function detectCardsFromImageData(
 
   const minHeight = Math.max(70, pageHeight * 0.07);
   const cards: CardBBox[] = [];
-  blocks.forEach((block) => {
-    if (block.y2 - block.y1 < minHeight) return;
+  for (const block of blocks) {
+    if (block.y2 - block.y1 < minHeight) continue;
     let minX = pageWidth;
     let maxX = 0;
     for (let x = 0; x < pageWidth; x += step) {
@@ -2031,7 +2031,7 @@ function detectCardsFromImageData(
         maxX = Math.max(maxX, x);
       }
     }
-    if (maxX - minX < pageWidth * 0.25) return;
+    if (maxX - minX < pageWidth * 0.25) continue;
     cards.push({
       pageIndex,
       x1: 0,
@@ -2039,7 +2039,7 @@ function detectCardsFromImageData(
       x2: pageWidth,
       y2: clamp(block.y2 + 10, 0, pageHeight),
     });
-  });
+  }
   return cards;
 }
 
@@ -2056,22 +2056,22 @@ function detectCardsFromTextItems(
   const cardGap = Math.max(14, pageHeight * 0.015);
   let current: { x1: number; y1: number; x2: number; y2: number; lines: number } | null = null;
 
-  sortedLines.forEach((line) => {
+  for (const line of sortedLines) {
     if (!current) {
       current = { x1: line.x1, y1: line.y1, x2: line.x2, y2: line.y2, lines: 1 };
-      return;
+      continue;
     }
     if (line.y1 - current.y2 > cardGap) {
       cards.push(current);
       current = { x1: line.x1, y1: line.y1, x2: line.x2, y2: line.y2, lines: 1 };
-      return;
+      continue;
     }
     current.x1 = Math.min(current.x1, line.x1);
     current.y1 = Math.min(current.y1, line.y1);
     current.x2 = Math.max(current.x2, line.x2);
     current.y2 = Math.max(current.y2, line.y2);
     current.lines += 1;
-  });
+  }
   if (current) cards.push(current);
 
   const minHeight = Math.max(70, pageHeight * 0.07);
