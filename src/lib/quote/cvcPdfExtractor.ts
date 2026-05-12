@@ -2355,10 +2355,10 @@ function buildItemKey(item: QuoteItemDraft) {
 
 function dedupeItems(items: QuoteItemDraft[]) {
   const map = new Map<string, QuoteItemDraft>();
-  items.forEach((item) => {
+  for (const item of items) {
     const key = buildItemKey(item);
     if (!map.has(key)) map.set(key, item);
-  });
+  }
   return Array.from(map.values());
 }
 
@@ -2727,7 +2727,7 @@ function parseItemsFromFullText(text: string, baseYear: number, pageNumber: numb
   const blocks: string[][] = [];
   let current: string[] = [];
 
-  lines.forEach((line) => {
+  for (const line of lines) {
     const normalized = normalizeOcrText(line);
     const hasType = inferTipoLabelFromText(line, "") !== "";
     const hasMoney =
@@ -2739,11 +2739,11 @@ function parseItemsFromFullText(text: string, baseYear: number, pageNumber: numb
       current = [];
     }
     current.push(line);
-  });
+  }
   if (current.length) blocks.push(current);
 
   const items: QuoteItemDraft[] = [];
-  blocks.forEach((block) => {
+  for (const block of blocks) {
     items.push(
       ...buildQuoteItemsFromDetectedBlock(block, {
         baseYear,
@@ -2751,7 +2751,7 @@ function parseItemsFromFullText(text: string, baseYear: number, pageNumber: numb
         pageNumber,
       })
     );
-  });
+  }
 
   return items;
 }
@@ -3074,7 +3074,7 @@ function parseItemsFromCvcText(text: string, baseYear: number): QuoteItemDraft[]
 
   const items: QuoteItemDraft[] = [];
 
-  blocks.forEach((block) => {
+  for (const block of blocks) {
     items.push(
       ...buildQuoteItemsFromDetectedBlock(block.lines, {
         baseYear,
@@ -3088,7 +3088,7 @@ function parseItemsFromCvcText(text: string, baseYear: number): QuoteItemDraft[]
           "Serviços",
       })
     );
-  });
+  }
 
   return items;
 }
