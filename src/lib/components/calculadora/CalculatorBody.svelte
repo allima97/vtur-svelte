@@ -38,6 +38,8 @@
     | { type: 'percent' }
     | { type: 'paren'; value: '(' | ')' };
 
+  const OPERATOR_KEYS = new Set(['+', '-', '*', '/', 'x', 'X']);
+
   let calcValue = '0';
   let calcError: string | null = null;
   let calcInput: HTMLInputElement | null = null;
@@ -344,7 +346,7 @@
       return;
     }
 
-    if (['+', '-', '*', '/', 'x', 'X'].includes(event.key)) {
+    if (OPERATOR_KEYS.has(event.key)) {
       event.preventDefault();
       appendCalcValue(event.key === '*' ? 'x' : event.key.toLowerCase());
       return;
