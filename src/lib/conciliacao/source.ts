@@ -888,11 +888,12 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         }
       }
 
-      (data || []).forEach((row: any) => {
+      for (const row of data || []) {
         const numero = toStr(row?.numero_recibo);
         const id = toStr(row?.id);
         const vendaId = toStr(row?.venda_id);
-        if (!numero || !id || !vendaId || !allowedVendaIds.has(vendaId)) return;
+        if (!numero || !id || !vendaId || !allowedVendaIds.has(vendaId))
+          continue;
         if (!reciboByNumeroMap.has(numero)) {
           reciboByNumeroMap.set(numero, {
             id,
@@ -907,7 +908,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
               toStr(row?.cancelado_por_conciliacao_observacao) || null,
           });
         }
-      });
+      }
     }
   }
 
