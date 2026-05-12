@@ -67,10 +67,20 @@
   });
 
   // ─── KPIs derivados ───────────────────────────────────────────────────────
-  $: totalComissoes    = comissoes.reduce((acc, c) => acc + c.valor_comissao, 0);
-  $: totalVendas       = comissoes.reduce((acc, c) => acc + c.valor_venda, 0);
-  $: pendentes         = comissoes.filter((c) => c.status === 'PENDENTE' || c.status === 'pendente').length;
-  $: vendedoresUnicos  = new Set(comissoes.map((c) => c.vendedor_id)).size;
+  $: comissoesStats = comissoes.reduce(
+    (acc, c) => {
+      acc.totalComissoes += c.valor_comissao;
+      acc.totalVendas += c.valor_venda;
+      if (c.status === 'PENDENTE' || c.status === 'pendente') acc.pendentes += 1;
+      acc.vendedores.add(c.vendedor_id);
+      return acc;
+    },
+    { totalComissoes: 0, totalVendas: 0, pendentes: 0, vendedores: new Set<string>() }
+  );
+  $: totalComissoes    = comissoesStats.totalComissoes;
+  $: totalVendas       = comissoesStats.totalVendas;
+  $: pendentes         = comissoesStats.pendentes;
+  $: vendedoresUnicos  = comissoesStats.vendedores.size;
 
   // ─── Colunas da tabela ──────────────────────────────────────────────────────
   function formatCurrency(value: number) {
