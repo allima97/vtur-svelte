@@ -13,16 +13,9 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
+import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_RECIBO_PRINCIPAL_BODY_BYTES = 16 * 1024;
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(event: RequestEvent) {
   try {

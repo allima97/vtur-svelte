@@ -3,6 +3,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { normalizeMenuPrefs } from '$lib/server/menuPrefs';
+import { safeJsonParse } from '$lib/utils/json';
 
 const JSON_NO_STORE_HEADERS = {
   'Content-Type': 'application/json',
@@ -15,14 +16,6 @@ const TEXT_NO_STORE_HEADERS = {
 };
 
 const MAX_PREFS_BODY_BYTES = 16 * 1024;
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(event: RequestEvent) {
   try {

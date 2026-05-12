@@ -4,6 +4,7 @@ export async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  fetcher: typeof fetch = fetch,
 ) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -19,7 +20,7 @@ export async function fetchWithTimeout(
   }
 
   try {
-    return await fetch(input, {
+    return await fetcher(input, {
       ...init,
       signal: controller.signal,
     });

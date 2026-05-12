@@ -7,10 +7,13 @@
 # Build outputs and caches
 /dist
 /.astro
+/.vite
 /.wrangler
 /.svelte-kit
 /public/pdfs
 /supabase/.temp
+src/src/
+.DS_Store
 
 # Environment files
 .env

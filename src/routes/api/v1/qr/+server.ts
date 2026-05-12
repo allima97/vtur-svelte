@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 
 const QR_IMAGE_HEADERS = {
   'Cache-Control': 'private, max-age=300',
@@ -48,19 +49,16 @@ export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
     upstream.searchParams.set('margin', String(margin));
     upstream.searchParams.set('text', text);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4_000);
-    let response: Response;
-    try {
-      response = await fetch(upstream, {
-        signal: controller.signal,
+    const response = await fetchWithTimeout(
+      upstream,
+      {
         headers: {
           accept: 'image/png'
         }
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+      },
+      4_000,
+      fetch
+    );
 
     if (!response.ok) {
       return json({ error: 'QR Code indisponivel.' }, { status: 502, headers: NO_STORE_HEADERS });

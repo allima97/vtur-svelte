@@ -15,16 +15,9 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { fetchSaleForScope } from '$lib/server/salesScope';
+import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_VENDA_CANCEL_BODY_BYTES = 8 * 1024;
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(event) {
   try {

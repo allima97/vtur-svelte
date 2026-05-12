@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { logServerError } from '$lib/server/v1';
+import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 
 type ViaCepResponse = {
   cep?: string;
@@ -36,19 +37,16 @@ export const GET: RequestHandler = async ({ url, fetch, getClientAddress }) => {
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4_000);
-    let response: Response;
-    try {
-      response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
-        signal: controller.signal,
+    const response = await fetchWithTimeout(
+      `https://viacep.com.br/ws/${cep}/json/`,
+      {
         headers: {
           accept: 'application/json'
         }
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+      },
+      4_000,
+      fetch
+    );
 
     if (!response.ok) {
       return json({ error: 'CEP indisponivel.' }, { status: 502, headers: NO_STORE_HEADERS });
