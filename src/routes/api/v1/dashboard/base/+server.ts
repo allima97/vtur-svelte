@@ -105,7 +105,13 @@ export async function GET(event) {
 
     const companyIdsForVendedores = (() => {
       if (scopedCompanyIds.length > 0) return scopedCompanyIds;
-      if (scope.isAdmin) return empresas.map((row) => row.id).filter(isUuid);
+      if (scope.isAdmin) {
+        const companyIds: string[] = [];
+        for (const row of empresas) {
+          if (isUuid(row.id)) companyIds.push(row.id);
+        }
+        return companyIds;
+      }
       return scope.companyIds;
     })();
 
