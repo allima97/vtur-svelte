@@ -861,9 +861,14 @@ function pushUniqueLine(target: string[], value?: string | null) {
   target.push(normalized);
 }
 
+const PT_BR_DECIMAL_FORMATTER = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
 function formatCurrencyLine(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "";
-  return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `R$ ${PT_BR_DECIMAL_FORMATTER.format(value)}`;
 }
 
 function isOccupancyTotalLine(line: string) {
