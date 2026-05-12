@@ -16,6 +16,7 @@ import {
 import { ensureClienteModuloAccess } from '$lib/server/clientes';
 
 const MAX_CLIENTE_AVISO_SEND_BODY_BYTES = 128 * 1024;
+const VALID_AVISO_CHANNELS = new Set(['email', 'whatsapp']);
 
 function normalizePhone(value: string) {
   return String(value || '').replace(/\D+/g, '');
@@ -124,7 +125,7 @@ export async function POST(event) {
       return json({ error: 'Cliente invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    if (!['email', 'whatsapp'].includes(canal)) {
+    if (!VALID_AVISO_CHANNELS.has(canal)) {
       return json({ error: 'Canal invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
