@@ -619,12 +619,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   if (concRows.length === 0) return [] as EffectiveConciliacaoReceipt[];
 
-  const concRowIds = Array.from(
-    new Set(concRows.map((row) => toStr(row?.id)).filter(isUuid)),
-  );
-  const concLinkedReciboIds = Array.from(
-    new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(isUuid)),
-  );
+  const concRowIds = uniqueCleanStrings(concRows.map((row) => row?.id)).filter(isUuid);
+  const concLinkedReciboIds = uniqueCleanStrings(
+    concRows.map((row) => row?.venda_recibo_id)
+  ).filter(isUuid);
   // Maps de rateio: ajustes podem estar vinculados ao registro de conciliação
   // ou diretamente ao recibo da venda que a conciliação substitui.
   const concRateioMap = new Map<
@@ -745,17 +743,11 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   }
 
-  const vendaIds = Array.from(
-    new Set(concRows.map((row) => toStr(row?.venda_id)).filter(isUuid)),
-  );
-  const reciboIds = Array.from(
-    new Set(concRows.map((row) => toStr(row?.venda_recibo_id)).filter(isUuid)),
-  );
-  const rankingVendedorIds = Array.from(
-    new Set(
-      concRows.map((row) => toStr(row?.ranking_vendedor_id)).filter(isUuid),
-    ),
-  );
+  const vendaIds = uniqueCleanStrings(concRows.map((row) => row?.venda_id)).filter(isUuid);
+  const reciboIds = uniqueCleanStrings(concRows.map((row) => row?.venda_recibo_id)).filter(isUuid);
+  const rankingVendedorIds = uniqueCleanStrings(
+    concRows.map((row) => row?.ranking_vendedor_id)
+  ).filter(isUuid);
 
   const vendaDocumentoSets = new Map<string, Set<string>>();
   concRows.forEach((row) => {
@@ -1041,11 +1033,11 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   const allowedVendedores =
     vendedorIds && vendedorIds.length > 0
-      ? new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean))
+      ? new Set(uniqueCleanStrings(vendedorIds))
       : null;
   const excludedVendedores =
     excludeVendedorIds && excludeVendedorIds.length > 0
-      ? new Set(excludeVendedorIds.map((id) => toStr(id)).filter(Boolean))
+      ? new Set(uniqueCleanStrings(excludeVendedorIds))
       : null;
 
   const concRowsByDocumento = new Map<string, any[]>();
