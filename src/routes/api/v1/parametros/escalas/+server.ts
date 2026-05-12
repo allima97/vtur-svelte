@@ -407,9 +407,12 @@ export async function POST(event) {
 
     if (action === 'apply_batch') {
       const usuarioId = String(body.usuario_id || '').trim();
-      const datas: string[] = Array.from(
-        new Set((body.datas || []).map((data: unknown) => normalizeDate(data)).filter(Boolean))
-      ) as string[];
+      const datasSet = new Set<string>();
+      for (const data of body.datas || []) {
+        const normalized = normalizeDate(data);
+        if (normalized) datasSet.add(normalized);
+      }
+      const datas = Array.from(datasSet);
       const tipo = String(body.tipo || '').trim() || null;
       const horaInicio = normalizeTime(body.hora_inicio);
       const horaFim = normalizeTime(body.hora_fim);
