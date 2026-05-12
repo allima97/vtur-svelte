@@ -277,6 +277,16 @@
     : userCtx?.papel === 'MASTER'
       ? 'Top destinos das equipes'
       : 'Top destinos da equipe';
+  $: chartsAtivos =
+    (widgetVisible.timeline !== false ? 1 : 0) +
+    (widgetVisible.top_destinos !== false ? 1 : 0) +
+    (widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER' ? 1 : 0) +
+    (widgetVisible.comparativo_metas !== false && userCtx?.papel === 'MASTER' ? 1 : 0);
+  $: gridCols =
+    chartsAtivos === 1 ? 'grid-cols-1' :
+    chartsAtivos === 2 ? 'grid-cols-1 lg:grid-cols-2' :
+    chartsAtivos === 3 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
+                         'grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
   $: followUpHeader = isFiltroVendedorAtivo
     ? `Follow-up de ${vendedorSelecionadoNome}`
     : 'Follow-up';
@@ -852,19 +862,7 @@
 </div>
 
 <!-- ── Grade unificada de gráficos: 1–4 painéis, sempre 100% da largura ── -->
-{@const chartsAtivos = [
-  widgetVisible.timeline       !== false,
-  widgetVisible.top_destinos   !== false,
-  widgetVisible.comparativo_vendas !== false && userCtx?.papel === 'MASTER',
-  widgetVisible.comparativo_metas  !== false && userCtx?.papel === 'MASTER',
-].filter(Boolean).length}
-
 {#if chartsAtivos > 0}
-{@const gridCols =
-  chartsAtivos === 1 ? 'grid-cols-1' :
-  chartsAtivos === 2 ? 'grid-cols-1 lg:grid-cols-2' :
-  chartsAtivos === 3 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' :
-                       'grid-cols-1 md:grid-cols-2 xl:grid-cols-4'}
 <div class="mb-6 grid gap-4 sm:gap-6 {gridCols}">
 
   <!-- Evolução das vendas -->
