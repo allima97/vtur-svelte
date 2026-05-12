@@ -2,18 +2,10 @@ import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_CONCILIACAO_LOOKUP_BODY_BYTES = 256 * 1024;
 const MAX_LOOKUP_DOCUMENTOS = 500;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function normalizeNumeroRecibo(value: string) {
   return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');

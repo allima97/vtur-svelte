@@ -14,9 +14,9 @@ import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
 import { safeJsonParse } from '$lib/utils/json';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -28,14 +28,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'carta de credito',
   'credito'
 ];
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function normalizeText(value?: string | null) {
   return String(value || '')

@@ -12,17 +12,9 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { safeJsonParse } from '$lib/utils/json';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 export async function POST(event: RequestEvent) {
   try {
