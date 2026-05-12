@@ -223,10 +223,12 @@ function buildFlightRows(item: QuoteItemForPdf) {
       String(data.cidade_chegada || trecho.destino || ''),
       String(data.aeroporto_chegada || '')
     );
-    const horarios = [data.hora_saida, data.hora_chegada]
-      .map((value) => String(value || '').trim())
-      .filter(Boolean)
-      .join(' / ') || '-';
+    const horariosParts: string[] = [];
+    for (const value of [data.hora_saida, data.hora_chegada]) {
+      const trimmed = String(value || '').trim();
+      if (trimmed) horariosParts.push(trimmed);
+    }
+    const horarios = horariosParts.join(' / ') || '-';
 
     return [
       cia,
