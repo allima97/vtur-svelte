@@ -183,15 +183,21 @@ export function isValidCnpj(value: string) {
 export function parseTagsInput(value: string) {
   return String(value || '')
     .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .reduce<string[]>((items, item) => {
+      const tag = item.trim();
+      if (tag) items.push(tag);
+      return items;
+    }, []);
 }
 
 export function joinTagsInput(value: unknown) {
   if (!Array.isArray(value)) return '';
   return value
-    .map((item) => String(item || '').trim())
-    .filter(Boolean)
+    .reduce<string[]>((items, item) => {
+      const tag = String(item || '').trim();
+      if (tag) items.push(tag);
+      return items;
+    }, [])
     .join(', ');
 }
 
