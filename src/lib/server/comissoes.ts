@@ -28,6 +28,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { chunkArray } from '$lib/utils/array';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -106,20 +107,12 @@ function uniqueIds(values: string[]) {
   return Array.from(new Set((values || []).map((id) => String(id || '').trim()).filter(Boolean)));
 }
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
 async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
   const rows: T[] = [];
-  for (const batch of chunkArray(values)) {
+  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await loader(batch);
     if (error) return { data: rows, error };
     rows.push(...(data || []));
@@ -457,7 +450,7 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
     }
 
     if (!error) {
-      for (const batch of chunkArray(scopedCompanyIds)) {
+      for (const batch of chunkArray(scopedCompanyIds, SUPABASE_IN_BATCH_SIZE)) {
         const batchResult = await baseQuery(selectWithCompany).in('company_id', batch);
         error = batchResult.error;
         if (error) break;

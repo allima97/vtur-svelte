@@ -18,8 +18,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-
-const SUPABASE_IN_BATCH_SIZE = 100;
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type VendaRow = {
   id: string;
@@ -51,14 +50,6 @@ function deriveTipo(row: VendaRow) {
   if (ref.includes('hotel') || ref.includes('resort')) return 'hotel';
   if (ref.includes('passagem') || ref.includes('aereo') || ref.includes('transporte')) return 'passagem';
   return 'pacote';
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {

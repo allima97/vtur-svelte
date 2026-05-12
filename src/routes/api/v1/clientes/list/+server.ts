@@ -26,6 +26,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type ClienteBaseRow = {
   id: string;
@@ -73,19 +74,10 @@ type ClienteLookupRow = {
   ativo: boolean | null;
 };
 
-const SUPABASE_IN_BATCH_SIZE = 100;
 const CLIENT_SELECT_FULL =
   'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at';
 const CLIENT_SELECT_SUMMARY =
   'id, cpf, nascimento, active, ativo, company_id, created_at';
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function filterBatches(values: string[]) {
   return values.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(values) : [values];

@@ -17,9 +17,9 @@ import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
 
 function textNoStore(message: string, status: number) {
   return new Response(message, { status, headers: NO_STORE_HEADERS });
@@ -30,14 +30,6 @@ function deriveVendaStatus(dataEmbarque?: string | null, dataFinal?: string | nu
   if (dataFinal && dataFinal < hoje) return 'concluida';
   if (dataEmbarque && dataEmbarque >= hoje) return 'confirmada';
   return 'pendente';
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
