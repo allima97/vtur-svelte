@@ -69,6 +69,7 @@ const DATE_CLASS_RE =
   /^(?:[a-zA-ZÀ-ÿ]{2,7},?\s*)?(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)\s*-\s*(.+)$/i;
 const PROVIDER2_DATE_TIME_RE = /^(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2}:\d{2})$/;
 const PROVIDER_CARD_MARKERS = new Set(["aereo", "selecionado", "excluir", "detalhes", "multitrecho"]);
+const PROVIDER2_IGNORED_LINES = new Set(["sua escolha", "fechar"]);
 const AIRPORT_NOISE_WORDS_RE =
   /\b(aeroporto|aeropuerto|airport|internacional|international|intl|terminal|internat(?:ional)?|aerodrome)\b/gi;
 
@@ -741,7 +742,7 @@ function parseProvider2(
     .replace(/\r/g, "\n")
     .split("\n")
     .map((line) => normalizeLine(line))
-    .filter((line) => Boolean(line) && !["sua escolha", "fechar"].includes(normalizeText(line)));
+    .filter((line) => Boolean(line) && !PROVIDER2_IGNORED_LINES.has(normalizeText(line)));
 
   const headerIndex = rawLines.findIndex((line) => isProvider2HeaderLine(line));
   if (headerIndex === -1) return [];
@@ -1250,7 +1251,7 @@ function collectProvider2AliasValues(
     .replace(/\r/g, "\n")
     .split("\n")
     .map((line) => normalizeLine(line))
-    .filter((line) => Boolean(line) && !["sua escolha", "fechar"].includes(normalizeText(line)));
+    .filter((line) => Boolean(line) && !PROVIDER2_IGNORED_LINES.has(normalizeText(line)));
 
   const headerIndex = rawLines.findIndex((line) => isProvider2HeaderLine(line));
   if (headerIndex === -1) return [];
