@@ -160,13 +160,21 @@ function pickAssetUrls(assets: VoucherAssetRecord[], provider: string, kind: "im
   const preferred = sortAssets(
     assets.filter((asset) => asset.asset_kind === kind && asset.provider === provider && textValue(asset.preview_url)),
   );
-  if (preferred.length) return preferred.map((asset) => asset.preview_url || "").filter(Boolean);
+  if (preferred.length) {
+    const urls: string[] = [];
+    for (const asset of preferred) {
+      if (asset.preview_url) urls.push(asset.preview_url);
+    }
+    return urls;
+  }
 
-  return sortAssets(
+  const urls: string[] = [];
+  for (const asset of sortAssets(
     assets.filter((asset) => asset.asset_kind === kind && asset.provider === "generic" && textValue(asset.preview_url)),
-  )
-    .map((asset) => asset.preview_url || "")
-    .filter(Boolean);
+  )) {
+    if (asset.preview_url) urls.push(asset.preview_url);
+  }
+  return urls;
 }
 
 function buildRouteTitle(voucher: VoucherRecord) {
