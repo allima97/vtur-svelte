@@ -35,13 +35,17 @@ export function titleCaseNome(value?: string | null): string {
   const raw = String(value || '').trim();
   if (!raw) return '';
 
-  return raw
-    .toLowerCase()
-    .split(/\s+/)
-    .map((word, index) => {
-      if (index > 0 && LOWER_CASE_WORDS.has(word)) return word;
-      if (!word) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(' ');
+  const words = raw.toLowerCase().match(/\S+/g) || [];
+  const formatted: string[] = [];
+
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
+    formatted.push(
+      index > 0 && LOWER_CASE_WORDS.has(word)
+        ? word
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    );
+  }
+
+  return formatted.join(' ');
 }
