@@ -99,6 +99,15 @@ function isUuid(value?: string | null) {
   );
 }
 
+function collectUuidValues(values: unknown[]) {
+  const ids = new Set<string>();
+  for (const value of values) {
+    const id = toStr(value);
+    if (isUuid(id)) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
 function isPositive(value: unknown) {
   return toNumber(value) > 0;
 }
@@ -620,10 +629,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   if (concRows.length === 0) return [] as EffectiveConciliacaoReceipt[];
 
-  const concRowIds = uniqueCleanStrings(concRows.map((row) => row?.id)).filter(isUuid);
-  const concLinkedReciboIds = uniqueCleanStrings(
-    concRows.map((row) => row?.venda_recibo_id)
-  ).filter(isUuid);
+  const concRowIds = collectUuidValues(concRows.map((row) => row?.id));
+  const concLinkedReciboIds = collectUuidValues(
+    concRows.map((row) => row?.venda_recibo_id),
+  );
   // Maps de rateio: ajustes podem estar vinculados ao registro de conciliação
   // ou diretamente ao recibo da venda que a conciliação substitui.
   const concRateioMap = new Map<
@@ -744,11 +753,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   }
 
-  const vendaIds = uniqueCleanStrings(concRows.map((row) => row?.venda_id)).filter(isUuid);
-  const reciboIds = uniqueCleanStrings(concRows.map((row) => row?.venda_recibo_id)).filter(isUuid);
-  const rankingVendedorIds = uniqueCleanStrings(
-    concRows.map((row) => row?.ranking_vendedor_id)
-  ).filter(isUuid);
+  const vendaIds = collectUuidValues(concRows.map((row) => row?.venda_id));
+  const reciboIds = collectUuidValues(
+    concRows.map((row) => row?.venda_recibo_id),
+  );
+  const rankingVendedorIds = collectUuidValues(
+    concRows.map((row) => row?.ranking_vendedor_id),
+  );
 
   const vendaDocumentoSets = new Map<string, Set<string>>();
   concRows.forEach((row) => {
