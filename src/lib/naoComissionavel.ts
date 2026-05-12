@@ -32,8 +32,11 @@ export function isFormaNaoComissionavel(nome?: string | null, termos?: string[] 
   const normalized = normalizeTerm(nome);
   if (!normalized) return false;
   if (normalized.includes("cartao") && normalized.includes("credito")) return false;
-  const lista = (termos || []).map((termo) => normalizeTerm(termo)).filter(Boolean);
-  return lista.some((termo) => termo && normalized.includes(termo));
+  for (const termo of termos || []) {
+    const normalizedTerm = normalizeTerm(termo);
+    if (normalizedTerm && normalized.includes(normalizedTerm)) return true;
+  }
+  return false;
 }
 
 export function calcularValorPagamento(pagamento: PagamentoNaoComissionavelInput) {
@@ -62,9 +65,10 @@ export function calcularNaoComissionavelResumo(
       pagamento.forma?.nome,
       pagamento.operacao,
       pagamento.plano,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    ].reduce((acc, value) => {
+      if (!value) return acc;
+      return acc ? `${acc} ${value}` : String(value);
+    }, "");
     const pagaComissaoResolvido = pagamento.paga_comissao ?? pagamento.forma?.paga_comissao ?? null;
     const naoComissiona =
       pagaComissaoResolvido === false || isFormaNaoComissionavel(formaNomeResolvida, termos);
