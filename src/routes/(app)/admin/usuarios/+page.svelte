@@ -147,12 +147,16 @@
     return true;
   });
 
-  $: stats = {
-    total: usuarios.length,
-    ativos: usuarios.filter((row) => row.ativo).length,
-    inativos: usuarios.filter((row) => !row.ativo).length,
-    individuais: usuarios.filter((row) => row.uso_individual).length
-  };
+  $: stats = usuarios.reduce(
+    (acc, row) => {
+      acc.total += 1;
+      if (row.ativo) acc.ativos += 1;
+      else acc.inativos += 1;
+      if (row.uso_individual) acc.individuais += 1;
+      return acc;
+    },
+    { total: 0, ativos: 0, inativos: 0, individuais: 0 }
+  );
 
   onMount(loadUsuarios);
 </script>
