@@ -954,7 +954,7 @@ async function fetchAndComputeVendasKpisLegacy(
 
     countAtivas += 1;
 
-    recibosPeriodo.forEach((recibo) => {
+    for (const recibo of recibosPeriodo) {
       const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
@@ -1012,7 +1012,7 @@ async function fetchAndComputeVendasKpisLegacy(
             scopeVendedorIds.has(item.vendedorId),
           )
         : baseAllocations;
-      if (allocations.length === 0) return;
+      if (allocations.length === 0) continue;
 
       let countedRecibo = false;
       allocations.forEach((allocation) => {
@@ -1032,7 +1032,7 @@ async function fetchAndComputeVendasKpisLegacy(
           totalSeguro += brutoAlloc;
         }
       });
-    });
+    }
   }
 
   return {
