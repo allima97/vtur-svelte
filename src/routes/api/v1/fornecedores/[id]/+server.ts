@@ -11,6 +11,7 @@ import {
 import { fetchFornecedorById, sanitizeFornecedorPayload } from '$lib/server/fornecedores';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_FORNECEDOR_UPDATE_BODY_BYTES = 128 * 1024;
 const validationError = (message: string) => json({ error: message }, { status: 400, headers: NO_STORE_HEADERS });
@@ -32,7 +33,8 @@ export async function GET(event) {
     if (!fornecedor) throw error(404, 'Fornecedor não encontrado.');
 
     const allowedCompanyIds = resolveScopedCompanyIds(scope, fornecedor.company_id || null);
-    if (!scope.isAdmin && allowedCompanyIds.length > 0 && fornecedor.company_id && !allowedCompanyIds.includes(fornecedor.company_id)) {
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+    if (!scope.isAdmin && allowedCompanyIds.length > 0 && fornecedor.company_id && !allowedCompanySet.has(String(fornecedor.company_id).trim())) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
@@ -64,7 +66,8 @@ export async function PUT(event) {
     if (!existing) throw error(404, 'Fornecedor não encontrado.');
 
     const allowedCompanyIds = resolveScopedCompanyIds(scope, existing.company_id || null);
-    if (!scope.isAdmin && allowedCompanyIds.length > 0 && existing.company_id && !allowedCompanyIds.includes(existing.company_id)) {
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+    if (!scope.isAdmin && allowedCompanyIds.length > 0 && existing.company_id && !allowedCompanySet.has(String(existing.company_id).trim())) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
@@ -150,7 +153,8 @@ export async function DELETE(event) {
     if (!fornecedor) throw error(404, 'Fornecedor não encontrado.');
 
     const allowedCompanyIds = resolveScopedCompanyIds(scope, fornecedor.company_id || null);
-    if (!scope.isAdmin && allowedCompanyIds.length > 0 && fornecedor.company_id && !allowedCompanyIds.includes(fornecedor.company_id)) {
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+    if (!scope.isAdmin && allowedCompanyIds.length > 0 && fornecedor.company_id && !allowedCompanySet.has(String(fornecedor.company_id).trim())) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
