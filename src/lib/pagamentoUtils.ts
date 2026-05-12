@@ -20,9 +20,11 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito",
 ];
 
-const DEFAULT_NAO_COMISSIONAVEIS_NORMALIZED = DEFAULT_NAO_COMISSIONAVEIS.map((termo) =>
-  normalizeText(termo, { trim: true, collapseWhitespace: true })
-).filter(Boolean);
+const DEFAULT_NAO_COMISSIONAVEIS_NORMALIZED = DEFAULT_NAO_COMISSIONAVEIS.reduce<string[]>((items, termo) => {
+  const normalized = normalizeText(termo, { trim: true, collapseWhitespace: true });
+  if (normalized) items.push(normalized);
+  return items;
+}, []);
 
 let cachedTermosNaoComissionaveis: string[] | null = null;
 let termosLoadPromise: Promise<string[]> | null = null;
@@ -44,9 +46,12 @@ export async function carregarTermosNaoComissionaveis(options: { force?: boolean
         .eq("ativo", true)
         .order("termo", { ascending: true });
       if (error) throw error;
-      const termos: string[] = (data || [])
-        .map((row: any) => normalizeTerm(row?.termo_normalizado || row?.termo))
-        .filter((t: string) => Boolean(t));
+      const rows = (data || []) as any[];
+      const termos = rows.reduce<string[]>((items, row) => {
+        const termo = normalizeTerm(row?.termo_normalizado || row?.termo);
+        if (termo) items.push(termo);
+        return items;
+      }, []);
       const unique = uniqueCleanStrings(termos);
       cachedTermosNaoComissionaveis = unique;
       return unique;
