@@ -426,11 +426,11 @@ function mergeRowsById(
   extraRows: VendaAggregateRow[],
 ) {
   const map = new Map<string, VendaAggregateRow>();
-  [...baseRows, ...extraRows].forEach((row) => {
+  for (const row of [...baseRows, ...extraRows]) {
     const id = toStr(row?.id);
-    if (!id) return;
+    if (!id) continue;
     if (!map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values());
 }
 
