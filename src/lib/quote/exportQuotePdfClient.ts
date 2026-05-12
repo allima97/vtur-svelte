@@ -80,11 +80,22 @@ function textVal(value?: string | null): string {
   return String(value ?? '').trim();
 }
 
+const CURRENCY_FORMATTERS = new Map<string, Intl.NumberFormat>();
+
+function getCurrencyFormatter(currency: string): Intl.NumberFormat {
+  const cached = CURRENCY_FORMATTERS.get(currency);
+  if (cached) return cached;
+  const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency });
+  CURRENCY_FORMATTERS.set(currency, formatter);
+  return formatter;
+}
+
 function formatCurrency(value: number, currency = 'BRL'): string {
+  const formatter = getCurrencyFormatter(currency);
   if (!Number.isFinite(value)) {
-    return (0).toLocaleString('pt-BR', { style: 'currency', currency });
+    return formatter.format(0);
   }
-  return value.toLocaleString('pt-BR', { style: 'currency', currency });
+  return formatter.format(value);
 }
 
 function formatDateBR(value?: string | null): string {
