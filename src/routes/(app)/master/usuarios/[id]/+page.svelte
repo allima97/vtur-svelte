@@ -161,9 +161,13 @@
           active: Boolean(payload.user.ativo),
           participa_ranking: Boolean(payload.user.participa_ranking)
         };
-        financeiroCompanyIds = Array.isArray(payload.user.financeiro_company_ids)
-          ? payload.user.financeiro_company_ids.map((id: string) => String(id || '').trim()).filter(Boolean)
-          : [];
+        financeiroCompanyIds = [];
+        if (Array.isArray(payload.user.financeiro_company_ids)) {
+          for (const id of payload.user.financeiro_company_ids) {
+            const normalizedId = String(id || '').trim();
+            if (normalizedId) financeiroCompanyIds.push(normalizedId);
+          }
+        }
 
         await loadMfaStatus(payload.user.id);
       }
