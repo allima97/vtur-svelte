@@ -301,25 +301,25 @@ export async function GET(event) {
 
     // Montar mapas a partir dos dados em paralelo
     const clienteMap = new Map<string, { nome: string; email: string }>();
-    clientesData.forEach((c: any) => {
+    for (const c of clientesData) {
       clienteMap.set(String(c.id || ''), { nome: String(c.nome || 'Cliente'), email: String(c.email || '') });
-    });
+    }
 
     const quoteItemsMap = new Map<string, OrcamentoItemRow[]>();
-    quoteItems.forEach((item) => {
+    for (const item of quoteItems) {
       const quoteId = String(item.quote_id || '').trim();
-      if (!quoteId) return;
+      if (!quoteId) continue;
       const current = quoteItemsMap.get(quoteId) || [];
       current.push(item);
       quoteItemsMap.set(quoteId, current);
-    });
+    }
 
     const creatorMap = new Map<string, { nome: string; email: string }>();
-    creators.forEach((row) => {
+    for (const row of creators) {
       const id = String(row?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       creatorMap.set(id, { nome: String(row?.nome_completo || 'Equipe VTUR'), email: String(row?.email || '') });
-    });
+    }
 
     let items = ((data || []) as OrcamentoRow[]).map((row) => {
       const quoteItems = quoteItemsMap.get(String(row.id || '').trim()) || [];
