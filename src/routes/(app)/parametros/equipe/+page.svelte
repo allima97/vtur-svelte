@@ -100,6 +100,7 @@
   });
 
   $: equipeAtual = usuarios.filter((u) => isNaEquipe(u.id));
+  $: convitesPendentes = convites.reduce((total, convite) => total + (convite.status === 'pending' ? 1 : 0), 0);
 
   onMount(load);
 </script>
@@ -146,7 +147,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Convites pendentes</p>
-      <p class="text-2xl font-bold text-slate-900">{convites.filter((c) => c.status === 'pending').length}</p>
+      <p class="text-2xl font-bold text-slate-900">{convitesPendentes}</p>
     </div>
   </div>
 </div>
