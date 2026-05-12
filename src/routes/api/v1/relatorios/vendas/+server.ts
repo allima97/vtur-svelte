@@ -536,11 +536,11 @@ export async function GET(event) {
 
     const mergeRowsById = (baseRows: any[], extraRows: any[]) => {
       const map = new Map<string, any>();
-      [...baseRows, ...extraRows].forEach((row) => {
+      for (const row of [...baseRows, ...extraRows]) {
         const id = String(row?.id || "").trim();
-        if (!id) return;
+        if (!id) continue;
         if (!map.has(id)) map.set(id, row);
-      });
+      }
       return Array.from(map.values());
     };
 
