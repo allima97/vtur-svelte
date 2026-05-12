@@ -210,6 +210,7 @@ export async function POST(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const scopedCompanyIds = new Set(scope.companyIds);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(
@@ -276,7 +277,7 @@ export async function POST(event) {
       vendaReciboId = rawId;
     }
 
-    if (!scope.isAdmin && !scope.companyIds.includes(String(reciboCompany || ''))) {
+    if (!scope.isAdmin && !scopedCompanyIds.has(String(reciboCompany || ''))) {
       return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
     if (!isUuid(String(reciboCompany || ''))) {
