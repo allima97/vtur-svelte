@@ -349,10 +349,10 @@ export async function GET(event) {
               .in('id', batch),
           );
 
-          vendasData.forEach((item: any) => {
+          for (const item of vendasData) {
             const id = String(item?.id || '').trim();
             if (id) vendasById.set(id, item);
-          });
+          }
 
           const clienteIds = Array.from(
             new Set(
