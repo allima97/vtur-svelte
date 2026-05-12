@@ -18,6 +18,8 @@ import {
 } from '$lib/server/readModelCache';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
+const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
+
 function isIgnorableQueryError(err: any) {
   const code = String(err?.code || '');
   const message = String(err?.message || '');
@@ -279,9 +281,9 @@ export async function GET(event: RequestEvent) {
       .sort((a: any, b: any) => {
         const importanceDiff = getImportanceRank(a?.grau_importancia) - getImportanceRank(b?.grau_importancia);
         if (importanceDiff !== 0) return importanceDiff;
-        const nomeDiff = String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR', { sensitivity: 'base' });
+        const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || ''));
         if (nomeDiff !== 0) return nomeDiff;
-        return String(a?.estado || '').localeCompare(String(b?.estado || ''), 'pt-BR', { sensitivity: 'base' });
+        return PT_BR_BASE_COLLATOR.compare(String(a?.estado || ''), String(b?.estado || ''));
       });
     produtos = safeRows(produtosRes);
     tipos = safeRows(tiposRes);

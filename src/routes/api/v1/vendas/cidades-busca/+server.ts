@@ -15,6 +15,8 @@ import {
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
+
 function parseLimit(value: string | null) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 20;
@@ -193,12 +195,10 @@ export async function GET(event) {
             const importanceDiff = getImportanceRank(a.grau_importancia) - getImportanceRank(b.grau_importancia);
             if (importanceDiff !== 0) return importanceDiff;
 
-            const nomeDiff = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+            const nomeDiff = PT_BR_BASE_COLLATOR.compare(a.nome, b.nome);
             if (nomeDiff !== 0) return nomeDiff;
 
-            return String(a.subdivisao_nome || '').localeCompare(String(b.subdivisao_nome || ''), 'pt-BR', {
-              sensitivity: 'base'
-            });
+            return PT_BR_BASE_COLLATOR.compare(String(a.subdivisao_nome || ''), String(b.subdivisao_nome || ''));
           })
           .slice(0, limite);
       }
