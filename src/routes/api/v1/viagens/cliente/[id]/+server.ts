@@ -137,6 +137,7 @@ export async function GET(event) {
 
         let scopedRows = (data || []) as any[];
         if (filters.vendedorIds.length > 0) {
+          const vendedorIdSet = new Set(filters.vendedorIds);
           const vendaIds = Array.from(
             new Set(
               scopedRows
@@ -170,7 +171,7 @@ export async function GET(event) {
             const responsavelId = String(row?.responsavel_user_id || "").trim();
             const vendaId = String(row?.venda_id || "").trim();
             return (
-              (responsavelId && filters.vendedorIds.includes(responsavelId)) ||
+              (responsavelId && vendedorIdSet.has(responsavelId)) ||
               (vendaId && vendaIdsPermitidas.has(vendaId))
             );
           });
