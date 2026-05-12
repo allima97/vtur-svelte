@@ -413,14 +413,14 @@ async function searchDocuments(event: RequestEvent) {
         .select('id, nome_completo, email')
         .in('id', vendedorBatch);
       if (usersError) throw usersError;
-      (usersRows || []).forEach((row) => {
+      for (const row of usersRows || []) {
         vendedorNomes.set(String(row.id), String(row.nome_completo || row.email || row.id));
-      });
+      }
     }
   }
 
   const candidatosPorDocumento = new Map<string, any[]>();
-  candidatos.forEach((row) => {
+  for (const row of candidatos) {
     const venda = firstRelation<any>(row.vendas);
     const vendedorId = String(venda?.vendedor_id || '').trim();
     const item = {
@@ -436,12 +436,12 @@ async function searchDocuments(event: RequestEvent) {
       vendedor_id: vendedorId || null,
       vendedor_nome: vendedorNomes.get(vendedorId) || vendedorId || '(sem vendedor)'
     };
-    candidateDocumentKeys(row).forEach((key) => {
+    for (const key of candidateDocumentKeys(row)) {
       const bucket = candidatosPorDocumento.get(key) || [];
       if (!bucket.some((candidate) => candidate.id === item.id)) bucket.push(item);
       candidatosPorDocumento.set(key, bucket);
-    });
-  });
+    }
+  }
 
   const conciliacaoRows = foundRows.map((row) => ({
     ...row,
