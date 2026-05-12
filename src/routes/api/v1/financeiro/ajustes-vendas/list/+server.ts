@@ -259,7 +259,7 @@ export async function GET(event: RequestEvent) {
           logServerError("[ajustes-vendas/list] tabela vendas_recibos_rateio ainda nao existe", rateioError);
         }
       } else {
-        rateioDataRows.forEach((row: any) => {
+        for (const row of rateioDataRows) {
           const vendaReciboKey = String(row?.venda_recibo_id || "").trim();
           const concKey = String(row?.conciliacao_recibo_id || "").trim();
           if (vendaReciboKey && reciboIdSet.has(vendaReciboKey)) {
@@ -268,7 +268,7 @@ export async function GET(event: RequestEvent) {
           if (concKey && conciliacaoIdSet.has(concKey)) {
             rateioMap.set(`cr:${concKey}`, row);
           }
-        });
+        }
       }
     }
 
@@ -283,11 +283,11 @@ export async function GET(event: RequestEvent) {
           .select("id, nome_completo")
           .in("id", batch);
         if (vendedoresOrigemError) throw vendedoresOrigemError;
-        (vendedoresOrigem || []).forEach((row: any) => {
+        for (const row of vendedoresOrigem || []) {
           const id = String(row?.id || "").trim();
-          if (!id) return;
+          if (!id) continue;
           vendedorNomeMap.set(id, String(row?.nome_completo || "Sem vendedor"));
-        });
+        }
       }
     }
 
