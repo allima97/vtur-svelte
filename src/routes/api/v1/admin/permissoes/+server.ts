@@ -54,11 +54,11 @@ export async function GET(event: RequestEvent) {
     }
 
     const activePermissionCounts = new Map<string, number>();
-    permissionsRows.forEach((item: any) => {
+    for (const item of permissionsRows) {
       const userId = String(item?.usuario_id || '').trim();
-      if (!userId || item?.ativo === false || item?.permissao === 'none') return;
+      if (!userId || item?.ativo === false || item?.permissao === 'none') continue;
       activePermissionCounts.set(userId, Number(activePermissionCounts.get(userId) || 0) + 1);
-    });
+    }
 
     let globalModules: any[] = [];
     try {
