@@ -675,6 +675,12 @@ export async function resolveScopedVendedorIds(
     return requestedIds;
   }
 
+  const filterRequestedIds = (companyVendedorIds: string[]) => {
+    const companyVendedorSet = new Set(companyVendedorIds);
+    const filtered = requestedIds.filter((id) => companyVendedorSet.has(id));
+    return filtered.length > 0 ? filtered : [NO_MATCH_COMPANY_ID];
+  };
+
   if (scope.isGestor || scope.isFinanceiro) {
     const companyVendedorIds = await fetchVendedorIdsByCompanyIds(
       client,
@@ -682,10 +688,7 @@ export async function resolveScopedVendedorIds(
     );
 
     if (requestedIds.length > 0) {
-      const filtered = requestedIds.filter((id) =>
-        companyVendedorIds.includes(id),
-      );
-      return filtered.length > 0 ? filtered : [NO_MATCH_COMPANY_ID];
+      return filterRequestedIds(companyVendedorIds);
     }
 
     return companyVendedorIds;
@@ -698,10 +701,7 @@ export async function resolveScopedVendedorIds(
     );
 
     if (requestedIds.length > 0) {
-      const filtered = requestedIds.filter((id) =>
-        companyVendedorIds.includes(id),
-      );
-      return filtered.length > 0 ? filtered : [NO_MATCH_COMPANY_ID];
+      return filterRequestedIds(companyVendedorIds);
     }
 
     return companyVendedorIds;
