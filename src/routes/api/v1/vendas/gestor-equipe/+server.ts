@@ -39,7 +39,12 @@ export async function GET(event) {
       rows.push(...(data || []));
     }
 
-    const data = Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
+    const rowsById = new Map<string, any>();
+    for (const row of rows) {
+      rowsById.set(String(row?.id || ''), row);
+    }
+
+    const data = Array.from(rowsById.values())
       .sort((left: any, right: any) =>
         PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
       );
