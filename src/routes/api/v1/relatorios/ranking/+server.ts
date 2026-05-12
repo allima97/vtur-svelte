@@ -526,9 +526,9 @@ export async function GET(event) {
       });
     }
 
-    currentContributions.forEach((contribution) => {
+    for (const contribution of currentContributions) {
       const vendedorId = String(contribution.vendedorId || "").trim();
-      if (!vendedorId) return;
+      if (!vendedorId) continue;
       const vendedorNomeFallback =
         rankingTeamMap.get(vendedorId)?.nome || vendedorId;
 
@@ -565,7 +565,7 @@ export async function GET(event) {
         current.total_seguro += Number(contribution.bruto || 0);
       }
       rankingMap.set(vendedorId, current);
-    });
+    }
 
     rankingMap.forEach((current, vendedorId) => {
       current.total_vendas = salesCountMap.get(vendedorId)?.size || 0;
