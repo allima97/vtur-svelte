@@ -16,6 +16,8 @@ const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL'
 });
 
+const NUMBER_FORMATTERS = new Map<number, Intl.NumberFormat>();
+
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return '-';
   return BRL_CURRENCY_FORMATTER.format(value);
@@ -34,10 +36,15 @@ export function formatCurrencyShort(value: number | null | undefined): string {
 
 export function formatNumber(value: number | null | undefined, decimals = 0): string {
   if (value == null || isNaN(value)) return '-';
-  return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  }).format(value);
+  let formatter = NUMBER_FORMATTERS.get(decimals);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+    NUMBER_FORMATTERS.set(decimals, formatter);
+  }
+  return formatter.format(value);
 }
 
 export function formatPercent(value: number | null | undefined, decimals = 1): string {
