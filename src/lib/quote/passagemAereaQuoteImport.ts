@@ -136,10 +136,11 @@ function airportToCity(value?: string | null) {
   const raw = String(value || '').trim();
   if (!raw) return '';
   const withoutCode = raw.replace(/\s*\([A-Z]{3}\)\s*$/i, '').trim();
-  return withoutCode
-    .split(/\s*-\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean)[0] || withoutCode;
+  for (const part of withoutCode.split(/\s*-\s*/)) {
+    const trimmed = part.trim();
+    if (trimmed) return trimmed;
+  }
+  return withoutCode;
 }
 
 function deriveDestino(imported: ImportedRoteiroAereo[]) {
