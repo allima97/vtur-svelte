@@ -23,7 +23,7 @@ import {
   type RateioRow,
 } from "$lib/vendas/rateio";
 import { normalizeReceiptNumber } from "$lib/conciliacao/receiptNumber";
-import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+import { cleanStringSet, chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
@@ -310,9 +310,7 @@ async function fetchBaixaRacVendedorIds(
     rows.push(...(data || []));
   }
 
-  return Array.from(
-    new Set(rows.map((row: any) => toStr(row?.id)).filter(Boolean)),
-  );
+  return uniqueCleanStrings(rows.map((row: any) => row?.id));
 }
 
 async function fetchConciliacaoCompanyIds(
@@ -572,10 +570,8 @@ async function fetchResolvedRowsUncached(
       : Promise.resolve([] as Array<{ documento: string; numero_reserva?: string | null; linked_recibo_id: string | null }>),
   ]);
 
-  const splitConcIdSet = new Set(
-    splitConcRows
-      .map((row: any) => String(row?.conciliacao_recibo_id || "").trim())
-      .filter(Boolean),
+  const splitConcIdSet = cleanStringSet(
+    splitConcRows.map((row: any) => row?.conciliacao_recibo_id),
   );
 
   if (splitConcIdSet.size > 0) {
@@ -608,15 +604,11 @@ async function fetchResolvedRowsUncached(
     });
   }
 
-  const overriddenReceiptIds = new Set(
-    concReceipts
-      .map((item) => String(item.linked_recibo_id || "").trim())
-      .filter(Boolean),
+  const overriddenReceiptIds = cleanStringSet(
+    concReceipts.map((item) => item.linked_recibo_id),
   );
-  const suppressedReceiptIds = new Set(
-    suppressedConcReceipts
-      .map((item) => toStr(item.linked_recibo_id))
-      .filter(Boolean),
+  const suppressedReceiptIds = cleanStringSet(
+    suppressedConcReceipts.map((item) => item.linked_recibo_id),
   );
   const suppressedReceiptNumbers = new Set(
     suppressedConcReceipts
