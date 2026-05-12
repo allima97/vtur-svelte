@@ -18,7 +18,7 @@ import {
 } from '$lib/server/relatorios';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { uniqueCleanStrings } from '$lib/utils/array';
+import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -96,9 +96,10 @@ async function resolveDashboardSalesScope(client: ReturnType<typeof getAdminClie
 
   if (isMasterByType || isGestorByType || isFinanceiroByType) {
     const allowedRows = await fetchRankingVendedoresByCompanyIds(client, companyIds);
-    const allowedIds = allowedRows.map((row: any) => String(row?.id || '').trim()).filter(Boolean);
+    const allowedIds = uniqueCleanStrings(allowedRows.map((row: any) => row?.id));
+    const allowedIdSet = cleanStringSet(allowedIds);
     if (hasRequestedVendedorFilter) {
-      const filtered = requestedVendedorIds.filter((id) => allowedIds.includes(id));
+      const filtered = requestedVendedorIds.filter((id) => allowedIdSet.has(id));
       return { companyIds, vendedorIds: filtered.length > 0 ? filtered : [NO_MATCH_USER_ID] };
     }
     return { companyIds, vendedorIds: allowedIds };
