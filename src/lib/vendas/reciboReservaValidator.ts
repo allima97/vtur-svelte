@@ -28,13 +28,13 @@ function normalizeNumero(valor?: string | null) {
 function uniqueNonEmpty(values: string[]) {
   const out: string[] = [];
   const seen = new Set<string>();
-  values.forEach((v) => {
+  for (const v of values) {
     const norm = normalizeNumero(v);
-    if (!norm) return;
-    if (seen.has(norm)) return;
+    if (!norm) continue;
+    if (seen.has(norm)) continue;
     seen.add(norm);
     out.push(norm);
-  });
+  }
   return out;
 }
 
