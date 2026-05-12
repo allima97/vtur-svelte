@@ -53,6 +53,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   let produtos: ProdutoRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -217,7 +218,7 @@
   }
 
   $: tiposDisponiveis = Array.from(new Set(produtos.map((produto) => produto.tipo))).sort((left, right) =>
-    left.localeCompare(right, 'pt-BR')
+    PT_BR_COLLATOR.compare(left, right)
   );
 
   $: produtosFiltrados = produtos
