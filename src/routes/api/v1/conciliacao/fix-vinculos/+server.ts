@@ -332,7 +332,11 @@ export async function POST(event) {
       });
     }
 
-    const movementDates = rows.map((row: any) => toStr(row?.movimento_data)).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date));
+    const movementDates: string[] = [];
+    for (const row of rows) {
+      const date = toStr(row?.movimento_data);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) movementDates.push(date);
+    }
     let candidateStart = '';
     let candidateEnd = '';
     if (movementDates.length > 0) {
