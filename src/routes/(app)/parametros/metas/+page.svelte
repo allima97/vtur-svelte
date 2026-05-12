@@ -150,11 +150,18 @@
     .filter((vendedor) => !vendedorFiltro || vendedor.id === vendedorFiltro)
     .map((vendedor) => ({ vendedor, meta: metaByVendedor.get(vendedor.id) || null }));
 
-  $: totalVendas = rows.reduce((sum, row) => sum + Number(row.meta?.meta_geral || 0), 0);
-  $: totalProdutos = rows.reduce((sum, row) => sum + totalMetaProduto(row.meta), 0);
-  $: metasAtivas = rows.filter((row) => row.meta?.ativo).length;
-  $: vendedoresSemMeta = rows.filter((row) => !row.meta).length;
-  $: bulkCount = rows.length;
+  $: metasResumo = rows.reduce(
+    (acc, row) => {
+      acc.bulkCount += 1;
+      acc.totalVendas += Number(row.meta?.meta_geral || 0);
+      acc.totalProdutos += totalMetaProduto(row.meta);
+      if (row.meta?.ativo) acc.metasAtivas += 1;
+      if (!row.meta) acc.vendedoresSemMeta += 1;
+      return acc;
+    },
+    { totalVendas: 0, totalProdutos: 0, metasAtivas: 0, vendedoresSemMeta: 0, bulkCount: 0 }
+  );
+  $: ({ totalVendas, totalProdutos, metasAtivas, vendedoresSemMeta, bulkCount } = metasResumo);
 
   function totalMetaProduto(meta: Meta | null | undefined) {
     const detalhes = meta?.meta_produtos || [];
