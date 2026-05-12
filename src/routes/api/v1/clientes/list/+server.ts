@@ -639,9 +639,9 @@ export async function GET(event) {
     }
 
     const salesByClient = new Map<string, { total: number; lastSale: string | null; count: number }>();
-    ((salesData || []) as VendaResumoRow[]).forEach((row) => {
+    for (const row of (salesData || []) as VendaResumoRow[]) {
       const clientId = String(row.cliente_id || '').trim();
-      if (!clientId) return;
+      if (!clientId) continue;
 
       const current = salesByClient.get(clientId) || {
         total: 0,
@@ -657,33 +657,32 @@ export async function GET(event) {
         count: current.count + 1,
         lastSale: saleDate && (!current.lastSale || saleDate > current.lastSale) ? saleDate : current.lastSale
       });
-    });
+    }
 
     const quotesByClient = new Map<string, { total: number; lastQuote: string | null }>();
-    ((quotesData || []) as QuoteResumoRow[])
-      .filter((row) => {
-        if (companyIds.length === 0) return true;
+    for (const row of (quotesData || []) as QuoteResumoRow[]) {
+      if (companyIds.length > 0) {
         const creatorCompany = creatorCompanyMap.get(String(row.created_by || '').trim()) || '';
-        return creatorCompany ? companyIdSet.has(creatorCompany) : true;
-      })
-      .forEach((row) => {
-        const clientId = String(row.client_id || '').trim();
-        if (!clientId) return;
+        if (creatorCompany && !companyIdSet.has(creatorCompany)) continue;
+      }
 
-        const current = quotesByClient.get(clientId) || {
-          total: 0,
-          lastQuote: null
-        };
+      const clientId = String(row.client_id || '').trim();
+      if (!clientId) continue;
 
-        const quoteDate = String(row.created_at || '').trim() || null;
-        quotesByClient.set(clientId, {
-          total: current.total + 1,
-          lastQuote:
-            quoteDate && (!current.lastQuote || quoteDate > current.lastQuote)
-              ? quoteDate
-              : current.lastQuote
-        });
+      const current = quotesByClient.get(clientId) || {
+        total: 0,
+        lastQuote: null
+      };
+
+      const quoteDate = String(row.created_at || '').trim() || null;
+      quotesByClient.set(clientId, {
+        total: current.total + 1,
+        lastQuote:
+          quoteDate && (!current.lastQuote || quoteDate > current.lastQuote)
+            ? quoteDate
+            : current.lastQuote
       });
+    }
 
     const items = ((clientsData || []) as ClienteBaseRow[])
       .map((row) => {
