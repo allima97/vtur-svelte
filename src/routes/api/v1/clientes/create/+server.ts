@@ -18,6 +18,7 @@ import { ensureClienteModuloAccess } from '$lib/server/clientes';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateClientReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_CLIENTE_CREATE_BODY_BYTES = 128 * 1024;
 
@@ -41,6 +42,8 @@ export async function POST(event) {
 
     // ✅ Valida company_id contra o escopo do usuário
     const requestedCompanyId = String(body?.company_id || '').trim();
+    const scopedIds = (scope.companyIds || []).filter(isUuid);
+    const scopedIdSet = cleanStringSet(scopedIds);
 
     let companyId: string | null = null;
     if (scope.isAdmin) {
@@ -48,15 +51,13 @@ export async function POST(event) {
       companyId = isUuid(requestedCompanyId) ? requestedCompanyId : null;
     } else if (isUuid(requestedCompanyId)) {
       // Qualquer papel com company_id explícito: valida se está no escopo
-      const scopedIds = (scope.companyIds || []).filter(isUuid);
-      if (!scopedIds.includes(requestedCompanyId)) {
+      if (!scopedIdSet.has(requestedCompanyId)) {
         return json({ error: 'company_id fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
       companyId = requestedCompanyId;
     } else {
       // Sem company_id explícito: usa o primeiro disponível no escopo do usuário
       // (funciona para Vendedor, Gestor, Master, Financeiro)
-      const scopedIds = (scope.companyIds || []).filter(isUuid);
       companyId = scopedIds[0] ?? scope.companyId ?? null;
       if (!companyId) {
         return json(
