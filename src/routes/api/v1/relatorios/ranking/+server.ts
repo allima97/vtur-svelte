@@ -509,7 +509,7 @@ export async function GET(event) {
     const salesCountMap = new Map<string, Set<string>>();
     const receiptCountMap = new Map<string, Set<string>>();
 
-    rankingTeamMap.forEach((teamUser) => {
+    for (const teamUser of rankingTeamMap.values()) {
       rankingMap.set(teamUser.id, {
         vendedor_id: teamUser.id,
         vendedor_nome: teamUser.nome,
@@ -524,7 +524,7 @@ export async function GET(event) {
         total_seguro: 0,
         base_meta: 0,
       });
-    });
+    }
 
     currentContributions.forEach((contribution) => {
       const vendedorId = String(contribution.vendedorId || "").trim();
