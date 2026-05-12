@@ -177,8 +177,11 @@ function getFlightDataList(item: QuoteItemForPdf): Record<string, unknown>[] {
   const segmentRows = (item.segments || [])
     .filter((segment) => segment.segment_type === 'flight')
     .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
-    .map((segment) => asRecord(segment.data))
-    .filter((data) => Object.keys(data).length > 0);
+    .reduce<Record<string, unknown>[]>((rows, segment) => {
+      const data = asRecord(segment.data);
+      if (Object.keys(data).length > 0) rows.push(data);
+      return rows;
+    }, []);
 
   if (segmentRows.length > 0) return segmentRows;
 
