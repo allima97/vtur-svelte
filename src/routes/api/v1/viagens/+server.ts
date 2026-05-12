@@ -303,11 +303,11 @@ export async function GET(event) {
           scopedData as any[],
         );
 
-        const clienteIds = [
-          ...new Set(
-            (scopedData || []).map((v: any) => v.cliente_id).filter(Boolean),
-          ),
-        ];
+        const clienteIdSet = new Set<string>();
+        for (const viagem of scopedData || []) {
+          if (viagem.cliente_id) clienteIdSet.add(viagem.cliente_id);
+        }
+        const clienteIds = Array.from(clienteIdSet);
         const clientesMap = new Map<string, string>();
         if (clienteIds.length > 0) {
           for (const batch of chunkArray(clienteIds)) {
