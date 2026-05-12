@@ -262,7 +262,10 @@ export async function POST(event: RequestEvent) {
       }
     }
 
-    const itemIds = payload.map((item) => item.id).filter(Boolean) as string[];
+    const itemIds: string[] = [];
+    for (const item of payload) {
+      if (item.id) itemIds.push(item.id);
+    }
     if (itemIds.length) {
       for (const batch of chunkArray(itemIds)) {
         const { error: deleteSegErr } = await client
