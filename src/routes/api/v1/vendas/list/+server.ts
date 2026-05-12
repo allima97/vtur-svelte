@@ -24,6 +24,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -88,20 +89,11 @@ type VendaItem = {
 
 type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 'recibo';
 
-const SUPABASE_IN_BATCH_SIZE = 100;
 const MAX_SEARCH_CANDIDATES = 1000;
 
 function getResultCount(result: unknown) {
   const value = (result as { count?: unknown } | null)?.count;
   return typeof value === 'number' ? value : null;
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function dedupeVendaRows(rows: VendaRow[]) {
