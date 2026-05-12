@@ -18,7 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { chunkArray } from "$lib/utils/array";
+import { cleanStringSet, chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 
 type DashboardViagemRow = {
   id: string;
@@ -138,9 +138,7 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
 
   const resolvedStatuses = await syncViagensStatus(client, rows as any[]);
 
-  const clienteIds = Array.from(
-    new Set(rows.map((row) => row.cliente_id).filter(Boolean)),
-  ) as string[];
+  const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
   const clientesMap = new Map<
     string,
     { nome: string; contato: string | null }
@@ -163,9 +161,7 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
     }
   }
 
-  const vendedorIds = Array.from(
-    new Set(rows.map((row) => row.responsavel_user_id).filter(Boolean)),
-  ) as string[];
+  const vendedorIds = uniqueCleanStrings(rows.map((row) => row.responsavel_user_id));
   const vendedoresMap = new Map<string, string>();
   if (vendedorIds.length > 0) {
     for (const batch of chunkArray(vendedorIds)) {
@@ -181,9 +177,7 @@ async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
     }
   }
 
-  const vendaIds = Array.from(
-    new Set(rows.map((row) => row.venda_id).filter(Boolean)),
-  ) as string[];
+  const vendaIds = uniqueCleanStrings(rows.map((row) => row.venda_id));
   const vendasMap = new Map<string, string | null>();
   if (vendaIds.length > 0) {
     for (const batch of chunkArray(vendaIds)) {
@@ -309,14 +303,15 @@ export async function GET(event) {
           : scope.companyId
             ? [scope.companyId]
             : [];
-      const equipeIds = (
-        await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)
-      )
-        .map((row: any) => String(row?.id || "").trim())
-        .filter(Boolean);
+      const equipeIds = uniqueCleanStrings(
+        (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
+          (row: any) => row?.id,
+        ),
+      );
+      const equipeSet = cleanStringSet(equipeIds);
       vendedorIds =
         requestedVendedorIds.length > 0
-          ? requestedVendedorIds.filter((id) => equipeIds.includes(id))
+          ? requestedVendedorIds.filter((id) => equipeSet.has(id))
           : equipeIds;
     } else if (tipoNome.includes("MASTER")) {
       vendedorIds = requestedVendedorIds;
