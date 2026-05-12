@@ -505,7 +505,7 @@
 
     if (step >= 1) {
       if (recibos.length === 0) errors.recibos = 'Inclua ao menos um recibo.';
-      recibos.forEach((recibo, index) => {
+      for (const [index, recibo] of recibos.entries()) {
         const cidadeReciboId = getReciboCidadeId(recibo);
         if (!recibo.tipo_produto_id) errors[`recibo_tipo_${index}`] = 'Obrigatório';
         if (!recibo.produto_id) errors[`recibo_produto_${index}`] = 'Obrigatório';
@@ -518,16 +518,16 @@
           errors[`recibo_fim_${index}`] = 'Fim deve ser igual ou após início.';
         }
         if (!recibo.valor_total) errors[`recibo_total_${index}`] = 'Obrigatório';
-      });
+      }
     }
 
     if (step >= 2) {
       if (pagamentos.length === 0) errors.pagamentos = 'Inclua ao menos um pagamento.';
-      pagamentos.forEach((pagamento, index) => {
+      for (const [index, pagamento] of pagamentos.entries()) {
         if (!pagamento.forma_pagamento_id && !pagamento.forma_nome) {
           errors[`pagamento_forma_${index}`] = 'Informe a forma de pagamento.';
         }
-      });
+      }
     }
 
     return Object.keys(errors).length === 0;
