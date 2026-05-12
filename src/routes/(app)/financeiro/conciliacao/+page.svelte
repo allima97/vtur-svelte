@@ -44,6 +44,11 @@
     return fallback || 'Não';
   }
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+
   type ConciliacaoItem = {
     id: string;
     company_id?: string;
@@ -1780,7 +1785,7 @@
   }
 
   function formatCurrency(value: number | null | undefined) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value || 0));
+    return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
   }
 
   function formatPercent(value: number | null | undefined) {
