@@ -53,7 +53,10 @@ export async function POST(event) {
       }
 
       const factors = (data?.factors || []) as Array<{ status?: string | null }>;
-      const verifiedCount = factors.filter((factor) => String(factor.status || '') === 'verified').length;
+      const verifiedCount = factors.reduce(
+        (total, factor) => total + (String(factor.status || '') === 'verified' ? 1 : 0),
+        0
+      );
 
       statuses[userId] = {
         enabled: verifiedCount > 0,

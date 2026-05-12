@@ -74,7 +74,10 @@ export const GET: RequestHandler = async ({ locals }) => {
     }
 
     const rows = (data || []) as any[];
-    const disabled = rows.filter((r: any) => !r.enabled).map((r: any) => r.module_key);
+    const disabled = rows.reduce((acc: string[], row: any) => {
+      if (!row.enabled) acc.push(row.module_key);
+      return acc;
+    }, []);
 
     return json(
       {

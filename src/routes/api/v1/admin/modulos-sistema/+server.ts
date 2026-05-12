@@ -76,7 +76,10 @@ export async function GET(event) {
     }
 
     const rows = data || [];
-    const disabled = rows.filter((r: any) => r.enabled === false).map((r: any) => r.module_key);
+    const disabled = rows.reduce((acc: string[], row: any) => {
+      if (row.enabled === false) acc.push(row.module_key);
+      return acc;
+    }, []);
 
     return json(
       {
