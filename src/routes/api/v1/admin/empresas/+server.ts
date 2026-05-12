@@ -175,7 +175,8 @@ export async function POST(event) {
 
     let companyId = id;
     if (companyId) {
-      if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
+      const accessibleCompanySet = cleanStringSet(getAccessibleCompanyIds(scope));
+      if (!scope.isAdmin && !accessibleCompanySet.has(companyId)) {
         return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
       }
       const { error: updateError } = await client.from('companies').update(payload).eq('id', companyId);

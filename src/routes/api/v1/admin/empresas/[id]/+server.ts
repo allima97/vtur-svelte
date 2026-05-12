@@ -12,6 +12,7 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 
@@ -24,7 +25,8 @@ export async function GET(event) {
 
     ensureCanManageCompanies(scope);
 
-    if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
+    const accessibleCompanySet = cleanStringSet(getAccessibleCompanyIds(scope));
+    if (!scope.isAdmin && !accessibleCompanySet.has(companyId)) {
       return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -117,7 +119,8 @@ export async function PATCH(event) {
 
     ensureCanManageCompanies(scope);
 
-    if (!scope.isAdmin && !getAccessibleCompanyIds(scope).includes(companyId)) {
+    const accessibleCompanySet = cleanStringSet(getAccessibleCompanyIds(scope));
+    if (!scope.isAdmin && !accessibleCompanySet.has(companyId)) {
       return json({ error: 'Empresa fora do escopo permitido.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
