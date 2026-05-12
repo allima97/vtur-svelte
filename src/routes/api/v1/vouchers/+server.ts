@@ -58,7 +58,12 @@ export async function GET(event) {
         rows.push(...(data || []));
       }
 
-      return Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
+      const rowsById = new Map<string, any>();
+      for (const row of rows) {
+        rowsById.set(String(row?.id || ''), row);
+      }
+
+      return Array.from(rowsById.values())
         .sort((left: any, right: any) =>
           String(right?.updated_at || '').localeCompare(String(left?.updated_at || ''))
         )
