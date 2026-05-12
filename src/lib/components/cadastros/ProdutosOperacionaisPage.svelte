@@ -140,15 +140,19 @@
     return true;
   });
 
-  $: stats = {
-    total: produtos.length,
-    ativos: produtos.filter((item) => item.ativo !== false).length,
-    globais: produtos.filter((item) => item.todas_as_cidades === true).length,
-    hospedagem: rows.filter((item) => {
+  $: stats = rows.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (item.ativo !== false) acc.ativos += 1;
+      if (item.todas_as_cidades === true) acc.globais += 1;
       const tipo = item.tipo_nome.toLowerCase();
-      return ['hotel', 'pousada', 'resort', 'flat'].some((keyword) => tipo.includes(keyword));
-    }).length
-  };
+      if (['hotel', 'pousada', 'resort', 'flat'].some((keyword) => tipo.includes(keyword))) {
+        acc.hospedagem += 1;
+      }
+      return acc;
+    },
+    { total: 0, ativos: 0, globais: 0, hospedagem: 0 }
+  );
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
