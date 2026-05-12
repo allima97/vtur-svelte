@@ -148,7 +148,11 @@ function mergeConsecutiveHotels(items: VoucherHotel[]) {
     ) {
       last.data_fim = hotel.data_fim || last.data_fim;
       last.noites = diffNights(last.data_inicio, last.data_fim);
-      const obs = [last.observacao, hotel.observacao].map(cleanLine).filter(Boolean);
+      const obs: string[] = [];
+      const lastObs = cleanLine(last.observacao);
+      if (lastObs) obs.push(lastObs);
+      const hotelObs = cleanLine(hotel.observacao);
+      if (hotelObs) obs.push(hotelObs);
       last.observacao = uniqueCleanStrings(obs).join(" | ");
       continue;
     }
