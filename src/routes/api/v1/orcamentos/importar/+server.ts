@@ -155,18 +155,18 @@ export async function POST(event: RequestEvent) {
 
     // 3. Inserir segmentos (se houver)
     const segmentPayloads: Array<Record<string, unknown>> = [];
-    (insertedItems || []).forEach((row, index) => {
+    for (const [index, row] of (insertedItems || []).entries()) {
       const item = items[index];
       const segments = Array.isArray(item?.segments) ? item.segments : [];
-      segments.forEach((seg: Record<string, unknown>, segIdx: number) => {
+      for (const [segIdx, seg] of segments.entries()) {
         segmentPayloads.push({
           quote_item_id: row.id,
           segment_type: seg.segment_type,
           data: seg.data || {},
           order_index: seg.order_index ?? segIdx
         });
-      });
-    });
+      }
+    }
 
     if (segmentPayloads.length > 0) {
       const { error: segError } = await client.from('quote_item_segment').insert(segmentPayloads);
@@ -183,11 +183,11 @@ export async function POST(event: RequestEvent) {
       .limit(500);
 
     const tipoLabelMap = new Map<string, string>();
-    (tiposData || []).forEach((t: Record<string, unknown>) => {
+    for (const t of tiposData || []) {
       const label = String(t.nome || t.tipo || '').trim();
       const key = normalizeLookupText(label);
       if (key) tipoLabelMap.set(key, String(t.id));
-    });
+    }
 
     for (const item of items) {
       const tipoKey = normalizeLookupText(String(item.item_type || ''));
