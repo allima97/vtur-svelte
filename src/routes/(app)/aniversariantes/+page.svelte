@@ -29,6 +29,11 @@
   let diasAfrenteFiltro = '30';
   let showFilterSheet = false;
 
+  const MONTH_NAME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    timeZone: 'UTC'
+  });
+
   const columns = [
     {
       key: 'nome',
@@ -50,10 +55,7 @@
         if (!v) return '-';
         const parts = parseISODateParts(v);
         if (!parts) return '-';
-        const monthName = new Intl.DateTimeFormat('pt-BR', {
-          month: 'long',
-          timeZone: 'UTC'
-        }).format(new Date(Date.UTC(2024, parts.month - 1, 1)));
+        const monthName = MONTH_NAME_FORMATTER.format(new Date(Date.UTC(2024, parts.month - 1, 1)));
         return `${String(parts.day).padStart(2, '0')} de ${monthName}`;
       }
     },
