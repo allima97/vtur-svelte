@@ -690,10 +690,13 @@ export async function openQuotePreview(params: {
     .order('order_index', { ascending: true });
   if (itemsError) throw new Error('Erro ao carregar itens do orçamento.');
 
-  const itemRows: QuoteItemForPdf[] = ((items ?? []) as QuoteItemForPdf[]).map((item) => ({
-    ...item,
-    segments: []
-  }));
+  const itemRows: QuoteItemForPdf[] = [];
+  for (const item of (items ?? []) as QuoteItemForPdf[]) {
+    itemRows.push({
+      ...item,
+      segments: []
+    });
+  }
   const itemIds: string[] = [];
   for (const item of itemRows) {
     if (item.id) itemIds.push(item.id);
