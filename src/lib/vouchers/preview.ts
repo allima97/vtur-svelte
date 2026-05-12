@@ -235,7 +235,11 @@ function renderMultilineList(value?: string | null) {
 }
 
 function renderBulletListFromLines(lines: string[]) {
-  const normalized = lines.map(textValue).filter(Boolean);
+  const normalized: string[] = [];
+  for (const line of lines) {
+    const value = textValue(line);
+    if (value) normalized.push(value);
+  }
   if (!normalized.length) return "";
   return `<ul class="voucher-bullet-list">${normalized.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`;
 }
