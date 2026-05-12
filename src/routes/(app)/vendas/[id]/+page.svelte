@@ -24,6 +24,10 @@
   const vendaId = $page.params.id;
   const vendaIdSafe = vendaId ?? '';
   const INITIAL_LOAD_RETRY_STATUSES = new Set([0, 404, 503, 504]);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let venda: any = null;
   let loading = true;
@@ -427,7 +431,7 @@
   }
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   function formatDate(dateString: string | null): string {
