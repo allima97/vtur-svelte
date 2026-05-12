@@ -50,6 +50,10 @@
     inicio: `${currentMonth}-01`,
     fim: today
   };
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let vendas: Venda[] = [];
   let loading = true;
@@ -120,22 +124,14 @@
       label: 'Valor Total',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number | null | undefined) =>
-        new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(Number(value) || 0)
+      formatter: (value: number | null | undefined) => BRL_CURRENCY_FORMATTER.format(Number(value) || 0)
     },
     {
       key: 'valor_taxas',
       label: 'Taxas',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number | null | undefined) =>
-        new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(Number(value) || 0)
+      formatter: (value: number | null | undefined) => BRL_CURRENCY_FORMATTER.format(Number(value) || 0)
     },
     {
       key: 'status',
@@ -337,10 +333,7 @@
   }
 
   function formatCurrency(value: number | null | undefined) {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(Number(value) || 0);
+    return BRL_CURRENCY_FORMATTER.format(Number(value) || 0);
   }
 </script>
 
