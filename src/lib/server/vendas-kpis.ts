@@ -132,6 +132,15 @@ function buildScopeIdSet(values?: string[] | null) {
   return ids;
 }
 
+function buildVendaIdsFromRows(rows: VendaAggregateRow[]) {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const id = toStr(row.source_venda_id || row.id);
+    if (isUuid(id)) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
 function isFormaNaoComissionavel(
   nome?: string | null,
   termos?: string[] | null,
@@ -829,13 +838,7 @@ async function fetchAndComputeVendasKpisLegacy(
 ): Promise<VendasKpiAgg> {
   const { rows, rateioMap } = await fetchResolvedRows(client, params);
 
-  const vendaIds = Array.from(
-    new Set(
-      rows
-        .map((row) => toStr((row as any)?.source_venda_id || row?.id))
-        .filter((id) => isUuid(id)),
-    ),
-  );
+  const vendaIds = buildVendaIdsFromRows(rows);
   const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
@@ -1057,13 +1060,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
 }> {
   const { rows, rateioMap } = await fetchResolvedRows(client, params);
 
-  const vendaIds = Array.from(
-    new Set(
-      rows
-        .map((row) => toStr((row as any)?.source_venda_id || row?.id))
-        .filter((id) => isUuid(id)),
-    ),
-  );
+  const vendaIds = buildVendaIdsFromRows(rows);
   const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
@@ -1350,13 +1347,7 @@ export async function fetchAndComputeVendasTimeline(
 ): Promise<VendasTimelinePoint[]> {
   const { rows, rateioMap } = await fetchResolvedRows(client, params);
 
-  const vendaIds = Array.from(
-    new Set(
-      rows
-        .map((row) => toStr((row as any)?.source_venda_id || row?.id))
-        .filter((id) => isUuid(id)),
-    ),
-  );
+  const vendaIds = buildVendaIdsFromRows(rows);
   const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
   const naoComissionadoPorVenda = await fetchNaoComissionadoPorVenda(
     client,
