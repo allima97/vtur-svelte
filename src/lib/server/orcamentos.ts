@@ -38,10 +38,11 @@ export async function resolveQuoteCreatorScope(
   if (scope.isMaster || scope.isFinanceiro || scope.isGestor) {
     const companyCreatorIds = await fetchVendedorIdsByCompanyIds(client, companyIds);
     const allowedCreatorIds = new Set(companyCreatorIds);
+    const companyIdSet = new Set(companyIds);
     const ownCompanyAllowed =
       companyIds.length === 0 ||
       !scope.companyId ||
-      companyIds.includes(scope.companyId);
+      companyIdSet.has(scope.companyId);
 
     if (ownCompanyAllowed) {
       allowedCreatorIds.add(scope.userId);
@@ -67,8 +68,9 @@ export function isQuoteCreatorAllowed(
   }
 
   const creatorId = String(createdBy || '').trim();
+  const creatorIdSet = new Set(creatorScope.creatorIds);
   return Boolean(
     creatorId &&
-      (creatorId === creatorScope.userId || creatorScope.creatorIds.includes(creatorId))
+      (creatorId === creatorScope.userId || creatorIdSet.has(creatorId))
   );
 }
