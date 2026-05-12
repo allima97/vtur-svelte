@@ -372,8 +372,17 @@
   $: totalComissaoComSeguroPeriodo = totalComissaoGeralPeriodo + totalSeguroPeriodo;
   $: labelComissao = buildKpiLabel('Comissão', comissoesPendentes.map((c) => Number(c.percentual_comissao_geral || 0)));
   $: labelSeguro = buildKpiLabel('Seguro Viagem', comissoesPendentes.map((c) => Number(c.percentual_seguro || 0)));
-  $: quantidadePagas = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'paga').length;
-  $: quantidadePendentes = comissoesPendentes.filter((item) => String(item.status || '').toLowerCase() === 'pendente').length;
+  $: quantidadePorStatus = comissoesPendentes.reduce(
+    (acc, item) => {
+      const status = String(item.status || '').toLowerCase();
+      if (status === 'paga') acc.pagas += 1;
+      if (status === 'pendente') acc.pendentes += 1;
+      return acc;
+    },
+    { pagas: 0, pendentes: 0 }
+  );
+  $: quantidadePagas = quantidadePorStatus.pagas;
+  $: quantidadePendentes = quantidadePorStatus.pendentes;
   $: statusOptions = [
     { value: 'todas', label: 'Todas' },
     { value: 'pendente', label: 'Pendentes' },
