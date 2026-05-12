@@ -28,6 +28,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   let venda: any = null;
   let loading = true;
@@ -501,21 +502,21 @@
     { value: '', label: 'Selecione um produto' },
     ...produtosBase
       .slice()
-      .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+      .sort((left, right) => PT_BR_COLLATOR.compare(String(left.nome || ''), String(right.nome || '')))
       .map((produto) => ({ value: produto.id, label: produto.nome }))
   ];
   $: cidadeSelectOptions = [
     { value: '', label: 'Selecione uma cidade' },
     ...cidadesBase
       .slice()
-      .sort((left, right) => String(left.label || left.nome || '').localeCompare(String(right.label || right.nome || ''), 'pt-BR'))
+      .sort((left, right) => PT_BR_COLLATOR.compare(String(left.label || left.nome || ''), String(right.label || right.nome || '')))
       .map((cidade) => ({ value: cidade.id, label: cidade.label || cidade.nome || cidade.id }))
   ];
   $: tipoPacoteOptions = [
     { value: '', label: 'Selecione um tipo de pacote' },
     ...tiposPacoteBase
       .slice()
-      .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+      .sort((left, right) => PT_BR_COLLATOR.compare(String(left.nome || ''), String(right.nome || '')))
       .map((tipo) => ({ value: tipo.nome, label: tipo.nome }))
   ];
 </script>
