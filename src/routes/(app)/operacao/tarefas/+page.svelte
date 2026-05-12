@@ -289,13 +289,21 @@
     items: activeItems.filter((item) => item.visibleStatus === column.value)
   }));
 
-  $: resumo = {
-    ativos: enrichedItems.filter((item) => !item.arquivo).length,
-    aFazer: enrichedItems.filter((item) => !item.arquivo && item.visibleStatus === 'novo').length,
-    fazendo: enrichedItems.filter((item) => !item.arquivo && item.visibleStatus === 'agendado').length,
-    feitos: enrichedItems.filter((item) => !item.arquivo && item.visibleStatus === 'em_andamento').length,
-    arquivadas: enrichedItems.filter((item) => Boolean(item.arquivo)).length
-  };
+  $: resumo = enrichedItems.reduce(
+    (acc, item) => {
+      if (item.arquivo) {
+        acc.arquivadas += 1;
+        return acc;
+      }
+
+      acc.ativos += 1;
+      if (item.visibleStatus === 'novo') acc.aFazer += 1;
+      if (item.visibleStatus === 'agendado') acc.fazendo += 1;
+      if (item.visibleStatus === 'em_andamento') acc.feitos += 1;
+      return acc;
+    },
+    { ativos: 0, aFazer: 0, fazendo: 0, feitos: 0, arquivadas: 0 }
+  );
 
   function resetTaskModal() {
     selectedTaskId = null;
