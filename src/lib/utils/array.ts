@@ -14,10 +14,10 @@ export function filterBatches<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[
 
 export function dedupeById<T extends { id?: string | null }>(rows: T[]): T[] {
   const map = new Map<string, T>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const id = String(row?.id || '').trim();
     if (id && !map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values());
 }
 
