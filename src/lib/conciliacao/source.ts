@@ -762,14 +762,14 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   );
 
   const vendaDocumentoSets = new Map<string, Set<string>>();
-  concRows.forEach((row) => {
+  for (const row of concRows) {
     const vendaId = toStr(row?.venda_id);
     const documento = getConciliacaoReceiptKey(row);
-    if (!vendaId || !documento) return;
+    if (!vendaId || !documento) continue;
     if (!vendaDocumentoSets.has(vendaId))
       vendaDocumentoSets.set(vendaId, new Set());
     vendaDocumentoSets.get(vendaId)?.add(documento);
-  });
+  }
 
   const vendasMap = new Map<
     string,
