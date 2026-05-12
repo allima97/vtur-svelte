@@ -219,7 +219,10 @@ export async function POST(event) {
     }
 
     const sales = salesData.filter((item: any) => isSaleInScope(item, { scope, companyIds, vendedorIds }));
-    const foundIds = new Set(sales.map((item: any) => String(item?.id || '')));
+    const foundIds = new Set<string>();
+    for (const item of sales) {
+      foundIds.add(String(item?.id || ''));
+    }
     if (saleIds.some((id) => !foundIds.has(id))) {
       return new Response('Vendas invalidas para mescla.', { status: 404, headers: NO_STORE_HEADERS });
     }
