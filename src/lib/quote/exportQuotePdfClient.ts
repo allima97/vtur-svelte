@@ -533,12 +533,16 @@ function buildQuotePreviewHtmlSync(params: {
     </div>`;
 
   // Itens
-  const itensHtml = items.length === 0
-    ? '<div class="orc-empty">Sem itens neste orçamento.</div>'
-    : items.map((item) => isFlightQuoteItem(item)
+  let itensHtml = '';
+  if (items.length === 0) {
+    itensHtml = '<div class="orc-empty">Sem itens neste orçamento.</div>';
+  } else {
+    for (const item of items) {
+      itensHtml += isFlightQuoteItem(item)
         ? renderFlightItemHtml(item, showItemValues)
-        : renderGenericItemHtml(item, showItemValues)
-      ).join('');
+        : renderGenericItemHtml(item, showItemValues);
+    }
+  }
 
   // Rodapé
   const footerHtml = `
