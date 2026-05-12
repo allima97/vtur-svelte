@@ -181,19 +181,19 @@ function wrapText(text: string, style: CardStyle) {
   // Respeita quebras manuais, mas também faz wrap de cada linha para não estourar a área técnica.
   const paragraphs = safeText.split("\n");
   const lines: string[] = [];
-  paragraphs.forEach((p) => {
+  for (const p of paragraphs) {
     const trimmed = p.trim();
     if (!trimmed) {
       lines.push("");
-      return;
+      continue;
     }
     const wrapped = splitParagraph(trimmed, maxChars);
     if (!wrapped.length) {
       lines.push("");
-      return;
+      continue;
     }
-    wrapped.forEach((line) => lines.push(line));
-  });
+    for (const line of wrapped) lines.push(line);
+  }
   return lines;
 }
 
