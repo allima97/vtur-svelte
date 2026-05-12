@@ -170,14 +170,14 @@ async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
       .select("id, nome_completo, email")
       .in("id", batch);
     if (error) throw error;
-    (data || []).forEach((row: any) => {
+    for (const row of data || []) {
       const id = toStr(row?.id);
-      if (!id) return;
+      if (!id) continue;
       vendedorMap.set(id, {
         nome_completo: row?.nome_completo ?? null,
         email: row?.email ?? null,
       });
-    });
+    }
   }
 
   return vendedorMap;
