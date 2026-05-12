@@ -1052,13 +1052,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       : null;
 
   const concRowsByDocumento = new Map<string, any[]>();
-  concRows.forEach((row: any) => {
+  for (const row of concRows) {
     const key = getConciliacaoReceiptKey(row);
-    if (!key) return;
+    if (!key) continue;
     const bucket = concRowsByDocumento.get(key) || [];
     bucket.push(row);
     concRowsByDocumento.set(key, bucket);
-  });
+  }
 
   return Array.from(concRowsByDocumento.entries())
     .flatMap(([documentoKey, rows]) => {
