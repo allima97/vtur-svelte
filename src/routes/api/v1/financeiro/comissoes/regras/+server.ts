@@ -12,7 +12,7 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray } from '$lib/utils/array';
+import { cleanStringSet, chunkArray } from '$lib/utils/array';
 
 // Usa commission_rule e commission_tier (tabelas reais do schema)
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
@@ -20,11 +20,15 @@ const COMMISSION_RULE_COMPANY_BATCH_SIZE = 80;
 const COMMISSION_RULE_SELECT =
   'id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)';
 
-function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId?: string | null) {
+function canAccessCompany(
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  companyId: string | null | undefined,
+  scopedCompanySet: Set<string>
+) {
   if (scope.isAdmin) return true;
   const normalized = String(companyId || '').trim();
   if (!normalized) return false;
-  return scope.companyIds.includes(normalized);
+  return scopedCompanySet.has(normalized);
 }
 
 async function loadRuleCompany(client: ReturnType<typeof getAdminClient>, id: string) {
@@ -102,6 +106,7 @@ export async function GET(event) {
       scope,
       searchParams.get('empresa_id') || searchParams.get('company_id')
     );
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
 
     const rows = await fetchCommissionRulesForScope({
       client,
@@ -113,7 +118,7 @@ export async function GET(event) {
     const visibleRows =
       scope.isAdmin || companyIds.length > 0
         ? rows
-        : rows.filter((row) => canAccessCompany(scope, row.company_id));
+        : rows.filter((row) => canAccessCompany(scope, row.company_id, scopedCompanySet));
 
     const items = visibleRows.map((r: any) => ({
       ...r,
@@ -221,7 +226,8 @@ export async function PUT(event) {
 
     const rule = await loadRuleCompany(client, id);
     if (!rule) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!canAccessCompany(scope, rule.company_id)) {
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
+    if (!canAccessCompany(scope, rule.company_id, scopedCompanySet)) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -265,7 +271,8 @@ export async function DELETE(event) {
 
     const rule = await loadRuleCompany(client, id);
     if (!rule) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!canAccessCompany(scope, rule.company_id)) {
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
+    if (!canAccessCompany(scope, rule.company_id, scopedCompanySet)) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
