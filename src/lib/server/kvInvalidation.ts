@@ -118,7 +118,10 @@ export function publishKvInvalidationAsync(scope?: {
   localEpoch = newEpoch; // Atualiza epoch local imediatamente
 
   // Se temos scope específico, publicar epoch por empresa também
-  const companyIds = (scope?.companyIds || []).filter(Boolean);
+  const companyIds: string[] = [];
+  for (const companyId of scope?.companyIds || []) {
+    if (companyId) companyIds.push(companyId);
+  }
 
   const writes: Promise<void>[] = [
     Promise.resolve(
