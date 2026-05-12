@@ -136,11 +136,15 @@ export async function GET(event) {
     const aniversariantes = hasExplicitLimit
       ? aniversariantesFiltrados.slice(0, outputLimit)
       : aniversariantesFiltrados;
+    const hojeCount = aniversariantesFiltrados.reduce(
+      (total: number, aniversariante: any) => total + (aniversariante.aniversario_hoje ? 1 : 0),
+      0
+    );
 
     return json(
       {
         items: aniversariantes,
-        hoje: aniversariantesFiltrados.filter((a: any) => a.aniversario_hoje).length,
+        hoje: hojeCount,
         proximos: aniversariantesFiltrados.length
       },
       { headers: DYNAMIC_READ_HEADERS }

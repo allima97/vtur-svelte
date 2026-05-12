@@ -109,12 +109,24 @@ export async function GET(event: RequestEvent) {
     let concOpfax = 0;
     let concOther = 0;
     let concLinked = 0;
+    let concCountBaixa = 0;
+    let concCountOpfax = 0;
+    let concCountOtherStatus = 0;
+    let concCountNullStatus = 0;
 
     const relevantDocs = new Set<string>();
 
     (concRecords || []).forEach((row: any) => {
       const status = String(row.status || '').toUpperCase();
       const temValor = toNumber(row.valor_lancamentos) > 0 || toNumber(row.valor_venda_real) > 0;
+      if (status === 'BAIXA') {
+        concCountBaixa += 1;
+      } else if (status === 'OPFAX') {
+        concCountOpfax += 1;
+      } else {
+        concCountOtherStatus += 1;
+      }
+      if (!row.status || String(row.status || '').trim() === '') concCountNullStatus += 1;
 
       if (status === 'BAIXA') {
         concBaixa += toNumber(row.valor_venda_real || row.valor_lancamentos);
@@ -144,16 +156,10 @@ export async function GET(event: RequestEvent) {
         },
         conciliacao: {
           count_total: (concRecords || []).length,
-          count_baixa: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'BAIXA').length,
-          count_opfax: concRecords?.filter((r: any) => String(r.status || '').toUpperCase() === 'OPFAX').length,
-          count_other_status:
-            (concRecords || []).length -
-            (concRecords?.filter(
-              (r: any) =>
-                String(r.status || '').toUpperCase() === 'BAIXA' ||
-                String(r.status || '').toUpperCase() === 'OPFAX'
-            ).length || 0),
-          count_null_status: concRecords?.filter((r: any) => !r.status || String(r.status || '').trim() === '').length,
+          count_baixa: concCountBaixa,
+          count_opfax: concCountOpfax,
+          count_other_status: concCountOtherStatus,
+          count_null_status: concCountNullStatus,
           total_baixa: concBaixa,
           total_opfax: concOpfax,
           total_other_with_valor: concOther,
