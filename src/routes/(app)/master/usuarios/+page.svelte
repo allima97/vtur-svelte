@@ -132,12 +132,22 @@
     }
   }
 
-  $: empresas = Array.from(new Set(usuarios.map((row) => row.empresa).filter(Boolean))).sort((a, b) =>
-    PT_BR_COLLATOR.compare(a, b)
-  );
-  $: tipoOptions = Array.from(new Set(usuarios.map((row) => row.tipo)))
-    .sort((a, b) => PT_BR_COLLATOR.compare(a, b))
-    .map((tipo) => ({ value: tipo, label: tipo }));
+  $: empresas = (() => {
+    const nomes = new Set<string>();
+    for (const row of usuarios) {
+      if (row.empresa) nomes.add(row.empresa);
+    }
+    return Array.from(nomes).sort((a, b) => PT_BR_COLLATOR.compare(a, b));
+  })();
+  $: tipoOptions = (() => {
+    const tipos = new Set<string>();
+    for (const row of usuarios) {
+      tipos.add(row.tipo);
+    }
+    return Array.from(tipos)
+      .sort((a, b) => PT_BR_COLLATOR.compare(a, b))
+      .map((tipo) => ({ value: tipo, label: tipo }));
+  })();
   $: filteredUsuarios = usuarios.filter((row) => {
     if (filtroTipo && row.tipo !== filtroTipo) return false;
     if (filtroStatus && String(row.ativo) !== filtroStatus) return false;
