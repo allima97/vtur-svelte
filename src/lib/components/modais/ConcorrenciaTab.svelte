@@ -93,6 +93,10 @@
 
   // ─── Persistência via localStorage ────────────────────────────────────────
   const STORAGE_KEY = 'vtur_concorrencia_formas';
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   function carregarConfig() {
     try {
@@ -169,7 +173,7 @@
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   function fmt(v: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+    return BRL_CURRENCY_FORMATTER.format(v || 0);
   }
   function fmtPct(v: number) {
     return (v || 0).toFixed(2).replace('.', ',') + '%';
