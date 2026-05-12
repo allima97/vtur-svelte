@@ -144,8 +144,8 @@
     total: produtos.length,
     ativos: produtos.filter((item) => item.ativo !== false).length,
     globais: produtos.filter((item) => item.todas_as_cidades === true).length,
-    hospedagem: produtos.filter((item) => {
-      const tipo = formatTipo(item.tipo_produto).toLowerCase();
+    hospedagem: rows.filter((item) => {
+      const tipo = item.tipo_nome.toLowerCase();
       return ['hotel', 'pousada', 'resort', 'flat'].some((keyword) => tipo.includes(keyword));
     }).length
   };
