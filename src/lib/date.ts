@@ -1,18 +1,33 @@
 export const BUSINESS_TIME_ZONE = 'America/Sao_Paulo';
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})/;
+const TIME_ZONE_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+const TIME_ZONE_DATE_PARTS_FORMATTERS = new Map<string, Intl.DateTimeFormat>([
+  [BUSINESS_TIME_ZONE, TIME_ZONE_DATE_PARTS_FORMATTER]
+]);
 
 function pad2(value: number) {
   return String(value).padStart(2, '0');
 }
 
 function partsFromTimeZone(date: Date, timeZone = BUSINESS_TIME_ZONE) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).formatToParts(date);
+  let formatter = TIME_ZONE_DATE_PARTS_FORMATTERS.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    TIME_ZONE_DATE_PARTS_FORMATTERS.set(timeZone, formatter);
+  }
+
+  const parts = formatter.formatToParts(date);
 
   return {
     year: parts.find((part) => part.type === 'year')?.value || '0000',
