@@ -175,18 +175,18 @@ export async function GET(event) {
 
         if (!rows.length) return [];
 
-        const normalizedQuery = normalizeText(query);
-        const dedup = new Map<string, ReturnType<typeof mapCidade>>();
+	        const normalizedQuery = normalizeText(query);
+	        const dedup = new Map<string, ReturnType<typeof mapCidade>>();
 
-        rows.forEach((row) => {
-          const mapped = mapCidade(row);
-          if (!mapped.id || !mapped.nome) return;
-          if (!dedup.has(mapped.id)) {
-            dedup.set(mapped.id, mapped);
-          }
-        });
+	        for (const row of rows) {
+	          const mapped = mapCidade(row);
+	          if (!mapped.id || !mapped.nome) continue;
+	          if (!dedup.has(mapped.id)) {
+	            dedup.set(mapped.id, mapped);
+	          }
+	        }
 
-        return Array.from(dedup.values())
+	        return Array.from(dedup.values())
           .filter((item) => normalizeText(`${item.nome} ${item.subdivisao_nome || ''} ${item.pais_nome || ''}`).includes(normalizedQuery))
           .sort((a, b) => {
             const scoreDiff = getCidadeSearchScore(a, normalizedQuery) - getCidadeSearchScore(b, normalizedQuery);
