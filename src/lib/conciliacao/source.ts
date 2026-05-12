@@ -553,7 +553,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     if (error) throw error;
 
     const chunk = Array.isArray(data) ? data : [];
-    chunk.forEach((row: any) => {
+    for (const row of chunk) {
       const temValor =
         toNumber(row?.valor_lancamentos) > 0 ||
         toNumber(row?.valor_venda_real) > 0;
@@ -561,10 +561,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         status: row?.status,
         descricao: row?.descricao,
       });
-      if (!efetivado && !temValor) return;
+      if (!efetivado && !temValor) continue;
       const documento = toStr(row?.documento);
       if (documento) relevantDocs.add(documento);
-    });
+    }
 
     if (chunk.length < pageSize) break;
   }
