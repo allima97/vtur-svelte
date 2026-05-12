@@ -476,9 +476,9 @@ export async function POST(event) {
     }
 
     // ── Validação: datas marcadas como "sem movimento" não podem receber importação ──
-    const datasImportaveis = Array.from(
-      new Set(importaveis.map((l) => String(l.movimento_data || "").trim())),
-    ).filter(Boolean);
+    const datasImportaveis = uniqueCleanStrings(
+      importaveis.map((linha) => linha.movimento_data),
+    );
     let diasSemMovimento: any[] = [];
     try {
       const { data } = await client
