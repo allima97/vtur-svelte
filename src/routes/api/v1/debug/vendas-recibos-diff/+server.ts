@@ -20,7 +20,7 @@ const MAX_DEBUG_ITEMS = 500;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  for (const [key, value] of Object.entries(DEBUG_HEADERS)) headers.set(key, value);
   return json(body, { ...init, headers });
 }
 
@@ -90,7 +90,7 @@ export async function GET(event) {
     });
   } catch (err) {
     const response = toErrorResponse(err, 'Erro ao gerar diff de recibos de vendas.');
-    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(DEBUG_HEADERS)) response.headers.set(key, value);
     return response;
   }
 }
