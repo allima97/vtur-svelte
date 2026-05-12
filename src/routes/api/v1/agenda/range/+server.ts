@@ -85,17 +85,17 @@ export async function GET(event) {
         const startYear = Number(inicio.slice(0, 4));
         const endYear = Number(fim.slice(0, 4));
 
-        (birthdayUsers || []).forEach((row: any) => {
-          const userId = String(row?.id || '').trim();
-          const nome = String(row?.nome_completo || '').trim() || '(Sem nome)';
-          const nascimento = String(row?.data_nascimento || '').trim();
-          if (!userId || !nascimento) return;
+	        for (const row of birthdayUsers || []) {
+	          const userId = String(row?.id || '').trim();
+	          const nome = String(row?.nome_completo || '').trim() || '(Sem nome)';
+	          const nascimento = String(row?.data_nascimento || '').trim();
+	          if (!userId || !nascimento) continue;
 
-          const parsed = parseDateToUTC(nascimento);
-          if (Number.isNaN(parsed.getTime())) return;
+	          const parsed = parseDateToUTC(nascimento);
+	          if (Number.isNaN(parsed.getTime())) continue;
 
-          const month = parsed.getUTCMonth() + 1;
-          const day = parsed.getUTCDate();
+	          const month = parsed.getUTCMonth() + 1;
+	          const day = parsed.getUTCDate();
 
           for (let year = startYear; year <= endYear; year += 1) {
             const iso = safeISODate(year, month, day);
@@ -108,10 +108,10 @@ export async function GET(event) {
               end: null,
               descricao: 'Aniversario',
               allDay: true,
-              source: 'birthday'
-            });
-          }
-        });
+	              source: 'birthday'
+	            });
+	          }
+	        }
       } catch (birthdayErr) {
         logServerError('[agenda/range] Falha ao carregar aniversarios', birthdayErr);
       }
