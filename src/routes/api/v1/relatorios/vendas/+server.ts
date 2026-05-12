@@ -52,7 +52,13 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
-import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
+import {
+  cleanStringSet,
+  chunkArray,
+  dedupeById as dedupeRowsById,
+  SUPABASE_IN_BATCH_SIZE,
+  uniqueCleanStrings,
+} from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
@@ -148,9 +154,7 @@ function addToMap(map: Map<string, number>, key: string, value: number) {
 }
 
 async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
-  const ids = Array.from(
-    new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean)),
-  );
+  const ids = uniqueCleanStrings(vendedorIds);
   const vendedorMap = new Map<
     string,
     { nome_completo?: string | null; email?: string | null }
@@ -178,9 +182,7 @@ async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
 }
 
 async function hydrateMissingVendedores(client: any, rows: any[]) {
-  const vendedorIds = Array.from(
-    new Set(rows.map((row) => toStr(row?.vendedor_id)).filter(Boolean)),
-  );
+  const vendedorIds = uniqueCleanStrings(rows.map((row) => row?.vendedor_id));
 
   if (vendedorIds.length === 0) return rows;
 
@@ -657,7 +659,7 @@ export async function GET(event) {
         vendedorIds.length > 0 ? await loadConcReceiptsAll() : concReceipts;
       const allowedVendedorSet =
         vendedorIds.length > 0
-          ? new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean))
+          ? cleanStringSet(vendedorIds)
           : null;
 
       if (vendedorIds.length > 0) {
@@ -691,10 +693,8 @@ export async function GET(event) {
           }
         }
 
-        const splitConcIdSet = new Set(
-          ((splitConcRows as any[]) || [])
-            .map((row: any) => String(row?.conciliacao_recibo_id || "").trim())
-            .filter(Boolean),
+        const splitConcIdSet = cleanStringSet(
+          ((splitConcRows as any[]) || []).map((row: any) => row?.conciliacao_recibo_id),
         );
 
         if (splitConcIdSet.size > 0) {
@@ -717,9 +717,7 @@ export async function GET(event) {
       }
 
       const overriddenReceiptIds = new Set(
-        concReceiptsForOverrides
-          .map((item) => String(item.linked_recibo_id || "").trim())
-          .filter(Boolean),
+        uniqueCleanStrings(concReceiptsForOverrides.map((item) => item.linked_recibo_id)),
       );
       let suppressedConcReceipts: Array<{
         documento: string;
@@ -1069,7 +1067,7 @@ export async function GET(event) {
       null;
     const reportVendedorSet =
       vendedorIds.length > 0
-        ? new Set(vendedorIds.map((id) => toStr(id)).filter(Boolean))
+        ? cleanStringSet(vendedorIds)
         : null;
     const rowsView = reportVendedorSet
       ? hydratedRowsView
