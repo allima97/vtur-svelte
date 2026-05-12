@@ -2893,7 +2893,14 @@ function sanitizeDestinoCidade(value?: string | null) {
   if (!base) return null;
   const withoutPrefix = base.replace(/^fretamento\s*-\s*/i, "").trim();
   const dashed = normalizeDashChars(withoutPrefix);
-  const first = dashed.split(/\s*-\s*/).map((part) => part.trim()).filter(Boolean)[0] || "";
+  let first = "";
+  for (const part of dashed.split(/\s*-\s*/)) {
+    const trimmed = part.trim();
+    if (trimmed) {
+      first = trimmed;
+      break;
+    }
+  }
   return first || null;
 }
 
