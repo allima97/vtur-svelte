@@ -101,15 +101,15 @@ function normalizeLibraryKey(value?: string | null) {
 function mergeThemesWithOfficial(userId: string, companyId: string | null, rows: ThemeRow[]) {
   const merged = new Map<string, ThemeRow>();
 
-  rows.forEach((row) => {
+  for (const row of rows) {
     const key = normalizeLibraryKey(row.nome);
-    if (!key || merged.has(key)) return;
+    if (!key || merged.has(key)) continue;
     merged.set(key, row);
-  });
+  }
 
-  buildOfficialThemeRows(userId, companyId).forEach((theme) => {
+  for (const theme of buildOfficialThemeRows(userId, companyId)) {
     const key = normalizeLibraryKey(theme.nome);
-    if (!key || merged.has(key)) return;
+    if (!key || merged.has(key)) continue;
     merged.set(key, {
       id: `official-theme:${key}`,
       user_id: userId,
@@ -134,7 +134,7 @@ function mergeThemesWithOfficial(userId: string, companyId: string | null, rows:
       company_id: companyId,
       ativo: theme.ativo,
     });
-  });
+  }
 
   return Array.from(merged.values());
 }
@@ -158,17 +158,17 @@ function mergeMessagesWithOfficial(userId: string, companyId: string | null, the
     OFFICIAL_CARD_THEMES.map((theme) => [String(theme.nome || "").trim(), String(theme.categoria || "").trim()])
   );
 
-  rows.forEach((row) => {
+  for (const row of rows) {
     const key = `${normalizeLibraryKey(row.nome)}::${normalizeLibraryKey(row.categoria)}`;
-    if (!key || merged.has(key)) return;
+    if (!key || merged.has(key)) continue;
     merged.set(key, row);
-  });
+  }
 
-  buildOfficialTemplateRows(userId, companyId, themeIdByName).forEach((template) => {
+  for (const template of buildOfficialTemplateRows(userId, companyId, themeIdByName)) {
     const categoryFromTheme = officialThemeCategoryByName[String(template.theme_id ? themes.find((theme) => theme.id === template.theme_id)?.nome || "" : "").trim()];
     const category = String(categoryFromTheme || template.categoria || "").trim();
     const key = `${normalizeLibraryKey(template.nome)}::${normalizeLibraryKey(category)}`;
-    if (!key || merged.has(key)) return;
+    if (!key || merged.has(key)) continue;
     merged.set(key, {
       id: `official-template:${normalizeLibraryKey(template.nome)}`,
       user_id: userId,
@@ -186,7 +186,7 @@ function mergeMessagesWithOfficial(userId: string, companyId: string | null, the
       company_id: companyId,
       ativo: template.ativo,
     });
-  });
+  }
 
   return Array.from(merged.values());
 }
@@ -293,13 +293,13 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         .from("master_empresas")
         .select("company_id, status")
         .eq("master_id", userId);
-      (vinculos || []).forEach((row: any) => {
+      for (const row of vinculos || []) {
         const status = String(row?.status || "").toLowerCase();
         const companyId = String(row?.company_id || "").trim();
-        if (!companyId) return;
-        if (status === "rejected") return;
+        if (!companyId) continue;
+        if (status === "rejected") continue;
         masterCompanyIds.add(companyId);
-      });
+      }
     }
     if (currentCompanyId) masterCompanyIds.add(currentCompanyId);
 
