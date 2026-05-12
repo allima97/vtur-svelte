@@ -102,10 +102,10 @@ function getResultCount(result: unknown) {
 
 function dedupeVendaRows(rows: VendaRow[]) {
   const map = new Map<string, VendaRow>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const id = String(row?.id || '').trim();
     if (id && !map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values()).sort((left, right) =>
     String(right?.data_venda || '').localeCompare(String(left?.data_venda || ''))
   );
@@ -519,13 +519,14 @@ async function resolveVendaSearchIds(
           ]);
 
           const vendaIdSet = new Set<string>();
-          allResults.forEach((result) => {
-            if (result.error) return; // tolerante a falhas parciais
-            (result.data || []).forEach((row: any) => {
-              const id = String(row?.venda_id || row?.id || '').trim();
+          for (const result of allResults) {
+            if (result.error) continue; // tolerante a falhas parciais
+            for (const row of result.data || []) {
+              const rowRecord = row as { id?: unknown; venda_id?: unknown };
+              const id = String(rowRecord?.venda_id || rowRecord?.id || '').trim();
               if (isUuid(id)) vendaIdSet.add(id);
-            });
-          });
+            }
+          }
           return Array.from(vendaIdSet);
         })()
       : Promise.resolve([] as string[]),
@@ -637,11 +638,11 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
       cidadesById.set(id, String(row?.nome || '').trim());
     }
 
-    rows.forEach((row) => {
-      if (row.destinos?.nome && row.destino_cidade?.nome) return;
+    for (const row of rows) {
+      if (row.destinos?.nome && row.destino_cidade?.nome) continue;
 
       const destino = destinoByVendaId.get(String(row.id || '').trim());
-      if (!destino) return;
+      if (!destino) continue;
 
       const produto = destino.destino_id ? produtosById.get(destino.destino_id) : null;
       if (!row.destinos?.nome && produto?.nome) {
@@ -659,7 +660,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
           nome: cidadeNome
         };
       }
-    });
+    }
   } catch (err) {
     logServerError('[vendas/list] destino hydration skipped due to runtime error', err);
   }
