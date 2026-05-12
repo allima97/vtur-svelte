@@ -274,14 +274,14 @@ export async function GET(event) {
                 .in('id', batch),
           );
 
-          recibosAudit.forEach((recibo: any) => {
+          for (const recibo of recibosAudit) {
             const reciboId = String(recibo?.id || '').trim();
-            if (!reciboId) return;
+            if (!reciboId) continue;
             recibosByIdForAudit.set(reciboId, {
               valor_total: Number(recibo?.valor_total || 0),
               valor_taxas: Number(recibo?.valor_taxas || 0),
             });
-          });
+          }
         }
 
         rows = rows.map((row: any) => {
