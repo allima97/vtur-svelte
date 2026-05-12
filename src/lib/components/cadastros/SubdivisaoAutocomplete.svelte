@@ -35,10 +35,12 @@
   let ensuringId = '';
   let currentQuery = '';
 
+  const DIACRITICS_RE = /[\u0300-\u036f]/g;
+
   function normalizeLookup(input: string | null | undefined) {
     return String(input || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(DIACRITICS_RE, '')
       .toLowerCase()
       .trim();
   }
