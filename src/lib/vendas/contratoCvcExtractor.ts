@@ -500,7 +500,10 @@ function extractValueFromLines(lines: string[], labelRegex: RegExp) {
 function extractLabelValueFromBlock(block: string, label: string, labels: string[]) {
   const cleaned = block.replace(/\s+/g, " ").trim();
   if (!cleaned) return "";
-  const stopLabels = labels.filter((l) => l !== label).map(escapeRegExp).join("|");
+  const stopLabels = labels.reduce<string[]>((items, item) => {
+    if (item !== label) items.push(escapeRegExp(item));
+    return items;
+  }, []).join("|");
   const pattern = stopLabels
     ? new RegExp(`${escapeRegExp(label)}\\s*:?\\s*(.+?)(?=\\s*(?:${stopLabels})\\b|$)`, "i")
     : new RegExp(`${escapeRegExp(label)}\\s*:?\\s*(.+?)$`, "i");
