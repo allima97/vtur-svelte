@@ -11,6 +11,13 @@
 
   const API_ENDPOINT = '/api/v1/admin/fix-recibos';
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
   type ConcRow = {
     id: string;
     documento: string;
@@ -75,12 +82,7 @@
   let userSearchLoading = false;
 
   function formatMoney(value: number) {
-    return Number(value || 0).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
+    return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
   }
 
   function parseMoneyInput(value: string) {
