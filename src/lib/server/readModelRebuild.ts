@@ -331,7 +331,10 @@ export function triggerRebuildAsync(params: {
   dataVenda?: string | null;
   executionContext?: { waitUntil: (p: Promise<unknown>) => void } | null;
 }) {
-  const companyIds = params.companyIds.filter(Boolean);
+  const companyIds: string[] = [];
+  for (const companyId of params.companyIds) {
+    if (companyId) companyIds.push(companyId);
+  }
   if (companyIds.length === 0) return;
 
   const monthKey = params.dataVenda
