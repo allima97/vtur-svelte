@@ -17,6 +17,17 @@ import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_RECIBO_COMPLEMENTAR_REMOVE_BODY_BYTES = 16 * 1024;
 
+function parseBodyIds(values?: unknown[] | null) {
+  if (!Array.isArray(values)) return [];
+  const ids: string[] = [];
+  for (const item of values) {
+    const id = String(item || '').trim();
+    if (isUuid(id)) ids.push(id);
+    if (ids.length >= 50) break;
+  }
+  return ids;
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -34,9 +45,7 @@ export async function POST(event: RequestEvent) {
 
     const rawBody = textResult.text;
     const body = safeJsonParse(rawBody) as { ids?: unknown[] } | null;
-    const ids = Array.isArray(body?.ids)
-      ? body.ids.map((item) => String(item || '').trim()).filter((item) => isUuid(item)).slice(0, 50)
-      : [];
+    const ids = parseBodyIds(body?.ids);
 
     if (ids.length === 0) {
       return new Response('ids obrigatorio.', { status: 400, headers: NO_STORE_HEADERS });
