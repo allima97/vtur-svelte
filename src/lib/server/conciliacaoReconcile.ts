@@ -9,7 +9,7 @@ import {
   monthRangeFromKey,
   todayISODateLocal
 } from '$lib/date';
-import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings, uniqueValues } from '$lib/utils/array';
 
 const EPS = 0.01;
 const SUPABASE_IN_BATCH_SIZE = 150;
@@ -791,7 +791,7 @@ export async function diagnosticarLacunasCronologicas(params: {
   }
 
   // Une importados + sem movimento para verificar sequência contínua
-  const diasPreenchidos = Array.from(new Set([...diasImportados, ...diasSemMovimento])).sort();
+  const diasPreenchidos = uniqueValues([...diasImportados, ...diasSemMovimento]).sort();
 
   // Percorre a sequência e para onde houver um salto > 1 dia
   let frontier = diasPreenchidos[0];

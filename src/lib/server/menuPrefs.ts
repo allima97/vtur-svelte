@@ -1,3 +1,5 @@
+import { uniqueValues } from '$lib/utils/array';
+
 export type MenuPrefsV1 = {
   v: 1;
   hidden: string[];
@@ -46,7 +48,7 @@ export function normalizeMenuPrefs(raw: unknown): MenuPrefsV1 {
 
   return {
     v,
-    hidden: Array.from(new Set(hidden)),
+    hidden: uniqueValues(hidden),
     order,
     section
   };

@@ -21,6 +21,10 @@ export function dedupeById<T extends { id?: string | null }>(rows: T[]): T[] {
   return Array.from(map.values());
 }
 
+export function uniqueValues<T>(values: readonly T[]): T[] {
+  return Array.from(new Set(values));
+}
+
 export function uniqueCleanStrings(values?: unknown[] | null): string[] {
-  return Array.from(new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean)));
+  return uniqueValues((values || []).map((value) => String(value || '').trim()).filter(Boolean));
 }

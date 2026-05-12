@@ -17,7 +17,7 @@ import {
   currentMonthRangeISODate,
   toISODateLocal as formatISODateLocal,
 } from "$lib/date";
-import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings, uniqueValues } from "$lib/utils/array";
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
 class ApiError extends Error {
@@ -395,7 +395,7 @@ export async function fetchGestorEquipeIdsComGestor(
       )
       .filter(Boolean);
 
-    return Array.from(new Set([gestorId, ...ids]));
+    return uniqueValues([gestorId, ...ids]);
   } catch {
     const { data, error: fallbackError } = await client
       .from("gestor_vendedor")
@@ -413,7 +413,7 @@ export async function fetchGestorEquipeIdsComGestor(
       )
       .filter(Boolean);
 
-    return Array.from(new Set([gestorId, ...ids]));
+    return uniqueValues([gestorId, ...ids]);
   }
 }
 
