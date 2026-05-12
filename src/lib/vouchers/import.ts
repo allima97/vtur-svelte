@@ -267,7 +267,11 @@ export function parseVoucherImportText(text: string, provider: VoucherProvider):
     } else if (/^hoteis?\s*[:\-]/i.test(header)) {
       result.hoteis = parseHotelLines(lines.slice(1));
     } else if (/^passageiros?\s*[:\-]/i.test(header)) {
-      const passengers = lines.slice(1).map(parsePassengerLine).filter(Boolean) as VoucherPassengerDetail[];
+      const passengers: Partial<VoucherPassengerDetail>[] = [];
+      for (const line of lines.slice(1)) {
+        const passenger = parsePassengerLine(line);
+        if (passenger) passengers.push(passenger);
+      }
       result.extra_data.passageiros_detalhes = passengers.map((p, i) => ({ ...p, ordem: i } as VoucherPassengerDetail));
       result.passageiros = buildPassengerSummary(result.extra_data.passageiros_detalhes);
     }
