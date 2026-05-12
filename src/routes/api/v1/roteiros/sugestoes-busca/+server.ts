@@ -38,10 +38,10 @@ export async function GET(event: RequestEvent) {
 
     // Agrupa por tipo
     const sugestoes: Record<string, string[]> = {};
-    (data || []).forEach((row: any) => {
+    for (const row of data || []) {
       if (!sugestoes[row.tipo]) sugestoes[row.tipo] = [];
       sugestoes[row.tipo].push(row.valor);
-    });
+    }
 
     return json({ sugestoes }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
