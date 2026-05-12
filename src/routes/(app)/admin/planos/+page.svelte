@@ -28,6 +28,10 @@
   let editingId: string | null = null;
 
   let form = { nome: '', descricao: '', valor_mensal: '', moeda: 'BRL', ativo: true };
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
@@ -158,7 +162,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">MRR potencial</p>
-      <p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMrr)}</p>
+      <p class="text-2xl font-bold text-slate-900">{BRL_CURRENCY_FORMATTER.format(totalMrr)}</p>
     </div>
   </div>
 </div>
