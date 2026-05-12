@@ -60,6 +60,9 @@ export interface UserScope {
 }
 
 export const NO_MATCH_COMPANY_ID = "00000000-0000-0000-0000-000000000000";
+const DEBUG_ENDPOINT_ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
+const DEBUG_ENDPOINT_PRODUCTION_VALUES = new Set(["production", "force-production"]);
+const UNFILTERED_REQUEST_VALUES = new Set(["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"]);
 
 type HttpErrorLike = {
   status: number;
@@ -79,10 +82,8 @@ export function isDebugEndpointEnabled(event?: RequestEvent) {
     .trim()
     .toLowerCase();
   const isProduction = isProductionRuntime();
-  const explicitEnabled = ["1", "true", "yes", "on"].includes(explicitValue);
-  const explicitProductionEnabled = ["production", "force-production"].includes(
-    explicitValue,
-  );
+  const explicitEnabled = DEBUG_ENDPOINT_ENABLED_VALUES.has(explicitValue);
+  const explicitProductionEnabled = DEBUG_ENDPOINT_PRODUCTION_VALUES.has(explicitValue);
   if (isProduction) return explicitProductionEnabled;
   if (explicitEnabled || explicitProductionEnabled) return true;
 
@@ -665,7 +666,7 @@ export async function resolveScopedVendedorIds(
   const normalizedRequested = normalizeText(rawRequested);
   const hasExplicitRequestedFilter =
     Boolean(rawRequested) &&
-    !["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"].includes(normalizedRequested);
+    !UNFILTERED_REQUEST_VALUES.has(normalizedRequested);
   const requestedIds = parseUuidList(requestedRaw);
   if (hasExplicitRequestedFilter && requestedIds.length === 0) {
     return [NO_MATCH_COMPANY_ID];
