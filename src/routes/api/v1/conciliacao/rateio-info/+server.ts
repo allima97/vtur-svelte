@@ -56,6 +56,7 @@ export async function GET(event) {
     }
 
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('company_id'));
+    const companyIdSet = new Set(companyIds);
 
     // 1. Busca o recibo com produto e vendedor de origem
     const { data: reciboData, error: reciboErr } = await client
@@ -86,7 +87,7 @@ export async function GET(event) {
 
     // Ownership check
     const reciboCompany = (reciboData as any)?.vendas?.company_id;
-    if (!scope.isAdmin && (!reciboCompany || companyIds.length === 0 || !companyIds.includes(reciboCompany))) {
+    if (!scope.isAdmin && (!reciboCompany || companyIds.length === 0 || !companyIdSet.has(reciboCompany))) {
       return json({ error: 'Recibo fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 

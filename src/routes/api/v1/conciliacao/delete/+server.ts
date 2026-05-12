@@ -33,6 +33,7 @@ export async function DELETE(event) {
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const companyIds = resolveScopedCompanyIds(scope, null);
+    const companyIdSet = new Set(companyIds);
 
     // Verifica escopo
     const { data: registro } = await client
@@ -42,7 +43,7 @@ export async function DELETE(event) {
       .maybeSingle();
 
     if (!registro) return json({ error: 'Registro não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!scope.isAdmin && (!registro.company_id || companyIds.length === 0 || !companyIds.includes(registro.company_id))) {
+    if (!scope.isAdmin && (!registro.company_id || companyIds.length === 0 || !companyIdSet.has(registro.company_id))) {
       return json({ error: 'Registro fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
