@@ -337,9 +337,9 @@ function computeReceiptRankingEntries(
 ) {
   const entries: Array<{ date: string; value: number }> = [];
 
-  (rowsInput || []).forEach((row) => {
+  for (const row of rowsInput || []) {
     const receiptRows = getRecibosAtivos(row);
-    if (receiptRows.length === 0) return;
+    if (receiptRows.length === 0) continue;
 
     const vendaId = toStr(row?.id);
     const somaBrutoRecibos = receiptRows.reduce(
@@ -366,9 +366,9 @@ function computeReceiptRankingEntries(
       valorNaoComissionado: usarModoPorRecibo ? 0 : linkedNaoComissionado,
     });
 
-    receiptRows.forEach((recibo: ReportReceiptRow) => {
+    for (const recibo of receiptRows) {
       const date = toStr((recibo as any)?.data_venda || row?.data_venda);
-      if (!date) return;
+      if (!date) continue;
 
       const reciboId = toStr((recibo as any)?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
@@ -386,8 +386,8 @@ function computeReceiptRankingEntries(
         : getReciboBrutoExibicao(recibo) * rankingGrupo.fatorValor;
 
       if (value > 0) entries.push({ date: date.slice(0, 10), value });
-    });
-  });
+    }
+  }
 
   return entries;
 }
