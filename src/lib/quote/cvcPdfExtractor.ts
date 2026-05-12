@@ -2830,9 +2830,12 @@ function parseCircuitMetaFromLines(lines: string[]) {
     return null;
   }
 
-  const uniqueItinerary = Array.from(
-    new Set(itinerary.map((value) => value.trim()).filter(Boolean))
-  );
+  const itinerarySet = new Set<string>();
+  for (const value of itinerary) {
+    const trimmed = value.trim();
+    if (trimmed) itinerarySet.add(trimmed);
+  }
+  const uniqueItinerary = Array.from(itinerarySet);
   const uniqueTags = uniqueCleanStrings(tags);
 
   if (uniqueItinerary.length) meta.itinerario = uniqueItinerary;
