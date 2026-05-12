@@ -61,6 +61,10 @@
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   // ─── KPIs derivados ───────────────────────────────────────────────────────
   $: totalComissoes    = comissoes.reduce((acc, c) => acc + c.valor_comissao, 0);
@@ -70,7 +74,7 @@
 
   // ─── Colunas da tabela ──────────────────────────────────────────────────────
   function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   const columns = [
