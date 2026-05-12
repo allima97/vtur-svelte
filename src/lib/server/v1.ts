@@ -718,6 +718,7 @@ export function resolveScopedCompanyIds(
   const scopedCompanyIds = Array.from(
     new Set((scope.companyIds || []).filter(isUuid)),
   );
+  const scopedCompanySet = new Set(scopedCompanyIds);
 
   if (scope.isAdmin) {
     return isUuid(companyId) ? [companyId] : [];
@@ -725,7 +726,7 @@ export function resolveScopedCompanyIds(
 
   if (scope.isMaster || scope.isFinanceiro) {
     if (isUuid(companyId)) {
-      return scopedCompanyIds.includes(companyId)
+      return scopedCompanySet.has(companyId)
         ? [companyId]
         : [NO_MATCH_COMPANY_ID];
     }
@@ -737,7 +738,7 @@ export function resolveScopedCompanyIds(
   }
 
   if (isUuid(companyId)) {
-    return scopedCompanyIds.includes(companyId)
+    return scopedCompanySet.has(companyId)
       ? [companyId]
       : [NO_MATCH_COMPANY_ID];
   }
