@@ -191,15 +191,20 @@ function buildFlightSegments(
   const totals = splitCents(total, imported.length);
   const taxParts = splitCents(taxes, imported.length);
 
-  return imported.map((flight, index) => ({
-    segment_type: 'flight',
-    order_index: index,
-    data: {
-      ...flight,
-      valor_total: totals[index] ?? Number(flight.valor_total || 0),
-      taxas: taxParts[index] ?? Number(flight.taxas || 0)
-    }
-  }));
+  const segments: QuoteSegmentDraft[] = [];
+  for (let index = 0; index < imported.length; index += 1) {
+    const flight = imported[index];
+    segments.push({
+      segment_type: 'flight',
+      order_index: index,
+      data: {
+        ...flight,
+        valor_total: totals[index] ?? Number(flight.valor_total || 0),
+        taxas: taxParts[index] ?? Number(flight.taxas || 0)
+      }
+    });
+  }
+  return segments;
 }
 
 export function buildPassagemAereaQuoteDraftFromText(
