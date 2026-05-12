@@ -36,6 +36,7 @@
   let currentQuery = '';
 
   const DIACRITICS_RE = /[\u0300-\u036f]/g;
+  const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
   function normalizeLookup(input: string | null | undefined) {
     return String(input || '')
@@ -72,10 +73,10 @@
       const scoreDiff = getOptionScore(a, input) - getOptionScore(b, input);
       if (scoreDiff !== 0) return scoreDiff;
 
-      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || ''));
       if (nomeDiff !== 0) return nomeDiff;
 
-      return String(a.pais?.nome || '').localeCompare(String(b.pais?.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      return PT_BR_BASE_COLLATOR.compare(String(a.pais?.nome || ''), String(b.pais?.nome || ''));
     });
   }
 

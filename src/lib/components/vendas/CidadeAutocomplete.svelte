@@ -39,6 +39,7 @@
   let ensuringId = '';
 
   const DIACRITICS_RE = /[\u0300-\u036f]/g;
+  const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
   function normalizeLookup(value: string | null | undefined) {
     return String(value || '')
@@ -97,13 +98,12 @@
       const importanceDiff = getImportanceRank(a) - getImportanceRank(b);
       if (importanceDiff !== 0) return importanceDiff;
 
-      const nomeDiff = String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' });
+      const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || ''));
       if (nomeDiff !== 0) return nomeDiff;
 
-      return String(a.estado || a.subdivisao_nome || a.subdivisao?.nome || '').localeCompare(
+      return PT_BR_BASE_COLLATOR.compare(
+        String(a.estado || a.subdivisao_nome || a.subdivisao?.nome || ''),
         String(b.estado || b.subdivisao_nome || b.subdivisao?.nome || ''),
-        'pt-BR',
-        { sensitivity: 'base' }
       );
     });
   }
