@@ -80,7 +80,9 @@ export async function GET(event) {
         .in('id', batch)
         .limit(500);
       if (error) throw error;
-      (data || []).forEach((r: any) => empresaMap.set(String(r.id), companyLabel(r)));
+      for (const row of data || []) {
+        empresaMap.set(String(row.id), companyLabel(row));
+      }
     }
 
     // ── 2. Vendas por empresa ──────────────────────────────────────────────
@@ -144,9 +146,9 @@ export async function GET(event) {
         .eq('active', true)
         .limit(5000);
       if (error) throw error;
-      (data || []).forEach((r: any) =>
-        vendedorCompanyMap.set(String(r.id), String(r.company_id))
-      );
+      for (const row of data || []) {
+        vendedorCompanyMap.set(String(row.id), String(row.company_id));
+      }
     }
 
     const metaMap = new Map<string, number>();
@@ -162,11 +164,11 @@ export async function GET(event) {
           .in('vendedor_id', batch)
           .limit(2000);
         if (error) throw error;
-        (data || []).forEach((r: any) => {
-          const cid = vendedorCompanyMap.get(String(r.vendedor_id)) || '';
-          if (!cid) return;
-          metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(r.meta_geral));
-        });
+        for (const row of data || []) {
+          const cid = vendedorCompanyMap.get(String(row.vendedor_id)) || '';
+          if (!cid) continue;
+          metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(row.meta_geral));
+        }
       }
     }
 
