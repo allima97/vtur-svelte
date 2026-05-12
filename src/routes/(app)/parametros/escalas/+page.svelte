@@ -159,7 +159,11 @@
   }
 
   function formatFeriadosTitle(lista: Feriado[]) {
-    return Array.from(new Set(lista.map((f) => f.nome).filter(Boolean))).join(' / ');
+    const nomes = new Set<string>();
+    for (const feriado of lista) {
+      if (feriado.nome) nomes.add(feriado.nome);
+    }
+    return Array.from(nomes).join(' / ');
   }
 
   function buildFeriadosResumo(lista: Feriado[], periodo: string) {
