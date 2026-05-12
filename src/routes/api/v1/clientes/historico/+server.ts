@@ -14,7 +14,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray } from '$lib/utils/array';
+import { cleanStringSet, chunkArray } from '$lib/utils/array';
 
 function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
   return [...items].sort((left, right) =>
@@ -52,6 +52,8 @@ export async function GET(event) {
       event.url.searchParams.get('vendedor_ids'),
       1
     );
+    const filterCompanyIdSet = cleanStringSet(filters.companyIds);
+    const filterVendedorIdSet = cleanStringSet(filters.vendedorIds);
 
     const result = await getCachedReadModel<{ vendas: any[]; orcamentos: any[] }>({
       key: buildReadModelCacheKey('clientes:historico', {
@@ -262,12 +264,12 @@ export async function GET(event) {
         const orcamentos = (quoteRows || [])
           .filter((row: any) => {
             if (filters.vendedorIds.length > 0) {
-              return filters.vendedorIds.includes(String(row?.created_by || '').trim());
+              return filterVendedorIdSet.has(String(row?.created_by || '').trim());
             }
             if (filters.companyIds.length === 0) return true;
             const creatorCompany =
               creatorCompanyMap.get(String(row?.created_by || '').trim()) || '';
-            return creatorCompany ? filters.companyIds.includes(creatorCompany) : true;
+            return creatorCompany ? filterCompanyIdSet.has(creatorCompany) : true;
           })
           .map((row: any) => ({
             id: row.id,
