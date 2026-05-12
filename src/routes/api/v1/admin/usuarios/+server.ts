@@ -49,7 +49,7 @@ function invalidateManagedUserCache(params: {
 }
 
 function matchesSearch(haystack: string, query: string) {
-  return haystack.toLowerCase().includes(query.toLowerCase());
+  return haystack.toLowerCase().includes(query);
 }
 
 export async function GET(event) {
@@ -69,6 +69,7 @@ export async function GET(event) {
     let rows = await listManagedUsers(client, scope);
 
     if (search) {
+      const searchLower = search.toLowerCase();
       rows = rows.filter((row) =>
         matchesSearch(
           [
@@ -77,7 +78,7 @@ export async function GET(event) {
             extractUserTypeName(row),
             extractCompanyName(row)
           ].join(' '),
-          search
+          searchLower
         )
       );
     }
