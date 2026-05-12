@@ -47,7 +47,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .in("id", [gestorId, vendedorId]);
     if (scopedErr) throw scopedErr;
 
-    const byId = new Map((scopedUsers || []).map((row: any) => [String(row.id), row]));
+    const byId = new Map<string, any>();
+    for (const row of scopedUsers || []) {
+      byId.set(String(row.id), row);
+    }
     const gestor = byId.get(gestorId) as any;
     const vendedor = byId.get(vendedorId) as any;
     if (!gestor || !vendedor) {
