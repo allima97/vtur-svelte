@@ -157,11 +157,11 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
       }
 
       const productsCount = new Map<string, number>();
-      products.forEach((row: any) => {
+      for (const row of products) {
         const key = String(row?.fornecedor_id || '').trim();
-        if (!key) return;
+        if (!key) continue;
         productsCount.set(key, (productsCount.get(key) || 0) + 1);
-      });
+      }
 
       const items = detailRows
         .map((row: FornecedorRecord) => {
