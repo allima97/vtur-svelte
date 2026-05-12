@@ -51,10 +51,10 @@ type OrcamentoItemRow = {
 
 function dedupeOrcamentos(rows: OrcamentoRow[]) {
   const map = new Map<string, OrcamentoRow>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const id = String(row?.id || '').trim();
     if (id && !map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values()).sort((left, right) =>
     String(right.created_at || '').localeCompare(String(left.created_at || ''))
   );

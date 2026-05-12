@@ -27,10 +27,10 @@ const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
 
 function dedupeClientes(rows: ViagemClienteRow[]) {
   const map = new Map<string, ViagemClienteRow>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const id = String(row?.id || "").trim();
     if (id && !map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values()).sort((left, right) =>
     PT_BR_COLLATOR.compare(String(left.nome || ""), String(right.nome || "")),
   );
