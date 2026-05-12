@@ -1,4 +1,5 @@
 const DEFAULT_ALLOWED_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
+const ABSOLUTE_HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 
 function getBaseUrl() {
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -42,7 +43,7 @@ export function sanitizeAbsoluteHttpUrl(value: unknown) {
 
   try {
     const parsed = new URL(raw);
-    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+    if (!ABSOLUTE_HTTP_PROTOCOLS.has(parsed.protocol)) return "";
     return parsed.href;
   } catch {
     return "";
