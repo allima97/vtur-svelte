@@ -157,7 +157,8 @@ function deriveRouteLabel(imported: ImportedRoteiroAereo[]) {
 
   const origem = splitTrecho(first.trecho).origem || airportToCity(first.aeroporto_saida);
   const destino = splitTrecho(last.trecho).destino || airportToCity(last.aeroporto_chegada);
-  return [origem, destino].filter(Boolean).join(' - ') || 'Passagem Aérea';
+  if (origem && destino) return `${origem} - ${destino}`;
+  return origem || destino || 'Passagem Aérea';
 }
 
 function extractTotals(text: string, imported: ImportedRoteiroAereo[]) {
