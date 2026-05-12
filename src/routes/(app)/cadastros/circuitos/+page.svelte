@@ -112,12 +112,14 @@
     }
   }
 
+  $: normalizedSearchQuery = searchQuery.toLowerCase();
+
   $: filteredCircuitos = circuitos.filter(c => {
     if (filtroDias === 'curto' && c.dias > 5) return false;
     if (filtroDias === 'medio' && (c.dias <= 5 || c.dias > 10)) return false;
     if (filtroDias === 'longo' && c.dias <= 10) return false;
-    if (searchQuery && !c.nome.toLowerCase().includes(searchQuery.toLowerCase()) && 
-        !c.codigo.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (normalizedSearchQuery && !c.nome.toLowerCase().includes(normalizedSearchQuery) &&
+        !c.codigo.toLowerCase().includes(normalizedSearchQuery)) return false;
     return true;
   });
 
