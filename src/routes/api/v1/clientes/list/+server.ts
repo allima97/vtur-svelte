@@ -27,6 +27,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import {
+  cleanStringSet,
   chunkArray,
   dedupeById as dedupeRowsById,
   filterBatches,
@@ -113,6 +114,7 @@ export async function GET(event) {
 
     const requestedVendedorRaw = searchParams.get('vendedor_ids') || searchParams.get('vendedor_id');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
+    const companyIdSet = cleanStringSet(companyIds);
     const vendedorIds = await resolveScopedVendedorIds(client, scope, requestedVendedorRaw);
     const tipoNome = String(scope.tipoNome || '').toUpperCase();
     const canUseCompanyScope =
@@ -660,7 +662,7 @@ export async function GET(event) {
       .filter((row) => {
         if (companyIds.length === 0) return true;
         const creatorCompany = creatorCompanyMap.get(String(row.created_by || '').trim()) || '';
-        return creatorCompany ? companyIds.includes(creatorCompany) : true;
+        return creatorCompany ? companyIdSet.has(creatorCompany) : true;
       })
       .forEach((row) => {
         const clientId = String(row.client_id || '').trim();
