@@ -187,9 +187,12 @@ export async function GET(event: RequestEvent) {
         rows.push(...(await fetchRows(batch)));
       }
 
-      const dedupedRows = Array.from(
-        new Map(rows.map((row) => [String(row?.id || ""), row])).values(),
-      )
+      const rowsById = new Map<string, any>();
+      for (const row of rows) {
+        rowsById.set(String(row?.id || ""), row);
+      }
+
+      const dedupedRows = Array.from(rowsById.values())
         .sort((left, right) =>
           String(left?.data_hora || "").localeCompare(
             String(right?.data_hora || ""),
