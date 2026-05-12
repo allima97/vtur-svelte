@@ -363,10 +363,12 @@ function parseCidade(text: string) {
 }
 
 function splitTextLines(text: string) {
-  return (text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of (text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
+  return lines;
 }
 
 type RouteInfo = {
