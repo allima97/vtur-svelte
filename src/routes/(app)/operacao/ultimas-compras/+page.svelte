@@ -30,6 +30,10 @@
   type BaseOption = { id: string; nome: string };
 
   const currentMonth = todayISODateLocal().slice(0, 7);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
   let loading = true;
   let compras: Compra[] = [];
   let total = 0;
@@ -68,7 +72,7 @@
   ];
 
   function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   async function loadBase() {
