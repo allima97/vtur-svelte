@@ -189,8 +189,15 @@
 
   $: backlogFinanceiroValor = Number(resumo.totalPendente || 0) + Number(resumo.totalDivergente || 0);
   $: temBacklogFinanceiro = backlogFinanceiroValor > 0;
-  $: entradasRecentes = movimentacoes.filter((m) => m.tipo === 'entrada').length;
-  $: saidasRecentes = movimentacoes.filter((m) => m.tipo === 'saida').length;
+  $: movimentacoesResumo = movimentacoes.reduce(
+    (acc, m) => {
+      if (m.tipo === 'entrada') acc.entradasRecentes += 1;
+      if (m.tipo === 'saida') acc.saidasRecentes += 1;
+      return acc;
+    },
+    { entradasRecentes: 0, saidasRecentes: 0 }
+  );
+  $: ({ entradasRecentes, saidasRecentes } = movimentacoesResumo);
   const chartColors = [
     '#f97316',
     '#3b82f6',
