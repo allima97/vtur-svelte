@@ -750,20 +750,31 @@ export async function GET(event) {
       : items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
     const total = canUseDbPagination ? Number(clientsCount || 0) : items.length;
-    const summaryBase = includeSummary
-      ? {
-          total,
-          ativos: canUseDbPagination
-            ? paginatedItems.filter((item) => item.status === 'ativo').length
-            : items.filter((item) => item.status === 'ativo').length,
-          aniversariantesHoje: canUseDbPagination
-            ? paginatedItems.filter((item) => item.aniversario_hoje).length
-            : items.filter((item) => item.aniversario_hoje).length,
-          totalCarteira: (canUseDbPagination ? paginatedItems : items).reduce((acc, item) => acc + Number(item.total_gasto || 0), 0),
-          comViagem: (canUseDbPagination ? paginatedItems : items).filter((item) => item.total_viagens > 0).length,
-          emNegociacao: (canUseDbPagination ? paginatedItems : items).filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length
-      }
-      : undefined;
+    let summaryBase:
+      | {
+          total: number;
+          ativos: number;
+          aniversariantesHoje: number;
+          totalCarteira: number;
+          comViagem: number;
+          emNegociacao: number;
+        }
+      | undefined;
+    if (includeSummary) {
+      const summaryItems = canUseDbPagination ? paginatedItems : items;
+      const summaryStats = summaryItems.reduce(
+        (acc, item) => {
+          if (item.status === 'ativo') acc.ativos += 1;
+          if (item.aniversario_hoje) acc.aniversariantesHoje += 1;
+          acc.totalCarteira += Number(item.total_gasto || 0);
+          if (item.total_viagens > 0) acc.comViagem += 1;
+          if (item.total_orcamentos > 0 && item.total_viagens === 0) acc.emNegociacao += 1;
+          return acc;
+        },
+        { ativos: 0, aniversariantesHoje: 0, totalCarteira: 0, comViagem: 0, emNegociacao: 0 }
+      );
+      summaryBase = { total, ...summaryStats };
+    }
 
     if (summaryOnly) {
       return json(
