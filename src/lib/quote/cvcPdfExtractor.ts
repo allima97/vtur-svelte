@@ -792,7 +792,10 @@ function looksLikeServiceProviderLabel(value: string) {
   if (SERVICE_DESCRIPTION_HINTS.some((hint) => normalized.includes(hint))) return false;
   if (isRouteLine(value) || isDateOnlyLine(value)) return false;
   if (/\d/.test(value)) return false;
-  const words = normalized.split(/\s+/).filter(Boolean);
+  const words: string[] = [];
+  for (const word of normalized.split(/\s+/)) {
+    if (word) words.push(word);
+  }
   if (words.length === 0 || words.length > 4) return false;
   return true;
 }
