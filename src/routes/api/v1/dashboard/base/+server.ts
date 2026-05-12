@@ -18,6 +18,8 @@ import {
 } from '$lib/server/readModelCache';
 import { chunkArray } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 function companyLabel(row: any) {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa sem nome');
 }
@@ -129,7 +131,7 @@ export async function GET(event) {
         company_name: companyNameById.get(String(row?.company_id || '')) || ''
       }))
       .filter((row) => row.id)
-      .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
+      .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
 
     return json({
       empresas,

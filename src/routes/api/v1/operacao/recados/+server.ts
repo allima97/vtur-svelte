@@ -13,6 +13,7 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_OPERACAO_RECADO_BODY_BYTES = 64 * 1024;
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
 export async function GET(event) {
   try {
@@ -116,7 +117,9 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows)
-          .sort((left: any, right: any) => String(left?.nome_completo || '').localeCompare(String(right?.nome_completo || ''), 'pt-BR'))
+          .sort((left: any, right: any) =>
+            PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
+          )
           .slice(0, 100),
         error: null
       };

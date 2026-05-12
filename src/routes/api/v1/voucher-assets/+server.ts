@@ -21,6 +21,7 @@ const VALID_PROVIDERS = new Set(['cvc', 'special_tours', 'europamundo', 'sato_to
 const VALID_ASSET_KINDS = new Set(['logo', 'image', 'app_icon']);
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const mutationError = (message: string, status: number) =>
   json({ success: false, error: message }, { status, headers: NO_STORE_HEADERS });
 
@@ -161,7 +162,7 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows).sort((left, right) => {
-          const assetKind = String(left?.asset_kind || '').localeCompare(String(right?.asset_kind || ''), 'pt-BR');
+          const assetKind = PT_BR_COLLATOR.compare(String(left?.asset_kind || ''), String(right?.asset_kind || ''));
           if (assetKind !== 0) return assetKind;
           return Number(left?.ordem || 0) - Number(right?.ordem || 0);
         }),

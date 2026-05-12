@@ -23,6 +23,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_PARAMETROS_ESCALAS_BODY_BYTES = 512 * 1024;
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
 const ESCALA_HORARIO_SELECT =
   'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
@@ -259,7 +260,9 @@ export async function GET(event) {
             usuarios.push(...(usersData || []));
           }
           usuarios = usuarios
-            .sort((left, right) => String(left?.nome_completo || '').localeCompare(String(right?.nome_completo || ''), 'pt-BR'))
+            .sort((left, right) =>
+              PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
+            )
             .slice(0, 100);
         }
 
