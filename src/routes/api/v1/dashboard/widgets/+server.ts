@@ -2,6 +2,7 @@ import { json, type RequestEvent } from '@sveltejs/kit';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { ensureModuloAccess, getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { safeJsonParse } from '$lib/utils/json';
 
 type CacheEntry = {
   expiresAt: number;
@@ -39,14 +40,6 @@ function writeCache(key: string, payload: unknown) {
     if (firstKey) cache.delete(firstKey);
   }
   cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, payload });
-}
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
 }
 
 function normalizeItems(input: unknown): WidgetInput[] {

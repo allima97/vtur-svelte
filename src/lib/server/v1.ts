@@ -17,6 +17,7 @@ import {
   currentMonthRangeISODate,
   toISODateLocal as formatISODateLocal,
 } from "$lib/date";
+import { chunkArray } from "$lib/utils/array";
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
 class ApiError extends Error {
@@ -59,7 +60,6 @@ export interface UserScope {
 }
 
 export const NO_MATCH_COMPANY_ID = "00000000-0000-0000-0000-000000000000";
-const SUPABASE_IN_BATCH_SIZE = 100;
 
 type HttpErrorLike = {
   status: number;
@@ -141,14 +141,6 @@ export function parseUuidList(value?: string | null, limit = 300) {
     .map((item) => item.trim())
     .filter((item) => isUuid(item))
     .slice(0, limit);
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 export function parseIntSafe(value: string | null, fallback: number) {

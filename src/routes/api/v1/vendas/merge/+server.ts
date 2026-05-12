@@ -13,6 +13,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
+import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
 const SUPABASE_IN_BATCH_SIZE = 100;
@@ -27,14 +28,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'carta de credito',
   'credito'
 ];
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
   const chunks: T[][] = [];

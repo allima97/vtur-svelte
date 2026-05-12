@@ -11,6 +11,7 @@ import {
 } from "$lib/naoComissionavel";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
+import { chunkArray } from "$lib/utils/array";
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -158,16 +159,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "cvc ficha",
   "credito",
 ].map((termo) => normalizeTextValue(termo));
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
   try {

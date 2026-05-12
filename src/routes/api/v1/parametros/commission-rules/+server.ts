@@ -12,6 +12,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES = 128 * 1024;
 
@@ -22,14 +23,6 @@ type TierPayload = {
   inc_pct_meta: number;
   inc_pct_comissao: number;
 };
-
-function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
 
 function normalizeTipo(value: unknown): 'GERAL' | 'ESCALONAVEL' {
   return String(value || '').trim().toUpperCase() === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL';

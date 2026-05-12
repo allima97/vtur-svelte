@@ -6,8 +6,10 @@ import {
   resolveUserScope,
   type UserScope
 } from '$lib/server/v1';
+import { safeJsonParse } from '$lib/utils/json';
 
 export { logServerError };
+export { safeJsonParse };
 
 type CacheEntry = {
   expiresAt: number;
@@ -59,14 +61,6 @@ export function buildNoStoreTextResponse(message: string, status = 500) {
       Vary: 'Cookie'
     }
   });
-}
-
-export function safeJsonParse(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
 }
 
 export function normalizeTerm(value?: string | null) {
