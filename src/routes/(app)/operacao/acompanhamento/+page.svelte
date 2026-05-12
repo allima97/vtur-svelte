@@ -113,6 +113,7 @@
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
   let showFilterSheet = false;
+  $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   let modalOpen = false;
   let selectedItem: FollowUpItem | null = null;
@@ -180,8 +181,7 @@
       followUpResumo: item.follow_up_text?.trim() ? item.follow_up_text.trim() : 'Sem anotacao'
     }))
     .filter((item) => {
-      const query = searchQuery.trim().toLowerCase();
-      if (!query) return true;
+      if (!normalizedSearchQuery) return true;
       return [
         item.cliente_nome,
         item.destino_nome || '',
@@ -190,7 +190,7 @@
       ]
         .join(' ')
         .toLowerCase()
-        .includes(query);
+        .includes(normalizedSearchQuery);
     });
 
   $: resumo = {
