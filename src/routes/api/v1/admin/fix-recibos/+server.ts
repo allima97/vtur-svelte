@@ -75,6 +75,15 @@ function normalizeReceiptNumber(value?: string | null) {
     .replace(/[^A-Z0-9]/g, '');
 }
 
+function collectUniqueUuidValues(values: unknown[]) {
+  const ids = new Set<string>();
+  for (const value of values) {
+    const id = String(value || '').trim();
+    if (isUuid(id)) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
 function stripLeadingZeros(value?: string | null) {
   return String(value || '').replace(/^0+/, '') || String(value || '');
 }
@@ -390,20 +399,15 @@ async function searchDocuments(event: RequestEvent) {
     });
   }
 
-  const candidatoVendedorIds = Array.from(
-    new Set(
-      candidatos
-        .map((row) => firstRelation<any>(row.vendas)?.vendedor_id)
-        .map((id) => String(id || '').trim())
-        .filter(isUuid)
-    )
+  const candidatoVendedorIds = collectUniqueUuidValues(
+    candidatos.map((row) => firstRelation<any>(row.vendas)?.vendedor_id),
   );
 
-  const vendedorIds = Array.from(
-    new Set([
-      ...foundRows.map((row) => String(row.ranking_vendedor_id || '').trim()).filter(isUuid),
+  const vendedorIds = collectUniqueUuidValues(
+    [
+      ...foundRows.map((row) => row.ranking_vendedor_id),
       ...candidatoVendedorIds
-    ])
+    ],
   );
   const vendedorNomes = new Map<string, string>();
   if (vendedorIds.length > 0) {
