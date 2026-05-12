@@ -94,12 +94,16 @@
     }
   }
 
-  $: stats = {
-    total: rows.length,
-    ativas: rows.filter((row) => row.active).length,
-    billingAtivo: rows.filter((row) => String(row.billing?.status || '').toLowerCase() === 'active').length,
-    masters: rows.reduce((sum, row) => sum + Number(row.master_links || 0), 0)
-  };
+  $: stats = rows.reduce(
+    (acc, row) => {
+      acc.total += 1;
+      if (row.active) acc.ativas += 1;
+      if (String(row.billing?.status || '').toLowerCase() === 'active') acc.billingAtivo += 1;
+      acc.masters += Number(row.master_links || 0);
+      return acc;
+    },
+    { total: 0, ativas: 0, billingAtivo: 0, masters: 0 }
+  );
 
   onMount(loadPage);
 </script>
