@@ -8,6 +8,7 @@ import {
   toErrorResponse,
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,11 +34,6 @@ function chunks<T>(arr: T[], size = BATCH): T[][] {
   const r: T[][] = [];
   for (let i = 0; i < arr.length; i += size) r.push(arr.slice(i, i + size));
   return r;
-}
-
-function toNum(v: unknown): number {
-  const n = Number(v ?? 0);
-  return Number.isFinite(n) ? n : 0;
 }
 
 function companyLabel(row: any): string {

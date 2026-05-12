@@ -21,6 +21,7 @@ import {
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { toFiniteNumber as toNum } from "$lib/utils/values";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,11 +62,6 @@ function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
       String(right.created_at || "").localeCompare(String(left.created_at || "")),
     )
     .slice(0, DASHBOARD_QUOTES_LIMIT);
-}
-
-function toNum(value: unknown): number {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
 }
 
 function toDateKey(value?: string | null) {

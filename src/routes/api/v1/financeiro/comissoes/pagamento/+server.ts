@@ -20,13 +20,9 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
-
-function toNum(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 

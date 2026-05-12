@@ -28,11 +28,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-
-function toNum(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));

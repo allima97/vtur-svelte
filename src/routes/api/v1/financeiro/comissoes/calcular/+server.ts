@@ -21,13 +21,9 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const MAX_COMISSOES_CALCULAR_BODY_BYTES = 128 * 1024;
-
-function toNum(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));

@@ -29,6 +29,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -91,11 +92,6 @@ export type ResolvedReceiptCommission = {
 // ---------------------------------------------------------------------------
 // Helpers — replicados do vtur-app RelatorioVendasIsland
 // ---------------------------------------------------------------------------
-
-function toNum(value: unknown): number {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
-}
 
 function roundMoney(v: number) {
   return Number(v.toFixed(2));

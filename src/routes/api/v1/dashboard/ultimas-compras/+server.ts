@@ -18,13 +18,9 @@ import {
 } from '$lib/server/relatorios';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
-
-function toNum(value: unknown) {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
-}
 
 function getMonthRangeFromSearch(value?: string | null) {
   const raw = String(value || '').trim();

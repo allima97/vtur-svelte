@@ -8,13 +8,9 @@ import {
   resolveUserScope
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { toFiniteNumber as toNumber } from '$lib/utils/values';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
-
-function toNumber(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 export async function GET(event: RequestEvent) {
   try {

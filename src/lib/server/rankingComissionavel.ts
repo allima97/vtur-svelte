@@ -1,7 +1,4 @@
-function toNumber(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+import { toFiniteNumber as toNumber } from "$lib/utils/values";
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;

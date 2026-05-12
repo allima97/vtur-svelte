@@ -18,6 +18,7 @@ import {
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { chunkArray } from '$lib/utils/array';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,11 +45,6 @@ export type EvolucaoAnualResult = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function toNum(value: unknown): number {
-  const n = Number(value ?? 0);
-  return Number.isFinite(n) ? n : 0;
-}
 
 function emptyMeses(): MesBucket[] {
   return Array.from({ length: 12 }, (_, i) => ({

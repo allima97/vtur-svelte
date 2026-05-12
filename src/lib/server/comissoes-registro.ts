@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReportVendaRow } from '$lib/server/relatorios';
 import type { ResolvedReceiptCommission, ResolvedVendaCommission } from '$lib/server/comissoes';
 import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
+import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 export type PersistedComissaoRow = {
   id: string;
@@ -40,11 +41,6 @@ function isMissingComissoesSchema(error: unknown) {
     message.includes('relation') ||
     message.includes('column')
   );
-}
-
-function toNum(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function getPeriodFromDate(dateIso?: string | null) {
