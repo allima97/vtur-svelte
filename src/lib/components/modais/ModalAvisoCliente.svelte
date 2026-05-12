@@ -67,6 +67,7 @@
   ];
 
   const DIACRITICS_RE = /[\u0300-\u036f]/g;
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   function normalizeText(value?: string | null) {
     return String(value || '')
@@ -246,7 +247,7 @@
               );
               return resolveTemaBucket(normalizedMessageText) === themeBucket;
             })
-            .sort((a: any, b: any) => String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR'));
+            .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || '')));
 
           const ranked = [...activeMessages]
             .map((message: any) => {
@@ -273,7 +274,7 @@
             })
             .sort((a, b) => {
               if (a.categoryRank !== b.categoryRank) return b.categoryRank - a.categoryRank;
-              return String(a.message?.nome || '').localeCompare(String(b.message?.nome || ''), 'pt-BR');
+              return PT_BR_COLLATOR.compare(String(a.message?.nome || ''), String(b.message?.nome || ''));
             });
 
           const selectedMessage = bucketMatchedMessages[0] || ranked[0]?.message || null;
@@ -298,7 +299,7 @@
           };
         })
         .filter((item: any) => item.id)
-        .sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+        .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
 
       if (templates.length === 0 && activeMessages.length > 0) {
         templates = activeMessages
@@ -321,7 +322,7 @@
             };
           })
           .filter((item: any) => item.id)
-          .sort((a: any, b: any) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+          .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
       }
     } catch (err) {
       if (dev) console.error('Erro ao carregar templates:', err);
