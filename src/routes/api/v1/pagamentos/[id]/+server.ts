@@ -47,6 +47,12 @@ async function resolvePagamentoComScope(
   return { pagamento: data, companyId };
 }
 
+function canAccessPagamentoCompany(scope: any, companyId: string | null) {
+  if (scope.isAdmin) return true;
+  const companyIds = resolveScopedCompanyIds(scope, null);
+  return Boolean(companyId && companyIds.length > 0 && new Set(companyIds).has(companyId));
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -63,11 +69,8 @@ export async function GET(event) {
     const result = await resolvePagamentoComScope(client, id, scope);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    if (!scope.isAdmin) {
-      const companyIds = resolveScopedCompanyIds(scope, null);
-      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
-      }
+    if (!canAccessPagamentoCompany(scope, result.companyId)) {
+      return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     return json({ success: true, item: result.pagamento }, { headers: DYNAMIC_READ_HEADERS });
@@ -95,11 +98,8 @@ export async function PATCH(event) {
     const result = await resolvePagamentoComScope(client, id, scope);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    if (!scope.isAdmin) {
-      const companyIds = resolveScopedCompanyIds(scope, null);
-      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
-      }
+    if (!canAccessPagamentoCompany(scope, result.companyId)) {
+      return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const body =
@@ -148,11 +148,8 @@ export async function DELETE(event) {
     const result = await resolvePagamentoComScope(client, id, scope);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
-    if (!scope.isAdmin) {
-      const companyIds = resolveScopedCompanyIds(scope, null);
-      if (!result.companyId || companyIds.length === 0 || !companyIds.includes(result.companyId)) {
-        return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
-      }
+    if (!canAccessPagamentoCompany(scope, result.companyId)) {
+      return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
     const { error } = await client
