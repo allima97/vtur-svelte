@@ -71,6 +71,17 @@
     { value: 'cadastro_desc', label: 'Cadastro recente' }
   ];
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+
+  const BRL_INTEGER_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0
+  });
+
   async function loadViagens() {
     loading = true;
     errorMessage = null;
@@ -227,10 +238,7 @@
       width: '120px',
       align: 'right' as const,
       formatter: (value: number) => {
-        return new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(value || 0);
+        return BRL_CURRENCY_FORMATTER.format(value || 0);
       }
     },
     { 
@@ -330,11 +338,7 @@
   
   <KPICard 
     title="Valor Total" 
-    value={new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      maximumFractionDigits: 0
-    }).format(resumo.valorTotal)}
+    value={BRL_INTEGER_CURRENCY_FORMATTER.format(resumo.valorTotal)}
     color="clientes" 
     icon={CreditCard}
   />
