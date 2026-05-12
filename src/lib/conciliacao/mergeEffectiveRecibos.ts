@@ -87,7 +87,7 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
   const concByVendaId = new Map<string, EffectiveConciliacaoReceipt[]>();
   const orphans: EffectiveConciliacaoReceipt[] = [];
 
-  concReceipts.forEach((item) => {
+  for (const item of concReceipts) {
     const linkedVendaId = str(item.linked_venda_id);
     const linkedReciboId = str(item.linked_recibo_id);
     const vendaViaRecibo = linkedReciboId ? str(baseVendaIdByReciboId.get(linkedReciboId)) : '';
@@ -103,11 +103,11 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
       const bucket = concByVendaId.get(targetVendaId) ?? [];
       bucket.push(item);
       concByVendaId.set(targetVendaId, bucket);
-      return;
+      continue;
     }
 
     orphans.push(item);
-  });
+  }
 
   let removedBase = 0;
   let injectedIntoExisting = 0;
