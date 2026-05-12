@@ -123,13 +123,27 @@
     return true;
   });
 
-  $: stats = {
-    total: circuitos.length,
-    ativos: circuitos.filter(c => c.ativo).length,
-    nacionais: circuitos.filter(c => c.tipo === 'nacional').length,
-    internacionais: circuitos.filter(c => c.tipo === 'internacional').length,
-    precoMedio: circuitos.length > 0 ? circuitos.reduce((acc, c) => acc + (c.preco_base || 0), 0) / circuitos.length : 0
-  };
+  $: stats = (() => {
+    const resumo = circuitos.reduce(
+      (acc, c) => {
+        acc.total += 1;
+        if (c.ativo) acc.ativos += 1;
+        if (c.tipo === 'nacional') acc.nacionais += 1;
+        if (c.tipo === 'internacional') acc.internacionais += 1;
+        acc.precoTotal += c.preco_base || 0;
+        return acc;
+      },
+      { total: 0, ativos: 0, nacionais: 0, internacionais: 0, precoTotal: 0 }
+    );
+
+    return {
+      total: resumo.total,
+      ativos: resumo.ativos,
+      nacionais: resumo.nacionais,
+      internacionais: resumo.internacionais,
+      precoMedio: resumo.total > 0 ? resumo.precoTotal / resumo.total : 0
+    };
+  })();
 </script>
 
 <svelte:head>
