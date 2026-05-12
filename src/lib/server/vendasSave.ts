@@ -4,6 +4,7 @@ import {
   isUuid,
   type UserScope,
 } from "$lib/server/v1";
+import { uniqueCleanStrings } from "$lib/utils/array";
 import { isEquipeVturNome } from "$lib/conciliacao/baixaRac";
 import {
   compareISODate,
@@ -169,13 +170,9 @@ export async function ensureReciboReservaUnicos(params: {
   const rawReceiptKeys = recibosParaValidar
     .map((item) => normalizeReceiptKey(item?.numero_recibo))
     .filter(Boolean);
-  const receiptKeys = Array.from(new Set(rawReceiptKeys));
-  const reservaKeys = Array.from(
-    new Set(
-      recibosParaValidar
-        .map((item) => normalizeReservaKey(item?.numero_reserva))
-        .filter(Boolean),
-    ),
+  const receiptKeys = uniqueCleanStrings(rawReceiptKeys);
+  const reservaKeys = uniqueCleanStrings(
+    recibosParaValidar.map((item) => normalizeReservaKey(item?.numero_reserva)),
   );
 
   if (rawReceiptKeys.length !== receiptKeys.length) {

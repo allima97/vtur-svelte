@@ -18,7 +18,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient, logServerError } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MODEL_NAME = 'recibo_contribuicoes_v1';
 const TABLE_STATUS = 'ranking_read_model_status';
@@ -340,7 +340,7 @@ export function triggerRebuildAsync(params: {
 
   // Sempre incluir o mês anterior caso a venda caia na virada
   const prevMonth = previousMonthKey();
-  const monthKeys = Array.from(new Set([monthKey, prevMonth]));
+  const monthKeys = uniqueCleanStrings([monthKey, prevMonth]);
 
   // Acumular parâmetros para coalescing: múltiplas vendas salvas em rápida
   // sucessão geram apenas um rebuild em vez de vários simultâneos

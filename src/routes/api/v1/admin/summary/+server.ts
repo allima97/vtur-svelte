@@ -15,7 +15,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const TEXT_NO_STORE_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
@@ -57,7 +57,7 @@ export async function GET(event) {
       if (!scope.isAdmin) {
         const companyIds = (scope.companyIds || []).filter(Boolean);
         if (scope.companyId) companyIds.push(scope.companyId);
-        const uniqueIds = Array.from(new Set(companyIds));
+        const uniqueIds = uniqueCleanStrings(companyIds);
         if (!uniqueIds.length) {
           pendingMasterLinks = 0;
         } else {
