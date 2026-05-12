@@ -326,10 +326,10 @@ export async function POST(event) {
         .select(RECIBO_SELECT)
         .in('id', batch);
       if (error) throw error;
-      (data || []).forEach((recibo: any) => {
+      for (const recibo of data || []) {
         const id = toStr(recibo?.id);
         if (id) receiptById.set(id, recibo);
-      });
+      }
     }
 
     const movementDates: string[] = [];
