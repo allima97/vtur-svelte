@@ -1,9 +1,10 @@
 import { json, redirect } from '@sveltejs/kit';
+import { SAME_ORIGIN_FETCH_SITES } from '$lib/server/requestGuards';
 import type { RequestHandler } from './$types';
 
 function isSameSiteLogoutRequest(request: Request) {
   const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
-  if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) return false;
+  if (fetchSite && !SAME_ORIGIN_FETCH_SITES.has(fetchSite)) return false;
 
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-const SAME_ORIGIN_FETCH_SITES = new Set(['same-origin', 'same-site', 'none']);
+export const SAME_ORIGIN_FETCH_SITES = new Set(['same-origin', 'same-site', 'none']);
 
 export function isSameOriginRequest(request: Request) {
   const requestUrl = new URL(request.url);
