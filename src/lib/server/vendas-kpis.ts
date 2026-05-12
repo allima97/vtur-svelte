@@ -1402,17 +1402,17 @@ export async function fetchAndComputeVendasTimeline(
 
     const recibosByKey = new Map<string, ReportReceiptRow>();
     const recibosByBusiness = new Set<string>();
-    recibosAll.forEach((recibo) => {
+    for (const recibo of recibosAll) {
       const reciboId = toStr(recibo?.id);
       const businessKey = buildReciboBusinessKey(recibo);
-      if (businessKey && recibosByBusiness.has(businessKey)) return;
+      if (businessKey && recibosByBusiness.has(businessKey)) continue;
       if (businessKey) recibosByBusiness.add(businessKey);
       const key =
         reciboId ||
         businessKey ||
         `${toDateKey(recibo?.data_venda)}|${getReciboBruto(recibo)}|${getReciboTaxas(recibo)}`;
       if (!recibosByKey.has(key)) recibosByKey.set(key, recibo);
-    });
+    }
     const recibosUnique = Array.from(recibosByKey.values());
     const somaBrutoRecibos = recibosUnique.reduce(
       (acc, recibo) => acc + getReciboBruto(recibo),
