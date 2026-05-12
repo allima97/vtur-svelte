@@ -211,11 +211,12 @@ export async function GET(event) {
       const allowedFinanceiroIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
+      const allowedFinanceiroIdSet = new Set(allowedFinanceiroIds);
 
       vendedorIds =
         hasRequestedVendedorFilter
           ? requestedVendedorIds.filter((id) =>
-              allowedFinanceiroIds.includes(id),
+              allowedFinanceiroIdSet.has(id),
             )
           : [];
       if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
@@ -228,9 +229,10 @@ export async function GET(event) {
       const allowedGestorIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
+      const allowedGestorIdSet = new Set(allowedGestorIds);
       vendedorIds =
         hasRequestedVendedorFilter
-          ? requestedVendedorIds.filter((id) => allowedGestorIds.includes(id))
+          ? requestedVendedorIds.filter((id) => allowedGestorIdSet.has(id))
           : allowedGestorIds;
       if (hasRequestedVendedorFilter && vendedorIds.length === 0) {
         vendedorIds = [NO_MATCH_USER_ID];
@@ -240,10 +242,11 @@ export async function GET(event) {
       const allowedMasterIds = await fetchGestorCompanyScopeIds(client, {
         companyIds,
       });
+      const allowedMasterIdSet = new Set(allowedMasterIds);
 
       if (hasRequestedVendedorFilter) {
         vendedorIds = requestedVendedorIds.filter((id) =>
-          allowedMasterIds.includes(id),
+          allowedMasterIdSet.has(id),
         );
         if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
