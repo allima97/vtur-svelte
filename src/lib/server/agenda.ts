@@ -7,6 +7,7 @@ import {
   toISODateLocal,
   type UserScope
 } from '$lib/server/v1';
+import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 
 export type TodoStatus = 'novo' | 'agendado' | 'em_andamento' | 'concluido';
 export type VisibleTodoStatus = 'novo' | 'agendado' | 'em_andamento';
@@ -210,11 +211,14 @@ export async function resolveFollowUpFilters(
       : scope.companyId
         ? [scope.companyId]
         : [];
-    const equipeIds = (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds))
-      .map((row: any) => String(row?.id || '').trim())
-      .filter(Boolean);
+    const equipeIds = uniqueCleanStrings(
+      (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
+        (row: any) => row?.id
+      )
+    );
+    const equipeSet = cleanStringSet(equipeIds);
     vendedorIds = requestedVendedorIds.length > 0
-      ? requestedVendedorIds.filter((id) => equipeIds.includes(id))
+      ? requestedVendedorIds.filter((id) => equipeSet.has(id))
       : equipeIds;
   } else if (tipoNome.includes('MASTER')) {
     vendedorIds = requestedVendedorIds;
