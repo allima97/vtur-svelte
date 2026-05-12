@@ -114,10 +114,11 @@ function normalizeText(value?: string | null): string {
 }
 
 function splitTrechoCities(value?: string | null) {
-  const parts = String(value || '')
-    .split(/\s+-\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const parts: string[] = [];
+  for (const part of String(value || '').split(/\s+-\s+/)) {
+    const trimmed = part.trim();
+    if (trimmed) parts.push(trimmed);
+  }
   return {
     origem: parts[0] || '',
     destino: parts[1] || ''
@@ -148,10 +149,11 @@ function resolveAirlineIata(value?: string | null) {
 function formatFlightCity(value?: string | null) {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  return raw
-    .split(/\s*-\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean)[0] || raw;
+  for (const part of raw.split(/\s*-\s*/)) {
+    const trimmed = part.trim();
+    if (trimmed) return trimmed;
+  }
+  return raw;
 }
 
 function formatFlightPlace(city?: string | null, airport?: string | null) {
