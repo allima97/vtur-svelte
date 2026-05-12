@@ -38,7 +38,11 @@
     if (!textoProdutos.trim()) { toast.error('Cole a lista de produtos.'); return; }
     if (!tipoId) { toast.error('Selecione o tipo de produto.'); return; }
 
-    const linhas = textoProdutos.split('\n').map((l) => l.trim()).filter(Boolean);
+    const linhas: string[] = [];
+    for (const linha of textoProdutos.split('\n')) {
+      const nome = linha.trim();
+      if (nome) linhas.push(nome);
+    }
     if (linhas.length === 0) { toast.error('Nenhuma linha válida encontrada.'); return; }
 
     saving = true;
