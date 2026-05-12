@@ -400,10 +400,14 @@
   $: resumoPorUsuario = usuarios.reduce(
     (acc, usuario) => {
       const registros = dias.filter((dia) => dia.usuario_id === usuario.id);
-      acc[usuario.id] = {
-        trabalhados: registros.filter((dia) => dia.tipo && TIPOS_TRABALHO.has(dia.tipo)).length,
-        folgas: registros.filter((dia) => dia.tipo && TIPOS_FOLGA.has(dia.tipo)).length
-      };
+      acc[usuario.id] = registros.reduce(
+        (resumo, dia) => {
+          if (dia.tipo && TIPOS_TRABALHO.has(dia.tipo)) resumo.trabalhados += 1;
+          if (dia.tipo && TIPOS_FOLGA.has(dia.tipo)) resumo.folgas += 1;
+          return resumo;
+        },
+        { trabalhados: 0, folgas: 0 }
+      );
       return acc;
     },
     {} as Record<string, { trabalhados: number; folgas: number }>
