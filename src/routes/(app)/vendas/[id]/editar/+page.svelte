@@ -290,14 +290,14 @@
 
       const produtosFaltantes = new Set<string>();
       const cidadesFaltantes = new Set<string>();
-      recibos.forEach((r) => {
+      for (const r of recibos) {
         if (r.produto_id && !produtos.some((p) => String(p.id) === r.produto_id)) {
           produtosFaltantes.add(r.produto_id);
         }
         if (r.destino_cidade_id && !cidades.some((c) => String(c.id) === String(r.destino_cidade_id))) {
           cidadesFaltantes.add(r.destino_cidade_id);
         }
-      });
+      }
       await Promise.all(Array.from(produtosFaltantes).map((id) => ensureProdutoLoaded(id)));
       await Promise.all(Array.from(cidadesFaltantes).map((id) => ensureCidadeLoaded(id)));
     }
