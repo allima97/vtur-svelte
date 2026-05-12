@@ -19,18 +19,27 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function compactStringValues(values: unknown[]) {
+  const cleaned: string[] = [];
+  for (const value of values) {
+    const text = String(value);
+    if (text) cleaned.push(text);
+  }
+  return cleaned;
+}
+
 export function normalizeMenuPrefs(raw: unknown): MenuPrefsV1 {
   const fallback: MenuPrefsV1 = { v: VERSION, hidden: [], order: {}, section: {} };
   if (!isPlainObject(raw)) return fallback;
   const v = raw.v === VERSION ? VERSION : VERSION;
 
-  const hidden = Array.isArray(raw.hidden) ? raw.hidden.map(String).filter(Boolean) : [];
+  const hidden = Array.isArray(raw.hidden) ? compactStringValues(raw.hidden) : [];
   const order: Record<string, string[]> = {};
   if (isPlainObject(raw.order)) {
     Object.entries(raw.order).forEach(([section, value]) => {
       if (!section) return;
       if (!Array.isArray(value)) return;
-      const cleaned = value.map(String).filter(Boolean);
+      const cleaned = compactStringValues(value);
       if (cleaned.length > 0) order[section] = cleaned;
     });
   }
@@ -117,14 +126,14 @@ export function setMenuItemSection(
 }
 
 export function getEffectiveSectionOrder(prefs: MenuPrefsV1, sectionKey: string, itemKeys: string[]): string[] {
-  const available = itemKeys.filter(Boolean);
+  const available = compactStringValues(itemKeys);
   const stored = (prefs.order?.[sectionKey] || []).filter((key) => available.includes(key));
   const remaining = available.filter((key) => !stored.includes(key));
   return [...stored, ...remaining];
 }
 
 export function setSectionOrder(prefs: MenuPrefsV1, sectionKey: string, nextOrder: string[]): MenuPrefsV1 {
-  const cleaned = nextOrder.map(String).filter(Boolean);
+  const cleaned = compactStringValues(nextOrder);
   return { ...prefs, order: { ...(prefs.order || {}), [sectionKey]: cleaned } };
 }
 
