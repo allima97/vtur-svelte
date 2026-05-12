@@ -827,7 +827,7 @@ function extractServiceNarrativeLine(lines: string[]) {
     if (!/[A-Za-zÀ-ÿ]/.test(cleaned)) continue;
     if (/^\d+$/.test(normalized)) continue;
 
-    const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+    const wordCount = cleaned.match(/\S+/g)?.length || 0;
     if (wordCount < 5) continue;
     if (cleaned.length > best.length) best = cleaned;
   }
