@@ -31,6 +31,10 @@
   let editingId: string | null = null;
 
   const MOEDAS = ['USD', 'EUR', 'ARS', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'MXN', 'CLP', 'UYU', 'PYG'];
+  const CAMBIO_VALUE_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 6
+  });
 
   let form = { moeda: 'USD', data: todayISODateLocal(), valor: '' };
 
@@ -53,7 +57,7 @@
       align: 'right' as const,
       formatter: (value: number | null) =>
         value != null
-          ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(value)
+          ? CAMBIO_VALUE_FORMATTER.format(value)
           : '-'
     },
     {
