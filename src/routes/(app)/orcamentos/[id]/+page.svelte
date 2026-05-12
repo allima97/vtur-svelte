@@ -44,6 +44,8 @@
   import { confirmAction } from "$lib/stores/confirm";
   import { ApiError, apiDelete, apiFetch, apiPatch } from "$lib/services/api";
   const orcamentoId = $page.params.id;
+  const STATUS_SEM_ALERTA_EXPIRADO = new Set(["aprovado", "rejeitado", "fechado"]);
+  const STATUS_COM_ACOES_DECISAO = new Set(["pendente", "enviado", "novo"]);
   let previewingPdf = false;
 
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
@@ -471,7 +473,7 @@
         <span class="text-lg font-semibold">
           Status: {getStatusLabel(orcamento.status)}
         </span>
-        {#if isExpirado && !["aprovado", "rejeitado", "fechado"].includes(statusAtual)}
+        {#if isExpirado && !STATUS_SEM_ALERTA_EXPIRADO.has(statusAtual)}
           <span
             class="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full"
           >
@@ -820,7 +822,7 @@
             </Button>
           {/if}
 
-          {#if ["pendente", "enviado", "novo"].includes(statusAtual)}
+          {#if STATUS_COM_ACOES_DECISAO.has(statusAtual)}
             <div class="grid grid-cols-2 gap-3">
               <Button
                 variant="primary"
