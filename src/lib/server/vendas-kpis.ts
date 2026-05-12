@@ -472,9 +472,11 @@ async function fetchResolvedRowsUncached(
   );
 
   if ((params.accessibleClientIds || []).length > 0) {
-    const clientScope = new Set(
-      (params.accessibleClientIds || []).map((id) => toStr(id)).filter(Boolean),
-    );
+    const clientScope = new Set<string>();
+    for (const id of params.accessibleClientIds || []) {
+      const clientId = toStr(id);
+      if (clientId) clientScope.add(clientId);
+    }
     rows = rows.filter((row) => clientScope.has(toStr(row?.cliente_id)));
   }
 
