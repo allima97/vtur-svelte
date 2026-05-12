@@ -133,6 +133,8 @@
     icon: 'venda' | 'orcamento' | 'aniversario' | 'viagem' | 'followup';
   };
 
+  const VENDEDOR_FILTER_ROLES = new Set(['ADMIN', 'MASTER', 'GESTOR']);
+
   let loading = true;
   let errorMessage: string | null = null;
   let showCustomize = false;
@@ -426,7 +428,9 @@
 
   $: activeWidgetOrder = widgetOrder.filter((id) => availableWidgetIds.includes(id) && widgetVisible[id] !== false);
   $: showVendedorFiltro = Boolean(
-    userCtx && ['ADMIN', 'MASTER', 'GESTOR'].includes(String(userCtx.papel || '').toUpperCase()) && vendedoresFiltro.length > 0
+    userCtx &&
+      VENDEDOR_FILTER_ROLES.has(String(userCtx.papel || '').toUpperCase()) &&
+      vendedoresFiltro.length > 0
   );
 
   $: activeKpiOrder = kpiOrder.filter((id) => {
