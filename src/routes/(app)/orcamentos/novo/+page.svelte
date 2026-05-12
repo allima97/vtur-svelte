@@ -30,6 +30,11 @@
     cpf?: string | null;
   }
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+
   // ─── Estado do formulário ────────────────────────────────────────────────────
   let formData = {
     client_id: '',
@@ -238,10 +243,7 @@
 
   // ─── Formatação ───────────────────────────────────────────────────────────────
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   const tiposItem = [
