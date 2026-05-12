@@ -227,23 +227,23 @@ function dedupeContratos(contratos: ContratoDraft[]) {
   const result: ContratoDraft[] = [];
   const indexByNumero = new Map<string, number>();
 
-  contratos.forEach((contrato) => {
+  for (const contrato of contratos) {
     const numero = contrato.contrato_numero || "";
     if (!numero) {
       result.push(contrato);
-      return;
+      continue;
     }
     const existingIndex = indexByNumero.get(numero);
     if (existingIndex == null) {
       indexByNumero.set(numero, result.length);
       result.push(contrato);
-      return;
+      continue;
     }
     const existing = result[existingIndex];
     if (scoreContrato(contrato) > scoreContrato(existing)) {
       result[existingIndex] = contrato;
     }
-  });
+  }
 
   return result;
 }
@@ -678,9 +678,9 @@ function splitRoteiroSections(lines: string[]) {
   const sections: Record<string, string[]> = {};
   let current: string | null = null;
   const sectionKeys = Object.keys(ROTEIRO_SECTION_LABELS);
-  sectionKeys.forEach((key) => {
+  for (const key of sectionKeys) {
     sections[key] = [];
-  });
+  }
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -1576,17 +1576,17 @@ function parseRoteiroPassageiros(lines: string[]) {
       const remaining: string[] = [];
       const locatorRegex = /^[A-Z0-9]{5,}$/;
       const systurRegex = /^[A-Z0-9-]{4,}$/;
-      tailTokens.forEach((tok) => {
+      for (const tok of tailTokens) {
         if (!localizador && locatorRegex.test(tok)) {
           localizador = tok;
-          return;
+          continue;
         }
         if (!systur && systurRegex.test(tok)) {
           systur = tok;
-          return;
+          continue;
         }
         remaining.push(tok);
-      });
+      }
       const observacaoTokens = remaining;
       current = {
         sobrenome: sobrenome || null,
@@ -2503,13 +2503,13 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
   let total_pago = totalPagoMatch?.[1] ? parseCurrency(totalPagoMatch[1]) : null;
 
   const paymentBlocks = cleaned.split(/Forma de Pagamento\s*:?\s*/i).slice(1);
-  paymentBlocks.forEach((block) => {
+  for (const block of paymentBlocks) {
     const lines: string[] = [];
     for (const rawLine of block.split("\n")) {
       const line = rawLine.trim();
       if (line) lines.push(line);
     }
-    if (!lines.length) return;
+    if (!lines.length) continue;
     const formaMatch = block.match(/^\s*([^\n]+?)(?:\s+Opera[cç][ãa]o|\s+Plano|\s+Valor|\n)/i);
     const forma = formaMatch?.[1] || lines[0] || "";
     const operacao = extractLineValue(block, "Opera[cç][ãa]o") || null;
@@ -2552,7 +2552,7 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
       total: totalLiquido,
       parcelas: parcelas.length ? parcelas : undefined,
     });
-  });
+  }
 
   if (totalBruto == null && pagamentos.length) {
     const fallback = pagamentos.reduce((sum, p) => sum + Number(p.valor_bruto || 0), 0);
