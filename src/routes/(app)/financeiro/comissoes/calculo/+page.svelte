@@ -64,6 +64,15 @@
   let autoReloadEnabled = false;
   let lastAutoReloadKey = '';
   let autoReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+  const BRL_INTEGER_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0
+  });
 
   function getVendedorId(vendedor: any) {
     return String(vendedor?.vendedor_id || vendedor?.id || '');
@@ -240,7 +249,7 @@
   }
 
   function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(value || 0));
+    return BRL_INTEGER_CURRENCY_FORMATTER.format(Number(value || 0));
   }
 
   function formatPercent(value: number) {
@@ -271,7 +280,7 @@
       label: 'Valor Recibo', 
       sortable: true, 
       align: 'right' as const,
-      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value)
     },
     { 
       key: 'percentual', 
@@ -286,7 +295,7 @@
       label: 'Comissão + seguro', 
       sortable: true, 
       align: 'right' as const,
-      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value)
     },
     { key: 'regra', label: 'Regra', sortable: true, width: '150px' },
     { 
@@ -316,7 +325,7 @@
       label: 'Valor Recibo', 
       sortable: true, 
       align: 'right' as const,
-      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value)
     },
     { 
       key: 'percentual_aplicado', 
@@ -331,14 +340,14 @@
       label: 'Comissão + seguro', 
       sortable: true, 
       align: 'right' as const,
-      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value)
     },
     {
       key: 'valor_pago',
       label: 'Pago',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value || 0)
     },
     {
       key: 'data_pagamento',
