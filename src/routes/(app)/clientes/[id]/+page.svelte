@@ -87,6 +87,10 @@
   };
 
   const clienteId = $page.params.id;
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let cliente: ClienteDetalhe | null = null;
   let historicoVendas: HistoricoVenda[] = [];
@@ -104,10 +108,7 @@
   $: clienteInicial = !clienteComHistorico && !clienteEmNegociacao;
 
   function formatCurrency(value: number | null | undefined) {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(Number(value || 0));
+    return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
   }
 
   function formatDate(value: string | null | undefined) {
