@@ -655,12 +655,15 @@
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
 
+  const DIACRITICS_RE = /[\u0300-\u036f]/g;
+  const WHITESPACE_RE = /\s+/g;
+
   function normalizeText(value: string, opts?: { trim?: boolean; collapseWhitespace?: boolean }) {
     let out = value
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(DIACRITICS_RE, '')
       .toLowerCase();
-    if (opts?.collapseWhitespace) out = out.replace(/\s+/g, ' ');
+    if (opts?.collapseWhitespace) out = out.replace(WHITESPACE_RE, ' ');
     if (opts?.trim) out = out.trim();
     return out;
   }

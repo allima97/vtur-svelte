@@ -605,10 +605,12 @@
     return estado ? `${nome} (${estado})` : nome;
   }
 
+  const DIACRITICS_RE = /[\u0300-\u036f]/g;
+
   function normalizeLookup(value: string | null | undefined) {
     return String(value || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(DIACRITICS_RE, '')
       .toLowerCase()
       .trim();
   }
