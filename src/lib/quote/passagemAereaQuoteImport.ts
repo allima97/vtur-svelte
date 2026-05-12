@@ -83,10 +83,10 @@ function extractPassengerCount(text: string, imported: ImportedRoteiroAereo[]) {
   if (adulto) count += Number(adulto[1]) || 0;
   if (crianca) count += Number(crianca[1]) || 0;
 
-  const fromRows = Math.max(
-    0,
-    ...imported.map((item) => Number(item.qtd_adultos || 0) + Number(item.qtd_criancas || 0))
-  );
+  let fromRows = 0;
+  for (const item of imported) {
+    fromRows = Math.max(fromRows, Number(item.qtd_adultos || 0) + Number(item.qtd_criancas || 0));
+  }
   return Math.max(1, count || fromRows || 1);
 }
 
