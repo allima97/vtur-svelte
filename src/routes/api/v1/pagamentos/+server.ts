@@ -20,18 +20,9 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_PAGAMENTO_BODY_BYTES = 64 * 1024;
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({

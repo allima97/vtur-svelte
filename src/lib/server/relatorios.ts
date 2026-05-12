@@ -7,15 +7,10 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, filterBatches } from '$lib/utils/array';
 
 const SALES_REPORT_PAGE_SIZE = 1000;
 const SALES_REPORT_MAX_ROWS = 50_000;
-const SUPABASE_IN_BATCH_SIZE = 150;
-
-function filterBatches(values: string[]) {
-  return values.length > 0 ? chunkArray(values) : [[]];
-}
 
 export type ReportReceiptRow = {
   id?: string | null;

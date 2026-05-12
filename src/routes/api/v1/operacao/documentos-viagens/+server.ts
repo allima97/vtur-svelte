@@ -11,16 +11,7 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 export async function GET(event) {
   try {

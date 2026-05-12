@@ -12,7 +12,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
@@ -30,15 +30,6 @@ function isRateioTableMissingError(err: any) {
 }
 
 let rateioMissingLogged = false;
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || "").trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 export async function GET(event: RequestEvent) {
   try {

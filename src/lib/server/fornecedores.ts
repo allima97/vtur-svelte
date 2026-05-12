@@ -6,19 +6,10 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type RowsResult<T> = { data: T[] | null; error: any };
 type SingleResult<T> = { data: T | null; error: any };
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 function isMissingColumnOrRelation(err: any) {
   const code = String(err?.code || '');

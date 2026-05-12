@@ -18,7 +18,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type VendaRow = {
   id: string;
@@ -50,15 +50,6 @@ function deriveTipo(row: VendaRow) {
   if (ref.includes('hotel') || ref.includes('resort')) return 'hotel';
   if (ref.includes('passagem') || ref.includes('aereo') || ref.includes('transporte')) return 'passagem';
   return 'pacote';
-}
-
-function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
 }
 
 export async function GET(event) {

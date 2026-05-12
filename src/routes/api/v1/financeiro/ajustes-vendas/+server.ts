@@ -14,18 +14,9 @@ import {
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_AJUSTES_VENDAS_BODY_BYTES = 32 * 1024;
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 function invalidateAjustesVendasReadModels() {
   invalidateReadModelCache({

@@ -26,7 +26,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById as dedupeRowsById, filterBatches, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type ClienteBaseRow = {
   id: string;
@@ -78,19 +78,6 @@ const CLIENT_SELECT_FULL =
   'id, nome, cpf, nascimento, telefone, email, whatsapp, cidade, estado, classificacao, tipo_pessoa, tipo_cliente, tags, active, ativo, company_id, created_at';
 const CLIENT_SELECT_SUMMARY =
   'id, cpf, nascimento, active, ativo, company_id, created_at';
-
-function filterBatches(values: string[]) {
-  return values.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(values) : [values];
-}
-
-function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 export async function GET(event) {
   try {

@@ -7,3 +7,16 @@ export function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][]
   }
   return chunks;
 }
+
+export function filterBatches<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
+  return values.length > size ? chunkArray(values, size) : [values];
+}
+
+export function dedupeById<T extends { id?: string | null }>(rows: T[]): T[] {
+  const map = new Map<string, T>();
+  rows.forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id && !map.has(id)) map.set(id, row);
+  });
+  return Array.from(map.values());
+}

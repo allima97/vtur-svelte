@@ -16,7 +16,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 function isIgnorableQueryError(err: any) {
   const code = String(err?.code || '');
@@ -41,15 +41,6 @@ function getImportanceRank(value: unknown) {
 
 const INITIAL_CLIENTES_LIMIT = 300;
 const INITIAL_CIDADES_LIMIT = 500;
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 export async function GET(event: RequestEvent) {
   try {

@@ -12,7 +12,7 @@ import {
 import { validateUploadedFile } from '$lib/server/uploadValidation';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readFormDataBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -20,15 +20,6 @@ const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 const mutationError = (message: string, status: number) =>
   json({ success: false, error: message }, { status, headers: NO_STORE_HEADERS });
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 function canAccessVoucherAssets(scope: any, level: number) {
   if (scope.isAdmin) return true;

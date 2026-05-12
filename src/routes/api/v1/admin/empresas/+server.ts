@@ -12,18 +12,9 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
-
-function dedupeById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || '').trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
   // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active

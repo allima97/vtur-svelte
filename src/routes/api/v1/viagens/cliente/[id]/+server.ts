@@ -18,16 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
-
-function dedupeRowsById<T extends { id?: string | null }>(rows: T[]) {
-  const map = new Map<string, T>();
-  rows.forEach((row) => {
-    const id = String(row?.id || "").trim();
-    if (id && !map.has(id)) map.set(id, row);
-  });
-  return Array.from(map.values());
-}
+import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
 export async function GET(event) {
   try {
