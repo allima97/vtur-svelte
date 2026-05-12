@@ -268,11 +268,11 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
       if (isTableMissingError(error)) return { byVendaRecibo, byConciliacao };
       throw error;
     }
-    (data || []).forEach((row: any) => {
+    for (const row of data || []) {
       const id = toStr(row?.conciliacao_recibo_id);
-      if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) return;
+      if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) continue;
       if (id) byConciliacao.set(id, row);
-    });
+    }
   }
 
   return { byVendaRecibo, byConciliacao };
