@@ -705,10 +705,10 @@ export function parseConciliacaoImportText(
       movimento_data: fallbackDate || null
     };
 
-    mappedHeaders.forEach((field, index) => {
-      if (!field) return;
+    for (const [index, field] of mappedHeaders.entries()) {
+      if (!field) continue;
       const value = cells[index];
-      if (value == null || value === '') return;
+      if (value == null || value === '') continue;
 
       switch (field) {
         case 'documento':
@@ -727,7 +727,7 @@ export function parseConciliacaoImportText(
           row[field] = parseMoney(value) as never;
           break;
       }
-    });
+    }
 
     if (!String(row.documento || '').trim()) {
       ignored += 1;
