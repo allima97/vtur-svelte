@@ -193,12 +193,16 @@
         .includes(normalizedSearchQuery);
     });
 
-  $: resumo = {
-    total: items.length,
-    atrasados: items.filter((item) => !item.follow_up_fechado && String(item.data_fim || item.data_final || '') < todayIso).length,
-    semTexto: items.filter((item) => !String(item.follow_up_text || '').trim()).length,
-    fechados: items.filter((item) => item.follow_up_fechado).length
-  };
+  $: resumo = items.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (!item.follow_up_fechado && String(item.data_fim || item.data_final || '') < todayIso) acc.atrasados += 1;
+      if (!String(item.follow_up_text || '').trim()) acc.semTexto += 1;
+      if (item.follow_up_fechado) acc.fechados += 1;
+      return acc;
+    },
+    { total: 0, atrasados: 0, semTexto: 0, fechados: 0 }
+  );
 
   $: autoReloadKey = buildAutoReloadKey();
 
