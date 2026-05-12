@@ -10,7 +10,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_OPERACAO_RECADO_BODY_BYTES = 64 * 1024;
 
@@ -142,6 +142,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     const allowedCompanyIds = resolveScopedCompanyIds(scope);
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
@@ -165,7 +166,7 @@ export async function POST(event) {
       if (receiverError) throw receiverError;
       if (!receiver) return json({ error: 'Destinatário não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       receiverCompanyId = String((receiver as any)?.company_id || '').trim() || null;
-      if (!scope.isAdmin && !allowedCompanyIds.includes(receiverCompanyId || '')) {
+      if (!scope.isAdmin && !allowedCompanySet.has(receiverCompanyId || '')) {
         return json({ error: 'Destinatário fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
