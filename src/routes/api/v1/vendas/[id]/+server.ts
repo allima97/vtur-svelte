@@ -347,14 +347,14 @@ export async function PATCH(event) {
 
     const currentReciboByReceipt = new Map<string, any>();
     const currentReciboByReserva = new Map<string, any>();
-    (currentRecibos || []).forEach((row: any) => {
+    for (const row of currentRecibos || []) {
       const receiptKey = normalizeReceiptKey(
         row?.numero_recibo_normalizado || row?.numero_recibo,
       );
       const reservaKey = normalizeReservaKey(row?.numero_reserva);
       if (receiptKey) currentReciboByReceipt.set(receiptKey, row);
       if (reservaKey) currentReciboByReserva.set(reservaKey, row);
-    });
+    }
 
     const recibosForSync = recibos.map((item: any) => {
       const current =
