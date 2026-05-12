@@ -107,7 +107,7 @@
   }
 
   function countWords(text: string) {
-    return (text || '').trim().split(/\s+/).filter(Boolean).length;
+    return (text || '').trim().match(/\S+/g)?.length || 0;
   }
 
   function countLines(text: string) {
