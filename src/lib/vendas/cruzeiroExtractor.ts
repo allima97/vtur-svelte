@@ -449,7 +449,11 @@ function extractPassageiros(text: string): PassageiroDraft[] {
     block = blockMatch?.[0] || "";
   }
 
-  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of block.split("\n")) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
 
   const passageiros: PassageiroDraft[] = [];
   let pendingIndex: number | null = null;
