@@ -42,6 +42,7 @@
   let savingId = '';
   let busca = '';
 
+  $: buscaNormalizada = busca.trim().toLowerCase();
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || permissoes.can('equipe', 'edit') || permissoes.can('parametros', 'edit');
 
   async function load() {
@@ -91,11 +92,10 @@
   }
 
   $: usuariosFiltrados = usuarios.filter((u) => {
-    if (!busca.trim()) return true;
-    const q = busca.toLowerCase();
+    if (!buscaNormalizada) return true;
     return (
-      String(u.nome_completo || '').toLowerCase().includes(q) ||
-      String(u.email || '').toLowerCase().includes(q)
+      String(u.nome_completo || '').toLowerCase().includes(buscaNormalizada) ||
+      String(u.email || '').toLowerCase().includes(buscaNormalizada)
     );
   });
 
