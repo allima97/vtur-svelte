@@ -1023,7 +1023,7 @@ function parseProviderCards(
     const distributedTotals = splitTotalAcrossSegments(cardTotal, cardSegments.length);
     const distributedTaxes = splitTotalAcrossSegments(cardTaxes, cardSegments.length);
 
-    cardSegments.forEach((segment, index) => {
+    for (const [index, segment] of cardSegments.entries()) {
       const cityOut = resolveCityFromAirportLabel(segment.aeroporto_saida, runtimeAliases, airportCodeCityLookup);
       const cityIn = resolveCityFromAirportLabel(segment.aeroporto_chegada, runtimeAliases, airportCodeCityLookup);
       const fallbackTrecho = [cityOut, cityIn].filter(Boolean).join(" - ");
@@ -1057,7 +1057,7 @@ function parseProviderCards(
         valor_total: distributedTotals[index] ?? cardTotal,
         ordem: imported.length,
       });
-    });
+    }
   }
 
   return sortFlights(imported);
@@ -1230,13 +1230,13 @@ function parseTripDetailsProvider(
     }
 
     const trechoFlightType = trechoSegments.length <= 1 ? 'Voo direto' : `${trechoSegments.length - 1} escala`;
-    trechoSegments.forEach((segment) => {
+    for (const segment of trechoSegments) {
       imported.push({
         ...segment,
         tipo_voo: trechoFlightType,
         ordem: imported.length,
       });
-    });
+    }
   }
 
   if (imported.length === 0) return [];
@@ -1306,15 +1306,15 @@ function collectProvider2AliasValues(
     const origins = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
     const destinations = takeContiguousBlock(segmentCount, (line) => isProvider2AirportLine(line, runtimeAliases, airportCodeCityLookup));
 
-    [...origins, ...destinations].forEach((label) => {
+    for (const label of [...origins, ...destinations]) {
       const normalizedLabel = normalizeLine(label);
-      if (!normalizedLabel || isAirportLine(normalizedLabel)) return;
+      if (!normalizedLabel || isAirportLine(normalizedLabel)) continue;
       const resolved = resolveAirportMatch(normalizedLabel, runtimeAliases, airportCodeCityLookup);
-      if (!resolved?.code) return;
+      if (!resolved?.code) continue;
       const storageValue = buildAirportAliasStorageValue(normalizedLabel, resolved.code, resolved.city);
-      if (!storageValue) return;
+      if (!storageValue) continue;
       aliases.add(storageValue);
-    });
+    }
   }
 
   return Array.from(aliases);
