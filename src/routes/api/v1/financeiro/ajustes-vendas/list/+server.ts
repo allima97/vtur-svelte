@@ -12,7 +12,13 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import {
+  cleanStringSet,
+  chunkArray,
+  dedupeById,
+  SUPABASE_IN_BATCH_SIZE,
+  uniqueCleanStrings
+} from '$lib/utils/array';
 
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
@@ -139,9 +145,8 @@ export async function GET(event: RequestEvent) {
     const { data, error } = await fetchVendaRows();
     if (error) throw error;
 
-    const reciboIds = (data || [])
-      .map((row: any) => String(row?.id || "").trim())
-      .filter(Boolean);
+    const reciboIds = uniqueCleanStrings((data || []).map((row: any) => row?.id));
+    const reciboIdSet = cleanStringSet(reciboIds);
 
     const buildConciliacaoQuery = (companyIdsFilter = companyIds) => {
       let conciliacaoQuery = client
@@ -199,9 +204,8 @@ export async function GET(event: RequestEvent) {
     const { data: conciliacaoData, error: conciliacaoError } = await fetchConciliacaoRows();
     if (conciliacaoError) throw conciliacaoError;
 
-    const conciliacaoIds = (conciliacaoData || [])
-      .map((row: any) => String(row?.id || "").trim())
-      .filter(Boolean);
+    const conciliacaoIds = uniqueCleanStrings((conciliacaoData || []).map((row: any) => row?.id));
+    const conciliacaoIdSet = cleanStringSet(conciliacaoIds);
 
     let rateioMap = new Map<string, any>();
     if (reciboIds.length > 0 || conciliacaoIds.length > 0) {
@@ -258,22 +262,18 @@ export async function GET(event: RequestEvent) {
         rateioDataRows.forEach((row: any) => {
           const vendaReciboKey = String(row?.venda_recibo_id || "").trim();
           const concKey = String(row?.conciliacao_recibo_id || "").trim();
-          if (vendaReciboKey && reciboIds.includes(vendaReciboKey)) {
+          if (vendaReciboKey && reciboIdSet.has(vendaReciboKey)) {
             rateioMap.set(`vr:${vendaReciboKey}`, row);
           }
-          if (concKey && conciliacaoIds.includes(concKey)) {
+          if (concKey && conciliacaoIdSet.has(concKey)) {
             rateioMap.set(`cr:${concKey}`, row);
           }
         });
       }
     }
 
-    const vendedorIdsFromRows = Array.from(
-      new Set(
-        (data || [])
-          .map((row: any) => String(row?.vendas?.vendedor_id || "").trim())
-          .filter(Boolean)
-      )
+    const vendedorIdsFromRows = uniqueCleanStrings(
+      (data || []).map((row: any) => row?.vendas?.vendedor_id)
     );
     const vendedorNomeMap = new Map<string, string>();
     if (vendedorIdsFromRows.length > 0) {
