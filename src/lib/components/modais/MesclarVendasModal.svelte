@@ -41,14 +41,14 @@
   });
 
   // ─── Derivados ─────────────────────────────────────────────────────────────
+  $: filtroNormalizado = filtro.trim().toLowerCase();
   $: candidatosFiltrados = candidatos.filter(c => {
-    if (!filtro.trim()) return true;
-    const f = filtro.toLowerCase();
+    if (!filtroNormalizado) return true;
     return (
-      c.destino_nome?.toLowerCase().includes(f) ||
-      c.destino_cidade_nome?.toLowerCase().includes(f) ||
-      c.numero_recibo_principal?.toLowerCase().includes(f) ||
-      c.numeros_recibo?.some(n => n.toLowerCase().includes(f))
+      c.destino_nome?.toLowerCase().includes(filtroNormalizado) ||
+      c.destino_cidade_nome?.toLowerCase().includes(filtroNormalizado) ||
+      c.numero_recibo_principal?.toLowerCase().includes(filtroNormalizado) ||
+      c.numeros_recibo?.some(n => n.toLowerCase().includes(filtroNormalizado))
     );
   });
 
