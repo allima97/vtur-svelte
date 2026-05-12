@@ -290,10 +290,10 @@
 
     if (opts.loadProdutos !== false && Array.isArray(venda?.recibos)) {
       const ids = new Set<string>();
-      venda.recibos.forEach((r: any) => {
+      for (const r of venda.recibos) {
         if (r?.produto_resolvido_id) ids.add(String(r.produto_resolvido_id));
         if (r?.produto_id) ids.add(String(r.produto_id));
-      });
+      }
       await Promise.all(Array.from(ids).map((id) => ensureProduto(id)));
     }
   }
