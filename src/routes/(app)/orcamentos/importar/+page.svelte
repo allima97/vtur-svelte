@@ -115,12 +115,14 @@
     mostrarSugestoesCliente = false;
   }
 
+  $: clienteBuscaNormalizada = clienteBusca.toLowerCase();
+  $: clienteBuscaNumerica = clienteBuscaNormalizada.replace(/\D/g, '');
+
   $: clientesFiltrados = clienteBusca.trim().length >= 1
     ? clientes.filter((c) => {
-        const q = clienteBusca.toLowerCase();
         return (
-          c.nome.toLowerCase().includes(q) ||
-          (c.cpf || '').replace(/\D/g, '').includes(q.replace(/\D/g, ''))
+          c.nome.toLowerCase().includes(clienteBuscaNormalizada) ||
+          (c.cpf || '').replace(/\D/g, '').includes(clienteBuscaNumerica)
         );
       }).slice(0, 10)
     : [];
