@@ -320,6 +320,7 @@
   let vgFiltroReciboEncontrado = 'all';
   let vgFiltroRanking = 'all';
   let vgFiltroConciliado = 'all';
+  $: vgFiltroDocumentoNormalizado = vgFiltroDocumento.trim().toLowerCase();
 
   let selectedRow: ConciliacaoItem | null = null;
   let showDetailsDialog = false;
@@ -555,8 +556,10 @@
   ];
 
   $: visaoGeralFiltrados = visaoGeralRows.filter((row) => {
-    const docSearch = vgFiltroDocumento.trim().toLowerCase();
-    if (docSearch && ![row.documento, row.numero_reserva].join(' ').toLowerCase().includes(docSearch)) return false;
+    if (
+      vgFiltroDocumentoNormalizado &&
+      ![row.documento, row.numero_reserva].join(' ').toLowerCase().includes(vgFiltroDocumentoNormalizado)
+    ) return false;
     if (vgFiltroVendedor !== 'all' && row._vendedor_nome !== vgFiltroVendedor) return false;
     if (vgFiltroStatus !== 'all' && row._status_label !== vgFiltroStatus) return false;
     if (vgFiltroMes !== 'all' && row._mes !== vgFiltroMes) return false;
