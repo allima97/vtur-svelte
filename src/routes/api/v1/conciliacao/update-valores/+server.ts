@@ -10,6 +10,7 @@ import {
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
+import { cleanStringSet } from "$lib/utils/array";
 
 // Espelha: vtur-app/src/pages/api/v1/conciliacao/update-valores.ts
 // Permite que Gestor/Master atualizem campos de valor de um registro de conciliacao_recibos.
@@ -107,6 +108,7 @@ export async function POST(event: RequestEvent) {
       scope,
       isUuid(requestedCompanyId) ? requestedCompanyId : null,
     );
+    const allowedCompanySet = cleanStringSet(allowedCompanyIds);
 
     // Verificar que o registro pertence ao escopo permitido. Para Admin, a empresa
     // é inferida do próprio registro quando não vier explicitamente no payload.
@@ -125,7 +127,7 @@ export async function POST(event: RequestEvent) {
     }
 
     const companyId = String(existing.company_id || "").trim();
-    if (!companyId || (!scope.isAdmin && !allowedCompanyIds.includes(companyId))) {
+    if (!companyId || (!scope.isAdmin && !allowedCompanySet.has(companyId))) {
       return json(
         { error: "Registro não encontrado ou sem permissão." },
         { status: 404, headers: NO_STORE_HEADERS },
