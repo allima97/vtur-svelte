@@ -47,20 +47,20 @@ export async function GET(event) {
       userRows.push(...(usersRes.data || []));
     }
 
-    const defaultPermCounts = new Map<string, number>();
-    defaultPermRows.forEach((row: any) => {
-      if (row?.ativo === false || !row?.user_type_id) return;
-      defaultPermCounts.set(
-        String(row.user_type_id),
-        Number(defaultPermCounts.get(String(row.user_type_id)) || 0) + 1
-      );
-    });
+	const defaultPermCounts = new Map<string, number>();
+	for (const row of defaultPermRows) {
+	  if (row?.ativo === false || !row?.user_type_id) continue;
+	  defaultPermCounts.set(
+	    String(row.user_type_id),
+	    Number(defaultPermCounts.get(String(row.user_type_id)) || 0) + 1
+	  );
+	}
 
-    const userCounts = new Map<string, number>();
-    userRows.forEach((row: any) => {
-      if (!row?.user_type_id) return;
-      userCounts.set(String(row.user_type_id), Number(userCounts.get(String(row.user_type_id)) || 0) + 1);
-    });
+	const userCounts = new Map<string, number>();
+	for (const row of userRows) {
+	  if (!row?.user_type_id) continue;
+	  userCounts.set(String(row.user_type_id), Number(userCounts.get(String(row.user_type_id)) || 0) + 1);
+	}
 
     return json(
       {
