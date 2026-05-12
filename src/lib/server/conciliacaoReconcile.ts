@@ -341,7 +341,7 @@ async function moveDuplicateRateioToWinner(params: {
     }
 
     const rateiosToDelete = winnerHasRateio ? loserRateios : extraLoserRateios;
-    const idsToDelete = rateiosToDelete.map((row: any) => String(row?.id || '').trim()).filter(Boolean);
+    const idsToDelete = uniqueCleanStrings(rateiosToDelete.map((row: any) => row?.id));
     if (idsToDelete.length > 0) {
       for (const batch of chunkArray(idsToDelete, SUPABASE_IN_BATCH_SIZE)) {
         const { error: deleteError } = await params.client.from('vendas_recibos_rateio').delete().in('id', batch);
@@ -416,7 +416,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
     const winner = pickDuplicateWinner(bucket);
     if (!winner?.id) continue;
     const losers = bucket.filter((row) => String(row?.id || '') !== String(winner.id || ''));
-    const loserIds = losers.map((row) => String(row?.id || '').trim()).filter(Boolean);
+    const loserIds = uniqueCleanStrings(losers.map((row) => row?.id));
     if (loserIds.length === 0) continue;
 
     const winnerPatch = buildDuplicateWinnerPatch(winner, losers);
@@ -778,13 +778,9 @@ export async function diagnosticarLacunasCronologicas(params: {
     if (!isMissing) throw semMovimentoErr;
   }
 
-  const diasSemMovimento = Array.from(
-    new Set((semMovimentoRows || []).map((r: any) => String(r?.data || '').trim()).filter(Boolean))
-  ).sort() as string[];
+  const diasSemMovimento = uniqueCleanStrings((semMovimentoRows || []).map((r: any) => r?.data)).sort();
 
-  const diasImportados = Array.from(
-    new Set((data || []).map((r: any) => String(r?.movimento_data || '').trim()).filter(Boolean))
-  ).sort() as string[];
+  const diasImportados = uniqueCleanStrings((data || []).map((r: any) => r?.movimento_data)).sort();
 
   if (diasImportados.length === 0) {
     return { fronteira: null, diasFaltantes: [], diasImportados: [], diasBloqueados: [], diasSemMovimento, registrosBloqueados: 0 };
