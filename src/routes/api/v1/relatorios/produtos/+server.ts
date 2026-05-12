@@ -89,16 +89,16 @@ export async function GET(event) {
           }
         >();
 
-        rows.forEach((row) => {
-          const recibos =
-            Array.isArray(row.recibos) && row.recibos.length > 0
-              ? row.recibos
-              : [null];
+	        for (const row of rows) {
+	          const recibos =
+	            Array.isArray(row.recibos) && row.recibos.length > 0
+	              ? row.recibos
+	              : [null];
 
-          recibos.forEach((recibo) => {
-            const descriptor = getReceiptProductDescriptor(recibo, row);
-            const receita = Number(recibo?.valor_total || row.valor_total || 0);
-            const lucroRecibo =
+	          for (const recibo of recibos) {
+	            const descriptor = getReceiptProductDescriptor(recibo, row);
+	            const receita = Number(recibo?.valor_total || row.valor_total || 0);
+	            const lucroRecibo =
               Number(recibo?.valor_taxas || 0) +
               Number(recibo?.valor_du || 0) +
               Number(recibo?.valor_rav || 0);
@@ -115,11 +115,11 @@ export async function GET(event) {
 
             current.quantidade += 1;
             current.receita += receita;
-            current.lucro += lucro;
-            (current as any).produto_id = (row as any).produto_id ?? null;
-            byProduto.set(key, current);
-          });
-        });
+	            current.lucro += lucro;
+	            (current as any).produto_id = (row as any).produto_id ?? null;
+	            byProduto.set(key, current);
+	          }
+	        }
 
         const items = Array.from(byProduto.values())
           .map((item) => {
