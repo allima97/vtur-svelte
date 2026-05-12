@@ -333,7 +333,13 @@
     { label: 'Geral', value: 'geral' }
   ];
 
-  $: categoryNameById = new Map(categories.map((cat) => [String(cat.id || '').trim(), String(cat.nome || '').trim()]));
+  $: categoryNameById = (() => {
+    const namesById = new Map<string, string>();
+    for (const cat of categories) {
+      namesById.set(String(cat.id || '').trim(), String(cat.nome || '').trim());
+    }
+    return namesById;
+  })();
 
   $: temaFilterOptions = (() => {
     const options = [...TEMA_FILTER_BASE_OPTIONS];
