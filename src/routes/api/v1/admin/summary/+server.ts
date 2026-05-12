@@ -85,13 +85,13 @@ export async function GET(event) {
     const empresasRows = empresas as any[];
     const planosRows = planos as any[];
 
-    const usuariosAtivos = usuariosRows.filter((item: any) => item.active !== false).length;
+    const usuariosAtivos = usuariosRows.reduce((total, item: any) => total + (item.active !== false ? 1 : 0), 0);
     const usuariosInativos = usuariosRows.length - usuariosAtivos;
-    const empresasAtivas = empresasRows.filter((item: any) => item.active !== false).length;
+    const empresasAtivas = empresasRows.reduce((total, item: any) => total + (item.active !== false ? 1 : 0), 0);
     const empresasInativas = empresasRows.length - empresasAtivas;
-    const planosAtivos = planosRows.filter((item: any) => item.ativo !== false).length;
+    const planosAtivos = planosRows.reduce((total, item: any) => total + (item.ativo !== false ? 1 : 0), 0);
     const planosInativos = planosRows.length - planosAtivos;
-    const templatesAtivos = templates.filter((item: any) => item.ativo !== false).length;
+    const templatesAtivos = templates.reduce((total, item: any) => total + (item.ativo !== false ? 1 : 0), 0);
     const emailConfigured = Boolean(
       emailSettings?.resend_api_key ||
         (emailSettings?.smtp_host && emailSettings?.smtp_user && emailSettings?.smtp_pass)
