@@ -71,9 +71,9 @@ export async function GET(event) {
         if (sharesByMeResp.error) throw sharesByMeResp.error;
 
         const sharesByPref = new Map<string, any[]>();
-        (sharesByMeResp.data || []).forEach((row: any) => {
+        for (const row of (sharesByMeResp.data || []) as any[]) {
           const pid = String(row?.preferencia_id || "");
-          if (!pid) return;
+          if (!pid) continue;
           const list = sharesByPref.get(pid) || [];
           list.push({
             id: String(row?.id || ""),
@@ -81,18 +81,18 @@ export async function GET(event) {
             created_at: row?.created_at || null,
             accepted_at: row?.accepted_at || null,
             revoked_at: row?.revoked_at || null,
-            shared_with: row?.shared_with_user
-              ? {
-                  id: String(row?.shared_with_user?.id || ""),
-                  nome_completo: String(
-                    row?.shared_with_user?.nome_completo || "",
-                  ),
-                  email: String(row?.shared_with_user?.email || ""),
-                }
-              : null,
+	            shared_with: row?.shared_with_user
+	              ? {
+	                  id: String(row?.shared_with_user?.id || ""),
+	                  nome_completo: String(
+	                    row?.shared_with_user?.nome_completo || "",
+	                  ),
+	                  email: String(row?.shared_with_user?.email || ""),
+	                }
+	              : null,
           });
           sharesByPref.set(pid, list);
-        });
+        }
 
         const owned = (ownedResp.data || []).map((p: any) => ({
           scope: "owned" as const,
