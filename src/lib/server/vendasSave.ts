@@ -328,8 +328,8 @@ export async function markRankingReadModelDirty(params: {
 }) {
   const companyId = toNullableString(params.companyId);
   const dataVenda = toNullableString(params.dataVenda);
-  if (!companyId || !isISODate(String(dataVenda || ""))) return;
-  const dataVendaIso = String(dataVenda);
+  if (!companyId || !dataVenda || !isISODate(dataVenda)) return;
+  const dataVendaIso = dataVenda;
 
   try {
     const { error } = await params.client.rpc("fn_mark_ranking_read_model_dirty", {
