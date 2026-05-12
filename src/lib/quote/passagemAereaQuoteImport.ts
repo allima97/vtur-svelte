@@ -227,8 +227,10 @@ export function buildPassagemAereaQuoteDraftFromText(
       );
       if (dateCompare !== 0) return dateCompare;
       return String(a.hora_saida || '').localeCompare(String(b.hora_saida || ''));
-    })
-    .map((item, index) => ({ ...item, ordem: index }));
+    });
+  for (let index = 0; index < ordered.length; index += 1) {
+    ordered[index] = { ...ordered[index], ordem: index };
+  }
 
   const extractedAt = new Date().toISOString();
   const quantidade = extractPassengerCount(normalizedText, ordered);
