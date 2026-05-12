@@ -1019,10 +1019,10 @@ export async function GET(event) {
       const filtered = filterRowsForReport(rowsInput);
       let total = 0;
 
-      filtered.forEach((row) => {
+      for (const row of filtered) {
         const status = getVendaStatus(row);
         if (statusFilter && status !== statusFilter) {
-          return;
+          continue;
         }
 
         const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
@@ -1032,11 +1032,11 @@ export async function GET(event) {
               sum + Number(recibo?.valor_total || 0),
             0,
           );
-          return;
+          continue;
         }
 
         total += Number(row?.valor_total || 0);
-      });
+      }
 
       return Number(total.toFixed(2));
     };
