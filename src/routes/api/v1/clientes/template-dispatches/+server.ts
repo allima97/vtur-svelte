@@ -67,7 +67,12 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         rows.push(...(data || []));
       }
 
-      return Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
+      const rowsById = new Map<string, any>();
+      for (const row of rows) {
+        rowsById.set(String(row?.id || ''), row);
+      }
+
+      return Array.from(rowsById.values())
         .sort((left: any, right: any) =>
           String(right?.sent_at || right?.created_at || '').localeCompare(String(left?.sent_at || left?.created_at || ''))
         )
