@@ -460,9 +460,9 @@ function parseAirportAliasStorageValue(value?: string | null): AirportAliasEntry
 function buildRuntimeAirportAliases(aliasValues?: string[] | null) {
   const byCodeCity = new Map<string, AirportAliasEntry>();
 
-  (aliasValues || []).forEach((rawValue) => {
+  for (const rawValue of aliasValues || []) {
     const parsed = parseAirportAliasStorageValue(rawValue);
-    if (!parsed) return;
+    if (!parsed) continue;
     const key = `${parsed.code}__${normalizeText(parsed.city || parsed.code)}`;
     const existing = byCodeCity.get(key);
     if (!existing) {
@@ -476,7 +476,7 @@ function buildRuntimeAirportAliases(aliasValues?: string[] | null) {
         city: parsed.city || parsed.code,
         aliases,
       });
-      return;
+      continue;
     }
     const mergedAliases = new Set<string>([
       ...(existing.aliases || []).map((alias) => normalizeLine(alias)),
@@ -486,7 +486,7 @@ function buildRuntimeAirportAliases(aliasValues?: string[] | null) {
       ...existing,
       aliases: Array.from(mergedAliases).filter(Boolean),
     });
-  });
+  }
 
   return Array.from(byCodeCity.values());
 }
