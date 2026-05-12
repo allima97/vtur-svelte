@@ -54,6 +54,7 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   let vendas: Venda[] = [];
   let loading = true;
@@ -272,7 +273,7 @@
                 value: String(vendedor.id),
                 label: String(vendedor.nome_completo || 'Usuário sem nome')
               }))
-              .sort((left, right) => left.label.localeCompare(right.label, 'pt-BR'))
+              .sort((left, right) => PT_BR_COLLATOR.compare(left.label, right.label))
           }
         ]
       : [])
