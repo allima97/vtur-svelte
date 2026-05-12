@@ -163,7 +163,13 @@
   $: readOnly = !canEdit;
   $: bloqueado = sysLoading || sysSaving || sysAccessDenied || readOnly;
   $: bloqueadoConciliacao = bloqueado || !sysForm.conciliacao_regra_ativa;
-  $: bandasAtivas = sysForm.conciliacao_faixas_loja.filter((item) => item.ativo).length;
+  $: bandasAtivas = (() => {
+    let total = 0;
+    for (const item of sysForm.conciliacao_faixas_loja) {
+      if (item.ativo) total += 1;
+    }
+    return total;
+  })();
 
   async function loadSys() {
     sysLoading = true;
