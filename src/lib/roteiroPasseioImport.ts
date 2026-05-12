@@ -126,16 +126,12 @@ function looksLikeCityLine(line: string) {
 }
 
 function buildBlocks(text: string) {
-  const lines = String(text || "")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((line) => normalizeLine(line))
-    .filter(Boolean);
-
   const blocks: string[][] = [];
   let current: string[] = [];
 
-  for (const line of lines) {
+  for (const rawLine of String(text || "").replace(/\r/g, "\n").split("\n")) {
+    const line = normalizeLine(rawLine);
+    if (!line) continue;
     if (isDateLine(line) && current.length > 0) {
       blocks.push(current);
       current = [line];
@@ -181,11 +177,11 @@ function parseBlockDates(line: string, referenceYear: number) {
 
 function normalizeCity(line: string) {
   const raw = normalizeLine(line);
-  const parts = raw
-    .split("-")
-    .map((part) => normalizeLine(part))
-    .filter(Boolean);
-  return parts[0] || raw;
+  for (const part of raw.split("-")) {
+    const city = normalizeLine(part);
+    if (city) return city;
+  }
+  return raw;
 }
 
 function sortPasseios(list: ImportedRoteiroPasseio[]) {
@@ -204,7 +200,7 @@ function parsePasseioBlock(block: string[], index: number, referenceYear: number
   const dates = parseBlockDates(dateLine, referenceYear);
   if (!dates) return null;
 
-  const usefulLines = restLines.filter(Boolean).filter((line) => !isIgnoredMetaLine(line));
+  const usefulLines = restLines.filter((line) => line && !isIgnoredMetaLine(line));
   if (usefulLines.length === 0) return null;
 
   const hasCityLine = looksLikeCityLine(usefulLines[0] || "");
