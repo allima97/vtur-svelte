@@ -139,11 +139,7 @@
       label: 'Total Gasto',
       sortable: true,
       align: 'right' as const,
-      formatter: (value: number) =>
-        new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL'
-        }).format(value || 0)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value || 0)
     },
     {
       key: 'ultima_compra',
