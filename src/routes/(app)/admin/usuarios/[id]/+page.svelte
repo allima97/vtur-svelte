@@ -56,6 +56,7 @@
 
   $: isCreateMode = $page.params.id === 'novo';
   $: currentId = $page.params.id;
+  $: activePermissionsSummary = permissionsSummary.filter((item) => item.ativo);
   $: selectedUserTypeName = String(
     userTypes.find((type) => type.id === userForm.user_type_id)?.nome ||
       userTypes.find((type) => type.id === userForm.user_type_id)?.name ||
@@ -379,7 +380,7 @@
       <Card color="financeiro">
         <p class="text-sm text-slate-500">Permissoes ativas</p>
         <p class="mt-2 text-lg font-semibold text-slate-900">
-          {permissionsSummary.filter((item) => item.ativo).length}
+          {activePermissionsSummary.length}
         </p>
       </Card>
       <Card color="financeiro">
@@ -521,7 +522,7 @@
     <div class="grid gap-6 xl:grid-cols-2">
       <Card color="financeiro" title="Permissoes aplicadas">
         <div class="space-y-3">
-          {#each permissionsSummary.filter((item) => item.ativo).slice(0, 8) as item}
+          {#each activePermissionsSummary.slice(0, 8) as item}
             <div class="flex items-center justify-between rounded-xl border border-slate-200 p-3">
               <div>
                 <p class="font-medium text-slate-900">{item.label}</p>
@@ -531,7 +532,7 @@
             </div>
           {/each}
 
-          {#if permissionsSummary.filter((item) => item.ativo).length === 0}
+          {#if activePermissionsSummary.length === 0}
             <p class="text-sm text-slate-500">Nenhuma permissao ativa encontrada.</p>
           {/if}
 
