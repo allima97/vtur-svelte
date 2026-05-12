@@ -180,7 +180,9 @@
 
   function setItemHidden(key: string, hidden: boolean) {
     const nextHidden = hidden
-      ? Array.from(new Set([...prefs.hidden, key]))
+      ? prefs.hidden.includes(key)
+        ? [...prefs.hidden]
+        : [...prefs.hidden, key]
       : prefs.hidden.filter((k) => k !== key);
 
     prefs = { ...prefs, hidden: nextHidden };
