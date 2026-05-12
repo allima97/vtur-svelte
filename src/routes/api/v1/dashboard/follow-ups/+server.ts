@@ -18,7 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
+import { chunkArray, cleanStringSet, uniqueCleanStrings } from "$lib/utils/array";
 
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || "")
@@ -51,18 +51,18 @@ function hasLinkedVenda(row: any) {
   );
 }
 
-function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
+function isFollowUpAllowedForVendedores(row: any, vendedorIdSet: ReadonlySet<string>) {
   const venda = getVendaFromRow(row);
 
   if (hasLinkedVenda(row)) {
     if (!venda || venda.cancelada === true) return false;
-    if (vendedorIds.length === 0) return true;
-    return vendedorIds.includes(String(venda.vendedor_id || "").trim());
+    if (vendedorIdSet.size === 0) return true;
+    return vendedorIdSet.has(String(venda.vendedor_id || "").trim());
   }
 
   // Viagem avulsa não tem venda para comprovar vendedor. Quando há escopo de
   // vendedor, ela não deve aparecer no acompanhamento comercial.
-  return vendedorIds.length === 0;
+  return vendedorIdSet.size === 0;
 }
 
 export async function GET(event) {
@@ -134,6 +134,7 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
+        const vendedorIdSet = cleanStringSet(vendedorIds);
         const buildBaseQuery = (limit: number) =>
           client
             .from("viagens")
@@ -209,7 +210,7 @@ export async function GET(event) {
         }
 
         const candidatas = ((candidatasData || []) as any[]).filter((row) =>
-          isFollowUpAllowedForVendedores(row, vendedorIds),
+          isFollowUpAllowedForVendedores(row, vendedorIdSet),
         );
         await syncViagensStatus(client, candidatas);
 
@@ -235,7 +236,7 @@ export async function GET(event) {
             }
           }
           detalhadas = detalheRows.filter((row) =>
-            isFollowUpAllowedForVendedores(row, vendedorIds),
+            isFollowUpAllowedForVendedores(row, vendedorIdSet),
           );
           await syncViagensStatus(client, detalhadas);
         }
