@@ -466,10 +466,15 @@ function buildRuntimeAirportAliases(aliasValues?: string[] | null) {
     const key = `${parsed.code}__${normalizeText(parsed.city || parsed.code)}`;
     const existing = byCodeCity.get(key);
     if (!existing) {
+      const aliases: string[] = [];
+      for (const alias of parsed.aliases) {
+        const normalized = normalizeLine(alias);
+        if (normalized) aliases.push(normalized);
+      }
       byCodeCity.set(key, {
         code: parsed.code,
         city: parsed.city || parsed.code,
-        aliases: parsed.aliases.map((alias) => normalizeLine(alias)).filter(Boolean),
+        aliases,
       });
       return;
     }
