@@ -262,14 +262,14 @@ export async function GET(event) {
       });
 
       const scopedIds: string[] = [];
-      (teamUsers || []).forEach((row: any) => {
+      for (const row of teamUsers || []) {
         const id = String(row?.id || "").trim();
         const isOwnIndividualSeller =
           isVendedorByType && id === user.id && row?.active !== false;
-        if (!isOwnIndividualSeller && !isRankingEligibleUser(row)) return;
+        if (!isOwnIndividualSeller && !isRankingEligibleUser(row)) continue;
         const nome = String(row?.nome_completo || row?.email || "Equipe VTUR");
-        if (isTechnicalRankingUserName(nome)) return;
-        if (!id) return;
+        if (isTechnicalRankingUserName(nome)) continue;
+        if (!id) continue;
         scopedIds.push(id);
         rankingTeamMap.set(id, {
           id,
@@ -282,7 +282,7 @@ export async function GET(event) {
         if (roleName.includes("GESTOR")) {
           gestorIdsSet.add(id);
         }
-      });
+      }
       vendedorIds = scopedIds;
     }
 
