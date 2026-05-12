@@ -107,7 +107,11 @@ function buildReciboSearchPatterns(value?: string | null) {
   if (prefix && significantCore) patterns.add(`${prefix}%${significantCore}`);
   if (digits && digits !== core && digits !== significantCore) patterns.add(`%${digits}%`);
 
-  return Array.from(patterns).filter((item) => item.replace(/%/g, '').length >= 5);
+  const validPatterns: string[] = [];
+  for (const item of patterns) {
+    if (item.replace(/%/g, '').length >= 5) validPatterns.push(item);
+  }
+  return validPatterns;
 }
 
 function round2(value: number) {
