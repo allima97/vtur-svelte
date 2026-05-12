@@ -668,7 +668,11 @@ export async function extractCruzeiroFromText(text: string): Promise<ContratoImp
   const cleaned = cleanText(text);
   if (!cleaned) throw new Error("Texto obrigatorio.");
   const plain = cleaned.replace(/[|]/g, " ");
-  const lines = cleaned.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of cleaned.split("\n")) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
 
   const contratanteBlock = extractContratanteBlock(plain);
   const nomeContratanteFromBlock = extractContratanteNameFromBlock(contratanteBlock);
