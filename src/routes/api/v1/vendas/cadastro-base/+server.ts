@@ -18,6 +18,7 @@ import {
 } from '$lib/server/readModelCache';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
 function isIgnorableQueryError(err: any) {
@@ -90,7 +91,7 @@ export async function GET(event: RequestEvent) {
           nome_completo: row.nome_completo || row.email || 'Vendedor',
           company_id: row.company_id || null
         }))
-        .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR'));
+        .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome_completo || ''), String(b.nome_completo || '')));
     }
 
     const buildClientesQuery = (idsFilter: string[]) => {
@@ -116,7 +117,7 @@ export async function GET(event: RequestEvent) {
 
       return {
         data: dedupeById(rows)
-          .sort((left, right) => String(left?.nome || '').localeCompare(String(right?.nome || ''), 'pt-BR'))
+          .sort((left, right) => PT_BR_COLLATOR.compare(String(left?.nome || ''), String(right?.nome || '')))
           .slice(0, INITIAL_CLIENTES_LIMIT),
         error: null
       };
@@ -184,7 +185,7 @@ export async function GET(event: RequestEvent) {
 
       return {
         data: dedupeById(rows)
-          .sort((left, right) => String(left?.nome || '').localeCompare(String(right?.nome || ''), 'pt-BR'))
+          .sort((left, right) => PT_BR_COLLATOR.compare(String(left?.nome || ''), String(right?.nome || '')))
           .slice(0, 200),
         error: null
       };
@@ -210,9 +211,9 @@ export async function GET(event: RequestEvent) {
 
       return {
         data: dedupeById(rows).sort((left, right) =>
-          String(left?.nome_fantasia || left?.nome_empresa || '').localeCompare(
-            String(right?.nome_fantasia || right?.nome_empresa || ''),
-            'pt-BR'
+          PT_BR_COLLATOR.compare(
+            String(left?.nome_fantasia || left?.nome_empresa || ''),
+            String(right?.nome_fantasia || right?.nome_empresa || '')
           )
         ),
         error: null
