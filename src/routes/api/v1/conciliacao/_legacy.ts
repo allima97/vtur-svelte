@@ -28,6 +28,15 @@ export function normalizeStatus(value?: string | null) {
   return String(value || '').trim().toUpperCase() || 'OUTRO';
 }
 
+function buildCleanIdSet(rows: any[]) {
+  const ids = new Set<string>();
+  for (const item of rows) {
+    const id = String(item?.id || '').trim();
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
 export function normalizeTerm(value?: string | null) {
   return String(value || '')
     .normalize('NFD')
@@ -200,7 +209,7 @@ export async function fetchConciliacaoRankingOptions(params: {
   return {
     vendedores,
     produtosMeta,
-    vendedorIdSet: new Set(vendedores.map((item: any) => String(item?.id || '').trim()).filter(Boolean)),
-    produtoIdSet: new Set(produtosMeta.map((item: any) => String(item?.id || '').trim()).filter(Boolean))
+    vendedorIdSet: buildCleanIdSet(vendedores),
+    produtoIdSet: buildCleanIdSet(produtosMeta)
   };
 }
