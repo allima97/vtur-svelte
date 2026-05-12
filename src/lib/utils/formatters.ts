@@ -17,6 +17,16 @@ const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
 });
 
 const NUMBER_FORMATTERS = new Map<number, Intl.NumberFormat>();
+const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR');
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+const DATE_SHORT_FORMATTER = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+const MONTH_LONG_UTC_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' });
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return '-';
@@ -63,7 +73,7 @@ export function formatDate(value: string | Date | null | undefined): string {
 
   const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d.getTime())) return '-';
-  return new Intl.DateTimeFormat('pt-BR').format(d);
+  return DATE_FORMATTER.format(d);
 }
 
 export function formatDateTime(value: string | Date | null | undefined): string {
@@ -75,13 +85,7 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 
   const d = typeof value === 'string' ? new Date(value) : value;
   if (isNaN(d.getTime())) return '-';
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(d);
+  return DATE_TIME_FORMATTER.format(d);
 }
 
 export function formatDateShort(value: string | Date | null | undefined): string {
@@ -93,7 +97,7 @@ export function formatDateShort(value: string | Date | null | undefined): string
 
   const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d.getTime())) return '-';
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(d);
+  return DATE_SHORT_FORMATTER.format(d);
 }
 
 export function formatYearMonthLabel(value: string | null | undefined): string {
@@ -104,7 +108,7 @@ export function formatYearMonthLabel(value: string | null | undefined): string {
   const monthDate = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1));
   if (isNaN(monthDate.getTime())) return raw;
 
-  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' }).format(monthDate);
+  const monthName = MONTH_LONG_UTC_FORMATTER.format(monthDate);
   const monthTitle = monthName.charAt(0).toUpperCase() + monthName.slice(1);
   const yearShort = yearText.slice(-2);
   return `${monthTitle}-${yearShort}`;
