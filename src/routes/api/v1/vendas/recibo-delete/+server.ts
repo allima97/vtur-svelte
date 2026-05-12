@@ -65,14 +65,16 @@ export async function POST(event: RequestEvent) {
 
     invalidateSalesReadModels();
 
+    const scopedCompanyIds = companyIds.filter(Boolean) as string[];
+
     // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
     triggerRebuildAsync({
-      companyIds: companyIds.filter(Boolean) as string[],
+      companyIds: scopedCompanyIds,
       executionContext: (event.platform as any)?.ctx ?? null,
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
-    publishKvInvalidationAsync({ companyIds: companyIds.filter(Boolean) as string[] });
+    publishKvInvalidationAsync({ companyIds: scopedCompanyIds });
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
