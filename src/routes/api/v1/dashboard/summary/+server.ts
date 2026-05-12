@@ -20,7 +20,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
 import { toFiniteNumber as toNum } from "$lib/utils/values";
 
 // ---------------------------------------------------------------------------
@@ -73,6 +73,7 @@ async function fetchGestorCompanyScopeIds(
   options: { companyIds?: string[]; userIds?: string[] },
 ) {
   const companyIds = uniqueCleanStrings(options.companyIds || []);
+  const companyIdSet = cleanStringSet(companyIds);
   const userIds = uniqueCleanStrings(options.userIds || []);
 
   if (userIds.length === 0 && companyIds.length > 0) {
@@ -149,7 +150,7 @@ async function fetchGestorCompanyScopeIds(
             if (row?.uso_individual === true) return false;
             if (!isRankingEligibleUser(row)) return false;
             if (companyIds.length > 0)
-              return companyIds.includes(String(row?.company_id || "").trim());
+              return companyIdSet.has(String(row?.company_id || "").trim());
             return true;
           });
         return uniqueCleanStrings(eligibleRows.map((row: any) => row?.id));
