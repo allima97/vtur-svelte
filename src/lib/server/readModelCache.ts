@@ -233,7 +233,11 @@ function pruneBySize() {
 export async function getCachedReadModel<T>(
   options: CacheOptions<T>,
 ): Promise<T> {
-  const optionTags = (options.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean);
+  const optionTags: string[] = [];
+  for (const tag of options.tags || []) {
+    const normalizedTag = String(tag || "").trim();
+    if (normalizedTag) optionTags.push(normalizedTag);
+  }
 
   // Dados transacionais: usamos TTL dedicado em vez de forçar 5s por instância.
   // Em Workers o cache é local — forçar TTL baixo só gera thrash sem ganho
