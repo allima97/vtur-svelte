@@ -53,10 +53,10 @@ const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
   const map = new Map<string, DashboardQuoteRow>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const id = String(row?.id || "").trim();
     if (id && !map.has(id)) map.set(id, row);
-  });
+  }
   return Array.from(map.values())
     .sort((left, right) =>
       String(right.created_at || "").localeCompare(String(left.created_at || "")),
