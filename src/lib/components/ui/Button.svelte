@@ -23,6 +23,8 @@
   export let disabled = false;
   export let type: 'button' | 'submit' | 'reset' = 'button';
   export let href: string | undefined = undefined;
+  export let target: string | null = null;
+  export let rel: string | null = null;
   export let id: string | null = null;
   export let title: string | null = null;
   export let ariaLabel: string | null = null;
@@ -93,6 +95,7 @@
 
   $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
   $: safeHref = href ? sanitizeHref(href) || undefined : undefined;
+  $: resolvedRel = rel ?? (target === '_blank' ? 'noopener noreferrer' : null);
 </script>
 
 {#if safeHref}
@@ -102,6 +105,8 @@
     {size}
     color={flowbiteColor}
     title={title ?? undefined}
+    target={target ?? undefined}
+    rel={resolvedRel ?? undefined}
     aria-label={ariaLabel ?? undefined}
     aria-haspopup={ariaHaspopup ?? undefined}
     aria-expanded={ariaExpanded ?? undefined}

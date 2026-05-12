@@ -263,7 +263,7 @@
         </div>
 
         <!-- Filtro empresa (MASTER / ADMIN) -->
-        {#if ($permissoes.isMaster || $permissoes.isAdmin) && empresas.length > 0}
+        {#if ($permissoes.isMaster || $permissoes.isSystemAdmin) && empresas.length > 0}
           <div class="w-52">
             <FieldSelect
               label="Empresa"
@@ -295,7 +295,7 @@
           size="sm"
           on:click={loadDesempenho}
           disabled={loading || anosSelecionados.length === 0}
-          class="self-end"
+          class_name="self-end"
         >
           {loading ? 'Carregando...' : 'Aplicar'}
         </Button>
