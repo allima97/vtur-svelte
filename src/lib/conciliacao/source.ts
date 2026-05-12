@@ -11,7 +11,7 @@ import {
 } from "$lib/naoComissionavel";
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 export type EffectiveConciliacaoReceipt = {
@@ -165,9 +165,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
         normalizeTextValue(row?.termo_normalizado || row?.termo),
       )
       .filter(Boolean);
-    return termos.length > 0
-      ? Array.from(new Set(termos))
-      : DEFAULT_NAO_COMISSIONAVEIS;
+    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS;
   } catch (error) {
     logSourceWarning(
       "[source] parametros_pagamentos_nao_comissionaveis indisponivel:",

@@ -23,7 +23,7 @@ import {
   type RateioRow,
 } from "$lib/vendas/rateio";
 import { normalizeReceiptNumber } from "$lib/conciliacao/receiptNumber";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
@@ -366,7 +366,7 @@ async function carregarTermosNaoComissionaveis(
       )
       .filter(Boolean);
 
-    const unique = Array.from(new Set(termos)) as string[];
+    const unique = uniqueCleanStrings(termos);
     if (unique.length > 0) return unique;
   } catch (error) {
     logServerError("[vendas-kpis] falha ao carregar termos nao comissionaveis", error);

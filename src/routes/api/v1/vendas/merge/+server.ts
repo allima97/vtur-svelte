@@ -14,7 +14,7 @@ import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { isSaleInScope } from '$lib/server/salesScope';
 import { safeJsonParse } from '$lib/utils/json';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_VENDA_MERGE_BODY_BYTES = 64 * 1024;
 
@@ -126,7 +126,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
       .map((row: any) => normalizeText(row?.termo_normalizado || row?.termo))
       .filter(Boolean);
 
-    return termos.length > 0 ? Array.from(new Set(termos)) : DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
+    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
   } catch {
     return DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
   }

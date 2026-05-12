@@ -17,7 +17,7 @@ import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -162,7 +162,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
       .map((row: any) => normalizeText(row?.termo_normalizado || row?.termo))
       .filter(Boolean);
 
-    return termos.length > 0 ? Array.from(new Set(termos)) : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
+    return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
   } catch {
     return DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
   }

@@ -52,7 +52,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
-import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
@@ -249,7 +249,7 @@ async function carregarTermosNaoComissionaveis(client: any) {
       )
       .filter(Boolean);
 
-    const unique = Array.from(new Set(termos)) as string[];
+    const unique = uniqueCleanStrings(termos);
     if (unique.length > 0) return unique;
   } catch (error) {
     logServerError(
