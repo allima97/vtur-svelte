@@ -219,6 +219,11 @@
     cancelado: { label: "Cancelado", color: "red" },
   };
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   onMount(() => {
     loadViagem();
   });
@@ -313,10 +318,7 @@
 
   function formatCurrency(value: number | null): string {
     if (value === null || value === undefined) return "-";
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
+    return BRL_CURRENCY_FORMATTER.format(value);
   }
 
   function getDiasViagem(inicio: string, fim: string): number {
