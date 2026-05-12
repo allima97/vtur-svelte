@@ -269,8 +269,8 @@ async function resolveProdutoOperacional(params: {
   if (Array.isArray(existentes) && existentes[0]?.id) return existentes[0];
 
   const payload = {
-    nome,
-    destino: titleCaseNome(String(destinoNome || contrato.destino || nome).trim()),
+    nome: String(nome).slice(0, 200),
+    destino: titleCaseNome(String(destinoNome || contrato.destino || nome).trim()).slice(0, 200),
     cidade_id: cidadeId || null,
     tipo_produto: tipoProdutoId,
     todas_as_cidades: !cidadeId,
@@ -439,14 +439,14 @@ async function resolveClienteImport(client: any, companyId: string, userId: stri
     .from('clientes')
     .insert({
       cpf: formatCpf(cpf),
-      nome: nome || 'Cliente sem nome',
+      nome: (nome || 'Cliente sem nome').slice(0, 200),
       nascimento,
-      endereco: params.endereco || null,
-      numero: params.numero || null,
-      cidade: params.cidade || null,
-      estado: params.estado || null,
-      cep: params.cep || null,
-      rg: params.rg || null,
+      endereco: params.endereco ? String(params.endereco).slice(0, 200) : null,
+      numero: params.numero ? String(params.numero).slice(0, 20) : null,
+      cidade: params.cidade ? String(params.cidade).slice(0, 100) : null,
+      estado: params.estado ? String(params.estado).slice(0, 100) : null,
+      cep: params.cep ? String(params.cep).slice(0, 20) : null,
+      rg: params.rg ? String(params.rg).slice(0, 50) : null,
       company_id: companyId,
       created_by: userId,
       ativo: true
@@ -777,7 +777,7 @@ export async function POST(event) {
           responsavel_user_id: vendedorId,
           company_id: companyId,
           origem: null,
-          destino: cidadeNomeMap.get(String(reciboCidadeId || '')) || sanitizeDestinoTerm(contrato.destino || principal.destino || '') || null,
+          destino: (cidadeNomeMap.get(String(reciboCidadeId || '')) || sanitizeDestinoTerm(contrato.destino || principal.destino || '') || '').slice(0, 200) || null,
           data_inicio: contrato.data_saida || null,
           data_fim: contrato.data_retorno || null,
           status: statusViagem,
@@ -801,7 +801,7 @@ export async function POST(event) {
             .from('clientes')
             .insert({
               cpf: formatCpf(cpf),
-              nome: passageiroNome,
+              nome: String(passageiroNome).slice(0, 200),
               nascimento: isISODate(p.nascimento) ? p.nascimento : null,
               company_id: companyId,
               created_by: user.id,
@@ -856,7 +856,7 @@ export async function POST(event) {
           const { data: novaForma } = await client
             .from('formas_pagamento')
             .insert({
-              nome: formaNome,
+              nome: formaNome.slice(0, 200),
               ativo: true,
               company_id: companyId,
               paga_comissao: guessPagaComissaoDefault(formaNome, termosNaoComissionaveis),
@@ -894,7 +894,7 @@ export async function POST(event) {
         venda_id: venda.id,
         company_id: companyId,
         forma_pagamento_id: formaId,
-        forma_nome: formaNome || null,
+        forma_nome: formaNome ? formaNome.slice(0, 200) : null,
         operacao: pagamento.operacao || null,
         plano: pagamento.plano || null,
         valor_bruto: valorBruto || null,
