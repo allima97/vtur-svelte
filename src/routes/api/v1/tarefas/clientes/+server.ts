@@ -26,6 +26,8 @@ type TarefaClienteRow = {
   company_id: string | null;
 };
 
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
 function dedupeClientes(rows: TarefaClienteRow[]) {
   const map = new Map<string, TarefaClienteRow>();
   rows.forEach((row) => {
@@ -33,7 +35,7 @@ function dedupeClientes(rows: TarefaClienteRow[]) {
     if (id && !map.has(id)) map.set(id, row);
   });
   return Array.from(map.values()).sort((left, right) =>
-    String(left.nome || "").localeCompare(String(right.nome || ""), "pt-BR"),
+    PT_BR_COLLATOR.compare(String(left.nome || ""), String(right.nome || "")),
   );
 }
 

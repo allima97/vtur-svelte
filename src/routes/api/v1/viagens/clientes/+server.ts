@@ -23,6 +23,8 @@ type ViagemClienteRow = {
   cpf: string | null;
 };
 
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
 function dedupeClientes(rows: ViagemClienteRow[]) {
   const map = new Map<string, ViagemClienteRow>();
   rows.forEach((row) => {
@@ -30,7 +32,7 @@ function dedupeClientes(rows: ViagemClienteRow[]) {
     if (id && !map.has(id)) map.set(id, row);
   });
   return Array.from(map.values()).sort((left, right) =>
-    String(left.nome || "").localeCompare(String(right.nome || ""), "pt-BR"),
+    PT_BR_COLLATOR.compare(String(left.nome || ""), String(right.nome || "")),
   );
 }
 
