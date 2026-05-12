@@ -167,10 +167,12 @@ export function truncate(value: string | null | undefined, max = 60): string {
 /** Primeiras letras de cada palavra (iniciais) */
 export function initials(name: string | null | undefined, max = 2): string {
   if (!name) return '?';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, max)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
+  const words = name.trim().match(/\S+/g) || [];
+  let result = '';
+
+  for (let index = 0; index < words.length && index < max; index += 1) {
+    result += words[index][0]?.toUpperCase() ?? '';
+  }
+
+  return result;
 }
