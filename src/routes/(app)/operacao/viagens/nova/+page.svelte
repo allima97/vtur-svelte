@@ -35,6 +35,8 @@
     { value: 'cancelada', label: 'Cancelada' }
   ];
 
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
   let loading = true;
   let saving = false;
   let clientes: ClienteOption[] = [];
@@ -62,7 +64,7 @@
       if (!id) return;
       byId.set(id, { ...(byId.get(id) || {}), ...item });
     });
-    clientes = Array.from(byId.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    clientes = Array.from(byId.values()).sort((a, b) => PT_BR_COLLATOR.compare(a.nome, b.nome));
   }
 
   async function loadClientes() {
