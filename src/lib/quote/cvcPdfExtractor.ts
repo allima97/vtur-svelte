@@ -23,6 +23,7 @@ import type {
   QuoteDraft,
   QuoteItemDraft,
 } from "./types";
+import { uniqueCleanStrings } from "../utils/array";
 
 // Fallback: identifica blocos de itens em textos colados, agrupando por palavras-chave
 function extractLooseBlocks(text: string): string[][] {
@@ -1513,9 +1514,9 @@ function parseFlightDetailsFromLines(lines: string[], itemType?: string): Flight
     }
   }
 
-  details.fare_tags = Array.from(new Set(details.fare_tags.map((tag) => tag.trim()).filter(Boolean)));
-  details.baggage = Array.from(new Set(details.baggage.map((tag) => tag.trim()).filter(Boolean)));
-  details.notices = Array.from(new Set(details.notices.map((tag) => tag.trim()).filter(Boolean)));
+  details.fare_tags = uniqueCleanStrings(details.fare_tags);
+  details.baggage = uniqueCleanStrings(details.baggage);
+  details.notices = uniqueCleanStrings(details.notices);
 
   details.directions = details.directions.filter((dir) => {
     const hasLegs = dir.legs && dir.legs.length > 0;
@@ -2801,7 +2802,7 @@ function parseCircuitMetaFromLines(lines: string[]) {
   const uniqueItinerary = Array.from(
     new Set(itinerary.map((value) => value.trim()).filter(Boolean))
   );
-  const uniqueTags = Array.from(new Set(tags.map((value) => value.trim()).filter(Boolean)));
+  const uniqueTags = uniqueCleanStrings(tags);
 
   if (uniqueItinerary.length) meta.itinerario = uniqueItinerary;
   if (uniqueTags.length) meta.tags = uniqueTags;

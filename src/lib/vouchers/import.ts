@@ -1,5 +1,6 @@
 import { buildPassengerSummary, createEmptyVoucherExtraData, normalizeVoucherExtraData } from "./extraData";
 import { toISODateUTC } from '$lib/date';
+import { uniqueCleanStrings } from "../utils/array";
 import type {
   VoucherDia,
   VoucherExtraData,
@@ -148,7 +149,7 @@ function mergeConsecutiveHotels(items: VoucherHotel[]) {
       last.data_fim = hotel.data_fim || last.data_fim;
       last.noites = diffNights(last.data_inicio, last.data_fim);
       const obs = [last.observacao, hotel.observacao].map(cleanLine).filter(Boolean);
-      last.observacao = Array.from(new Set(obs)).join(" | ");
+      last.observacao = uniqueCleanStrings(obs).join(" | ");
       continue;
     }
     merged.push({ ...hotel });

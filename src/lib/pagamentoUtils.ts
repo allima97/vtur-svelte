@@ -5,6 +5,7 @@ import {
   calcularNaoComissionavelPorVenda as calcularNaoComissionavelPorVendaShared,
   calcularNaoComissionavelResumo,
 } from '$lib/naoComissionavel';
+import { uniqueCleanStrings } from '$lib/utils/array';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito diversos",
@@ -46,7 +47,7 @@ export async function carregarTermosNaoComissionaveis(options: { force?: boolean
       const termos: string[] = (data || [])
         .map((row: any) => normalizeTerm(row?.termo_normalizado || row?.termo))
         .filter((t: string) => Boolean(t));
-      const unique: string[] = Array.from(new Set(termos));
+      const unique = uniqueCleanStrings(termos);
       cachedTermosNaoComissionaveis = unique;
       return unique;
     } catch (err) {

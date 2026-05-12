@@ -1,4 +1,5 @@
 import { normalizeText } from "../normalizeText";
+import { uniqueCleanStrings } from "../utils/array";
 
 function buildFretamentoLabel(raw?: string | null) {
   if (!raw) return null;
@@ -2723,7 +2724,7 @@ function buildProdutoPrincipalFromFornecedores(fornecedores?: RoteiroReservaForn
     .filter((item): item is string => Boolean(item))
     .filter((item) => !normalizeMaybeNumero(item) && !isGenericServicoLabel(item));
   if (receptivoServicos.length) {
-    const unique = Array.from(new Set(receptivoServicos.map((s) => s.trim()))).filter(Boolean);
+    const unique = uniqueCleanStrings(receptivoServicos);
     if (unique.length) return unique.join(" | ");
   }
 
@@ -2744,7 +2745,7 @@ function buildProdutoPrincipalFromFornecedores(fornecedores?: RoteiroReservaForn
     })
     .filter((item): item is string => Boolean(item));
   if (!parts.length) return null;
-  const unique = Array.from(new Set(parts.map((p) => p.trim()))).filter(Boolean);
+  const unique = uniqueCleanStrings(parts);
   return unique.join(" | ");
 }
 
