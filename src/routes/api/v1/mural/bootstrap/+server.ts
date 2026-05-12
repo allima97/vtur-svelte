@@ -12,6 +12,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { uniqueCleanStrings } from "$lib/utils/array";
 
 export async function GET(event) {
   try {
@@ -22,9 +23,7 @@ export async function GET(event) {
 
     let empresas: Array<{ id: string; nome_fantasia: string; status: string }> =
       [];
-    const allowedCompanyIds = Array.from(
-      new Set((scope.companyIds || []).map((id) => String(id || "").trim()).filter(isUuid)),
-    );
+    const allowedCompanyIds = uniqueCleanStrings(scope.companyIds || []).filter(isUuid);
     let selectedCompanyId = String(scope.companyId || allowedCompanyIds[0] || "").trim();
 
     if (!scope.isAdmin && allowedCompanyIds.length > 0) {
