@@ -49,6 +49,11 @@
     currency: 'BRL'
   });
 
+  const PT_BR_DECIMAL_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
   type ConciliacaoItem = {
     id: string;
     company_id?: string;
@@ -597,7 +602,7 @@
   function formatMoney(value: number | null | undefined) {
     const num = Number(value || 0);
     if (!Number.isFinite(num)) return '-';
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return PT_BR_DECIMAL_FORMATTER.format(num);
   }
 
   function getDiffRatio(diff: number | null | undefined, sistemaValue: number | null | undefined) {
@@ -1665,7 +1670,7 @@
     if (value === null || value === undefined) return '';
     const num = Number(value);
     if (!Number.isFinite(num)) return '';
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return PT_BR_DECIMAL_FORMATTER.format(num);
   }
 
   function fillDetailsForm(row: ConciliacaoItem) {
