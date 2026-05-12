@@ -1384,7 +1384,7 @@ export async function fetchAndComputeVendasTimeline(
     groupedByVenda.set(vendaKey, current);
   }
 
-  groupedByVenda.forEach((group, vendaKey) => {
+  for (const [vendaKey, group] of groupedByVenda) {
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
@@ -1395,7 +1395,7 @@ export async function fetchAndComputeVendasTimeline(
         vendaPrincipal?.cancelada,
       )
     )
-      return;
+      continue;
 
     const vendaDate = toDateKey(vendaPrincipal?.data_venda);
     const recibosAll = filterRecibosCanceladosMesmoMes(group.recibos || []);
@@ -1520,7 +1520,7 @@ export async function fetchAndComputeVendasTimeline(
         );
       });
     });
-  });
+  }
 
   return Array.from(timelineMap.entries())
     .sort(([left], [right]) => left.localeCompare(right))
