@@ -11,12 +11,14 @@ import { extractISODate, formatISODateBR, formatISODateShortBR } from '$lib/date
 
 // ─── Moeda ────────────────────────────────────────────────────────────────────
 
+const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL'
+});
+
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return '-';
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  }).format(value);
+  return BRL_CURRENCY_FORMATTER.format(value);
 }
 
 export function formatCurrencyShort(value: number | null | undefined): string {
