@@ -54,6 +54,10 @@
     const row = globalModules.find((item) => item.module_key === moduleKey);
     return row ? row.enabled !== false : true;
   }
+  $: disabledGlobalModulesCount = systemModuleCatalog.reduce(
+    (total, item) => total + (getGlobalEnabled(item.key) ? 0 : 1),
+    0
+  );
 
   async function loadPage() {
     loading = true;
@@ -127,7 +131,7 @@
     </div>
     <div class="vtur-kpi-card">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><XCircle size={20} /></div>
-      <div><p class="text-sm font-medium text-slate-500">Módulos desabilitados</p><p class="text-2xl font-bold text-slate-900">{systemModuleCatalog.filter((item) => !getGlobalEnabled(item.key)).length}</p></div>
+      <div><p class="text-sm font-medium text-slate-500">Módulos desabilitados</p><p class="text-2xl font-bold text-slate-900">{disabledGlobalModulesCount}</p></div>
     </div>
   </div>
 

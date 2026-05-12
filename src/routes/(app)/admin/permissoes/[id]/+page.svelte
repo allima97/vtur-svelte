@@ -74,6 +74,7 @@
     lastLoadedId = $page.params.id;
     loadPage();
   }
+  $: activePermissionsCount = permissions.reduce((total, item) => total + (item.ativo ? 1 : 0), 0);
 </script>
 
 <svelte:head>
@@ -94,7 +95,7 @@
   <Card color="financeiro">
     <div class="flex flex-wrap items-center gap-3">
       <Badge color="blue">{userInfo?.email || 'Sem e-mail'}</Badge>
-      <Badge color="yellow">{permissions.filter((item) => item.ativo).length} modulos ativos</Badge>
+      <Badge color="yellow">{activePermissionsCount} modulos ativos</Badge>
     </div>
   </Card>
 
