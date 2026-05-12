@@ -13,7 +13,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_CAMPANHA_BODY_BYTES = 128 * 1024;
 
@@ -117,6 +117,7 @@ export async function POST(event) {
     const { id, titulo, imagem_url, link_url, link_instagram, link_facebook, data_campanha, validade_ate, regras, status } = body;
     const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId || null);
+    const companyIdSet = cleanStringSet(companyIds);
 
     if (!String(titulo || '').trim()) return json({ error: 'Título obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     if (!String(data_campanha || '').trim()) return json({ error: 'Data da campanha obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -140,7 +141,7 @@ export async function POST(event) {
       if (existingError) throw existingError;
       if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
       const existingCompanyId = String((existing as any)?.company_id || '').trim();
-      if (!existingCompanyId || !companyIds.includes(existingCompanyId)) {
+      if (!existingCompanyId || !companyIdSet.has(existingCompanyId)) {
         return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
       companyId = existingCompanyId;
@@ -204,6 +205,7 @@ export async function DELETE(event) {
       scope,
       event.url.searchParams.get('company_id') || event.url.searchParams.get('empresa_id')
     );
+    const companyIdSet = cleanStringSet(companyIds);
 
     const { data: existing, error: existingError } = await client
       .from('campanhas')
@@ -214,7 +216,7 @@ export async function DELETE(event) {
     if (!existing) return json({ error: 'Campanha não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     const existingCompanyId = String((existing as any)?.company_id || '').trim();
-    if (!scope.isAdmin && (!existingCompanyId || !companyIds.includes(existingCompanyId))) {
+    if (!scope.isAdmin && (!existingCompanyId || !companyIdSet.has(existingCompanyId))) {
       return json({ error: 'Campanha fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
