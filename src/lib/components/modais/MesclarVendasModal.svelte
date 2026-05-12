@@ -35,6 +35,10 @@
   let erro: string | null = null;
   let filtro = '';
   let confirmando = false;
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   // ─── Derivados ─────────────────────────────────────────────────────────────
   $: candidatosFiltrados = candidatos.filter(c => {
@@ -53,7 +57,7 @@
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
   function fmt(v: number | null) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+    return BRL_CURRENCY_FORMATTER.format(v || 0);
   }
 
   function fmtDate(d: string | null) {
