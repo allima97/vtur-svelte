@@ -27,6 +27,15 @@ function matches(a: number, b: number) {
   return Math.abs(a - b) <= 0.01;
 }
 
+function collectChangeIds(rows: any[]) {
+  const ids: string[] = [];
+  for (const row of rows) {
+    const id = String(row?.id || '');
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -75,7 +84,7 @@ export async function POST(event) {
       if (error) throw error;
       const rows = data || [];
       targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
-      changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
+      changeIdsParaReverter = collectChangeIds(rows);
     } else {
       const rows: any[] = [];
       for (const batch of chunkArray(ids.slice(0, 500))) {
@@ -90,7 +99,7 @@ export async function POST(event) {
       }
       targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
       // Somente os IDs confirmados pelo banco (company_id validado acima)
-      changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
+      changeIdsParaReverter = collectChangeIds(rows);
     }
 
     if (targetReciboIds.length === 0) {
