@@ -203,9 +203,9 @@ function calcularNaoComissionavelResumo(
   const porVendaSemRecibo = new Map<string, number>();
   const porRecibo = new Map<string, number>();
 
-  pagamentos.forEach((pagamento) => {
+  for (const pagamento of pagamentos) {
     const vendaId = toStr(pagamento.venda_id);
-    if (!vendaId) return;
+    if (!vendaId) continue;
 
     const formaNomeResolvida = [
       pagamento.forma_nome,
@@ -220,10 +220,10 @@ function calcularNaoComissionavelResumo(
     const naoComissiona =
       pagaComissaoResolvido === false ||
       isFormaNaoComissionavel(formaNomeResolvida, termos);
-    if (!naoComissiona) return;
+    if (!naoComissiona) continue;
 
     const valorBase = calcularValorPagamento(pagamento);
-    if (valorBase <= 0) return;
+    if (valorBase <= 0) continue;
 
     addToMap(porVenda, vendaId, valorBase);
 
@@ -233,7 +233,7 @@ function calcularNaoComissionavelResumo(
     } else {
       addToMap(porVendaSemRecibo, vendaId, valorBase);
     }
-  });
+  }
 
   return { porVenda, porVendaSemRecibo, porRecibo };
 }
