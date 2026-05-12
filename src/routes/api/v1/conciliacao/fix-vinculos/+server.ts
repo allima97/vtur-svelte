@@ -389,10 +389,10 @@ export async function POST(event) {
       const rankingId = toStr(row?.ranking_vendedor_id);
       if (rankingId) userIds.add(rankingId);
     }
-    allReceipts.forEach((recibo: any) => {
+    for (const recibo of allReceipts) {
       const vendedorId = toStr(recibo?.venda?.vendedor_id);
       if (vendedorId) userIds.add(vendedorId);
-    });
+    }
     rateioByReciboId.forEach((rateio: any) => {
       const origem = toStr(rateio?.vendedor_origem_id);
       const destino = toStr(rateio?.vendedor_destino_id);
