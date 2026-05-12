@@ -24,7 +24,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -943,8 +943,9 @@ export async function GET(event) {
       const masterCompanies = await fetchMasterEmpresas(client, scope.userId);
       if (masterCompanies.length > 0) {
         const requested = String(requestedCompanyId || '').trim();
+        const masterCompanySet = cleanStringSet(masterCompanies);
         companyIds = requested
-          ? (masterCompanies.includes(requested) ? [requested] : [])
+          ? (masterCompanySet.has(requested) ? [requested] : [])
           : masterCompanies;
       }
     }
