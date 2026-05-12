@@ -682,9 +682,9 @@
   $: vendasPorMesData = (() => {
     const monthMap = new Map<string, number>();
 
-    (chartSeries.mensal || []).forEach((item) => {
+    for (const item of chartSeries.mensal || []) {
       monthMap.set(item.key, Number(item.total_valor || 0));
-    });
+    }
 
     return {
       labels: monthKeys.map((key) => formatMonthLabel(key)),
@@ -707,13 +707,13 @@
     const daysInMonth = Number(range.fim.slice(8, 10));
     const dayMap = new Map<number, number>();
 
-    (chartSeries.diaria || []).forEach((point) => {
-        const date = String(point?.date || '').slice(0, 10);
-        if (!date) return;
-        const day = Number(date.slice(8, 10));
-        if (!Number.isFinite(day) || day <= 0) return;
-        dayMap.set(day, (dayMap.get(day) || 0) + Number(point.value || 0));
-      });
+    for (const point of chartSeries.diaria || []) {
+      const date = String(point?.date || '').slice(0, 10);
+      if (!date) continue;
+      const day = Number(date.slice(8, 10));
+      if (!Number.isFinite(day) || day <= 0) continue;
+      dayMap.set(day, (dayMap.get(day) || 0) + Number(point.value || 0));
+    }
 
     const labels = Array.from({ length: daysInMonth }, (_, idx) => String(idx + 1).padStart(2, '0'));
     const data = Array.from({ length: daysInMonth }, (_, idx) => dayMap.get(idx + 1) || 0);
