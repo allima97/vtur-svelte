@@ -940,9 +940,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           if (!isMissing) throw rateioError;
           break;
         }
-        (rateioRows || []).forEach((row: any) => {
+        for (const row of rateioRows || []) {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
-        });
+        }
       } catch (err: any) {
         logSourceWarning(
           "[source] rateio por recibo fallback falhou, seguindo sem rateio:",
