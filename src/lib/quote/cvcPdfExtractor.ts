@@ -3110,7 +3110,11 @@ async function loadImageFromFile(file: File) {
 
 // Parses the new CVC website/app format: "Valor (N produto)" summary + product blocks + "Detalhes" section
 function parseItemsFromSummaryFormat(text: string, baseYear: number): QuoteItemDraft[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed) lines.push(trimmed);
+  }
 
   // Only handle if text contains "Valor (N produto" (new CVC summary format)
   if (!lines.some((l) => /^Valor\s*\(\d+\s*produto/i.test(l))) return [];
