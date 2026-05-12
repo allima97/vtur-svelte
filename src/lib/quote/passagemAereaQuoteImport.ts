@@ -103,18 +103,21 @@ function splitCents(total: number, count: number) {
 }
 
 function firstDate(imported: ImportedRoteiroAereo[]) {
-  return imported
-    .map((item) => String(item.data_inicio || item.data_voo || '').trim())
-    .filter(Boolean)
-    .sort()[0] || '';
+  const dates: string[] = [];
+  for (const item of imported) {
+    const date = String(item.data_inicio || item.data_voo || '').trim();
+    if (date) dates.push(date);
+  }
+  return dates.sort()[0] || '';
 }
 
 function lastDate(imported: ImportedRoteiroAereo[]) {
-  return imported
-    .map((item) => String(item.data_fim || item.data_voo || item.data_inicio || '').trim())
-    .filter(Boolean)
-    .sort()
-    .at(-1) || '';
+  const dates: string[] = [];
+  for (const item of imported) {
+    const date = String(item.data_fim || item.data_voo || item.data_inicio || '').trim();
+    if (date) dates.push(date);
+  }
+  return dates.sort().at(-1) || '';
 }
 
 function splitTrecho(value?: string | null) {
