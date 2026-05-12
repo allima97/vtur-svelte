@@ -51,7 +51,9 @@ export function isBaixaRacDescricao(value?: string | null) {
 
 export function isBaixaRacVendorId(vendedorId: string | null | undefined, baixaRacId?: string | null) {
   if (!vendedorId || !baixaRacId) return false;
-  return String(vendedorId).trim().toLowerCase() === String(baixaRacId).trim().toLowerCase();
+  const normalizedVendedorId = String(vendedorId).trim().toLowerCase();
+  const normalizedBaixaRacId = String(baixaRacId).trim().toLowerCase();
+  return normalizedVendedorId === normalizedBaixaRacId;
 }
 
 export async function findBaixaRacVendedor(client: any, companyId: string | null) {
