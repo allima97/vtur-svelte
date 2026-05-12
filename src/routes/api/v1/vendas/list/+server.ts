@@ -925,7 +925,9 @@ export async function GET(event) {
     const pageSize = Math.min(200, parseIntSafe(searchParams.get('pageSize'), 20));
     const all = String(searchParams.get('all') || '').trim() === '1';
     const openId = String(searchParams.get('id') || '').trim();
-    const includeKpis = String(searchParams.get('include_kpis') || '').trim() === '1' || String(searchParams.get('kpis') || '').trim() === '1';
+    const includeKpisParam = String(searchParams.get('include_kpis') || '').trim();
+    const kpisParam = String(searchParams.get('kpis') || '').trim();
+    const includeKpis = includeKpisParam === '1' || kpisParam === '1';
     const includeVendedores = String(searchParams.get('include_vendedores') || '').trim() === '1';
     const searchQuery = String(searchParams.get('q') || '').trim();
     const campoBuscaRaw = String(searchParams.get('campo') || 'todos').trim().toLowerCase() || 'todos';
