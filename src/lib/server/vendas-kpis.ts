@@ -1103,7 +1103,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
     groupedByVenda.set(vendaKey, current);
   }
 
-  groupedByVenda.forEach((group, vendaKey) => {
+  for (const [vendaKey, group] of groupedByVenda) {
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
@@ -1114,7 +1114,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
         vendaPrincipal?.cancelada,
       )
     )
-      return;
+      continue;
 
     const vendaDate = toDateKey(vendaPrincipal?.data_venda);
     const recibosAll = filterRecibosCanceladosMesmoMes(group.recibos || []);
@@ -1172,7 +1172,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
     });
 
     if (recibosPeriodo.length === 0) {
-      return;
+      continue;
     }
 
     countAtivas += 1;
@@ -1297,7 +1297,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
         });
       });
     });
-  });
+  }
 
   return {
     agg: {
