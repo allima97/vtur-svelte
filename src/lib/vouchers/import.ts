@@ -336,7 +336,11 @@ export function parseSpecialToursCircuitPasteText(text: string): VoucherImportRe
   const normalized = cleanMultilineText(text);
   if (!normalized) return result;
 
-  const lines = normalized.split("\n").map(cleanLine).filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of normalized.split("\n")) {
+    const line = cleanLine(rawLine);
+    if (line) lines.push(line);
+  }
 
   let inItinerary = false;
   let inHotels = false;
