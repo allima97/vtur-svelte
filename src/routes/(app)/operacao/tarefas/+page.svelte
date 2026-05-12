@@ -87,6 +87,14 @@
     '#1e3a8a'
   ];
 
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
   const listColumns = [
     { key: 'titulo', label: 'Assunto', sortable: true },
     { key: 'categoriaNome', label: 'Categoria', sortable: true },
@@ -156,13 +164,7 @@
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
 
-    return parsed.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return DATE_TIME_FORMATTER.format(parsed);
   }
 
   function getPriorityLabel(value: TodoPrioridade) {
