@@ -1240,11 +1240,11 @@ export async function fetchVendasKpiReciboContributionsRaw(
       if (allocations.length === 0) continue;
 
       let countedRecibo = false;
-      allocations.forEach((allocation) => {
+      for (const allocation of allocations) {
         const brutoAlloc = bruto * allocation.fator;
         const taxasAlloc = taxasEfetivas * allocation.fator;
 
-        if (brutoAlloc <= 0 && taxasAlloc <= 0) return;
+        if (brutoAlloc <= 0 && taxasAlloc <= 0) continue;
 
         totalVendas += brutoAlloc;
         totalTaxas += taxasAlloc;
@@ -1295,7 +1295,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
           sourceTaxas: Number(sourceTaxas.toFixed(2)),
           origem: hasConciliacaoOverride(recibo) ? "conciliacao" : "venda",
         });
-      });
+      }
     }
   }
 
