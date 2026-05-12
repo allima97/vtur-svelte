@@ -264,7 +264,10 @@ export async function GET(event: RequestEvent) {
         }
       }
 
-      const currentLinkedIds = new Set(current.map((item) => item.recibo_id));
+      const currentLinkedIds = new Set<string>();
+      for (const item of current) {
+        currentLinkedIds.add(item.recibo_id);
+      }
 
       suggestions = (scopedReceiptsData || [])
         .map((row: any) => {
