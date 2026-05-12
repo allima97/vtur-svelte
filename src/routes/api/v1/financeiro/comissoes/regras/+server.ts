@@ -85,7 +85,12 @@ async function fetchCommissionRulesForScope(params: {
     }
   }
 
-  return Array.from(new Map(rows.map((row) => [row.id, row])).values()).sort((a, b) =>
+  const rowsById = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    rowsById.set(row.id, row);
+  }
+
+  return Array.from(rowsById.values()).sort((a, b) =>
     PT_BR_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || ''))
   );
 }
