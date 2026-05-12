@@ -140,16 +140,12 @@ function isAddressLine(line: string) {
 }
 
 function buildBlocks(text: string) {
-  const lines = String(text || "")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((line) => normalizeLine(line))
-    .filter(Boolean);
-
   const blocks: string[][] = [];
   let current: string[] = [];
 
-  for (const line of lines) {
+  for (const rawLine of String(text || "").replace(/\r/g, "\n").split("\n")) {
+    const line = normalizeLine(rawLine);
+    if (!line) continue;
     if (DATE_RANGE_RE.test(line) && current.length > 0) {
       blocks.push(current);
       current = [line];
