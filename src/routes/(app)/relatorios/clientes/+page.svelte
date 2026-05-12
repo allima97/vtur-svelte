@@ -246,9 +246,19 @@
     });
 
   $: totalClientes = clientesFiltrados.length;
-  $: totalGasto = clientesFiltrados.reduce((acc, cliente) => acc + cliente.total_gasto, 0);
+  $: clientesAgregados = clientesFiltrados.reduce(
+    (acc, cliente) => {
+      acc.totalGasto += cliente.total_gasto;
+      if (cliente.categoria === 'VIP') acc.vip += 1;
+      if (cliente.categoria === 'Regular') acc.regular += 1;
+      if (cliente.categoria === 'Ocasional') acc.ocasional += 1;
+      return acc;
+    },
+    { totalGasto: 0, vip: 0, regular: 0, ocasional: 0 }
+  );
+  $: totalGasto = clientesAgregados.totalGasto;
   $: ticketMedioGeral = totalClientes > 0 ? totalGasto / totalClientes : 0;
-  $: clientesVIP = clientesFiltrados.filter((cliente) => cliente.categoria === 'VIP').length;
+  $: clientesVIP = clientesAgregados.vip;
 
   $: if (filtroPeriodoModo === 'mes') {
     const range = monthRangeFromKey(mesSelecionado) || defaultRange;
@@ -263,11 +273,7 @@
     datasets: [
       {
         label: 'Clientes',
-        data: [
-          clientesFiltrados.filter((cliente) => cliente.categoria === 'VIP').length,
-          clientesFiltrados.filter((cliente) => cliente.categoria === 'Regular').length,
-          clientesFiltrados.filter((cliente) => cliente.categoria === 'Ocasional').length
-        ],
+        data: [clientesAgregados.vip, clientesAgregados.regular, clientesAgregados.ocasional],
         backgroundColor: ['#f97316', '#fb923c', '#cbd5e1']
       }
     ]
