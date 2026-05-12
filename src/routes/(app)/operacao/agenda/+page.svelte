@@ -50,6 +50,20 @@
     { key: 'descricao', label: 'Descricao', sortable: true }
   ];
 
+  const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
   const todayIso = todayISODateLocal();
 
   const defaultEventForm = (): EventForm => ({
@@ -102,13 +116,7 @@
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
 
-    return parsed.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: allDay ? undefined : '2-digit',
-      minute: allDay ? undefined : '2-digit'
-    });
+    return (allDay ? DATE_FORMATTER : DATE_TIME_FORMATTER).format(parsed);
   }
 
   function splitDateTime(value?: string | null) {
