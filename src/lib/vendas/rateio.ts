@@ -241,10 +241,10 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
         .select('id, venda_id')
         .in('id', batch);
       if (recibosErr) throw recibosErr;
-      (recibosRows || []).forEach((row: any) => {
+      for (const row of recibosRows || []) {
         const vendaId = toStr(row?.venda_id);
         if (isUuid(vendaId)) vendaIds.add(vendaId);
-      });
+      }
     }
   }
 
