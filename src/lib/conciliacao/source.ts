@@ -700,12 +700,12 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           rateioQueryFailed = true;
           break;
         }
-        (rateioRows || []).forEach((row: any) => {
+        for (const row of rateioRows || []) {
           const id = toStr(row?.conciliacao_recibo_id);
-          if (!id) return;
+          if (!id) continue;
           concRowIdsWithRateio.add(id);
           setRateioRow(concRateioMap, id, row);
-        });
+        }
       } catch (err: any) {
         // Qualquer erro inesperado na query de rateio → segue sem aplicar rateio,
         // não derruba a busca principal de conciliação.
