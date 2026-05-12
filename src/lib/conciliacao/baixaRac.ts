@@ -2,9 +2,10 @@ export const BAIXA_RAC_USER_NAME = "Baixa RAC";
 export const BAIXA_RAC_DESCRICAO = "BAIXA DE RAC";
 
 export const EQUIPE_VTUR_USER_NAME = "Equipe vtur";
+const EQUIPE_VTUR_USER_NAME_NORMALIZED = EQUIPE_VTUR_USER_NAME.toLowerCase();
 
 export function isEquipeVturNome(value?: string | null) {
-  return String(value || "").trim().toLowerCase() === EQUIPE_VTUR_USER_NAME.toLowerCase();
+  return String(value || "").trim().toLowerCase() === EQUIPE_VTUR_USER_NAME_NORMALIZED;
 }
 
 export async function findEquipeVturVendedor(client: any, companyId: string | null) {
@@ -37,12 +38,15 @@ export function normalizeBaixaRacText(value?: string | null) {
     .toUpperCase();
 }
 
+const BAIXA_RAC_USER_NAME_NORMALIZED = normalizeBaixaRacText(BAIXA_RAC_USER_NAME);
+const BAIXA_RAC_DESCRICAO_NORMALIZED = normalizeBaixaRacText(BAIXA_RAC_DESCRICAO);
+
 export function isBaixaRacUserName(value?: string | null) {
-  return normalizeBaixaRacText(value) === normalizeBaixaRacText(BAIXA_RAC_USER_NAME);
+  return normalizeBaixaRacText(value) === BAIXA_RAC_USER_NAME_NORMALIZED;
 }
 
 export function isBaixaRacDescricao(value?: string | null) {
-  return normalizeBaixaRacText(value) === normalizeBaixaRacText(BAIXA_RAC_DESCRICAO);
+  return normalizeBaixaRacText(value) === BAIXA_RAC_DESCRICAO_NORMALIZED;
 }
 
 export function isBaixaRacVendorId(vendedorId: string | null | undefined, baixaRacId?: string | null) {
