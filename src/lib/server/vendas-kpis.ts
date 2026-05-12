@@ -880,7 +880,7 @@ async function fetchAndComputeVendasKpisLegacy(
     groupedByVenda.set(vendaKey, current);
   }
 
-  groupedByVenda.forEach((group, vendaKey) => {
+  for (const [vendaKey, group] of groupedByVenda) {
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
@@ -891,7 +891,7 @@ async function fetchAndComputeVendasKpisLegacy(
         vendaPrincipal?.cancelada,
       )
     )
-      return;
+      continue;
 
     const vendaDate = toDateKey(vendaPrincipal?.data_venda);
     const recibosAll = filterRecibosCanceladosMesmoMes(group.recibos || []);
@@ -949,7 +949,7 @@ async function fetchAndComputeVendasKpisLegacy(
     });
 
     if (recibosPeriodo.length === 0) {
-      return;
+      continue;
     }
 
     countAtivas += 1;
@@ -1033,7 +1033,7 @@ async function fetchAndComputeVendasKpisLegacy(
         }
       });
     });
-  });
+  }
 
   return {
     totalVendas,
