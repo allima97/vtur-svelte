@@ -16,6 +16,11 @@
 // TIPOS (portabilizados do vtur-app comissaoUtils.ts)
 // ---------------------------------------------------------------------------
 
+const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
+
 export type Tier = {
   faixa: 'PRE' | 'POS';
   de_pct: number;
@@ -865,10 +870,7 @@ export function agruparComissoesPorVendedor(comissoes: Comissao[]) {
 
 /** Formata valor monetário em BRL */
 export function formatarMoeda(valor: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(valor);
+  return BRL_CURRENCY_FORMATTER.format(valor);
 }
 
 /** Formata percentual com 2 casas decimais */
