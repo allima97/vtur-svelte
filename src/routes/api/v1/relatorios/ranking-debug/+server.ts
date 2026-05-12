@@ -157,12 +157,12 @@ export async function GET(event) {
             .limit(5000);
 
           if (usersError) throw usersError;
-          (usersRows || []).forEach((row: any) => {
+          for (const row of usersRows || []) {
             vendedorMap.set(
               String(row?.id || ''),
               String(row?.nome_completo || row?.email || row?.id || '')
             );
-          });
+          }
         }
       }
 
@@ -174,9 +174,9 @@ export async function GET(event) {
       });
 
       const porVendedor = new Map<string, { vendedor_id: string; vendedor_nome: string; total: number; taxas: number; seguro: number; recibos: number }>();
-      canonical.contributions.forEach((item) => {
+      for (const item of canonical.contributions) {
         const vendedorId = String(item.vendedorId || '').trim();
-        if (!vendedorId) return;
+        if (!vendedorId) continue;
         const current = porVendedor.get(vendedorId) || {
           vendedor_id: vendedorId,
           vendedor_nome: vendedorMap.get(vendedorId) || vendedorId,
@@ -190,7 +190,7 @@ export async function GET(event) {
         if (item.isSeguro) current.seguro += Number(item.bruto || 0);
         current.recibos += 1;
         porVendedor.set(vendedorId, current);
-      });
+      }
 
       return debugJson({
         periodo: `${inicio} a ${fim}`,
@@ -684,9 +684,9 @@ export async function GET(event) {
 
     // 2. Resolver nomes dos vendedores atribuídos
     const vendedorIdsToResolve = new Set<string>();
-    (concRows || []).forEach((r: any) => {
+    for (const r of concRows || []) {
       if (r.ranking_vendedor_id) vendedorIdsToResolve.add(r.ranking_vendedor_id);
-    });
+    }
     const vendedorNomes: Record<string, string> = {};
     if (vendedorIdsToResolve.size > 0) {
       for (const vendedorBatch of chunkArray(Array.from(vendedorIdsToResolve))) {
@@ -694,9 +694,9 @@ export async function GET(event) {
           .from('users')
           .select('id, nome_completo')
           .in('id', vendedorBatch);
-        (usersData || []).forEach((u: any) => {
+        for (const u of usersData || []) {
           vendedorNomes[u.id] = u.nome_completo || u.id;
-        });
+        }
       }
     }
 
