@@ -75,9 +75,9 @@ export async function GET(event) {
             .in("id", categoriaIds);
 
           if (categoriasError) throw categoriasError;
-          (categoriasData || []).forEach((row: any) => {
+          for (const row of categoriasData || []) {
             categoriasMap.set(String(row.id), String(row.nome || ""));
-          });
+          }
         }
 
         const items = (data || [])
