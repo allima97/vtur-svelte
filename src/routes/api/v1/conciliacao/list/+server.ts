@@ -239,9 +239,9 @@ export async function GET(event) {
               .in('venda_id', batch),
           );
 
-          pagamentos.forEach((pagamento: any) => {
+          for (const pagamento of pagamentos) {
             const vendaId = String(pagamento?.venda_id || '').trim();
-            if (!vendaId) return;
+            if (!vendaId) continue;
             const naoComissiona =
               pagamento?.paga_comissao === false ||
               isFormaNaoComissionavel(
@@ -249,7 +249,7 @@ export async function GET(event) {
                 termosNaoComissionaveis,
               );
             if (naoComissiona) flaggedVendas.add(vendaId);
-          });
+          }
         }
 
         const recibosByIdForAudit = new Map<
