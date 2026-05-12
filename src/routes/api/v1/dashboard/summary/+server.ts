@@ -408,9 +408,9 @@ export async function GET(event) {
         >();
         const destinoReceiptCount = new Set<string>();
 
-        vendasCanonical.contributions.forEach((contribution) => {
+        for (const contribution of vendasCanonical.contributions) {
           const bruto = toNum(contribution.bruto);
-          if (bruto <= 0) return;
+          if (bruto <= 0) continue;
 
           const reciboDate = toDateKey(contribution.reciboDate);
           if (reciboDate) {
@@ -454,7 +454,7 @@ export async function GET(event) {
             ...curProd,
             value: curProd.value + bruto,
           });
-        });
+        }
 
         return {
           inicio,
