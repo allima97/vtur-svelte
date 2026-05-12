@@ -15,20 +15,12 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { chunkArray } from '$lib/utils/array';
 
 const TEXT_NO_STORE_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
   ...NO_STORE_HEADERS
 };
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 export async function GET(event) {
   try {

@@ -15,19 +15,11 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_DOC_VARIANTS = 200;
 const MAX_FIX_BODY_BYTES = 16 * 1024;
 const MONEY_EPS = 0.009;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function adminJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);

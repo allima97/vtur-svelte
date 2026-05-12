@@ -2,8 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, resolveAccessibleClientIds, resolveScopedCompanyIds, resolveScopedVendedorIds, resolveUserScope, sanitizePostgrestSearchTerm, toErrorResponse } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { ensureClienteModuloAccess } from '$lib/server/clientes';
-
-const SUPABASE_IN_BATCH_SIZE = 100;
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type ClienteLookupRow = {
   id: string;
@@ -14,14 +13,6 @@ type ClienteLookupRow = {
   whatsapp: string | null;
   company_id: string | null;
 };
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeClientes(rows: ClienteLookupRow[]) {
   const map = new Map<string, ClienteLookupRow>();
