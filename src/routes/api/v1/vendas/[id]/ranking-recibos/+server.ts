@@ -54,7 +54,10 @@ export async function GET(event) {
     // (gestor/master/admin já foram liberados acima)
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor && !scope.isFinanceiro) {
       const vendaCompanyId = String(vendaRaw.company_id || '').trim();
-      const scopeCompanyIds = new Set((scope.companyIds || []).filter(Boolean));
+      const scopeCompanyIds = new Set<string>();
+      for (const companyId of scope.companyIds || []) {
+        if (companyId) scopeCompanyIds.add(companyId);
+      }
       if (scopeCompanyIds.size > 0 && !scopeCompanyIds.has(vendaCompanyId)) {
         return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
       }
