@@ -2959,7 +2959,11 @@ function extractNavioNomeFromFornecedoresSection(lines: string[]) {
     for (let i = 0; i < lines.length; i += 1) {
       const line = (lines[i] || "").trim();
       if (!line) continue;
-      const cols = splitTableLine(line).map((c) => c.trim()).filter(Boolean);
+      const cols: string[] = [];
+      for (const cell of splitTableLine(line)) {
+        const col = cell.trim();
+        if (col) cols.push(col);
+      }
       if (cols.length < 2) continue;
       const acordoDigits = (cols[0] || "").replace(/\D/g, "");
       if (acordoDigits.length < 5) continue;
