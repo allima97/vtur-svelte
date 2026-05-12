@@ -389,11 +389,11 @@ export async function GET(event) {
                   .select('id, nome_completo')
                   .in('id', batch),
             );
-            vendedoresData.forEach((vendedor: any) => {
+            for (const vendedor of vendedoresData) {
               const id = String(vendedor?.id || '').trim();
               const nome = String(vendedor?.nome_completo || '').trim();
               if (id) vendedoresById.set(id, nome || '-');
-            });
+            }
           }
         }
 
