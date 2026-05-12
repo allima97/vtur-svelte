@@ -81,27 +81,27 @@ export async function GET(event) {
           (sum, row) => sum + Number(row.valor_total || 0),
           0,
         );
-        const byDestino = new Map<
-          string,
-          {
-            destino: string;
+	        const byDestino = new Map<
+	          string,
+	          {
+	            destino: string;
             quantidade: number;
             receita: number;
-          }
-        >();
+	          }
+	        >();
 
-        rows.forEach((row) => {
-          const destino = getVendaDestino(row);
-          const current = byDestino.get(destino) || {
-            destino,
-            quantidade: 0,
+	        for (const row of rows) {
+	          const destino = getVendaDestino(row);
+	          const current = byDestino.get(destino) || {
+	            destino,
+	            quantidade: 0,
             receita: 0,
           };
 
-          current.quantidade += 1;
-          current.receita += Number(row.valor_total || 0);
-          byDestino.set(destino, current);
-        });
+	          current.quantidade += 1;
+	          current.receita += Number(row.valor_total || 0);
+	          byDestino.set(destino, current);
+	        }
 
         const items = Array.from(byDestino.values())
           .map((item) => ({
