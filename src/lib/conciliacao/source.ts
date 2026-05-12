@@ -881,10 +881,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           const { data: vendasBatch, error: vendasBatchErr } =
             await vendasBatchQuery;
           if (vendasBatchErr) throw vendasBatchErr;
-          (vendasBatch || []).forEach((v: any) => {
+          for (const v of vendasBatch || []) {
             const id = toStr(v?.id);
             if (id) allowedVendaIds.add(id);
-          });
+          }
         }
       }
 
