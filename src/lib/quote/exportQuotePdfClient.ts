@@ -387,6 +387,14 @@ function renderFlightItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
     }
     legendHtml = `<div class="orc-flight-legend">${legendItems}</div>`;
   }
+  let rowsHtml = '';
+  for (const row of rows) {
+    let cellsHtml = '';
+    for (const cell of row) {
+      cellsHtml += `<td>${escHtml(cell || '-')}</td>`;
+    }
+    rowsHtml += `<tr>${cellsHtml}</tr>`;
+  }
 
   return `<div class="orc-section-card orc-flight-card">
     <div class="orc-section-title orc-flight-title">Passagem Aérea</div>
@@ -403,7 +411,7 @@ function renderFlightItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
           </tr>
         </thead>
         <tbody>
-          ${rows.map((row) => `<tr>${row.map((cell) => `<td>${escHtml(cell || '-')}</td>`).join('')}</tr>`).join('')}
+          ${rowsHtml}
         </tbody>
       </table>
     </div>
