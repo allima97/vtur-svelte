@@ -29,11 +29,10 @@ function normalizedIdSet(ids?: string[] | null) {
 
 function buildSaleSelect(extraSelect?: string) {
   const columns = new Set(['id', 'company_id', 'vendedor_id']);
-  String(extraSelect || '')
-    .split(',')
-    .map((column) => column.trim())
-    .filter(Boolean)
-    .forEach((column) => columns.add(column));
+  for (const rawColumn of String(extraSelect || '').split(',')) {
+    const column = rawColumn.trim();
+    if (column) columns.add(column);
+  }
 
   return Array.from(columns).join(', ');
 }
