@@ -813,9 +813,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         )
         .in("id", batch);
       if (error) throw error;
-      (data || []).forEach((row: any) => {
+      for (const row of data || []) {
         const id = toStr(row?.id);
-        if (!id) return;
+        if (!id) continue;
         recibosMap.set(id, {
           venda_id: toStr(row?.venda_id) || null,
           produto_id: toStr(row?.produto_id) || null,
@@ -827,7 +827,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           cancelado_por_conciliacao_observacao:
             toStr(row?.cancelado_por_conciliacao_observacao) || null,
         });
-      });
+      }
     }
   }
 
