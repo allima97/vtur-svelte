@@ -20,20 +20,12 @@ import {
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_PARAMETROS_ESCALAS_BODY_BYTES = 512 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
 
 const ESCALA_HORARIO_SELECT =
   'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function normalizePeriod(value: unknown) {
   const raw = String(value || '').trim();

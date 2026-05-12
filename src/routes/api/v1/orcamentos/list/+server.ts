@@ -19,6 +19,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { resolveQuoteCreatorScope } from '$lib/server/orcamentos';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 type OrcamentoRow = {
   id: string;
@@ -47,16 +48,6 @@ type OrcamentoItemRow = {
   order_index?: number | null;
   city_name?: string | null;
 };
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeOrcamentos(rows: OrcamentoRow[]) {
   const map = new Map<string, OrcamentoRow>();

@@ -16,8 +16,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
-
-const SUPABASE_IN_BATCH_SIZE = 100;
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
 type OrcamentoClienteRow = {
   id: string;
@@ -26,14 +25,6 @@ type OrcamentoClienteRow = {
   whatsapp: string | null;
   email: string | null;
 };
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeClientes(rows: OrcamentoClienteRow[]) {
   const map = new Map<string, OrcamentoClienteRow>();

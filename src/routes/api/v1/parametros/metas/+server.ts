@@ -19,9 +19,9 @@ import {
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
+import { chunkArray } from "$lib/utils/array";
 
 const MAX_PARAMETROS_METAS_BODY_BYTES = 512 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
 
 type MetaProdutoInput = {
   produto_id?: string | null;
@@ -74,14 +74,6 @@ function normalizePeriod(value?: string | null) {
   if (dateKey) return `${dateKey.slice(0, 7)}-01`;
 
   return currentMonthRangeISODate().inicio;
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
