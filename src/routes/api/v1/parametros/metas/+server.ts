@@ -22,6 +22,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 import { chunkArray } from "$lib/utils/array";
 
 const MAX_PARAMETROS_METAS_BODY_BYTES = 512 * 1024;
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
 
 type MetaProdutoInput = {
   produto_id?: string | null;
@@ -101,9 +102,9 @@ async function loadScopedVendedores(
 ) {
   const sortByName = (rows: any[]) =>
     [...rows].sort((a, b) =>
-      String(a?.nome_completo || a?.email || "").localeCompare(
+      PT_BR_COLLATOR.compare(
+        String(a?.nome_completo || a?.email || ""),
         String(b?.nome_completo || b?.email || ""),
-        "pt-BR",
       ),
     );
 
