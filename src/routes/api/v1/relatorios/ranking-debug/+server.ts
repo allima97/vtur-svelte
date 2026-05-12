@@ -53,7 +53,7 @@ const SEGURO_FAIXAS_COMISSAO = new Set(['SEGURO_32_35', 'SEGURO_35_38']);
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  for (const [key, value] of Object.entries(DEBUG_HEADERS)) headers.set(key, value);
   return json(body, {
     ...init,
     headers
@@ -718,7 +718,7 @@ export async function GET(event) {
   } catch (err) {
     logServerError('[ranking-debug] erro GET', err);
     const response = toErrorResponse(err, 'Erro no diagnóstico do ranking.');
-    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(DEBUG_HEADERS)) response.headers.set(key, value);
     return response;
   }
 }
@@ -817,7 +817,7 @@ export async function POST(event) {
   } catch (err) {
     logServerError('[ranking-debug] erro POST', err);
     const response = toErrorResponse(err, 'Erro na correção.');
-    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(DEBUG_HEADERS)) response.headers.set(key, value);
     return response;
   }
 }
