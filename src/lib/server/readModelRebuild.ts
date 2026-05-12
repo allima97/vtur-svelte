@@ -18,6 +18,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient, logServerError } from '$lib/server/v1';
 import { fetchVendasKpiReciboContributionsRaw } from '$lib/server/vendas-kpis';
+import { chunkArray } from '$lib/utils/array';
 
 const MODEL_NAME = 'recibo_contribuicoes_v1';
 const TABLE_STATUS = 'ranking_read_model_status';
@@ -55,14 +56,6 @@ function previousMonthKey() {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function chunkArray<T>(values: T[], size = 100): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < values.length; i += size) {
-    chunks.push(values.slice(i, i + size));
-  }
-  return chunks;
 }
 
 function toUuidOrNull(value?: string | null): string | null {
