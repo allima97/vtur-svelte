@@ -62,7 +62,9 @@ export function parseISODateParts(value: string | Date | null | undefined) {
   const iso = extractISODate(value);
   if (!iso) return null;
 
-  const [year, month, day] = iso.split('-').map(Number);
+  const year = Number(iso.slice(0, 4));
+  const month = Number(iso.slice(5, 7));
+  const day = Number(iso.slice(8, 10));
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
