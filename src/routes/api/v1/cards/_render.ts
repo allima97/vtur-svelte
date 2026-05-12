@@ -155,7 +155,7 @@ function parseBooleanParam(v: string | null | undefined): boolean | undefined {
 }
 
 function splitParagraph(text: string, maxChars: number) {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = text.match(/\S+/g) || [];
   const lines: string[] = [];
   let current = "";
   for (const w of words) {
@@ -246,7 +246,7 @@ function drawTextBlock(text: string, style: CardStyle) {
       if (!trimmedLine) return "";
       const lineY = y + idx * step;
       const isLastLine = idx >= lastNonEmptyLineIdx;
-      const words = trimmedLine.split(/\s+/).filter(Boolean);
+      const words = trimmedLine.match(/\S+/g) || [];
 
       if (isLastLine || words.length < 2) {
         return `<text x="${x}" y="${lineY}" text-anchor="start" ${textAttrs}>${escapeXml(trimmedLine)}</text>`;
