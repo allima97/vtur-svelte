@@ -162,24 +162,26 @@ export function extractSeguroViagemIncludeLinesFromPasseios(items: SeguroPasseio
 }
 
 export function mergeUniqueTextLines(baseText: string, newLines: string[]) {
-  const existing = String(baseText || "")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const existing: string[] = [];
+  const seen = new Set<string>();
+  for (const rawLine of String(baseText || "").replace(/\r/g, "\n").split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    existing.push(line);
+    const key = normalizeText(line);
+    if (key) seen.add(key);
+  }
 
-  const seen = new Set(existing.map((line) => normalizeText(line)).filter(Boolean));
   const merged = [...existing];
 
-  (newLines || [])
-    .map((line) => String(line || "").trim())
-    .filter(Boolean)
-    .forEach((line) => {
-      const key = normalizeText(line);
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      merged.push(line);
-    });
+  for (const rawLine of newLines || []) {
+    const line = String(rawLine || "").trim();
+    if (!line) continue;
+    const key = normalizeText(line);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(line);
+  }
 
   return merged.join("\n");
 }
