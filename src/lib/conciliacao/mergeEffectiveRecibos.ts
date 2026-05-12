@@ -113,36 +113,36 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
   let injectedIntoExisting = 0;
 
   const processedVendas: TVenda[] = [];
-  baseVendas.forEach((venda) => {
+  for (const venda of baseVendas) {
     const vendaId = str(getVendaId(venda));
     const recibosOriginais = getRecibos(venda);
     const concParaInjetar = concByVendaId.get(vendaId) ?? [];
 
     if (recibosOriginais.length === 0 && concParaInjetar.length === 0) {
       processedVendas.push(venda);
-      return;
+      continue;
     }
 
     const recibosRetidos: TRecibo[] = [];
-    recibosOriginais.forEach((recibo) => {
+    for (const recibo of recibosOriginais) {
       const id = str(getReciboId(recibo));
       if (id && overriddenIds.has(id)) {
         removedBase += 1;
-        return;
+        continue;
       }
 
       const reciboNumero = str(getReciboNumero(recibo));
       const numero = normalizeReceiptNumber(reciboNumero);
       if (numero && overriddenNumeros.has(numero)) {
         removedBase += 1;
-        return;
+        continue;
       }
 
       // Dedup por core numérico: casa "5630-0000083861" (conciliação) com "83861" (venda)
       const core = receiptNumberCore(reciboNumero);
       if (core && overriddenCores.has(core)) {
         removedBase += 1;
-        return;
+        continue;
       }
 
       const canceledAt = getReciboCanceledAt(recibo);
@@ -151,21 +151,21 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
         const cancelMes = toMonthKey(canceledAt);
         if (reciboMes && cancelMes && reciboMes === cancelMes) {
           removedBase += 1;
-          return;
+          continue;
         }
       }
 
       recibosRetidos.push(recibo);
-    });
+    }
 
     const recibosConciliados = concParaInjetar.map(buildSyntheticRecibo);
     injectedIntoExisting += recibosConciliados.length;
 
     const recibosFinais = [...recibosRetidos, ...recibosConciliados];
-    if (recibosFinais.length === 0) return;
+    if (recibosFinais.length === 0) continue;
 
     processedVendas.push(withRecibos(venda, recibosFinais));
-  });
+  }
 
   const syntheticVendas = orphans.map(buildSyntheticVenda);
 
