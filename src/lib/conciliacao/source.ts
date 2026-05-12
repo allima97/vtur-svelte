@@ -864,10 +864,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         .in("numero_recibo", batch);
       if (error) throw error;
 
-      const vendaIdsBatch = Array.from(
-        new Set(
-          (data || []).map((row: any) => toStr(row?.venda_id)).filter(isUuid),
-        ),
+      const vendaIdsBatch = collectUuidValues(
+        (data || []).map((row: any) => row?.venda_id),
       );
       const allowedVendaIds = new Set<string>();
       if (vendaIdsBatch.length > 0) {
@@ -1067,9 +1065,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       const estornoRows = sortedRows.filter(
         (row) => toStr(row?.status).toUpperCase() === "ESTORNO",
       );
-      const groupedConcIds = Array.from(
-        new Set(sortedRows.map((row) => toStr(row?.id)).filter(isUuid)),
-      );
+      const groupedConcIds = collectUuidValues(sortedRows.map((row) => row?.id));
 
       if (!sourceRow) return [];
       const documento = toStr(sourceRow?.documento);
