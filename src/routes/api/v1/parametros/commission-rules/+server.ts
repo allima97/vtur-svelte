@@ -12,6 +12,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { cleanStringSet } from '$lib/utils/array';
 import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_PARAMETROS_COMMISSION_RULES_BODY_BYTES = 128 * 1024;
@@ -80,10 +81,10 @@ async function requireAccess(event: RequestEvent, minLevel: number) {
   };
 }
 
-function canAccessRuleCompany(companyId: string | null | undefined, allowedCompanyIds: string[]) {
+function canAccessRuleCompany(companyId: string | null | undefined, allowedCompanySet: Set<string>) {
   if (!companyId) return true;
-  if (allowedCompanyIds.length === 0) return true;
-  return allowedCompanyIds.includes(companyId);
+  if (allowedCompanySet.size === 0) return true;
+  return allowedCompanySet.has(companyId);
 }
 
 function getRequestedCompanyId(event: RequestEvent, body?: any) {
@@ -171,7 +172,8 @@ async function ensureRuleWriteAccess(
     };
   }
 
-  if (!access.scope.companyIds.includes(rule.companyId)) {
+  const scopedCompanySet = cleanStringSet(access.scope.companyIds);
+  if (!scopedCompanySet.has(rule.companyId)) {
     return {
       error: new Response('Sem acesso a esta regra de comissão.', {
         status: 403,
@@ -189,6 +191,7 @@ export async function GET(event: RequestEvent) {
     const client = access.client;
     const requestedCompanyId = getRequestedCompanyId(event);
     const scopedCompanyIds = resolveScopedCompanyIds(access.scope, requestedCompanyId);
+    const scopedCompanySet = cleanStringSet(scopedCompanyIds);
 
     let data: any[] | null = null;
     let error: unknown = null;
@@ -223,14 +226,14 @@ export async function GET(event: RequestEvent) {
       items = items.filter((rule) =>
         canAccessRuleCompany(
           String(rule?.company_id || '').trim() || null,
-          scopedCompanyIds
+          scopedCompanySet
         )
       );
     } else if (scopedCompanyIds.length > 0) {
       items = items.filter((rule) =>
         canAccessRuleCompany(
           String(rule?.company_id || '').trim() || null,
-          scopedCompanyIds
+          scopedCompanySet
         )
       );
     }
