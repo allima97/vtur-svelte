@@ -563,9 +563,9 @@ async function resolveUserScopeUncached(
   } else if (papel === "FINANCEIRO") {
     const financeiroEmpresas = await fetchFinanceiroEmpresas(client, userId);
     const ids = new Set<string>();
-    financeiroEmpresas.forEach((id) => {
+    for (const id of financeiroEmpresas) {
       if (isUuid(id)) ids.add(id);
-    });
+    }
     if (companyId) ids.add(companyId);
     companyIds = Array.from(ids);
   } else {
@@ -627,14 +627,14 @@ export function hasModuloAccess(
   );
 
   const allowed = new Set<string>();
-  modulosConsulta.forEach((entry) => {
+  for (const entry of modulosConsulta) {
     const normalized = normalizeModulo(entry);
     if (normalized) allowed.add(normalized);
     const raw = String(entry || "")
       .trim()
       .toLowerCase();
     if (raw) allowed.add(raw);
-  });
+  }
 
   // Verifica permissões específicas
   const hasSpecific = Object.entries(scope.permissoes).some(
