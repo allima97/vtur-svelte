@@ -83,7 +83,13 @@ function normalizeEmail(value?: string | null) {
 }
 
 function normalizeTransports(value?: unknown): AuthenticatorTransportFuture[] {
-  return Array.isArray(value) ? (value.filter(Boolean) as AuthenticatorTransportFuture[]) : [];
+  if (!Array.isArray(value)) return [];
+
+  const transports: AuthenticatorTransportFuture[] = [];
+  for (const item of value) {
+    if (item) transports.push(item as AuthenticatorTransportFuture);
+  }
+  return transports;
 }
 
 function isMissingPasskeyTable(err: unknown) {
