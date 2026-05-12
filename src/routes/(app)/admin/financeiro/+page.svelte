@@ -134,9 +134,18 @@
 
   onMount(load);
 
-  $: ativas = billings.filter((b) => b.status === 'active').length;
-  $: atrasadas = billings.filter((b) => b.status === 'past_due').length;
-  $: totalMrr = billings.filter((b) => b.status === 'active').reduce((acc, b) => acc + (b.valor_mensal || 0), 0);
+  $: billingResumo = billings.reduce(
+    (acc, billing) => {
+      if (billing.status === 'active') {
+        acc.ativas += 1;
+        acc.totalMrr += billing.valor_mensal || 0;
+      }
+      if (billing.status === 'past_due') acc.atrasadas += 1;
+      return acc;
+    },
+    { ativas: 0, atrasadas: 0, totalMrr: 0 }
+  );
+  $: ({ ativas, atrasadas, totalMrr } = billingResumo);
 </script>
 
 <svelte:head>
