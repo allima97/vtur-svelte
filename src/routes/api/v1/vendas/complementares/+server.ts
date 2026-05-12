@@ -12,7 +12,7 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 function getResumo(recibo?: {
   numero_recibo?: string | null;
@@ -114,13 +114,7 @@ export async function GET(event: RequestEvent) {
       linkedReceiptsData.push(...(data || []));
     }
 
-    const linkedSalesIds = Array.from(
-      new Set(
-        (linkedReceiptsData || [])
-          .map((row: any) => String(row?.venda_id || '').trim())
-          .filter(Boolean)
-      )
-    );
+    const linkedSalesIds = uniqueCleanStrings((linkedReceiptsData || []).map((row: any) => row?.venda_id));
 
     const linkedSalesData: any[] = [];
     for (const batch of chunkArray(linkedSalesIds)) {
@@ -164,7 +158,7 @@ export async function GET(event: RequestEvent) {
       ])
     );
 
-    const pairSaleIds = Array.from(new Set(linkedSalesIds));
+    const pairSaleIds = uniqueCleanStrings(linkedSalesIds);
     const pairReceiptSaleIds = [vendaId, ...pairSaleIds];
     const pairReceiptsData: any[] = [];
     for (const batch of chunkArray(pairReceiptSaleIds)) {
@@ -221,7 +215,7 @@ export async function GET(event: RequestEvent) {
         venda_id: String(link?.venda_id || ''),
         recibo_id: String(link?.recibo_id || ''),
         linked_venda_id: linkedSaleId,
-        related_ids: Array.from(new Set(relatedIds)),
+        related_ids: uniqueCleanStrings(relatedIds),
         resumo: getResumo(recibo, sale)
       };
     });

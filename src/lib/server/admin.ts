@@ -25,7 +25,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { getAdminClient, isUuid, permLevel, type UserScope } from '$lib/server/v1';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 export type ManagedUserRow = {
   id: string;
@@ -585,9 +585,7 @@ export async function syncFinanceiroCompanyLinks(
     throw error(400, 'Vinculo multiempresa permitido apenas para usuarios financeiros.');
   }
 
-  const cleanedCompanyIds = Array.from(
-    new Set((companyIds || []).map((id) => String(id || '').trim()).filter(isUuid))
-  );
+  const cleanedCompanyIds = uniqueCleanStrings(companyIds || []).filter(isUuid);
   cleanedCompanyIds.forEach((companyId) => ensureAssignableCompany(scope, companyId));
 
   const accessibleCompanies = getAccessibleCompanyIds(scope);
@@ -618,7 +616,7 @@ export async function syncFinanceiroCompanyLinks(
     if (isUuid(companyId) && row?.id) existingMap.set(companyId, row.id);
   });
 
-  const changedCompanyIds = Array.from(new Set([...existingMap.keys(), ...cleanedCompanyIds]));
+  const changedCompanyIds = uniqueCleanStrings([...existingMap.keys(), ...cleanedCompanyIds]);
   const wanted = new Set(cleanedCompanyIds);
   const idsToDelete = Array.from(existingMap.entries())
     .filter(([companyId]) => !wanted.has(companyId))
@@ -726,7 +724,7 @@ export async function saveUserPermissions(
     ativo: item.ativo !== false && normalizePermissionValue(item.permissao) !== 'none'
   }));
 
-  const keys = Array.from(new Set(normalized.map((item) => item.modulo).filter(Boolean)));
+  const keys = uniqueCleanStrings(normalized.map((item) => item.modulo));
   if (!keys.length) return;
 
   const { data: existingRows, error: existingError } = await client
@@ -775,7 +773,7 @@ export async function saveDefaultPermissions(
     ativo: item.ativo !== false && normalizePermissionValue(item.permissao) !== 'none'
   }));
 
-  const keys = Array.from(new Set(normalized.map((item) => item.modulo).filter(Boolean)));
+  const keys = uniqueCleanStrings(normalized.map((item) => item.modulo));
   if (!keys.length) return;
 
   const { data: existingRows, error: existingError } = await client

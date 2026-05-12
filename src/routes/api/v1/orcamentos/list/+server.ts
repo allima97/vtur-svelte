@@ -19,7 +19,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { resolveQuoteCreatorScope } from '$lib/server/orcamentos';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
 
 type OrcamentoRow = {
   id: string;
@@ -221,15 +221,11 @@ export async function GET(event) {
     });
 
     // Derivar IDs necessários para o enrichment
-    const clientIdsFromData = Array.from(new Set(
-      ((data || []) as OrcamentoRow[]).map((row) => String(row.client_id || '').trim()).filter(Boolean)
-    ));
+    const clientIdsFromData = uniqueCleanStrings(((data || []) as OrcamentoRow[]).map((row) => row.client_id));
     const quoteIds = ((data || []) as OrcamentoRow[])
       .map((row) => String(row.id || '').trim())
       .filter(Boolean);
-    const rowCreatorIds = Array.from(new Set(
-      ((data || []) as OrcamentoRow[]).map((row) => String(row.created_by || '').trim()).filter(Boolean)
-    ));
+    const rowCreatorIds = uniqueCleanStrings(((data || []) as OrcamentoRow[]).map((row) => row.created_by));
 
     // Os 3 enrichments são completamente independentes entre si — executar em paralelo.
     const [clientesData, quoteItems, creators] = await Promise.all([

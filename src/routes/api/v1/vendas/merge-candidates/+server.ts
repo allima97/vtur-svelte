@@ -11,7 +11,7 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
 
 export async function GET(event) {
   try {
@@ -122,7 +122,7 @@ export async function GET(event) {
     }
 
     const items = scopedSalesData.map((row: any) => {
-      const numerosRecibo = Array.from(new Set(receiptsBySale.get(String(row?.id || '')) || []));
+      const numerosRecibo = uniqueCleanStrings(receiptsBySale.get(String(row?.id || '')) || []);
       const cidadeId = row?.destino_cidade_id || row?.destinos?.cidade_id || '';
       return {
         id: row.id,
