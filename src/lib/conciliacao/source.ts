@@ -843,13 +843,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         .in("id", batch);
       if (error) throw error;
 
-      (data || []).forEach((row: any) => {
+      for (const row of data || []) {
         const id = toStr(row?.id);
         const companyId = toStr(row?.company_id);
-        if (!id || !isRankingEligibleUser(row)) return;
-        if (!normalizedCompanySet.has(companyId)) return;
+        if (!id || !isRankingEligibleUser(row)) continue;
+        if (!normalizedCompanySet.has(companyId)) continue;
         validRankingVendedorIds.add(id);
-      });
+      }
     }
   }
 
