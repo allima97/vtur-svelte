@@ -3021,7 +3021,11 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   const cleaned = cleanText(text);
   if (!cleaned) throw new Error("Texto obrigatório.");
   const normalizedCleaned = normalizeText(cleaned, { trim: true, collapseWhitespace: true });
-  const lines = cleaned.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of cleaned.split(/\n+/)) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
   const filteredLines = lines.filter((l) => !isFooterLine(l));
   const sections = splitRoteiroSections(filteredLines);
   const servicosSectionMatch = cleaned.match(
