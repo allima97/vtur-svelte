@@ -184,11 +184,17 @@ export async function POST(event) {
         })
         .filter((entry): entry is readonly [string, ResolvedReceiptCommission] => Boolean(entry))
     );
+    const vendedorIds: string[] = [];
+    for (const row of paymentRows) {
+      const vendedorId = String(row.vendedor_id || '');
+      if (vendedorId) vendedorIds.push(vendedorId);
+    }
+
     const existingSnapshot = await fetchPersistedComissoes(client, {
       companyIds,
       vendaIds,
       reciboIds,
-      vendedorIds: paymentRows.map((row) => String(row.vendedor_id || '')).filter(Boolean)
+      vendedorIds
     });
 
     if (!existingSnapshot.available) {
