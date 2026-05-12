@@ -30,9 +30,14 @@ export async function POST(event) {
     const companyId = companyIds[0] || null;
     if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const documentos = Array.isArray(body?.documentos)
-      ? body.documentos.map((d: unknown) => String(d || '').trim()).filter(Boolean).slice(0, MAX_EXISTING_DOCUMENTOS)
-      : [];
+    const documentos: string[] = [];
+    if (Array.isArray(body?.documentos)) {
+      for (const item of body.documentos) {
+        const documento = String(item || '').trim();
+        if (documento) documentos.push(documento);
+        if (documentos.length >= MAX_EXISTING_DOCUMENTOS) break;
+      }
+    }
 
     if (documentos.length === 0) return json({ records: {} }, { headers: NO_STORE_HEADERS });
 
