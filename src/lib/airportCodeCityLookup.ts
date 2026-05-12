@@ -8,12 +8,12 @@ let airportLookupPromise: Promise<AirportCodeCityLookup> | null = null;
 function normalizeAirportLookup(raw: unknown): AirportCodeCityLookup {
   if (!raw || typeof raw !== "object") return {};
   const out: AirportCodeCityLookup = {};
-  Object.entries(raw as Record<string, unknown>).forEach(([code, city]) => {
+  for (const [code, city] of Object.entries(raw as Record<string, unknown>)) {
     const normalizedCode = String(code || "").trim().toUpperCase();
     const normalizedCity = String(city || "").trim();
-    if (!/^[A-Z]{3}$/.test(normalizedCode) || !normalizedCity) return;
+    if (!/^[A-Z]{3}$/.test(normalizedCode) || !normalizedCity) continue;
     out[normalizedCode] = normalizedCity;
-  });
+  }
   return out;
 }
 
