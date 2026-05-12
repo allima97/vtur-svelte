@@ -70,6 +70,8 @@ const DEFAULT_BAND_DEFINITIONS = [
   },
 ] as const;
 
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
 function normalizeBandId(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -143,7 +145,7 @@ function sortBandRules(rules: ConciliacaoBandRule[]) {
     const leftMin = left.percentual_min ?? Number.NEGATIVE_INFINITY;
     const rightMin = right.percentual_min ?? Number.NEGATIVE_INFINITY;
     if (leftMin !== rightMin) return leftMin - rightMin;
-    return left.nome.localeCompare(right.nome, "pt-BR");
+    return PT_BR_COLLATOR.compare(left.nome, right.nome);
   });
 }
 

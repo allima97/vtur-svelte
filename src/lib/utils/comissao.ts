@@ -20,6 +20,7 @@ const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 });
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
 export type Tier = {
   faixa: 'PRE' | 'POS';
@@ -294,7 +295,7 @@ function sortBandRules(
     const leftMin = left.percentual_min ?? Number.NEGATIVE_INFINITY;
     const rightMin = right.percentual_min ?? Number.NEGATIVE_INFINITY;
     if (leftMin !== rightMin) return leftMin - rightMin;
-    return left.nome.localeCompare(right.nome, 'pt-BR');
+    return PT_BR_COLLATOR.compare(left.nome, right.nome);
   });
 }
 
