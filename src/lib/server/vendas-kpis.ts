@@ -116,15 +116,11 @@ function normalizeTextValue(value?: string | null) {
 }
 
 function normalizeCompanyScopeIds(companyIds?: string[] | null) {
-  return Array.from(
-    new Set((companyIds || []).map((value) => toStr(value)).filter(Boolean)),
-  );
+  return uniqueCleanStrings(companyIds || []);
 }
 
 function normalizeIdScope(values?: string[] | null) {
-  return Array.from(
-    new Set((values || []).map((value) => toStr(value)).filter(Boolean)),
-  ).sort();
+  return uniqueCleanStrings(values || []).sort();
 }
 
 function isFormaNaoComissionavel(

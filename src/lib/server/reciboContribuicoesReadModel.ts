@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
 import { getAdminClient, logServerError } from "$lib/server/v1";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 import type {
   VendasKpiAgg,
@@ -64,9 +64,7 @@ let readModelUnavailable = false;
 let readModelUnavailableLogged = false;
 
 function normalizeIds(values?: string[] | null) {
-  return Array.from(
-    new Set((values || []).map((value) => toStr(value)).filter(Boolean)),
-  ).sort();
+  return uniqueCleanStrings(values || []).sort();
 }
 
 function isUnavailableError(error: unknown) {

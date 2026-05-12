@@ -1,4 +1,4 @@
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 type RateioRow = {
@@ -22,9 +22,7 @@ function isAplicavelRateio(row: any) {
 }
 
 function normalizeCompanyScopeIds(companyId?: string | null, companyIds?: string[] | null) {
-  return Array.from(
-    new Set([companyId, ...(companyIds || [])].map((value) => toStr(value)).filter(Boolean))
-  );
+  return uniqueCleanStrings([companyId, ...(companyIds || [])]);
 }
 
 export function isUuid(value?: string | null) {
@@ -76,9 +74,7 @@ export function cloneReciboWithFactor<T extends Record<string, any>>(
 }
 
 export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
-  const ids = Array.from(
-    new Set((reciboIds || []).map((id) => normalizeReciboLookupId(id)).filter(Boolean))
-  );
+  const ids = uniqueCleanStrings((reciboIds || []).map((id) => normalizeReciboLookupId(id)));
   if (ids.length === 0) return new Map<string, RateioRow>();
 
   const map = new Map<string, RateioRow>();
