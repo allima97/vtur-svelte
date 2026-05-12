@@ -84,6 +84,10 @@
   };
 
   const VENDA_READABLE_RETRY_STATUSES = new Set([404, 403, 0]);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let tipoImportacao: 'cvc' | 'roteiro' | 'facial_rextur' | 'facial_cvc' = 'cvc';
   let textInput = '';
@@ -639,7 +643,7 @@
 
   function formatCurrency(value?: number | null) {
     if (value == null || Number.isNaN(Number(value))) return '-';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
+    return BRL_CURRENCY_FORMATTER.format(Number(value));
   }
 
   function formatDate(value?: string | null) {
