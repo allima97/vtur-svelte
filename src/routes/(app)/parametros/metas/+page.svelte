@@ -145,7 +145,13 @@
     label: produto.nome || 'Produto'
   }));
 
-  $: metaByVendedor = new Map(metas.map((meta) => [meta.vendedor_id, meta]));
+  $: metaByVendedor = (() => {
+    const byVendedor = new Map<string, Meta>();
+    for (const meta of metas) {
+      byVendedor.set(meta.vendedor_id, meta);
+    }
+    return byVendedor;
+  })();
   $: rows = vendedores
     .filter((vendedor) => !vendedorFiltro || vendedor.id === vendedorFiltro)
     .map((vendedor) => ({ vendedor, meta: metaByVendedor.get(vendedor.id) || null }));
