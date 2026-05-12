@@ -359,7 +359,11 @@ export async function POST(event) {
     });
 
     const allReceipts = Array.from(receiptById.values());
-    const allReceiptIds = allReceipts.map((recibo: any) => toStr(recibo?.id)).filter(Boolean);
+    const allReceiptIds: string[] = [];
+    for (const recibo of allReceipts) {
+      const id = toStr(recibo?.id);
+      if (id) allReceiptIds.push(id);
+    }
     const rateioByReciboId = new Map<string, any>();
 
     for (let index = 0; index < allReceiptIds.length; index += 200) {
