@@ -36,23 +36,23 @@ export function normalizeMenuPrefs(raw: unknown): MenuPrefsV1 {
   const hidden = Array.isArray(raw.hidden) ? compactStringValues(raw.hidden) : [];
   const order: Record<string, string[]> = {};
   if (isPlainObject(raw.order)) {
-    Object.entries(raw.order).forEach(([section, value]) => {
-      if (!section) return;
-      if (!Array.isArray(value)) return;
+    for (const [section, value] of Object.entries(raw.order)) {
+      if (!section) continue;
+      if (!Array.isArray(value)) continue;
       const cleaned = compactStringValues(value);
       if (cleaned.length > 0) order[section] = cleaned;
-    });
+    }
   }
 
   const section: Record<string, string> = {};
   const rawSection = (raw as any)?.section;
   if (isPlainObject(rawSection)) {
-    Object.entries(rawSection).forEach(([itemKey, sectionKey]) => {
+    for (const [itemKey, sectionKey] of Object.entries(rawSection)) {
       const k = String(itemKey || '').trim();
       const v = String(sectionKey || '').trim();
-      if (!k || !v) return;
+      if (!k || !v) continue;
       section[k] = v;
-    });
+    }
   }
 
   return {
