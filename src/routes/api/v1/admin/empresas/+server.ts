@@ -109,11 +109,11 @@ export async function GET(event) {
             : { data: [], error: null };
         if (masterLinksRes.error) throw masterLinksRes.error;
 
-        (masterLinksRes.data || []).forEach((row: any) => {
+        for (const row of masterLinksRes.data || []) {
           const companyId = String(row.company_id || '').trim();
-          if (!companyId) return;
+          if (!companyId) continue;
           masterLinkCounts.set(companyId, Number(masterLinkCounts.get(companyId) || 0) + 1);
-        });
+        }
       }
     } catch {
       masterLinkCounts = new Map<string, number>();
