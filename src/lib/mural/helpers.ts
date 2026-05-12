@@ -69,6 +69,7 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
 });
 const TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR');
+const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
 export function formatDateTimeBR(value?: string | null) {
   if (!value) return '';
@@ -175,9 +176,7 @@ export function buildThreads(recados: RecadoRow[], usuariosEmpresa: UserMini[], 
   const pessoas = usuariosEmpresa
     .filter((user) => user.id && user.id !== userId)
     .sort((a, b) =>
-      normalizeSortKey(getNomeExibicao(a)).localeCompare(normalizeSortKey(getNomeExibicao(b)), 'pt-BR', {
-        sensitivity: 'base'
-      })
+      PT_BR_BASE_COLLATOR.compare(normalizeSortKey(getNomeExibicao(a)), normalizeSortKey(getNomeExibicao(b)))
     );
 
   for (const pessoa of pessoas) {

@@ -82,6 +82,8 @@
   let lastReadKey = '';
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
+
   const isMaster = () => /MASTER/i.test(userTypeName);
   const companyContextId = () => empresaSelecionada || userCompanyId || '';
 
@@ -260,9 +262,7 @@
       const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
       const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
       if (tb !== ta) return tb - ta;
-      return normalizeSortKey(a.name).localeCompare(normalizeSortKey(b.name), 'pt-BR', {
-        sensitivity: 'base'
-      });
+      return PT_BR_BASE_COLLATOR.compare(normalizeSortKey(a.name), normalizeSortKey(b.name));
     });
     return company ? [company, ...sorted] : sorted;
   })();
@@ -282,11 +282,11 @@
     const filtered = query
       ? pool.filter((user) => normalizeSortKey(getNomeExibicao(user)).includes(query))
       : pool;
-    return filtered.slice().sort((a, b) =>
-      normalizeSortKey(getNomeExibicao(a)).localeCompare(normalizeSortKey(getNomeExibicao(b)), 'pt-BR', {
-        sensitivity: 'base'
-      })
-    );
+    return filtered
+      .slice()
+      .sort((a, b) =>
+        PT_BR_BASE_COLLATOR.compare(normalizeSortKey(getNomeExibicao(a)), normalizeSortKey(getNomeExibicao(b)))
+      );
   })();
 
   $: if (threads.length > 0 && !threads.some((thread) => thread.id === selectedThreadId)) {
