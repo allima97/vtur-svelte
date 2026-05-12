@@ -27,7 +27,11 @@ import { uniqueCleanStrings } from "../utils/array";
 
 // Fallback: identifica blocos de itens em textos colados, agrupando por palavras-chave
 function extractLooseBlocks(text: string): string[][] {
-  const lines = (text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of (text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
   const blocks: string[][] = [];
   let current: string[] = [];
   for (const line of lines) {
