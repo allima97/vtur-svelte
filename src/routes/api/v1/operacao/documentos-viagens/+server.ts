@@ -11,7 +11,7 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 export async function GET(event) {
   try {
@@ -109,7 +109,8 @@ export async function DELETE(event) {
     if (!scope.isAdmin) {
       const targetCompanyId = String((doc as { company_id?: string | null })?.company_id || '').trim();
       const allowedCompanyIds = resolveScopedCompanyIds(scope, targetCompanyId);
-      if (!targetCompanyId || allowedCompanyIds[0] === NO_MATCH_COMPANY_ID || !allowedCompanyIds.includes(targetCompanyId)) {
+      const allowedCompanySet = cleanStringSet(allowedCompanyIds);
+      if (!targetCompanyId || allowedCompanyIds[0] === NO_MATCH_COMPANY_ID || !allowedCompanySet.has(targetCompanyId)) {
         return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
