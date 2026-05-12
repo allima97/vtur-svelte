@@ -710,10 +710,9 @@ function renderEuropamundoAppSections(params: {
 }
 
 function buildSpecialHeader(cvcLogo: string, providerLogo: string, providerName: string) {
-  const providerClass =
-    textValue(providerName).toLowerCase() === "europamundo" ? " voucher-header--europamundo" : "";
-  const providerLogoClass =
-    textValue(providerName).toLowerCase() === "europamundo" ? " voucher-header-logo--europamundo" : "";
+  const isEuropamundo = textValue(providerName).toLowerCase() === "europamundo";
+  const providerClass = isEuropamundo ? " voucher-header--europamundo" : "";
+  const providerLogoClass = isEuropamundo ? " voucher-header-logo--europamundo" : "";
   return `
     <div class="voucher-header${providerClass}">
       <div class="voucher-header-logo">
