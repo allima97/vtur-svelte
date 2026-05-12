@@ -72,12 +72,12 @@ export async function GET(event) {
         .from('master_empresas')
         .select('company_id, status')
         .eq('master_id', user.id);
-      (vinculos || []).forEach((row: any) => {
+      for (const row of vinculos || []) {
         const status = String(row?.status || '').toLowerCase();
         const companyId = String(row?.company_id || '').trim();
-        if (!companyId || status === 'rejected') return;
+        if (!companyId || status === 'rejected') continue;
         companyIds.add(companyId);
-      });
+      }
     }
 
     const { data: templates, error } = await client
@@ -102,11 +102,11 @@ export async function GET(event) {
 
     const dedup = new Map<string, { id: string; nome: string; tipo: string; assunto: string; conteudo: string }>();
 
-    visibleTemplates.forEach((item: any) => {
+    for (const item of visibleTemplates as any[]) {
       const nome = String(item?.nome || '').trim();
-      if (!nome) return;
+      if (!nome) continue;
       const key = normalizeTemplateKey(nome);
-      if (!key || dedup.has(key)) return;
+      if (!key || dedup.has(key)) continue;
       dedup.set(key, {
         id: String(item.id),
         nome,
@@ -114,15 +114,15 @@ export async function GET(event) {
         assunto: String(item.assunto || item.titulo || ''),
         conteudo: String(item.corpo || ''),
       });
-    });
+    }
 
     const officialTemplates = buildOfficialTemplateRows(user.id, String(scope.companyId || '').trim() || null, {});
-    officialTemplates.forEach((item) => {
-      if (!item.ativo) return;
+    for (const item of officialTemplates) {
+      if (!item.ativo) continue;
       const nome = String(item.nome || '').trim();
-      if (!nome) return;
+      if (!nome) continue;
       const key = normalizeTemplateKey(nome);
-      if (!key || dedup.has(key)) return;
+      if (!key || dedup.has(key)) continue;
       dedup.set(key, {
         id: `official-template:${key}`,
         nome,
@@ -130,7 +130,7 @@ export async function GET(event) {
         assunto: String(item.assunto || item.titulo || ''),
         conteudo: String(item.corpo || ''),
       });
-    });
+    }
 
     const items = Array.from(dedup.values()).sort((a, b) => a.nome.localeCompare(b.nome));
 
