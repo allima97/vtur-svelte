@@ -54,18 +54,18 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
   const baseVendaIdByReciboId = new Map<string, string>();
   // Índice por core numérico do número do recibo (para casar formatos divergentes)
   const baseVendaIdByReciboCore = new Map<string, string>();
-  baseVendas.forEach((venda) => {
+  for (const venda of baseVendas) {
     const id = str(getVendaId(venda));
-    if (!id) return;
+    if (!id) continue;
     baseVendasById.set(id, venda);
-    getRecibos(venda).forEach((recibo) => {
+    for (const recibo of getRecibos(venda)) {
       const reciboId = str(getReciboId(recibo));
       if (reciboId) baseVendaIdByReciboId.set(reciboId, id);
       const reciboNumero = str(getReciboNumero(recibo));
       const core = receiptNumberCore(reciboNumero);
       if (core && !baseVendaIdByReciboCore.has(core)) baseVendaIdByReciboCore.set(core, id);
-    });
-  });
+    }
+  }
 
   const overriddenIds = new Set<string>();
   const overriddenNumeros = new Set<string>();
