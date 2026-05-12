@@ -123,13 +123,13 @@ export async function POST(event) {
 
     // Agrupa changeIds por recibo (apenas para contagem e agrupamento do audit trail)
     const changesByRecibo = new Map<string, { changeIds: string[] }>();
-    (pendingChanges || []).forEach((row: any) => {
+    for (const row of pendingChanges || []) {
       const reciboId = String(row?.venda_recibo_id || '').trim();
-      if (!reciboId) return;
+      if (!reciboId) continue;
       const bucket = changesByRecibo.get(reciboId) || { changeIds: [] };
       bucket.changeIds.push(String(row.id));
       changesByRecibo.set(reciboId, bucket);
-    });
+    }
 
     let attempted = 0;
     let reverted = 0;
