@@ -17,6 +17,7 @@ import {
   toErrorResponse,
 } from "$lib/server/v1";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { uniqueCleanStrings } from "$lib/utils/array";
 
 export async function GET(event) {
   try {
@@ -62,12 +63,8 @@ export async function GET(event) {
         const { data, error } = await query;
         if (error) throw error;
 
-        const categoriaIds = Array.from(
-          new Set(
-            (data || [])
-              .map((row: any) => String(row?.categoria_id || "").trim())
-              .filter(Boolean),
-          ),
+        const categoriaIds = uniqueCleanStrings(
+          (data || []).map((row: any) => row?.categoria_id),
         );
 
         let categoriasMap = new Map<string, string>();
