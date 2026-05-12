@@ -1015,11 +1015,11 @@ async function fetchAndComputeVendasKpisLegacy(
       if (allocations.length === 0) continue;
 
       let countedRecibo = false;
-      allocations.forEach((allocation) => {
+      for (const allocation of allocations) {
         const brutoAlloc = bruto * allocation.fator;
         const taxasAlloc = taxasEfetivas * allocation.fator;
 
-        if (brutoAlloc <= 0 && taxasAlloc <= 0) return;
+        if (brutoAlloc <= 0 && taxasAlloc <= 0) continue;
 
         totalVendas += brutoAlloc;
         totalTaxas += taxasAlloc;
@@ -1031,7 +1031,7 @@ async function fetchAndComputeVendasKpisLegacy(
         if (isSeguroProduto(recibo)) {
           totalSeguro += brutoAlloc;
         }
-      });
+      }
     }
   }
 
