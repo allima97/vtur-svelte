@@ -83,6 +83,7 @@
   let items: AgendaItem[] = [];
   let visibleRange = { inicio: todayIso, fim: todayIso };
   let searchQuery = '';
+  $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
   let showFilterSheet = false;
   let currentView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' = 'timeGridDay';
   let initializingCalendar = false;
@@ -404,9 +405,11 @@
       };
     })
     .filter((row) => {
-      const query = searchQuery.trim().toLowerCase();
-      if (!query) return true;
-      return [row.title, row.descricao || '', row.sourceLabel, row.dateLabel].join(' ').toLowerCase().includes(query);
+      if (!normalizedSearchQuery) return true;
+      return [row.title, row.descricao || '', row.sourceLabel, row.dateLabel]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedSearchQuery);
     })
     .sort((left, right) => String(left.start).localeCompare(String(right.start)));
 
