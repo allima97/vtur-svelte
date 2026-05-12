@@ -32,6 +32,16 @@
     style: 'currency',
     currency: 'BRL'
   });
+  const CURRENCY_FORMATTERS = new Map<string, Intl.NumberFormat>([['BRL', BRL_CURRENCY_FORMATTER]]);
+
+  function getCurrencyFormatter(currency: string) {
+    const normalizedCurrency = currency || 'BRL';
+    const cached = CURRENCY_FORMATTERS.get(normalizedCurrency);
+    if (cached) return cached;
+    const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: normalizedCurrency });
+    CURRENCY_FORMATTERS.set(normalizedCurrency, formatter);
+    return formatter;
+  }
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
@@ -42,7 +52,7 @@
       sortable: true,
       align: 'right' as const,
       formatter: (v: number, row: Plano) =>
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: row.moeda || 'BRL' }).format(v || 0)
+        getCurrencyFormatter(row.moeda).format(v || 0)
     },
     {
       key: 'ativo',
