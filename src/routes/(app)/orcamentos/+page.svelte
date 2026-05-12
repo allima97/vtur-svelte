@@ -40,6 +40,7 @@
   let somenteProntosVenda = false;
 
   let abortController: AbortController | null = null;
+  const STATUS_SEM_FOLLOW_UP = new Set(['fechado', 'rejeitado', 'expirado']);
 
   function getDiasSemInteracao(value: string | null | undefined) {
     if (!value) return Number.POSITIVE_INFINITY;
@@ -54,13 +55,13 @@
 
   function isExpirando(item: Orcamento) {
     if (!item.data_validade) return false;
-    if (['fechado', 'rejeitado', 'expirado'].includes(item.status)) return false;
+    if (STATUS_SEM_FOLLOW_UP.has(item.status)) return false;
     const dias = getDiasParaValidade(item.data_validade);
     return dias >= 0 && dias <= 3;
   }
 
   function isCritico(item: Orcamento) {
-    if (['fechado', 'rejeitado', 'expirado'].includes(item.status)) return false;
+    if (STATUS_SEM_FOLLOW_UP.has(item.status)) return false;
     if (!item.last_interaction_at) return true;
     if (getDiasSemInteracao(item.last_interaction_at) >= 7) return true;
     return isExpirando(item);
