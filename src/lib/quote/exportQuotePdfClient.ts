@@ -360,7 +360,7 @@ function renderGenericItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
   const start = formatDateBR(item.start_date);
   const end = formatDateBR(item.end_date);
   const period = start && end && start !== end ? `${start} – ${end}` : (start || '');
-  const meta = [city, period].filter(Boolean).join(' · ');
+  const meta = city && period ? `${city} · ${period}` : (city || period);
   const amount = Number(item.total_amount ?? 0);
   const currency = item.currency || 'BRL';
 
