@@ -8,7 +8,7 @@ import {
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_MASTER_EMPRESAS_BODY_BYTES = 16 * 1024;
 
@@ -89,6 +89,7 @@ export async function POST(event) {
     const companyId = String(body.company_id || '').trim();
     const status = String(body.status || 'approved').trim() || 'approved';
     const accessible = scope.isAdmin ? null : getAccessibleCompanyIds(scope);
+    const accessibleSet = accessible ? cleanStringSet(accessible) : null;
 
     if (action === 'delete') {
       if (!id) return new Response('Vinculo nao informado.', { status: 400, headers: NO_STORE_HEADERS });
@@ -100,7 +101,7 @@ export async function POST(event) {
           .select('company_id')
           .eq('id', id)
           .maybeSingle();
-        if (!vinculo || !accessible?.includes(String(vinculo.company_id || ''))) {
+        if (!vinculo || !accessibleSet?.has(String(vinculo.company_id || '').trim())) {
           return new Response('Vinculo fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
       }
@@ -120,7 +121,7 @@ export async function POST(event) {
           .select('company_id')
           .eq('id', id)
           .maybeSingle();
-        if (!vinculo || !accessible?.includes(String(vinculo.company_id || ''))) {
+        if (!vinculo || !accessibleSet?.has(String(vinculo.company_id || '').trim())) {
           return new Response('Vinculo fora do escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
       }
@@ -141,7 +142,7 @@ export async function POST(event) {
       return new Response('Master e empresa sao obrigatorios.', { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    if (!scope.isAdmin && !accessible?.includes(companyId)) {
+    if (!scope.isAdmin && !accessibleSet?.has(companyId)) {
       return new Response('Empresa fora do escopo permitido.', { status: 403, headers: NO_STORE_HEADERS });
     }
 
