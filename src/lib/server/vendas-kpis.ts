@@ -1364,7 +1364,7 @@ export async function fetchAndComputeVendasTimeline(
     { vendaRows: VendaAggregateRow[]; recibos: NonNullReceiptRow[] }
   >();
 
-  rows.forEach((row) => {
+  for (const row of rows) {
     const syntheticKey = [
       toDateKey(row?.data_venda),
       toStr(row?.vendedor_id),
@@ -1382,7 +1382,7 @@ export async function fetchAndComputeVendasTimeline(
       current.recibos.push(...normalizeReceiptRows(row.vendas_recibos));
     }
     groupedByVenda.set(vendaKey, current);
-  });
+  }
 
   groupedByVenda.forEach((group, vendaKey) => {
     const vendaPrincipal =
