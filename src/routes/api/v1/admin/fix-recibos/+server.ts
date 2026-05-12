@@ -15,7 +15,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { chunkArray } from '$lib/utils/array';
+import { cleanStringSet, chunkArray } from '$lib/utils/array';
 
 const MAX_DOC_VARIANTS = 200;
 const MAX_FIX_BODY_BYTES = 16 * 1024;
@@ -236,9 +236,10 @@ async function searchUsers(event: RequestEvent, scope: Awaited<ReturnType<typeof
   const { data, error } = await query;
   if (error) throw error;
 
+  const scopedCompanySet = cleanStringSet(scope.companyIds);
   return adminJson({
     usuarios: (data || [])
-      .filter((row) => scope.isAdmin || scope.companyIds.includes(String(row.company_id || '')))
+      .filter((row) => scope.isAdmin || scopedCompanySet.has(String(row.company_id || '').trim()))
       .filter(isRankingEligibleUser)
       .map((row) => ({
         id: row.id,
