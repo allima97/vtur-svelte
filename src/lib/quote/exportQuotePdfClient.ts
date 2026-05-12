@@ -667,7 +667,10 @@ export async function openQuotePreview(params: {
     ...item,
     segments: []
   }));
-  const itemIds = itemRows.map((item) => item.id).filter(Boolean) as string[];
+  const itemIds: string[] = [];
+  for (const item of itemRows) {
+    if (item.id) itemIds.push(item.id);
+  }
   if (itemIds.length > 0) {
     const { data: segments } = await supabase
       .from('quote_item_segment')
