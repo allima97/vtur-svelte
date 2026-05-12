@@ -134,6 +134,10 @@
   };
 
   const VENDEDOR_FILTER_ROLES = new Set(['ADMIN', 'MASTER', 'GESTOR']);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let loading = true;
   let errorMessage: string | null = null;
@@ -209,7 +213,7 @@
   let kpiVisible = createVisibilityMap(DEFAULT_KPI_ORDER, true);
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return BRL_CURRENCY_FORMATTER.format(value);
   }
 
   function formatDate(value: string | null | undefined): string {
