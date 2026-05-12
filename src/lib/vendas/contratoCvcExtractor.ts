@@ -2504,7 +2504,11 @@ function extractPagamentos(text: string): { pagamentos: PagamentoDraft[]; total_
 
   const paymentBlocks = cleaned.split(/Forma de Pagamento\s*:?\s*/i).slice(1);
   paymentBlocks.forEach((block) => {
-    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines: string[] = [];
+    for (const rawLine of block.split("\n")) {
+      const line = rawLine.trim();
+      if (line) lines.push(line);
+    }
     if (!lines.length) return;
     const formaMatch = block.match(/^\s*([^\n]+?)(?:\s+Opera[cç][ãa]o|\s+Plano|\s+Valor|\n)/i);
     const forma = formaMatch?.[1] || lines[0] || "";
