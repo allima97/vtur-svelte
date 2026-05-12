@@ -43,6 +43,11 @@
     exportacao_excel: boolean;
   };
 
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
   function createDefaultForm(): ParametrosSistema {
     const base: ParametrosSistema = {
       id: null,
@@ -138,10 +143,7 @@
     if (!value) return "Ainda nao salvo";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Ainda nao salvo";
-    return new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date);
+    return DATE_TIME_FORMATTER.format(date);
   }
 
   let loading = true;
