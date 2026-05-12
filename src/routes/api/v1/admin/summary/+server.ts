@@ -129,11 +129,11 @@ export async function GET(event) {
     }
 
     const billingStatusByCompany = new Map<string, string>();
-    billingRows.forEach((row) => {
+    for (const row of billingRows) {
       const companyId = String(row.company_id || '').trim();
-      if (!companyId) return;
+      if (!companyId) continue;
       billingStatusByCompany.set(companyId, String(row.status || 'trial').trim().toLowerCase() || 'trial');
-    });
+    }
 
     const billingCounts = {
       active: 0,
@@ -143,12 +143,12 @@ export async function GET(event) {
       canceled: 0
     };
 
-    companyIds.forEach((companyId: string) => {
+    for (const companyId of companyIds) {
       const status = billingStatusByCompany.get(companyId) || 'trial';
       if (status in billingCounts) {
         billingCounts[status as keyof typeof billingCounts] += 1;
       }
-    });
+    }
 
     return json(
       {
