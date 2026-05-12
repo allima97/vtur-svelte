@@ -474,6 +474,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   );
   if (normalizedCompanyIds.length === 0)
     return [] as EffectiveConciliacaoReceipt[];
+  const normalizedCompanySet = new Set(normalizedCompanyIds);
 
   const equipeVturIds = new Set<string>();
   try {
@@ -835,7 +836,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         const id = toStr(row?.id);
         const companyId = toStr(row?.company_id);
         if (!id || !isRankingEligibleUser(row)) return;
-        if (!normalizedCompanyIds.includes(companyId)) return;
+        if (!normalizedCompanySet.has(companyId)) return;
         validRankingVendedorIds.add(id);
       });
     }
