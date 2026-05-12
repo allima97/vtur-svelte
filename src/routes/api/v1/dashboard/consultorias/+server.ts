@@ -15,8 +15,8 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
-const SUPABASE_IN_BATCH_SIZE = 100;
 const NO_STORE_TEXT_HEADERS = {
   "Content-Type": "text/plain; charset=utf-8",
   ...NO_STORE_HEADERS,
@@ -44,14 +44,6 @@ function isRpcMissing(error: any, fnName: string) {
       (message.includes("does not exist") ||
         message.includes("could not find")))
   );
-}
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 export async function GET(event: RequestEvent) {

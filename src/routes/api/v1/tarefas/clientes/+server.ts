@@ -16,8 +16,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-
-const SUPABASE_IN_BATCH_SIZE = 100;
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
 type TarefaClienteRow = {
   id: string;
@@ -26,14 +25,6 @@ type TarefaClienteRow = {
   telefone: string | null;
   company_id: string | null;
 };
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeClientes(rows: TarefaClienteRow[]) {
   const map = new Map<string, TarefaClienteRow>();

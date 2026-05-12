@@ -14,6 +14,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray } from '$lib/utils/array';
 
 /** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
  *  evitando qualquer problema de timezone/DST. */
@@ -50,16 +51,6 @@ function clampIntParam(value: string | null, fallback: number, min: number, max:
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
-}
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 export async function GET(event) {

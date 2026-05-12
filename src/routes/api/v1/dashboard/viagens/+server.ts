@@ -18,6 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { chunkArray } from "$lib/utils/array";
 
 type DashboardViagemRow = {
   id: string;
@@ -30,16 +31,6 @@ type DashboardViagemRow = {
   data_fim: string | null;
   status: string | null;
 };
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function isCancelledStatus(value?: string | null) {
   return normalizeViagemStatus(value) === "cancelada";

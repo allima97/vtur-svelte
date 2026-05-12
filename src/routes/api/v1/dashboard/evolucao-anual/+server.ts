@@ -17,6 +17,7 @@ import {
   scopeCacheTags,
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray } from '$lib/utils/array';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,16 +44,6 @@ export type EvolucaoAnualResult = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < values.length; i += size) {
-    chunks.push(values.slice(i, i + size));
-  }
-  return chunks;
-}
 
 function toNum(value: unknown): number {
   const n = Number(value ?? 0);

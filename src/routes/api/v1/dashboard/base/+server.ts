@@ -16,6 +16,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { chunkArray } from '$lib/utils/array';
 
 function companyLabel(row: any) {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa sem nome');
@@ -23,16 +24,6 @@ function companyLabel(row: any) {
 
 function vendedorLabel(row: any) {
   return String(row?.nome_completo || row?.email || 'Usuario sem nome');
-}
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function canUseDashboardFilters(scope: any) {
