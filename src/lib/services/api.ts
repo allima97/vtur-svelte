@@ -51,10 +51,10 @@ function shouldBypassLocalGetCache(url: string) {
 function buildQueryString(query?: Record<string, string | number | boolean | undefined | null>): string {
   if (!query) return '';
   const params = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
     params.append(key, String(value));
-  });
+  }
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }
