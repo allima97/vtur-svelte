@@ -48,9 +48,11 @@ export async function GET(event) {
 
     if (error) throw error;
 
-    const items = ((data || []).map(mapAgendaRowToEvent).filter(Boolean) as ReturnType<
-      typeof mapAgendaRowToEvent
-    >[]) as NonNullable<ReturnType<typeof mapAgendaRowToEvent>>[];
+    const items: NonNullable<ReturnType<typeof mapAgendaRowToEvent>>[] = [];
+    for (const row of data || []) {
+      const item = mapAgendaRowToEvent(row);
+      if (item) items.push(item);
+    }
 
     const birthdayCompanyIds = resolveScopedCompanyIds(scope, event.url.searchParams.get('company_id'));
     const birthdayCompanyId = birthdayCompanyIds[0] || scope.companyId || null;
