@@ -48,7 +48,8 @@ export async function GET(event) {
       if (hasRequestedVendedorFilter) {
         const requestedIds = parseUuidList(requestedVendedorRaw);
         const allGestorVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
-        vendedorIds = requestedIds.filter((id) => allGestorVendedores.includes(id));
+        const allGestorVendedoresSet = new Set(allGestorVendedores);
+        vendedorIds = requestedIds.filter((id) => allGestorVendedoresSet.has(id));
         if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = [];
@@ -57,7 +58,8 @@ export async function GET(event) {
       const requestedIds = parseUuidList(requestedVendedorRaw);
       if (hasRequestedVendedorFilter) {
         const allFinanceiroVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
-        vendedorIds = requestedIds.filter((id) => allFinanceiroVendedores.includes(id));
+        const allFinanceiroVendedoresSet = new Set(allFinanceiroVendedores);
+        vendedorIds = requestedIds.filter((id) => allFinanceiroVendedoresSet.has(id));
         if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = [];
@@ -66,7 +68,8 @@ export async function GET(event) {
       const requestedIds = parseUuidList(requestedVendedorRaw);
       if (hasRequestedVendedorFilter) {
         const allMasterVendedores = await fetchVendedorIdsByCompanyIds(client, companyIds);
-        vendedorIds = requestedIds.filter((id) => allMasterVendedores.includes(id));
+        const allMasterVendedoresSet = new Set(allMasterVendedores);
+        vendedorIds = requestedIds.filter((id) => allMasterVendedoresSet.has(id));
         if (vendedorIds.length === 0) vendedorIds = [NO_MATCH_USER_ID];
       } else {
         vendedorIds = [];
