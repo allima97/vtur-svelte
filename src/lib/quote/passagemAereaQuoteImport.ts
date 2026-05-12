@@ -121,10 +121,11 @@ function lastDate(imported: ImportedRoteiroAereo[]) {
 }
 
 function splitTrecho(value?: string | null) {
-  const parts = String(value || '')
-    .split(/\s+-\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const parts: string[] = [];
+  for (const part of String(value || '').split(/\s+-\s+/)) {
+    const trimmed = part.trim();
+    if (trimmed) parts.push(trimmed);
+  }
   return {
     origem: parts[0] || '',
     destino: parts[1] || ''
