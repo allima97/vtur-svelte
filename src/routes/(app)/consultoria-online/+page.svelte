@@ -57,6 +57,14 @@
     currency: 'BRL'
   });
 
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
   let consultorias: Consultoria[] = [];
   let loading = false;
   let saving = false;
@@ -81,13 +89,17 @@
 
   function formatDataHora(iso: string): string {
     if (!iso) return '-';
-    return new Date(iso).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    return DATE_TIME_FORMATTER.format(date);
   }
 
   function formatCurrency(val: number): string {
