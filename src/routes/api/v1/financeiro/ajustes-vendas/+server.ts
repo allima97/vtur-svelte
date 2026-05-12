@@ -128,7 +128,11 @@ export async function GET(event) {
     const { data, error: queryError } = await fetchRows();
     if (queryError) throw queryError;
 
-    const reciboIds = (data || []).map((r: any) => String(r.id)).filter(Boolean);
+    const reciboIds: string[] = [];
+    for (const row of data || []) {
+      const id = String(row.id);
+      if (id) reciboIds.push(id);
+    }
 
     // Busca rateios separadamente (evita joins problemáticos)
     let rateioMap = new Map<string, any>();
