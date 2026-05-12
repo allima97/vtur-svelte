@@ -632,14 +632,14 @@ export async function GET(event) {
 
         if (usersError) throw usersError;
 
-        (usersData || []).forEach((row: any) => {
+        for (const row of usersData || []) {
           const key = String(row.id || "").trim();
           const current = rankingMap.get(key);
-          if (!current) return;
+          if (!current) continue;
           current.vendedor_nome = String(
             row.nome_completo || row.email || current.vendedor_nome,
           );
-        });
+        }
       }
     }
 
