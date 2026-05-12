@@ -2682,7 +2682,7 @@ function findPassageiroByNomeHint(
     const completoTokens = completoNorm.split(" ").filter(Boolean);
     if (!completoTokens.length) continue;
     const completoSet = new Set(completoTokens);
-    const matchedCount = nomeTokens.filter((token) => completoSet.has(token)).length;
+    const matchedCount = nomeTokens.reduce((total, token) => total + (completoSet.has(token) ? 1 : 0), 0);
     if (!matchedCount) continue;
     const required = nomeTokens.length >= 2 ? 2 : 1;
     if (matchedCount < required) continue;
