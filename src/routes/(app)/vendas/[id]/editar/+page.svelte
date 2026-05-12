@@ -410,15 +410,17 @@
   function mergeProdutos(items: Option[]) {
     if (!items.length) return;
     const byId = new Map<string, Option>();
-    produtos.forEach((item) => byId.set(String(item.id), item));
-    items.forEach((item) => {
+    for (const item of produtos) {
+      byId.set(String(item.id), item);
+    }
+    for (const item of items) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       const todasAsCidades =
         item.todas_as_cidades === true ||
         (!item.cidade_id && item.todas_as_cidades !== false);
       byId.set(id, { ...(byId.get(id) || {}), ...item, todas_as_cidades: todasAsCidades });
-    });
+    }
     produtos = Array.from(byId.values()).sort((a, b) => PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
   }
 
@@ -579,12 +581,14 @@
   function mergeClientes(items: Cliente[]) {
     if (!items.length) return;
     const byId = new Map<string, Cliente>();
-    clientes.forEach((item) => byId.set(String(item.id), item));
-    items.forEach((item) => {
+    for (const item of clientes) {
+      byId.set(String(item.id), item);
+    }
+    for (const item of items) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       byId.set(id, { ...(byId.get(id) || {}), ...item });
-    });
+    }
     clientes = Array.from(byId.values());
   }
 
@@ -655,12 +659,14 @@
   function mergeCidades(items: Option[]) {
     if (!items.length) return;
     const byId = new Map<string, Option>();
-    cidades.forEach((item) => byId.set(String(item.id), item));
-    items.forEach((item) => {
+    for (const item of cidades) {
+      byId.set(String(item.id), item);
+    }
+    for (const item of items) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       byId.set(id, { ...(byId.get(id) || {}), ...item, label: getCidadeLabel({ ...(byId.get(id) || {}), ...item }) });
-    });
+    }
     cidades = sortCidades(Array.from(byId.values()));
   }
 
