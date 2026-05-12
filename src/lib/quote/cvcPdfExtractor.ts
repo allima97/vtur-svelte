@@ -232,10 +232,11 @@ function cleanProductLine(line: string) {
 
 function extractAllCurrencyValues(line: string) {
   const matches = line.match(/R\$\s*([0-9.,-]+)/gi) || [];
-  const values = matches
-    .map((m) => m.replace(/R\$/i, "").trim())
-    .map(parseCurrencyValue)
-    .filter((v) => Number.isFinite(v) && v > 0);
+  const values: number[] = [];
+  for (const match of matches) {
+    const value = parseCurrencyValue(match.replace(/R\$/i, "").trim());
+    if (Number.isFinite(value) && value > 0) values.push(value);
+  }
   return values;
 }
 
