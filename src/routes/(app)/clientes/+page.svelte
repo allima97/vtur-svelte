@@ -244,13 +244,24 @@
 
       // Usar summary retornado pela API; se ausente, derivar dos itens da página
       const s = payload?.summary;
+      const fallbackSummary = clientes.reduce(
+        (acc, item) => {
+          if (item.status === 'ativo') acc.ativos += 1;
+          if (item.aniversario_hoje) acc.aniversariantesHoje += 1;
+          acc.totalCarteira += Number(item.total_gasto || 0);
+          if (item.total_viagens > 0) acc.comViagem += 1;
+          if (item.total_orcamentos > 0 && item.total_viagens === 0) acc.emNegociacao += 1;
+          return acc;
+        },
+        { ativos: 0, aniversariantesHoje: 0, totalCarteira: 0, comViagem: 0, emNegociacao: 0 }
+      );
       summary = {
         total: Number(s?.total ?? totalClientes),
-        ativos: Number(s?.ativos ?? clientes.filter((item) => item.status === 'ativo').length),
-        aniversariantesHoje: Number(s?.aniversariantesHoje ?? clientes.filter((item) => item.aniversario_hoje).length),
-        totalCarteira: Number(s?.totalCarteira ?? clientes.reduce((acc, item) => acc + Number(item.total_gasto || 0), 0)),
-        comViagem: Number(s?.comViagem ?? clientes.filter((item) => item.total_viagens > 0).length),
-        emNegociacao: Number(s?.emNegociacao ?? clientes.filter((item) => item.total_orcamentos > 0 && item.total_viagens === 0).length)
+        ativos: Number(s?.ativos ?? fallbackSummary.ativos),
+        aniversariantesHoje: Number(s?.aniversariantesHoje ?? fallbackSummary.aniversariantesHoje),
+        totalCarteira: Number(s?.totalCarteira ?? fallbackSummary.totalCarteira),
+        comViagem: Number(s?.comViagem ?? fallbackSummary.comViagem),
+        emNegociacao: Number(s?.emNegociacao ?? fallbackSummary.emNegociacao)
       };
     } catch (error) {
       if (seq !== requestSeq) return;
