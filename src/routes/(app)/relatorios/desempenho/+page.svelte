@@ -38,6 +38,12 @@
   ];
 
   const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const BRL_INTEGER_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
 
   // ---------------------------------------------------------------------------
   // Estado
@@ -71,7 +77,7 @@
   }
 
   function fmt(v: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+    return BRL_INTEGER_CURRENCY_FORMATTER.format(v);
   }
 
   function fmtShort(v: number) {
