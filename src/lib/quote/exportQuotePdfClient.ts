@@ -435,15 +435,19 @@ function buildQuotePreviewHtmlSync(params: {
   const dateLabel = formatDateBR(quote.created_at);
   const clientName = textVal(quote.client_name) || 'Cliente';
 
-  const rightLines = [
-    settings.consultor_nome ? `Consultor: ${settings.consultor_nome}` : '',
-    settings.telefone ? `Telefone: ${settings.telefone}` : '',
-    settings.whatsapp ? `WhatsApp: ${settings.whatsapp}` : '',
-    settings.email ? `E-mail: ${settings.email}` : '',
-  ].filter(Boolean);
+  const rightLines: string[] = [];
+  if (settings.consultor_nome) rightLines.push(`Consultor: ${settings.consultor_nome}`);
+  if (settings.telefone) rightLines.push(`Telefone: ${settings.telefone}`);
+  if (settings.whatsapp) rightLines.push(`WhatsApp: ${settings.whatsapp}`);
+  if (settings.email) rightLines.push(`E-mail: ${settings.email}`);
 
-  const footerLines = textVal(settings.rodape_texto)
-    ? textVal(settings.rodape_texto).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const footerText = textVal(settings.rodape_texto);
+  const footerLines = footerText
+    ? footerText.split(/\r?\n/).reduce((lines, line) => {
+        const trimmed = line.trim();
+        if (trimmed) lines.push(trimmed);
+        return lines;
+      }, [] as string[])
     : [
         'Preços em real (R$) convertido ao câmbio do dia sujeito a alteração e disponibilidade da tarifa.',
         'Valor da criança válido somente quando acompanhada de dois adultos pagantes no mesmo apartamento.',
