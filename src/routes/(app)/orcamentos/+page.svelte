@@ -41,6 +41,10 @@
 
   let abortController: AbortController | null = null;
   const STATUS_SEM_FOLLOW_UP = new Set(['fechado', 'rejeitado', 'expirado']);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   function getDiasSemInteracao(value: string | null | undefined) {
     if (!value) return Number.POSITIVE_INFINITY;
@@ -259,8 +263,7 @@
       sortable: true,
       align: 'right' as const,
       width: '130px',
-      formatter: (value: number) =>
-        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+      formatter: (value: number) => BRL_CURRENCY_FORMATTER.format(value)
     },
     {
       key: 'status',
