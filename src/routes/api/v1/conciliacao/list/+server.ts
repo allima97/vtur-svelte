@@ -406,10 +406,10 @@ export async function GET(event) {
                 .select('id, venda_id, numero_recibo, numero_reserva')
                 .in('id', batch),
           );
-          recibosData.forEach((item: any) => {
+          for (const item of recibosData) {
             const id = String(item?.id || '').trim();
             if (id) recibosById.set(id, item);
-          });
+          }
         }
 
         rows = rows.map((row: any) => {
