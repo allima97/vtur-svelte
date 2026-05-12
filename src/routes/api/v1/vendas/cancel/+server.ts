@@ -69,14 +69,16 @@ export async function POST(event) {
 
     invalidateSalesReadModels();
 
+    const saleCompanyIds = isUuid(saleCompanyId) ? [saleCompanyId] : [];
+
     // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
     triggerRebuildAsync({
-      companyIds: isUuid(saleCompanyId) ? [saleCompanyId] : [],
+      companyIds: saleCompanyIds,
       executionContext: (event.platform as any)?.ctx ?? null,
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
-    publishKvInvalidationAsync({ companyIds: isUuid(saleCompanyId) ? [saleCompanyId] : [] });
+    publishKvInvalidationAsync({ companyIds: saleCompanyIds });
 
     return json({ ok: true, cancelled: true }, { headers: NO_STORE_HEADERS });
   } catch (err) {
