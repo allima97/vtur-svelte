@@ -1511,14 +1511,14 @@ export async function fetchAndComputeVendasTimeline(
       const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
       if (!reciboDate) continue;
 
-      allocations.forEach((allocation) => {
+      for (const allocation of allocations) {
         const brutoAlloc = bruto * allocation.fator;
-        if (brutoAlloc <= 0) return;
+        if (brutoAlloc <= 0) continue;
         timelineMap.set(
           reciboDate,
           (timelineMap.get(reciboDate) || 0) + brutoAlloc,
         );
-      });
+      }
     }
   }
 
