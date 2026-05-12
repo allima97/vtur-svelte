@@ -3450,13 +3450,13 @@ export async function extractContratosFromText(
     contratos.push(contrato);
   } else {
     const markers: { index: number }[] = [];
-    CONTRATO_MARKERS.forEach((regex) => {
+    for (const regex of CONTRATO_MARKERS) {
       for (const match of cleaned.matchAll(regex)) {
         if (typeof match.index === "number") {
           markers.push({ index: match.index });
         }
       }
-    });
+    }
     markers.sort((a, b) => a.index - b.index);
     // Elimina markers sobrepostos: se dois markers estão a menos de 30 chars de distância,
     // mantém apenas o primeiro (evita que "Nº Contrato: X" e "Contrato: X" gerem dois blocos).
@@ -3477,19 +3477,19 @@ export async function extractContratosFromText(
       }
       contratos.push(contrato);
     } else {
-      uniqueMarkers.forEach((match, idx) => {
-      const start = match.index || 0;
-      const end = uniqueMarkers[idx + 1]?.index ?? cleaned.length;
-      const block = cleaned.slice(start, end);
-      const contrato = extractContratoBlock(block, contratante, passageiros);
-      const hasInfo =
-        Boolean(contrato.contrato_numero) ||
-        Boolean(contrato.reserva_numero) ||
-        Boolean(contrato.destino) ||
-        Boolean(contrato.contratante?.nome) ||
-        Boolean(contrato.passageiros?.length);
-      if (hasInfo) contratos.push(contrato);
-      });
+      for (const [idx, match] of uniqueMarkers.entries()) {
+        const start = match.index || 0;
+        const end = uniqueMarkers[idx + 1]?.index ?? cleaned.length;
+        const block = cleaned.slice(start, end);
+        const contrato = extractContratoBlock(block, contratante, passageiros);
+        const hasInfo =
+          Boolean(contrato.contrato_numero) ||
+          Boolean(contrato.reserva_numero) ||
+          Boolean(contrato.destino) ||
+          Boolean(contrato.contratante?.nome) ||
+          Boolean(contrato.passageiros?.length);
+        if (hasInfo) contratos.push(contrato);
+      }
     }
   }
 
@@ -3530,9 +3530,9 @@ export async function extractPdfText(
     const items = (content.items || []) as any[];
     const rows: { y: number; items: { x: number; text: string }[] }[] = [];
     const tolerance = 2;
-    items.forEach((item) => {
+    for (const item of items) {
       const textItem = item?.str ? String(item.str) : "";
-      if (!textItem.trim()) return;
+      if (!textItem.trim()) continue;
       const transform = item?.transform || [];
       const x = typeof transform[4] === "number" ? transform[4] : 0;
       const y = typeof transform[5] === "number" ? transform[5] : 0;
@@ -3542,7 +3542,7 @@ export async function extractPdfText(
         rows.push(row);
       }
       row.items.push({ x, text: textItem });
-    });
+    }
     rows.sort((a, b) => b.y - a.y);
     const lines = rows.map((row) => {
       const sorted = row.items.sort((a, b) => a.x - b.x);
