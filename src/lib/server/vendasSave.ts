@@ -4,7 +4,7 @@ import {
   isUuid,
   type UserScope,
 } from "$lib/server/v1";
-import { uniqueCleanStrings } from "$lib/utils/array";
+import { cleanStringSet, uniqueCleanStrings } from "$lib/utils/array";
 import { isEquipeVturNome } from "$lib/conciliacao/baixaRac";
 import {
   compareISODate,
@@ -115,11 +115,12 @@ export async function ensureAssignableActiveSeller(
   if (scope.isAdmin) return null;
   if (scope.isVendedor && vendedorId !== scope.userId)
     return "Vendedor nao pode atribuir venda para outro usuario.";
+  const scopedCompanySet = cleanStringSet(scope.companyIds);
 
   if (scope.isMaster) {
     if (Boolean(vendedor?.uso_individual))
       return "Master so pode atribuir vendas para usuarios corporativos ativos.";
-    if (!vendedorCompanyId || !scope.companyIds.includes(vendedorCompanyId)) {
+    if (!vendedorCompanyId || !scopedCompanySet.has(vendedorCompanyId)) {
       return "Vendedor fora do escopo das empresas do master.";
     }
     return null;
@@ -128,7 +129,7 @@ export async function ensureAssignableActiveSeller(
   if (scope.isFinanceiro) {
     if (Boolean(vendedor?.uso_individual))
       return "Financeiro so pode editar vendas de usuarios corporativos ativos.";
-    if (!vendedorCompanyId || !scope.companyIds.includes(vendedorCompanyId)) {
+    if (!vendedorCompanyId || !scopedCompanySet.has(vendedorCompanyId)) {
       return "Vendedor fora do escopo das empresas do financeiro.";
     }
     return null;

@@ -66,6 +66,7 @@ export async function POST(event: RequestEvent) {
     const isEdit = isUuid(vendaId);
     const requestedCompanyId = String(venda.company_id || venda.empresa_id || '').trim();
     const scopedCompanyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
+    const scopedCompanySet = cleanStringSet(scopedCompanyIds);
     let targetCompanyId = scope.isAdmin
       ? requestedCompanyId || scope.companyId || null
       : scopedCompanyIds.length === 1
@@ -103,7 +104,7 @@ export async function POST(event: RequestEvent) {
     if (sellerScopeError) throw sellerScopeError;
     const sellerCompanyId = String((sellerScope as any)?.company_id || '').trim() || null;
 
-    if (!targetCompanyId && sellerCompanyId && (scope.isAdmin || scopedCompanyIds.includes(sellerCompanyId))) {
+    if (!targetCompanyId && sellerCompanyId && (scope.isAdmin || scopedCompanySet.has(sellerCompanyId))) {
       targetCompanyId = sellerCompanyId;
     }
 
@@ -123,7 +124,6 @@ export async function POST(event: RequestEvent) {
         .maybeSingle();
       if (existingSaleError) throw existingSaleError;
       const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
-      const scopedCompanySet = cleanStringSet(scopedCompanyIds);
       if (!existingSale?.id || (!scope.isAdmin && scopedCompanySet.size > 0 && !scopedCompanySet.has(existingCompanyId))) {
         return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
