@@ -60,7 +60,10 @@
   }
 
   function removeDiaRoteiro(index: number) {
-    roteiro = roteiro.filter((_, i) => i !== index).map((r, i) => ({ ...r, dia: i + 1 }));
+    roteiro = roteiro.reduce<typeof roteiro>((items, item, i) => {
+      if (i !== index) items.push({ ...item, dia: items.length + 1 });
+      return items;
+    }, []);
   }
 
   function toggleRefeicao(diaIndex: number, refeicao: string) {
