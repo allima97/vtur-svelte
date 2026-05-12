@@ -28,6 +28,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
+import { uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 function roundMoney(value: number) {
@@ -161,15 +162,16 @@ export async function GET(event) {
         });
         const rowsForComissao = normalizeRowsToReceiptPeriod(rows);
         const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, { companyIds, rows: rowsForComissao });
-        const reciboIds = rowsForComissao
-          .flatMap((row: any) => (Array.isArray(row?.recibos) ? row.recibos : []))
-          .map((recibo: any) => String(recibo?.id || '').trim())
-          .filter(Boolean);
+        const reciboIds = uniqueCleanStrings(
+          rowsForComissao
+            .flatMap((row: any) => (Array.isArray(row?.recibos) ? row.recibos : []))
+            .map((recibo: any) => recibo?.id)
+        );
         const persistedSnapshot = await fetchPersistedComissoes(client, {
           companyIds,
           vendaIds: rows.map((row) => row.id),
           reciboIds,
-          vendedorIds: rows.map((row) => String(row.vendedor_id || '')).filter(Boolean)
+          vendedorIds: uniqueCleanStrings(rows.map((row) => row.vendedor_id))
         });
         const persistedByKey = new Map(
           persistedSnapshot.rows.map((row) => [

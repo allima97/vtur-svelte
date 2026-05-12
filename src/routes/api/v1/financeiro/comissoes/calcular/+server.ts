@@ -21,6 +21,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const MAX_COMISSOES_CALCULAR_BODY_BYTES = 128 * 1024;
@@ -236,10 +237,11 @@ export async function GET(event) {
           companyIds,
           rows: vendasForComissao as any
         });
-        const reciboIds = vendasForComissao
-          .flatMap((v: any) => (Array.isArray(v?.recibos) ? v.recibos : []))
-          .map((recibo: any) => String(recibo?.id || '').trim())
-          .filter(Boolean);
+        const reciboIds = uniqueCleanStrings(
+          vendasForComissao
+            .flatMap((v: any) => (Array.isArray(v?.recibos) ? v.recibos : []))
+            .map((recibo: any) => recibo?.id)
+        );
         const persistedSnapshot = await fetchPersistedComissoes(client, {
           companyIds,
           vendaIds: (vendas || []).map((row) => row.id),
