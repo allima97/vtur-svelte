@@ -250,6 +250,7 @@ export async function fetchRankingVendedoresByCompanyIds(
     ),
   );
   if (scopedCompanyIds.length === 0) return [] as any[];
+  const scopedCompanySet = new Set(scopedCompanyIds);
 
   return getCachedReadModel({
     key: buildReadModelCacheKey("ranking-vendedores", {
@@ -286,7 +287,7 @@ export async function fetchRankingVendedoresByCompanyIds(
 
       return rows.filter((row: any) => {
         const companyId = String(row?.company_id || "").trim();
-        return scopedCompanyIds.includes(companyId) && isRankingEligibleUser(row);
+        return scopedCompanySet.has(companyId) && isRankingEligibleUser(row);
       });
     },
   });
