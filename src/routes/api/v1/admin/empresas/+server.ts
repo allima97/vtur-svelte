@@ -12,7 +12,7 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 
@@ -82,7 +82,8 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
   if (fallback.error) throw fallback.error;
   const rows = fallback.data || [];
   if (!companyIds || !companyIds.length) return rows;
-  return rows.filter((row: any) => companyIds.includes(String(row.id)));
+  const companyIdSet = cleanStringSet(companyIds);
+  return rows.filter((row: any) => companyIdSet.has(String(row.id).trim()));
 }
 
 export async function GET(event) {
