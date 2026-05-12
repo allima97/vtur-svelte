@@ -347,14 +347,18 @@ export function triggerRebuildAsync(params: {
   if (!pendingRebuildParams) {
     pendingRebuildParams = { companyIds: [...companyIds], monthKeys };
   } else {
+    const pendingCompanyIds = new Set(pendingRebuildParams.companyIds);
     for (const id of companyIds) {
-      if (!pendingRebuildParams.companyIds.includes(id)) {
+      if (!pendingCompanyIds.has(id)) {
         pendingRebuildParams.companyIds.push(id);
+        pendingCompanyIds.add(id);
       }
     }
+    const pendingMonthKeys = new Set(pendingRebuildParams.monthKeys);
     for (const mk of monthKeys) {
-      if (!pendingRebuildParams.monthKeys.includes(mk)) {
+      if (!pendingMonthKeys.has(mk)) {
         pendingRebuildParams.monthKeys.push(mk);
+        pendingMonthKeys.add(mk);
       }
     }
   }
