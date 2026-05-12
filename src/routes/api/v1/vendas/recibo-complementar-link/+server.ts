@@ -12,7 +12,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { safeJsonParse } from '$lib/utils/json';
-import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
 
@@ -50,7 +50,7 @@ export async function POST(event: RequestEvent) {
       scope,
       body?.company_id || body?.empresa_id || event.url.searchParams.get('empresa_id')
     );
-    const companySet = new Set(companyIds.map((id) => String(id || '').trim()).filter(Boolean));
+    const companySet = cleanStringSet(companyIds);
 
     const fetchScopedSales = async (saleIds: string[]) => {
       const rows: any[] = [];

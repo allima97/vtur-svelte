@@ -11,7 +11,7 @@ import {
 import { invalidateTripReadModels } from "$lib/server/readModelCache";
 import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
-import { chunkArray } from "$lib/utils/array";
+import { cleanStringSet, chunkArray } from "$lib/utils/array";
 
 const MAX_VIAGEM_DELETE_BODY_BYTES = 64 * 1024;
 
@@ -84,7 +84,7 @@ export async function POST(event: RequestEvent) {
       return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const companySet = new Set(companyIds.map((companyId) => String(companyId || "").trim()).filter(Boolean));
+    const companySet = cleanStringSet(companyIds);
     const scopedAffectedRows = (affectedRows || []).filter((row: any) => {
       const companyId = String(row?.company_id || "").trim();
       if (companySet.size > 0 && !companySet.has(companyId)) return false;

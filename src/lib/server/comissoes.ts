@@ -1095,12 +1095,10 @@ export async function resolveGroupedVendaCommissions(
   }
 ): Promise<Map<string, ResolvedVendaCommission>> {
   const result = new Map<string, ResolvedVendaCommission>();
-  const companyIds = (params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean);
+  const companyIds = uniqueIds(params.companyIds || []);
 
   for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
-    const vendedorIds = Array.from(
-      new Set(groupRows.map((row) => String(row.vendedor_id || '').trim()).filter(Boolean))
-    );
+    const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
     const periodo = getCommissionPeriod(groupRows[0]);
     const context = await fetchCommissionContext(client, {
       companyIds,
@@ -1125,12 +1123,10 @@ export async function resolveGroupedReceiptCommissions(
   }
 ): Promise<Map<string, ResolvedReceiptCommission>> {
   const result = new Map<string, ResolvedReceiptCommission>();
-  const companyIds = (params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean);
+  const companyIds = uniqueIds(params.companyIds || []);
 
   for (const groupRows of groupRowsByVendedorPeriod(params.rows || [])) {
-    const vendedorIds = Array.from(
-      new Set(groupRows.map((row) => String(row.vendedor_id || '').trim()).filter(Boolean))
-    );
+    const vendedorIds = uniqueIds(groupRows.map((row) => row.vendedor_id));
     const periodo = getCommissionPeriod(groupRows[0]);
     const context = await fetchCommissionContext(client, {
       companyIds,
