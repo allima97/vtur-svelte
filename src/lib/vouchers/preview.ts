@@ -214,10 +214,12 @@ function normalizePreviewDays(items: VoucherDia[], startDate?: string | null) {
 }
 
 function splitPassengerLines(value?: string | null) {
-  return textValue(value)
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const line of textValue(value).split(/\n+/)) {
+    const normalized = line.trim();
+    if (normalized) lines.push(normalized);
+  }
+  return lines;
 }
 
 function renderMultilineDivs(value?: string | null, emptyLabel = "-") {
