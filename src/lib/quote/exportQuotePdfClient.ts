@@ -474,6 +474,10 @@ function buildQuotePreviewHtmlSync(params: {
         'Os serviços citados não estão reservados; a compra somente poderá ser confirmada após a confirmação dos fornecedores.',
         'Este orçamento foi feito com base na menor tarifa para os serviços solicitados, podendo sofrer alteração devido à disponibilidade de lugares no ato da compra.',
       ];
+  let footerLinesHtml = '';
+  for (const line of footerLines) {
+    footerLinesHtml += `<li>${escHtml(line)}</li>`;
+  }
 
   // Cabeçalho
   const headerHtml = `
@@ -542,7 +546,7 @@ function buildQuotePreviewHtmlSync(params: {
       <div class="orc-section-title orc-section-title--blue">Informações importantes</div>
       <div class="orc-section-divider"></div>
       <ul class="orc-footer-list">
-        ${footerLines.map((l) => `<li>${escHtml(l)}</li>`).join('')}
+        ${footerLinesHtml}
       </ul>
       ${complementUrl ? `<div class="orc-complement-img"><img src="${escHtml(complementUrl)}" alt="Imagem complementar" /></div>` : ''}
       <div class="orc-validity-box">
