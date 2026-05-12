@@ -106,8 +106,15 @@
 
   $: diasDoMes = getDaysInMonth(periodoAtual);
   $: periodoLabel = formatYearMonthLabel(periodoAtual);
-  $: diasTrabalhados = dias.filter((d) => d.tipo === 'TRABALHO' || d.tipo === 'PLANTAO').length;
-  $: diasFolga = dias.filter((d) => d.tipo === 'FOLGA' || d.tipo === 'FERIAS' || d.tipo === 'LICENCA').length;
+  $: diasResumo = dias.reduce(
+    (acc, dia) => {
+      if (dia.tipo === 'TRABALHO' || dia.tipo === 'PLANTAO') acc.diasTrabalhados += 1;
+      if (dia.tipo === 'FOLGA' || dia.tipo === 'FERIAS' || dia.tipo === 'LICENCA') acc.diasFolga += 1;
+      return acc;
+    },
+    { diasTrabalhados: 0, diasFolga: 0 }
+  );
+  $: ({ diasTrabalhados, diasFolga } = diasResumo);
   $: usuarioId = $auth.user?.id || '';
   $: canViewEquipe = usuarios.some((usuario) => usuario.id !== usuarioId);
   $: tabItems = [
