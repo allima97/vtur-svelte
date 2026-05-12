@@ -28,7 +28,7 @@ const DEBUG_HEADERS = NO_STORE_HEADERS;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  Object.entries(DEBUG_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  for (const [key, value] of Object.entries(DEBUG_HEADERS)) headers.set(key, value);
   return json(body, { ...init, headers });
 }
 

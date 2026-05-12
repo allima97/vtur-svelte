@@ -23,7 +23,7 @@ const MONEY_EPS = 0.009;
 
 function adminJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
-  Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  for (const [key, value] of Object.entries(NO_STORE_HEADERS)) headers.set(key, value);
   return json(body, { ...init, headers });
 }
 
@@ -478,7 +478,7 @@ export async function GET(event: RequestEvent) {
     return await searchDocuments(event);
   } catch (err) {
     const response = toErrorResponse(err, 'Erro ao buscar dados da correção de recibos.');
-    Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
     return response;
   }
 }
@@ -761,7 +761,7 @@ export async function POST(event: RequestEvent) {
     return adminJson({ error: `Ação desconhecida: ${action}` }, { status: 400 });
   } catch (err) {
     const response = toErrorResponse(err, 'Erro ao aplicar correção de recibos.');
-    Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
     return response;
   }
 }

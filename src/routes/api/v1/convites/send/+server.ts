@@ -13,7 +13,7 @@ const MAX_CONVITE_SEND_BODY_BYTES = 64 * 1024;
 
 function noStoreJson(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
-  Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => headers.set(key, value));
+  for (const [key, value] of Object.entries(NO_STORE_HEADERS)) headers.set(key, value);
   return json(data, { ...init, headers });
 }
 
