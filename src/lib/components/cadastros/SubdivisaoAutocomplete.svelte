@@ -82,11 +82,11 @@
 
   function uniqueOptions(items: SubdivisaoOption[]) {
     const byId = new Map<string, SubdivisaoOption>();
-    items.forEach((item) => {
+    for (const item of items) {
       const itemId = String(item?.id || '').trim();
-      if (!itemId) return;
+      if (!itemId) continue;
       byId.set(itemId, { ...(byId.get(itemId) || {}), ...item });
-    });
+    }
     return Array.from(byId.values());
   }
 

@@ -49,11 +49,11 @@
 
   function uniqueClients(items: ClienteOption[]) {
     const byId = new Map<string, ClienteOption>();
-    items.forEach((item) => {
+    for (const item of items) {
       const clienteId = String(item?.id || '').trim();
-      if (!clienteId) return;
+      if (!clienteId) continue;
       byId.set(clienteId, { ...(byId.get(clienteId) || {}), ...item });
-    });
+    }
     return Array.from(byId.values());
   }
 

@@ -110,11 +110,11 @@
 
   function uniqueCities(items: CidadeOption[]) {
     const byId = new Map<string, CidadeOption>();
-    items.forEach((item) => {
+    for (const item of items) {
       const cidadeId = String(item?.id || '').trim();
-      if (!cidadeId) return;
+      if (!cidadeId) continue;
       byId.set(cidadeId, { ...(byId.get(cidadeId) || {}), ...item });
-    });
+    }
     return Array.from(byId.values());
   }
 
