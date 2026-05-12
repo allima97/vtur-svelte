@@ -1452,7 +1452,7 @@ export async function fetchAndComputeVendasTimeline(
       );
     });
 
-    recibosPeriodo.forEach((recibo) => {
+    for (const recibo of recibosPeriodo) {
       const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
@@ -1509,7 +1509,7 @@ export async function fetchAndComputeVendasTimeline(
         : baseAllocations;
 
       const reciboDate = toDateKey(recibo?.data_venda) || vendaDate;
-      if (!reciboDate) return;
+      if (!reciboDate) continue;
 
       allocations.forEach((allocation) => {
         const brutoAlloc = bruto * allocation.fator;
@@ -1519,7 +1519,7 @@ export async function fetchAndComputeVendasTimeline(
           (timelineMap.get(reciboDate) || 0) + brutoAlloc,
         );
       });
-    });
+    }
   }
 
   return Array.from(timelineMap.entries())
