@@ -9,17 +9,10 @@ import {
   monthRangeFromKey,
   todayISODateLocal
 } from '$lib/date';
+import { chunkArray } from '$lib/utils/array';
 
 const EPS = 0.01;
 const SUPABASE_IN_BATCH_SIZE = 150;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 type Actor = 'cron' | 'user';
 
@@ -326,7 +319,7 @@ async function moveDuplicateRateioToWinner(params: {
     const rateios: any[] = [];
     const loserIdSet = new Set(params.loserIds.map((id) => String(id || '').trim()).filter(Boolean));
     const idsToLookup = Array.from(new Set([params.winnerId, ...params.loserIds].map((id) => String(id || '').trim()).filter(Boolean)));
-    for (const batch of chunkArray(idsToLookup)) {
+    for (const batch of chunkArray(idsToLookup, SUPABASE_IN_BATCH_SIZE)) {
       const { data, error } = await params.client
         .from('vendas_recibos_rateio')
         .select('id, conciliacao_recibo_id')
@@ -350,7 +343,7 @@ async function moveDuplicateRateioToWinner(params: {
     const rateiosToDelete = winnerHasRateio ? loserRateios : extraLoserRateios;
     const idsToDelete = rateiosToDelete.map((row: any) => String(row?.id || '').trim()).filter(Boolean);
     if (idsToDelete.length > 0) {
-      for (const batch of chunkArray(idsToDelete)) {
+      for (const batch of chunkArray(idsToDelete, SUPABASE_IN_BATCH_SIZE)) {
         const { error: deleteError } = await params.client.from('vendas_recibos_rateio').delete().in('id', batch);
         if (deleteError) throw deleteError;
       }
@@ -434,7 +427,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
 
     await moveDuplicateRateioToWinner({ client, winnerId: String(winner.id), loserIds });
 
-    for (const batch of chunkArray(loserIds)) {
+    for (const batch of chunkArray(loserIds, SUPABASE_IN_BATCH_SIZE)) {
       const { error: changesError } = await client
         .from('conciliacao_recibo_changes')
         .update({ conciliacao_recibo_id: winner.id })
@@ -442,7 +435,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
       if (changesError) throw changesError;
     }
 
-    for (const batch of chunkArray(loserIds)) {
+    for (const batch of chunkArray(loserIds, SUPABASE_IN_BATCH_SIZE)) {
       const { error: deleteError } = await client.from('conciliacao_recibos').delete().in('id', batch);
       if (deleteError) throw deleteError;
     }
@@ -521,7 +514,7 @@ async function fetchReciboCandidates(params: {
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
   const vendas: any[] = [];
-  for (const batch of chunkArray(vendaIds)) {
+  for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
       .from('vendas')
       .select('id, company_id, vendedor_id')
@@ -602,7 +595,7 @@ async function fetchRexturReciboCandidatesByReserva(params: {
 
   const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
   const vendas: any[] = [];
-  for (const batch of chunkArray(vendaIds)) {
+  for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
       .from('vendas')
       .select('id, company_id, vendedor_id')
@@ -1216,7 +1209,7 @@ async function recalculateConciliacaoMetricsCompany(params: {
 
     const uniqueReciboIdsToFetch = Array.from(new Set(reciboIdsToFetch));
     if (uniqueReciboIdsToFetch.length > 0) {
-      for (const batch of chunkArray(uniqueReciboIdsToFetch)) {
+      for (const batch of chunkArray(uniqueReciboIdsToFetch, SUPABASE_IN_BATCH_SIZE)) {
         const { data: recibos } = await client
           .from('vendas_recibos')
           .select('id, valor_total, valor_taxas')

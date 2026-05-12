@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
 import { getAdminClient, logServerError } from "$lib/server/v1";
+import { chunkArray } from "$lib/utils/array";
 import type {
   VendasKpiAgg,
   VendasKpiReciboContribution,
@@ -74,14 +75,6 @@ function normalizeIds(values?: string[] | null) {
   return Array.from(
     new Set((values || []).map((value) => toStr(value)).filter(Boolean)),
   ).sort();
-}
-
-function chunkArray<T>(values: T[], size = READ_FILTER_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function isUnavailableError(error: unknown) {
@@ -294,8 +287,8 @@ async function fetchStatusRows(
   monthStarts: string[],
 ) {
   const rows: StatusRow[] = [];
-  for (const companyBatch of chunkArray(companyIds)) {
-    for (const monthBatch of chunkArray(monthStarts)) {
+  for (const companyBatch of chunkArray(companyIds, READ_FILTER_BATCH_SIZE)) {
+    for (const monthBatch of chunkArray(monthStarts, READ_FILTER_BATCH_SIZE)) {
       const { data, error } = await client
         .from(TABLE_STATUS)
         .select("company_id, mes, status, dirty_at, rebuilt_at")
@@ -465,12 +458,12 @@ async function readPersistentContributions(
     }
   };
 
-  const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-  const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
+  const companyBatches = companyIds.length > 0 ? chunkArray(companyIds, READ_FILTER_BATCH_SIZE) : [null];
+  const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds, READ_FILTER_BATCH_SIZE) : [null];
 
   if (vendedorIds.length === 0 && accessibleClientIds.length > 0) {
     for (const companyBatch of companyBatches) {
-      for (const clientBatch of chunkArray(accessibleClientIds)) {
+      for (const clientBatch of chunkArray(accessibleClientIds, READ_FILTER_BATCH_SIZE)) {
         await readBatch({
           companyIds: companyBatch,
           clientIds: clientBatch,

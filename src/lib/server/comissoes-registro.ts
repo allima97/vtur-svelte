@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReportVendaRow } from '$lib/server/relatorios';
 import type { ResolvedReceiptCommission, ResolvedVendaCommission } from '$lib/server/comissoes';
+import { chunkArray } from '$lib/utils/array';
 
 export type PersistedComissaoRow = {
   id: string;
@@ -68,19 +69,14 @@ function uniqueIds(values?: string[]) {
   );
 }
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
 function buildFilterBatches(filters: Array<{ column: string; values: string[] }>) {
   return filters.reduce<Array<Array<{ column: string; values: string[] }>>>(
     (groups, filter) =>
       groups.flatMap((group) =>
-        chunkArray(filter.values).map((values) => [...group, { column: filter.column, values }])
+        chunkArray(filter.values, SUPABASE_IN_BATCH_SIZE).map((values) => [
+          ...group,
+          { column: filter.column, values }
+        ])
       ),
     [[]]
   );

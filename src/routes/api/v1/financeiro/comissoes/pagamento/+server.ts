@@ -19,6 +19,7 @@ import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray } from '$lib/utils/array';
 
 const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
 
@@ -35,20 +36,12 @@ function uniqueIds(values: unknown[]) {
   );
 }
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
 async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
   const rows: T[] = [];
-  for (const batch of chunkArray(values)) {
+  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await loader(batch);
     if (error) throw error;
     rows.push(...(data || []));
@@ -309,9 +302,12 @@ export async function PUT(event) {
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
     const reciboIds = uniqueIds(comissao_ids);
     const updatedRows: any[] = [];
-    const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
+    const companyBatches =
+      companyIds.length > SUPABASE_IN_BATCH_SIZE
+        ? chunkArray(companyIds, SUPABASE_IN_BATCH_SIZE)
+        : [companyIds];
 
-    for (const batch of chunkArray(reciboIds)) {
+    for (const batch of chunkArray(reciboIds, SUPABASE_IN_BATCH_SIZE)) {
       for (const companyBatch of companyBatches) {
         let query = client
           .from('comissoes')
@@ -388,9 +384,12 @@ export async function DELETE(event) {
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
     const reciboIds = uniqueIds(comissao_ids);
     const cancelledRows: any[] = [];
-    const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
+    const companyBatches =
+      companyIds.length > SUPABASE_IN_BATCH_SIZE
+        ? chunkArray(companyIds, SUPABASE_IN_BATCH_SIZE)
+        : [companyIds];
 
-    for (const batch of chunkArray(reciboIds)) {
+    for (const batch of chunkArray(reciboIds, SUPABASE_IN_BATCH_SIZE)) {
       for (const companyBatch of companyBatches) {
         let query = client
           .from('comissoes')

@@ -12,20 +12,13 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray } from '$lib/utils/array';
 
 // Usa commission_rule e commission_tier (tabelas reais do schema)
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
 const COMMISSION_RULE_COMPANY_BATCH_SIZE = 80;
 const COMMISSION_RULE_SELECT =
   'id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)';
-
-function chunkArray<T>(values: T[], size = COMMISSION_RULE_COMPANY_BATCH_SIZE) {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId?: string | null) {
   if (scope.isAdmin) return true;
@@ -81,7 +74,7 @@ async function fetchCommissionRulesForScope(params: {
   } else {
     await runQuery(client.from('commission_rule').select(COMMISSION_RULE_SELECT).is('company_id', null));
 
-    for (const companyBatch of chunkArray(companyIds)) {
+    for (const companyBatch of chunkArray(companyIds, COMMISSION_RULE_COMPANY_BATCH_SIZE)) {
       if (companyBatch.length === 0) continue;
       await runQuery(client.from('commission_rule').select(COMMISSION_RULE_SELECT).in('company_id', companyBatch));
     }

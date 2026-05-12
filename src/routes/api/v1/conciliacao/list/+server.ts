@@ -22,6 +22,7 @@ import {
   scopeCacheTags,
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray } from '$lib/utils/array';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -36,14 +37,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
 async function fetchBatched<T>(
   values: string[],
   loader: (
@@ -51,7 +44,7 @@ async function fetchBatched<T>(
   ) => PromiseLike<{ data: T[] | null; error: unknown }>,
 ) {
   const rows: T[] = [];
-  for (const batch of chunkArray(values)) {
+  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await loader(batch);
     if (error) throw error;
     rows.push(...(data || []));

@@ -14,6 +14,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray } from '$lib/utils/array';
 
 function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
   return [...items].sort((left, right) =>
@@ -23,20 +24,12 @@ function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
-
 async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
 ) {
   const rows: T[] = [];
-  for (const batch of chunkArray(values)) {
+  for (const batch of chunkArray(values, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await loader(batch);
     if (error) throw error;
     rows.push(...(data || []));
@@ -86,9 +79,9 @@ export async function GET(event) {
         const fetchScopedVendas = async (buildBaseQuery: () => any) => {
           const rows: any[] = [];
           const companyBatches =
-            filters.companyIds.length > 0 ? chunkArray(filters.companyIds) : [null];
+            filters.companyIds.length > 0 ? chunkArray(filters.companyIds, SUPABASE_IN_BATCH_SIZE) : [null];
           const vendedorBatches =
-            filters.vendedorIds.length > 0 ? chunkArray(filters.vendedorIds) : [null];
+            filters.vendedorIds.length > 0 ? chunkArray(filters.vendedorIds, SUPABASE_IN_BATCH_SIZE) : [null];
 
           for (const companyBatch of companyBatches) {
             for (const vendedorBatch of vendedorBatches) {
