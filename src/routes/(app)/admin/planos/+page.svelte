@@ -127,7 +127,17 @@
 
   onMount(load);
 
-  $: totalMrr = planos.filter((p) => p.ativo).reduce((acc, p) => acc + p.valor_mensal, 0);
+  $: planosStats = planos.reduce(
+    (acc, plano) => {
+      if (plano.ativo) {
+        acc.ativos += 1;
+        acc.totalMrr += plano.valor_mensal;
+      }
+      return acc;
+    },
+    { ativos: 0, totalMrr: 0 }
+  );
+  $: totalMrr = planosStats.totalMrr;
 </script>
 
 <svelte:head>
@@ -163,7 +173,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Planos ativos</p>
-      <p class="text-2xl font-bold text-slate-900">{planos.filter((p) => p.ativo).length}</p>
+      <p class="text-2xl font-bold text-slate-900">{planosStats.ativos}</p>
     </div>
   </div>
   <div class="vtur-kpi-card">
