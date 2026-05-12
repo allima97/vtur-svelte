@@ -572,9 +572,9 @@ export async function GET(event) {
       current.total_recibos = receiptCountMap.get(vendedorId)?.size || 0;
     });
 
-    (quotesData || []).forEach((quote: any) => {
+    for (const quote of quotesData || []) {
       const vendedorId = String(quote?.created_by || "").trim();
-      if (!vendedorId) return;
+      if (!vendedorId) continue;
 
       const current = rankingMap.get(vendedorId) || {
         vendedor_id: vendedorId,
@@ -593,7 +593,7 @@ export async function GET(event) {
 
       current.total_orcamentos += 1;
       rankingMap.set(vendedorId, current);
-    });
+    }
 
     (metasData || []).forEach((meta: any) => {
       const vendedorId = String(meta?.vendedor_id || "").trim();
