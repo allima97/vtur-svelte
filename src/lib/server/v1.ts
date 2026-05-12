@@ -134,6 +134,15 @@ export function isUuid(value?: string | null) {
   );
 }
 
+function collectUniqueUuidValues(values?: unknown[] | null) {
+  const ids = new Set<string>();
+  for (const value of values || []) {
+    const id = String(value || "").trim();
+    if (isUuid(id)) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
 export function parseUuidList(value?: string | null, limit = 300) {
   if (!value) return [];
 
@@ -245,11 +254,7 @@ export async function fetchRankingVendedoresByCompanyIds(
   client: SupabaseClient,
   companyIds: string[],
 ) {
-  const scopedCompanyIds = Array.from(
-    new Set(
-      (companyIds || []).map((id) => String(id || "").trim()).filter(isUuid),
-    ),
-  );
+  const scopedCompanyIds = collectUniqueUuidValues(companyIds);
   if (scopedCompanyIds.length === 0) return [] as any[];
   const scopedCompanySet = new Set(scopedCompanyIds);
 
