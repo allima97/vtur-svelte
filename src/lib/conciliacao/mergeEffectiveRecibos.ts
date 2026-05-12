@@ -72,7 +72,7 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
   // Core numérico (últimos dígitos sem zeros à esquerda) para casar formatos
   // divergentes: "5630-0000083861" (conciliação) ↔ "83861" (vendas_recibos)
   const overriddenCores = new Set<string>();
-  concReceipts.forEach((row) => {
+  for (const row of concReceipts) {
     const linkedReciboId = str(row.linked_recibo_id);
     if (linkedReciboId) overriddenIds.add(linkedReciboId);
 
@@ -82,7 +82,7 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
 
     const core = receiptNumberCore(documento);
     if (core) overriddenCores.add(core);
-  });
+  }
 
   const concByVendaId = new Map<string, EffectiveConciliacaoReceipt[]>();
   const orphans: EffectiveConciliacaoReceipt[] = [];
