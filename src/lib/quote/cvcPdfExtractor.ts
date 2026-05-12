@@ -1801,11 +1801,11 @@ async function ocrCanvasLines(worker: any, canvas: HTMLCanvasElement): Promise<T
     }>;
   }>;
   const extracted: TextItemBox[] = [];
-  blocks.forEach((block) => {
-    (block.paragraphs || []).forEach((paragraph) => {
-      (paragraph.lines || []).forEach((line) => {
+  for (const block of blocks) {
+    for (const paragraph of block.paragraphs || []) {
+      for (const line of paragraph.lines || []) {
         const text = (line.text || "").trim();
-        if (!text) return;
+        if (!text) continue;
         const bbox = line.bbox || { x0: 0, y0: 0, x1: 0, y1: 0 };
         extracted.push({
           x1: bbox.x0,
@@ -1814,9 +1814,9 @@ async function ocrCanvasLines(worker: any, canvas: HTMLCanvasElement): Promise<T
           y2: bbox.y1,
           text,
         });
-      });
-    });
-  });
+      }
+    }
+  }
   if (extracted.length > 0) {
     return extracted.filter((line) => line.x2 > line.x1 && line.y2 > line.y1);
   }
@@ -1838,16 +1838,16 @@ function extractTextItemsFromPdfPage(page: any, viewport: any, pdfjsLib: any): P
   return page.getTextContent().then((content: any) => {
     const items = (content.items || []) as Array<{ str?: string; transform?: number[]; width?: number; height?: number }>;
     const boxes: TextItemBox[] = [];
-    items.forEach((item) => {
+    for (const item of items) {
       const text = (item.str || "").trim();
-      if (!text) return;
+      if (!text) continue;
       const transform = pdfjsLib.Util.transform(viewport.transform, item.transform || [1, 0, 0, 1, 0, 0]);
       const x = transform[4];
       const y = transform[5];
       const height = Math.hypot(transform[2], transform[3]) || 0;
       const width = (item.width || 0) * viewport.scale;
       const yTop = y - height;
-      if (width <= 0 || height <= 0) return;
+      if (width <= 0 || height <= 0) continue;
       boxes.push({
         x1: x,
         y1: yTop,
@@ -1855,7 +1855,7 @@ function extractTextItemsFromPdfPage(page: any, viewport: any, pdfjsLib: any): P
         y2: yTop + height,
         text,
       });
-    });
+    }
     return boxes;
   });
 }
@@ -1873,7 +1873,7 @@ function groupTextLines(boxes: TextItemBox[], pageHeight: number) {
     texts: Array<{ x: number; text: string }>;
     count: number;
   }> = [];
-  sorted.forEach((item) => {
+  for (const item of sorted) {
     const centerY = (item.y1 + item.y2) / 2;
     const line = lines.find((l) => Math.abs(l.centerY - centerY) <= lineGap);
     if (!line) {
@@ -1895,7 +1895,7 @@ function groupTextLines(boxes: TextItemBox[], pageHeight: number) {
       line.texts.push({ x: item.x1, text: item.text });
       line.count += 1;
     }
-  });
+  }
   return lines
     .sort((a, b) => a.y1 - b.y1)
     .map((line) => ({
