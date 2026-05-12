@@ -440,7 +440,11 @@ function parseAirportAliasStorageValue(value?: string | null): AirportAliasEntry
     }
   }
 
-  const parts = raw.split("|").map((part) => normalizeLine(part)).filter(Boolean);
+  const parts: string[] = [];
+  for (const part of raw.split("|")) {
+    const normalized = normalizeLine(part);
+    if (normalized) parts.push(normalized);
+  }
   if (parts.length < 3) return null;
   const [alias, code, ...cityParts] = parts;
   const city = normalizeCityLabel(cityParts.join(" "));
