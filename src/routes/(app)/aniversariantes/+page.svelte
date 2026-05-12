@@ -88,19 +88,27 @@
 
   $: diasAfrente = Number(diasAfrenteFiltro);
 
-  $: hoje = aniversariantes.filter((a) => a.aniversario_hoje).length;
-  $: proximos7 = aniversariantes.filter((a) => {
-    if (!a.nascimento) return false;
-    const birth = parseISODateParts(a.nascimento);
-    if (!birth) return false;
-    const now = new Date();
-    for (let i = 0; i <= 7; i++) {
-      const check = new Date(now);
-      check.setDate(now.getDate() + i);
-      if (birth.month === check.getMonth() + 1 && birth.day === check.getDate()) return true;
-    }
-    return false;
-  }).length;
+  $: aniversariantesStats = aniversariantes.reduce(
+    (acc, aniversariante) => {
+      if (aniversariante.aniversario_hoje) acc.hoje += 1;
+      if (!aniversariante.nascimento) return acc;
+      const birth = parseISODateParts(aniversariante.nascimento);
+      if (!birth) return acc;
+      const now = new Date();
+      for (let i = 0; i <= 7; i++) {
+        const check = new Date(now);
+        check.setDate(now.getDate() + i);
+        if (birth.month === check.getMonth() + 1 && birth.day === check.getDate()) {
+          acc.proximos7 += 1;
+          break;
+        }
+      }
+      return acc;
+    },
+    { hoje: 0, proximos7: 0 }
+  );
+  $: hoje = aniversariantesStats.hoje;
+  $: proximos7 = aniversariantesStats.proximos7;
 </script>
 
 <svelte:head>

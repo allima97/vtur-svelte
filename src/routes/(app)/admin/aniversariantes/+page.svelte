@@ -47,7 +47,7 @@
 
   onMount(load);
 
-  $: hoje = colaboradores.filter((c) => c.aniversario_hoje).length;
+  $: hoje = colaboradores.reduce((total, colaborador) => total + (colaborador.aniversario_hoje ? 1 : 0), 0);
 </script>
 
 <svelte:head>
