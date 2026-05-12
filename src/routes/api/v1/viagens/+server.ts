@@ -318,9 +318,9 @@ export async function GET(event) {
               .select("id, nome")
               .in("id", batch);
             if (clientesError) throw clientesError;
-            (clientesData || []).forEach((c: any) =>
-              clientesMap.set(c.id, c.nome),
-            );
+            for (const c of clientesData || []) {
+              clientesMap.set(c.id, c.nome);
+            }
           }
         }
 
@@ -338,9 +338,9 @@ export async function GET(event) {
                 .select("id, nome_completo")
                 .in("id", batch);
             if (responsaveisError) throw responsaveisError;
-            (responsaveisData || []).forEach((u: any) =>
-              responsaveisMap.set(u.id, u.nome_completo),
-            );
+            for (const u of responsaveisData || []) {
+              responsaveisMap.set(u.id, u.nome_completo);
+            }
           }
         }
 
@@ -354,12 +354,12 @@ export async function GET(event) {
                 .select("viagem_id")
                 .in("viagem_id", batch);
             if (passageirosError) throw passageirosError;
-            (passageirosData || []).forEach((p: any) => {
+            for (const p of passageirosData || []) {
               passageirosCountMap.set(
                 p.viagem_id,
                 (passageirosCountMap.get(p.viagem_id) || 0) + 1,
               );
-            });
+            }
           }
         }
 
@@ -376,9 +376,9 @@ export async function GET(event) {
               .select("id, valor_total")
               .in("id", batch);
             if (vendasError) throw vendasError;
-            (vendasData || []).forEach((v: any) =>
-              vendasMap.set(v.id, v.valor_total),
-            );
+            for (const v of vendasData || []) {
+              vendasMap.set(v.id, v.valor_total);
+            }
           }
         }
 
