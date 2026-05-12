@@ -14,6 +14,11 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
+const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL'
+});
+
 function getResumo(recibo?: {
   numero_recibo?: string | null;
   valor_total?: number | null;
@@ -30,7 +35,7 @@ function getResumo(recibo?: {
     recibo?.produto_nome || '',
     venda?.destino_cidade_nome || venda?.destino_nome || '',
     typeof recibo?.valor_total === 'number'
-      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(recibo.valor_total)
+      ? BRL_CURRENCY_FORMATTER.format(recibo.valor_total)
       : ''
   ]
     .filter(Boolean)
