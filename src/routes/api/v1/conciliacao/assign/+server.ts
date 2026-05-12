@@ -22,6 +22,15 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_CONCILIACAO_ASSIGN_BODY_BYTES = 64 * 1024;
+const AUDIT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
@@ -137,7 +146,7 @@ async function notificarTrocaVendedor(params: {
         <tr><td><strong>Vendedor anterior (ID)</strong></td><td>${params.oldVendedorId}</td></tr>
         <tr><td><strong>Novo vendedor (ID)</strong></td><td>${params.newVendedorId ?? "(removido)"}</td></tr>
         <tr><td><strong>Alterado por</strong></td><td>${params.changedByNome} (${params.changedByUserId})</td></tr>
-        <tr><td><strong>Data/hora</strong></td><td>${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</td></tr>
+        <tr><td><strong>Data/hora</strong></td><td>${AUDIT_DATE_TIME_FORMATTER.format(new Date())}</td></tr>
       </table>
       <p style="color:#666;font-size:12px;">Este e-mail foi gerado automaticamente pelo sistema vtur.</p>
     `;
