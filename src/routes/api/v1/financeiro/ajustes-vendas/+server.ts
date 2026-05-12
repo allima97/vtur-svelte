@@ -148,9 +148,9 @@ export async function GET(event) {
           .in('venda_recibo_id', batch);
 
         if (rateioError && !String(rateioError.code || '').includes('42P01')) throw rateioError;
-        (rateioData || []).forEach((r: any) => {
+        for (const r of rateioData || []) {
           if (r.venda_recibo_id) rateioMap.set(r.venda_recibo_id, r);
-        });
+        }
       }
     }
 
@@ -160,7 +160,9 @@ export async function GET(event) {
     if (vendedorIdsFromRows.length > 0) {
       for (const batch of chunkArray(vendedorIdsFromRows)) {
         const { data: vData } = await client.from('users').select('id, nome_completo').in('id', batch);
-        (vData || []).forEach((v: any) => vendedorNomeMap.set(v.id, v.nome_completo));
+        for (const v of vData || []) {
+          vendedorNomeMap.set(v.id, v.nome_completo);
+        }
       }
     }
 
