@@ -357,10 +357,10 @@ export async function POST(event) {
 
     const { data: candidateData, error: candidateErr } = await candidateQuery;
     if (candidateErr) throw candidateErr;
-    (candidateData || []).forEach((recibo: any) => {
+    for (const recibo of candidateData || []) {
       const id = toStr(recibo?.id);
       if (id) receiptById.set(id, recibo);
-    });
+    }
 
     const allReceipts = Array.from(receiptById.values());
     const allReceiptIds: string[] = [];
