@@ -206,23 +206,27 @@ export async function POST(event: RequestEvent) {
     // Fechar orçamento vinculado, se houver
     await closeQuoteIfNeeded(adminClient, orcamento_id);
 
+    const targetCompanyIdText = String(targetCompanyId || '');
+    const invalidationCompanyIds = isUuid(targetCompanyIdText) ? [targetCompanyIdText] : [];
+    const invalidationVendedorIds = isUuid(vendedorId) ? [vendedorId] : [];
+
     // Invalidar cache de vendas/ranking/dashboard após criar ou editar venda
     invalidateSalesReadModels({
-      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
-      vendedorIds: isUuid(vendedorId) ? [vendedorId] : [],
+      companyIds: invalidationCompanyIds,
+      vendedorIds: invalidationVendedorIds,
       userId: user.id,
     });
 
     // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
     triggerRebuildAsync({
-      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
+      companyIds: invalidationCompanyIds,
       dataVenda: String(vendaPayload.data_venda || ''),
       executionContext: (event.platform as any)?.ctx ?? null,
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
     publishKvInvalidationAsync({
-      companyIds: isUuid(String(targetCompanyId || '')) ? [String(targetCompanyId)] : [],
+      companyIds: invalidationCompanyIds,
     });
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });
