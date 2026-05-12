@@ -28,6 +28,7 @@ import { addDaysISODate, monthRangeFromKey } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { toCleanString as toStr, toFiniteNumber as toNumber } from '$lib/utils/values';
 
 const MONEY_TOLERANCE = 0.01;
 const MAX_FIX_VINCULOS_BODY_BYTES = 64 * 1024;
@@ -49,15 +50,6 @@ type AuditIssue = {
   expected?: string | number | null;
   actual?: string | number | null;
 };
-
-function toStr(value: unknown) {
-  return String(value || '').trim();
-}
-
-function toNumber(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;

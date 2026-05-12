@@ -12,6 +12,7 @@
  */
 
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { toCleanString as toStr, toFiniteNumber as toNumber } from '$lib/utils/values';
 
 export type RateioRow = {
   venda_recibo_id?: string | null;
@@ -26,15 +27,6 @@ export type RateioRow = {
 // ---------------------------------------------------------------------------
 // HELPERS INTERNOS
 // ---------------------------------------------------------------------------
-
-function toStr(value?: unknown) {
-  return String(value || '').trim();
-}
-
-function toNumber(value?: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 /**
  * Remove o sufixo ::rateio:<vendedorId> de um ID sintético.

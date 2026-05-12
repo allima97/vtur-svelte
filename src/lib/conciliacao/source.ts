@@ -12,6 +12,7 @@ import {
 import { calcularRankingComissionavel } from "$lib/server/rankingComissionavel";
 import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
 import { chunkArray } from "$lib/utils/array";
+import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 export type EffectiveConciliacaoReceipt = {
   id: string;
@@ -54,10 +55,6 @@ export type SuppressedConciliacaoReceipt = {
   linked_recibo_id: string | null;
 };
 
-function toStr(value: unknown) {
-  return String(value || "").trim();
-}
-
 function logSourceWarning(context: string, error: unknown) {
   if (dev) {
     console.warn(context, error);
@@ -83,11 +80,6 @@ function getConciliacaoReceiptKey(row: {
 
 function isRexturDocumento(value?: unknown) {
   return toStr(value).toUpperCase() === "REXTUR";
-}
-
-function toNumber(value: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function roundMoney(value: number) {

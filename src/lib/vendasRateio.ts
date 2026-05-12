@@ -1,4 +1,5 @@
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 type RateioRow = {
   venda_recibo_id?: string | null;
@@ -9,15 +10,6 @@ type RateioRow = {
   percentual_destino?: number | null;
   ativo?: boolean | null;
 };
-
-function toStr(value?: unknown) {
-  return String(value || "").trim();
-}
-
-function toNumber(value?: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function normalizeReciboLookupId(value?: unknown) {
   const raw = toStr(value);
