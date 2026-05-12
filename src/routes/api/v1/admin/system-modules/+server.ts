@@ -128,7 +128,10 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       ).values()
     ) as { module_key: string; reason: string | null }[];
 
-    const disabledKeys = new Set(disabledNormalized.map((i) => i.module_key));
+    const disabledKeys = new Set<string>();
+    for (const item of disabledNormalized) {
+      disabledKeys.add(item.module_key);
+    }
 
     // Módulos que devem ficar HABILITADOS (catálogo deduplificado, menos os desabilitados)
     // O SYSTEM_MODULES_CATALOG tem entradas duplicadas (ex: 'vendas', 'orcamentos' aparecem 2x)
