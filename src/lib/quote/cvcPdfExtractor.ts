@@ -1090,7 +1090,10 @@ function buildAereoImportSnapshotFromFlightDetails(
   baseYear: number
 ) {
   if (!details) return null;
-  const fareTags = (details.fare_tags || []).filter(Boolean);
+  const fareTags: string[] = [];
+  for (const tag of details.fare_tags || []) {
+    if (tag) fareTags.push(tag);
+  }
   const tarifaNome = fareTags.find((tag) => normalizeOcrText(tag).includes("tarifa")) || "";
   const reembolsoTipo =
     fareTags.find((tag) => normalizeOcrText(tag).includes("reembols")) ||
