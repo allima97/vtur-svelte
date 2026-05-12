@@ -29,8 +29,14 @@ export async function GET(event) {
     const { data, error } = await query;
     if (error) throw error;
 
+    const items = [];
+    for (const row of data || []) {
+      const item = mapAgendaRowToEvent(row);
+      if (item) items.push(item);
+    }
+
     return json({
-      items: (data || []).map(mapAgendaRowToEvent).filter(Boolean)
+      items
     }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao carregar agenda.');
