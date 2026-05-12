@@ -9,6 +9,7 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_DOCUMENTO_VIAGEM_DELETE_BODY_BYTES = 32 * 1024;
 
@@ -43,9 +44,7 @@ export async function POST(event: RequestEvent) {
     if (!doc) return json({ error: 'Documento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!scope.isAdmin) {
-      const allowedCompanyIds = new Set(
-        [scope.companyId, ...(scope.companyIds || [])].map((value) => String(value || '').trim()).filter(Boolean)
-      );
+      const allowedCompanyIds = cleanStringSet([scope.companyId, ...(scope.companyIds || [])]);
       const targetCompanyId = String((doc as { company_id?: string | null })?.company_id || '').trim();
       if (!targetCompanyId || !allowedCompanyIds.has(targetCompanyId)) {
         return json({ error: 'Documento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
