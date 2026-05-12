@@ -203,10 +203,17 @@
     await loadRules();
   });
 
-  $: activeRules = rules.filter((rule) => rule.ativo).length;
-  $: inactiveRules = rules.filter((rule) => !rule.ativo).length;
-  $: escalonaveis = rules.filter((rule) => rule.tipo === 'ESCALONAVEL').length;
-  $: totalTiers = rules.reduce((total, rule) => total + (rule.commission_tier?.length || 0), 0);
+  $: rulesResumo = rules.reduce(
+    (acc, rule) => {
+      if (rule.ativo) acc.activeRules += 1;
+      else acc.inactiveRules += 1;
+      if (rule.tipo === 'ESCALONAVEL') acc.escalonaveis += 1;
+      acc.totalTiers += rule.commission_tier?.length || 0;
+      return acc;
+    },
+    { activeRules: 0, inactiveRules: 0, escalonaveis: 0, totalTiers: 0 }
+  );
+  $: ({ activeRules, inactiveRules, escalonaveis, totalTiers } = rulesResumo);
 
   function formatPercent(value: number | null | undefined) {
     return percentFormatter.format(normalizeNumber(value));
