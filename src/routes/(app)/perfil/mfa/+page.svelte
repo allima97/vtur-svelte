@@ -202,15 +202,17 @@
     error = null;
   }
 
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
   function formatDateTime(value?: string | null) {
     if (!value) return 'Nunca usada';
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(value));
+    return DATE_TIME_FORMATTER.format(new Date(value));
   }
 
   onMount(async () => {
