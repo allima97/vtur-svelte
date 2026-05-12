@@ -130,9 +130,9 @@ export function createSupabaseServerClient(cookies: {
           cookies.setAll(entries);
           return;
         }
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           cookies.set(entry.name, entry.value, entry.options || {});
-        });
+        }
       }
     }
   });
