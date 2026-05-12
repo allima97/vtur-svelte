@@ -20,7 +20,7 @@ import {
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_PARAMETROS_ESCALAS_BODY_BYTES = 512 * 1024;
 
@@ -358,7 +358,8 @@ export async function POST(event) {
       }
 
       const equipeIds = await resolveEquipeIds(client, scope);
-      if (!scope.isAdmin && !equipeIds.includes(usuario_id)) {
+      const equipeIdSet = cleanStringSet(equipeIds);
+      if (!scope.isAdmin && !equipeIdSet.has(usuario_id)) {
         return json({ error: 'Usuário fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
@@ -411,7 +412,8 @@ export async function POST(event) {
       }
 
       const equipeIds = await resolveEquipeIds(client, scope);
-      if (!scope.isAdmin && !equipeIds.includes(usuarioId)) {
+      const equipeIdSet = cleanStringSet(equipeIds);
+      if (!scope.isAdmin && !equipeIdSet.has(usuarioId)) {
         return json({ error: 'Usuário fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
