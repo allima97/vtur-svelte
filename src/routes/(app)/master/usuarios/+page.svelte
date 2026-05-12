@@ -42,6 +42,7 @@
     dateStyle: 'short',
     timeStyle: 'short'
   });
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
   function formatDateTime(value?: string | null) {
     if (!value) return '-';
@@ -131,7 +132,12 @@
     }
   }
 
-  $: empresas = Array.from(new Set(usuarios.map((row) => row.empresa).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  $: empresas = Array.from(new Set(usuarios.map((row) => row.empresa).filter(Boolean))).sort((a, b) =>
+    PT_BR_COLLATOR.compare(a, b)
+  );
+  $: tipoOptions = Array.from(new Set(usuarios.map((row) => row.tipo)))
+    .sort((a, b) => PT_BR_COLLATOR.compare(a, b))
+    .map((tipo) => ({ value: tipo, label: tipo }));
   $: filteredUsuarios = usuarios.filter((row) => {
     if (filtroTipo && row.tipo !== filtroTipo) return false;
     if (filtroStatus && String(row.ativo) !== filtroStatus) return false;
@@ -205,7 +211,7 @@
         id="usuarios-tipo"
         label="Perfil"
         bind:value={filtroTipo}
-        options={Array.from(new Set(usuarios.map((row) => row.tipo))).sort((a, b) => a.localeCompare(b)).map((tipo) => ({ value: tipo, label: tipo }))}
+        options={tipoOptions}
         placeholder="Todos"
         class_name="w-full"
       />
@@ -251,7 +257,7 @@
       id="usuarios-tipo-mobile"
       label="Perfil"
       bind:value={filtroTipo}
-      options={Array.from(new Set(usuarios.map((row) => row.tipo))).sort((a, b) => a.localeCompare(b)).map((tipo) => ({ value: tipo, label: tipo }))}
+      options={tipoOptions}
       placeholder="Todos"
       class_name="w-full"
     />
