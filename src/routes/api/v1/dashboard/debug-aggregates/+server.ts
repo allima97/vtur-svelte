@@ -65,19 +65,19 @@ export async function GET(event: RequestEvent) {
     let recibosCanceladosMesmoMes = 0;
     const vendaIds: string[] = [];
 
-    (vendasBase || []).forEach((v: any) => {
+    for (const v of vendasBase || []) {
       const vid = String(v.id || '').trim();
       if (vid) vendaIds.push(vid);
 
       if (String(v.status || '').trim().toLowerCase() === 'cancelado') {
         vendasCanceladasStatus += toNumber(v.valor_total_bruto);
-        return;
+        continue;
       }
 
       const recibos = Array.isArray(v.vendas_recibos) ? v.vendas_recibos : [];
       let vendaTotal = toNumber(v.valor_total_bruto);
 
-      recibos.forEach((r: any) => {
+      for (const r of recibos) {
         if (r.cancelado_por_conciliacao_em) {
           const reciboMes = String(r.data_venda || '').slice(0, 7);
           const cancelMes = String(r.cancelado_por_conciliacao_em).slice(0, 7);
@@ -86,10 +86,10 @@ export async function GET(event: RequestEvent) {
             vendaTotal -= toNumber(r.valor_total);
           }
         }
-      });
+      }
 
       totalVendas += vendaTotal;
-    });
+    }
 
     const { data: concRecords, error: concErr } = await client
       .from('conciliacao_recibos')
@@ -116,7 +116,7 @@ export async function GET(event: RequestEvent) {
 
     const relevantDocs = new Set<string>();
 
-    (concRecords || []).forEach((row: any) => {
+    for (const row of concRecords || []) {
       const status = String(row.status || '').toUpperCase();
       const temValor = toNumber(row.valor_lancamentos) > 0 || toNumber(row.valor_venda_real) > 0;
       if (status === 'BAIXA') {
@@ -142,7 +142,7 @@ export async function GET(event: RequestEvent) {
       if (row.venda_id) {
         concLinked += 1;
       }
-    });
+    }
 
     return json(
       {
