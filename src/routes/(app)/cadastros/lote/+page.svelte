@@ -21,6 +21,9 @@
   let tipoId = '';
   let subdivisaoId = '';
   let textoProdutos = '';
+  $: produtosNaLista = textoProdutos
+    .split('\n')
+    .reduce((total, linha) => total + (linha.trim() ? 1 : 0), 0);
 
   async function loadBase() {
     const [tiposPayload, subPayload] = await Promise.all([
@@ -133,7 +136,7 @@
         placeholder="Pacote Europa Clássica&#10;Hotel Copacabana Palace&#10;Passagem Aérea GRU-LIS&#10;..."
       />
       <p class="mt-1 text-xs text-slate-500">
-        {textoProdutos.split('\n').filter((l) => l.trim()).length} produto(s) na lista
+        {produtosNaLista} produto(s) na lista
       </p>
     </Card>
 

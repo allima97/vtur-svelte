@@ -115,6 +115,7 @@
     { diasTrabalhados: 0, diasFolga: 0 }
   );
   $: ({ diasTrabalhados, diasFolga } = diasResumo);
+  $: feriadosDoPeriodo = feriados.reduce((total, feriado) => total + (feriado.data.startsWith(periodoAtual) ? 1 : 0), 0);
   $: usuarioId = $auth.user?.id || '';
   $: canViewEquipe = usuarios.some((usuario) => usuario.id !== usuarioId);
   $: tabItems = [
@@ -179,7 +180,7 @@
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500"><Calendar size={20} /></div>
       <div>
         <p class="text-sm font-medium text-slate-500">Feriados no mes</p>
-        <p class="text-2xl font-bold text-slate-900">{feriados.filter((f) => f.data.startsWith(periodoAtual)).length}</p>
+        <p class="text-2xl font-bold text-slate-900">{feriadosDoPeriodo}</p>
       </div>
     </div>
     <div class="vtur-kpi-card">

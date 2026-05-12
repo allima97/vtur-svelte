@@ -62,7 +62,7 @@
   let form = createForm();
 
   $: selected = sections.find((section) => section.id === selectedId) || sections[0] || null;
-  $: activeCount = sections.filter((section) => section.is_active).length;
+  $: activeCount = sections.reduce((total, section) => total + (section.is_active ? 1 : 0), 0);
   $: inactiveCount = Math.max(0, sections.length - activeCount);
 
   function createForm(section?: DocumentationSection | null) {
