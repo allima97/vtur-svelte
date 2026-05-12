@@ -38,7 +38,6 @@ function normalizeWS(s: string) {
 }
 
 export function extractFacialCvcFromText(text: string): { contratos: ContratoDraft[]; raw_text: string } {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const flat = normalizeWS(text);
 
   // ── TIPO de bilhete ──────────────────────────────────────────────────────────
