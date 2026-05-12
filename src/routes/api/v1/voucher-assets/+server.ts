@@ -12,7 +12,7 @@ import {
 import { validateUploadedFile } from '$lib/server/uploadValidation';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readFormDataBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -284,7 +284,7 @@ export async function PATCH(event) {
     const { data: existingRaw, error: existingError } = await assetQuery.maybeSingle();
     if (existingError) throw existingError;
     const existingCompanyId = String(existingRaw?.company_id || '').trim();
-    const allowedCompanySet = new Set(scopedCompanyIds.map((companyId) => String(companyId || '').trim()).filter(Boolean));
+    const allowedCompanySet = cleanStringSet(scopedCompanyIds);
     const isAllowed =
       Boolean(existingRaw) &&
       ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||
@@ -390,7 +390,7 @@ export async function DELETE(event) {
     const { data: existingRaw, error: existingError } = await assetQuery.maybeSingle();
     if (existingError) throw existingError;
     const existingCompanyId = String(existingRaw?.company_id || '').trim();
-    const allowedCompanySet = new Set(scopedCompanyIds.map((companyId) => String(companyId || '').trim()).filter(Boolean));
+    const allowedCompanySet = cleanStringSet(scopedCompanyIds);
     const isAllowed =
       Boolean(existingRaw) &&
       ((scope.isAdmin && (allowedCompanySet.size === 0 || allowedCompanySet.has(existingCompanyId))) ||

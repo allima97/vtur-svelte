@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { UserScope } from '$lib/server/v1';
 import { isUuid } from '$lib/server/v1';
+import { cleanStringSet } from '$lib/utils/array';
 
 export type ScopedSaleRow = {
   id: string;
@@ -23,7 +24,7 @@ type FetchSaleForScopeParams = SaleScopeParams & {
 };
 
 function normalizedIdSet(ids?: string[] | null) {
-  return new Set((ids || []).map((id) => String(id || '').trim()).filter(Boolean));
+  return cleanStringSet(ids);
 }
 
 function buildSaleSelect(extraSelect?: string) {

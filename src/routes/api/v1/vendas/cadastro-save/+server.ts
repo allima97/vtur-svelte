@@ -22,6 +22,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
+import { cleanStringSet } from '$lib/utils/array';
 
 // Espelha o contrato de vtur-app/src/pages/api/v1/vendas/cadastro-save.ts
 // Aceita POST com payload { venda, recibos, pagamentos, orcamento_id? }
@@ -122,7 +123,7 @@ export async function POST(event: RequestEvent) {
         .maybeSingle();
       if (existingSaleError) throw existingSaleError;
       const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
-      const scopedCompanySet = new Set(scopedCompanyIds.map((id) => String(id || '').trim()).filter(Boolean));
+      const scopedCompanySet = cleanStringSet(scopedCompanyIds);
       if (!existingSale?.id || (!scope.isAdmin && scopedCompanySet.size > 0 && !scopedCompanySet.has(existingCompanyId))) {
         return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
       }

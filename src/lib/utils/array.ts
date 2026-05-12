@@ -28,3 +28,7 @@ export function uniqueValues<T>(values: readonly T[]): T[] {
 export function uniqueCleanStrings(values?: unknown[] | null): string[] {
   return uniqueValues((values || []).map((value) => String(value || '').trim()).filter(Boolean));
 }
+
+export function cleanStringSet(values?: unknown[] | null): Set<string> {
+  return new Set(uniqueCleanStrings(values));
+}

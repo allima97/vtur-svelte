@@ -1,4 +1,4 @@
-import { uniqueCleanStrings } from '$lib/utils/array';
+import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 
 type CacheEntry<T> = {
   value: T;
@@ -313,8 +313,8 @@ export function invalidateReadModelCache(options?: {
   invalidationEpoch += 1;
   inflight.clear();
 
-  const tags = new Set(uniqueCleanStrings(options?.tags));
-  const scopeTags = new Set(uniqueCleanStrings(options?.scopeTags));
+  const tags = cleanStringSet(options?.tags);
+  const scopeTags = cleanStringSet(options?.scopeTags);
   const keyPrefix = String(options?.keyPrefix || "").trim();
 
   if (tags.size === 0 && scopeTags.size === 0 && !keyPrefix) {
