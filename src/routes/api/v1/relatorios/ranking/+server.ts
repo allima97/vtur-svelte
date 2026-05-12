@@ -567,10 +567,10 @@ export async function GET(event) {
       rankingMap.set(vendedorId, current);
     }
 
-    rankingMap.forEach((current, vendedorId) => {
+    for (const [vendedorId, current] of rankingMap) {
       current.total_vendas = salesCountMap.get(vendedorId)?.size || 0;
       current.total_recibos = receiptCountMap.get(vendedorId)?.size || 0;
-    });
+    }
 
     for (const quote of quotesData || []) {
       const vendedorId = String(quote?.created_by || "").trim();
