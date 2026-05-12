@@ -304,6 +304,11 @@
     },
     { ativos: 0, aFazer: 0, fazendo: 0, feitos: 0, arquivadas: 0 }
   );
+  $: categoryTaskCounts = itens.reduce((counts, item) => {
+    if (!item.categoria_id) return counts;
+    counts.set(item.categoria_id, (counts.get(item.categoria_id) || 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 
   function resetTaskModal() {
     selectedTaskId = null;
@@ -455,7 +460,7 @@
       nome: category.nome,
       cor: category.cor || CATEGORY_PALETTE[0]
     };
-    selectedCategoryLinkedCount = itens.filter((item) => item.categoria_id === category.id).length;
+    selectedCategoryLinkedCount = categoryTaskCounts.get(category.id) || 0;
     categoryModalOpen = true;
   }
 
@@ -728,7 +733,7 @@
               </div>
             </div>
             <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-              {itens.filter((item) => item.categoria_id === categoria.id).length}
+              {categoryTaskCounts.get(categoria.id) || 0}
             </span>
           </div>
         </Button>
