@@ -11,6 +11,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
+import { cleanStringSet, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_AJUSTES_VENDAS_SAVE_BODY_BYTES = 32 * 1024;
 
@@ -213,10 +214,12 @@ export async function POST(event) {
           : scope.companyId
             ? [scope.companyId]
             : [];
-      const equipeIds = (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds))
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean);
-      const equipeSet = new Set(equipeIds.map((id) => String(id || '').trim()));
+      const equipeIds = uniqueCleanStrings(
+        (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
+          (row: any) => row?.id
+        )
+      );
+      const equipeSet = cleanStringSet(equipeIds);
       if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedorDestinoId)) {
         return json(
           { error: 'Gestor so pode ratear vendas da propria empresa.' },

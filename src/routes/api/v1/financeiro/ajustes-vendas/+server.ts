@@ -14,7 +14,13 @@ import {
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateReadModelCache, READ_MODEL_TAGS } from '$lib/server/readModelCache';
-import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import {
+  cleanStringSet,
+  chunkArray,
+  dedupeById,
+  SUPABASE_IN_BATCH_SIZE,
+  uniqueCleanStrings
+} from '$lib/utils/array';
 
 const MAX_AJUSTES_VENDAS_BODY_BYTES = 32 * 1024;
 
@@ -145,7 +151,7 @@ export async function GET(event) {
     }
 
     // Busca nomes dos vendedores
-    const vendedorIdsFromRows = [...new Set((data || []).map((r: any) => String(r.vendas?.vendedor_id || '')).filter(Boolean))];
+    const vendedorIdsFromRows = uniqueCleanStrings((data || []).map((r: any) => r.vendas?.vendedor_id));
     const vendedorNomeMap = new Map<string, string>();
     if (vendedorIdsFromRows.length > 0) {
       for (const batch of chunkArray(vendedorIdsFromRows)) {
@@ -341,10 +347,12 @@ export async function POST(event) {
     // Restrição de gestor: só pode ratear vendas da própria equipe
     if (scope.isGestor) {
       const gestorCompanyIds = reciboCompany ? [reciboCompany] : scope.companyIds;
-      const equipeIds = (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds))
-        .map((row: any) => String(row?.id || '').trim())
-        .filter(Boolean);
-      const equipeSet = new Set(equipeIds.map((id) => String(id || '').trim()));
+      const equipeIds = uniqueCleanStrings(
+        (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
+          (row: any) => row?.id
+        )
+      );
+      const equipeSet = cleanStringSet(equipeIds);
       if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedor_destino_id)) {
         return json({ error: 'Gestor só pode ratear vendas da própria empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
