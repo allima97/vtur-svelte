@@ -15,6 +15,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
   // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active
@@ -61,7 +62,7 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
       rows.push(...(withBilling.data || []));
     }
     return dedupeById(rows).sort((left, right) =>
-      String(left?.nome_fantasia || '').localeCompare(String(right?.nome_fantasia || ''), 'pt-BR')
+      PT_BR_COLLATOR.compare(String(left?.nome_fantasia || ''), String(right?.nome_fantasia || ''))
     );
   };
 

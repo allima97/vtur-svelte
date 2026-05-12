@@ -2,6 +2,8 @@ import { json } from '@sveltejs/kit';
 import { getAdminClient, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -31,9 +33,9 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows).sort((left, right) =>
-          String(left?.nome_fantasia || left?.nome_empresa || '').localeCompare(
-            String(right?.nome_fantasia || right?.nome_empresa || ''),
-            'pt-BR'
+          PT_BR_COLLATOR.compare(
+            String(left?.nome_fantasia || left?.nome_empresa || ''),
+            String(right?.nome_fantasia || right?.nome_empresa || '')
           )
         ),
         error: null
