@@ -60,17 +60,21 @@ export type Thread = {
   unreadCount: number;
 };
 
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+const TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR');
+
 export function formatDateTimeBR(value?: string | null) {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return DATE_TIME_FORMATTER.format(date);
 }
 
 export function formatThreadTime(value?: string | null) {
@@ -83,8 +87,8 @@ export function formatThreadTime(value?: string | null) {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   return sameDay
-    ? date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-    : new Intl.DateTimeFormat('pt-BR').format(date);
+    ? TIME_FORMATTER.format(date)
+    : DATE_FORMATTER.format(date);
 }
 
 export function getNomeExibicao(user?: UserMini | null) {
