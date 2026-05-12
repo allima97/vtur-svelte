@@ -497,10 +497,10 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         : equipeQuery.in("company_id", normalizedCompanyIds);
     const { data: equipeRows, error: equipeError } = await equipeQuery;
     if (equipeError) throw equipeError;
-    (equipeRows || []).forEach((row: any) => {
+    for (const row of equipeRows || []) {
       const id = toStr(row?.id);
       if (id) equipeVturIds.add(id);
-    });
+    }
   } catch (error) {
     logSourceWarning(
       "[source] falha ao carregar Equipe vtur, seguindo sem filtro:",
