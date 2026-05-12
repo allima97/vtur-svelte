@@ -170,14 +170,14 @@ function resolveZipPath(baseDir: string, target: string) {
   const rawTarget = String(target || '').trim();
   const raw = rawTarget.startsWith('/') ? rawTarget.slice(1) : `${baseDir}/${rawTarget}`;
   const parts: string[] = [];
-  raw.split('/').forEach((part) => {
-    if (!part || part === '.') return;
+  for (const part of raw.split('/')) {
+    if (!part || part === '.') continue;
     if (part === '..') {
       parts.pop();
-      return;
+      continue;
     }
     parts.push(part);
-  });
+  }
   return parts.join('/');
 }
 
