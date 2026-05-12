@@ -94,10 +94,10 @@ export async function GET(event) {
           }
         >();
 
-        rows.forEach((row) => {
-          const clientKey =
-            String(row.cliente_id || "").trim() || `sem-cliente:${row.id}`;
-          const clienteRow = row.clientes as any;
+	        for (const row of rows) {
+	          const clientKey =
+	            String(row.cliente_id || "").trim() || `sem-cliente:${row.id}`;
+	          const clienteRow = row.clientes as any;
           const cpf = clienteRow?.cpf ?? null;
           const current = byClient.get(clientKey) || {
             cliente_id: String(row.cliente_id || "").trim() || null,
@@ -118,8 +118,8 @@ export async function GET(event) {
             current.ultima_compra = row.data_venda;
           }
 
-          byClient.set(clientKey, current);
-        });
+	          byClient.set(clientKey, current);
+	        }
 
         const items = Array.from(byClient.values())
           .map((item) => {
