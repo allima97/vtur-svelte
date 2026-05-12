@@ -361,11 +361,11 @@ export async function GET(event) {
           }
         }
 
-        const vendaIds = [
-          ...new Set(
-            (scopedData || []).map((v: any) => v.venda_id).filter(Boolean),
-          ),
-        ];
+        const vendaIdSet = new Set<string>();
+        for (const viagem of scopedData || []) {
+          if (viagem.venda_id) vendaIdSet.add(viagem.venda_id);
+        }
+        const vendaIds = Array.from(vendaIdSet);
         const vendasMap = new Map<string, number>();
         if (vendaIds.length > 0) {
           for (const batch of chunkArray(vendaIds)) {
