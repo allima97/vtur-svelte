@@ -1643,10 +1643,11 @@ function parseProduto(text: string, tipo?: string) {
 }
 
 function parseTipoProduto(text: string) {
-  const lines = (text || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const line of (text || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed) lines.push(trimmed);
+  }
   const candidate = lines.find((line) => /[A-Za-zÀ-ÿ]/.test(line)) || "";
   return candidate ? canonicalizeTipoLabel(candidate) : "";
 }
