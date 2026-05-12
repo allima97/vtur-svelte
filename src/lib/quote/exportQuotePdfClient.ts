@@ -455,6 +455,10 @@ function buildQuotePreviewHtmlSync(params: {
   if (settings.telefone) rightLines.push(`Telefone: ${settings.telefone}`);
   if (settings.whatsapp) rightLines.push(`WhatsApp: ${settings.whatsapp}`);
   if (settings.email) rightLines.push(`E-mail: ${settings.email}`);
+  let rightLinesHtml = '';
+  for (const line of rightLines) {
+    rightLinesHtml += `<div>${escHtml(line)}</div>`;
+  }
 
   const footerText = textVal(settings.rodape_texto);
   const footerLines = footerText
@@ -492,7 +496,7 @@ function buildQuotePreviewHtmlSync(params: {
                   <tr>
                     <td class="orc-right-lines">
                       ${qrUrl ? `<div class="orc-qr-label">Aponte para o QR Code abaixo e chame o consultor:</div>` : ''}
-                      ${rightLines.map((l) => `<div>${escHtml(l)}</div>`).join('')}
+                      ${rightLinesHtml}
                     </td>
                     ${qrUrl ? `<td class="orc-qr-cell"><img src="${escHtml(qrUrl)}" class="orc-qr" alt="QR Code WhatsApp" /></td>` : ''}
                   </tr>
