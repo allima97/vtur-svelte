@@ -134,6 +134,7 @@
   let filtroCategoria = 'todas';
   let archivedExpanded = false;
   let showFilterSheet = false;
+  $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   let taskModalOpen = false;
   let taskLoading = false;
@@ -274,8 +275,7 @@
     });
 
   function matchesFilters(item: TodoItemEnriched) {
-    const query = searchQuery.trim().toLowerCase();
-    if (query && !item.searchBlob.includes(query)) return false;
+    if (normalizedSearchQuery && !item.searchBlob.includes(normalizedSearchQuery)) return false;
     if (filtroStatus !== 'todas' && item.visibleStatus !== filtroStatus) return false;
     if (filtroPrioridade !== 'todas' && item.prioridade !== filtroPrioridade) return false;
     if (filtroCategoria !== 'todas' && (item.categoria_id || 'sem_categoria') !== filtroCategoria) return false;
