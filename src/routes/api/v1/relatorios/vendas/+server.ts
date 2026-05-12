@@ -53,6 +53,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -85,15 +86,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "cvc ficha",
   "credito",
 ];
-
-function toNum(value: unknown) {
-  const n = Number(value || 0);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function toStr(value?: unknown) {
-  return String(value || "").trim();
-}
 
 function normalizeTextValue(value?: string | null) {
   return String(value || "")

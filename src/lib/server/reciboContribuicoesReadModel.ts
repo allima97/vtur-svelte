@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isUuid } from "$lib/vendas/rateio";
 import { getAdminClient, logServerError } from "$lib/server/v1";
 import { chunkArray } from "$lib/utils/array";
+import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 import type {
   VendasKpiAgg,
   VendasKpiReciboContribution,
@@ -61,15 +62,6 @@ const READ_FILTER_BATCH_SIZE = 100;
 
 let readModelUnavailable = false;
 let readModelUnavailableLogged = false;
-
-function toStr(value?: unknown) {
-  return String(value || "").trim();
-}
-
-function toNum(value?: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function normalizeIds(values?: string[] | null) {
   return Array.from(

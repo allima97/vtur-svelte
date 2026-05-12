@@ -24,6 +24,7 @@ import {
 } from "$lib/vendas/rateio";
 import { normalizeReceiptNumber } from "$lib/conciliacao/receiptNumber";
 import { chunkArray } from "$lib/utils/array";
+import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
@@ -100,15 +101,6 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "cvc ficha",
   "credito",
 ];
-
-function toStr(value?: unknown) {
-  return String(value || "").trim();
-}
-
-function toNum(value?: unknown) {
-  const parsed = Number(value || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function toDateKey(value?: string | null) {
   return String(value || "").slice(0, 10);
