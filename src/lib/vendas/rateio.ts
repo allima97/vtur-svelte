@@ -339,8 +339,8 @@ export function applyRateioToSalesForScopedVendedores<
         ? baseAllocations.filter((allocation) => scopedSet.has(allocation.vendedorId))
         : baseAllocations;
 
-      allocations.forEach((allocation) => {
-        if (!allocation.vendedorId) return;
+      for (const allocation of allocations) {
+        if (!allocation.vendedorId) continue;
         const bucket = recibosPorVendedor.get(allocation.vendedorId) || [];
         const forceSyntheticId =
           Boolean(rateio?.ativo) ||
@@ -360,7 +360,7 @@ export function applyRateioToSalesForScopedVendedores<
           rateio_scope_index: reciboIndex,
         });
         recibosPorVendedor.set(allocation.vendedorId, bucket);
-      });
+      }
     }
 
     return Array.from(recibosPorVendedor.entries())
