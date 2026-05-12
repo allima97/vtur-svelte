@@ -385,10 +385,10 @@ export async function POST(event) {
     }
 
     const userIds = new Set<string>();
-    rows.forEach((row: any) => {
+    for (const row of rows) {
       const rankingId = toStr(row?.ranking_vendedor_id);
       if (rankingId) userIds.add(rankingId);
-    });
+    }
     allReceipts.forEach((recibo: any) => {
       const vendedorId = toStr(recibo?.venda?.vendedor_id);
       if (vendedorId) userIds.add(vendedorId);
