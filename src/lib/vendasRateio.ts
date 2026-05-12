@@ -1,4 +1,9 @@
-import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
+import {
+  cleanStringSet,
+  chunkArray,
+  SUPABASE_IN_BATCH_SIZE,
+  uniqueCleanStrings,
+} from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
 type RateioRow = {
@@ -148,9 +153,7 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   }
 ) {
   const scopedCompanyIds = normalizeCompanyScopeIds(options.companyId, options.companyIds);
-  const scopedVendedorIds = Array.from(
-    new Set((options.vendedorIds || []).map((id) => toStr(id)).filter(isUuid))
-  );
+  const scopedVendedorIds = uniqueCleanStrings(options.vendedorIds || []).filter(isUuid);
   if (scopedVendedorIds.length === 0) return [] as string[];
 
   const splitRows: any[] = [];
@@ -175,12 +178,12 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
     }
   }
 
-  const vendaReciboIds = Array.from(
-    new Set((splitRows || []).map((row: any) => toStr(row?.venda_recibo_id)).filter(isUuid))
-  );
-  const concReciboIds = Array.from(
-    new Set((splitRows || []).map((row: any) => toStr(row?.conciliacao_recibo_id)).filter(isUuid))
-  );
+  const vendaReciboIds = uniqueCleanStrings(
+    (splitRows || []).map((row: any) => row?.venda_recibo_id)
+  ).filter(isUuid);
+  const concReciboIds = uniqueCleanStrings(
+    (splitRows || []).map((row: any) => row?.conciliacao_recibo_id)
+  ).filter(isUuid);
 
   const vendaIds = new Set<string>();
 
@@ -221,7 +224,7 @@ export function applyRateioToSalesForScopedVendedores<
     vendas_recibos?: Array<Record<string, any>> | null;
   }
 >(items: T[], rateioMap: Map<string, RateioRow>, scopedVendedorIds?: string[] | null) {
-  const scopedSet = new Set((scopedVendedorIds || []).map((id) => toStr(id)).filter(Boolean));
+  const scopedSet = cleanStringSet(scopedVendedorIds || []);
   const hasScope = scopedSet.size > 0;
 
   return (items || []).flatMap((item) => {
