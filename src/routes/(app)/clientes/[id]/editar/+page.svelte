@@ -30,14 +30,14 @@
   import { ApiError, apiGet, apiPatch } from '$lib/services/api';
   import {
     buildClientePayload,
-    classificacaoOptions,
+    classificacaoSelectOptions,
     createInitialClienteForm,
     estadosBrasil,
     fillClienteFormFromApi,
     formatCep,
     formatDocumento,
     formatTelefone,
-    generoOptions,
+    generoSelectOptions,
     type ClienteFormData,
     validateClienteForm
   } from '$lib/features/clientes/form';
@@ -56,16 +56,6 @@
     { value: 'PF', label: 'Pessoa Fisica' },
     { value: 'PJ', label: 'Pessoa Juridica' }
   ];
-
-  const generoSelectOptions = generoOptions.filter(Boolean).map((option) => ({
-    value: option,
-    label: option
-  }));
-
-  const classificacaoSelectOptions = classificacaoOptions.filter(Boolean).map((option) => ({
-    value: option,
-    label: option
-  }));
 
   const estadosSelectOptions = estadosBrasil.map((estado) => ({
     value: estado.value,

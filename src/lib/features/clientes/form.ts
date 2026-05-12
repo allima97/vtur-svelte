@@ -64,6 +64,16 @@ export const estadosBrasil = [
 export const classificacaoOptions = ['', 'A', 'B', 'C', 'D', 'E'];
 export const generoOptions = ['', 'Masculino', 'Feminino', 'Outros'];
 
+function buildClienteSelectOptions(options: string[]) {
+  return options.reduce<{ value: string; label: string }[]>((items, option) => {
+    if (option) items.push({ value: option, label: option });
+    return items;
+  }, []);
+}
+
+export const classificacaoSelectOptions = buildClienteSelectOptions(classificacaoOptions);
+export const generoSelectOptions = buildClienteSelectOptions(generoOptions);
+
 export function createInitialClienteForm(): ClienteFormData {
   return {
     nome: '',
