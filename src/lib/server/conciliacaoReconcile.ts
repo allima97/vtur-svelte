@@ -1214,14 +1214,14 @@ async function recalculateConciliacaoMetricsCompany(params: {
           .from('vendas_recibos')
           .select('id, valor_total, valor_taxas')
           .in('id', batch);
-        (recibos || []).forEach((recibo: any) => {
+        for (const recibo of recibos || []) {
           const id = String(recibo.id || '').trim();
-          if (!id) return;
+          if (!id) continue;
           reciboCache.set(id, {
             valor_total: Number(recibo.valor_total || 0),
             valor_taxas: Number(recibo.valor_taxas || 0)
           });
-        });
+        }
       }
     }
 
