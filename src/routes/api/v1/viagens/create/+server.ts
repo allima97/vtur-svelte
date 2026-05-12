@@ -86,7 +86,7 @@ export async function POST(event: RequestEvent) {
 
     if (
       !scope.isAdmin &&
-      (!scope.companyIds.includes(companyId) ||
+      (!new Set(scope.companyIds).has(companyId) ||
         (requestedCompanyId && requestedScopedCompanyId !== requestedCompanyId))
     ) {
       return json(
