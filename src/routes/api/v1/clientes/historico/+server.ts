@@ -148,14 +148,14 @@ export async function GET(event) {
         }
 
         const vendasMap = new Map<string, any>();
-        (vendasTitular || []).forEach((row: any) => {
+        for (const row of vendasTitular || []) {
           vendasMap.set(row.id, { ...row, origem_vinculo: 'titular' });
-        });
-        vendasPassageiro.forEach((row: any) => {
+        }
+        for (const row of vendasPassageiro) {
           if (!vendasMap.has(row.id)) {
             vendasMap.set(row.id, { ...row, origem_vinculo: 'passageiro' });
           }
-        });
+        }
 
         const vendasData = sortByDateDesc(
           Array.from(vendasMap.values()),
