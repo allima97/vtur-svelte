@@ -39,6 +39,16 @@ import { chunkArray } from '$lib/utils/array';
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
 const MAX_RANKING_DEBUG_BODY_BYTES = 64 * 1024;
+const UNFILTERED_VENDEDOR_VALUES = new Set([
+  '*',
+  'all',
+  'todos',
+  'todas',
+  'todo',
+  'toda',
+  'null',
+  'undefined'
+]);
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -56,7 +66,7 @@ function hasExplicitVendedorFilter(value?: string | null) {
     .trim()
     .toLowerCase();
 
-  return Boolean(normalized) && !['*', 'all', 'todos', 'todas', 'todo', 'toda', 'null', 'undefined'].includes(normalized);
+  return Boolean(normalized) && !UNFILTERED_VENDEDOR_VALUES.has(normalized);
 }
 
 function canUseRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope>>) {

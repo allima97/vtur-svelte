@@ -26,6 +26,16 @@ import {
 import { chunkArray } from "$lib/utils/array";
 
 const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
+const UNFILTERED_VENDEDOR_VALUES = new Set([
+  "*",
+  "all",
+  "todos",
+  "todas",
+  "todo",
+  "toda",
+  "null",
+  "undefined",
+]);
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
@@ -91,7 +101,7 @@ function hasExplicitVendedorFilter(value?: string | null) {
     .trim()
     .toLowerCase();
 
-  return Boolean(normalized) && !["*", "all", "todos", "todas", "todo", "toda", "null", "undefined"].includes(normalized);
+  return Boolean(normalized) && !UNFILTERED_VENDEDOR_VALUES.has(normalized);
 }
 
 export async function GET(event) {
