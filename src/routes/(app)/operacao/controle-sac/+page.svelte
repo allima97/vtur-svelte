@@ -205,9 +205,15 @@
 
   onMount(load);
 
-  $: abertos = registros.filter((r) => r.status === 'aberto').length;
-  $: emAndamento = registros.filter((r) => r.status === 'em_andamento').length;
-  $: concluidos = registros.filter((r) => r.status === 'concluido').length;
+  $: statusCounts = registros.reduce(
+    (acc, r) => {
+      if (r.status === 'aberto') acc.abertos += 1;
+      if (r.status === 'em_andamento') acc.emAndamento += 1;
+      if (r.status === 'concluido') acc.concluidos += 1;
+      return acc;
+    },
+    { abertos: 0, emAndamento: 0, concluidos: 0 }
+  );
 </script>
 
 <svelte:head>
@@ -235,7 +241,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Abertos</p>
-      <p class="text-2xl font-bold text-slate-900">{abertos}</p>
+      <p class="text-2xl font-bold text-slate-900">{statusCounts.abertos}</p>
     </div>
   </div>
   <div class="vtur-kpi-card">
@@ -244,7 +250,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Em andamento</p>
-      <p class="text-2xl font-bold text-slate-900">{emAndamento}</p>
+      <p class="text-2xl font-bold text-slate-900">{statusCounts.emAndamento}</p>
     </div>
   </div>
   <div class="vtur-kpi-card">
@@ -253,7 +259,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Concluídos</p>
-      <p class="text-2xl font-bold text-slate-900">{concluidos}</p>
+      <p class="text-2xl font-bold text-slate-900">{statusCounts.concluidos}</p>
     </div>
   </div>
 </div>
