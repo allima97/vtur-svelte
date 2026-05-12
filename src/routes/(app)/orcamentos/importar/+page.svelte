@@ -237,10 +237,17 @@
         realIdx: draft!.items.indexOf(item)
       }))
     : [];
-  $: totalGeral = itensFiltrados.reduce((s, e) => s + (e.item.total_amount || 0), 0);
-  $: taxasGeral = itensFiltrados.reduce((s, e) => s + (e.item.taxes_amount || 0), 0);
+  $: itensResumo = itensFiltrados.reduce(
+    (acc, entry) => {
+      acc.totalGeral += entry.item.total_amount || 0;
+      acc.taxasGeral += entry.item.taxes_amount || 0;
+      if (!itemValido(entry.item)) acc.itensPendentes += 1;
+      return acc;
+    },
+    { totalGeral: 0, taxasGeral: 0, itensPendentes: 0 }
+  );
+  $: ({ totalGeral, taxasGeral, itensPendentes } = itensResumo);
   $: totalComTaxas = totalGeral + taxasGeral;
-  $: itensPendentes = itensFiltrados.filter((e) => !itemValido(e.item)).length;
   $: canExtract = textInput.trim().length > 0;
   $: canSave = draft !== null && clienteNomeManual.trim() !== '' && itensFiltrados.length > 0;
 
