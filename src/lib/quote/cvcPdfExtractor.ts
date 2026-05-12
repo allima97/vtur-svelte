@@ -1319,7 +1319,11 @@ function isCityLine(line: string) {
 }
 
 function parseFlightDetailsFromLines(lines: string[], itemType?: string): FlightDetails | null {
-  const baseLines = (lines || []).map((line) => (line || "").trim()).filter(Boolean);
+  const baseLines: string[] = [];
+  for (const line of lines || []) {
+    const trimmed = (line || "").trim();
+    if (trimmed) baseLines.push(trimmed);
+  }
   if (!baseLines.length) return null;
   const joined = baseLines.join(" ");
   if (!isFlightLabel(itemType || joined)) return null;
