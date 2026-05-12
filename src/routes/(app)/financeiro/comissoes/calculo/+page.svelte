@@ -73,6 +73,15 @@
     currency: 'BRL',
     maximumFractionDigits: 0
   });
+  const MONTH_NAME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    timeZone: 'UTC'
+  });
+  const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
 
   function getVendedorId(vendedor: any) {
     return String(vendedor?.vendedor_id || vendedor?.id || '');
@@ -90,18 +99,11 @@
   }
 
   function formatMonthName(month: number) {
-    return new Intl.DateTimeFormat('pt-BR', {
-      month: 'long',
-      timeZone: 'UTC'
-    }).format(new Date(Date.UTC(2024, month - 1, 1)));
+    return MONTH_NAME_FORMATTER.format(new Date(Date.UTC(2024, month - 1, 1)));
   }
 
   function formatMonthYearLabel(year: number, month: number) {
-    return new Intl.DateTimeFormat('pt-BR', {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC'
-    }).format(new Date(Date.UTC(year, month - 1, 1)));
+    return MONTH_YEAR_FORMATTER.format(new Date(Date.UTC(year, month - 1, 1)));
   }
 
   onMount(() => {
