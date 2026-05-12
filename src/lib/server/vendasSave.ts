@@ -282,12 +282,15 @@ export function buildVendaPayload(
 }
 
 function normalizeReciboPayload(item: any, fallbackDataVenda?: string | null) {
+  const itemDataVenda = String(item?.data_venda || "").trim();
+  const fallbackDataVendaText = String(fallbackDataVenda || "").trim();
+
   return {
     ...item,
-    data_venda: isISODate(String(item?.data_venda || "").trim())
-      ? String(item?.data_venda || "").trim()
-      : isISODate(String(fallbackDataVenda || "").trim())
-        ? String(fallbackDataVenda || "").trim()
+    data_venda: isISODate(itemDataVenda)
+      ? itemDataVenda
+      : isISODate(fallbackDataVendaText)
+        ? fallbackDataVendaText
         : null,
     numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
     cidade_nome: sanitizeLabel(item?.cidade_nome) || null,
