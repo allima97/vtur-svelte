@@ -99,8 +99,50 @@
     });
   }
 
-  $: criticosCount = orcamentosFiltrados.filter((o) => isCritico(o)).length;
-  $: prontosVendaCount = orcamentosFiltrados.filter((o) => isProntoParaVenda(o)).length;
+  $: orcamentosAgregados = orcamentosFiltrados.reduce(
+    (acc, o) => {
+      const fechado = o.status === 'fechado';
+      const aprovado = o.status === 'aprovado';
+
+      acc.total += 1;
+      acc.valorTotal += o.valor_total;
+      if (o.status === 'novo') acc.novos += 1;
+      if (o.status === 'pendente') acc.pendentes += 1;
+      if (o.status === 'enviado') acc.enviados += 1;
+      if (aprovado) {
+        acc.aprovados += 1;
+        acc.valorAprovado += o.valor_total;
+      }
+      if (fechado) {
+        acc.convertidos += 1;
+        acc.valorConvertido += o.valor_total;
+      }
+      if (!o.last_interaction_at && !fechado) acc.semInteracao += 1;
+      if (o.last_interaction_at && getDiasSemInteracao(o.last_interaction_at) >= 7 && !fechado) acc.followupAtrasado += 1;
+      if (isExpirando(o)) acc.expirando += 1;
+      if (isCritico(o)) acc.criticos += 1;
+      if (isProntoParaVenda(o)) acc.prontosVenda += 1;
+      return acc;
+    },
+    {
+      total: 0,
+      novos: 0,
+      pendentes: 0,
+      enviados: 0,
+      aprovados: 0,
+      convertidos: 0,
+      semInteracao: 0,
+      followupAtrasado: 0,
+      expirando: 0,
+      valorTotal: 0,
+      valorAprovado: 0,
+      valorConvertido: 0,
+      criticos: 0,
+      prontosVenda: 0
+    }
+  );
+  $: criticosCount = orcamentosAgregados.criticos;
+  $: prontosVendaCount = orcamentosAgregados.prontosVenda;
   $: orcamentosVisiveis = orcamentosFiltrados.filter((o) => {
     if (somenteCriticos && !isCritico(o)) return false;
     if (somenteProntosVenda && !isProntoParaVenda(o)) return false;
@@ -108,22 +150,18 @@
   });
 
   $: resumo = {
-    total:         orcamentosFiltrados.length,
-    novos:         orcamentosFiltrados.filter(o => o.status === 'novo').length,
-    pendentes:     orcamentosFiltrados.filter(o => o.status === 'pendente').length,
-    enviados:      orcamentosFiltrados.filter(o => o.status === 'enviado').length,
-    aprovados:     orcamentosFiltrados.filter(o => o.status === 'aprovado').length,
-    convertidos:   orcamentosFiltrados.filter(o => o.status === 'fechado').length,
-    semInteracao:  orcamentosFiltrados.filter(o => !o.last_interaction_at && o.status !== 'fechado').length,
-    followupAtrasado: orcamentosFiltrados.filter(o => o.last_interaction_at && getDiasSemInteracao(o.last_interaction_at) >= 7 && o.status !== 'fechado').length,
-    expirando:     orcamentosFiltrados.filter(o => isExpirando(o)).length,
-    valorTotal:    orcamentosFiltrados.reduce((s, o) => s + o.valor_total, 0),
-    valorAprovado: orcamentosFiltrados
-                     .filter(o => o.status === 'aprovado')
-                     .reduce((s, o) => s + o.valor_total, 0),
-    valorConvertido: orcamentosFiltrados
-                     .filter(o => o.status === 'fechado')
-                     .reduce((s, o) => s + o.valor_total, 0),
+    total:         orcamentosAgregados.total,
+    novos:         orcamentosAgregados.novos,
+    pendentes:     orcamentosAgregados.pendentes,
+    enviados:      orcamentosAgregados.enviados,
+    aprovados:     orcamentosAgregados.aprovados,
+    convertidos:   orcamentosAgregados.convertidos,
+    semInteracao:  orcamentosAgregados.semInteracao,
+    followupAtrasado: orcamentosAgregados.followupAtrasado,
+    expirando:     orcamentosAgregados.expirando,
+    valorTotal:    orcamentosAgregados.valorTotal,
+    valorAprovado: orcamentosAgregados.valorAprovado,
+    valorConvertido: orcamentosAgregados.valorConvertido,
     get taxaConversao() {
       return this.total > 0
         ? (((this.aprovados + this.convertidos) / this.total) * 100).toFixed(1)
