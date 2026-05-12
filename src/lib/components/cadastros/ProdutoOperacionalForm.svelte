@@ -72,6 +72,7 @@
   let tipos: Option[] = [];
   let cidades: Option[] = [];
   let fornecedores: Option[] = [];
+  let fornecedoresOptions: string[] = [];
   let destinosSugestoes: string[] = [];
   let atracoesSugestoes: string[] = [];
   let melhoresEpocasSugestoes: string[] = [];
@@ -108,6 +109,9 @@
     tipos = data.tipos || [];
     cidades = data.cidades || [];
     fornecedores = data.fornecedores || [];
+    fornecedoresOptions = fornecedores
+      .map((fornecedor) => fornecedor.nome_fantasia || fornecedor.nome_completo || '')
+      .filter(Boolean);
 
     const destinoSet = new Set<string>();
     const atracaoSet = new Set<string>();
@@ -373,7 +377,7 @@
           id="produto-fornecedor"
           label="Fornecedor"
           bind:value={form.fornecedor_label}
-          options={fornecedores.map((fornecedor) => fornecedor.nome_fantasia || fornecedor.nome_completo || '').filter(Boolean)}
+          options={fornecedoresOptions}
           placeholder="Opcional"
           class_name="w-full"
           on:input={(event) => handleFornecedorInput((event.target as HTMLInputElement).value)}
