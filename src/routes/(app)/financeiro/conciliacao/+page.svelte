@@ -1166,9 +1166,9 @@
     try {
       const data = await apiPost<any>('/api/v1/conciliacao/run', {
         companyId: empresaId || undefined,
-        limit: reciboId ? 1 : 200,
+        limit: reciboId ? 1 : 100,
         conciliacaoReciboId: reciboId || null
-      });
+      }, undefined, 90_000);
       const erros = Number(data.updateErrors || 0);
       const reconciled = Number(data.reconciled || data.reconciliados || 0);
       const recalculated = Number(data.recalculated || 0);
@@ -1216,7 +1216,7 @@
         companyId: empresaId || undefined,
         recalculateAllMonth: true,
         recalculateMonth: monthFilter
-      });
+      }, undefined, 90_000);
       const recalculated = Number(data.recalculated || 0);
       const scanned = Number(data.recalculatedChecked || 0);
       const erros = Number(data.updateErrors || 0);
@@ -1263,7 +1263,7 @@
         companyId: empresaId || undefined,
         cleanupDuplicatesOnly: true,
         recalculateMonth: monthFilter
-      });
+      }, undefined, 90_000);
       const duplicatesRemoved = Number(data.duplicatesRemoved || 0);
       const duplicateGroups = Number(data.duplicateGroups || 0);
       addOperationLog({

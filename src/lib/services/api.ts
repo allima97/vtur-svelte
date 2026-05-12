@@ -222,8 +222,8 @@ export function apiGet<T = unknown>(path: string, query?: ApiOptions['query'], s
   return apiFetch<T>(path, { method: 'GET', query, signal, ...(timeoutMs ? { timeoutMs } : {}) });
 }
 
-export function apiPost<T = unknown>(path: string, body: ApiOptions['body'], signal?: AbortSignal) {
-  return apiFetch<T>(path, { method: 'POST', body, signal });
+export function apiPost<T = unknown>(path: string, body: ApiOptions['body'], signal?: AbortSignal, timeoutMs?: number) {
+  return apiFetch<T>(path, { method: 'POST', body, signal, ...(timeoutMs ? { timeoutMs } : {}) });
 }
 
 export function apiPatch<T = unknown>(path: string, body: ApiOptions['body'], signal?: AbortSignal) {
