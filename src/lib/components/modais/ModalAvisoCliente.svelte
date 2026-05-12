@@ -66,10 +66,12 @@
     { label: 'Marrom', value: '#7C2D12' }
   ];
 
+  const DIACRITICS_RE = /[\u0300-\u036f]/g;
+
   function normalizeText(value?: string | null) {
     return String(value || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(DIACRITICS_RE, '')
       .toLowerCase();
   }
 

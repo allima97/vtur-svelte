@@ -47,10 +47,12 @@
 
   onMount(loadFornecedores);
 
+  const DIACRITICS_RE = /[\u0300-\u036f]/g;
+
   function normalize(value?: string | null) {
     return String(value || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(DIACRITICS_RE, '')
       .toLowerCase()
       .trim();
   }
