@@ -2871,9 +2871,16 @@ function extractHotelFromServicosSection(text: string) {
 function extractHotelFromDestinoText(text: string) {
   const match = text.match(/Destino:\s*([^\n]+)/i);
   if (!match?.[1]) return null;
-  const parts = match[1].split(/[-*]/).map((part) => part.trim()).filter(Boolean);
-  if (!parts.length) return null;
-  return cleanHotelName(parts[0]);
+  let hotelPart = "";
+  for (const part of match[1].split(/[-*]/)) {
+    const trimmed = part.trim();
+    if (trimmed) {
+      hotelPart = trimmed;
+      break;
+    }
+  }
+  if (!hotelPart) return null;
+  return cleanHotelName(hotelPart);
 }
 
 function extractDestinoLinhaCompleta(text: string) {
