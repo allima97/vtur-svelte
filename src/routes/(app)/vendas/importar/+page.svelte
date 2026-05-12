@@ -83,6 +83,8 @@
     warning?: string | null;
   };
 
+  const VENDA_READABLE_RETRY_STATUSES = new Set([404, 403, 0]);
+
   let tipoImportacao: 'cvc' | 'roteiro' | 'facial_rextur' | 'facial_cvc' = 'cvc';
   let textInput = '';
   let contratos: ContratoDraftUI[] = [];
@@ -381,7 +383,7 @@
         });
         return;
       } catch (err) {
-        if (!(err instanceof ApiError) || ![404, 403, 0].includes(err.status)) return;
+        if (!(err instanceof ApiError) || !VENDA_READABLE_RETRY_STATUSES.has(err.status)) return;
         await sleep(300 * (attempt + 1));
       }
     }
