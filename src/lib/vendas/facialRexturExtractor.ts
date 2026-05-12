@@ -129,9 +129,11 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
   const segmentLines: { saida: string; chegada: string; origem: string; destino: string }[] = [];
   const segRegex = /(?:[A-Z0-9]{2})\s+\d{2,4}\s+\*?\s*(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*\d{2}:\d{2}\s+(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*\d{2}:\d{2}\s+(?:HK|HL|RQ|KK|HX|SS)?\s+([\w\s\/\-]+?)\s+([\w\s\/\-]+?)(?=\s+\d{3}|\s+[A-Z]{2}\s|\s*$)/gm;
   // Alternativa mais robusta: pegar todas as datas de voo
-  const allFlightDates = [...text.matchAll(/(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*\d{2}:\d{2}/g)]
-    .map(m => parseSegmentDate(m[1]))
-    .filter(Boolean) as string[];
+  const allFlightDates: string[] = [];
+  for (const match of text.matchAll(/(\d{2}\/\d{2}\/\d{4})\s*[-–]\s*\d{2}:\d{2}/g)) {
+    const date = parseSegmentDate(match[1]);
+    if (date) allFlightDates.push(date);
+  }
 
   const dataSaida = allFlightDates.length > 0 ? allFlightDates[0] : null;
   const dataRetorno = allFlightDates.length > 1 ? allFlightDates[allFlightDates.length - 1] : null;
