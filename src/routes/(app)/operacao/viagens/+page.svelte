@@ -267,12 +267,19 @@
 
   $: resumo = (() => {
     const lista = viagensFiltradas;
-    const pendentes = lista.filter(v => v.status === 'pendente').length;
-    const confirmadas = lista.filter(v => v.status === 'confirmada').length;
-    const emViagem = lista.filter(v => v.status === 'em_viagem').length;
-    const concluidas = lista.filter(v => v.status === 'concluida').length;
-    const canceladas = lista.filter(v => v.status === 'cancelada').length;
-    const valorTotal = lista.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+    const agregados = lista.reduce(
+      (acc, v) => {
+        acc.valorTotal += v.valor_total || 0;
+        if (v.status === 'pendente') acc.pendentes += 1;
+        if (v.status === 'confirmada') acc.confirmadas += 1;
+        if (v.status === 'em_viagem') acc.emViagem += 1;
+        if (v.status === 'concluida') acc.concluidas += 1;
+        if (v.status === 'cancelada') acc.canceladas += 1;
+        return acc;
+      },
+      { pendentes: 0, confirmadas: 0, emViagem: 0, concluidas: 0, canceladas: 0, valorTotal: 0 }
+    );
+    const { pendentes, confirmadas, emViagem, concluidas, canceladas, valorTotal } = agregados;
     return { total: lista.length, pendentes, confirmadas, emViagem, concluidas, canceladas, valorTotal };
   })();
 </script>
