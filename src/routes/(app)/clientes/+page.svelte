@@ -60,6 +60,10 @@
     comViagem: 0,
     emNegociacao: 0
   };
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   const columns = [
     {
@@ -349,7 +353,7 @@
   <KPICard title="Clientes ativos" value={statusAtivos} color="operacao" icon={Users} loading={loadingSummary} />
   <KPICard title="Em negociação" value={clientesEmNegociacao} color="financeiro" icon={Clock} loading={loadingSummary} />
   <KPICard title="Aniversariantes hoje" value={aniversariantesHoje} color="clientes" icon={CalendarDays} loading={loadingSummary} />
-  <KPICard title="Total gasto" value={new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCarteira)} color="slate" icon={Wallet} loading={loadingSummary} />
+  <KPICard title="Total gasto" value={BRL_CURRENCY_FORMATTER.format(totalCarteira)} color="slate" icon={Wallet} loading={loadingSummary} />
 </KPIGrid>
 
 <div class="mb-6 rounded-[18px] border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-[0_14px_34px_rgba(9,17,46,0.06)]">
