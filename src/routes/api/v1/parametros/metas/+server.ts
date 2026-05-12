@@ -80,15 +80,15 @@ function normalizePeriod(value?: string | null) {
 function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
   const map = new Map<string, number>();
 
-  (items || []).forEach((item) => {
+  for (const item of items || []) {
     const produtoId = String(item?.produto_id || "").trim();
-    if (!isUuid(produtoId)) return;
+    if (!isUuid(produtoId)) continue;
 
     const valor = toNumber(item?.valor);
-    if (valor <= 0) return;
+    if (valor <= 0) continue;
 
     map.set(produtoId, (map.get(produtoId) || 0) + valor);
-  });
+  }
 
   return Array.from(map.entries()).map(([produto_id, valor]) => ({
     produto_id,
@@ -223,13 +223,13 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
   });
 
   const map = new Map<string, any[]>();
-  rows.forEach((row: any) => {
+  for (const row of rows) {
     const metaId = String(row?.meta_vendedor_id || "").trim();
-    if (!metaId) return;
+    if (!metaId) continue;
     const list = map.get(metaId) || [];
     list.push(row);
     map.set(metaId, list);
-  });
+  }
 
   return map;
 }
