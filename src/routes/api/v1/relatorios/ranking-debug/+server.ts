@@ -49,6 +49,7 @@ const UNFILTERED_VENDEDOR_VALUES = new Set([
   'null',
   'undefined'
 ]);
+const SEGURO_FAIXAS_COMISSAO = new Set(['SEGURO_32_35', 'SEGURO_35_38']);
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -268,7 +269,9 @@ export async function GET(event) {
         const naoC = Math.max(0, Number(r.valor_nao_comissionavel || 0));
         return Math.max(0, lanc - desc - abat - naoC);
       };
-      const isSeguro = (r: any) => Boolean(r.is_seguro_viagem) || ['SEGURO_32_35', 'SEGURO_35_38'].includes(String(r.faixa_comissao || ''));
+      const isSeguro = (r: any) =>
+        Boolean(r.is_seguro_viagem) ||
+        SEGURO_FAIXAS_COMISSAO.has(String(r.faixa_comissao || ''));
 
       const totalBruto = recibosVendedor.reduce((s: number, r: any) => s + calcBruto(r), 0);
       const totalSeguro = recibosVendedor.filter(isSeguro).reduce((s: number, r: any) => s + calcBruto(r), 0);
@@ -460,7 +463,7 @@ export async function GET(event) {
           ...r,
           _bruto: bruto,
           _isSeguro: Boolean(r.is_seguro_viagem) ||
-            ['SEGURO_32_35', 'SEGURO_35_38'].includes(String(r.faixa_comissao || ''))
+            SEGURO_FAIXAS_COMISSAO.has(String(r.faixa_comissao || ''))
         });
       }
 
