@@ -184,11 +184,11 @@ async function fetchUsersMap(client: any, ids: string[]) {
       .select('id, nome_completo, email')
       .in('id', batch);
     if (error) throw error;
-    (data || []).forEach((row: any) => {
+    for (const row of data || []) {
       const id = toStr(row?.id);
-      if (!id) return;
+      if (!id) continue;
       map.set(id, toStr(row?.nome_completo) || toStr(row?.email) || id);
-    });
+    }
   }
   return map;
 }
