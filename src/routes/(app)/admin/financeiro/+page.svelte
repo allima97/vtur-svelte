@@ -27,6 +27,7 @@
     active: 'Ativa', trial: 'Trial', past_due: 'Atrasada',
     suspended: 'Suspensa', canceled: 'Cancelada'
   };
+  const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([key, label]) => ({ value: key, label }));
 
   const STATUS_COLORS: Record<string, string> = {
     active: 'bg-green-100 text-green-700', trial: 'bg-blue-100 text-blue-700',
@@ -217,7 +218,7 @@
       id="bill-status"
       label="Status"
       bind:value={form.status}
-      options={Object.entries(STATUS_LABELS).map(([key, label]) => ({ value: key, label }))}
+      options={STATUS_OPTIONS}
       placeholder=""
       class_name="w-full"
     />
