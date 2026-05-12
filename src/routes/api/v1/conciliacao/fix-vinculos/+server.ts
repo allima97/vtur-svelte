@@ -393,12 +393,12 @@ export async function POST(event) {
       const vendedorId = toStr(recibo?.venda?.vendedor_id);
       if (vendedorId) userIds.add(vendedorId);
     }
-    rateioByReciboId.forEach((rateio: any) => {
+    for (const rateio of rateioByReciboId.values()) {
       const origem = toStr(rateio?.vendedor_origem_id);
       const destino = toStr(rateio?.vendedor_destino_id);
       if (origem) userIds.add(origem);
       if (destino) userIds.add(destino);
-    });
+    }
     const userNameById = await fetchUsersMap(client, Array.from(userIds));
 
     const detalhes = rows.map((row: any) => {
