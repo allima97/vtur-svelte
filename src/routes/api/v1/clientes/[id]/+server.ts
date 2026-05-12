@@ -102,7 +102,11 @@ async function fetchResumoRelacionamentos(
       vendasData.push(...(data || []));
     }
   }
-  vendasData = Array.from(new Map(vendasData.map((row: any) => [String(row?.id || ''), row])).values());
+  const vendasById = new Map<string, any>();
+  for (const row of vendasData) {
+    vendasById.set(String(row?.id || ''), row);
+  }
+  vendasData = Array.from(vendasById.values());
 
   const buildQuotesQuery = (creatorIds?: string[]) => {
     let quotesQuery = client
