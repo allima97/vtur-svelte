@@ -18,7 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || "")
@@ -213,14 +213,8 @@ export async function GET(event) {
         );
         await syncViagensStatus(client, candidatas);
 
-        const vendaIds = Array.from(
-          new Set(
-            candidatas
-              .map((row: any) =>
-                String(row?.venda_id || getVendaFromRow(row)?.id || "").trim(),
-              )
-              .filter(Boolean),
-          ),
+        const vendaIds = uniqueCleanStrings(
+          candidatas.map((row: any) => row?.venda_id || getVendaFromRow(row)?.id),
         );
 
         const avulsas = candidatas.filter((row: any) => !hasLinkedVenda(row));
