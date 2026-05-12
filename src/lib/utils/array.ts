@@ -20,3 +20,7 @@ export function dedupeById<T extends { id?: string | null }>(rows: T[]): T[] {
   });
   return Array.from(map.values());
 }
+
+export function uniqueCleanStrings(values?: unknown[] | null): string[] {
+  return Array.from(new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean)));
+}

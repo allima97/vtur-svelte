@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ReportVendaRow } from '$lib/server/relatorios';
 import type { ResolvedReceiptCommission, ResolvedVendaCommission } from '$lib/server/comissoes';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
 
 export type PersistedComissaoRow = {
   id: string;
@@ -62,12 +62,6 @@ function getPeriodFromDate(dateIso?: string | null) {
 }
 
 const SUPABASE_IN_BATCH_SIZE = 150;
-
-function uniqueIds(values?: string[]) {
-  return Array.from(
-    new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))
-  );
-}
 
 function buildFilterBatches(filters: Array<{ column: string; values: string[] }>) {
   return filters.reduce<Array<Array<{ column: string; values: string[] }>>>(

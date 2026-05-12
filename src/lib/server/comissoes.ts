@@ -28,7 +28,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -102,10 +102,6 @@ function roundMoney(v: number) {
 }
 
 const SUPABASE_IN_BATCH_SIZE = 150;
-
-function uniqueIds(values: string[]) {
-  return Array.from(new Set((values || []).map((id) => String(id || '').trim()).filter(Boolean)));
-}
 
 async function fetchBatched<T>(
   values: string[],

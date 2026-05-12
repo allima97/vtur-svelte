@@ -19,7 +19,7 @@ import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings as uniqueIds } from '$lib/utils/array';
 
 const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
 
@@ -29,12 +29,6 @@ function toNum(value: unknown) {
 }
 
 const SUPABASE_IN_BATCH_SIZE = 150;
-
-function uniqueIds(values: unknown[]) {
-  return Array.from(
-    new Set((values || []).map((id: unknown) => String(id || '').trim()).filter(Boolean))
-  );
-}
 
 async function fetchBatched<T>(
   values: string[],
