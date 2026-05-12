@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_CONCILIACAO_EXISTING_BODY_BYTES = 256 * 1024;
 const MAX_EXISTING_DOCUMENTOS = 1000;
@@ -37,7 +37,7 @@ export async function POST(event) {
     if (documentos.length === 0) return json({ records: {} }, { headers: NO_STORE_HEADERS });
 
     const rows: any[] = [];
-    for (const batch of chunkArray(Array.from(new Set(documentos)))) {
+    for (const batch of chunkArray(uniqueCleanStrings(documentos))) {
       const { data, error } = await client
         .from('conciliacao_recibos')
         .select(

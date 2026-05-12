@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { uniqueCleanStrings } from '$lib/utils/array';
   import FieldInput from './FieldInput.svelte';
   import { uniqueFieldId } from './fieldId';
 
@@ -24,7 +25,7 @@
 
   $: fieldId = id || uniqueFieldId(label);
   $: resolvedListId = listId || (fieldId ? `${fieldId}-list` : undefined);
-  $: normalizedOptions = Array.from(new Set(options.map((option) => option.trim()).filter(Boolean)));
+  $: normalizedOptions = uniqueCleanStrings(options);
 </script>
 
 <div class={class_name}>

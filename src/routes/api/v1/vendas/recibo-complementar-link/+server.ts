@@ -12,7 +12,7 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { safeJsonParse } from '$lib/utils/json';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
 
@@ -54,7 +54,7 @@ export async function POST(event: RequestEvent) {
 
     const fetchScopedSales = async (saleIds: string[]) => {
       const rows: any[] = [];
-      const uniqueSaleIds = Array.from(new Set(saleIds.map((id) => String(id || '').trim()).filter((id) => isUuid(id))));
+      const uniqueSaleIds = uniqueCleanStrings(saleIds).filter((id) => isUuid(id));
       for (const batch of chunkArray(uniqueSaleIds)) {
         const { data, error } = await client
           .from('vendas')

@@ -1,6 +1,7 @@
 import { calcularValorVendaReal, resolveConciliacaoStatus } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { pickConciliacaoSourceRow } from '$lib/conciliacao/source';
+import { uniqueCleanStrings } from '$lib/utils/array';
 import { toCleanString as toStr, toFiniteNumber as toNumber } from '$lib/utils/values';
 
 type VendaRankingReciboInput = {
@@ -80,7 +81,7 @@ function reciboDocumentVariants(recibo: VendaRankingReciboInput) {
     normalizeReceiptKey(recibo.numero_recibo),
     normalizeReceiptKey(recibo.numero_recibo_normalizado)
   ];
-  return Array.from(new Set(values.map(toStr).filter(Boolean)));
+  return uniqueCleanStrings(values);
 }
 
 function normalizeRexturReserva(value?: string | null) {
@@ -119,7 +120,7 @@ async function fetchConciliacaoRows(params: VendaRankingParams) {
   const { client, companyId, vendaId, recibos } = params;
   const byId = new Map<string, any>();
   const reciboIds = recibos.map((recibo) => toStr(recibo.id)).filter(Boolean);
-  const documentoVariants = Array.from(new Set(recibos.flatMap(reciboDocumentVariants)));
+  const documentoVariants = uniqueCleanStrings(recibos.flatMap(reciboDocumentVariants));
 
   const { data: byVenda, error: byVendaError } = await client
     .from('conciliacao_recibos')

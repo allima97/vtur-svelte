@@ -11,7 +11,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_CONCILIACAO_REVERT_BODY_BYTES = 64 * 1024;
 
@@ -74,7 +74,7 @@ export async function POST(event) {
         .limit(limit);
       if (error) throw error;
       const rows = data || [];
-      targetReciboIds = Array.from(new Set(rows.map((r: any) => String(r?.venda_recibo_id || '')).filter(Boolean)));
+      targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
       changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
     } else {
       const rows: any[] = [];
@@ -88,7 +88,7 @@ export async function POST(event) {
         if (error) throw error;
         rows.push(...(data || []));
       }
-      targetReciboIds = Array.from(new Set(rows.map((r: any) => String(r?.venda_recibo_id || '')).filter(Boolean)));
+      targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
       // Somente os IDs confirmados pelo banco (company_id validado acima)
       changeIdsParaReverter = rows.map((r: any) => String(r?.id || '')).filter(Boolean);
     }

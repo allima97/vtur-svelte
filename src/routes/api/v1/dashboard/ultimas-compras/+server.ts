@@ -18,6 +18,7 @@ import {
 } from '$lib/server/relatorios';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
+import { uniqueCleanStrings } from '$lib/utils/array';
 import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -131,7 +132,7 @@ export async function GET(event) {
       filterByReceiptDate: true
     });
 
-    const clienteIds = Array.from(new Set(rows.map((row) => String(row.cliente_id || '').trim()).filter(Boolean)));
+    const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
     const clienteExtra = new Map<string, any>();
     if (clienteIds.length > 0) {
       const { data, error } = await client

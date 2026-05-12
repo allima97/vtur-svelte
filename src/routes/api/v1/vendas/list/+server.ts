@@ -555,7 +555,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
   });
   if (rowsWithoutDestination.length === 0) return;
 
-  const vendaIds = Array.from(new Set(rowsWithoutDestination.map((row) => String(row?.id || '').trim()).filter(Boolean)));
+  const vendaIds = uniqueCleanStrings(rowsWithoutDestination.map((row) => row?.id));
   if (vendaIds.length === 0) return;
 
   try {
@@ -584,14 +584,9 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
       });
     }
 
-    const produtoIds = Array.from(new Set(Array.from(destinoByVendaId.values()).map((row) => row.destino_id).filter(Boolean)));
-    const cidadeIds = Array.from(
-      new Set(
-        Array.from(destinoByVendaId.values())
-          .flatMap((row) => [row.destino_cidade_id])
-          .filter(Boolean)
-      )
-    );
+    const destinos = Array.from(destinoByVendaId.values());
+    const produtoIds = uniqueCleanStrings(destinos.map((row) => row.destino_id));
+    const cidadeIds = uniqueCleanStrings(destinos.map((row) => row.destino_cidade_id));
 
     const produtosData: any[] = [];
     for (const batch of chunkArray(produtoIds)) {

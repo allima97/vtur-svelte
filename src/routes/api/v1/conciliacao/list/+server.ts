@@ -22,7 +22,7 @@ import {
   scopeCacheTags,
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito diversos',
@@ -228,7 +228,7 @@ export async function GET(event) {
               )
               .filter(Boolean);
             if (termos.length > 0)
-              termosNaoComissionaveis = Array.from(new Set(termos));
+              termosNaoComissionaveis = uniqueCleanStrings(termos);
           } catch {}
 
           const pagamentos = await fetchBatched<any>(vendaIds, (batch) =>
