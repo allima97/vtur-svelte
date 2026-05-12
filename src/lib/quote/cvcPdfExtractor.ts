@@ -349,10 +349,11 @@ function parseValorFromLines(lines: string[], tipo?: string) {
 }
 
 function parseCidade(text: string) {
-  const lines = (text || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const rawLine of (text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line) lines.push(line);
+  }
   for (const line of lines) {
     if (!/ - /i.test(line)) continue;
     const first = line.split(" - ")[0].trim();
