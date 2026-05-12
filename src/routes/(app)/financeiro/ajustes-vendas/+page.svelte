@@ -66,6 +66,10 @@
   let showFilterSheet = false;
 
   let form = { vendedor_destino_id: '', percentual_destino: '50', observacao: '' };
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   $: canEdit = !$permissoes.ready || $permissoes.isSystemAdmin || $permissoes.isMaster || $permissoes.isFinanceiro || $permissoes.isGestor;
 
@@ -77,7 +81,7 @@
   $: canSelectEmpresa = empresaOptions.length > 1;
 
   function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   const columns = [
