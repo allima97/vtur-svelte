@@ -61,20 +61,28 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
     getRecibos(venda).forEach((recibo) => {
       const reciboId = str(getReciboId(recibo));
       if (reciboId) baseVendaIdByReciboId.set(reciboId, id);
-      const core = receiptNumberCore(str(getReciboNumero(recibo)));
+      const reciboNumero = str(getReciboNumero(recibo));
+      const core = receiptNumberCore(reciboNumero);
       if (core && !baseVendaIdByReciboCore.has(core)) baseVendaIdByReciboCore.set(core, id);
     });
   });
 
-  const overriddenIds = new Set(concReceipts.map((row) => str(row.linked_recibo_id)).filter(Boolean));
-  const overriddenNumeros = new Set(
-    concReceipts.map((row) => normalizeReceiptNumber(str(row.documento))).filter(Boolean)
-  );
+  const overriddenIds = new Set<string>();
+  const overriddenNumeros = new Set<string>();
   // Core numérico (últimos dígitos sem zeros à esquerda) para casar formatos
   // divergentes: "5630-0000083861" (conciliação) ↔ "83861" (vendas_recibos)
-  const overriddenCores = new Set(
-    concReceipts.map((row) => receiptNumberCore(str(row.documento))).filter(Boolean)
-  );
+  const overriddenCores = new Set<string>();
+  concReceipts.forEach((row) => {
+    const linkedReciboId = str(row.linked_recibo_id);
+    if (linkedReciboId) overriddenIds.add(linkedReciboId);
+
+    const documento = str(row.documento);
+    const numero = normalizeReceiptNumber(documento);
+    if (numero) overriddenNumeros.add(numero);
+
+    const core = receiptNumberCore(documento);
+    if (core) overriddenCores.add(core);
+  });
 
   const concByVendaId = new Map<string, EffectiveConciliacaoReceipt[]>();
   const orphans: EffectiveConciliacaoReceipt[] = [];
@@ -123,14 +131,15 @@ export function mergeEffectiveRecibos<TVenda, TRecibo>(
         return;
       }
 
-      const numero = normalizeReceiptNumber(str(getReciboNumero(recibo)));
+      const reciboNumero = str(getReciboNumero(recibo));
+      const numero = normalizeReceiptNumber(reciboNumero);
       if (numero && overriddenNumeros.has(numero)) {
         removedBase += 1;
         return;
       }
 
       // Dedup por core numérico: casa "5630-0000083861" (conciliação) com "83861" (venda)
-      const core = receiptNumberCore(str(getReciboNumero(recibo)));
+      const core = receiptNumberCore(reciboNumero);
       if (core && overriddenCores.has(core)) {
         removedBase += 1;
         return;
