@@ -2998,7 +2998,11 @@ function extractNavioNomeFromFornecedoresSection(lines: string[]) {
     let baseIndex = i;
 
     if (line.includes("|")) {
-      const parts = line.split("|").map((p) => p.trim()).filter(Boolean);
+      const parts: string[] = [];
+      for (const part of line.split("|")) {
+        const trimmed = part.trim();
+        if (trimmed) parts.push(trimmed);
+      }
       const afterPipe = parts.slice(1).join(" ").replace(/\s+/g, " ").trim();
       firstToken = afterPipe.split(/\s+/).filter(Boolean)[0] || "";
     } else if (norm === "navio") {
