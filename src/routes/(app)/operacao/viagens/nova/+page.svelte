@@ -59,11 +59,16 @@
 
   function mergeClientes(items: ClienteOption[]) {
     const byId = new Map<string, ClienteOption>();
-    [...clientes, ...(items || [])].forEach((item) => {
+    for (const item of clientes) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       byId.set(id, { ...(byId.get(id) || {}), ...item });
-    });
+    }
+    for (const item of items || []) {
+      const id = String(item?.id || '').trim();
+      if (!id) continue;
+      byId.set(id, { ...(byId.get(id) || {}), ...item });
+    }
     clientes = Array.from(byId.values()).sort((a, b) => PT_BR_COLLATOR.compare(a.nome, b.nome));
   }
 
