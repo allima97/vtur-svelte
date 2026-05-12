@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+const SAME_ORIGIN_FETCH_SITES = new Set(['same-origin', 'same-site', 'none']);
+
 export function isSameOriginRequest(request: Request) {
   const requestUrl = new URL(request.url);
   const origin = request.headers.get('origin');
@@ -14,7 +16,7 @@ export function isSameOriginRequest(request: Request) {
 
   const fetchSite = request.headers.get('sec-fetch-site');
   if (!fetchSite) return true;
-  return ['same-origin', 'same-site', 'none'].includes(fetchSite);
+  return SAME_ORIGIN_FETCH_SITES.has(fetchSite);
 }
 
 export function rejectCrossOriginRequest(

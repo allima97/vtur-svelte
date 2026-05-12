@@ -59,6 +59,15 @@ export const READ_MODEL_TAGS = {
   comissoes: "view:comissoes",
 } as const;
 
+const TRANSACTIONAL_READ_MODEL_TAGS = new Set<string>([
+  READ_MODEL_TAGS.sales,
+  READ_MODEL_TAGS.dashboard,
+  READ_MODEL_TAGS.vendasKpis,
+  READ_MODEL_TAGS.ranking,
+  READ_MODEL_TAGS.comissoes,
+  READ_MODEL_TAGS.conciliacao,
+]);
+
 function nowMs() {
   return Date.now();
 }
@@ -230,16 +239,7 @@ export async function getCachedReadModel<T>(
   // Em Workers o cache é local — forçar TTL baixo só gera thrash sem ganho
   // de consistência cross-instance. A consistência é garantida pela
   // invalidação explícita após mutações (invalidateSalesReadModels etc.).
-  const isTransactional = optionTags.some((tag) =>
-    [
-      READ_MODEL_TAGS.sales,
-      READ_MODEL_TAGS.dashboard,
-      READ_MODEL_TAGS.vendasKpis,
-      READ_MODEL_TAGS.ranking,
-      READ_MODEL_TAGS.comissoes,
-      READ_MODEL_TAGS.conciliacao,
-    ].includes(tag as any),
-  );
+  const isTransactional = optionTags.some((tag) => TRANSACTIONAL_READ_MODEL_TAGS.has(tag));
 
   const defaultTtl = isTransactional ? TRANSACTIONAL_TTL_MS : DEFAULT_TTL_MS;
   const defaultStale = isTransactional ? TRANSACTIONAL_STALE_TTL_MS : DEFAULT_STALE_TTL_MS;

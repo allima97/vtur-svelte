@@ -16,6 +16,9 @@ import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '
 
 const VOUCHER_ASSET_BUCKET = 'voucher-assets';
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const BOOLEAN_TRUE_VALUES = new Set(['1', 'true', 'on', 'yes', 'sim']);
+const VALID_PROVIDERS = new Set(['cvc', 'special_tours', 'europamundo', 'sato_tours', 'generic']);
+const VALID_ASSET_KINDS = new Set(['logo', 'image', 'app_icon']);
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_SIZE_BYTES = MAX_FILE_SIZE_BYTES + 512 * 1024;
 const mutationError = (message: string, status: number) =>
@@ -40,7 +43,7 @@ function normalizeOptionalText(value: FormDataEntryValue | string | null | undef
 function normalizeBoolean(value: FormDataEntryValue | string | null | undefined, fallback = true) {
   const normalized = normalizeText(value).toLowerCase();
   if (!normalized) return fallback;
-  return ['1', 'true', 'on', 'yes', 'sim'].includes(normalized);
+  return BOOLEAN_TRUE_VALUES.has(normalized);
 }
 
 function normalizeOrder(value: FormDataEntryValue | string | null | undefined) {
@@ -49,14 +52,14 @@ function normalizeOrder(value: FormDataEntryValue | string | null | undefined) {
 }
 
 function validateProvider(provider: string) {
-  if (!['cvc', 'special_tours', 'europamundo', 'sato_tours', 'generic'].includes(provider)) {
+  if (!VALID_PROVIDERS.has(provider)) {
     throw new Error('Provider inválido para voucher asset.');
   }
   return provider;
 }
 
 function validateAssetKind(assetKind: string) {
-  if (!['logo', 'image', 'app_icon'].includes(assetKind)) {
+  if (!VALID_ASSET_KINDS.has(assetKind)) {
     throw new Error('Tipo de asset inválido para voucher asset.');
   }
   return assetKind;
