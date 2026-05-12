@@ -310,9 +310,12 @@ async function searchDocuments(event: RequestEvent) {
     String(left?.movimento_data || '').localeCompare(String(right?.movimento_data || ''))
   );
 
-  const companyIds = Array.from(
-    new Set(foundRows.map((row) => String(row.company_id || '').trim()).filter(isUuid))
-  );
+  const companyIdSet = new Set<string>();
+  for (const row of foundRows) {
+    const rowCompanyId = String(row.company_id || '').trim();
+    if (isUuid(rowCompanyId)) companyIdSet.add(rowCompanyId);
+  }
+  const companyIds = Array.from(companyIdSet);
 
   let candidatos: any[] = [];
   if (companyIds.length > 0) {
