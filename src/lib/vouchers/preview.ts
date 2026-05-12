@@ -253,10 +253,13 @@ function renderBulletListFromLines(lines: string[]) {
 }
 
 function splitLinesIntoPrintableGroups(lines: string[], maxChars = 900) {
-  const normalized = lines
-    .flatMap((line) => splitTextIntoPrintableChunks(line, maxChars))
-    .map((line) => textValue(line))
-    .filter(Boolean);
+  const normalized: string[] = [];
+  for (const line of lines) {
+    for (const chunk of splitTextIntoPrintableChunks(line, maxChars)) {
+      const value = textValue(chunk);
+      if (value) normalized.push(value);
+    }
+  }
 
   if (!normalized.length) return [] as string[][];
 
