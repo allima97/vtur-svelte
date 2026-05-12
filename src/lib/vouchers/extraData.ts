@@ -126,15 +126,19 @@ export function normalizeVoucherExtraData(value: any, provider?: VoucherProvider
 }
 
 export function buildPassengerSummary(details: VoucherPassengerDetail[]) {
-  return details
-    .map((item) => textValue(item.nome))
-    .filter(Boolean)
-    .join("\n");
+  const lines: string[] = [];
+  for (const item of details) {
+    const name = textValue(item.nome);
+    if (name) lines.push(name);
+  }
+  return lines.join("\n");
 }
 
 export function splitLinesFromMultilineText(value?: string | null) {
-  return textValue(value)
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const line of textValue(value).split(/\n+/)) {
+    const trimmed = line.trim();
+    if (trimmed) lines.push(trimmed);
+  }
+  return lines;
 }
