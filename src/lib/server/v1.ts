@@ -316,11 +316,11 @@ function buildPermissionsMap(
     }
   };
 
-  rows.forEach((row) => {
-    if (!row?.ativo) return;
+  for (const row of rows) {
+    if (!row?.ativo) continue;
 
     const key = normalizeModulo(row.modulo);
-    if (!key) return;
+    if (!key) continue;
 
     const incoming = String(
       row.permissao || "",
@@ -333,7 +333,7 @@ function buildPermissionsMap(
     if (rawModulo && rawModulo !== key) {
       setPerm(rawModulo, incoming);
     }
-  });
+  }
 
   return map;
 }
