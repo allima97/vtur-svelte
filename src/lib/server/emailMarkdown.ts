@@ -76,7 +76,7 @@ export function renderEmailHtml(markdown: string) {
     listType = null;
   };
 
-  lines.forEach((rawLine) => {
+  for (const rawLine of lines) {
     const line = rawLine.trimEnd();
     const unordered = line.match(/^\s*[-*\u2022]\s+(.+)$/);
     const ordered = line.match(/^\s*(\d{1,3})[.)]\s+(.+)$/);
@@ -87,7 +87,7 @@ export function renderEmailHtml(markdown: string) {
         listType = "ul";
       }
       html += `<li>${renderInline(unordered[1])}</li>`;
-      return;
+      continue;
     }
     if (ordered) {
       if (listType !== "ol") {
@@ -96,15 +96,15 @@ export function renderEmailHtml(markdown: string) {
         listType = "ol";
       }
       html += `<li>${renderInline(ordered[2])}</li>`;
-      return;
+      continue;
     }
     closeList();
     if (!line.trim()) {
       html += "<br/>";
-      return;
+      continue;
     }
     html += `${renderInline(line)}<br/>`;
-  });
+  }
   closeList();
 
   return `<div>${html}</div>`;
