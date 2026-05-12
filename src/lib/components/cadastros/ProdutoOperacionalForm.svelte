@@ -108,15 +108,21 @@
     tipos = data.tipos || [];
     cidades = data.cidades || [];
     fornecedores = data.fornecedores || [];
-    destinosSugestoes = Array.from(
-      new Set((data.destinosProdutos || []).map((item: any) => String(item?.destino || '').trim()).filter(Boolean))
-    ) as string[];
-    atracoesSugestoes = Array.from(
-      new Set((data.destinosProdutos || []).map((item: any) => String(item?.atracao_principal || '').trim()).filter(Boolean))
-    ) as string[];
-    melhoresEpocasSugestoes = Array.from(
-      new Set((data.destinosProdutos || []).map((item: any) => String(item?.melhor_epoca || '').trim()).filter(Boolean))
-    ) as string[];
+
+    const destinoSet = new Set<string>();
+    const atracaoSet = new Set<string>();
+    const melhorEpocaSet = new Set<string>();
+    for (const item of data.destinosProdutos || []) {
+      const destino = String(item?.destino || '').trim();
+      const atracao = String(item?.atracao_principal || '').trim();
+      const melhorEpoca = String(item?.melhor_epoca || '').trim();
+      if (destino) destinoSet.add(destino);
+      if (atracao) atracaoSet.add(atracao);
+      if (melhorEpoca) melhorEpocaSet.add(melhorEpoca);
+    }
+    destinosSugestoes = Array.from(destinoSet);
+    atracoesSugestoes = Array.from(atracaoSet);
+    melhoresEpocasSugestoes = Array.from(melhorEpocaSet);
   }
 
   async function loadProduto() {
