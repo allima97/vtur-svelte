@@ -375,12 +375,14 @@
   function mergeClientes(items: Cliente[]) {
     if (!items.length) return;
     const byId = new Map<string, Cliente>();
-    clientes.forEach((item) => byId.set(String(item.id), item));
-    items.forEach((item) => {
+    for (const item of clientes) {
+      byId.set(String(item.id), item);
+    }
+    for (const item of items) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       byId.set(id, { ...(byId.get(id) || {}), ...item });
-    });
+    }
     clientes = Array.from(byId.values());
   }
 
@@ -451,12 +453,14 @@
   function mergeCidades(items: Option[]) {
     if (!items.length) return;
     const byId = new Map<string, Option>();
-    cidades.forEach((item) => byId.set(String(item.id), item));
-    items.forEach((item) => {
+    for (const item of cidades) {
+      byId.set(String(item.id), item);
+    }
+    for (const item of items) {
       const id = String(item?.id || '').trim();
-      if (!id) return;
+      if (!id) continue;
       byId.set(id, { ...(byId.get(id) || {}), ...item, label: getCidadeLabel({ ...(byId.get(id) || {}), ...item }) });
-    });
+    }
     cidades = sortCidades(Array.from(byId.values()));
   }
 
