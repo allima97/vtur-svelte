@@ -413,15 +413,17 @@
     })
     .sort((left, right) => String(left.start).localeCompare(String(right.start)));
 
-  $: resumo = {
-    total: items.filter((item) => !String(item.id).startsWith('birthday:')).length,
-    aniversarios: items.filter((item) => String(item.id).startsWith('birthday:')).length,
-    hoje: items.filter((item) => String(item.start).startsWith(todayIso)).length,
-    proximos7: items.filter((item) => {
+  $: resumo = items.reduce(
+    (acc, item) => {
+      if (String(item.id).startsWith('birthday:')) acc.aniversarios += 1;
+      else acc.total += 1;
+      if (String(item.start).startsWith(todayIso)) acc.hoje += 1;
       const diff = diffDaysISODate(todayIso, item.start);
-      return diff != null && diff >= 0 && diff <= 7;
-    }).length
-  };
+      if (diff != null && diff >= 0 && diff <= 7) acc.proximos7 += 1;
+      return acc;
+    },
+    { total: 0, aniversarios: 0, hoje: 0, proximos7: 0 }
+  );
 </script>
 
 <svelte:head>
