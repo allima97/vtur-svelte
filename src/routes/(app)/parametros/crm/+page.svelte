@@ -344,15 +344,15 @@
   $: temaFilterOptions = (() => {
     const options = [...TEMA_FILTER_BASE_OPTIONS];
     const knownBuckets = new Set(options.map((option) => option.value));
-    categories.forEach((cat) => {
+    for (const cat of categories) {
       const id = String(cat.id || '').trim();
       const nome = String(cat.nome || '').trim();
-      if (!id || !nome) return;
+      if (!id || !nome) continue;
       const normalized = normalizeText(nome);
       const fixedBucket = resolveTemaBucket(normalized);
-      if (fixedBucket && knownBuckets.has(fixedBucket)) return;
+      if (fixedBucket && knownBuckets.has(fixedBucket)) continue;
       options.push({ label: nome, value: `cat:${id}` });
-    });
+    }
     return options;
   })();
 
