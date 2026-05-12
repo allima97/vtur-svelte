@@ -51,6 +51,10 @@
 
   const defaultRange = getDefaultRange();
   const defaultMonth = todayISODateLocal().slice(0, 7);
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let clientes: ClienteRelatorio[] = [];
   let empresas: EmpresaFiltro[] = [];
@@ -178,7 +182,7 @@
   }
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return BRL_CURRENCY_FORMATTER.format(value);
   }
 
   function getCategoriaBadge(categoria: string): string {
