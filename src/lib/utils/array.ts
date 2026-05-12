@@ -22,7 +22,11 @@ export function dedupeById<T extends { id?: string | null }>(rows: T[]): T[] {
 }
 
 export function uniqueValues<T>(values: readonly T[]): T[] {
-  return Array.from(new Set(values));
+  const unique = new Set<T>();
+  for (const value of values) {
+    unique.add(value);
+  }
+  return Array.from(unique);
 }
 
 export function uniqueCleanStrings(values?: unknown[] | null): string[] {
