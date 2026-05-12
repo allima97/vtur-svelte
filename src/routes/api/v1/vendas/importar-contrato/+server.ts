@@ -115,13 +115,13 @@ function buildPagamentoKey(pagamento: PagamentoDraft) {
 function dedupePagamentos(pagamentos: PagamentoDraft[]) {
   const seen = new Set<string>();
   const result: PagamentoDraft[] = [];
-  pagamentos.forEach((pagamento) => {
-    if (!pagamento?.forma) return;
+  for (const pagamento of pagamentos) {
+    if (!pagamento?.forma) continue;
     const key = buildPagamentoKey(pagamento);
-    if (seen.has(key)) return;
+    if (seen.has(key)) continue;
     seen.add(key);
     result.push(pagamento);
-  });
+  }
   return result;
 }
 
@@ -667,9 +667,9 @@ export async function POST(event) {
           .select('id, nome')
           .in('id', batch);
         if (cidadesError) throw cidadesError;
-        (cidadesData || []).forEach((cidade: any) => {
+        for (const cidade of cidadesData || []) {
           cidadeNomeMap.set(String(cidade.id), String(cidade.nome || '').trim());
-        });
+        }
       }
     }
 
