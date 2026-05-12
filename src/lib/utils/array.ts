@@ -26,7 +26,16 @@ export function uniqueValues<T>(values: readonly T[]): T[] {
 }
 
 export function uniqueCleanStrings(values?: unknown[] | null): string[] {
-  return uniqueValues((values || []).map((value) => String(value || '').trim()).filter(Boolean));
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const value of values || []) {
+    const text = String(value || '').trim();
+    if (text && !seen.has(text)) {
+      seen.add(text);
+      cleaned.push(text);
+    }
+  }
+  return cleaned;
 }
 
 export function cleanStringSet(values?: unknown[] | null): Set<string> {
