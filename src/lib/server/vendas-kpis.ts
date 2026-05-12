@@ -336,11 +336,13 @@ async function fetchConciliacaoCompanyIds(
     rows.push(...(data || []));
   }
 
-  return Array.from(
-    new Set(
-      rows.map((row: any) => toStr(row?.company_id)).filter(Boolean),
-    ),
-  );
+  const companyIdSet = new Set<string>();
+  for (const row of rows) {
+    const companyId = toStr(row?.company_id);
+    if (companyId) companyIdSet.add(companyId);
+  }
+
+  return Array.from(companyIdSet);
 }
 
 async function carregarTermosNaoComissionaveis(
