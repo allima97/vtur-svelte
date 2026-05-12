@@ -91,6 +91,8 @@
     themeLogoColumnsAvailable: boolean;
   };
 
+  const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   function normalizeText(value?: string | null) {
@@ -419,7 +421,7 @@
       })
       .sort((a, b) => {
         if (a.categoryRank !== b.categoryRank) return b.categoryRank - a.categoryRank;
-        return String(a.message.nome || '').localeCompare(String(b.message.nome || ''), 'pt-BR');
+        return PT_BR_COLLATOR.compare(String(a.message.nome || ''), String(b.message.nome || ''));
       })
       .map((entry) => entry.message);
   })();
