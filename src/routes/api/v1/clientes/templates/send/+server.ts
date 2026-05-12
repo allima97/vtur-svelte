@@ -232,12 +232,12 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         .from("master_empresas")
         .select("company_id, status")
         .eq("master_id", user.id);
-      (vinculos || []).forEach((row: any) => {
+      for (const row of vinculos || []) {
         const status = String(row?.status || "").toLowerCase();
         const companyId = String(row?.company_id || "").trim();
-        if (!companyId || status === "rejected") return;
+        if (!companyId || status === "rejected") continue;
         companyIds.add(companyId);
-      });
+      }
     }
     const dataClient = client;
 
