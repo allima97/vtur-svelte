@@ -39,6 +39,11 @@
   let filtroStatus = '';
   let searchQuery = '';
   let showFilterSheet = false;
+  const BRL_INTEGER_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: 0
+  });
 
   const columns = [
     { key: 'codigo', label: 'Código', sortable: true, width: '90px' },
@@ -89,7 +94,7 @@
   }
 
   function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value || 0);
+    return BRL_INTEGER_CURRENCY_FORMATTER.format(value || 0);
   }
 
   async function confirmDelete() {
