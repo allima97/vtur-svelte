@@ -256,7 +256,7 @@ export async function GET(event) {
         }
 
         const resumoMap = new Map<string, any>();
-        items.forEach((c) => {
+        for (const c of items) {
           const vendedorKey = String(c.vendedor_id || '').trim() || 'sem-vendedor';
           const atual = resumoMap.get(vendedorKey) || {
             vendedor_id: c.vendedor_id,
@@ -278,7 +278,7 @@ export async function GET(event) {
             atual.total_pendente += c.valor_comissao;
           }
           resumoMap.set(vendedorKey, atual);
-        });
+        }
 
         return {
           items,
