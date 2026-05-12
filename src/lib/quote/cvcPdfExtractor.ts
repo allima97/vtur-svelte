@@ -2705,10 +2705,11 @@ function buildQuoteItemsFromDetectedBlock(
 }
 
 function parseItemsFromFullText(text: string, baseYear: number, pageNumber: number): QuoteItemDraft[] {
-  const lines = (text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines: string[] = [];
+  for (const line of (text || "").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed) lines.push(trimmed);
+  }
   if (!lines.length) return [];
 
   const blocks: string[][] = [];
