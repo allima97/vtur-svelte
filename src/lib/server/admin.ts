@@ -176,9 +176,9 @@ export function isRestrictedUserTypeName(role?: string | null) {
 export function getAccessibleCompanyIds(scope: UserScope) {
   const ids = new Set<string>();
   if (scope.companyId && isUuid(scope.companyId)) ids.add(scope.companyId);
-  (scope.companyIds || []).forEach((companyId) => {
+  for (const companyId of scope.companyIds || []) {
     if (isUuid(companyId)) ids.add(companyId);
-  });
+  }
   return Array.from(ids);
 }
 
@@ -586,7 +586,9 @@ export async function syncFinanceiroCompanyLinks(
   }
 
   const cleanedCompanyIds = uniqueCleanStrings(companyIds || []).filter(isUuid);
-  cleanedCompanyIds.forEach((companyId) => ensureAssignableCompany(scope, companyId));
+  for (const companyId of cleanedCompanyIds) {
+    ensureAssignableCompany(scope, companyId);
+  }
 
   const accessibleCompanies = getAccessibleCompanyIds(scope);
   const existingRows: Array<{ id?: string | null; company_id?: string | null }> = [];
@@ -611,10 +613,10 @@ export async function syncFinanceiroCompanyLinks(
   }
 
   const existingMap = new Map<string, string>();
-  (existingRows || []).forEach((row: { id?: string | null; company_id?: string | null }) => {
+  for (const row of existingRows || []) {
     const companyId = String(row?.company_id || '').trim();
     if (isUuid(companyId) && row?.id) existingMap.set(companyId, row.id);
-  });
+  }
 
   const changedCompanyIds = uniqueCleanStrings([...existingMap.keys(), ...cleanedCompanyIds]);
   const wanted = new Set(cleanedCompanyIds);
@@ -691,15 +693,15 @@ export function buildPermissionMatrix(
 ) {
   const rowMap = new Map<string, { modulo: string; permissao: string; ativo: boolean }>();
 
-  (rows || []).forEach((row) => {
+  for (const row of rows || []) {
     const key = normalizeModuloKey(row?.modulo);
-    if (!key) return;
+    if (!key) continue;
     rowMap.set(key, {
       modulo: key,
       permissao: String(row?.permissao || 'none'),
       ativo: row?.ativo !== false
     });
-  });
+  }
 
   return MODULOS_ADMIN_PERMISSOES.map((label) => {
     const key = normalizeModuloKey(toModuloDbKey(label));
@@ -736,10 +738,10 @@ export async function saveUserPermissions(
   if (existingError) throw existingError;
 
   const existingMap = new Map<string, string>();
-  (existingRows || []).forEach((row: { id?: string | null; modulo?: string | null }) => {
+  for (const row of existingRows || []) {
     const key = normalizeModuloKey(row.modulo);
     if (key && row.id) existingMap.set(key, row.id);
-  });
+  }
 
   for (const item of normalized) {
     const payload = {
@@ -785,10 +787,10 @@ export async function saveDefaultPermissions(
   if (existingError) throw existingError;
 
   const existingMap = new Map<string, string>();
-  (existingRows || []).forEach((row: { id?: string | null; modulo?: string | null }) => {
+  for (const row of existingRows || []) {
     const key = normalizeModuloKey(row.modulo);
     if (key && row.id) existingMap.set(key, row.id);
-  });
+  }
 
   for (const item of normalized) {
     const payload = {
