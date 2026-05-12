@@ -28,6 +28,7 @@ import { addDaysISODate, monthRangeFromKey } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
+import { uniqueCleanStrings } from '$lib/utils/array';
 import { toCleanString as toStr, toFiniteNumber as toNumber } from '$lib/utils/values';
 
 const MONEY_TOLERANCE = 0.01;
@@ -174,7 +175,7 @@ function receiptLabel(recibo: any) {
 }
 
 async function fetchUsersMap(client: any, ids: string[]) {
-  const uniqueIds = Array.from(new Set(ids.map(toStr).filter(Boolean)));
+  const uniqueIds = uniqueCleanStrings(ids);
   const map = new Map<string, string>();
   for (let index = 0; index < uniqueIds.length; index += 200) {
     const batch = uniqueIds.slice(index, index + 200);
@@ -315,7 +316,7 @@ export async function POST(event) {
       });
     }
 
-    const linkedReciboIds = Array.from(new Set(rows.map((row: any) => toStr(row?.venda_recibo_id)).filter(Boolean)));
+    const linkedReciboIds = uniqueCleanStrings(rows.map((row: any) => row?.venda_recibo_id));
     const receiptById = new Map<string, any>();
 
     for (let index = 0; index < linkedReciboIds.length; index += 200) {

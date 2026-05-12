@@ -24,7 +24,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
 
 type VendaStatus = 'confirmada' | 'pendente' | 'cancelada' | 'concluida';
 type VendaTipo = 'pacote' | 'hotel' | 'passagem' | 'servico';
@@ -274,9 +274,7 @@ function computeKpisFromRows(rows: VendaRow[]) {
 }
 
 function uniqueIds(values: Array<string | null | undefined>, limit = MAX_SEARCH_CANDIDATES) {
-  return Array.from(
-    new Set(values.map((id) => String(id || '').trim()).filter(isUuid))
-  ).slice(0, limit);
+  return uniqueCleanStrings(values).filter(isUuid).slice(0, limit);
 }
 
 function buildSearchParts(searchTerm: string, digits: string, columns: string[]) {

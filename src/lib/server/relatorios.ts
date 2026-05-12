@@ -7,7 +7,7 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, filterBatches } from '$lib/utils/array';
+import { chunkArray, filterBatches, uniqueCleanStrings } from '$lib/utils/array';
 
 const SALES_REPORT_PAGE_SIZE = 1000;
 const SALES_REPORT_MAX_ROWS = 50_000;
@@ -231,9 +231,9 @@ export async function fetchSalesReportRows(
     filterByReceiptDate?: boolean;
   }
 ) {
-  const companyIds = Array.from(new Set((params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
-  const vendedorIds = Array.from(new Set((params.vendedorIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
-  const vendaIds = Array.from(new Set((params.vendaIds || []).map((id) => String(id || '').trim()).filter(Boolean))).sort();
+  const companyIds = uniqueCleanStrings(params.companyIds).sort();
+  const vendedorIds = uniqueCleanStrings(params.vendedorIds).sort();
+  const vendaIds = uniqueCleanStrings(params.vendaIds).sort();
   const dataInicio = String(params.dataInicio || '').trim();
   const dataFim = String(params.dataFim || '').trim();
   const includeCancelled = Boolean(params.includeCancelled);
@@ -344,7 +344,7 @@ export async function fetchSalesReportRows(
 }
 
 export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: string[]) {
-  const ids = Array.from(new Set(vendaIds.map((id) => String(id || '').trim()).filter(Boolean)));
+  const ids = uniqueCleanStrings(vendaIds);
   const forms = new Map<string, string>();
 
   if (ids.length === 0) {
