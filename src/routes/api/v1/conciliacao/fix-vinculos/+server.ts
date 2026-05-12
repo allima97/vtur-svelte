@@ -681,17 +681,27 @@ export async function POST(event) {
       };
     });
 
-    const critical = detalhes.filter((item: any) => item.severity === 'critical').length;
-    const warnings = detalhes.filter((item: any) => item.severity === 'warning').length;
-    const infos = detalhes.filter((item: any) => item.severity === 'info').length;
-    const rowsWithIssues = detalhes.filter((item: any) => item.issues.length > 0).length;
-    const corrigiveis = detalhes.filter((item: any) => item.fixable).length;
+    const diagnostico = detalhes.reduce(
+      (summary: any, item: any) => {
+        if (item.severity === 'critical') summary.critical += 1;
+        if (item.severity === 'warning') summary.warnings += 1;
+        if (item.severity === 'info') summary.infos += 1;
+        if (item.issues.length > 0) summary.rowsWithIssues += 1;
+        if (item.fixable) {
+          summary.corrigiveis += 1;
+          if (item.id) summary.fixableIds.push(item.id);
+        }
+        return summary;
+      },
+      { critical: 0, warnings: 0, infos: 0, rowsWithIssues: 0, corrigiveis: 0, fixableIds: [] as string[] }
+    );
+
+    const { critical, warnings, infos, rowsWithIssues, corrigiveis, fixableIds } = diagnostico;
 
     let corrigidos = 0;
     if (!dryRun && corrigiveis > 0) {
-      const ids = detalhes.filter((item: any) => item.fixable).map((item: any) => item.id).filter(Boolean);
-      for (let index = 0; index < ids.length; index += 50) {
-        const batch = ids.slice(index, index + 50);
+      for (let index = 0; index < fixableIds.length; index += 50) {
+        const batch = fixableIds.slice(index, index + 50);
         const { error: fixErr } = await client
           .from('conciliacao_recibos')
           .update({
