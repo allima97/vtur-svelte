@@ -58,10 +58,12 @@ function compareNullableDate(a?: string | null, b?: string | null) {
 
 function mergeDashboardViagens(...groups: DashboardViagemRow[][]) {
   const byId = new Map<string, DashboardViagemRow>();
-  groups.flat().forEach((row) => {
-    const id = String(row?.id || "").trim();
-    if (id && !byId.has(id)) byId.set(id, row);
-  });
+  for (const group of groups) {
+    for (const row of group) {
+      const id = String(row?.id || "").trim();
+      if (id && !byId.has(id)) byId.set(id, row);
+    }
+  }
   return Array.from(byId.values()).sort((a, b) =>
     compareNullableDate(a.data_inicio, b.data_inicio),
   );

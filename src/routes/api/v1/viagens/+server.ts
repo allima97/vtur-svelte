@@ -122,10 +122,12 @@ function sortViagemRows(rows: any[], ordenar: string) {
 
 function mergeUniqueViagemRows(...groups: any[][]) {
   const byId = new Map<string, any>();
-  groups.flat().forEach((row) => {
-    const id = String(row?.id || "").trim();
-    if (id && !byId.has(id)) byId.set(id, row);
-  });
+  for (const group of groups) {
+    for (const row of group) {
+      const id = String(row?.id || "").trim();
+      if (id && !byId.has(id)) byId.set(id, row);
+    }
+  }
   return Array.from(byId.values());
 }
 
