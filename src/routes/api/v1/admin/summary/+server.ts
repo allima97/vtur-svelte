@@ -97,7 +97,11 @@ export async function GET(event) {
         (emailSettings?.smtp_host && emailSettings?.smtp_user && emailSettings?.smtp_pass)
     );
 
-    const companyIds = empresasRows.map((empresa: any) => String(empresa.id || '').trim()).filter(Boolean);
+    const companyIds: string[] = [];
+    for (const empresa of empresasRows) {
+      const companyId = String(empresa.id || '').trim();
+      if (companyId) companyIds.push(companyId);
+    }
     let billingRows: any[] = [];
     if (companyIds.length > 0) {
       try {
