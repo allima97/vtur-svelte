@@ -259,9 +259,9 @@ export async function GET(event) {
             .from("produtos")
             .select("id, nome")
             .in("id", produtoIds);
-          (produtosData || []).forEach((p: any) =>
-            produtosMap.set(p.id, p.nome),
-          );
+          for (const p of produtosData || []) {
+            produtosMap.set(p.id, p.nome);
+          }
         }
 
         venda.recibos = (recibosData || []).map((r: any) => ({
@@ -405,9 +405,9 @@ export async function PATCH(event) {
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
-    allowedFields.forEach((field) => {
+    for (const field of allowedFields) {
       if (body[field] !== undefined) updateData[field] = body[field];
-    });
+    }
     updateData.status = resolveViagemStatus({
       status: updateData.status ?? (existing as any).status,
       data_inicio: updateData.data_inicio ?? (existing as any).data_inicio,
