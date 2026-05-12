@@ -116,10 +116,19 @@ function addRows(target: Map<string, any>, rows?: any[] | null) {
   }
 }
 
+function collectIds<T>(rows: T[], getId: (row: T) => unknown) {
+  const ids: string[] = [];
+  for (const row of rows) {
+    const id = toStr(getId(row));
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
 async function fetchConciliacaoRows(params: VendaRankingParams) {
   const { client, companyId, vendaId, recibos } = params;
   const byId = new Map<string, any>();
-  const reciboIds = recibos.map((recibo) => toStr(recibo.id)).filter(Boolean);
+  const reciboIds = collectIds(recibos, (recibo) => recibo.id);
   const documentoVariants = uniqueCleanStrings(recibos.flatMap(reciboDocumentVariants));
 
   const { data: byVenda, error: byVendaError } = await client
@@ -272,8 +281,8 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
 export async function buildVendaRankingConciliacaoSnapshot(params: VendaRankingParams) {
   const { client, recibos } = params;
   const concRows = await fetchConciliacaoRows(params);
-  const reciboIds = recibos.map((recibo) => toStr(recibo.id)).filter(Boolean);
-  const concIds = concRows.map((row: any) => toStr(row?.id)).filter(Boolean);
+  const reciboIds = collectIds(recibos, (recibo) => recibo.id);
+  const concIds = collectIds(concRows, (row: any) => row?.id);
   const rateios = await fetchRateioMaps(client, reciboIds, concIds);
 
   const result = recibos.map((recibo) => {
@@ -282,7 +291,7 @@ export async function buildVendaRankingConciliacaoSnapshot(params: VendaRankingP
       ? pickDisplaySourceRow(concGrupo)
       : { sourceRow: null, confirmed: false };
     const hasConciliacao = Boolean(sourceRow);
-    const concIdsForRecibo = concGrupo.map((row: any) => toStr(row?.id)).filter(Boolean);
+    const concIdsForRecibo = collectIds(concGrupo, (row: any) => row?.id);
 
     const vendaValorTotal = toNumber(recibo.valor_total);
     const vendaValorTaxas = toNumber(recibo.valor_taxas);
