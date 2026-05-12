@@ -84,7 +84,7 @@ export async function POST(event: RequestEvent) {
 
       if (cliente) {
         const clienteCompanyId = String((cliente as any).company_id || '').trim();
-        if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+        if (!scope.isAdmin && clienteCompanyId && !new Set(scope.companyIds).has(clienteCompanyId)) {
           return new Response('Cliente fora do seu escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
         clientWhatsapp = clientWhatsapp || (cliente as any).whatsapp || null;

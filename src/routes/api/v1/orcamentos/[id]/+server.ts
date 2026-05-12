@@ -154,7 +154,7 @@ export async function PATCH(event) {
         if (clienteErr) throw clienteErr;
         if (!cliente?.id) return errorResponse('Cliente nao encontrado.', 404);
         const clienteCompanyId = String((cliente as any).company_id || '').trim();
-        if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+        if (!scope.isAdmin && clienteCompanyId && !new Set(scope.companyIds).has(clienteCompanyId)) {
           return errorResponse('Cliente fora do seu escopo.', 403);
         }
       }

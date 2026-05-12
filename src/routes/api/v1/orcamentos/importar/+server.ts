@@ -84,7 +84,7 @@ export async function POST(event: RequestEvent) {
         return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       }
       const clienteCompanyId = String((cliente as any).company_id || '').trim();
-      if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
+      if (!scope.isAdmin && clienteCompanyId && !new Set(scope.companyIds).has(clienteCompanyId)) {
         return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
