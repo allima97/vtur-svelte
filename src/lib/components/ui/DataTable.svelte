@@ -332,9 +332,10 @@
   }
 
   $: pageSizeValue = String(currentPageSize);
-  $: activeFilterCount = Object.values(activeFilters).filter(
-    (value) => value !== "" && value != null,
-  ).length;
+  $: activeFilterCount = Object.values(activeFilters).reduce(
+    (total, value) => total + (value !== "" && value != null ? 1 : 0),
+    0,
+  );
   $: skeletonRowCount = Math.max(4, Math.min(Number(currentPageSize) || 6, 8));
   $: tableColumnCount =
     columns.length +
