@@ -632,8 +632,12 @@ export async function POST(event) {
 
     const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
 
-    const datasInicio = contratos.map((contrato) => contrato.data_saida).filter(Boolean) as string[];
-    const datasFim = contratos.map((contrato) => contrato.data_retorno).filter(Boolean) as string[];
+    const datasInicio: string[] = [];
+    const datasFim: string[] = [];
+    for (const contrato of contratos) {
+      if (contrato.data_saida) datasInicio.push(contrato.data_saida);
+      if (contrato.data_retorno) datasFim.push(contrato.data_retorno);
+    }
     const dataInicioVenda = datasInicio.length ? datasInicio.sort()[0] : principal.data_saida || null;
     const dataFimVenda = datasFim.length ? datasFim.sort().slice(-1)[0] : principal.data_retorno || null;
 
