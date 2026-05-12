@@ -245,7 +245,7 @@ function aggregateContributions(
     0,
   );
 
-  contributions.forEach((item) => {
+  for (const item of contributions) {
     if (item.vendaKey) saleKeys.add(item.vendaKey);
     const receiptKey = [
       item.vendaKey,
@@ -253,7 +253,7 @@ function aggregateContributions(
       item.reciboDate,
     ].join("|");
     if (receiptKey.trim() !== "||") receiptKeys.add(receiptKey);
-  });
+  }
 
   return {
     totalVendas,
