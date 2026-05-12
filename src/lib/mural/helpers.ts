@@ -111,7 +111,7 @@ export function normalizeSortKey(value: string) {
 export function getInitials(value?: string | null) {
   const cleaned = String(value || '').trim();
   if (!cleaned) return 'U';
-  const parts = cleaned.split(/\s+/).filter(Boolean);
+  const parts = cleaned.match(/\S+/g) || [];
   const first = parts[0]?.[0] || '';
   const last = parts.length > 1 ? parts[parts.length - 1]?.[0] || '' : '';
   return `${first}${last}`.toUpperCase() || cleaned.slice(0, 2).toUpperCase();
