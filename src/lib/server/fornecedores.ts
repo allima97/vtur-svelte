@@ -114,7 +114,11 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
         baseRows.push(...((base.data || []) as Array<{ id?: string | null }>));
       }
 
-      const ids = dedupeById(baseRows).map((row: any) => String(row.id || '')).filter(Boolean);
+      const ids: string[] = [];
+      for (const row of dedupeById(baseRows)) {
+        const id = String(row.id || '');
+        if (id) ids.push(id);
+      }
       if (ids.length === 0) return { items: [], total: 0 };
 
       const detailRows: any[] = [];
