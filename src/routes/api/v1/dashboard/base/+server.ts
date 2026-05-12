@@ -128,7 +128,10 @@ export async function GET(event) {
       vendedores = currentUser ? [currentUser] : [];
     }
 
-    const companyNameById = new Map(empresas.map((row) => [row.id, row.nome]));
+    const companyNameById = new Map<string, string | null>();
+    for (const row of empresas) {
+      companyNameById.set(row.id, row.nome);
+    }
     const vendedoresFiltro = vendedores
       .map((row: any) => ({
         id: String(row?.id || ''),
