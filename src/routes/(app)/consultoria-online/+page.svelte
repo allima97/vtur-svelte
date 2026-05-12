@@ -52,6 +52,11 @@
     { value: 'fechada', label: 'Fechadas' }
   ];
 
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+
   let consultorias: Consultoria[] = [];
   let loading = false;
   let saving = false;
@@ -87,7 +92,7 @@
 
   function formatCurrency(val: number): string {
     if (!val) return '-';
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return BRL_CURRENCY_FORMATTER.format(val);
   }
 
   async function loadConsultorias() {
