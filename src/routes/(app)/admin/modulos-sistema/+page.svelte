@@ -63,8 +63,15 @@
 
   onMount(load);
 
-  $: habilitados = modulos.filter((m) => m.enabled).length;
-  $: desabilitados = modulos.filter((m) => !m.enabled).length;
+  $: modulosResumo = modulos.reduce(
+    (acc, modulo) => {
+      if (modulo.enabled) acc.habilitados += 1;
+      else acc.desabilitados += 1;
+      return acc;
+    },
+    { habilitados: 0, desabilitados: 0 }
+  );
+  $: ({ habilitados, desabilitados } = modulosResumo);
 </script>
 
 <svelte:head>
