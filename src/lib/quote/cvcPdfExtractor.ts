@@ -964,7 +964,10 @@ function findLikelyServiceProviderLine(lines: string[], serviceDescription: stri
     if (/reembols/.test(normalized)) continue;
     if (!/[A-Za-zÀ-ÿ]/.test(cleaned)) continue;
     if (SERVICE_DESCRIPTION_HINTS.some((hint) => normalized.includes(hint))) continue;
-    const words = cleaned.split(/\s+/).filter(Boolean);
+    const words: string[] = [];
+    for (const word of cleaned.split(/\s+/)) {
+      if (word) words.push(word);
+    }
     if (words.length > 5) continue;
     return cleaned;
   }
