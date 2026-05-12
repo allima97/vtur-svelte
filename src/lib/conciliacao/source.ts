@@ -1031,15 +1031,15 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       .select("id, nome, tipo")
       .in("id", produtoIds);
     if (error) throw error;
-    (data || []).forEach((row: any) => {
+    for (const row of data || []) {
       const id = toStr(row?.id);
-      if (!id) return;
+      if (!id) continue;
       produtosMap.set(id, {
         id,
         nome: row?.nome ? String(row.nome) : null,
         tipo: row?.tipo ? String(row.tipo) : null,
       });
-    });
+    }
   }
 
   const allowedVendedores =
