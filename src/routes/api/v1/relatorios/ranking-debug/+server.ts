@@ -655,7 +655,11 @@ export async function GET(event) {
     }
 
     const docsParam = event.url.searchParams.get('docs') || '084185,083862,084186';
-    const docNumbers = docsParam.split(',').map((d) => d.trim()).filter(Boolean);
+    const docNumbers: string[] = [];
+    for (const doc of docsParam.split(',')) {
+      const trimmed = doc.trim();
+      if (trimmed) docNumbers.push(trimmed);
+    }
 
     // Monta variações do número: com e sem prefixo 5630-0000
     const docVariants: string[] = [];
