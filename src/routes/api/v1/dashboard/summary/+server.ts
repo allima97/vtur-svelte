@@ -20,7 +20,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
-import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
+import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from "$lib/utils/array";
 import { toFiniteNumber as toNum } from "$lib/utils/values";
 
 // ---------------------------------------------------------------------------
@@ -72,20 +72,8 @@ async function fetchGestorCompanyScopeIds(
   client: any,
   options: { companyIds?: string[]; userIds?: string[] },
 ) {
-  const companyIds = Array.from(
-    new Set(
-      (options.companyIds || [])
-        .map((id) => String(id || "").trim())
-        .filter(Boolean),
-    ),
-  );
-  const userIds = Array.from(
-    new Set(
-      (options.userIds || [])
-        .map((id) => String(id || "").trim())
-        .filter(Boolean),
-    ),
-  );
+  const companyIds = uniqueCleanStrings(options.companyIds || []);
+  const userIds = uniqueCleanStrings(options.userIds || []);
 
   if (userIds.length === 0 && companyIds.length > 0) {
     return getCachedReadModel<string[]>({
@@ -99,9 +87,11 @@ async function fetchGestorCompanyScopeIds(
       ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () =>
-        (await fetchRankingVendedoresByCompanyIds(client, companyIds))
-          .map((row: any) => String(row?.id || "").trim())
-          .filter(Boolean),
+        uniqueCleanStrings(
+          (await fetchRankingVendedoresByCompanyIds(client, companyIds)).map(
+            (row: any) => row?.id,
+          ),
+        ),
     });
   }
 
@@ -152,7 +142,7 @@ async function fetchGestorCompanyScopeIds(
         for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
         for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
 
-        return rows
+        const eligibleRows = rows
           .filter((row: any) => {
             if (!row?.id) return false;
             if (row?.active === false) return false;
@@ -161,9 +151,8 @@ async function fetchGestorCompanyScopeIds(
             if (companyIds.length > 0)
               return companyIds.includes(String(row?.company_id || "").trim());
             return true;
-          })
-          .map((row: any) => String(row?.id || "").trim())
-          .filter(Boolean);
+          });
+        return uniqueCleanStrings(eligibleRows.map((row: any) => row?.id));
       } catch {
         return [];
       }
@@ -350,9 +339,7 @@ export async function GET(event) {
             .limit(DASHBOARD_QUOTES_LIMIT);
 
         const fetchQuotesByIds = async (field: "created_by" | "client_id", ids: string[]) => {
-          const normalizedIds = Array.from(
-            new Set(ids.map((id) => String(id || "").trim()).filter(Boolean)),
-          );
+          const normalizedIds = uniqueCleanStrings(ids);
           if (normalizedIds.length === 0) return [] as DashboardQuoteRow[];
           if (normalizedIds.length <= SUPABASE_IN_BATCH_SIZE) {
             const { data, error } = await buildQuotesQuery().in(field, normalizedIds);
