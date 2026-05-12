@@ -25,6 +25,17 @@
   let assetsLoaded = false;
   
   $: showDeleteDialog = !!deleteConfirmVoucher;
+  $: voucherStats = vouchers.reduce(
+    (acc, voucher) => {
+      acc.total += 1;
+      if (voucher.provider === 'special_tours') acc.specialTours += 1;
+      if (voucher.provider === 'europamundo') acc.europamundo += 1;
+      if (voucher.provider === 'sato_tours') acc.satoTours += 1;
+      if (voucher.ativo) acc.ativos += 1;
+      return acc;
+    },
+    { total: 0, specialTours: 0, europamundo: 0, satoTours: 0, ativos: 0 }
+  );
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
@@ -181,7 +192,7 @@
     </div>
     <div>
       <p class="text-sm font-medium text-slate-500">Total</p>
-      <p class="text-2xl font-bold text-slate-900">{vouchers.length}</p>
+      <p class="text-2xl font-bold text-slate-900">{voucherStats.total}</p>
     </div>
   </div>
 
@@ -192,7 +203,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Special Tours</p>
       <p class="text-2xl font-bold text-slate-900">
-        {vouchers.filter(v => v.provider === 'special_tours').length}
+        {voucherStats.specialTours}
       </p>
     </div>
   </div>
@@ -204,7 +215,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Europamundo</p>
       <p class="text-2xl font-bold text-slate-900">
-        {vouchers.filter(v => v.provider === 'europamundo').length}
+        {voucherStats.europamundo}
       </p>
     </div>
   </div>
@@ -216,7 +227,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Sato Tours</p>
       <p class="text-2xl font-bold text-slate-900">
-        {vouchers.filter(v => v.provider === 'sato_tours').length}
+        {voucherStats.satoTours}
       </p>
     </div>
   </div>
@@ -228,7 +239,7 @@
     <div>
       <p class="text-sm font-medium text-slate-500">Ativos</p>
       <p class="text-2xl font-bold text-slate-900">
-        {vouchers.filter(v => v.ativo).length}
+        {voucherStats.ativos}
       </p>
     </div>
   </div>
