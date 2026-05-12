@@ -47,6 +47,7 @@
   let filtroTipo = '';
   let filtroStatus = '';
   let filtroAbrangencia = '';
+  $: normalizedSearch = search.trim().toLowerCase();
 
   async function loadBase() {
     loading = true;
@@ -118,8 +119,7 @@
   }));
 
   $: filteredRows = rows.filter((produto) => {
-    const term = search.trim().toLowerCase();
-    if (term) {
+    if (normalizedSearch) {
       const haystack = [
         produto.nome,
         produto.destino,
@@ -129,7 +129,7 @@
       ]
         .join(' ')
         .toLowerCase();
-      if (!haystack.includes(term)) return false;
+      if (!haystack.includes(normalizedSearch)) return false;
     }
 
     if (filtroTipo && produto.tipo_produto !== filtroTipo) return false;
