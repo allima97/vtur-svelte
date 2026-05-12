@@ -155,6 +155,10 @@
   const TRANSPORTE_TIPO_VOO_OPTIONS = ['Nacional', 'Internacional'];
   const INVESTIMENTO_TIPO_OPTIONS = ['Por pessoa', 'Por casal', 'Por família', 'Por apto'];
   const PAGAMENTO_SERVICO_OPTIONS = ['Pacote Completo', 'Passagem Aérea', 'Hospedagem', 'Passeios e Serviços', 'Seguro Viagem', 'Demais Serviços'];
+  const PT_BR_DECIMAL_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 
   // ─── Page state ────────────────────────────────────────────────────────────
   const roteiroId = $page.params.id;
@@ -1278,7 +1282,7 @@
 
   function formatBRL(value: number | null | undefined): string {
     if (value == null) return '';
-    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    return PT_BR_DECIMAL_FORMATTER.format(value);
   }
 
   onMount(async () => {
