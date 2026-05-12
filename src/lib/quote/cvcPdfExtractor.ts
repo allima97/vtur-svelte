@@ -1141,10 +1141,14 @@ function mapImportedAereoToQuoteItems(imported: ImportedRoteiroAereo[]): QuoteIt
 
   return ordered.map((flight, index) => {
     const trecho = String(flight.trecho || "").trim();
-    const cityName = trecho
-      .split("-")
-      .map((part) => part.trim())
-      .filter(Boolean)[0] || "";
+    let cityName = "";
+    for (const part of trecho.split("-")) {
+      const trimmed = part.trim();
+      if (trimmed) {
+        cityName = trimmed;
+        break;
+      }
+    }
     const quantidade = Math.max(1, Number(flight.qtd_adultos || 0) + Number(flight.qtd_criancas || 0) || 1);
     const total = Number(flight.valor_total || 0);
     const taxes = Number(flight.taxas || 0);
