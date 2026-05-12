@@ -149,17 +149,16 @@
       });
     }
 
-    Object.entries(activeFilters).forEach(([key, value]) => {
-      if (value !== "" && value != null) {
-        result = result.filter((row) => {
-          const rowValue = row[key];
-          if (Array.isArray(value)) {
-            return value.includes(String(rowValue));
-          }
-          return normalizeSearchText(rowValue).includes(normalizeSearchText(value));
-        });
-      }
-    });
+    for (const [key, value] of Object.entries(activeFilters)) {
+      if (value === "" || value == null) continue;
+      result = result.filter((row) => {
+        const rowValue = row[key];
+        if (Array.isArray(value)) {
+          return value.includes(String(rowValue));
+        }
+        return normalizeSearchText(rowValue).includes(normalizeSearchText(value));
+      });
+    }
 
     if (sortKey && sortDirection) {
       result.sort((a, b) => {
@@ -239,9 +238,9 @@
   function toggleSelectAll() {
     selectAll = !selectAll;
     if (selectAll) {
-      paginatedData.forEach((row) => selectedRows.add(keyExtractor(row)));
+      for (const row of paginatedData) selectedRows.add(keyExtractor(row));
     } else {
-      paginatedData.forEach((row) => selectedRows.delete(keyExtractor(row)));
+      for (const row of paginatedData) selectedRows.delete(keyExtractor(row));
     }
     selectedRows = selectedRows;
     onSelectionChange?.([...selectedRows]);
@@ -265,7 +264,7 @@
     if (serverSide) {
       currentPage = 1;
       onSearch?.("");
-      filters.forEach((filter) => onFilterChange?.(filter.key, ""));
+      for (const filter of filters) onFilterChange?.(filter.key, "");
       onPageChange?.(1);
     }
   }
