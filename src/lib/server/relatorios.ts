@@ -365,11 +365,11 @@ export async function fetchLatestPaymentForms(client: SupabaseClient, vendaIds: 
       return forms;
     }
 
-    (data || []).forEach((row: { venda_id?: string | null; forma_nome?: string | null }) => {
+    for (const row of (data || []) as Array<{ venda_id?: string | null; forma_nome?: string | null }>) {
       const vendaId = String(row?.venda_id || '').trim();
-      if (!vendaId || forms.has(vendaId)) return;
+      if (!vendaId || forms.has(vendaId)) continue;
       forms.set(vendaId, normalizeFormaPagamento(row?.forma_nome));
-    });
+    }
   }
 
   return forms;
