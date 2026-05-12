@@ -54,13 +54,19 @@ export async function GET(event) {
         if (categoriasResp.error) throw categoriasResp.error;
         if (itensResp.error) throw itensResp.error;
 
+        const itens = [];
+        for (const row of itensResp.data || []) {
+          const item = mapTodoRow(row);
+          if (item) itens.push(item);
+        }
+
         return {
           categorias: (categoriasResp.data || []).map((row) => ({
             id: String(row.id),
             nome: String(row.nome || ""),
             cor: row.cor ? String(row.cor) : null,
           })),
-          itens: (itensResp.data || []).map(mapTodoRow).filter(Boolean),
+          itens,
         };
       },
     });
