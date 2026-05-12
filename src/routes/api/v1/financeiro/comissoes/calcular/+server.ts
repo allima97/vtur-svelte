@@ -242,11 +242,16 @@ export async function GET(event) {
             .flatMap((v: any) => (Array.isArray(v?.recibos) ? v.recibos : []))
             .map((recibo: any) => recibo?.id)
         );
+        const persistedVendedorIds: string[] = [];
+        for (const row of vendas || []) {
+          const vendedorId = String(row.vendedor_id || '');
+          if (vendedorId) persistedVendedorIds.push(vendedorId);
+        }
         const persistedSnapshot = await fetchPersistedComissoes(client, {
           companyIds,
           vendaIds: (vendas || []).map((row) => row.id),
           reciboIds,
-          vendedorIds: (vendas || []).map((row) => String(row.vendedor_id || '')).filter(Boolean)
+          vendedorIds: persistedVendedorIds
         });
         const persistedByKey = new Map(
           persistedSnapshot.rows.map((row) => [
