@@ -48,6 +48,10 @@
 
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   let loading = true;
   let saving = false;
@@ -142,7 +146,7 @@
   }
 
   function formatMoney(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   function ensurePrincipalRecibo() {
