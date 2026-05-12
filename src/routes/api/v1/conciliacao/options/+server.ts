@@ -10,6 +10,8 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -32,7 +34,7 @@ export async function GET(event) {
         nome_completo: String(row?.nome_completo || '').trim() || 'Usuario'
       }))
       .filter((row) => Boolean(row.id))
-      .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, 'pt-BR'));
+      .sort((a, b) => PT_BR_COLLATOR.compare(a.nome_completo, b.nome_completo));
 
     // Produtos com meta (tipo_produtos com soma_na_meta = true)
     const { data: produtosData } = await client

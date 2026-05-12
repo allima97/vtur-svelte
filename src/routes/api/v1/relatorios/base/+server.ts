@@ -12,6 +12,8 @@ import {
 import { SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { chunkArray } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -141,7 +143,7 @@ export async function GET(event) {
       };
       })
       .filter((row) => row.id)
-      .sort((left, right) => left.nome.localeCompare(right.nome, 'pt-BR'));
+      .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
 
     return json(
       {

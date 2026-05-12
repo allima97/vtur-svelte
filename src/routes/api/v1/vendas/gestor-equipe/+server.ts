@@ -9,6 +9,8 @@ import {
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { chunkArray } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -39,7 +41,7 @@ export async function GET(event) {
 
     const data = Array.from(new Map(rows.map((row: any) => [String(row?.id || ''), row])).values())
       .sort((left: any, right: any) =>
-        String(left?.nome_completo || '').localeCompare(String(right?.nome_completo || ''), 'pt-BR')
+        PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
       );
 
     return json({

@@ -17,6 +17,7 @@ import { cleanStringSet, chunkArray } from '$lib/utils/array';
 // Usa commission_rule e commission_tier (tabelas reais do schema)
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
 const COMMISSION_RULE_COMPANY_BATCH_SIZE = 80;
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const COMMISSION_RULE_SELECT =
   'id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)';
 
@@ -85,7 +86,7 @@ async function fetchCommissionRulesForScope(params: {
   }
 
   return Array.from(new Map(rows.map((row) => [row.id, row])).values()).sort((a, b) =>
-    String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR')
+    PT_BR_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || ''))
   );
 }
 
