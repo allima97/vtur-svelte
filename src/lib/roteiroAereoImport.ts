@@ -1336,22 +1336,22 @@ function collectProviderCardAliasValues(
   const cards: string[][] = [];
   let currentCard: string[] = [];
 
-  rawLines.forEach((line) => {
+  for (const line of rawLines) {
     const normalized = normalizeText(line);
     if (normalized === "selecionado") {
       if (currentCard.length > 0) {
         cards.push(currentCard);
         currentCard = [];
       }
-      return;
+      continue;
     }
-    if (isProviderCardMarkerLine(line)) return;
+    if (isProviderCardMarkerLine(line)) continue;
     currentCard.push(line);
-  });
+  }
   if (currentCard.length > 0) cards.push(currentCard);
 
   const aliases = new Set<string>();
-  cards.forEach((cardLines) => {
+  for (const cardLines of cards) {
     const lines = cardLines.filter(Boolean);
     for (let cursor = 0; cursor < lines.length; cursor++) {
       const airlineLine = lines[cursor] || "";
@@ -1359,17 +1359,17 @@ function collectProviderCardAliasValues(
 
       const airportOut = lines[cursor + 3] || "";
       const airportIn = lines[cursor + 7] || "";
-      [airportOut, airportIn].forEach((label) => {
+      for (const label of [airportOut, airportIn]) {
         const normalizedLabel = normalizeLine(label);
-        if (!normalizedLabel || isAirportLine(normalizedLabel)) return;
+        if (!normalizedLabel || isAirportLine(normalizedLabel)) continue;
         const resolved = resolveAirportMatch(normalizedLabel, runtimeAliases, airportCodeCityLookup);
-        if (!resolved?.code) return;
+        if (!resolved?.code) continue;
         const storageValue = buildAirportAliasStorageValue(normalizedLabel, resolved.code, resolved.city);
-        if (!storageValue) return;
+        if (!storageValue) continue;
         aliases.add(storageValue);
-      });
+      }
     }
-  });
+  }
 
   return Array.from(aliases);
 }
