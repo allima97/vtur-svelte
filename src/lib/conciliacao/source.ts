@@ -786,9 +786,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         .select("id, vendedor_id, valor_total, valor_nao_comissionado")
         .in("id", batch);
       if (error) throw error;
-      (data || []).forEach((row: any) => {
+      for (const row of data || []) {
         const id = toStr(row?.id);
-        if (!id) return;
+        if (!id) continue;
         vendasMap.set(id, {
           vendedor_id: toStr(row?.vendedor_id) || null,
           valor_total:
@@ -798,7 +798,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
               ? null
               : toNumber(row.valor_nao_comissionado),
         });
-      });
+      }
     }
   }
 
