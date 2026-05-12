@@ -364,13 +364,13 @@ const GLOBAL_MODULE_GROUPS: Record<string, string[]> = {
 
 const GLOBAL_MODULE_PARENTS = Object.entries(GLOBAL_MODULE_GROUPS).reduce(
   (acc, [parent, children]) => {
-    children.forEach((child) => {
+    for (const child of children) {
       const key = normalizeSystemModuleKey(child);
-      if (!key) return;
+      if (!key) continue;
       const current = acc.get(key) || [];
       current.push(parent);
       acc.set(key, current);
-    });
+    }
     return acc;
   },
   new Map<string, string[]>()
@@ -383,9 +383,9 @@ function normalizeSecaoKey(value: string) {
 function buildBaseModuloMap(modulosBase: string[]) {
   const map = new Map<string, string>();
 
-  modulosBase.forEach((modulo) => {
+  for (const modulo of modulosBase) {
     map.set(normalizeSecaoKey(modulo), modulo);
-  });
+  }
 
   return map;
 }
@@ -414,14 +414,18 @@ function resolveSecaoApplyModulos(
     result.push(resolved);
   };
 
-  (secao.includes || []).forEach((includedId) => {
+  for (const includedId of secao.includes || []) {
     const included = defsById[includedId];
-    if (!included) return;
+    if (!included) continue;
 
-    resolveSecaoApplyModulos(included, defsById, baseMap, visited).forEach(push);
-  });
+    for (const modulo of resolveSecaoApplyModulos(included, defsById, baseMap, visited)) {
+      push(modulo);
+    }
+  }
 
-  (secao.modulos || []).forEach(push);
+  for (const modulo of secao.modulos || []) {
+    push(modulo);
+  }
 
   return result;
 }
@@ -449,7 +453,9 @@ export function listarModulosComHeranca(modulo: string) {
     if (!atual || visitado.has(atual)) return;
     visitado.add(atual);
     result.push(atual);
-    (MODULO_HERANCA[atual] || []).forEach(visitar);
+    for (const modulo of MODULO_HERANCA[atual] || []) {
+      visitar(modulo);
+    }
   };
 
   visitar(inicio);
@@ -478,7 +484,9 @@ export const MODULOS_ADMIN_PERMISSOES: string[] = (() => {
     seen.set(normalizedKey, label);
   };
 
-  Object.keys(MAPA_MODULOS).forEach(addLabel);
+  for (const label of Object.keys(MAPA_MODULOS)) {
+    addLabel(label);
+  }
   return list;
 })();
 
@@ -503,7 +511,9 @@ export function agruparModulosPorSecao(modulosBase: string[]): ModuloSecaoPermis
     }
 
     const applyModulos = resolveSecaoApplyModulos(secao, defsById, baseMap, new Set<string>());
-    applyModulos.forEach((modulo) => usedKeys.add(normalizeSecaoKey(modulo)));
+    for (const modulo of applyModulos) {
+      usedKeys.add(normalizeSecaoKey(modulo));
+    }
 
     if (!modulos.length && !applyModulos.length) continue;
 
@@ -552,8 +562,12 @@ export function listSystemModuleCatalog(extraLabels: string[] = []) {
     });
   };
 
-  MODULOS_ADMIN_PERMISSOES.forEach(push);
-  extraLabels.forEach(push);
+  for (const modulo of MODULOS_ADMIN_PERMISSOES) {
+    push(modulo);
+  }
+  for (const label of extraLabels) {
+    push(label);
+  }
 
   return result;
 }
@@ -563,11 +577,11 @@ export function buildDisabledSystemModuleKeys(
 ) {
   const disabled = new Set<string>();
 
-  (rows || []).forEach((row) => {
-    if (row?.enabled !== false) return;
+  for (const row of rows || []) {
+    if (row?.enabled !== false) continue;
     const key = normalizeSystemModuleKey(row?.module_key);
     if (key) disabled.add(key);
-  });
+  }
 
   return Array.from(disabled);
 }
@@ -620,11 +634,11 @@ export function isSystemModuleDisabled(
       if (dbKey) candidates.add(dbKey);
 
       const parents = GLOBAL_MODULE_PARENTS.get(currentKey) || [];
-      parents.forEach((parentLabel) => {
-        if (visitedParents.has(parentLabel)) return;
+      for (const parentLabel of parents) {
+        if (visitedParents.has(parentLabel)) continue;
         visitedParents.add(parentLabel);
         queue.push(parentLabel);
-      });
+      }
     }
   }
 
