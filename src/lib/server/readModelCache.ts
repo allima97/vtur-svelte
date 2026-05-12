@@ -1,3 +1,5 @@
+import { uniqueCleanStrings } from '$lib/utils/array';
+
 type CacheEntry<T> = {
   value: T;
   expiresAt: number;
@@ -171,11 +173,7 @@ function normalizeCacheKey(key: string) {
 }
 
 function normalizeIds(values?: string[] | null) {
-  return Array.from(
-    new Set(
-      (values || []).map((value) => String(value || "").trim()).filter(Boolean),
-    ),
-  ).sort();
+  return uniqueCleanStrings(values).sort();
 }
 
 export function scopeCacheTags(params: {
@@ -315,16 +313,8 @@ export function invalidateReadModelCache(options?: {
   invalidationEpoch += 1;
   inflight.clear();
 
-  const tags = new Set(
-    (options?.tags || [])
-      .map((tag) => String(tag || "").trim())
-      .filter(Boolean),
-  );
-  const scopeTags = new Set(
-    (options?.scopeTags || [])
-      .map((tag) => String(tag || "").trim())
-      .filter(Boolean),
-  );
+  const tags = new Set(uniqueCleanStrings(options?.tags));
+  const scopeTags = new Set(uniqueCleanStrings(options?.scopeTags));
   const keyPrefix = String(options?.keyPrefix || "").trim();
 
   if (tags.size === 0 && scopeTags.size === 0 && !keyPrefix) {
