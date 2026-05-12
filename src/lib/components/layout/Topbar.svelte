@@ -17,9 +17,7 @@
     currentUser?.email?.split('@')[0] ||
     'Usuario';
   $: userEmail = currentUser?.email || 'Sem email';
-  $: userInitials = userDisplayName
-    .split(' ')
-    .filter(Boolean)
+  $: userInitials = (userDisplayName.match(/[^ ]+/g) || [])
     .slice(0, 2)
     .map((part: string) => part[0])
     .join('')
