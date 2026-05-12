@@ -706,15 +706,17 @@ export async function GET(event) {
               getConciliacaoIds(item),
             ),
           );
-          concAll.forEach((item: any) => {
+          for (const item of concAll) {
             const candidateIds = getConciliacaoIds(item);
-            if (candidateIds.length === 0) return;
+            if (candidateIds.length === 0) continue;
             if (!candidateIds.some((id: string) => splitConcIdSet.has(id)))
-              return;
-            if (candidateIds.some((id: string) => seenConcIds.has(id))) return;
-            candidateIds.forEach((id: string) => seenConcIds.add(id));
+              continue;
+            if (candidateIds.some((id: string) => seenConcIds.has(id))) continue;
+            for (const id of candidateIds) {
+              seenConcIds.add(id);
+            }
             concReceipts.push(item);
-          });
+          }
         }
       }
 
