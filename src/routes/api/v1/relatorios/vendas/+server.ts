@@ -61,6 +61,8 @@ import {
 } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/values";
 
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
+
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
   venda_recibo_id?: string | null;
@@ -1372,7 +1374,7 @@ export async function GET(event) {
       ).entries(),
     )
       .map(([id, nome]) => ({ id, nome }))
-      .sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"));
+      .sort((left, right) => PT_BR_COLLATOR.compare(left.nome, right.nome));
 
     const historyBuckets = getLastSixMonthBuckets(dataFim);
     const dayBuckets = getCurrentMonthDayBuckets(dataFim);

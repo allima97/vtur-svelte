@@ -35,6 +35,8 @@ import {
   uniqueCleanStrings
 } from '$lib/utils/array';
 
+const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
 type ClienteBaseRow = {
   id: string;
   nome: string | null;
@@ -209,7 +211,7 @@ export async function GET(event) {
 
             return {
               data: dedupeRowsById(rows)
-                .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+                .sort((left, right) => PT_BR_COLLATOR.compare(String(left.nome || ''), String(right.nome || '')))
                 .slice(0, lookupLimit),
               error: null
             };
@@ -234,7 +236,7 @@ export async function GET(event) {
 
         return {
           data: dedupeRowsById(rows)
-            .sort((left, right) => String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR'))
+            .sort((left, right) => PT_BR_COLLATOR.compare(String(left.nome || ''), String(right.nome || '')))
             .slice(0, lookupLimit),
           error: null
         };
@@ -738,7 +740,7 @@ export async function GET(event) {
       .filter((item) => (statusQuery ? item.status === statusQuery : true))
       .filter((item) => (aniversarioHojeQuery ? String(item.aniversario_hoje) === aniversarioHojeQuery : true))
       .sort((left, right) =>
-        summaryFastPath ? 0 : String(left.nome || '').localeCompare(String(right.nome || ''), 'pt-BR')
+        summaryFastPath ? 0 : PT_BR_COLLATOR.compare(String(left.nome || ''), String(right.nome || ''))
       );
 
     const paginatedItems = all
