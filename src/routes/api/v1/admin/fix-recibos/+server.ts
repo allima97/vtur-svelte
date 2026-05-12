@@ -57,10 +57,10 @@ function candidateDocumentKeys(row: {
   numero_reserva?: string | null;
 }) {
   const keys = new Set<string>();
-  [row?.numero_recibo, row?.numero_recibo_normalizado, row?.numero_reserva].forEach((value) => {
+  for (const value of [row?.numero_recibo, row?.numero_recibo_normalizado, row?.numero_reserva]) {
     const key = documentKey(value);
     if (key) keys.add(key);
-  });
+  }
   return keys;
 }
 
@@ -137,7 +137,7 @@ function candidateMatchesVariant(row: any, variant: string) {
 function buildDocumentSearchPatterns(input: string) {
   const patterns = new Set<string>();
 
-  normalizeDocumentVariants(input).forEach((variant) => {
+  for (const variant of normalizeDocumentVariants(input)) {
     const safeVariant = sanitizePostgrestSearchTerm(variant, 80);
     if (safeVariant.length >= 5) patterns.add(`%${safeVariant}%`);
 
@@ -149,7 +149,7 @@ function buildDocumentSearchPatterns(input: string) {
     if (significantCore.length >= 5) patterns.add(`%${significantCore}%`);
     if (prefix && core.length >= 5) patterns.add(`${prefix}%${core}`);
     if (prefix && significantCore.length >= 5) patterns.add(`${prefix}%${significantCore}`);
-  });
+  }
 
   return Array.from(patterns).slice(0, 40);
 }
@@ -287,9 +287,9 @@ async function searchDocuments(event: RequestEvent) {
   if (error) throw error;
 
   const rowMap = new Map<string, any>();
-  (rows || []).forEach((row: any) => {
+  for (const row of rows || []) {
     if (row?.id) rowMap.set(String(row.id), row);
-  });
+  }
 
   if (docPatterns.length > 0) {
     let fuzzyQuery = client
@@ -306,13 +306,10 @@ async function searchDocuments(event: RequestEvent) {
     const { data: fuzzyRows, error: fuzzyError } = await fuzzyQuery;
     if (fuzzyError) throw fuzzyError;
 
-    (fuzzyRows || [])
-      .filter((row: any) =>
-        docVariants.some((variant) => numeroReciboMatches(variant, row?.documento))
-      )
-      .forEach((row: any) => {
-        if (row?.id) rowMap.set(String(row.id), row);
-      });
+    for (const row of fuzzyRows || []) {
+      if (!docVariants.some((variant) => numeroReciboMatches(variant, row?.documento))) continue;
+      if (row?.id) rowMap.set(String(row.id), row);
+    }
   }
 
   const foundRows = Array.from(rowMap.values()).sort((left, right) =>
@@ -366,9 +363,9 @@ async function searchDocuments(event: RequestEvent) {
     if (exactError) throw exactError;
     if (normalizedError) throw normalizedError;
     if (reservaError) throw reservaError;
-    [...(exactRows || []), ...(normalizedRows || []), ...(reservaRows || [])].forEach((row: any) => {
+    for (const row of [...(exactRows || []), ...(normalizedRows || []), ...(reservaRows || [])]) {
       if (row?.id) candidateMap.set(String(row.id), row);
-    });
+    }
 
     const candidateFilters = docPatterns
       .flatMap((pattern) => [
@@ -385,11 +382,10 @@ async function searchDocuments(event: RequestEvent) {
         .limit(150);
       if (fuzzyCandidateError) throw fuzzyCandidateError;
 
-      (fuzzyCandidates || [])
-        .filter((row: any) => docVariants.some((variant) => candidateMatchesVariant(row, variant)))
-        .forEach((row: any) => {
-          if (row?.id) candidateMap.set(String(row.id), row);
-        });
+      for (const row of fuzzyCandidates || []) {
+        if (!docVariants.some((variant) => candidateMatchesVariant(row, variant))) continue;
+        if (row?.id) candidateMap.set(String(row.id), row);
+      }
     }
 
     const companySet = new Set(companyIds);
