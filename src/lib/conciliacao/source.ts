@@ -739,9 +739,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           rateioQueryFailed = true;
           break;
         }
-        (rateioRows || []).forEach((row: any) => {
+        for (const row of rateioRows || []) {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
-        });
+        }
       } catch (err: any) {
         logSourceWarning(
           "[source] rateio por recibo falhou, seguindo sem rateio:",
