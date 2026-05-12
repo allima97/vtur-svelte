@@ -41,6 +41,10 @@
   ];
 
   const PREFS_KEY = 'gestor_dashboard_widgets';
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   function loadWidgetPrefs(): Record<GestorWidgetId, boolean> {
     const defaults = Object.fromEntries(GESTOR_WIDGETS.map((w) => [w.id, true])) as Record<GestorWidgetId, boolean>;
@@ -192,7 +196,7 @@
   let loadingComparativo = false;
 
   function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    return BRL_CURRENCY_FORMATTER.format(value || 0);
   }
 
   function formatDate(value: string | null | undefined) {
@@ -397,7 +401,7 @@
         callbacks: {
           label: (ctx: any) => {
             const value = ctx.parsed.x ?? ctx.parsed.y ?? 0;
-            return ' ' + new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+            return ' ' + BRL_CURRENCY_FORMATTER.format(value);
           }
         }
       }
