@@ -289,7 +289,9 @@ export function listarModulosComHeranca(modulo: string): string[] {
     visitado.add(atual);
     result.push(atual);
     const pais = MODULO_HERANCA[atual] || [];
-    pais.forEach(visitar);
+    for (const modulo of pais) {
+      visitar(modulo);
+    }
   };
 
   visitar(inicio);
@@ -458,9 +460,9 @@ const normalizeSecaoKey = (value: string) => value.trim().toLowerCase();
 
 function buildBaseModuloMap(modulosBase: string[]) {
   const map = new Map<string, string>();
-  modulosBase.forEach((modulo) => {
+  for (const modulo of modulosBase) {
     map.set(normalizeSecaoKey(modulo), modulo);
-  });
+  }
   return map;
 }
 
@@ -485,12 +487,16 @@ function resolveSecaoApplyModulos(
     result.push(resolved);
   };
 
-  (secao.includes || []).forEach((includedId) => {
+  for (const includedId of secao.includes || []) {
     const included = defsById[includedId];
-    if (!included) return;
-    resolveSecaoApplyModulos(included, defsById, baseMap, visited).forEach(push);
-  });
-  (secao.modulos || []).forEach(push);
+    if (!included) continue;
+    for (const modulo of resolveSecaoApplyModulos(included, defsById, baseMap, visited)) {
+      push(modulo);
+    }
+  }
+  for (const modulo of secao.modulos || []) {
+    push(modulo);
+  }
 
   return result;
 }
@@ -516,7 +522,9 @@ export function agruparModulosPorSecao(modulosBase: string[]): ModuloSecaoPermis
     }
 
     const applyModulos = resolveSecaoApplyModulos(secao, defsById, baseMap, new Set<string>());
-    applyModulos.forEach((m) => usedKeys.add(normalizeSecaoKey(m)));
+    for (const modulo of applyModulos) {
+      usedKeys.add(normalizeSecaoKey(modulo));
+    }
 
     if (!modulos.length && !applyModulos.length) continue;
 
@@ -558,8 +566,12 @@ export const MODULOS_ADMIN_PERMISSOES: string[] = (() => {
     seen.set(normalizedKey, label);
   };
 
-  Object.keys(MAPA_MODULOS).forEach(addLabel);
-  Object.values(ROTAS_MODULOS).forEach(addLabel);
+  for (const label of Object.keys(MAPA_MODULOS)) {
+    addLabel(label);
+  }
+  for (const label of Object.values(ROTAS_MODULOS)) {
+    addLabel(label);
+  }
 
   return list;
 })();
