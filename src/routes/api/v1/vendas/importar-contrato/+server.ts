@@ -565,7 +565,10 @@ export async function POST(event) {
       return textNoStore('CPF/CNPJ do contratante principal é obrigatório.', 400);
     }
 
-    const documentos = new Set(contratos.map((c) => normalizeCpf(c.contratante?.cpf)));
+    const documentos = new Set<string>();
+    for (const contrato of contratos) {
+      documentos.add(normalizeCpf(contrato.contratante?.cpf));
+    }
     if (documentos.size > 1) {
       return textNoStore('Importação contém contratos de documentos diferentes. Importe separadamente.', 400);
     }
