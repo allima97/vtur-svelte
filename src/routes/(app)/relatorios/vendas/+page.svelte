@@ -155,13 +155,15 @@
     };
   }
 
+  const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    month: 'short',
+    year: '2-digit',
+    timeZone: 'UTC'
+  });
+
   function formatMonthLabel(monthKey: string) {
     const [year, month] = monthKey.split('-').map(Number);
-    return new Intl.DateTimeFormat('pt-BR', {
-      month: 'short',
-      year: '2-digit',
-      timeZone: 'UTC'
-    }).format(new Date(Date.UTC(year, month - 1, 1)));
+    return MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(year, month - 1, 1)));
   }
 
   function hasConciliacaoOverride(recibo?: Recibo | null) {
