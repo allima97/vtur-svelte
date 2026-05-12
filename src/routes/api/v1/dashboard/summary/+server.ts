@@ -20,6 +20,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,17 +47,8 @@ type DashboardQuoteRow = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SUPABASE_IN_BATCH_SIZE = 100;
 const DASHBOARD_QUOTES_LIMIT = 20;
 const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeDashboardQuotes(rows: DashboardQuoteRow[]) {
   const map = new Map<string, DashboardQuoteRow>();

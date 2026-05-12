@@ -34,19 +34,11 @@ import { monthRangeFromKey } from '$lib/date';
 import { fetchVendasKpiReciboContributions } from '$lib/server/vendas-kpis';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray } from '$lib/utils/array';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const MAX_DEBUG_CONTRIBUICOES = 2000;
 const MAX_RANKING_DEBUG_BODY_BYTES = 64 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);

@@ -23,17 +23,9 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags,
 } from "$lib/server/readModelCache";
+import { chunkArray } from "$lib/utils/array";
 
 const NO_MATCH_USER_ID = "00000000-0000-0000-0000-000000000000";
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
