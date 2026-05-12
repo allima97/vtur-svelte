@@ -26,7 +26,13 @@ import {
   READ_MODEL_TAGS,
   scopeCacheTags
 } from '$lib/server/readModelCache';
-import { chunkArray, dedupeById as dedupeRowsById, filterBatches, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
+import {
+  chunkArray,
+  dedupeById as dedupeRowsById,
+  filterBatches,
+  SUPABASE_IN_BATCH_SIZE,
+  uniqueCleanStrings
+} from '$lib/utils/array';
 
 type ClienteBaseRow = {
   id: string;
@@ -508,9 +514,7 @@ export async function GET(event) {
     };
 
     const fetchQuotesByCreatorIds = async (creatorIdsFilter: string[]) => {
-      const normalizedCreatorIds = Array.from(
-        new Set(creatorIdsFilter.map((id) => String(id || '').trim()).filter(Boolean))
-      );
+      const normalizedCreatorIds = uniqueCleanStrings(creatorIdsFilter);
       if (normalizedCreatorIds.length === 0) return { data: [], error: null };
 
       if (normalizedCreatorIds.length <= SUPABASE_IN_BATCH_SIZE) {

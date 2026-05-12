@@ -117,9 +117,7 @@ export async function POST(event) {
         .in('id', batch)
     );
 
-    const vendaIds = Array.from(
-      new Set(recibosBase.map((row: any) => String(row?.venda_id || '').trim()).filter(Boolean))
-    );
+    const vendaIds = uniqueIds(recibosBase.map((row: any) => row?.venda_id));
 
     const fetchedRows = await fetchSalesReportRows(client, {
       companyIds,
@@ -134,9 +132,7 @@ export async function POST(event) {
       );
     }
 
-    const vendedoresSelecionados = Array.from(
-      new Set(rows.map((row) => String(row.vendedor_id || '').trim()).filter(Boolean))
-    );
+    const vendedoresSelecionados = uniqueIds(rows.map((row) => row.vendedor_id));
     const periodos = rows
       .flatMap((row) => (Array.isArray(row.recibos) ? row.recibos : []))
       .map((recibo: any) => String(recibo?.data_venda || '').trim())

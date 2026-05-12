@@ -9,7 +9,7 @@ import {
   monthRangeFromKey,
   todayISODateLocal
 } from '$lib/date';
-import { chunkArray, uniqueCleanStrings, uniqueValues } from '$lib/utils/array';
+import { cleanStringSet, chunkArray, uniqueCleanStrings, uniqueValues } from '$lib/utils/array';
 
 const EPS = 0.01;
 const SUPABASE_IN_BATCH_SIZE = 150;
@@ -317,7 +317,7 @@ async function moveDuplicateRateioToWinner(params: {
 
   try {
     const rateios: any[] = [];
-    const loserIdSet = new Set(params.loserIds.map((id) => String(id || '').trim()).filter(Boolean));
+    const loserIdSet = cleanStringSet(params.loserIds);
     const idsToLookup = uniqueCleanStrings([params.winnerId, ...params.loserIds]);
     for (const batch of chunkArray(idsToLookup, SUPABASE_IN_BATCH_SIZE)) {
       const { data, error } = await params.client

@@ -644,8 +644,8 @@ export async function fetchCommissionContext(
     rows?: ReportVendaRow[];
   } = {}
 ): Promise<CommissionContext> {
-  const companyIds = (params.companyIds || []).map((id) => String(id || '').trim()).filter(Boolean);
-  const vendedorIds = (params.vendedorIds || []).map((id) => String(id || '').trim()).filter(Boolean);
+  const companyIds = uniqueIds(params.companyIds || []);
+  const vendedorIds = uniqueIds(params.vendedorIds || []);
   const periodo = params.periodo || '';
 
   return getCachedReadModel<CommissionContext>({
