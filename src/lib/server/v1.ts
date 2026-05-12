@@ -17,7 +17,7 @@ import {
   currentMonthRangeISODate,
   toISODateLocal as formatISODateLocal,
 } from "$lib/date";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 
 // Erro com status HTTP — capturável pelo catch local das rotas sem ser interceptado pelo SvelteKit
 class ApiError extends Error {
@@ -767,8 +767,8 @@ export async function resolveAccessibleClientIds(
     vendedorIds: string[];
   },
 ) {
-  const companyIds = Array.from(new Set((params.companyIds || []).filter(isUuid))).sort();
-  const vendedorIds = Array.from(new Set((params.vendedorIds || []).filter(isUuid))).sort();
+  const companyIds = uniqueCleanStrings((params.companyIds || []).filter(isUuid)).sort();
+  const vendedorIds = uniqueCleanStrings((params.vendedorIds || []).filter(isUuid)).sort();
 
   if (companyIds.length === 0 && vendedorIds.length === 0) {
     return [];

@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { ensureModuloAccess, getAdminClient, requireAuthenticatedUser, resolveScopedCompanyIds, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray } from '$lib/utils/array';
+import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_CONCILIACAO_LOOKUP_BODY_BYTES = 256 * 1024;
 const MAX_LOOKUP_DOCUMENTOS = 500;
@@ -128,7 +128,7 @@ async function fetchReciboCandidates(params: {
   const candidates = Array.from(byId.values());
   if (candidates.length === 0) return [];
 
-  const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
+  const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
   const companySet = new Set(companyIds.map((id) => String(id || '').trim()).filter(Boolean));
   const vendas: any[] = [];
   for (const batch of chunkArray(vendaIds)) {

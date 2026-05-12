@@ -20,7 +20,7 @@ import { NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 import { findEquipeVturVendedor } from "$lib/conciliacao/baixaRac";
-import { chunkArray } from "$lib/utils/array";
+import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 
 const MAX_CONCILIACAO_IMPORT_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -183,7 +183,7 @@ async function fetchReciboCandidates(params: {
   const candidates = Array.from(byId.values());
   if (candidates.length === 0) return [];
 
-  const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
+  const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
   const vendaMap = new Map<
     string,
     { company_id: string | null; vendedor_id: string | null }
@@ -306,7 +306,7 @@ async function findRexturReciboByReserva(params: {
 
   if (recibos.length === 0) return null;
 
-  const vendaIds = Array.from(new Set(recibos.map((row: any) => row.venda_id)));
+  const vendaIds = uniqueCleanStrings(recibos.map((row: any) => row.venda_id));
   const vendaMap = new Map<string, string | null>();
   for (const batch of chunkArray(vendaIds)) {
     const { data: vendas } = await params.client

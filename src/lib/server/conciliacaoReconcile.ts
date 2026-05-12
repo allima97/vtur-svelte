@@ -512,7 +512,7 @@ async function fetchReciboCandidates(params: {
   const candidates = Array.from(candidatesById.values()).filter((row) => row.venda_id);
   if (candidates.length === 0) return [];
 
-  const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
+  const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
   const vendas: any[] = [];
   for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
@@ -593,7 +593,7 @@ async function fetchRexturReciboCandidatesByReserva(params: {
   const candidates = Array.from(candidatesById.values()).filter((row) => row.venda_id);
   if (candidates.length === 0) return [];
 
-  const vendaIds = Array.from(new Set(candidates.map((row) => row.venda_id)));
+  const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
   const vendas: any[] = [];
   for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
@@ -1207,7 +1207,7 @@ async function recalculateConciliacaoMetricsCompany(params: {
       .map((row: any) => String(row.venda_recibo_id || '').trim())
       .filter((id: string) => id && !reciboCache.has(id));
 
-    const uniqueReciboIdsToFetch = Array.from(new Set(reciboIdsToFetch));
+    const uniqueReciboIdsToFetch = uniqueCleanStrings(reciboIdsToFetch);
     if (uniqueReciboIdsToFetch.length > 0) {
       for (const batch of chunkArray(uniqueReciboIdsToFetch, SUPABASE_IN_BATCH_SIZE)) {
         const { data: recibos } = await client
