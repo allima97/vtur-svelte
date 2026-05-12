@@ -266,8 +266,14 @@
   }
 
   function removeDay(index: number) {
-    form.dias = form.dias.filter((_, i) => i !== index).map((d, i) => ({ ...d, ordem: i }));
-    activeDayIndexes = activeDayIndexes.filter(i => i !== index).map(i => i > index ? i - 1 : i);
+    form.dias = form.dias.reduce<typeof form.dias>((items, dia, i) => {
+      if (i !== index) items.push({ ...dia, ordem: items.length });
+      return items;
+    }, []);
+    activeDayIndexes = activeDayIndexes.reduce<number[]>((items, i) => {
+      if (i !== index) items.push(i > index ? i - 1 : i);
+      return items;
+    }, []);
   }
 
   function moveDay(index: number, direction: -1 | 1) {
@@ -297,8 +303,14 @@
   }
 
   function removeHotel(index: number) {
-    form.hoteis = form.hoteis.filter((_, i) => i !== index).map((h, i) => ({ ...h, ordem: i }));
-    activeHotelIndexes = activeHotelIndexes.filter(i => i !== index).map(i => i > index ? i - 1 : i);
+    form.hoteis = form.hoteis.reduce<typeof form.hoteis>((items, hotel, i) => {
+      if (i !== index) items.push({ ...hotel, ordem: items.length });
+      return items;
+    }, []);
+    activeHotelIndexes = activeHotelIndexes.reduce<number[]>((items, i) => {
+      if (i !== index) items.push(i > index ? i - 1 : i);
+      return items;
+    }, []);
   }
 
   function moveHotel(index: number, direction: -1 | 1) {
