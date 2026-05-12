@@ -40,6 +40,7 @@
     RefreshCw,
     Settings,
     Shield,
+    SlidersHorizontal,
     ShoppingCart,
     SquareCheckBig,
     Star,
@@ -147,7 +148,7 @@
         { key: 'conciliacao', name: 'Conciliação', href: '/financeiro/conciliacao', icon: FileSpreadsheet },
         { key: 'comissoes', name: 'Comissionamento', href: '/financeiro/comissoes', icon: Wallet },
         { key: 'fechamento', name: 'Fechamento', href: '/comissoes/fechamento', icon: Wallet },
-        { key: 'ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: Settings },
+        { key: 'ajustes_vendas', name: 'Ajustes Vendas', href: '/financeiro/ajustes-vendas', icon: SlidersHorizontal },
         { key: 'formas_pagamento', name: 'Formas de Pagto', href: '/financeiro/formas-pagamento', icon: CreditCard },
         { key: 'notas_fiscais', name: 'Notas Fiscais', href: '/financeiro/notas-fiscais', icon: FileText },
         { key: 'regras', name: 'Regras', href: '/financeiro/regras', icon: Settings }
