@@ -9,14 +9,19 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
 
-function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId?: string | null) {
+function canAccessCompany(
+  scope: Awaited<ReturnType<typeof resolveUserScope>>,
+  companyId: string | null | undefined,
+  scopedCompanySet: Set<string>
+) {
   if (scope.isAdmin) return true;
   const normalized = String(companyId || '').trim();
   if (!normalized) return false;
-  return scope.companyIds.includes(normalized);
+  return scopedCompanySet.has(normalized);
 }
 
 function invalidateCommissionRuleReadModels(params?: {
@@ -31,6 +36,7 @@ export async function GET(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 1, 'Sem acesso.');
@@ -46,7 +52,7 @@ export async function GET(event) {
 
     if (error) throw error;
     if (!data) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!canAccessCompany(scope, data.company_id)) {
+    if (!canAccessCompany(scope, data.company_id, scopedCompanySet)) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -66,6 +72,7 @@ export async function PUT(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 3, 'Sem permissão.');
@@ -84,7 +91,7 @@ export async function PUT(event) {
       .maybeSingle();
     if (currentError) throw currentError;
     if (!current) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!canAccessCompany(scope, current.company_id)) {
+    if (!canAccessCompany(scope, current.company_id, scopedCompanySet)) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -141,6 +148,7 @@ export async function DELETE(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['RegrasComissao', 'Comissionamento', 'parametros'], 4, 'Sem permissão.');
@@ -155,7 +163,7 @@ export async function DELETE(event) {
       .maybeSingle();
     if (currentError) throw currentError;
     if (!current) return json({ error: 'Regra não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!canAccessCompany(scope, current.company_id)) {
+    if (!canAccessCompany(scope, current.company_id, scopedCompanySet)) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
