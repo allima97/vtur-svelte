@@ -89,12 +89,15 @@
 
     try {
       const payload = await apiGet<any[]>('/api/v1/viagens/cidades-busca', { q: termo, limite: 12 });
-      const nomes = (Array.isArray(payload) ? payload : [])
-        .map((item: any) => String(item?.nome || '').trim())
-        .filter(Boolean);
+      const nomes = new Set<string>();
+      for (const item of Array.isArray(payload) ? payload : []) {
+        const nome = String(item?.nome || '').trim();
+        if (nome) nomes.add(nome);
+      }
+      const options = Array.from(nomes);
 
-      if (target === 'origem') origemOptions = Array.from(new Set(nomes));
-      else destinoOptions = Array.from(new Set(nomes));
+      if (target === 'origem') origemOptions = options;
+      else destinoOptions = options;
     } catch {
       if (target === 'origem') origemOptions = [];
       else destinoOptions = [];
