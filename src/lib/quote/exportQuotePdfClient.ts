@@ -379,9 +379,14 @@ function renderFlightItemHtml(item: QuoteItemForPdf, showItemValues: boolean) {
   const amount = Number(item.total_amount ?? 0);
   const taxes = Number(item.taxes_amount ?? 0);
   const currency = item.currency || 'BRL';
-  const legendHtml = airlineLegend.size > 0
-    ? `<div class="orc-flight-legend">${Array.from(airlineLegend.entries()).map(([code, name]) => `<div><b>${escHtml(code)}</b> = ${escHtml(name)}</div>`).join('')}</div>`
-    : '';
+  let legendHtml = '';
+  if (airlineLegend.size > 0) {
+    let legendItems = '';
+    for (const [code, name] of airlineLegend) {
+      legendItems += `<div><b>${escHtml(code)}</b> = ${escHtml(name)}</div>`;
+    }
+    legendHtml = `<div class="orc-flight-legend">${legendItems}</div>`;
+  }
 
   return `<div class="orc-section-card orc-flight-card">
     <div class="orc-section-title orc-flight-title">Passagem Aérea</div>
