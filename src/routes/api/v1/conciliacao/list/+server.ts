@@ -373,11 +373,11 @@ export async function GET(event) {
             const clientesData = await fetchBatched<any>(clienteIds, (batch) =>
               client.from('clientes').select('id, nome').in('id', batch),
             );
-            clientesData.forEach((cliente: any) => {
+            for (const cliente of clientesData) {
               const id = String(cliente?.id || '').trim();
               const nome = String(cliente?.nome || '').trim();
               if (id) clientesById.set(id, nome || '-');
-            });
+            }
           }
 
           if (vendedorIds.length > 0) {
