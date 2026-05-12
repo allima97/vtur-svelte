@@ -102,7 +102,10 @@ export async function POST(event) {
     }
 
     if (Array.isArray(venda_ids) && venda_ids.length > 0) {
-      const allowedIds = new Set(venda_ids.map((id: string) => String(id)));
+      const allowedIds = new Set<string>();
+      for (const id of venda_ids) {
+        allowedIds.add(String(id));
+      }
       vendas = vendas.filter((venda) => allowedIds.has(String(venda.id)));
     }
 
