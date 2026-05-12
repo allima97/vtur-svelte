@@ -38,14 +38,16 @@
   let filtroEscopo = '';
   let showFilterSheet = false;
 
+  const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  });
+
   function formatDateTime(value?: string | null) {
     if (!value) return '-';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    }).format(date);
+    return DATE_TIME_FORMATTER.format(date);
   }
 
   function userCell(row: Usuario) {
