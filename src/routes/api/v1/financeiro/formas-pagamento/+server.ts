@@ -16,7 +16,7 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
-import { chunkArray } from '$lib/utils/array';
+import { cleanStringSet, chunkArray } from '$lib/utils/array';
 
 const FORMA_PAGAMENTO_SELECT =
   'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
@@ -197,7 +197,8 @@ export async function PATCH(event) {
     if (!existing) {
       return json({ success: false, error: 'Forma de pagamento não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
-    if (!scope.isAdmin && !scope.companyIds.includes(String(existing.company_id || ''))) {
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
+    if (!scope.isAdmin && !scopedCompanySet.has(String(existing.company_id || '').trim())) {
       return json({ success: false, error: 'Forma de pagamento fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -250,7 +251,8 @@ export async function DELETE(event) {
     if (!existing) {
       return json({ success: false, error: 'Forma de pagamento não encontrada.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
-    if (!scope.isAdmin && !scope.companyIds.includes(String(existing.company_id || ''))) {
+    const scopedCompanySet = cleanStringSet(scope.companyIds);
+    if (!scope.isAdmin && !scopedCompanySet.has(String(existing.company_id || '').trim())) {
       return json({ success: false, error: 'Forma de pagamento fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
