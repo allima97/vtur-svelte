@@ -496,9 +496,11 @@ export function agruparModulosPorSecao(modulosBase: string[]): ModuloSecaoPermis
   const grupos: ModuloSecaoPermissoesResolved[] = [];
 
   for (const secao of SECOES_PERMISSOES) {
-    const modulos = (secao.modulos || [])
-      .map((label) => baseMap.get(normalizeSecaoKey(label)) || null)
-      .filter(Boolean) as string[];
+    const modulos: string[] = [];
+    for (const label of secao.modulos || []) {
+      const modulo = baseMap.get(normalizeSecaoKey(label));
+      if (modulo) modulos.push(modulo);
+    }
 
     const applyModulos = resolveSecaoApplyModulos(secao, defsById, baseMap, new Set<string>());
     applyModulos.forEach((modulo) => usedKeys.add(normalizeSecaoKey(modulo)));
