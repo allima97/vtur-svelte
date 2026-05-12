@@ -595,9 +595,9 @@ export async function GET(event) {
       rankingMap.set(vendedorId, current);
     }
 
-    (metasData || []).forEach((meta: any) => {
+    for (const meta of metasData || []) {
       const vendedorId = String(meta?.vendedor_id || "").trim();
-      if (!vendedorId) return;
+      if (!vendedorId) continue;
 
       const current = rankingMap.get(vendedorId) || {
         vendedor_id: vendedorId,
@@ -617,7 +617,7 @@ export async function GET(event) {
       current.meta += Number(meta?.meta_geral || 0);
       current.meta_seguro += Number(meta?.meta_diferenciada || 0);
       rankingMap.set(vendedorId, current);
-    });
+    }
 
     const missingNameIds = Array.from(rankingMap.values())
       .filter((item) => item.vendedor_nome === "Equipe VTUR")
