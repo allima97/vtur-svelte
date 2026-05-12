@@ -798,10 +798,10 @@ export async function resolveAccessibleClientIds(
       const clientIds = new Set<string>();
       const hasVendedorScope = vendedorIds.length > 0;
       const addClientIds = (rows?: Array<{ id?: string | null }> | null) => {
-        (rows || []).forEach((row) => {
+        for (const row of rows || []) {
           const id = String(row?.id || "").trim();
           if (id) clientIds.add(id);
-        });
+        }
       };
 
       if (companyIds.length > 0 && !hasVendedorScope) {
@@ -844,10 +844,10 @@ export async function resolveAccessibleClientIds(
 
           const { data: salesData } = await salesQuery.limit(5000);
 
-          (salesData || []).forEach((row: { cliente_id?: string | null }) => {
+          for (const row of (salesData || []) as Array<{ cliente_id?: string | null }>) {
             const id = String(row?.cliente_id || "").trim();
             if (id) clientIds.add(id);
-          });
+          }
         }
       }
 
