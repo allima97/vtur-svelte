@@ -16,19 +16,11 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
+import { chunkArray } from '$lib/utils/array';
 
 const FORMA_PAGAMENTO_SELECT =
   'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
 const MAX_FORMA_PAGAMENTO_BODY_BYTES = 16 * 1024;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function invalidateFinancePaymentModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({

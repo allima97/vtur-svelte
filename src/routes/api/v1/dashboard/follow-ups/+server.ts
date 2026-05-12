@@ -18,6 +18,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
+import { chunkArray } from "$lib/utils/array";
 
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || "")
@@ -62,16 +63,6 @@ function isFollowUpAllowedForVendedores(row: any, vendedorIds: string[]) {
   // Viagem avulsa não tem venda para comprovar vendedor. Quando há escopo de
   // vendedor, ela não deve aparecer no acompanhamento comercial.
   return vendedorIds.length === 0;
-}
-
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
 }
 
 export async function GET(event) {

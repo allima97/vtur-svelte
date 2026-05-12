@@ -12,6 +12,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS, SHORT_DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
+import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
@@ -29,15 +30,6 @@ function isRateioTableMissingError(err: any) {
 }
 
 let rateioMissingLogged = false;
-const SUPABASE_IN_BATCH_SIZE = 100;
-
-function chunkArray<T>(values: T[], size = SUPABASE_IN_BATCH_SIZE): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function dedupeById<T extends { id?: string | null }>(rows: T[]) {
   const map = new Map<string, T>();
