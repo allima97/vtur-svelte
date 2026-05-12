@@ -249,20 +249,20 @@ function createPermissoesStore() {
 
       // Agrupa por módulo para escolher o melhor quando houver duplicatas
       const grouped: Record<string, Array<{ permissao: string; ativo: boolean }>> = {};
-      (acessosRaw || []).forEach((a) => {
+      for (const a of acessosRaw || []) {
         const key = String(a.modulo || '').toLowerCase().trim();
-        if (!key) return;
+        if (!key) continue;
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push({ permissao: a.permissao, ativo: Boolean(a.ativo) });
-      });
+      }
 
       const acessos: Record<string, PermissaoNivel> = {};
-      Object.entries(grouped).forEach(([modulo, entries]) => {
+      for (const [modulo, entries] of Object.entries(grouped)) {
         const best = pickBestPermissao(entries);
         if (best !== 'none') {
           acessos[modulo] = best;
         }
-      });
+      }
 
       // 3. Módulos desabilitados globalmente
       let disabledModules: string[] = [];
