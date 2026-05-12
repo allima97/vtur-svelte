@@ -48,7 +48,9 @@ export async function GET(event) {
   } catch (err) {
     logServerError('[test-env] erro ao carregar ambiente', err);
     const response = toErrorResponse(err, 'Erro ao carregar ambiente.');
-    Object.entries(DEBUG_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+    for (const [key, value] of Object.entries(DEBUG_HEADERS)) {
+      response.headers.set(key, value);
+    }
     return response;
   }
 }
