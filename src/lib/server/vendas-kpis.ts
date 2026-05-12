@@ -123,6 +123,15 @@ function normalizeIdScope(values?: string[] | null) {
   return uniqueCleanStrings(values || []).sort();
 }
 
+function buildScopeIdSet(values?: string[] | null) {
+  const ids = new Set<string>();
+  for (const value of values || []) {
+    const id = toStr(value);
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
 function isFormaNaoComissionavel(
   nome?: string | null,
   termos?: string[] | null,
@@ -834,9 +843,7 @@ async function fetchAndComputeVendasKpisLegacy(
     termosNaoComissionaveis,
   );
 
-  const scopeVendedorIds = new Set(
-    (params.vendedorIds || []).map((id) => toStr(id)).filter(Boolean),
-  );
+  const scopeVendedorIds = buildScopeIdSet(params.vendedorIds);
   const hasScopeVendedores = scopeVendedorIds.size > 0;
 
   let totalVendas = 0;
@@ -1064,9 +1071,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
     termosNaoComissionaveis,
   );
 
-  const scopeVendedorIds = new Set(
-    (params.vendedorIds || []).map((id) => toStr(id)).filter(Boolean),
-  );
+  const scopeVendedorIds = buildScopeIdSet(params.vendedorIds);
   const hasScopeVendedores = scopeVendedorIds.size > 0;
 
   let totalVendas = 0;
@@ -1359,9 +1364,7 @@ export async function fetchAndComputeVendasTimeline(
     termosNaoComissionaveis,
   );
 
-  const scopeVendedorIds = new Set(
-    (params.vendedorIds || []).map((id) => toStr(id)).filter(Boolean),
-  );
+  const scopeVendedorIds = buildScopeIdSet(params.vendedorIds);
   const hasScopeVendedores = scopeVendedorIds.size > 0;
   const timelineMap = new Map<string, number>();
 
