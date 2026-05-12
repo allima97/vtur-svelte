@@ -152,8 +152,18 @@
     return items;
   }
 
+  const CURRENCY_FORMATTERS = new Map<string, Intl.NumberFormat>();
+
+  function getCurrencyFormatter(currency: string) {
+    const cached = CURRENCY_FORMATTERS.get(currency);
+    if (cached) return cached;
+    const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency });
+    CURRENCY_FORMATTERS.set(currency, formatter);
+    return formatter;
+  }
+
   function formatCurrency(value: number, currency = 'BRL') {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
+    return getCurrencyFormatter(currency).format(value);
   }
 
   function formatDate(iso: string | null | undefined) {
