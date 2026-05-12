@@ -139,11 +139,11 @@ export async function fetchRateioByReciboIds(
       .eq('ativo', true)
       .in('venda_recibo_id', chunk);
     if (byVendaErr) throw byVendaErr;
-    (byVendaRecibo || []).forEach((row: any) => {
-      if (!isAplicavelRateio(row)) return;
+    for (const row of byVendaRecibo || []) {
+      if (!isAplicavelRateio(row)) continue;
       const key = toStr(row?.venda_recibo_id);
       if (key) map.set(key, row as RateioRow);
-    });
+    }
 
     const { data: byConcRecibo, error: byConcErr } = await client
       .from('vendas_recibos_rateio')
