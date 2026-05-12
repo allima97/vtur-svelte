@@ -417,13 +417,13 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
   }
 
   const byDocumento = new Map<string, any[]>();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const key = getConciliacaoReceiptKey(row);
-    if (!key) return;
+    if (!key) continue;
     const bucket = byDocumento.get(key) || [];
     bucket.push(row);
     byDocumento.set(key, bucket);
-  });
+  }
 
   return Array.from(byDocumento.entries())
     .map(([, group]) => {
