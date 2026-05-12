@@ -322,13 +322,11 @@ export async function GET(event) {
           }
         }
 
-        const responsavelIds = [
-          ...new Set(
-            (scopedData || [])
-              .map((v: any) => v.responsavel_user_id)
-              .filter(Boolean),
-          ),
-        ];
+        const responsavelIdSet = new Set<string>();
+        for (const viagem of scopedData || []) {
+          if (viagem.responsavel_user_id) responsavelIdSet.add(viagem.responsavel_user_id);
+        }
+        const responsavelIds = Array.from(responsavelIdSet);
         const responsaveisMap = new Map<string, string>();
         if (responsavelIds.length > 0) {
           for (const batch of chunkArray(responsavelIds)) {
