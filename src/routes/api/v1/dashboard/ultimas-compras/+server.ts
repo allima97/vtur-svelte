@@ -141,13 +141,15 @@ export async function GET(event) {
         .select('id, email, telefone, whatsapp, nascimento')
         .in('id', clienteIds);
       if (error) throw error;
-      (data || []).forEach((row: any) => clienteExtra.set(String(row.id), row));
+      for (const row of data || []) {
+        clienteExtra.set(String(row.id), row);
+      }
     }
 
     const sales = rows.map((row) => normalizeSale(row, clienteExtra));
 
     const vendedorMap = new Map<string, { vendedor_id: string; vendedor_nome: string; valor: number; quantidade: number }>();
-    sales.forEach((item) => {
+    for (const item of sales) {
       const id = item.vendedor_id || 'sem-vendedor';
       const current = vendedorMap.get(id) || {
         vendedor_id: id,
@@ -158,10 +160,10 @@ export async function GET(event) {
       current.valor += item.valor;
       current.quantidade += 1;
       vendedorMap.set(id, current);
-    });
+    }
 
     const clienteMap = new Map<string, any>();
-    sales.forEach((item) => {
+    for (const item of sales) {
       const id = item.cliente_id || `sem-cliente:${item.cliente_nome}`;
       const current = clienteMap.get(id) || {
         cliente_id: item.cliente_id,
@@ -178,7 +180,7 @@ export async function GET(event) {
         current.destino = item.destino;
       }
       clienteMap.set(id, current);
-    });
+    }
 
     const ultimasCompras = sales
       .sort((left, right) => String(right.data_compra || '').localeCompare(String(left.data_compra || '')))
