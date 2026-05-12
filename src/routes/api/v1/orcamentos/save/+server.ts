@@ -75,11 +75,11 @@ async function buildTipoLabelMap(client: Awaited<ReturnType<typeof getAdminClien
     .limit(500);
   if (err) throw err;
   const map = new Map<string, string>();
-  (data || []).forEach((tipo: any) => {
+  for (const tipo of data || []) {
     const label = String(tipo?.nome || tipo?.tipo || '').trim();
     const key = normalizeLookupText(label);
     if (key) map.set(key, tipo.id);
-  });
+  }
   return map;
 }
 
@@ -213,7 +213,9 @@ export async function POST(event: RequestEvent) {
           .eq('quote_id', quoteId)
           .in('id', batch);
         if (existingItemsError) throw existingItemsError;
-        (existingItems || []).forEach((row: any) => allowedExistingItemIds.add(String(row.id)));
+        for (const row of existingItems || []) {
+          allowedExistingItemIds.add(String(row.id));
+        }
       }
     }
 
