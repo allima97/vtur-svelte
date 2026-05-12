@@ -149,14 +149,14 @@ export function extractSeguroViagemIncludeLinesFromPasseios(items: SeguroPasseio
   const seen = new Set<string>();
   const lines: string[] = [];
 
-  (items || []).forEach((item) => {
-    if (!isSeguroPasseioLike(item)) return;
+  for (const item of items || []) {
+    if (!isSeguroPasseioLike(item)) continue;
     const line = buildSeguroViagemIncludeText(item);
     const key = normalizeText(line);
-    if (!key || seen.has(key)) return;
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     lines.push(line);
-  });
+  }
 
   return lines;
 }
