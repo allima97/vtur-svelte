@@ -254,7 +254,11 @@ export function parseVoucherImportText(text: string, provider: VoucherProvider):
 
   const blocks = normalized.split(/\n{2,}/);
   for (const block of blocks) {
-    const lines = block.split("\n").map(cleanLine).filter(Boolean);
+    const lines: string[] = [];
+    for (const rawLine of block.split("\n")) {
+      const line = cleanLine(rawLine);
+      if (line) lines.push(line);
+    }
     if (!lines.length) continue;
 
     const header = lines[0];
