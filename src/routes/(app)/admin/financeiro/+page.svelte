@@ -41,6 +41,10 @@
   let selectedBilling: BillingRow | null = null;
 
   let form = { status: 'active', valor_mensal: '', ultimo_pagamento: '', proximo_vencimento: '' };
+  const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
 
   const columns = [
     { key: 'company_nome', label: 'Empresa', sortable: true },
@@ -57,7 +61,7 @@
       label: 'Mensalidade',
       sortable: true,
       align: 'right' as const,
-      formatter: (v: number | null) => v != null ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v) : '-'
+      formatter: (v: number | null) => v != null ? BRL_CURRENCY_FORMATTER.format(v) : '-'
     },
     {
       key: 'proximo_vencimento',
@@ -170,7 +174,7 @@
     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500"><DollarSign size={20} /></div>
     <div>
       <p class="text-sm font-medium text-slate-500">MRR (ativas)</p>
-      <p class="text-2xl font-bold text-slate-900">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMrr)}</p>
+      <p class="text-2xl font-bold text-slate-900">{BRL_CURRENCY_FORMATTER.format(totalMrr)}</p>
     </div>
   </div>
 </div>
