@@ -90,6 +90,8 @@ type VendaItem = {
 type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 'recibo';
 
 const MAX_SEARCH_CANDIDATES = 1000;
+const VALID_CAMPO_BUSCA = new Set<CampoBusca>(['todos', 'cliente', 'vendedor', 'destino', 'produto', 'recibo']);
+const PUSHABLE_STATUS_FILTERS = new Set(['cancelada', 'concluida', 'confirmada', 'pendente']);
 
 function getResultCount(result: unknown) {
   const value = (result as { count?: unknown } | null)?.count;
@@ -925,8 +927,8 @@ export async function GET(event) {
     const includeVendedores = String(searchParams.get('include_vendedores') || '').trim() === '1';
     const searchQuery = String(searchParams.get('q') || '').trim();
     const campoBuscaRaw = String(searchParams.get('campo') || 'todos').trim().toLowerCase() || 'todos';
-    const campoBusca = (['todos', 'cliente', 'vendedor', 'destino', 'produto', 'recibo'].includes(campoBuscaRaw)
-      ? campoBuscaRaw
+    const campoBusca = (VALID_CAMPO_BUSCA.has(campoBuscaRaw as CampoBusca)
+      ? (campoBuscaRaw as CampoBusca)
       : 'todos') as CampoBusca;
     const statusQuery = String(searchParams.get('status') || '').trim().toLowerCase();
     const tipoQuery = String(searchParams.get('tipo') || '').trim().toLowerCase();
@@ -967,7 +969,7 @@ export async function GET(event) {
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds: effectiveVendedorIds })
         : [];
 
-    const canPushStatusToDb = !statusQuery || ['cancelada', 'concluida', 'confirmada', 'pendente'].includes(statusQuery);
+    const canPushStatusToDb = !statusQuery || PUSHABLE_STATUS_FILTERS.has(statusQuery);
     const searchPrefilter = searchQuery
       ? await resolveVendaSearchIds(client, {
           searchQuery,
