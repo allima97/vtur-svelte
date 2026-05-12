@@ -128,22 +128,22 @@ export async function GET(event) {
     const saldo = totalEntradas - totalSaidas;
 
     const porFormaPagamento = new Map();
-    pagItems.forEach((p: any) => {
+    for (const p of pagItems) {
       const fp = p.forma_nome || 'Nao especificado';
       const atual = porFormaPagamento.get(fp) || { nome: fp, valor: 0, quantidade: 0 };
       atual.valor += Number(p.valor_total || 0);
       atual.quantidade += 1;
       porFormaPagamento.set(fp, atual);
-    });
+    }
 
-    movItems.forEach((m: any) => {
+    for (const m of movItems) {
       const fp = m.forma_pagamento?.nome || 'Nao especificado';
       const atual = porFormaPagamento.get(fp) || { nome: fp, valor: 0, quantidade: 0 };
       const sinal = String(m.tipo || '').toLowerCase() === 'saida' ? -1 : 1;
       atual.valor += sinal * Number(m.valor || 0);
       atual.quantidade += 1;
       porFormaPagamento.set(fp, atual);
-    });
+    }
 
     const movimentacoesUnificadas = [
       ...pagItems.map((p: any) => ({
