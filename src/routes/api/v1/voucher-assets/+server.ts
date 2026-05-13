@@ -26,6 +26,14 @@ const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const mutationError = (message: string, status: number) =>
   json({ success: false, error: message }, { status, headers: NO_STORE_HEADERS });
 
+type SupabaseAdminClient = ReturnType<typeof getAdminClient>;
+
+type VoucherAssetRow = Record<string, unknown> & {
+  storage_bucket?: string | null;
+  storage_path?: string | null;
+  preview_url?: string | null;
+};
+
 function canAccessVoucherAssets(scope: UserScope, level: number) {
   if (scope.isAdmin) return true;
   if (scope.isMaster || scope.isGestor) return true;
@@ -78,8 +86,11 @@ function buildStoragePath(params: {
   return `${params.companyId}/${params.provider}/${params.assetKind}/${Date.now()}-${crypto.randomUUID()}.${safeExtension}`;
 }
 
-async function withPreviewUrl(client: any, asset: any) {
+async function withPreviewUrl(client: SupabaseAdminClient, asset: VoucherAssetRow) {
   try {
+    if (!asset.storage_bucket || !asset.storage_path) {
+      return { ...asset, preview_url: null };
+    }
     const { data: signed } = await client.storage
       .from(asset.storage_bucket)
       .createSignedUrl(asset.storage_path, 3600);
@@ -175,7 +186,8 @@ export async function GET(event) {
     if (error) throw error;
 
     // Gera URLs assinadas para preview
-    const withUrls = await Promise.all((data || []).map((asset: any) => withPreviewUrl(client, asset)));
+    const assets = (data || []) as unknown as VoucherAssetRow[];
+    const withUrls = await Promise.all(assets.map((asset) => withPreviewUrl(client, asset)));
 
     return json({ success: true, items: withUrls }, { headers: DYNAMIC_READ_HEADERS });
   } catch (err: any) {
