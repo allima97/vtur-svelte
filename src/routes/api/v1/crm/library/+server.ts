@@ -416,7 +416,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         headers: { "content-type": "application/json; charset=utf-8" },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[crm/library] Falha ao carregar biblioteca", error);
     return new Response(
       JSON.stringify({
