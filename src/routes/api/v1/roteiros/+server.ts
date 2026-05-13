@@ -24,6 +24,19 @@ type UserCompanyRow = {
   company_id?: string | null;
 };
 
+type RoteiroPatchBody = {
+  action?: unknown;
+  termo?: unknown;
+  tipo?: unknown;
+  valor?: unknown;
+  id?: unknown;
+};
+
+type RoteiroSugestaoRow = {
+  id: string;
+  uso_count?: number | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -254,12 +267,15 @@ export async function PATCH(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as RoteiroPatchBody)
         : {};
     const { action } = body;
 
     if (action === 'sugestoes-busca') {
-      const termo = sanitizePostgrestSearchTerm(body.termo, 80);
+      const termo = sanitizePostgrestSearchTerm(
+        typeof body.termo === 'string' ? body.termo : null,
+        80
+      );
       const tipo = String(body.tipo || '').trim().slice(0, 60);
 
       if (!termo && !tipo) return json({ sugestoes: [] }, { headers: NO_STORE_HEADERS });
@@ -297,7 +313,7 @@ export async function PATCH(event: RequestEvent) {
         .select('company_id')
         .eq('id', user.id)
         .maybeSingle();
-      const companyId = (userProfile as any)?.company_id || null;
+      const companyId = (userProfile as UserCompanyRow | null)?.company_id || null;
 
       const { data: existing } = await supabase
         .from('roteiro_sugestoes')
@@ -305,13 +321,14 @@ export async function PATCH(event: RequestEvent) {
         .eq('tipo', safeTipo)
         .eq('valor_normalizado', normalizedValor)
         .maybeSingle();
+      const existingSuggestion = existing as RoteiroSugestaoRow | null;
 
-      if (existing) {
+      if (existingSuggestion) {
         await supabase
           .from('roteiro_sugestoes')
-          .update({ uso_count: ((existing as any).uso_count || 0) + 1 })
-          .eq('id', (existing as any).id);
-        return json({ ok: true, id: (existing as any).id }, { headers: NO_STORE_HEADERS });
+          .update({ uso_count: (existingSuggestion.uso_count || 0) + 1 })
+          .eq('id', existingSuggestion.id);
+        return json({ ok: true, id: existingSuggestion.id }, { headers: NO_STORE_HEADERS });
       }
 
       const { data: inserted, error: insertError } = await supabase
@@ -319,15 +336,18 @@ export async function PATCH(event: RequestEvent) {
         .insert({ tipo: safeTipo, valor: safeValor, company_id: companyId, valor_normalizado: normalizedValor })
         .select('id')
         .single();
+      const insertedSuggestion = inserted as Pick<RoteiroSugestaoRow, 'id'> | null;
 
       if (insertError) throw insertError;
-      return json({ ok: true, id: (inserted as any)?.id }, { headers: NO_STORE_HEADERS });
+      return json({ ok: true, id: insertedSuggestion?.id || null }, { headers: NO_STORE_HEADERS });
     }
 
     if (action === 'sugestoes-remover') {
-      const { id } = body;
-      if (!isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
-      await supabase.from('roteiro_sugestoes').delete().eq('id', id);
+      const suggestionId = typeof body.id === 'string' ? body.id : '';
+      if (!isUuid(suggestionId)) {
+        return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
+      }
+      await supabase.from('roteiro_sugestoes').delete().eq('id', suggestionId);
       return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
