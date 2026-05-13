@@ -58,6 +58,10 @@
     produto?: { nome?: string | null } | null;
   };
 
+  type VendaPagamentoResumo = {
+    valor_total?: number | string | null;
+  };
+
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
@@ -503,7 +507,7 @@
     ? venda.recibos.reduce((acc: number, item: VendaReciboResumo) => acc + Number(item.valor_total || 0), 0)
     : 0;
   $: totalPagamentosValor = Array.isArray(venda?.pagamentos)
-    ? venda.pagamentos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
+    ? venda.pagamentos.reduce((acc: number, item: VendaPagamentoResumo) => acc + Number(item.valor_total || 0), 0)
     : totalRecibosValor > 0
       ? totalRecibosValor
       : Number(venda?.valor_total_pago || 0);
