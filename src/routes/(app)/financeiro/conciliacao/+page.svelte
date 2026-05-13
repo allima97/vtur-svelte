@@ -978,7 +978,7 @@
     action: string;
     status: 'success' | 'error';
     message: string;
-    data?: any;
+    data?: Record<string, unknown>;
   }) {
     const data = params.data || {};
     persistOperationLogs([
