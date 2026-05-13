@@ -64,7 +64,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
     const id = String(body?.id || "").trim();
@@ -176,7 +176,7 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const id = String(body?.id || "").trim();
     const action = String(body?.action || "").trim();
