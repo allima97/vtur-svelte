@@ -3,10 +3,8 @@
   import { Modal } from 'flowbite-svelte';
   import Button from './Button.svelte';
 
-  export let open = false;
-  export let title = '';
-  export let size: 'sm' | 'md' | 'lg' | 'xl' | 'full' = 'md';
-  export let color:
+  type DialogSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  type DialogColor =
     | 'clientes'
     | 'orcamentos'
     | 'operacao'
@@ -15,7 +13,12 @@
     | 'blue'
     | 'green'
     | 'orange'
-    | 'teal' = 'blue';
+    | 'teal';
+
+  export let open = false;
+  export let title = '';
+  export let size: DialogSize = 'md';
+  export let color: DialogColor = 'blue';
   export let dismissable = true;
   export let respectAppShell = false;
 
@@ -40,7 +43,7 @@
     close: Event | undefined;
   }>();
 
-  const toneClasses: Record<string, string> = {
+  const toneClasses: Record<DialogColor, string> = {
     clientes: 'vtur-dialog--clientes',
     orcamentos: 'vtur-dialog--orcamentos',
     operacao: 'vtur-dialog--operacao',
@@ -52,7 +55,7 @@
     teal: 'vtur-dialog--operacao'
   };
 
-  const sizeMap: Record<typeof size, 'sm' | 'md' | 'lg' | 'xl'> = {
+  const sizeMap: Record<DialogSize, 'sm' | 'md' | 'lg' | 'xl'> = {
     sm: 'sm',
     md: 'md',
     lg: 'lg',
