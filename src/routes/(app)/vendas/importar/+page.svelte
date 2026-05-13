@@ -221,9 +221,19 @@
   }
 
   function parseCidadeItems(payload: any): CidadeSugestao[] {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload)) return payload as CidadeSugestao[];
+    if (payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)) {
+      return (payload as { items: CidadeSugestao[] }).items;
+    }
     return [];
+  }
+
+  function getApiErrorCode(err: unknown) {
+    if (!(err instanceof ApiError) || err.status !== 409) return '';
+    const payload = err.payload;
+    if (!payload || typeof payload !== 'object') return String(err.message || '').trim();
+    const errorPayload = payload as { error?: unknown; message?: unknown };
+    return String(errorPayload.error || errorPayload.message || err.message || '').trim();
   }
 
   function getCidadeLabel(cidade: CidadeSugestao) {
@@ -730,14 +740,10 @@
         clienteEmail: skipContato ? null : contatoEmail || null
       };
 
-      let result: any;
       try {
-        result = await apiPost('/api/v1/vendas/importar-contrato', payload);
+        await apiPost('/api/v1/vendas/importar-contrato', payload);
       } catch (err) {
-        const duplicateCode =
-          err instanceof ApiError && err.status === 409
-            ? String((err.payload as any)?.error || (err.payload as any)?.message || err.message || '').trim()
-            : '';
+        const duplicateCode = getApiErrorCode(err);
         if (duplicateCode === 'RECIBO_DUPLICADO' || duplicateCode === 'RESERVA_DUPLICADA') {
           duplicateModal = {
             message:
