@@ -37,6 +37,12 @@ type RoteiroSugestaoRow = {
   uso_count?: number | null;
 };
 
+type RoteiroDiaDraft = {
+  cidade?: unknown;
+  data?: unknown;
+  descricao?: unknown;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -199,15 +205,18 @@ export async function POST(event: RequestEvent) {
     if (Array.isArray(dias) && dias.length > 0) {
       await supabase.from('roteiro_dia').delete().eq('roteiro_id', roteiroId);
 
-      const diasRows = dias.map((dia: any, index: number) => ({
+      const diasRows = dias.map((dia, index: number) => {
+        const day = isRecord(dia) ? (dia as RoteiroDiaDraft) : {};
+        return {
         roteiro_id: roteiroId,
         created_by: user.id,
         company_id: companyId,
         ordem: index + 1,
-        cidade: String(dia.cidade || '').trim(),
-        data: dia.data || null,
-        descricao: String(dia.descricao || '').trim() || null
-      }));
+        cidade: String(day.cidade || '').trim(),
+        data: typeof day.data === 'string' ? day.data : null,
+        descricao: String(day.descricao || '').trim() || null
+      };
+      });
 
       if (diasRows.length > 0) {
         const { error: diasError } = await supabase.from('roteiro_dia').insert(diasRows);
