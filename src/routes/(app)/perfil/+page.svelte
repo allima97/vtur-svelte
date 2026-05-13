@@ -33,6 +33,13 @@
     } | null;
   };
 
+  type CepResponse = {
+    logradouro?: string;
+    complemento?: string;
+    localidade?: string;
+    uf?: string;
+  };
+
   let perfil: Perfil | null = null;
   let loading = true;
   let saving = false;
@@ -108,7 +115,7 @@
     if (digits.length !== 8) { cepStatus = null; return; }
     cepStatus = 'Buscando CEP...';
     try {
-      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
       form = {
         ...form,
         endereco: data.logradouro || form.endereco,
