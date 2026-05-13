@@ -1456,7 +1456,26 @@
     importing = true;
     operationMessage = 'Importando arquivo e atualizando registros de conciliação.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/import', {
+      const data = await apiPost<{
+        importados?: number | null;
+        duplicados?: number | null;
+        tem_diferenca?: boolean | null;
+        diferencas?: Array<{
+          documento: string;
+          movimento_data: string;
+          valor_importacao: number;
+          diff_total: number;
+          diff_taxas: number;
+          valor_sistema: number;
+          taxas_importacao: number;
+          taxas_sistema: number;
+          [key: string]: unknown;
+        }> | null;
+        status_cronologico?: {
+          ok?: boolean | null;
+          aviso?: string | null;
+        } | null;
+      }>('/api/v1/conciliacao/import', {
         companyId: empresaId || undefined,
         linhas: importPreparedRows.map((row) => ({
           documento: row.documento,
@@ -1490,14 +1509,9 @@
       }
 
       // Se o backend retornou diferenças adicionais (não detectadas no preview)
-      if (data.tem_diferenca && data.diferencas?.length > 0 && !importDiferencasConfirmadas) {
-        importDiferencas = data.diferencas.map((diff: {
-          diff_total: number;
-          diff_taxas: number;
-          valor_sistema: number;
-          taxas_sistema: number;
-          [key: string]: unknown;
-        }) => ({
+      const diferencasImportacao = data.diferencas ?? [];
+      if (data.tem_diferenca && diferencasImportacao.length > 0 && !importDiferencasConfirmadas) {
+        importDiferencas = diferencasImportacao.map((diff) => ({
           ...diff,
           severidade: getDiffModalSeverity(diff) === 'critical' ? 'critical' : 'warning'
         }));
