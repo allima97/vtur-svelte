@@ -208,10 +208,10 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
         .select("id, venda_id")
         .in("id", batch);
       if (concErr) throw concErr;
-      (concRows || []).forEach((row: any) => {
+      for (const row of concRows || []) {
         const vendaId = toStr(row?.venda_id);
         if (isUuid(vendaId)) vendaIds.add(vendaId);
-      });
+      }
     }
   }
 
