@@ -62,6 +62,20 @@
     valor_total?: number | string | null;
   };
 
+  type VendaDetalhePayload = {
+    status?: string | null;
+    cancelada?: boolean | null;
+    data_final?: string | null;
+    data_embarque?: string | null;
+    recibos?: VendaReciboResumo[] | null;
+    pagamentos?: VendaPagamentoResumo[] | null;
+    valor_total?: number | string | null;
+    valor_taxas?: number | string | null;
+    valor_total_pago?: number | string | null;
+    destino_cidade?: { nome?: string | null } | null;
+    destino?: { nome?: string | null } | string | null;
+  };
+
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
@@ -309,7 +323,7 @@
     return err instanceof Error ? err.message : 'falha inesperada';
   }
 
-  async function applyVendaData(data: any, opts: { loadProdutos?: boolean } = {}) {
+  async function applyVendaData(data: VendaDetalhePayload, opts: { loadProdutos?: boolean } = {}) {
     venda = data;
 
     // Normaliza status legado 'aberto' e deriva status baseado em datas (igual à lógica da listagem)
@@ -357,7 +371,7 @@
     if (isInitialLoad && fromRecentWrite) {
       try {
         loadingHint = fromImport ? 'Abrindo a venda importada...' : 'Abrindo a venda...';
-        const liteData = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+        const liteData = await apiFetch<VendaDetalhePayload>(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 6_000,
@@ -381,7 +395,7 @@
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const data = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+        const data = await apiFetch<VendaDetalhePayload>(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 15_000,
