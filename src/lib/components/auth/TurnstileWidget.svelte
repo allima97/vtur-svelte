@@ -6,7 +6,9 @@
   export let token = '';
   export let disabled = false;
   export let action = 'auth';
-  export let theme: 'light' | 'dark' | 'auto' = 'light';
+  type TurnstileTheme = 'light' | 'dark' | 'auto';
+
+  export let theme: TurnstileTheme = 'light';
   export let class_name = '';
 
   let container: HTMLDivElement | null = null;
@@ -14,11 +16,32 @@
   let loading = false;
   let widgetError: string | null = null;
 
+  type TurnstileWidgetId = string | number;
+  type TurnstileApi = {
+    render: (
+      container: HTMLElement,
+      options: {
+        sitekey: string;
+        action: string;
+        theme: TurnstileTheme;
+        callback: (value: string) => void;
+        'expired-callback': () => void;
+        'error-callback': () => void;
+      }
+    ) => TurnstileWidgetId;
+    reset: (widgetId: TurnstileWidgetId) => void;
+    remove: (widgetId: TurnstileWidgetId) => void;
+  };
+
+  type WindowWithTurnstile = Window & {
+    turnstile?: TurnstileApi;
+  };
+
   const siteKey = String(publicEnv.PUBLIC_TURNSTILE_SITE_KEY || '').trim();
   const enabled = Boolean(siteKey);
 
   function getTurnstile() {
-    return browser ? (window as any).turnstile : null;
+    return browser ? (window as WindowWithTurnstile).turnstile || null : null;
   }
 
   function loadScript(): Promise<void> {
