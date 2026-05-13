@@ -4,6 +4,12 @@ import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+type CompanyContextRow = {
+  id: string | null;
+  nome_fantasia: string | null;
+  nome_empresa: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -20,7 +26,7 @@ export async function GET(event) {
           .order('nome_fantasia', { ascending: true });
       }
 
-      const rows: any[] = [];
+      const rows: CompanyContextRow[] = [];
       for (const batch of chunkArray(scope.companyIds)) {
         const result = await client
           .from('companies')
@@ -51,9 +57,9 @@ export async function GET(event) {
       user_id: user.id,
       company_id: scope.companyId,
       company_ids: scope.companyIds,
-      empresas: (empresas.data || []).map((row: any) => ({
-        id: String(row?.id || ''),
-        nome: String(row?.nome_fantasia || row?.nome_empresa || 'Empresa sem nome')
+      empresas: (empresas.data || []).map((row) => ({
+        id: String(row.id || ''),
+        nome: String(row.nome_fantasia || row.nome_empresa || 'Empresa sem nome')
       })),
       nome: scope.nome,
       email: scope.email,
@@ -64,7 +70,7 @@ export async function GET(event) {
       isGestor: scope.isGestor,
       isVendedor: scope.isVendedor
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar contexto do usuário.');
   }
 }
