@@ -166,6 +166,8 @@
   }
 
   function formFromVoucher(v: VoucherRecord): VoucherForm {
+    const voucherStatus = (v as VoucherRecord & { status?: VoucherForm['status'] }).status;
+
     return {
       id: v.id,
       provider: v.provider,
@@ -180,7 +182,7 @@
       data_inicio: v.data_inicio || '',
       data_fim: v.data_fim || '',
       ativo: v.ativo !== false,
-      status: (v as any).status || 'finalizado',
+      status: voucherStatus || 'finalizado',
       extra_data: normalizeVoucherExtraData(v.extra_data, v.provider),
       dias: (v.voucher_dias || []).map((d, i) => normalizeDiaForForm(d, i)),
       hoteis: (v.voucher_hoteis || []).map((h, i) => normalizeHotelForForm(h, i))
