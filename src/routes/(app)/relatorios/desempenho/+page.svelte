@@ -25,6 +25,9 @@
   interface EvolucaoAnualResult { anos: AnoEvolucao[]; crescimentoYoY: Record<string, number | null>; }
   interface EmpresaFiltro { id: string; nome: string; }
   interface VendedorFiltro { id: string; nome: string; company_id: string; }
+  interface EmpresaBaseRow extends Partial<EmpresaFiltro> { nome_fantasia?: string | null; nome_empresa?: string | null; }
+  interface VendedorBaseRow extends Partial<VendedorFiltro> { nome_completo?: string | null; }
+  interface RelatoriosBaseResponse { empresas?: EmpresaBaseRow[]; vendedores?: VendedorBaseRow[]; }
 
   // ---------------------------------------------------------------------------
   // Paleta — uma cor por ano (até 5)
@@ -96,12 +99,12 @@
   // ---------------------------------------------------------------------------
   async function loadBase() {
     try {
-      const res = await apiGet<{ empresas?: any[]; vendedores?: any[] }>('/api/v1/relatorios/base');
-      empresas = (res.empresas || []).map((e: any) => ({
+      const res = await apiGet<RelatoriosBaseResponse>('/api/v1/relatorios/base');
+      empresas = (res.empresas || []).map((e) => ({
         id: String(e.id || ''),
         nome: String(e.nome || e.nome_fantasia || e.nome_empresa || 'Empresa'),
       }));
-      vendedores = (res.vendedores || []).map((v: any) => ({
+      vendedores = (res.vendedores || []).map((v) => ({
         id: String(v.id || ''),
         nome: String(v.nome || v.nome_completo || 'Usuário'),
         company_id: String(v.company_id || ''),
@@ -126,8 +129,9 @@
 
       const res = await apiGet<{ data: EvolucaoAnualResult }>(`/api/v1/dashboard/evolucao-anual?${params}`);
       data = res.data ?? null;
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao carregar análise de desempenho.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao carregar análise de desempenho.';
+      toast.error(message);
       data = null;
     } finally {
       loading = false;
