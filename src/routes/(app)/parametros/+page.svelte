@@ -328,8 +328,9 @@
   function cloneTiers(tiers?: Tier[]): Tier[] {
     return (tiers || []).map((t): Tier => ({ id: t.id, faixa: t.faixa === 'POS' ? 'POS' : 'PRE', de_pct: normalizeNumber(t.de_pct), ate_pct: normalizeNumber(t.ate_pct), inc_pct_meta: normalizeNumber(t.inc_pct_meta), inc_pct_comissao: normalizeNumber(t.inc_pct_comissao) }));
   }
-  function normalizeRule(raw: any): Rule {
-    return { id: String(raw?.id || ''), nome: String(raw?.nome || ''), descricao: raw?.descricao ? String(raw.descricao) : null, company_id: raw?.company_id ? String(raw.company_id) : null, tipo: raw?.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL', meta_nao_atingida: normalizeNumber(raw?.meta_nao_atingida), meta_atingida: normalizeNumber(raw?.meta_atingida), super_meta: normalizeNumber(raw?.super_meta), ativo: Boolean(raw?.ativo), commission_tier: cloneTiers(raw?.commission_tier) };
+  function normalizeRule(raw: unknown): Rule {
+    const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+    return { id: String(value.id || ''), nome: String(value.nome || ''), descricao: value.descricao ? String(value.descricao) : null, company_id: value.company_id ? String(value.company_id) : null, tipo: value.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL', meta_nao_atingida: normalizeNumber(value.meta_nao_atingida), meta_atingida: normalizeNumber(value.meta_atingida), super_meta: normalizeNumber(value.super_meta), ativo: Boolean(value.ativo), commission_tier: cloneTiers(value.commission_tier as Tier[] | undefined) };
   }
   async function requestRulesApi<T = any>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: Record<string, unknown>): Promise<T | null> {
     return apiFetch<T | null>('/api/v1/parametros/commission-rules', { method, query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined, body: method === 'GET' ? undefined : { ...(body || {}), empresa_id: empresaId || undefined } });
