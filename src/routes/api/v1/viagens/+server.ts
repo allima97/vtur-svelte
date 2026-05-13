@@ -60,6 +60,48 @@ const VIAGENS_LIST_SELECT = `
   updated_at
 `;
 
+type ViagemListRow = {
+  id: string | null;
+  venda_id: string | null;
+  orcamento_id: string | null;
+  cliente_id: string | null;
+  company_id: string | null;
+  responsavel_user_id: string | null;
+  origem: string | null;
+  destino: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: string | null;
+  observacoes: string | null;
+  follow_up_text: string | null;
+  follow_up_fechado: boolean | null;
+  recibo_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type ViagemListItem = {
+  id: string | null;
+  venda_id: string | null;
+  orcamento_id: string | null;
+  cliente_id: string | null;
+  cliente_nome: string;
+  destino: string;
+  origem: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: string;
+  observacoes: string;
+  follow_up_text: string;
+  follow_up_fechado: boolean;
+  recibo_id: string | null;
+  numero_passageiros: number;
+  tipo_viagem: "internacional" | "nacional";
+  valor_total: number;
+  responsavel_nome: string;
+  created_at: string | null;
+};
+
 function clampInt(
   value: string | null,
   fallback: number,
@@ -112,7 +154,7 @@ function compareNullableDate(
   return ascending ? left.localeCompare(right) : right.localeCompare(left);
 }
 
-function sortViagemRows(rows: any[], ordenar: string) {
+function sortViagemRows(rows: ViagemListRow[], ordenar: string) {
   return [...rows].sort((a, b) => {
     if (ordenar === "embarque_desc") {
       return (
@@ -139,8 +181,8 @@ function sortViagemRows(rows: any[], ordenar: string) {
   });
 }
 
-function mergeUniqueViagemRows(...groups: any[][]) {
-  const byId = new Map<string, any>();
+function mergeUniqueViagemRows(...groups: ViagemListRow[][]) {
+  const byId = new Map<string, ViagemListRow>();
   for (const group of groups) {
     for (const row of group) {
       const id = String(row?.id || "").trim();
@@ -271,7 +313,7 @@ export async function GET(event) {
           limitRows: number,
         ) => {
           const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
-          const rows: any[] = [];
+          const rows: ViagemListRow[] = [];
           for (const batch of companyBatches) {
             const result = await configure(buildQuery(selectFields, batch)).limit(limitRows);
             if (result.error) throw result.error;
@@ -280,7 +322,7 @@ export async function GET(event) {
           return rows;
         };
 
-        let scopedData: any[] = [];
+        let scopedData: ViagemListRow[] = [];
 
         if (scope.isVendedor) {
           const candidateLimit = Math.min(
@@ -321,7 +363,7 @@ export async function GET(event) {
 
         const resolvedStatuses = await syncViagensStatus(
           client,
-          scopedData as any[],
+          scopedData,
         );
 
         const clienteIdSet = new Set<string>();
@@ -363,7 +405,7 @@ export async function GET(event) {
           }
         }
 
-        const viagemIds = (scopedData || []).map((v: any) => v.id);
+        const viagemIds = (scopedData || []).map((v) => v.id).filter((id): id is string => Boolean(id));
         const passageirosCountMap = new Map<string, number>();
         if (viagemIds.length > 0) {
           for (const batch of chunkArray(viagemIds)) {
@@ -402,17 +444,21 @@ export async function GET(event) {
         }
 
         const items = (scopedData || [])
-          .map((row: any) => {
+          .map((row): ViagemListItem => {
             const resolvedStatus =
-              resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status);
-            const numPassageiros = passageirosCountMap.get(row.id) || 1;
+              resolvedStatuses.get(String(row.id || "")) || normalizeViagemStatus(row.status);
+            const rowId = String(row.id || "");
+            const clienteId = String(row.cliente_id || "");
+            const responsavelUserId = String(row.responsavel_user_id || "");
+            const destinoTexto = String(row.destino || "");
+            const numPassageiros = passageirosCountMap.get(rowId) || 1;
             const valorVenda = row.venda_id
               ? vendasMap.get(row.venda_id) || 0
               : 0;
             const tipoViagem =
-              row.destino &&
+              destinoTexto &&
               INTERNACIONAL_DESTINO_KEYWORDS.some((k) =>
-                row.destino.toLowerCase().includes(k),
+                destinoTexto.toLowerCase().includes(k),
               )
                 ? "internacional"
                 : "nacional";
@@ -423,7 +469,7 @@ export async function GET(event) {
               orcamento_id: row.orcamento_id,
               cliente_id: row.cliente_id,
               cliente_nome:
-                clientesMap.get(row.cliente_id) || "Cliente não encontrado",
+                clientesMap.get(clienteId) || "Cliente não encontrado",
               destino: row.destino || row.origem || "Destino não informado",
               origem: row.origem,
               data_inicio: row.data_inicio,
@@ -437,12 +483,12 @@ export async function GET(event) {
               tipo_viagem: tipoViagem,
               valor_total: valorVenda,
               responsavel_nome:
-                responsaveisMap.get(row.responsavel_user_id) || "Não atribuído",
+                responsaveisMap.get(responsavelUserId) || "Não atribuído",
               created_at: row.created_at,
             };
           })
           .filter(
-            (item: any) => !hasStatusFilter || item.status === normalizedStatus,
+            (item) => !hasStatusFilter || item.status === normalizedStatus,
           );
 
         return {
