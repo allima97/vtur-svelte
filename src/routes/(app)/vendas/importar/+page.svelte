@@ -220,12 +220,22 @@
     });
   }
 
-  function parseCidadeItems(payload: any): CidadeSugestao[] {
+  function parseCidadeItems(payload: unknown): CidadeSugestao[] {
     if (Array.isArray(payload)) return payload as CidadeSugestao[];
     if (payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)) {
       return (payload as { items: CidadeSugestao[] }).items;
     }
     return [];
+  }
+
+  function withContratoCpf(contrato: ContratoDraftUI, cpf: string): ContratoDraftUI {
+    return {
+      ...contrato,
+      contratante: {
+        ...(contrato.contratante || {}),
+        cpf
+      } as ContratoDraft['contratante']
+    };
   }
 
   function getApiErrorCode(err: unknown) {
@@ -558,10 +568,7 @@
           return;
         }
         // Injetar CPF em todos os contratos extraídos
-        result.contratos = result.contratos.map(c => ({
-          ...c,
-          contratante: { ...c.contratante, cpf: cpfDigits } as any
-        }));
+        result.contratos = result.contratos.map((c) => withContratoCpf(c, cpfDigits));
         extracting = true;
       }
 
@@ -633,10 +640,7 @@
         : digits.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
     contratos = contratos.map((c, i) =>
       i === index
-        ? {
-            ...c,
-            contratante: { ...c.contratante, cpf: formatted.slice(0, 18) } as any
-          }
+        ? withContratoCpf(c, formatted.slice(0, 18))
         : c
     );
   }
