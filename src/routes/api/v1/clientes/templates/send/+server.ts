@@ -49,6 +49,18 @@ type MessageTemplateRow = {
   signature_style: unknown;
 };
 
+type PlainObject = Record<string, unknown>;
+
+type ThemeSelectionRow = {
+  id: string;
+  user_id: string | null;
+  company_id: string | null;
+  scope: string | null;
+  nome: string | null;
+  asset_url?: string | null;
+  storage_path?: string | null;
+};
+
 type ScopeValue = "system" | "master" | "gestor" | "user";
 
 function normalizeScope(value?: string | null): ScopeValue {
@@ -88,7 +100,7 @@ function canAccessScopedRow(params: {
   return inCompany(rowCompanyId || null, companyIds);
 }
 
-function isPlainObject(value: unknown): value is Record<string, any> {
+function isPlainObject(value: unknown): value is PlainObject {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -97,7 +109,7 @@ function isEmailLike(value?: string | null) {
   return raw.includes("@") ? raw : "";
 }
 
-function looksLikeResendSmtpCompat(settings?: Record<string, any> | null) {
+function looksLikeResendSmtpCompat(settings?: PlainObject | null) {
   const host = String(settings?.smtp_host || "")
     .trim()
     .toLowerCase();
@@ -333,7 +345,7 @@ export const POST: RequestHandler = async (event) => {
     const requestedThemeId = String(body.themeId || "").trim();
     const selectedThemeId =
       requestedThemeId || String(tpl.theme_id || "").trim();
-    let selectedTheme: Record<string, any> | null = null;
+    let selectedTheme: ThemeSelectionRow | null = null;
     if (selectedThemeId) {
       const { data: themeRow, error: themeError } = await client
         .from("user_message_template_themes")
@@ -352,7 +364,7 @@ export const POST: RequestHandler = async (event) => {
           rowScope: themeRow.scope,
         })
       ) {
-        selectedTheme = themeRow;
+        selectedTheme = themeRow as ThemeSelectionRow;
       }
     }
     const textOffsetX = parseBodyOffset(body.textOffsetX);
