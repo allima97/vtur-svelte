@@ -22,6 +22,18 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_CONCILIACAO_ASSIGN_BODY_BYTES = 64 * 1024;
+const CONCILIACAO_VALOR_PAYLOAD_FIELDS = [
+  "valorLancamentos",
+  "valorTaxas",
+  "valorDescontos",
+  "valorAbatimentos",
+  "valorNaoComissionavel",
+  "valorCalculadaLoja",
+  "valorVisaoMaster",
+  "valorOpfax",
+  "valorSaldo",
+  "valorComissaoLoja",
+];
 const AUDIT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
   year: "numeric",
@@ -356,18 +368,7 @@ export async function POST(event) {
     if (body && "conciliado" in body)
       update.conciliado = Boolean(body.conciliado);
 
-    const payloadTemValores = [
-      "valorLancamentos",
-      "valorTaxas",
-      "valorDescontos",
-      "valorAbatimentos",
-      "valorNaoComissionavel",
-      "valorCalculadaLoja",
-      "valorVisaoMaster",
-      "valorOpfax",
-      "valorSaldo",
-      "valorComissaoLoja",
-    ].some((field) => body && field in body);
+    const payloadTemValores = CONCILIACAO_VALOR_PAYLOAD_FIELDS.some((field) => body && field in body);
 
     if (payloadTemValores) {
       const metrics = buildConciliacaoMetrics({
