@@ -56,8 +56,8 @@
       if (!validLink) {
         error = 'Link de recuperação inválido ou expirado. Solicite um novo.';
       }
-    } catch (err: any) {
-      error = err.message || 'Link inválido ou expirado.';
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Link inválido ou expirado.';
     } finally {
       validating = false;
     }
@@ -76,8 +76,8 @@
       if (updateError) throw updateError;
       success = true;
       setTimeout(() => goto('/auth/login'), 2500);
-    } catch (err: any) {
-      error = err.message || 'Erro ao redefinir senha.';
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Erro ao redefinir senha.';
     } finally {
       loading = false;
     }
