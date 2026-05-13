@@ -27,6 +27,16 @@
 
   type TipoProduto = { id: string; nome: string; tipo?: string | null };
 
+  type CidadeSugestao = {
+    id: string;
+    nome: string;
+    subdivisao_nome?: string | null;
+  };
+
+  type CidadesBuscaResponse = {
+    items?: CidadeSugestao[];
+  };
+
   let preferencias: Preferencia[] = [];
   let tipos: TipoProduto[] = [];
   let loading = true;
@@ -35,7 +45,7 @@
   let deletingId = '';
   let editingId: string | null = null;
   let cidadeBusca = '';
-  let cidadeResultados: any[] = [];
+  let cidadeResultados: CidadeSugestao[] = [];
   let buscandoCidade = false;
   let cidadeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -61,13 +71,13 @@
       key: 'tipo_produto',
       label: 'Tipo',
       sortable: false,
-      formatter: (_: any, row: Preferencia) => row.tipo_produto?.nome || '-'
+      formatter: (_: unknown, row: Preferencia) => row.tipo_produto?.nome || '-'
     },
     {
       key: 'cidade',
       label: 'Cidade',
       sortable: false,
-      formatter: (_: any, row: Preferencia) => row.cidade?.nome || '-'
+      formatter: (_: unknown, row: Preferencia) => row.cidade?.nome || '-'
     },
     {
       key: 'localizacao',
@@ -104,8 +114,11 @@
     if (q.length < 2) { cidadeResultados = []; return; }
     buscandoCidade = true;
     try {
-      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { q, limite: 10 });
-      cidadeResultados = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : []);
+      const payload = await apiGet<CidadesBuscaResponse | CidadeSugestao[]>('/api/v1/vendas/cidades-busca', {
+        q,
+        limite: 10
+      });
+      cidadeResultados = Array.isArray(payload) ? payload : payload.items || [];
     } catch {
       // City autocomplete is optional; keep the form usable if lookup fails.
     } finally {
@@ -118,7 +131,7 @@
     cidadeTimer = setTimeout(() => buscarCidade(cidadeBusca), 300);
   }
 
-  function selecionarCidade(cidade: any) {
+  function selecionarCidade(cidade: CidadeSugestao) {
     form.cidade_id = cidade.id;
     form.cidade_nome = cidade.subdivisao_nome ? `${cidade.nome} (${cidade.subdivisao_nome})` : cidade.nome;
     cidadeBusca = form.cidade_nome;
