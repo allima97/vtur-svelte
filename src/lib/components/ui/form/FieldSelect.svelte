@@ -4,6 +4,8 @@
   import { formatYearMonthLabel } from '$lib/utils/formatters';
   import { uniqueFieldId } from './fieldId';
 
+  const YEAR_MONTH_OPTION_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
   export let label: string | null = null;
   export let srLabel = false;
   export let value: string = '';
@@ -25,7 +27,7 @@
   $: selectPlaceholder = placeholder === null ? '' : placeholder ?? undefined;
   $: normalizedOptions = options.map((option) => {
     const rawLabel = String(option?.label ?? '');
-    const formattedLabel = /^\d{4}-(0[1-9]|1[0-2])$/.test(rawLabel)
+    const formattedLabel = YEAR_MONTH_OPTION_RE.test(rawLabel)
       ? formatYearMonthLabel(rawLabel)
       : rawLabel;
 
