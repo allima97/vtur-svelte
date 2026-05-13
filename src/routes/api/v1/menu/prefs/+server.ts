@@ -2,7 +2,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
-import { normalizeMenuPrefs } from '$lib/server/menuPrefs';
+import { normalizeMenuPrefs, type MenuPrefsV1 } from '$lib/server/menuPrefs';
 import { safeJsonParse } from '$lib/utils/json';
 
 const JSON_NO_STORE_HEADERS = {
@@ -16,6 +16,12 @@ const TEXT_NO_STORE_HEADERS = {
 };
 
 const MAX_PREFS_BODY_BYTES = 16 * 1024;
+
+type MenuPrefsPayload = {
+  user_id: string;
+  prefs: MenuPrefsV1;
+  updated_at: string;
+};
 
 export async function GET(event: RequestEvent) {
   try {
@@ -35,7 +41,7 @@ export async function GET(event: RequestEvent) {
       status: 200,
       headers: JSON_NO_STORE_HEADERS
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('[menu/prefs] falha ao carregar preferencias', err);
     return new Response('Erro ao carregar preferencias do menu.', { status: 500, headers: TEXT_NO_STORE_HEADERS });
   }
@@ -59,12 +65,12 @@ export async function POST(event: RequestEvent) {
       return new Response('Payload muito grande.', { status: 413, headers: TEXT_NO_STORE_HEADERS });
     }
 
-    const body = safeJsonParse(rawBody) as any;
+    const body = safeJsonParse(rawBody) as { prefs?: unknown } | null;
     const nextPrefs = normalizeMenuPrefs(body?.prefs);
 
-    const payload = {
+    const payload: MenuPrefsPayload = {
       user_id: user.id,
-      prefs: nextPrefs as any,
+      prefs: nextPrefs,
       updated_at: new Date().toISOString()
     };
 
@@ -77,7 +83,7 @@ export async function POST(event: RequestEvent) {
       status: 200,
       headers: JSON_NO_STORE_HEADERS
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('[menu/prefs] falha ao salvar preferencias', err);
     return new Response('Erro ao salvar preferencias do menu.', { status: 500, headers: TEXT_NO_STORE_HEADERS });
   }
