@@ -86,6 +86,10 @@ type EffectiveConciliacaoReceipt = Awaited<
   ReturnType<typeof fetchEffectiveConciliacaoReceipts>
 >[number];
 
+type SplitConciliacaoRow = {
+  conciliacao_recibo_id?: string | null;
+};
+
 export type VendasKpiAgg = {
   totalVendas: number;
   totalTaxas: number;
@@ -582,35 +586,33 @@ async function fetchResolvedRowsUncached(
   const [splitConcRows, suppressedConcReceipts] = await Promise.all([
     params.vendedorIds.length > 0 && normalizedCompanyIds.length > 0
       ? (async () => {
-          const collectedRows: any[] = [];
-          const batches: Array<Promise<any>> = [];
+          const collectedRows: SplitConciliacaoRow[] = [];
+          const batches: Array<PromiseLike<void>> = [];
           for (const vendedorBatch of chunkArray(params.vendedorIds)) {
             for (const companyBatch of chunkArray(normalizedCompanyIds)) {
-              // Wrap em Promise.resolve para garantir tipo Promise<any> compatível
               batches.push(
-                Promise.resolve(
-                  client
-                    .from("vendas_recibos_rateio")
-                    .select("conciliacao_recibo_id")
-                    .eq("ativo", true)
-                    .gt("percentual_destino", 0)
-                    .in("vendedor_destino_id", vendedorBatch)
-                    .not("conciliacao_recibo_id", "is", null)
-                    .in("company_id", companyBatch)
-                ).then(({ data, error: splitConcErr }: any) => {
-                  if (splitConcErr) {
-                    logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
-                  } else {
-                    collectedRows.push(...(data || []));
-                  }
-                })
+                client
+                  .from("vendas_recibos_rateio")
+                  .select("conciliacao_recibo_id")
+                  .eq("ativo", true)
+                  .gt("percentual_destino", 0)
+                  .in("vendedor_destino_id", vendedorBatch)
+                  .not("conciliacao_recibo_id", "is", null)
+                  .in("company_id", companyBatch)
+                  .then(({ data, error: splitConcErr }) => {
+                    if (splitConcErr) {
+                      logServerError("[vendas-kpis] split conciliation indisponivel", splitConcErr);
+                    } else {
+                      collectedRows.push(...((data || []) as SplitConciliacaoRow[]));
+                    }
+                  })
               );
             }
           }
           await Promise.all(batches);
           return collectedRows;
         })()
-      : Promise.resolve([] as any[]),
+      : Promise.resolve([] as SplitConciliacaoRow[]),
     normalizedCompanyIds.length > 0
       ? fetchSuppressedConciliacaoReceipts({
           client,
@@ -626,7 +628,7 @@ async function fetchResolvedRowsUncached(
   ]);
 
   const splitConcIdSet = cleanStringSet(
-    splitConcRows.map((row: any) => row?.conciliacao_recibo_id),
+    splitConcRows.map((row) => row?.conciliacao_recibo_id),
   );
 
   if (splitConcIdSet.size > 0) {
