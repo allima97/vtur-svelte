@@ -125,6 +125,38 @@
     orcamento_id: string | null;
   };
 
+  type DashboardSummaryResponse = {
+    vendasAgg?: VendasAgg | null;
+    metas?: Meta[] | null;
+    orcamentos?: Orcamento[] | null;
+    userCtx?: { nome: string | null; papel: string; vendedorIds: string[] } | null;
+    podeVerOperacao?: boolean | null;
+    podeVerConsultoria?: boolean | null;
+    widgetPrefs?: WidgetPrefRow[] | null;
+  };
+
+  type ViagemProximaRow = {
+    id?: string | null;
+    numero_venda?: string | null;
+    data_embarque?: string | null;
+    data_final?: string | null;
+    cliente_nome?: string | null;
+    destino?: string | null;
+    vendedor_nome?: string | null;
+  };
+
+  type FollowUpRow = {
+    id?: string | null;
+    venda_id?: string | null;
+    cliente_nome?: string | null;
+    destino_nome?: string | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    data_embarque?: string | null;
+    follow_up_fechado?: boolean | null;
+    updated_at?: string | null;
+  };
+
   type ActivityItem = {
     id: string;
     titulo: string;
@@ -527,7 +559,7 @@
     errorMessage = null;
 
     try {
-      const data = await apiGet<any>('/api/v1/dashboard/summary', {
+      const data = await apiGet<DashboardSummaryResponse>('/api/v1/dashboard/summary', {
         inicio: periodoInicio,
         fim: periodoFim,
         include_orcamentos: 1,
@@ -551,7 +583,7 @@
   }
 
   async function loadOperacional() {
-    const params: Record<string, any> = {};
+    const params: Record<string, string> = {};
     if (empresaSelecionada) params.empresa_id = empresaSelecionada;
     if (vendedorSelecionado) params.vendedor_id = vendedorSelecionado;
 
@@ -569,7 +601,7 @@
       })(),
       (async () => {
         try {
-          const d = await apiGet<{ items?: Viagem[]; proximas?: any[] }>('/api/v1/dashboard/viagens', {
+          const d = await apiGet<{ items?: Viagem[]; proximas?: ViagemProximaRow[] }>('/api/v1/dashboard/viagens', {
             ...params,
             limit: 8,
             em_andamento_limit: 8
@@ -577,7 +609,7 @@
           if (Array.isArray(d.items)) {
             viagens = d.items;
           } else {
-            viagens = (d.proximas || []).map((item: any) => ({
+            viagens = (d.proximas || []).map((item) => ({
               id: String(item.id || ''),
               numero_venda: item.numero_venda ? String(item.numero_venda) : null,
               data_embarque: item.data_embarque ? String(item.data_embarque) : null,
@@ -594,11 +626,11 @@
       })(),
       (async () => {
         try {
-          const d = await apiGet<{ items: any[] }>('/api/v1/dashboard/follow-ups', {
+          const d = await apiGet<{ items: FollowUpRow[] }>('/api/v1/dashboard/follow-ups', {
             ...params,
             limit: 8
           });
-          followUps = (d.items || []).map((item: any) => ({
+          followUps = (d.items || []).map((item) => ({
             id: String(item.id || ''),
             venda_id: item.venda_id ? String(item.venda_id) : null,
             cliente_nome: String(item.cliente_nome || 'Cliente'),
