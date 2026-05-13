@@ -10,6 +10,10 @@
     pais?: { id?: string; nome: string } | null;
   };
 
+  type SubdivisoesListResponse = {
+    items?: SubdivisaoOption[];
+  };
+
   const dispatch = createEventDispatcher<{
     select: SubdivisaoOption;
   }>();
@@ -90,6 +94,10 @@
     return Array.from(byId.values());
   }
 
+  function hasOptionId(payload: unknown): payload is SubdivisaoOption {
+    return Boolean(payload && typeof payload === 'object' && String((payload as { id?: unknown }).id || '').trim());
+  }
+
   function getSelectedOption() {
     return uniqueOptions(results).find((item) => String(item.id) === String(value)) || null;
   }
@@ -109,8 +117,8 @@
 
     ensuringId = idValue;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { id: idValue });
-      if (!payload?.id) return;
+      const payload = await apiGet<SubdivisaoOption>('/api/v1/subdivisoes', { id: idValue });
+      if (!hasOptionId(payload)) return;
       results = uniqueOptions([payload, ...results]);
       if (!open) {
         searchText = getOptionLabel(payload);
@@ -135,7 +143,7 @@
 
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: query, page: 1, pageSize: maxResults });
+      const payload = await apiGet<SubdivisoesListResponse>('/api/v1/subdivisoes', { q: query, page: 1, pageSize: maxResults });
       if (currentQuery !== query) return;
       const items = Array.isArray(payload?.items) ? payload.items : [];
       results = uniqueOptions([
