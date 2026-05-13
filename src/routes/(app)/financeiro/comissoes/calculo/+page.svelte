@@ -33,6 +33,23 @@
   }
 
   type EmpresaOption = { id: string; nome: string };
+  type VendedorOption = {
+    id: string;
+    vendedor_id?: string;
+    vendedor_nome?: string;
+    nome?: string;
+    nome_completo?: string;
+    email?: string;
+  };
+
+  interface ComissoesCalculoResponse {
+    items?: VendaCalculada[];
+    persistencia_disponivel?: boolean;
+  }
+
+  interface VendedoresResponse {
+    items?: VendedorOption[];
+  }
 
   let loading = false;
   let calculando = false;
@@ -47,7 +64,7 @@
     detalhes: VendaCalculada[];
   } | null = null;
   
-  let comissoesPendentes: any[] = [];
+  let comissoesPendentes: VendaCalculada[] = [];
   let persistenciaDisponivel = true;
 
   // Filtros
@@ -58,7 +75,7 @@
   let filtroAno = todayParts?.year || new Date().getFullYear();
   let filtroVendedor = '';
   let filtroStatus = 'todas';
-  let vendedores: any[] = [];
+  let vendedores: VendedorOption[] = [];
   let empresas: EmpresaOption[] = [];
   let empresaId = '';
   let autoReloadEnabled = false;
@@ -83,11 +100,11 @@
     timeZone: 'UTC'
   });
 
-  function getVendedorId(vendedor: any) {
+  function getVendedorId(vendedor: VendedorOption) {
     return String(vendedor?.vendedor_id || vendedor?.id || '');
   }
 
-  function getVendedorNome(vendedor: any) {
+  function getVendedorNome(vendedor?: VendedorOption | null) {
     return String(
       vendedor?.vendedor_nome ||
         vendedor?.nome_completo ||
@@ -173,7 +190,7 @@
   async function loadComissoes() {
     loading = true;
     try {
-      const data = await apiGet<{ items?: any[]; persistencia_disponivel?: boolean }>(
+      const data = await apiGet<ComissoesCalculoResponse>(
         '/api/v1/financeiro/comissoes/calcular',
         {
           status: filtroStatus !== 'todas' ? filtroStatus : undefined,
@@ -194,7 +211,7 @@
 
   async function loadVendedores() {
     try {
-      const data = await apiGet<{ items?: any[] }>('/api/v1/financeiro/comissoes/vendedores', {
+      const data = await apiGet<VendedoresResponse>('/api/v1/financeiro/comissoes/vendedores', {
         empresa_id: empresaId || undefined
       });
       vendedores = data.items || [];
