@@ -10,6 +10,51 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+type RateioInfoReciboRow = {
+  id: string;
+  valor_total: number | null;
+  vendas: Array<{
+    company_id: string | null;
+    vendedor: Array<{ id: string; nome_completo: string | null }> | null;
+  }> | null;
+  produto_resolvido: Array<{
+    nome: string | null;
+    tipo_produto: Array<{
+      nome: string | null;
+      soma_na_meta: boolean | null;
+    }> | null;
+  }> | null;
+  rateio:
+    | Array<{
+        id: string;
+        ativo: boolean | null;
+        vendedor_destino_id: string | null;
+        percentual_origem: number | null;
+        percentual_destino: number | null;
+        vendedor_destino: Array<{ nome_completo: string | null }> | null;
+      }>
+    | {
+        id: string;
+        ativo: boolean | null;
+        vendedor_destino_id: string | null;
+        percentual_origem: number | null;
+        percentual_destino: number | null;
+        vendedor_destino: Array<{ nome_completo: string | null }> | null;
+      }
+    | null;
+};
+
+type RateioInfoPayload = {
+  id: string;
+  ativo: boolean | null;
+  vendedor_destino_id: string | null;
+  vendedor_destino_nome: string | null;
+  percentual_origem: number;
+  percentual_destino: number;
+  valor_origem: number;
+  valor_destino: number;
+};
+
 /**
  * GET /api/v1/conciliacao/rateio-info?venda_recibo_id=<uuid>&company_id=<uuid>
  *
@@ -84,22 +129,25 @@ export async function GET(event) {
     if (!reciboData) return json({ error: 'Recibo não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     // Ownership check
-    const reciboCompany = (reciboData as any)?.vendas?.company_id;
+    const recibo = reciboData as RateioInfoReciboRow;
+    const vendaRow = Array.isArray(recibo.vendas) ? (recibo.vendas[0] ?? null) : null;
+    const produtoRow = Array.isArray(recibo.produto_resolvido) ? (recibo.produto_resolvido[0] ?? null) : null;
+    const tipoProduto = Array.isArray(produtoRow?.tipo_produto) ? (produtoRow.tipo_produto[0] ?? null) : null;
+    const vendedorOrigemRow = Array.isArray(vendaRow?.vendedor) ? (vendaRow.vendedor[0] ?? null) : null;
+    const reciboCompany = vendaRow?.company_id;
     if (!scope.isAdmin && (!reciboCompany || companyIds.length === 0 || !companyIds.includes(reciboCompany))) {
       return json({ error: 'Recibo fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const recibo = reciboData as any;
-    const tipoProduto = recibo.produto_resolvido?.tipo_produto;
     const somaNaMeta: boolean | null = tipoProduto?.soma_na_meta ?? null;
 
-    const vendedorOrigem = recibo.vendas?.vendedor
-      ? { id: recibo.vendas.vendedor.id, nome: recibo.vendas.vendedor.nome_completo }
+    const vendedorOrigem = vendedorOrigemRow
+      ? { id: vendedorOrigemRow.id, nome: vendedorOrigemRow.nome_completo }
       : null;
 
     // 2. Rateio ativo
     const rateioRow = Array.isArray(recibo.rateio)
-      ? recibo.rateio.find((r: any) => r.ativo !== false) ?? recibo.rateio[0] ?? null
+      ? recibo.rateio.find((r) => r.ativo !== false) ?? recibo.rateio[0] ?? null
       : recibo.rateio ?? null;
 
     // 3. Valor de referência — tenta buscar em conciliacao_recibos se passado
@@ -120,18 +168,21 @@ export async function GET(event) {
       valorCalculadaLoja = Number(recibo.valor_total || 0) || null;
     }
 
-    let rateioInfo: Record<string, any> | null = null;
+    let rateioInfo: RateioInfoPayload | null = null;
     if (rateioRow && rateioRow.ativo !== false) {
       const pctOrigem = Number(rateioRow.percentual_origem ?? 100);
       const pctDestino = Number(rateioRow.percentual_destino ?? 0);
       const base = valorCalculadaLoja ?? 0;
+      const vendedorDestinoRow = Array.isArray(rateioRow.vendedor_destino)
+        ? (rateioRow.vendedor_destino[0] ?? null)
+        : null;
 
       rateioInfo = {
         id: rateioRow.id,
         ativo: rateioRow.ativo,
         vendedor_destino_id: rateioRow.vendedor_destino_id,
         vendedor_destino_nome:
-          rateioRow.vendedor_destino?.nome_completo ?? rateioRow.vendedor_destino_id,
+          vendedorDestinoRow?.nome_completo ?? rateioRow.vendedor_destino_id,
         percentual_origem: pctOrigem,
         percentual_destino: pctDestino,
         valor_origem: Math.round((base * pctOrigem) / 100 * 100) / 100,
@@ -142,7 +193,7 @@ export async function GET(event) {
     return json({
       venda_recibo_id: vendaReciboId,
       soma_na_meta: somaNaMeta,
-      produto_nome: recibo.produto_resolvido?.nome ?? null,
+      produto_nome: produtoRow?.nome ?? null,
       produto_tipo_nome: tipoProduto?.nome ?? null,
       vendedor_origem: vendedorOrigem,
       rateio: rateioInfo,
