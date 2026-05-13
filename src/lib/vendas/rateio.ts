@@ -19,6 +19,8 @@ import {
 } from '$lib/utils/array';
 import { toCleanString as toStr, toFiniteNumber as toNumber } from '$lib/utils/values';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export type RateioRow = {
   venda_recibo_id?: string | null;
   conciliacao_recibo_id?: string | null;
@@ -52,12 +54,7 @@ function normalizeCompanyScopeIds(companyId?: string | null, companyIds?: string
 }
 
 export function isUuid(value?: string | null) {
-  return Boolean(
-    value &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        String(value)
-      )
-  );
+  return Boolean(value && UUID_PATTERN.test(String(value)));
 }
 
 function scaleNumericField(value: unknown, factor: number) {
