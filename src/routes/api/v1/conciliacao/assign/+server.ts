@@ -240,7 +240,6 @@ export async function POST(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
-    const companyIdSet = new Set(companyIds);
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
     if (!isUuid(conciliacaoId))
@@ -296,7 +295,7 @@ export async function POST(event) {
     if (!registro)
       return json({ error: "Registro não encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
     const registroCompanyId = String(registro.company_id || "").trim();
-    if (!scope.isAdmin && !companyIdSet.has(registroCompanyId)) {
+    if (!scope.isAdmin && !companyIds.includes(registroCompanyId)) {
       return json({ error: "Registro fora do escopo." }, { status: 403, headers: NO_STORE_HEADERS });
     }
 

@@ -137,7 +137,6 @@ export async function GET(event) {
       scope,
       event.url.searchParams.get("empresa_id"),
     );
-    const companyIdSet = new Set(companyIds);
 
     const { data: viagem, error } = await client
       .from("viagens")
@@ -172,7 +171,7 @@ export async function GET(event) {
       throw error;
     }
 
-    if (companyIds.length > 0 && !companyIdSet.has(viagem.company_id)) {
+    if (companyIds.length > 0 && !companyIds.includes(viagem.company_id)) {
       return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -348,7 +347,6 @@ export async function PATCH(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
     const companyIds = resolveScopedCompanyIds(scope, body.company_id);
-    const companyIdSet = new Set(companyIds);
 
     const { data: existing, error: checkError } = await client
       .from("viagens")
@@ -362,7 +360,7 @@ export async function PATCH(event) {
       return json({ error: "Viagem não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    if (companyIds.length > 0 && !companyIdSet.has(existing.company_id)) {
+    if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
       return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -467,7 +465,6 @@ export async function DELETE(event) {
       scope,
       event.url.searchParams.get("company_id"),
     );
-    const companyIdSet = new Set(companyIds);
 
     // ✅ Guard: não-admin deve ter empresa identificada
     if (!scope.isAdmin && companyIds.length === 0) {
@@ -487,7 +484,7 @@ export async function DELETE(event) {
       return json({ error: "Viagem não encontrada" }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    if (companyIds.length > 0 && !companyIdSet.has(existing.company_id)) {
+    if (companyIds.length > 0 && !companyIds.includes(existing.company_id)) {
       return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 

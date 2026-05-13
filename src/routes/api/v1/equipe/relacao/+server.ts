@@ -57,10 +57,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return errorResponse("Gestor ou vendedor nao encontrado.", 404);
     }
     if (!scope.isAdmin) {
-      const allowedCompanies = new Set(scope.companyIds);
       const gestorCompanyId = String(gestor.company_id || "");
       const vendedorCompanyId = String(vendedor.company_id || "");
-      if (!allowedCompanies.has(gestorCompanyId) || !allowedCompanies.has(vendedorCompanyId)) {
+      if (!scope.companyIds.includes(gestorCompanyId) || !scope.companyIds.includes(vendedorCompanyId)) {
         return errorResponse("Equipe fora do seu escopo.", 403);
       }
     }

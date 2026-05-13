@@ -74,11 +74,10 @@ export async function assertCompanyAccess(
   if (scope.isAdmin) return null;
 
   const scopedCompanyIds = resolveScopedCompanyIds(scope, companyId);
-  const scopedCompanySet = new Set(scopedCompanyIds);
   const allowed =
     scopedCompanyIds.length > 0 &&
     scopedCompanyIds[0] !== NO_MATCH_COMPANY_ID &&
-    scopedCompanySet.has(companyId);
+    scopedCompanyIds.includes(companyId);
   if (!allowed) return noStoreTextResponse("Sem acesso a empresa.", 403);
 
   return null;
