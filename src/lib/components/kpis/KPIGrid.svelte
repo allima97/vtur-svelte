@@ -1,12 +1,15 @@
 <script lang="ts">
-  export let columns: 1 | 2 | 3 | 4 | 5 | 6 | "auto" = "auto";
+  type KPIGridColumns = 1 | 2 | 3 | 4 | 5 | 6 | "auto";
+  type KPIGridColumnKey = `${KPIGridColumns}`;
+
+  export let columns: KPIGridColumns = "auto";
   export let className = "";
   export let loading = false;
   export let loadingTitle = "Carregando registros";
   export let loadingMessage =
     "Aguarde enquanto o sistema busca os dados da tabela.";
 
-  const gridClassMap: Record<string, string> = {
+  const gridClassMap: Record<KPIGridColumnKey, string> = {
     auto: "vtur-kpi-grid",
     "1": "vtur-kpi-grid vtur-kpi-grid-1",
     "2": "vtur-kpi-grid vtur-kpi-grid-2",
@@ -16,11 +19,12 @@
     "6": "vtur-kpi-grid vtur-kpi-grid-6",
   };
 
+  $: columnKey = String(columns) as KPIGridColumnKey;
   $: skeletonCount = columns === "auto" ? 4 : Math.max(1, Number(columns) || 4);
 </script>
 
 <div
-  class={`${gridClassMap[String(columns)] ?? gridClassMap.auto} ${className}`.trim()}
+  class={`${gridClassMap[columnKey] ?? gridClassMap.auto} ${className}`.trim()}
 >
   {#if loading}
     <span class="sr-only">{loadingTitle}. {loadingMessage}</span>
