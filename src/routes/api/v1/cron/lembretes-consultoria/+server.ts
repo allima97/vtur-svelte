@@ -31,7 +31,7 @@ function disabledCronResponse(dryRun: boolean) {
   );
 }
 
-export const POST: RequestHandler = async ({ request }) => {
+async function handleCronRequest(request: Request) {
   const CRON_SECRET = env.CRON_SECRET_CONSULTORIA || env.CRON_SECRET;
   const secret = request.headers.get("x-cron-secret");
   if (!CRON_SECRET || !secretMatches(CRON_SECRET, secret)) {
@@ -46,4 +46,8 @@ export const POST: RequestHandler = async ({ request }) => {
       ? (bodyResult.data as Record<string, unknown>)
       : {};
   return disabledCronResponse(Boolean(body.dryRun));
+}
+
+export const POST: RequestHandler = async ({ request }) => {
+  return handleCronRequest(request);
 };
