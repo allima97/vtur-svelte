@@ -25,7 +25,7 @@
   export let actions: Action[] = [];
   export let color: string | null = null;
 
-  const accentClasses: Record<string, string> = {
+  const accentClasses = {
     clientes: 'from-blue-600 to-cyan-500',
     vendas: 'from-green-600 to-emerald-500',
     financeiro: 'from-orange-600 to-amber-500',
@@ -38,7 +38,17 @@
     teal: 'from-teal-600 to-cyan-500'
   };
 
-  $: accentClass = accentClasses[color || ''] || 'from-slate-900 to-slate-500';
+  type AccentColor = keyof typeof accentClasses;
+
+  function resolveAccentClass(value: string | null): string {
+    if (value && value in accentClasses) {
+      return accentClasses[value as AccentColor];
+    }
+
+    return 'from-slate-900 to-slate-500';
+  }
+
+  $: accentClass = resolveAccentClass(color);
 </script>
 
 <div class="vtur-page-header mb-4 sm:mb-6">
