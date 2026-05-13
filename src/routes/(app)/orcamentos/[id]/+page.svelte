@@ -225,7 +225,7 @@
       const supabaseBrowser = createSupabaseBrowserClient();
       await openQuotePreview({
         quoteId: orcamentoId,
-        supabase: supabaseBrowser as any,
+        supabase: supabaseBrowser,
         showItemValues: true,
         discount: exportDescontoNum,
       });
