@@ -1,10 +1,14 @@
 <script lang="ts">
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import Button from './Button.svelte';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   type TabItem = {
     key: string;
     label: string;
-    icon?: any;
+    icon?: IconComponent;
     badge?: string | number | null;
     disabled?: boolean;
   };
