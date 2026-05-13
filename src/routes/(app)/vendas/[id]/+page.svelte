@@ -76,6 +76,47 @@
     destino?: { nome?: string | null } | string | null;
   };
 
+  type RankingReciboRateio = {
+    percentual_origem?: number | null;
+    percentual_destino?: number | null;
+    vendedor_destino_id?: string | null;
+    vendedor_destino?: { nome_completo?: string | null } | null;
+  };
+
+  type RankingReciboConcMeta = {
+    valor_lancamentos?: number | null;
+    valor_descontos?: number | null;
+    valor_abatimentos?: number | null;
+    valor_nao_comissionavel?: number | null;
+  };
+
+  type RankingReciboSnapshot = {
+    recibo_id: string;
+    numero_recibo?: string | null;
+    provisorio?: boolean | null;
+    conciliacao_status?: string | null;
+    tem_conciliacao?: boolean | null;
+    valor_ranking_efetivo?: number | null;
+    venda_valor_total?: number | null;
+    conc_valor_ranking?: number | null;
+    is_seguro_viagem?: boolean | null;
+    ranking_produto_nome?: string | null;
+    diverge?: boolean | null;
+    divergencia_valor?: number | null;
+    diverge_taxas?: boolean | null;
+    divergencia_taxas?: number | null;
+    rateio?: RankingReciboRateio | null;
+    conc_meta?: RankingReciboConcMeta | null;
+  };
+
+  type RankingTotaisSnapshot = {
+    algum_provisorio?: boolean | null;
+    algum_diverge?: boolean | null;
+    valor_ranking_efetivo?: number | null;
+    divergencia_total?: number | null;
+    divergencia_taxas_total?: number | null;
+  };
+
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
@@ -93,8 +134,8 @@
   let tiposPacoteBase: Array<{ id: string; nome: string }> = [];
 
   // Ranking e Conciliação por recibo
-  let rankingRecibos: any[] = [];
-  let rankingTotais: any = null;
+  let rankingRecibos: RankingReciboSnapshot[] = [];
+  let rankingTotais: RankingTotaisSnapshot | null = null;
   let rankingLoading = false;
 
   // Edição por modal de recibo
