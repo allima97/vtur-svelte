@@ -15,6 +15,10 @@
   let appReady = false;
   let permsInitialized = false;
 
+  function getErrorMessage(err: unknown) {
+    return err instanceof Error ? err.message : String((err as { message?: unknown })?.message || '');
+  }
+
   function handleResize() {
     sidebar.setMobile(window.innerWidth < 1024);
   }
@@ -25,7 +29,7 @@
       await permissoes.init(supabase);
     } catch (err) {
       if (dev) console.error('[AppLayout] Erro ao inicializar permissoes:', err);
-      const message = String((err as any)?.message || '').toLowerCase();
+      const message = getErrorMessage(err).toLowerCase();
       if (
         message.includes('sessao invalida') ||
         message.includes('login novamente') ||
