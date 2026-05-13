@@ -54,6 +54,10 @@
     maximumFractionDigits: 2
   });
 
+  function getErrorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : fallback;
+  }
+
   type ConciliacaoItem = {
     id: string;
     company_id?: string;
@@ -722,8 +726,8 @@
       try {
         importParseError = '';
         result = parseRexturConciliacaoImportText(importText, importFallbackDate || todayISODateLocal());
-      } catch (error: any) {
-        importParseError = error?.message || 'Não foi possível ler a Reserva Fácil Rextur.';
+      } catch (error: unknown) {
+        importParseError = getErrorMessage(error, 'Não foi possível ler a Reserva Fácil Rextur.');
         result = { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
       }
     }
