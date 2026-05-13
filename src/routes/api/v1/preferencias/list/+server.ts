@@ -46,6 +46,16 @@ type PreferenciaOwnedRow = Record<string, unknown> & {
   id?: unknown;
 };
 
+type PreferenciaSharedToMeRow = {
+  id?: unknown;
+  status?: unknown;
+  created_at?: unknown;
+  accepted_at?: unknown;
+  revoked_at?: unknown;
+  shared_by_user?: PreferenciaShareUser | null;
+  preferencia?: unknown;
+};
+
 export async function GET(event) {
   try {
     const { client, user, scope } = await requirePreferenciasScope(event, 1);
@@ -133,7 +143,7 @@ export async function GET(event) {
           shares: sharesByPref.get(String(p?.id || "")) || [],
         }));
 
-        const shared = (sharesToMeResp.data || []).map((s: any) => ({
+        const shared = ((sharesToMeResp.data || []) as PreferenciaSharedToMeRow[]).map((s) => ({
           scope: "shared" as const,
           share: {
             id: String(s?.id || ""),
