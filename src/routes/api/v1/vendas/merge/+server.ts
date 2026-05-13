@@ -29,6 +29,48 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito'
 ];
 
+type PagamentoParcelaRow = {
+  valor?: number | string | null;
+  vencimento?: string | null;
+};
+
+type PagamentoMergeRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  forma_pagamento_id?: string | null;
+  forma_nome?: string | null;
+  valor_total?: number | string | null;
+  valor_bruto?: number | string | null;
+  desconto_valor?: number | string | null;
+  parcelas?: PagamentoParcelaRow[] | null;
+  parcelas_qtd?: number | null;
+  paga_comissao?: boolean | null;
+};
+
+type ReciboMergeRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  valor_total?: number | string | null;
+  valor_taxas?: number | string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+};
+
+type SaleMergeRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  desconto_comercial_aplicado?: boolean | null;
+  desconto_comercial_valor?: number | string | null;
+  data_embarque?: string | null;
+  data_final?: string | null;
+  company_id?: string | null;
+};
+
+type ParametroNaoComissionavelRow = {
+  termo?: string | null;
+  termo_normalizado?: string | null;
+};
+
 function normalizeText(value?: string | null) {
   return String(value || '')
     .normalize('NFD')
@@ -38,13 +80,13 @@ function normalizeText(value?: string | null) {
     .replace(/\s+/g, ' ');
 }
 
-function normalizeMoneyKey(value: number | null | undefined) {
+function normalizeMoneyKey(value: number | string | null | undefined) {
   const parsed = Number(value || 0);
   if (!Number.isFinite(parsed)) return '0.00';
   return parsed.toFixed(2);
 }
 
-function buildPagamentoKey(pagamento: any) {
+function buildPagamentoKey(pagamento: PagamentoMergeRow) {
   const forma = String(pagamento?.forma_nome || pagamento?.forma_pagamento_id || '')
     .toLowerCase()
     .trim();
@@ -53,7 +95,7 @@ function buildPagamentoKey(pagamento: any) {
   );
   const parcelas = Array.isArray(pagamento?.parcelas) ? pagamento.parcelas : [];
   const parcelasKey = parcelas
-    .map((parcela: any) => {
+    .map((parcela: PagamentoParcelaRow) => {
       const valor = normalizeMoneyKey(parcela?.valor);
       const vencimento = String(parcela?.vencimento || '').trim();
       return `${valor}|${vencimento}`;
@@ -70,8 +112,8 @@ function buildPagamentoKey(pagamento: any) {
   return [forma, totalKey, parcelasKey, String(parcelasQtd), pagaComissaoKey].join('|');
 }
 
-function dedupePagamentos(pagamentos: any[], preferVendaId?: string) {
-  const map = new Map<string, any>();
+function dedupePagamentos(pagamentos: PagamentoMergeRow[], preferVendaId?: string) {
+  const map = new Map<string, PagamentoMergeRow>();
   const duplicateIds: string[] = [];
 
   for (const pagamento of pagamentos) {
@@ -98,7 +140,7 @@ function dedupePagamentos(pagamentos: any[], preferVendaId?: string) {
   };
 }
 
-function calcularValorPagamento(pagamento: any) {
+function calcularValorPagamento(pagamento: PagamentoMergeRow) {
   const valorTotal = Number(pagamento?.valor_total || 0);
   if (valorTotal > 0) return valorTotal;
 
@@ -109,11 +151,11 @@ function calcularValorPagamento(pagamento: any) {
   return 0;
 }
 
-function calcularTotalPagamentos(pagamentos: any[]) {
+function calcularTotalPagamentos(pagamentos: PagamentoMergeRow[]) {
   return pagamentos.reduce((acc, pagamento) => acc + calcularValorPagamento(pagamento), 0);
 }
 
-async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
+async function carregarTermosNaoComissionaveis(client: ReturnType<typeof getAdminClient>): Promise<string[]> {
   try {
     const { data, error } = await client
       .from('parametros_pagamentos_nao_comissionaveis')
@@ -123,7 +165,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
     if (error) throw error;
 
     const termos = (data || [])
-      .map((row: any) => normalizeText(row?.termo_normalizado || row?.termo))
+      .map((row: ParametroNaoComissionavelRow) => normalizeText(row?.termo_normalizado || row?.termo))
       .filter(Boolean);
 
     return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map(normalizeText);
@@ -208,17 +250,17 @@ export async function POST(event) {
 
     const saleIds = [vendaId, ...mergeIds];
 
-    const salesData: any[] = [];
+    const salesData: SaleMergeRow[] = [];
     for (const batch of chunkArray(saleIds)) {
       const { data, error: salesError } = await client
         .from('vendas')
         .select('id, vendedor_id, desconto_comercial_aplicado, desconto_comercial_valor, data_embarque, data_final, company_id')
         .in('id', batch);
       if (salesError) throw salesError;
-      salesData.push(...(data || []));
+      salesData.push(...((data || []) as SaleMergeRow[]));
     }
 
-    const sales = salesData.filter((item: any) => isSaleInScope(item, { scope, companyIds, vendedorIds }));
+    const sales = salesData.filter((item) => isSaleInScope(item, { scope, companyIds, vendedorIds }));
     const foundIds = new Set<string>();
     for (const item of sales) {
       foundIds.add(String(item?.id || ''));
@@ -227,8 +269,8 @@ export async function POST(event) {
       return new Response('Vendas invalidas para mescla.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const receiptsData: any[] = [];
-    const paymentsData: any[] = [];
+    const receiptsData: ReciboMergeRow[] = [];
+    const paymentsData: PagamentoMergeRow[] = [];
     for (const batch of chunkArray(saleIds)) {
       const [receiptsResult, paymentsResult] = await Promise.all([
         client
@@ -242,8 +284,8 @@ export async function POST(event) {
       ]);
       if (receiptsResult.error) throw receiptsResult.error;
       if (paymentsResult.error) throw paymentsResult.error;
-      receiptsData.push(...(receiptsResult.data || []));
-      paymentsData.push(...(paymentsResult.data || []));
+      receiptsData.push(...((receiptsResult.data || []) as ReciboMergeRow[]));
+      paymentsData.push(...((paymentsResult.data || []) as PagamentoMergeRow[]));
     }
 
     const pagamentos = Array.isArray(paymentsData) ? paymentsData : [];
@@ -295,12 +337,12 @@ export async function POST(event) {
     }
 
     const receipts = Array.isArray(receiptsData) ? receiptsData : [];
-    const totalBrutoRecibos = receipts.reduce((acc: number, item: any) => acc + Number(item?.valor_total || 0), 0);
-    const totalTaxasRecibos = receipts.reduce((acc: number, item: any) => acc + Number(item?.valor_taxas || 0), 0);
+    const totalBrutoRecibos = receipts.reduce((acc: number, item) => acc + Number(item?.valor_total || 0), 0);
+    const totalTaxasRecibos = receipts.reduce((acc: number, item) => acc + Number(item?.valor_taxas || 0), 0);
     const totalPago = calcularTotalPagamentos(deduped);
     const totalPagoFinal = totalPago > 0 ? totalPago : totalBrutoRecibos;
     const termosNaoComissionaveis = await carregarTermosNaoComissionaveis(client);
-    const valorNaoComissionado = deduped.reduce((acc: number, pagamento: any) => {
+    const valorNaoComissionado = deduped.reduce((acc: number, pagamento) => {
       const naoComissiona =
         pagamento?.paga_comissao === false ||
         isFormaNaoComissionavel(pagamento?.forma_nome, termosNaoComissionaveis);
@@ -310,17 +352,17 @@ export async function POST(event) {
       totalPagoFinal > 0 ? Math.max(0, totalPagoFinal - valorNaoComissionado) : 0;
 
     const descontoTotal = sales.reduce(
-      (acc: number, item: any) => acc + Number(item?.desconto_comercial_valor || 0),
+      (acc: number, item) => acc + Number(item?.desconto_comercial_valor || 0),
       0
     );
-    const principalSale = sales.find((item: any) => item?.id === vendaId);
+    const principalSale = sales.find((item) => item?.id === vendaId);
     const dataEmbarque =
       receipts
-        .map((item: any) => String(item?.data_inicio || '').trim())
+        .map((item) => String(item?.data_inicio || '').trim())
         .filter(Boolean)
         .sort()[0] || principalSale?.data_embarque || null;
     const datasFim = receipts
-      .map((item: any) => String(item?.data_fim || '').trim())
+      .map((item) => String(item?.data_fim || '').trim())
       .filter(Boolean)
       .sort();
     const dataFinal = datasFim.length > 0 ? datasFim[datasFim.length - 1] : principalSale?.data_final || null;
