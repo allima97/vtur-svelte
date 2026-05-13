@@ -19,9 +19,35 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 
 const MAX_VIAGEM_DOSSIE_BODY_BYTES = 512 * 1024;
 
-function vendedorOwnsViagem(userId: string, viagem: any) {
+type ViagemDossieBatchBody = {
+  viagemId?: string | null;
+  action?: string | null;
+  data?: Record<string, unknown> | null;
+};
+
+type ViagemVendedorRelation = {
+  vendedor_id: string | null;
+};
+
+type ViagemDossieBatchRow = {
+  id: string | null;
+  company_id: string | null;
+  venda_id: string | null;
+  cliente_id?: string | null;
+  responsavel_user_id: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status?: string | null;
+  venda: ViagemVendedorRelation[] | null;
+};
+
+function firstVendedorRelation(venda: ViagemVendedorRelation[] | null | undefined) {
+  return Array.isArray(venda) ? (venda[0] ?? null) : null;
+}
+
+function vendedorOwnsViagem(userId: string, viagem: ViagemDossieBatchRow) {
   const responsavelId = String(viagem?.responsavel_user_id || "").trim();
-  const vendedorId = String(viagem?.venda?.vendedor_id || "").trim();
+  const vendedorId = String(firstVendedorRelation(viagem?.venda)?.vendedor_id || "").trim();
   return responsavelId === userId || vendedorId === userId;
 }
 
@@ -114,13 +140,22 @@ async function loadDossie(
   if (!detalhe) return null;
   if (isVendedor && !vendedorOwnsViagem(userId, detalhe)) return null;
 
-  const statusAtual = await syncViagemStatusIfNeeded(client, detalhe as any);
-  (detalhe as any).status = statusAtual;
+  const statusAtual = await syncViagemStatusIfNeeded(client, detalhe);
+  detalhe.status = statusAtual;
 
-  let viagensVenda: any[] = [];
+  let viagensVenda: Array<{
+    id: string | null;
+    recibo_id?: string | null;
+    origem?: string | null;
+    destino?: string | null;
+    status?: string | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    observacoes?: string | null;
+  }> = [];
   if (detalhe?.venda_id) {
     const ownsVenda =
-      String((detalhe as any)?.venda?.vendedor_id || "").trim() === userId;
+      String(firstVendedorRelation(detalhe?.venda)?.vendedor_id || "").trim() === userId;
     let viagensQuery = client
       .from("viagens")
       .select(
@@ -136,7 +171,14 @@ async function loadDossie(
     await syncViagensStatus(client, viagensVenda);
   }
 
-  let acompanhantesCliente: any[] = [];
+  let acompanhantesCliente: Array<{
+    id: string | null;
+    nome_completo?: string | null;
+    cpf?: string | null;
+    telefone?: string | null;
+    grau_parentesco?: string | null;
+    data_nascimento?: string | null;
+  }> = [];
   const clienteBaseId = detalhe?.venda?.cliente_id || null;
   if (clienteBaseId) {
     const { data } = await client
@@ -175,7 +217,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ViagemDossieBatchBody)
         : {};
     const viagemId = String(body?.viagemId || "").trim();
     const action = String(body?.action || "").trim();
@@ -309,7 +351,7 @@ export async function POST(event: RequestEvent) {
         ? updateQuery.eq("venda_id", viagemRow.venda_id)
         : updateQuery.eq("id", viagemRow.id);
       const ownsVenda =
-        String((viagemRow as any)?.venda?.vendedor_id || "").trim() ===
+        String(firstVendedorRelation(viagemRow?.venda)?.vendedor_id || "").trim() ===
         user.id;
       if (scope.isVendedor && !ownsVenda)
         updateQuery = updateQuery.eq("responsavel_user_id", user.id);
