@@ -98,9 +98,9 @@ export const MAPA_MODULOS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 // MODULO_ALIASES: mapa lowercase para lookup rápido
 // ---------------------------------------------------------------------------
-export const MODULO_ALIASES: Record<string, string> = Object.keys(MAPA_MODULOS).reduce(
-  (acc, key) => {
-    acc[key.toLowerCase()] = MAPA_MODULOS[key];
+export const MODULO_ALIASES: Record<string, string> = Object.entries(MAPA_MODULOS).reduce(
+  (acc, [label, modulo]) => {
+    acc[label.toLowerCase()] = modulo;
     return acc;
   },
   {} as Record<string, string>,
