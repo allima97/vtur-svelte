@@ -63,8 +63,8 @@
         goto('/auth/login');
       }, 2000);
 
-    } catch (err: any) {
-      error = err.message || 'Erro ao ativar conta';
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Erro ao ativar conta';
     } finally {
       loading = false;
     }
