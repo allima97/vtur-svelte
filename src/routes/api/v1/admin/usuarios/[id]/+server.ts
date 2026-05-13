@@ -53,6 +53,13 @@ function invalidateManagedUserCache(params: {
   });
 }
 
+function resolveFinanceiroCompanyIds(input: unknown, companyId?: string | null) {
+  const values = Array.isArray(input)
+    ? input.map((id: unknown) => String(id || '').trim())
+    : [];
+  return Array.from(new Set([...values, ...(companyId ? [companyId] : [])]));
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -171,14 +178,7 @@ export async function PATCH(event) {
       body.company_id !== undefined
         ? String(body.company_id || '').trim()
         : String(targetUser.company_id || '').trim();
-    const financeiroCompanyIds = Array.from(
-      new Set([
-        ...(Array.isArray(body.financeiro_company_ids)
-          ? body.financeiro_company_ids.map((id: unknown) => String(id || '').trim())
-          : []),
-        ...(effectiveCompanyId ? [effectiveCompanyId] : [])
-      ])
-    );
+    const financeiroCompanyIds = resolveFinanceiroCompanyIds(body.financeiro_company_ids, effectiveCompanyId);
     if (isFinanceiroRole(effectiveUserTypeName)) {
       if (effectiveUsoIndividual) {
         return json({ error: 'Usuario financeiro deve ser corporativo e vinculado a empresa.' }, { status: 400, headers: NO_STORE_HEADERS });
