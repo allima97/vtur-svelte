@@ -1242,13 +1242,14 @@
           : `Recálculo concluído: ${scanned} verificados, ${recalculated} recalculados${duplicateText}.`
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao forçar recálculo.');
       addOperationLog({
         action: 'Recalcular mês',
         status: 'error',
-        message: error.message || 'Erro ao forçar recálculo.'
+        message
       });
-      toast.error(error.message || 'Erro ao forçar recálculo.');
+      toast.error(message);
     } finally {
       running = false;
       operationMessage = '';
