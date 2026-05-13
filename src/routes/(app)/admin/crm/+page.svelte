@@ -18,6 +18,7 @@
   type Categoria = { id: string; nome: string; icone: string; sort_order: number; ativo: boolean };
   type Tema = { id: string; nome: string; categoria_id: string | null; asset_url: string; scope: string; ativo: boolean };
   type Template = { id: string; nome: string; categoria: string | null; titulo: string; corpo: string; scope: string; ativo: boolean };
+  type CtrmEntity = Categoria | Tema | Template;
 
   const SCOPE_OPTIONS = [
     { value: 'system', label: 'Sistema' },
@@ -101,12 +102,19 @@
     modalOpen = true;
   }
 
-  function openEdit(entity: 'categoria' | 'tema' | 'template', item: any) {
+  function openEdit(entity: 'categoria' | 'tema' | 'template', item: CtrmEntity) {
     editingEntity = entity;
     editingId = item.id;
-    if (entity === 'categoria') formCategoria = { nome: item.nome, icone: item.icone || 'pi pi-tag', sort_order: item.sort_order || 0, ativo: item.ativo };
-    else if (entity === 'tema') formTema = { nome: item.nome, categoria_id: item.categoria_id || '', asset_url: item.asset_url || '', scope: item.scope || 'system', ativo: item.ativo };
-    else formTemplate = { nome: item.nome, categoria: item.categoria || '', titulo: item.titulo, corpo: item.corpo, scope: item.scope || 'user', ativo: item.ativo };
+    if (entity === 'categoria') {
+      const categoria = item as Categoria;
+      formCategoria = { nome: categoria.nome, icone: categoria.icone || 'pi pi-tag', sort_order: categoria.sort_order || 0, ativo: categoria.ativo };
+    } else if (entity === 'tema') {
+      const tema = item as Tema;
+      formTema = { nome: tema.nome, categoria_id: tema.categoria_id || '', asset_url: tema.asset_url || '', scope: tema.scope || 'system', ativo: tema.ativo };
+    } else {
+      const template = item as Template;
+      formTemplate = { nome: template.nome, categoria: template.categoria || '', titulo: template.titulo, corpo: template.corpo, scope: template.scope || 'user', ativo: template.ativo };
+    }
     modalOpen = true;
   }
 
