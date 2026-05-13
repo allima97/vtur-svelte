@@ -48,6 +48,13 @@
   const STATUS_COM_ACOES_DECISAO = new Set(["pendente", "enviado", "novo"]);
   let previewingPdf = false;
 
+  interface OrcamentoInteracao {
+    tipo?: string | null;
+    created_at?: string | null;
+    observacoes?: string | null;
+    status?: string | null;
+  }
+
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
   $: exportDescontoNum = (() => {
@@ -57,7 +64,7 @@
   })();
 
   let orcamento: any = null;
-  let interacoes: any[] = [];
+  let interacoes: OrcamentoInteracao[] = [];
   let loading = true;
   let error: string | null = null;
   let processando = false;
@@ -84,7 +91,7 @@
         redirectOnForbidden: false,
       });
       orcamento = data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 401) {
         toast.error("Sessão expirada. Faça login novamente para continuar.");
         const next = `${$page.url.pathname}${$page.url.search}`;
@@ -102,7 +109,8 @@
         error = "Orçamento não encontrado";
         return;
       }
-      error = `Erro ao carregar dados do orçamento: ${err.message}`;
+      const message = err instanceof Error ? err.message : "erro desconhecido";
+      error = `Erro ao carregar dados do orçamento: ${message}`;
       toast.error("Erro ao carregar orçamento");
     }
   }
@@ -110,7 +118,7 @@
   async function carregarInteracoes() {
     loadingInteracoes = true;
     try {
-      const data = await apiFetch<{ interacoes?: any[] }>("/api/v1/orcamentos/interacao", {
+      const data = await apiFetch<{ interacoes?: OrcamentoInteracao[] }>("/api/v1/orcamentos/interacao", {
         query: { quote_id: orcamentoId },
         redirectOnUnauthorized: false,
       });
@@ -655,7 +663,7 @@
     <strong>{formatCurrency(orcamento.total || valorTotal)}</strong>
     e {#if ultimaInteracao}<strong
         >última interação em {formatDateTime(
-          ultimaInteracao.created_at,
+          ultimaInteracao.created_at || null,
         )}</strong
       >{:else}<strong>nenhuma interação registrada</strong>{/if}, facilitando a
     leitura rápida de prioridade comercial.
@@ -956,7 +964,7 @@
                     class="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0"
                   >
                     <svelte:component
-                      this={getTipoInteracaoIcon(interacao.tipo)}
+                      this={getTipoInteracaoIcon(interacao.tipo || "")}
                       size={14}
                       class="text-clientes-600"
                     />
@@ -964,10 +972,10 @@
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
                       <span class="font-medium text-slate-900 text-sm">
-                        {getTipoInteracaoLabel(interacao.tipo)}
+                        {getTipoInteracaoLabel(interacao.tipo || "")}
                       </span>
                       <span class="text-xs text-slate-500">
-                        {formatDateTime(interacao.created_at)}
+                        {formatDateTime(interacao.created_at || null)}
                       </span>
                     </div>
                     <p class="text-sm text-slate-700 mt-1">
