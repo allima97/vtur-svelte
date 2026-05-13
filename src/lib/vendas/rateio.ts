@@ -31,6 +31,16 @@ export type RateioRow = {
   ativo?: boolean | null;
 };
 
+type SplitRateioLookupRow = {
+  venda_recibo_id?: string | null;
+  conciliacao_recibo_id?: string | null;
+};
+
+type LinkedConciliacaoReciboRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // HELPERS INTERNOS
 // ---------------------------------------------------------------------------
@@ -125,7 +135,7 @@ export async function fetchRateioByReciboIds(
 
   const map = new Map<string, RateioRow>();
 
-  const byConcReciboRows: any[] = [];
+  const byConcReciboRows: RateioRow[] = [];
 
   for (const chunk of chunkArray(ids, SUPABASE_IN_BATCH_SIZE)) {
     const { data: byVendaRecibo, error: byVendaErr } = await client
@@ -159,9 +169,7 @@ export async function fetchRateioByReciboIds(
   }
 
   // Cross-reference: conciliacao_recibo_id -> venda_recibo_id
-  const concIds = uniqueCleanStrings(
-    byConcReciboRows.map((row: any) => row?.conciliacao_recibo_id)
-  ).filter(isUuid);
+  const concIds = uniqueCleanStrings(byConcReciboRows.map((row) => row?.conciliacao_recibo_id)).filter(isUuid);
   if (concIds.length > 0) {
     for (const chunk of chunkArray(concIds, SUPABASE_IN_BATCH_SIZE)) {
       const { data: concRows, error: concErr } = await client
@@ -169,7 +177,7 @@ export async function fetchRateioByReciboIds(
         .select('id, venda_recibo_id')
         .in('id', chunk);
       if (concErr) throw concErr;
-      for (const row of concRows || []) {
+      for (const row of (concRows || []) as LinkedConciliacaoReciboRow[]) {
         const concId = toStr(row?.id);
         const linkedVendaReciboId = toStr(row?.venda_recibo_id);
         if (!concId || !linkedVendaReciboId) continue;
@@ -200,7 +208,7 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   const scopedVendedorIds = uniqueCleanStrings(options.vendedorIds || []).filter(isUuid);
   if (scopedVendedorIds.length === 0) return [];
 
-  const splitRows: any[] = [];
+  const splitRows: SplitRateioLookupRow[] = [];
   const companyBatches =
     scopedCompanyIds.length > 0 ? chunkArray(scopedCompanyIds, SUPABASE_IN_BATCH_SIZE) : [null];
   for (const companyBatch of companyBatches) {
@@ -222,12 +230,8 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
     }
   }
 
-  const vendaReciboIds = uniqueCleanStrings(
-    (splitRows || []).map((row: any) => row?.venda_recibo_id)
-  ).filter(isUuid);
-  const concReciboIds = uniqueCleanStrings(
-    (splitRows || []).map((row: any) => row?.conciliacao_recibo_id)
-  ).filter(isUuid);
+  const vendaReciboIds = uniqueCleanStrings(splitRows.map((row) => row?.venda_recibo_id)).filter(isUuid);
+  const concReciboIds = uniqueCleanStrings(splitRows.map((row) => row?.conciliacao_recibo_id)).filter(isUuid);
 
   const vendaIds = new Set<string>();
 
