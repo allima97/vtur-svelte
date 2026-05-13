@@ -17,6 +17,53 @@ import {
 } from '$lib/server/readModelCache';
 import { chunkArray } from '$lib/utils/array';
 
+type ConciliacaoListRow = {
+  id: string;
+  company_id: string | null;
+  documento: string | null;
+  numero_reserva: string | null;
+  movimento_data: string | null;
+  status: string | null;
+  descricao: string | null;
+  valor_lancamentos: number | null;
+  valor_taxas: number | null;
+  valor_descontos: number | null;
+  valor_abatimentos: number | null;
+  valor_nao_comissionavel: number | null;
+  valor_calculada_loja: number | null;
+  valor_visao_master: number | null;
+  valor_opfax: number | null;
+  valor_saldo: number | null;
+  valor_venda_real: number | null;
+  valor_comissao_loja: number | null;
+  percentual_comissao_loja: number | null;
+  faixa_comissao: string | null;
+  is_seguro_viagem: boolean | null;
+  origem: string | null;
+  conciliado: boolean | null;
+  match_total: boolean | null;
+  match_taxas: boolean | null;
+  sistema_valor_total: number | null;
+  sistema_valor_taxas: number | null;
+  diff_total: number | null;
+  diff_taxas: number | null;
+  venda_id: string | null;
+  venda_recibo_id: string | null;
+  ranking_vendedor_id: string | null;
+  ranking_produto_id: string | null;
+  ranking_assigned_at: string | null;
+  is_baixa_rac: boolean | null;
+  last_checked_at: string | null;
+  ranking_vendedor?: { id: string; nome_completo: string | null }[] | null;
+  ranking_produto?: { id: string; nome: string | null }[] | null;
+};
+
+type ConciliacaoListItem = ConciliacaoListRow & {
+  status_display: string;
+  status_label: string;
+  status_text: string;
+};
+
 // ── Helpers de negócio (espelha vtur-app/src/lib/conciliacao/business.ts) ──
 
 function normalizeText(value?: string | null) {
@@ -72,7 +119,7 @@ export async function GET(event) {
       return json({ error: 'Empresa não identificada.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const rows = await getCachedReadModel<any[]>({
+    const rows = await getCachedReadModel<ConciliacaoListRow[]>({
       key: buildReadModelCacheKey('conciliacao:list:rows', {
         companyIds,
         inicio,
@@ -90,7 +137,7 @@ export async function GET(event) {
       ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
-        const dataRows: any[] = [];
+        const dataRows: ConciliacaoListRow[] = [];
         const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
         for (const companyBatch of companyBatches) {
           let query = client
@@ -137,7 +184,7 @@ export async function GET(event) {
       }
     };
     // Parity: add readable status label and mirror status as status_label for templates
-    let items = rows.map((row: any) => ({
+    let items: ConciliacaoListItem[] = rows.map((row) => ({
       ...row,
       status_display: formatStatusLabel(row.status),
       status_label: formatStatusLabel(row.status),
@@ -146,7 +193,7 @@ export async function GET(event) {
 
     if (q) {
       const qLower = q.toLowerCase();
-      items = items.filter((row: any) =>
+      items = items.filter((row) =>
         [row.documento, row.numero_reserva, row.descricao, row.status].join(' ').toLowerCase().includes(qLower)
       );
     }
@@ -155,9 +202,9 @@ export async function GET(event) {
     const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize);
 
     // KPIs
-    const efetivados = items.filter((row: any) => isConciliacaoEfetivada({ status: row.status, descricao: row.descricao }));
-    const pendentes = efetivados.filter((row: any) => !row.conciliado);
-    const semRanking = efetivados.filter((row: any) => !row.venda_id && !row.ranking_vendedor_id);
+    const efetivados = items.filter((row) => isConciliacaoEfetivada({ status: row.status, descricao: row.descricao }));
+    const pendentes = efetivados.filter((row) => !row.conciliado);
+    const semRanking = efetivados.filter((row) => !row.venda_id && !row.ranking_vendedor_id);
 
     return json(
       {
@@ -170,7 +217,7 @@ export async function GET(event) {
           efetivados: efetivados.length,
           pendentes: pendentes.length,
           semRanking: semRanking.length,
-          totalValor: efetivados.reduce((acc: number, row: any) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0), 0)
+          totalValor: efetivados.reduce((acc, row) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0), 0)
         }
       },
       { headers: DYNAMIC_READ_HEADERS }
