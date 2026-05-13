@@ -142,6 +142,22 @@ type VendaLookupRow = {
   vendedor_id?: string | null;
 };
 
+type ConciliacaoDiaSemMovimentoRow = {
+  data?: string | null;
+};
+
+type ConciliacaoExistenteRow = {
+  id?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  movimento_data?: string | null;
+  descricao?: string | null;
+  ranking_vendedor_id?: string | null;
+  ranking_produto_id?: string | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
 async function fetchReciboCandidates(params: {
   client: SupabaseClient;
   numero: string;
@@ -495,7 +511,7 @@ export async function POST(event) {
     const datasImportaveis = uniqueCleanStrings(
       importaveis.map((linha) => linha.movimento_data),
     );
-    let diasSemMovimento: any[] = [];
+    let diasSemMovimento: ConciliacaoDiaSemMovimentoRow[] = [];
     try {
       const { data } = await client
         .from("conciliacao_dias_sem_movimento")
@@ -503,9 +519,13 @@ export async function POST(event) {
         .eq("company_id", companyId)
         .in("data", datasImportaveis);
       diasSemMovimento = data || [];
-    } catch (err: any) {
-      const msg = String(err?.message || err || "").toLowerCase();
-      const code = String(err?.code || "").trim();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message.toLowerCase() : String(err || "").toLowerCase();
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String(err.code || "").trim()
+          : "";
       const isMissing =
         code === "42P01" ||
         msg.includes("does not exist") ||
@@ -515,7 +535,7 @@ export async function POST(event) {
     }
 
     const datasBloqueadas = diasSemMovimento
-      .map((r: any) => String(r?.data || ""))
+      .map((row) => String(row?.data || ""))
       .filter(Boolean);
     if (datasBloqueadas.length > 0) {
       const fmt = (d: string) => {
@@ -545,8 +565,9 @@ export async function POST(event) {
       .limit(5000);
 
     // Mapa exato: chave = companyId::data::documento::descricao
-    const existentesByKey = new Map<string, any>(
-      (existentes || []).map((row: any) => [
+    const existentesRows = (existentes || []) as ConciliacaoExistenteRow[];
+    const existentesByKey = new Map<string, ConciliacaoExistenteRow>(
+      existentesRows.map((row) => [
         buildImportKey(
           companyId,
           row.movimento_data,
@@ -557,15 +578,15 @@ export async function POST(event) {
       ]),
     );
 
-    const existentesRexturByKey = new Map<string, any>();
-    for (const row of existentes || []) {
-      const reserva = normalizeRexturLocalizador((row as any)?.numero_reserva);
+    const existentesRexturByKey = new Map<string, ConciliacaoExistenteRow>();
+    for (const row of existentesRows) {
+      const reserva = normalizeRexturLocalizador(row?.numero_reserva);
       if (!reserva) continue;
       existentesRexturByKey.set(
         buildRexturImportKey(
           companyId,
-          (row as any).movimento_data,
-          (row as any).documento,
+          row.movimento_data,
+          row.documento,
           reserva,
         ),
         row,
@@ -574,12 +595,12 @@ export async function POST(event) {
 
     // Mapa fallback: chave = companyId::data::documento (sem descrição)
     // Usado quando a descrição mudou levemente entre importações (evita duplicatas)
-    const existentesByFallbackKey = new Map<string, any[]>();
-    for (const row of existentes || []) {
+    const existentesByFallbackKey = new Map<string, ConciliacaoExistenteRow[]>();
+    for (const row of existentesRows) {
       const fk = buildImportFallbackKey(
         companyId,
-        (row as any).movimento_data,
-        (row as any).documento,
+        row.movimento_data,
+        row.documento,
       );
       const bucket = existentesByFallbackKey.get(fk) || [];
       bucket.push(row);
@@ -591,7 +612,7 @@ export async function POST(event) {
     const equipeVturId = equipeVturVendedor?.id ?? null;
     const rankingVendedorPermitidos = new Set(
       (await fetchRankingVendedoresByCompanyIds(client, [companyId]))
-        .map((row: any) => String(row?.id || "").trim())
+        .map((row) => String(row?.id || "").trim())
         .filter(Boolean),
     );
     const sanitizeRankingVendedorId = (value?: unknown) => {
