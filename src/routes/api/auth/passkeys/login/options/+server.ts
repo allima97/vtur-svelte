@@ -15,7 +15,7 @@ export const POST: RequestHandler = async (event) => {
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_OPTIONS_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const email = String(body?.email || '').trim();
     const remoteIp = event.getClientAddress?.() || 'unknown';
