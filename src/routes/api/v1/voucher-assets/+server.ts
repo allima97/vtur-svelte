@@ -29,6 +29,9 @@ const mutationError = (message: string, status: number) =>
 type SupabaseAdminClient = ReturnType<typeof getAdminClient>;
 
 type VoucherAssetRow = Record<string, unknown> & {
+  id?: string | null;
+  asset_kind?: string | null;
+  ordem?: number | null;
   storage_bucket?: string | null;
   storage_path?: string | null;
   preview_url?: string | null;
@@ -165,11 +168,11 @@ export async function GET(event) {
         return buildQuery();
       }
 
-      const rows: any[] = [];
+      const rows: VoucherAssetRow[] = [];
       for (const batch of chunkArray(companyIds)) {
         const result = await buildQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
-        rows.push(...(result.data || []));
+        rows.push(...((result.data || []) as unknown as VoucherAssetRow[]));
       }
 
       return {
