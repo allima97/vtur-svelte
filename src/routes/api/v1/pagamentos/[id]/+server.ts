@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import {
   ensureModuloAccess,
@@ -6,6 +7,7 @@ import {
   isUuid,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
+  type UserScope,
   resolveUserScope,
   toErrorResponse
 } from '$lib/server/v1';
@@ -20,6 +22,10 @@ const PAGAMENTO_ALLOWED_UPDATE_FIELDS = [
 ];
 type PagamentoAllowedUpdateField = (typeof PAGAMENTO_ALLOWED_UPDATE_FIELDS)[number];
 type PagamentoUpdateBody = Partial<Record<PagamentoAllowedUpdateField, unknown>>;
+type PagamentoScopeRow = {
+  company_id?: string | null;
+  venda?: { company_id?: string | null } | null;
+};
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
@@ -37,10 +43,9 @@ function invalidatePagamentoReadModels(companyId: string | null | undefined, use
 }
 
 async function resolvePagamentoComScope(
-  client: any,
-  id: string,
-  scope: any
-): Promise<{ pagamento: any; companyId: string | null } | null> {
+  client: SupabaseClient,
+  id: string
+): Promise<{ pagamento: PagamentoScopeRow; companyId: string | null } | null> {
   const { data, error } = await client
     .from('vendas_pagamentos')
     .select(
@@ -50,11 +55,12 @@ async function resolvePagamentoComScope(
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const companyId = String((data as any)?.venda?.company_id || data?.company_id || '').trim() || null;
-  return { pagamento: data, companyId };
+  const pagamento = data as PagamentoScopeRow;
+  const companyId = String(pagamento.venda?.company_id || pagamento.company_id || '').trim() || null;
+  return { pagamento, companyId };
 }
 
-function canAccessPagamentoCompany(scope: any, companyId: string | null) {
+function canAccessPagamentoCompany(scope: UserScope, companyId: string | null) {
   if (scope.isAdmin) return true;
   const companyIds = resolveScopedCompanyIds(scope, null);
   return Boolean(companyId && companyIds.length > 0 && companyIds.includes(companyId));
@@ -73,7 +79,7 @@ export async function GET(event) {
     const id = String(event.params.id || '').trim();
     if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const result = await resolvePagamentoComScope(client, id, scope);
+    const result = await resolvePagamentoComScope(client, id);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!canAccessPagamentoCompany(scope, result.companyId)) {
@@ -102,7 +108,7 @@ export async function PATCH(event) {
     const id = String(event.params.id || '').trim();
     if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const result = await resolvePagamentoComScope(client, id, scope);
+    const result = await resolvePagamentoComScope(client, id);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!canAccessPagamentoCompany(scope, result.companyId)) {
@@ -147,7 +153,7 @@ export async function DELETE(event) {
     const id = String(event.params.id || '').trim();
     if (!isUuid(id)) return json({ success: false, error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const result = await resolvePagamentoComScope(client, id, scope);
+    const result = await resolvePagamentoComScope(client, id);
     if (!result) return json({ success: false, error: 'Pagamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
     if (!canAccessPagamentoCompany(scope, result.companyId)) {
