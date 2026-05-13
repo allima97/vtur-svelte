@@ -27,6 +27,27 @@ import { rebuildReadModelForCompanyMonth } from '$lib/server/readModelRebuild';
 
 const CRON_SECRET_HEADER = 'x-cron-secret';
 
+type RebuildRequestBody = {
+  company_ids?: unknown;
+  month_keys?: unknown;
+};
+
+type CronEnv = {
+  CRON_SECRET?: string | null;
+};
+
+type PlatformWithEnv = {
+  env?: CronEnv | null;
+};
+
+type GlobalWithEnv = typeof globalThis & {
+  __env__?: CronEnv | null;
+};
+
+function getCronEnv(event: RequestEvent): CronEnv {
+  return (event.platform as PlatformWithEnv | undefined)?.env ?? (globalThis as GlobalWithEnv).__env__ ?? {};
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -37,9 +58,10 @@ export async function POST(event: RequestEvent) {
       return json({ error: 'Sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    let body: Record<string, any> = {};
+    let body: RebuildRequestBody = {};
     try {
-      body = (await event.request.json()) ?? {};
+      const parsedBody = await event.request.json();
+      body = parsedBody && typeof parsedBody === 'object' ? (parsedBody as RebuildRequestBody) : {};
     } catch {
       body = {};
     }
@@ -74,7 +96,7 @@ export async function POST(event: RequestEvent) {
 export async function GET(event: RequestEvent) {
   try {
     // Validar secret do cron para evitar execuções não autorizadas
-    const privateEnv = (event.platform as any)?.env ?? (globalThis as any).__env__ ?? {};
+    const privateEnv = getCronEnv(event);
     const cronSecret = String(privateEnv.CRON_SECRET || '').trim();
     const providedSecret = String(event.request.headers.get(CRON_SECRET_HEADER) || '').trim();
 
