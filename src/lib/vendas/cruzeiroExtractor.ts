@@ -17,6 +17,23 @@ type ResumoRow = {
 };
 
 const RECIBO_REGEX = /\b\d{4}\s*-\s*\d{6,}\b|\b\d{14}\b/;
+const PASSAGEIRO_STOP_TOKENS = new Set([
+  "passageiros",
+  "sobrenome",
+  "nome",
+  "nascimento",
+  "sexo",
+  "idade",
+  "local",
+  "embarque",
+  "turno",
+  "refeicao",
+  "servicos",
+  "especiais",
+  "observacao",
+  "dados",
+  "pessoais",
+]);
 
 function cleanText(text: string) {
   return (text || "")
@@ -528,24 +545,6 @@ function extractPassageiros(text: string): PassageiroDraft[] {
   }
 
   if (passageiros.length === 0 && block) {
-    const stopTokens = new Set([
-      "passageiros",
-      "sobrenome",
-      "nome",
-      "nascimento",
-      "sexo",
-      "idade",
-      "local",
-      "embarque",
-      "turno",
-      "refeicao",
-      "servicos",
-      "especiais",
-      "observacao",
-      "dados",
-      "pessoais",
-    ]);
-
     const flat = block.replace(/[|]/g, " ").replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
     let data = flat.replace(/^.*?\bObserva(?:c|\u00e7)(?:a|\u00e3)o\b\s+/i, "");
     if (data === flat) {
@@ -568,7 +567,7 @@ function extractPassageiros(text: string): PassageiroDraft[] {
 
       const rawNome = (m[1] || "").replace(/\s+/g, " ").trim();
       const tokens = rawNome.split(" ").filter(Boolean);
-      while (tokens.length && stopTokens.has(normalizeText(tokens[0]))) {
+      while (tokens.length && PASSAGEIRO_STOP_TOKENS.has(normalizeText(tokens[0]))) {
         tokens.shift();
       }
       const nomeRaw = tokens.join(" ").trim();
