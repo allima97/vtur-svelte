@@ -1,6 +1,9 @@
 <script lang="ts">
   import { Input, Label } from 'flowbite-svelte';
+  import type { Component } from 'svelte';
   import { buildVturInputClasses } from './inputContract';
+
+  type IconComponent = Component<{ class?: string }>;
   
   export let label: string | null = null;
   export let value: string = '';
@@ -10,7 +13,7 @@
   export let disabled = false;
   export let error: string | null = null;
   export let helper: string | null = null;
-  export let icon: any = null;
+  export let icon: IconComponent | null = null;
   export let class_name = '';
 
   $: inputClasses = buildVturInputClasses(
