@@ -61,15 +61,15 @@ const buildPerms = (
 	rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
 ) => {
 	const perms: Record<string, string> = {};
-	rows.forEach((registro) => {
+	for (const registro of rows) {
 		const modulo = String(registro.modulo || '').toLowerCase();
-		if (!modulo) return;
+		if (!modulo) continue;
 		const permissaoNormalizada = normalizePermissao(registro.permissao);
 		const finalPerm = registro.ativo ? permissaoNormalizada : 'none';
 		setPerm(perms, modulo, finalPerm);
 		const alias = MODULO_ALIASES[modulo];
 		if (alias) setPerm(perms, alias, finalPerm);
-	});
+	}
 	return perms;
 };
 
