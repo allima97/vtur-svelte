@@ -1454,7 +1454,13 @@
 
       // Se o backend retornou diferenças adicionais (não detectadas no preview)
       if (data.tem_diferenca && data.diferencas?.length > 0 && !importDiferencasConfirmadas) {
-        importDiferencas = data.diferencas.map((diff: any) => ({
+        importDiferencas = data.diferencas.map((diff: {
+          diff_total: number;
+          diff_taxas: number;
+          valor_sistema: number;
+          taxas_sistema: number;
+          [key: string]: unknown;
+        }) => ({
           ...diff,
           severidade: getDiffModalSeverity(diff) === 'critical' ? 'critical' : 'warning'
         }));
