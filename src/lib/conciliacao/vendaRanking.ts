@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { calcularValorVendaReal, resolveConciliacaoStatus } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { pickConciliacaoSourceRow } from '$lib/conciliacao/source';
@@ -14,10 +15,55 @@ type VendaRankingReciboInput = {
 };
 
 type VendaRankingParams = {
-  client: any;
+  client: SupabaseClient;
   vendaId: string;
   companyId: string;
   recibos: VendaRankingReciboInput[];
+};
+
+type ConciliacaoRankingProduto = {
+  id?: string | null;
+  nome?: string | null;
+};
+
+type ConciliacaoRow = {
+  id?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  company_id?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | string | null;
+  valor_taxas?: number | string | null;
+  valor_descontos?: number | string | null;
+  valor_abatimentos?: number | string | null;
+  valor_nao_comissionavel?: number | string | null;
+  valor_venda_real?: number | string | null;
+  movimento_data?: string | null;
+  ranking_vendedor_id?: string | null;
+  ranking_produto_id?: string | null;
+  ranking_produto?: ConciliacaoRankingProduto | null;
+  is_seguro_viagem?: boolean | null;
+  conciliado?: boolean | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
+type RateioRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+  conciliacao_recibo_id?: string | null;
+  vendedor_destino_id?: string | null;
+  percentual_origem?: number | string | null;
+  percentual_destino?: number | string | null;
+  ativo?: boolean | null;
+  observacao?: string | null;
+  vendedor_destino?: unknown;
+};
+
+type ErrorLike = {
+  code?: string | null;
+  message?: string | null;
 };
 
 function roundMoney(value: number) {
@@ -93,7 +139,7 @@ function isRexturRecibo(recibo: VendaRankingReciboInput) {
     normalizeReceiptKey(recibo.numero_recibo_normalizado) === 'REXTUR';
 }
 
-function matchesRecibo(row: any, recibo: VendaRankingReciboInput) {
+function matchesRecibo(row: ConciliacaoRow, recibo: VendaRankingReciboInput) {
   const linkedReciboId = toStr(row?.venda_recibo_id);
   if (linkedReciboId && linkedReciboId === toStr(recibo.id)) return true;
   if (isRexturRecibo(recibo)) {
@@ -109,7 +155,7 @@ function concSelect() {
   return 'id, documento, numero_reserva, company_id, status, descricao, valor_lancamentos, valor_taxas, valor_descontos, valor_abatimentos, valor_nao_comissionavel, valor_venda_real, movimento_data, ranking_vendedor_id, ranking_produto_id, is_seguro_viagem, conciliado, venda_id, venda_recibo_id, ranking_produto:tipo_produtos!ranking_produto_id(id, nome)';
 }
 
-function addRows(target: Map<string, any>, rows?: any[] | null) {
+function addRows(target: Map<string, ConciliacaoRow>, rows?: ConciliacaoRow[] | null) {
   for (const row of rows || []) {
     const id = toStr(row?.id);
     if (id) target.set(id, row);
@@ -127,7 +173,7 @@ function collectIds<T>(rows: T[], getId: (row: T) => unknown) {
 
 async function fetchConciliacaoRows(params: VendaRankingParams) {
   const { client, companyId, vendaId, recibos } = params;
-  const byId = new Map<string, any>();
+  const byId = new Map<string, ConciliacaoRow>();
   const reciboIds = collectIds(recibos, (recibo) => recibo.id);
   const documentoVariants = uniqueCleanStrings(recibos.flatMap(reciboDocumentVariants));
 
@@ -137,7 +183,7 @@ async function fetchConciliacaoRows(params: VendaRankingParams) {
     .eq('company_id', companyId)
     .eq('venda_id', vendaId);
   if (byVendaError) throw byVendaError;
-  addRows(byId, byVenda);
+  addRows(byId, byVenda as ConciliacaoRow[] | null);
 
   for (let index = 0; index < reciboIds.length; index += 200) {
     const batch = reciboIds.slice(index, index + 200);
@@ -147,7 +193,7 @@ async function fetchConciliacaoRows(params: VendaRankingParams) {
       .eq('company_id', companyId)
       .in('venda_recibo_id', batch);
     if (error) throw error;
-    addRows(byId, data);
+    addRows(byId, data as ConciliacaoRow[] | null);
   }
 
   for (let index = 0; index < documentoVariants.length; index += 200) {
@@ -158,7 +204,7 @@ async function fetchConciliacaoRows(params: VendaRankingParams) {
       .eq('company_id', companyId)
       .in('documento', batch);
     if (error) throw error;
-    addRows(byId, data);
+    addRows(byId, data as ConciliacaoRow[] | null);
   }
 
   const fuzzyTokens = Array.from(
@@ -177,13 +223,13 @@ async function fetchConciliacaoRows(params: VendaRankingParams) {
       .ilike('documento', `%${token}%`)
       .limit(50);
     if (error) throw error;
-    addRows(byId, data);
+    addRows(byId, data as ConciliacaoRow[] | null);
   }
 
   return Array.from(byId.values());
 }
 
-function pickDisplaySourceRow(rows: any[]) {
+function pickDisplaySourceRow(rows: ConciliacaoRow[]) {
   const picked = pickConciliacaoSourceRow(rows);
   if (picked.sourceRow) {
     return {
@@ -202,7 +248,7 @@ function pickDisplaySourceRow(rows: any[]) {
   };
 }
 
-function resolveConciliacaoRankingValue(sourceRow: any) {
+function resolveConciliacaoRankingValue(sourceRow: ConciliacaoRow) {
   const lancamentos = toNumber(sourceRow?.valor_lancamentos);
   const descontos = toNumber(sourceRow?.valor_descontos);
   const abatimentos = toNumber(sourceRow?.valor_abatimentos);
@@ -228,15 +274,16 @@ function resolveConciliacaoRankingValue(sourceRow: any) {
   };
 }
 
-function isTableMissingError(error: any) {
-  const code = String(error?.code || '').toLowerCase();
-  const message = String(error?.message || '').toLowerCase();
+function isTableMissingError(error: unknown) {
+  const errorLike = error as ErrorLike;
+  const code = String(errorLike?.code || '').toLowerCase();
+  const message = String(errorLike?.message || '').toLowerCase();
   return code === '42p01' || message.includes('does not exist') || message.includes('relation');
 }
 
-async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string[]) {
-  const byVendaRecibo = new Map<string, any>();
-  const byConciliacao = new Map<string, any>();
+async function fetchRateioMaps(client: SupabaseClient, reciboIds: string[], concIds: string[]) {
+  const byVendaRecibo = new Map<string, RateioRow>();
+  const byConciliacao = new Map<string, RateioRow>();
 
   for (let index = 0; index < reciboIds.length; index += 200) {
     const batch = reciboIds.slice(index, index + 200);
@@ -250,7 +297,7 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
       if (isTableMissingError(error)) return { byVendaRecibo, byConciliacao };
       throw error;
     }
-    for (const row of data || []) {
+    for (const row of (data || []) as RateioRow[]) {
       const id = toStr(row?.venda_recibo_id);
       if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) continue;
       if (id) byVendaRecibo.set(id, row);
@@ -268,7 +315,7 @@ async function fetchRateioMaps(client: any, reciboIds: string[], concIds: string
       if (isTableMissingError(error)) return { byVendaRecibo, byConciliacao };
       throw error;
     }
-    for (const row of data || []) {
+    for (const row of (data || []) as RateioRow[]) {
       const id = toStr(row?.conciliacao_recibo_id);
       if (toNumber(row?.percentual_origem) <= 0 || toNumber(row?.percentual_destino) <= 0) continue;
       if (id) byConciliacao.set(id, row);
@@ -282,7 +329,7 @@ export async function buildVendaRankingConciliacaoSnapshot(params: VendaRankingP
   const { client, recibos } = params;
   const concRows = await fetchConciliacaoRows(params);
   const reciboIds = collectIds(recibos, (recibo) => recibo.id);
-  const concIds = collectIds(concRows, (row: any) => row?.id);
+  const concIds = collectIds(concRows, (row) => row?.id);
   const rateios = await fetchRateioMaps(client, reciboIds, concIds);
 
   const result = recibos.map((recibo) => {
@@ -291,7 +338,7 @@ export async function buildVendaRankingConciliacaoSnapshot(params: VendaRankingP
       ? pickDisplaySourceRow(concGrupo)
       : { sourceRow: null, confirmed: false };
     const hasConciliacao = Boolean(sourceRow);
-    const concIdsForRecibo = collectIds(concGrupo, (row: any) => row?.id);
+    const concIdsForRecibo = collectIds(concGrupo, (row) => row?.id);
 
     const vendaValorTotal = toNumber(recibo.valor_total);
     const vendaValorTaxas = toNumber(recibo.valor_taxas);
@@ -327,7 +374,10 @@ export async function buildVendaRankingConciliacaoSnapshot(params: VendaRankingP
       ? roundMoney(concValorTaxas - vendaValorTaxas)
       : null;
 
-    const rateioConc = concIdsForRecibo.reduce((found: any, id: string) => found || rateios.byConciliacao.get(id) || null, null);
+    const rateioConc = concIdsForRecibo.reduce<RateioRow | null>(
+      (found, id) => found || rateios.byConciliacao.get(id) || null,
+      null
+    );
     const rateioVenda = rateios.byVendaRecibo.get(toStr(recibo.id)) || null;
     const rateio = rateioConc || rateioVenda;
 
