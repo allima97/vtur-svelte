@@ -11,7 +11,7 @@ let usingMock = false;
 const RETRYABLE_NETWORK_ERRORS = ['failed to fetch', 'err_connection_closed', 'networkerror'];
 
 function isRetryableNetworkError(error: unknown) {
-  const message = String((error as any)?.message || '').toLowerCase();
+  const message = String(error instanceof Error ? error.message : '').toLowerCase();
   if (!message) return false;
   return RETRYABLE_NETWORK_ERRORS.some((needle) => message.includes(needle));
 }
