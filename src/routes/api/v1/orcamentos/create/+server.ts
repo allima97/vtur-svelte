@@ -14,6 +14,45 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_ORCAMENTO_CREATE_BODY_BYTES = 512 * 1024;
 
+type OrcamentoCreateBody = {
+  client_id?: unknown;
+  client_name?: unknown;
+  cliente_nome?: unknown;
+  client_whatsapp?: unknown;
+  cliente_telefone?: unknown;
+  client_email?: unknown;
+  status?: unknown;
+  status_negociacao?: unknown;
+  currency?: unknown;
+  data_embarque?: unknown;
+  data_final?: unknown;
+  notes?: unknown;
+  observacoes?: unknown;
+  itens?: unknown;
+};
+
+type OrcamentoCreateItem = Record<string, unknown> & {
+  title?: unknown;
+  descricao?: unknown;
+  product_name?: unknown;
+  produto?: unknown;
+  item_type?: unknown;
+  total_amount?: unknown;
+  valor_total?: unknown;
+  order_index?: unknown;
+  city_name?: unknown;
+  cidade?: unknown;
+  quantity?: unknown;
+  quantidade?: unknown;
+  unit_price?: unknown;
+  valor_unitario?: unknown;
+};
+
+type ClienteScopeRow = {
+  id?: unknown;
+  company_id?: unknown;
+};
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -31,7 +70,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoCreateBody)
         : {};
 
     const clientId = String(body.client_id || '').trim() || null;
@@ -53,11 +92,12 @@ export async function POST(event) {
         .eq('id', clientId)
         .maybeSingle();
       if (clienteError) throw clienteError;
-      if (!cliente?.id) {
+      const clienteRow = cliente as ClienteScopeRow | null;
+      if (!clienteRow?.id) {
         return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       }
       if (!scope.isAdmin) {
-        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        const clienteCompanyId = String(clienteRow.company_id || '').trim();
         if (clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
           return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
         }
@@ -67,9 +107,10 @@ export async function POST(event) {
     if (!body.itens || !Array.isArray(body.itens) || body.itens.length === 0) {
       return json({ error: 'Adicione pelo menos um item.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
+    const itens = body.itens as OrcamentoCreateItem[];
 
     // quote nao tem company_id — usa created_by como FK auth.users
-    const total = body.itens.reduce((acc: number, item: any) => {
+    const total = itens.reduce((acc: number, item) => {
       const valor = Number(item.total_amount || item.valor_total || 0);
       return acc + valor;
     }, 0);
@@ -98,7 +139,7 @@ export async function POST(event) {
       return json({ error: 'Erro ao criar orcamento.' }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
-    const itensParaInserir = body.itens.map((item: any, index: number) => ({
+    const itensParaInserir = itens.map((item, index: number) => ({
       quote_id: quote.id,
       title: item.title || item.descricao || `Item ${index + 1}`,
       product_name: item.product_name || item.produto || null,
