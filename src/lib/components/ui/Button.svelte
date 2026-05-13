@@ -19,6 +19,17 @@
     | 'operacao'
     | 'orcamentos'
     | 'comissoes';
+  type FlowbiteButtonColor =
+    | 'none'
+    | 'primary'
+    | 'blue'
+    | 'green'
+    | 'red'
+    | 'yellow'
+    | 'purple'
+    | 'light'
+    | 'dark'
+    | 'alternative';
 
   export let variant: ButtonVariant = 'primary';
   export let size: ButtonSize = 'md';
@@ -95,7 +106,10 @@
   // Variantes que controlam 100% das cores via variantClasses — não devem
   // receber a cor Flowbite (que injeta background azul sobrescrevendo bg-transparent)
   const neutralVariants = new Set<ButtonVariant>(['secondary', 'outline', 'ghost', 'unstyled', 'selected']);
-  $: flowbiteColor = neutralVariants.has(variant) ? 'none' : (resolvedColor as any);
+  let flowbiteColor: FlowbiteButtonColor;
+  $: flowbiteColor = neutralVariants.has(variant)
+    ? 'none'
+    : (resolvedColor as unknown as Exclude<FlowbiteButtonColor, 'none'>);
 
   $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
   $: safeHref = href ? sanitizeHref(href) || undefined : undefined;
