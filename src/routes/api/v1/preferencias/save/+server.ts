@@ -22,7 +22,7 @@ export async function POST(event) {
     if (rawBody.length > MAX_PREFERENCIAS_SAVE_BODY_BYTES) {
       return buildNoStoreTextResponse("Payload muito grande.", 413);
     }
-    const body = safeJsonParse(rawBody) as any;
+    const body = safeJsonParse(rawBody) as Record<string, unknown>;
     const id = String(body?.id || "").trim();
     const isUpdate = Boolean(id);
     const { client, user, scope } = await requirePreferenciasScope(
@@ -36,12 +36,12 @@ export async function POST(event) {
     const nome = String(body?.nome || "").trim();
     if (!nome) return buildNoStoreTextResponse("nome obrigatorio.", 400);
 
-    const cidadeId = isUuid(body?.cidade_id) ? String(body?.cidade_id) : null;
-    const tipoProdutoId = isUuid(body?.tipo_produto_id)
-      ? String(body?.tipo_produto_id)
-      : null;
+    const cidadeRaw = String(body?.cidade_id || "").trim();
+    const tipoProdutoRaw = String(body?.tipo_produto_id || "").trim();
+    const cidadeId = isUuid(cidadeRaw) ? cidadeRaw : null;
+    const tipoProdutoId = isUuid(tipoProdutoRaw) ? tipoProdutoRaw : null;
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       tipo_produto_id: tipoProdutoId,
       cidade_id: cidadeId,
       nome,
