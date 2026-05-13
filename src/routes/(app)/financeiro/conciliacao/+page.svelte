@@ -870,8 +870,8 @@
       }
       await Promise.all([loadSummary(), loadRegistros()]);
       void Promise.allSettled([loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao atualizar dados da conciliação.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao atualizar dados da conciliação.'));
     } finally {
       loading = false;
       operationMessage = '';
