@@ -1280,13 +1280,14 @@
       });
       toast.success(`Saneamento concluído: ${duplicateGroups} grupo(s), ${duplicatesRemoved} duplicado(s) removido(s).`);
       await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao sanear duplicados.');
       addOperationLog({
         action: 'Sanear duplicados',
         status: 'error',
-        message: error.message || 'Erro ao sanear duplicados.'
+        message
       });
-      toast.error(error.message || 'Erro ao sanear duplicados.');
+      toast.error(message);
     } finally {
       running = false;
       operationMessage = '';
