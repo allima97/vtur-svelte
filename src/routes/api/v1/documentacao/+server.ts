@@ -15,6 +15,10 @@ const MAX_DOCUMENTACAO_BODY_BYTES = 512 * 1024;
 const VALID_ROLES = new Set(['all', 'vendedor', 'gestor', 'master', 'admin']);
 const VALID_TONES = new Set(['default', 'info', 'config', 'teal', 'green']);
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 function normalizeSlug(value: unknown) {
   return (
     String(value || 'vtur')
@@ -48,9 +52,9 @@ async function requireAdmin(event: Parameters<RequestHandler>[0]) {
   return { ok: true as const, client, user };
 }
 
-export const GET: RequestHandler = async ({ locals }) => {
+export const GET: RequestHandler = async (event) => {
   try {
-    await requireAuthenticatedUser({ locals } as any);
+    await requireAuthenticatedUser(event);
     const client = getAdminClient();
 
     try {
@@ -111,7 +115,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     }
 
     return json({ error: "Documentacao nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error) {
     logServerError("[documentacao] falha ao carregar documentação", error);
     return json({ error: "Erro interno ao carregar documentação." }, { status: 500, headers: NO_STORE_HEADERS });
   }
@@ -128,7 +132,7 @@ export const POST: RequestHandler = async (event) => {
     const admin = await requireAdmin(event);
     if (!admin.ok) return admin.response;
 
-    const body = bodyResult.data && typeof bodyResult.data === 'object' ? (bodyResult.data as Record<string, any>) : {};
+    const body = bodyResult.data && typeof bodyResult.data === 'object' ? (bodyResult.data as Record<string, unknown>) : {};
     const id = String(body.id || '').trim();
     const role_scope = VALID_ROLES.has(String(body.role_scope || 'all')) ? String(body.role_scope || 'all') : 'all';
     const tone = VALID_TONES.has(String(body.tone || 'info')) ? String(body.tone || 'info') : 'info';
@@ -165,9 +169,9 @@ export const POST: RequestHandler = async (event) => {
     }
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error) {
     logServerError("[documentacao] falha ao salvar documentação", error);
-    return json({ error: error?.message || "Erro interno ao salvar documentação." }, { status: 500, headers: NO_STORE_HEADERS });
+    return json({ error: getErrorMessage(error, "Erro interno ao salvar documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };
 
@@ -186,8 +190,8 @@ export const DELETE: RequestHandler = async (event) => {
     if (error) throw error;
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error) {
     logServerError("[documentacao] falha ao excluir documentação", error);
-    return json({ error: error?.message || "Erro interno ao excluir documentação." }, { status: 500, headers: NO_STORE_HEADERS });
+    return json({ error: getErrorMessage(error, "Erro interno ao excluir documentação.") }, { status: 500, headers: NO_STORE_HEADERS });
   }
 };
