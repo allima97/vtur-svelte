@@ -19,6 +19,18 @@ function inferTipo(nome: string) {
 
 type ScopeValue = 'system' | 'master' | 'gestor' | 'user';
 
+type MessageTemplateRow = {
+  id: string;
+  user_id: string | null;
+  company_id: string | null;
+  scope: string | null;
+  nome: string | null;
+  assunto: string | null;
+  titulo?: string | null;
+  corpo: string | null;
+  ativo: boolean | null;
+};
+
 function normalizeScope(value?: string | null): ScopeValue {
   const scope = String(value || '').trim().toLowerCase();
   if (scope === 'system' || scope === 'master' || scope === 'gestor' || scope === 'user') return scope;
@@ -87,23 +99,23 @@ export async function GET(event) {
 
     if (error) throw error;
 
-    const visibleTemplates = (templates || [])
-      .filter((item: any) => item?.ativo !== false)
-      .filter((item: any) =>
+    const visibleTemplates = ((templates || []) as MessageTemplateRow[])
+      .filter((item) => item.ativo !== false)
+      .filter((item) =>
         canAccessScopedRow({
           isAdmin: Boolean(scope.isAdmin),
           userId: user.id,
           companyIds,
-          rowUserId: item?.user_id || null,
-          rowCompanyId: item?.company_id || null,
-          rowScope: item?.scope || null,
+          rowUserId: item.user_id || null,
+          rowCompanyId: item.company_id || null,
+          rowScope: item.scope || null,
         })
       );
 
     const dedup = new Map<string, { id: string; nome: string; tipo: string; assunto: string; conteudo: string }>();
 
-    for (const item of visibleTemplates as any[]) {
-      const nome = String(item?.nome || '').trim();
+    for (const item of visibleTemplates) {
+      const nome = String(item.nome || '').trim();
       if (!nome) continue;
       const key = normalizeTemplateKey(nome);
       if (!key || dedup.has(key)) continue;
