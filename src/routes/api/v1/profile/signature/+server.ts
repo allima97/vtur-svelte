@@ -64,7 +64,7 @@ export const PATCH: RequestHandler = async ({ locals, request }) => {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const signature = String(body?.signature || body?.assinatura || '').trim();
 
