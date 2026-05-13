@@ -24,6 +24,23 @@ type PerfilExistenteRow = {
   uso_individual?: boolean | null;
 };
 
+type UserProfilePayload = {
+  id?: string;
+  email: string;
+  uso_individual: boolean;
+  company_id: string | null;
+  user_type_id: string;
+  active: boolean;
+  created_by_gestor: boolean;
+  updated_at?: string;
+};
+
+type ConviteUpdatePayload = {
+  invited_user_id?: string;
+  status?: "cancelled";
+  cancelled_at?: string;
+};
+
 function readErrorField(error: unknown, field: string) {
   return error && typeof error === "object"
     ? (error as Record<string, unknown>)[field]
@@ -146,7 +163,7 @@ export const POST: RequestHandler = async (event) => {
     const createdByGestor = String(conviteRow.invited_by_role || "").toUpperCase() === "GESTOR";
 
     if (!perfilRow?.id) {
-      const { error: insertErr } = await adminClient.from("users").insert({
+      const insertPayload: UserProfilePayload = {
         id: user.id,
         email,
         uso_individual: usoIndividual,
@@ -154,27 +171,30 @@ export const POST: RequestHandler = async (event) => {
         user_type_id: userTypeId,
         active: true,
         created_by_gestor: createdByGestor,
-      } as any);
+      };
+      const { error: insertErr } = await adminClient.from("users").insert(insertPayload);
       if (insertErr) throw insertErr;
     } else {
+      const updatePayload: UserProfilePayload = {
+        email,
+        uso_individual: usoIndividual,
+        company_id: usoIndividual ? null : companyId,
+        user_type_id: userTypeId,
+        active: true,
+        created_by_gestor: createdByGestor,
+        updated_at: new Date().toISOString(),
+      };
       const { error: updateErr } = await adminClient
         .from("users")
-        .update({
-          email,
-          uso_individual: usoIndividual,
-          company_id: usoIndividual ? null : companyId,
-          user_type_id: userTypeId,
-          active: true,
-          created_by_gestor: createdByGestor,
-          updated_at: new Date().toISOString(),
-        } as any)
+        .update(updatePayload)
         .eq("id", user.id);
       if (updateErr) throw updateErr;
     }
 
+    const conviteUpdatePayload: ConviteUpdatePayload = { invited_user_id: user.id };
     await adminClient
       .from("user_convites")
-      .update({ invited_user_id: user.id } as any)
+      .update(conviteUpdatePayload)
       .eq("id", inviteId);
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
