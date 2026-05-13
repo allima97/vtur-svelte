@@ -9,13 +9,28 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
-function shouldScopeByOwner(scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean }) {
+type ScopeLike = { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean };
+
+type SearchDayRow = {
+  id: string;
+  percurso?: string | null;
+  cidade?: string | null;
+  descricao?: string | null;
+  data?: string | null;
+  roteiro_id?: string | null;
+};
+
+function shouldScopeByOwner(scope: ScopeLike) {
   return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
 }
 
-function isMissingPercursoColumn(error: any) {
-  const code = String(error?.code || '');
-  const msg = String(error?.message || '');
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isMissingPercursoColumn(error: unknown) {
+  const code = isRecord(error) ? String(error.code || '') : '';
+  const msg = isRecord(error) ? String(error.message || '') : '';
   return (
     code === '42703' ||
     (/percurso/i.test(msg) &&
@@ -71,17 +86,17 @@ export async function GET(event: RequestEvent) {
       return await query;
     };
 
-    let data: any[] | null = null;
-    let fetchError: any = null;
+    let data: SearchDayRow[] | null = null;
+    let fetchError: unknown = null;
 
     const res1 = await runQuery(true);
-    data = (res1 as any).data;
-    fetchError = (res1 as any).error;
+    data = res1.data as SearchDayRow[] | null;
+    fetchError = res1.error;
 
     if (fetchError && isMissingPercursoColumn(fetchError)) {
       const res2 = await runQuery(false);
-      data = (res2 as any).data;
-      fetchError = (res2 as any).error;
+      data = res2.data as SearchDayRow[] | null;
+      fetchError = res2.error;
     }
 
     if (fetchError) throw fetchError;
