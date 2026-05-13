@@ -58,6 +58,16 @@ type DashboardScopeUserRow = {
     | null;
 };
 
+type DashboardMetaRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  periodo?: string | null;
+  meta_geral?: number | null;
+  meta_diferenciada?: number | null;
+  ativo?: boolean | null;
+  scope?: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -325,18 +335,18 @@ export async function GET(event) {
             .lte("periodo", fim)
             .limit(500);
 
-        const fetchMetasParallel = async (): Promise<any[]> => {
-          const rows: any[] = [];
+        const fetchMetasParallel = async (): Promise<DashboardMetaRow[]> => {
+          const rows: DashboardMetaRow[] = [];
           if (vendedorIds.length > 0) {
             for (const vendedorBatch of chunkArray(vendedorIds)) {
               const { data, error: metasError } = await buildMetasQuery().in("vendedor_id", vendedorBatch);
               if (metasError) throw metasError;
-              rows.push(...(data || []));
+              rows.push(...((data || []) as DashboardMetaRow[]));
             }
           } else {
             const { data, error: metasError } = await buildMetasQuery();
             if (metasError) throw metasError;
-            rows.push(...(data || []));
+            rows.push(...((data || []) as DashboardMetaRow[]));
           }
           return rows;
         };
