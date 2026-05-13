@@ -40,6 +40,62 @@
     unavailable?: boolean;
   };
 
+  type CrmCategory = {
+    id?: string | null;
+    nome?: string | null;
+  };
+
+  type CrmTheme = {
+    id?: string | null;
+    nome?: string | null;
+    categoria_id?: string | null;
+    categoria?: string | null;
+    greeting_text?: string | null;
+    asset_url?: string | null;
+    ativo?: boolean | null;
+  };
+
+  type CrmMessage = {
+    id?: string | null;
+    nome?: string | null;
+    titulo?: string | null;
+    assunto?: string | null;
+    corpo?: string | null;
+    categoria?: string | null;
+    theme_id?: string | null;
+    ativo?: boolean | null;
+  };
+
+  type CrmSignature = {
+    linha2?: string | null;
+    linha3?: string | null;
+  };
+
+  type CrmSettings = {
+    consultor_nome?: string | null;
+    logo_url?: string | null;
+  };
+
+  type CrmLibraryResponse = {
+    categories?: CrmCategory[];
+    themes?: CrmTheme[];
+    messages?: CrmMessage[];
+    signature?: CrmSignature | null;
+    settings?: CrmSettings | null;
+  };
+
+  type AvisoTemplate = {
+    id: string;
+    nome: string;
+    tipo: string;
+    assunto: string;
+    conteudo: string;
+    mensagem?: string | null;
+    mensagem_id: string | null;
+    theme_id: string;
+    theme_asset_url: string;
+  };
+
   export let open: boolean = false;
   export let clienteId: string = '';
   export let clienteNome: string = '';
@@ -57,10 +113,10 @@
   let previewCardUrl = '';
   let previewTextColor = '';
   let enviando = false;
-  let templates: any[] = [];
-  let crmThemesById: Record<string, any> = {};
-  let crmSignature: any = null;
-  let crmSettings: any = null;
+  let templates: AvisoTemplate[] = [];
+  let crmThemesById: Record<string, CrmTheme> = {};
+  let crmSignature: CrmSignature | null = null;
+  let crmSettings: CrmSettings | null = null;
   let carregandoTemplates = false;
   let erroTemplates = '';
   let modalReady = false;
@@ -231,9 +287,9 @@
     mensagemPersonalizada = '';
     await Promise.all([carregarTemplates(), carregarHistorico()]);
 
-    if (isAniversariante && templates.some((t: any) => t.tipo === 'aniversario')) {
+    if (isAniversariante && templates.some((t) => t.tipo === 'aniversario')) {
       temaSelecionado = 'aniversario';
-    } else if (initialTema && templates.some((t: any) => t.tipo === initialTema)) {
+    } else if (initialTema && templates.some((t) => t.tipo === initialTema)) {
       temaSelecionado = initialTema;
     }
   }
@@ -242,7 +298,7 @@
     carregandoTemplates = true;
     erroTemplates = '';
     try {
-      const libraryData: any = await apiGet('/api/v1/crm/library');
+      const libraryData = await apiGet<CrmLibraryResponse>('/api/v1/crm/library');
       const categorias = Array.isArray(libraryData?.categories) ? libraryData.categories : [];
       const temas = Array.isArray(libraryData?.themes) ? libraryData.themes : [];
       const mensagens = Array.isArray(libraryData?.messages) ? libraryData.messages : [];
@@ -251,19 +307,19 @@
 
       crmThemesById = Object.fromEntries(
         temas
-          .filter((theme: any) => String(theme?.id || '').trim())
-          .map((theme: any) => [String(theme.id), theme])
+          .filter((theme) => String(theme?.id || '').trim())
+          .map((theme) => [String(theme.id), theme])
       );
 
       const categoryNameById = new Map<string, string>(
-        categorias.map((cat: any) => [String(cat?.id || '').trim(), String(cat?.nome || '').trim()])
+        categorias.map((cat) => [String(cat?.id || '').trim(), String(cat?.nome || '').trim()])
       );
 
-      const activeMessages = mensagens.filter((item: any) => item?.ativo !== false);
-      const activeThemes = temas.filter((item: any) => item?.ativo !== false);
+      const activeMessages = mensagens.filter((item) => item?.ativo !== false);
+      const activeThemes = temas.filter((item) => item?.ativo !== false);
 
       templates = activeThemes
-        .map((theme: any) => {
+        .map((theme) => {
           const categoryName: string =
             categoryNameById.get(String(theme?.categoria_id || '').trim()) || String(theme?.categoria || '').trim();
           const selectedCategory = normalizeText(categoryName);
@@ -271,16 +327,16 @@
           const themeBucket = resolveTemaBucket(normalizedThemeText);
 
           const bucketMatchedMessages = [...activeMessages]
-            .filter((message: any) => {
+            .filter((message) => {
               const normalizedMessageText = normalizeText(
                 `${message?.nome || ''} ${message?.titulo || ''} ${message?.categoria || ''}`
               );
               return resolveTemaBucket(normalizedMessageText) === themeBucket;
             })
-            .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || '')));
+            .sort((a, b) => PT_BR_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || '')));
 
           const ranked = [...activeMessages]
-            .map((message: any) => {
+            .map((message) => {
               const messageCategory = normalizeText(String(message?.categoria || ''));
               const isGeneral = !messageCategory || messageCategory === 'geral' || messageCategory === 'general';
               let categoryRank = 1;
@@ -328,12 +384,12 @@
             theme_asset_url: String(theme?.asset_url || '')
           };
         })
-        .filter((item: any) => item.id)
-        .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
+        .filter((item) => item.id)
+        .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
 
       if (templates.length === 0 && activeMessages.length > 0) {
         templates = activeMessages
-          .map((message: any) => {
+          .map((message) => {
             const nome = String(message?.nome || '').trim();
             const categoria = String(message?.categoria || '').trim();
             const normalizedMessageText = normalizeText(`${nome} ${categoria}`);
@@ -351,8 +407,8 @@
               theme_asset_url: String(crmThemesById[String(message?.theme_id || '')]?.asset_url || '')
             };
           })
-          .filter((item: any) => item.id)
-          .sort((a: any, b: any) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
+          .filter((item) => item.id)
+          .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
       }
     } catch (err) {
       if (dev) console.error('Erro ao carregar templates:', err);
@@ -523,17 +579,17 @@
 
   $: templatesFiltrados = temaSelecionado === 'all'
     ? templates
-    : templates.filter((item: any) => String(item?.tipo || 'geral') === temaSelecionado);
+    : templates.filter((item) => String(item?.tipo || 'geral') === temaSelecionado);
 
   $: templateOptions = [
     { label: templatesFiltrados.length ? 'Selecione o template' : 'Nenhum template disponível', value: '' },
-    ...templatesFiltrados.map((template: any) => ({
+    ...templatesFiltrados.map((template) => ({
       label: String(template?.nome || 'Template CRM'),
       value: String(template?.id || '')
     }))
   ];
 
-  $: if (templateSelecionado && !templatesFiltrados.some((item: any) => item.id === templateSelecionado)) {
+  $: if (templateSelecionado && !templatesFiltrados.some((item) => item.id === templateSelecionado)) {
     templateSelecionado = '';
     mensagemPersonalizada = '';
   }
@@ -542,9 +598,9 @@
     lastTemaSelecionado = temaSelecionado;
     const filtrados = temaSelecionado === 'all'
       ? templates
-      : templates.filter((item: any) => String(item?.tipo || 'geral') === temaSelecionado);
+      : templates.filter((item) => String(item?.tipo || 'geral') === temaSelecionado);
 
-    const atual = filtrados.find((item: any) => String(item?.id || '') === templateSelecionado);
+    const atual = filtrados.find((item) => String(item?.id || '') === templateSelecionado);
     const target = atual || filtrados[0];
 
     if (!target?.id) {
@@ -563,7 +619,7 @@
   }
 
   $: {
-    const template = templates.find((item: any) => item.id === templateSelecionado);
+    const template = templates.find((item) => item.id === templateSelecionado);
     const themeId = String(template?.theme_id || template?.id || '').trim();
     const themeAssetFromTemplate = String(template?.theme_asset_url || '').trim();
     const themeAssetFromMap = String(crmThemesById[themeId]?.asset_url || '').trim();
