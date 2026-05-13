@@ -396,7 +396,7 @@ export function filterRecibosCanceladosMesmoMes<
 }
 
 export async function fetchSuppressedConciliacaoReceipts(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string | null;
   companyIds?: string[] | null;
   inicio: string;
@@ -413,7 +413,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
   if (normalizedCompanyIds.length === 0)
     return [] as SuppressedConciliacaoReceipt[];
 
-  const rows: any[] = [];
+  const rows: ConciliacaoSourceRow[] = [];
   const pageSize = 1000;
   for (let offset = 0; offset < 10000; offset += pageSize) {
     let query = client
@@ -432,7 +432,9 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
         ? query.eq("company_id", normalizedCompanyIds[0])
         : query.in("company_id", normalizedCompanyIds);
 
-    let { data, error } = await query;
+    const queryResult = await query;
+    let data = queryResult.data as ConciliacaoSourceRow[] | null;
+    let error = queryResult.error;
     if (error && isMissingOptionalConciliacaoColumn(error)) {
       let fallbackQuery = client
         .from("conciliacao_recibos")
@@ -451,16 +453,16 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
           : fallbackQuery.in("company_id", normalizedCompanyIds);
 
       const fallback = await fallbackQuery;
-      data = fallback.data;
+      data = fallback.data as ConciliacaoSourceRow[] | null;
       error = fallback.error;
     }
     if (error) throw error;
-    const chunk = Array.isArray(data) ? data : [];
+    const chunk = (Array.isArray(data) ? data : []) as ConciliacaoSourceRow[];
     rows.push(...chunk);
     if (chunk.length < pageSize) break;
   }
 
-  const byDocumento = new Map<string, any[]>();
+  const byDocumento = new Map<string, ConciliacaoSourceRow[]>();
   for (const row of rows) {
     const key = getConciliacaoReceiptKey(row);
     if (!key) continue;
@@ -470,7 +472,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
   }
 
   return Array.from(byDocumento.entries())
-    .map(([, group]) => {
+    .map(([, group]): SuppressedConciliacaoReceipt | null => {
       const { sortedRows, sourceRow } = pickConciliacaoSourceRow(group);
       if (!sourceRow) return null;
       const documento = toStr(sourceRow?.documento);
@@ -497,7 +499,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
           null,
       } satisfies SuppressedConciliacaoReceipt;
     })
-    .filter(Boolean) as SuppressedConciliacaoReceipt[];
+    .filter((row): row is SuppressedConciliacaoReceipt => Boolean(row));
 }
 
 export async function fetchEffectiveConciliacaoReceipts(params: {
