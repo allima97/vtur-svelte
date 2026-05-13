@@ -8,6 +8,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 import { diagnosticarLacunasCronologicas } from '$lib/server/conciliacaoReconcile';
+import type { DiagnosticoCronologico } from '$lib/server/conciliacaoReconcile';
 import { monthRangeFromKey, todayISODateLocal } from '$lib/date';
 import {
   buildReadModelCacheKey,
@@ -18,7 +19,20 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { chunkArray } from '$lib/utils/array';
 
-function isConciliacaoEfetivada(row: any) {
+type ConciliacaoSummaryRow = {
+  id: string;
+  movimento_data?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  conciliado?: boolean | null;
+  venda_id?: string | null;
+  ranking_vendedor_id?: string | null;
+  valor_calculada_loja?: number | string | null;
+  valor_lancamentos?: number | string | null;
+  is_baixa_rac?: boolean | null;
+};
+
+function isConciliacaoEfetivada(row: ConciliacaoSummaryRow) {
   const raw = String(row?.descricao || row?.status || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -57,7 +71,7 @@ export async function GET(event) {
     // companyId primário para diagnóstico cronológico (usa o primeiro do escopo)
     const companyIdDiag = companyIds[0];
 
-    const { rows, diagnostico } = await getCachedReadModel<{ rows: any[]; diagnostico: any | null }>({
+    const { rows, diagnostico } = await getCachedReadModel<{ rows: ConciliacaoSummaryRow[]; diagnostico: DiagnosticoCronologico | null }>({
       key: buildReadModelCacheKey('conciliacao:summary', {
         companyIds,
         inicio,
@@ -76,7 +90,7 @@ export async function GET(event) {
       loader: async () => {
         const [rows, diagnostico] = await Promise.all([
           (async () => {
-            const dataRows: any[] = [];
+            const dataRows: ConciliacaoSummaryRow[] = [];
             for (const companyBatch of chunkArray(companyIds)) {
               const { data, error } = await client
                 .from('conciliacao_recibos')
@@ -101,13 +115,13 @@ export async function GET(event) {
         return { rows, diagnostico };
       }
     });
-    const efetivados = rows.filter((row: any) => isConciliacaoEfetivada(row));
-    const pendentes = efetivados.filter((row: any) => !row.conciliado);
-    const semRanking = efetivados.filter((row: any) => !row.venda_id && !row.ranking_vendedor_id);
-    const baixaRac = rows.filter((row: any) => row.is_baixa_rac);
+    const efetivados = rows.filter((row) => isConciliacaoEfetivada(row));
+    const pendentes = efetivados.filter((row) => !row.conciliado);
+    const semRanking = efetivados.filter((row) => !row.venda_id && !row.ranking_vendedor_id);
+    const baixaRac = rows.filter((row) => row.is_baixa_rac);
 
     const totalValor = efetivados.reduce(
-      (acc: number, row: any) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0),
+      (acc: number, row) => acc + Number(row.valor_calculada_loja || row.valor_lancamentos || 0),
       0
     );
 
@@ -130,7 +144,7 @@ export async function GET(event) {
           dias_sem_movimento: diagnostico.diasSemMovimento,
           registros_bloqueados: diagnostico.registrosBloqueados,
           aviso: `A conciliação está bloqueada a partir de ${diagnostico.fronteira}. ` +
-            `Importe os arquivos dos dias: ${(diagnostico.diasFaltantes as string[]).map((d: string) => {
+            `Importe os arquivos dos dias: ${diagnostico.diasFaltantes.map((d) => {
               const [y, m, dia] = d.split('-');
               return `${dia}/${m}/${y}`;
             }).join(', ')} ` +
