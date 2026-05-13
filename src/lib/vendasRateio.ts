@@ -109,12 +109,12 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
       .eq("ativo", true)
       .in("conciliacao_recibo_id", chunk);
     if (byConcErr) throw byConcErr;
-    (byConcRecibo || []).forEach((row: any) => {
-      if (!isAplicavelRateio(row)) return;
+    for (const row of byConcRecibo || []) {
+      if (!isAplicavelRateio(row)) continue;
       const key = toStr(row?.conciliacao_recibo_id);
       if (key) map.set(key, row as RateioRow);
       byConcReciboRows.push(row);
-    });
+    }
   }
 
   const concIds = Array.from(
