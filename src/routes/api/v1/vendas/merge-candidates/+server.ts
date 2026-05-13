@@ -40,7 +40,6 @@ export async function GET(event) {
     const shouldApplySellerScope = !scope.isGestor && !scope.isMaster && !scope.isFinanceiro;
 
     const companyScopeSet = new Set(companyIds);
-    const vendedorScopeSet = new Set(requestedVendedorIds);
 
     const currentSale = await fetchSaleForScope({
       client,
@@ -54,7 +53,7 @@ export async function GET(event) {
       return new Response('Venda nao encontrada.', { status: 404, headers: NO_STORE_HEADERS });
     }
     const currentVendedorId = String(currentSale.vendedor_id || '').trim();
-    if (scope.isMaster && requestedVendedorIds.length > 0 && !vendedorScopeSet.has(currentVendedorId)) {
+    if (scope.isMaster && requestedVendedorIds.length > 0 && !requestedVendedorIds.includes(currentVendedorId)) {
       return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
