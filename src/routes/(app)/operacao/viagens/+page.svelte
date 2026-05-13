@@ -34,6 +34,12 @@
     created_at: string;
   }
 
+  type ViagemApiItem = Partial<Viagem> & Record<string, unknown>;
+
+  interface ViagensResponse {
+    items?: ViagemApiItem[];
+  }
+
   let viagens: Viagem[] = [];
   let viagensFiltradas: Viagem[] = [];
   let loading = true;
@@ -86,32 +92,32 @@
     loading = true;
     errorMessage = null;
     try {
-      const data = await apiGet<{ items?: any[] }>('/api/v1/viagens', {
+      const data = await apiGet<ViagensResponse>('/api/v1/viagens', {
         status: filtroStatus || undefined,
         periodo: filtroPeriodo || undefined,
         ordenar: ordenacao,
         limit: 500
       });
-      viagens = (data.items || []).map((v: any) => ({
-        id: v.id,
-        codigo: v.venda_id ? `VND-${v.venda_id.slice(0, 8)}` : v.id.slice(0, 8),
-        cliente: v.cliente_nome,
-        cliente_id: v.cliente_id,
-        destino: v.destino,
-        data_inicio: v.data_inicio,
-        data_fim: v.data_fim,
-        numero_pessoas: v.numero_passageiros || 1,
-        dias_viagem: calcularDias(v.data_inicio, v.data_fim),
+      viagens = (data.items || []).map((v) => ({
+        id: String(v.id || ''),
+        codigo: v.venda_id ? `VND-${String(v.venda_id).slice(0, 8)}` : String(v.id || '').slice(0, 8),
+        cliente: String(v.cliente_nome || ''),
+        cliente_id: String(v.cliente_id || ''),
+        destino: String(v.destino || ''),
+        data_inicio: String(v.data_inicio || ''),
+        data_fim: String(v.data_fim || ''),
+        numero_pessoas: Number(v.numero_passageiros || 1),
+        dias_viagem: calcularDias(String(v.data_inicio || ''), String(v.data_fim || '')),
         status: resolveViagemStatus({
           status: v.status,
           data_inicio: v.data_inicio,
           data_fim: v.data_fim
         }),
-        tipo: v.tipo_viagem || 'nacional',
-        valor_total: v.valor_total || 0,
-        responsavel: v.responsavel_nome || 'Não atribuído',
-        venda_id: v.venda_id,
-        created_at: v.created_at
+        tipo: v.tipo_viagem === 'internacional' ? 'internacional' : 'nacional',
+        valor_total: Number(v.valor_total || 0),
+        responsavel: String(v.responsavel_nome || 'Não atribuído'),
+        venda_id: String(v.venda_id || ''),
+        created_at: String(v.created_at || '')
       }));
       viagensFiltradas = viagens;
     } catch (err) {
