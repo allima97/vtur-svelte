@@ -924,7 +924,10 @@
   async function loadOptions() {
     optionsLoading = true;
     try {
-      const data = await apiGet<any>('/api/v1/conciliacao/options', {
+      const data = await apiGet<{
+        vendedores?: VendedorOption[];
+        produtosMeta?: ProdutoOption[];
+      }>('/api/v1/conciliacao/options', {
         company_id: empresaId || undefined
       });
       vendedores = Array.isArray(data.vendedores) ? data.vendedores : [];
