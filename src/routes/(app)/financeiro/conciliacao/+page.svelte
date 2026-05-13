@@ -907,7 +907,7 @@
   async function loadRegistros() {
     registrosLoading = true;
     try {
-      const data = await apiGet<any[]>('/api/v1/conciliacao/list', {
+      const data = await apiGet<ConciliacaoItem[]>('/api/v1/conciliacao/list', {
         company_id: empresaId || undefined,
         month: monthFilter || undefined,
         day: dayFilter || undefined,
