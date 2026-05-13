@@ -1,5 +1,5 @@
 import { error as httpError, json } from '@sveltejs/kit';
-import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
+import { buildFromEmails, loadEmailSettings, type EmailSettingsPayload } from '$lib/server/admin';
 import {
   getAdminClient,
   requireAuthenticatedUser,
@@ -19,7 +19,7 @@ function ensureAdminOnly(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   }
 }
 
-function maskSettings(settings: any) {
+function maskSettings(settings: EmailSettingsPayload | null) {
   if (!settings) return settings;
   return {
     ...settings,

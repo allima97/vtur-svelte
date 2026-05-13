@@ -70,7 +70,7 @@ export async function POST(event) {
     }
 
     const templates = await loadAvisoTemplates(client);
-    const template = templates.find((item: any) => String(item.id) === templateId);
+    const template = templates.find((item) => String(item.id) === templateId);
     if (!template) {
       return new Response('Template nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }

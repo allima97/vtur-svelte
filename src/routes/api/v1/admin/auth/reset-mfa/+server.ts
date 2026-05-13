@@ -16,6 +16,10 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_RESET_MFA_BODY_BYTES = 8 * 1024;
 
+type MfaFactorRow = {
+  id?: string | null;
+};
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -64,7 +68,7 @@ export async function POST(event) {
 
     let deletedCount = 0;
     for (const factor of factorsData?.factors || []) {
-      const factorId = String((factor as any).id || '').trim();
+      const factorId = String((factor as MfaFactorRow).id || '').trim();
       if (!factorId) continue;
       const { error: deleteError } = await client.auth.admin.mfa.deleteFactor({ userId, id: factorId });
       if (deleteError) throw deleteError;

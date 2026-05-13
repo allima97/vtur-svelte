@@ -11,6 +11,12 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_MODULOS_SISTEMA_BODY_BYTES = 16 * 1024;
 
+type SystemModuleSettingsRow = {
+  module_key?: string | null;
+  enabled?: boolean | null;
+  reason?: string | null;
+};
+
 // Catálogo de módulos do sistema
 const MODULOS_CATALOGO = [
   { key: 'vendas', label: 'Vendas' },
@@ -75,9 +81,10 @@ export async function GET(event) {
       throw queryError;
     }
 
-    const rows = data || [];
-    const disabled = rows.reduce((acc: string[], row: any) => {
-      if (row.enabled === false) acc.push(row.module_key);
+    const rows = (data || []) as SystemModuleSettingsRow[];
+    const disabled = rows.reduce((acc: string[], row) => {
+      const moduleKey = String(row.module_key || '').trim();
+      if (row.enabled === false && moduleKey) acc.push(moduleKey);
       return acc;
     }, []);
 

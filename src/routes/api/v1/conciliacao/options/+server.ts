@@ -12,6 +12,11 @@ import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+type ConciliacaoVendedorOptionRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -28,7 +33,7 @@ export async function GET(event) {
 
     const usersData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
-    const vendedoresFinal = ((usersData || []) as any[])
+    const vendedoresFinal = ((usersData || []) as ConciliacaoVendedorOptionRow[])
       .map((row) => ({
         id: String(row?.id || '').trim(),
         nome_completo: String(row?.nome_completo || '').trim() || 'Usuario'

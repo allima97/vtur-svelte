@@ -12,6 +12,15 @@ import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/a
 
 const MAX_MASTER_EMPRESAS_BODY_BYTES = 16 * 1024;
 
+type MasterEmpresaRow = {
+  id?: string | null;
+  master_id?: string | null;
+  company_id?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  approved_at?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -48,11 +57,11 @@ export async function GET(event) {
         return data || [];
       }
 
-      const rows: any[] = [];
+      const rows: MasterEmpresaRow[] = [];
       for (const batch of chunkArray(accessible)) {
         const { data, error: queryError } = await buildQuery(batch);
         if (queryError) throw queryError;
-        rows.push(...(data || []));
+        rows.push(...((data || []) as MasterEmpresaRow[]));
       }
 
       return rows.sort((left, right) =>
