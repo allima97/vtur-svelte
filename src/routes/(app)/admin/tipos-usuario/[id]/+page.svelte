@@ -16,6 +16,36 @@
     ativo: boolean;
   };
 
+  type SystemModuleCatalogEntry = {
+    key: string;
+    label: string;
+  };
+
+  type PermissionSection = {
+    id: string;
+    titulo: string;
+    modulos: string[];
+  };
+
+  type UserTypeDetailResponse = {
+    tipo: {
+      id: string;
+      name: string;
+      description?: string | null;
+    };
+    usuarios?: Array<{ id: string; nome: string; email: string | null }> | null;
+  };
+
+  type UserTypePermissionsResponse = {
+    permissions?: PermissionEntry[] | null;
+    sections?: PermissionSection[] | null;
+  };
+
+  type AdminPermissionsResponse = {
+    system_module_catalog?: SystemModuleCatalogEntry[] | null;
+    sections?: PermissionSection[] | null;
+  };
+
   const emptyForm = {
     id: '',
     name: '',
@@ -36,7 +66,7 @@
     { value: 'delete', label: 'Excluir' },
     { value: 'admin', label: 'Admin' }
   ];
-  let sections: Array<{ id: string; titulo: string; modulos: string[] }> = [];
+  let sections: PermissionSection[] = [];
   let lastLoadedId = '';
 
   $: isCreateMode = $page.params.id === 'novo';
@@ -49,8 +79,8 @@
     loading = true;
     try {
       if (isCreateMode) {
-        const payload = await apiGet<any>('/api/v1/admin/permissoes');
-        permissions = (payload.system_module_catalog || []).map((item: any) => ({
+        const payload = await apiGet<AdminPermissionsResponse>('/api/v1/admin/permissoes');
+        permissions = (payload.system_module_catalog || []).map((item) => ({
           label: item.label,
           modulo: item.key,
           permissao: 'none',
@@ -61,8 +91,8 @@
         form = { ...emptyForm };
       } else {
         const [detailPayload, permsPayload] = await Promise.all([
-          apiGet<any>(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
-          apiGet<any>(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
+          apiGet<UserTypeDetailResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}`),
+          apiGet<UserTypePermissionsResponse>(`/api/v1/admin/tipos-usuario/${$page.params.id}/permissoes`)
         ]);
         form = {
           id: detailPayload.tipo.id,
