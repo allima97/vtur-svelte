@@ -38,6 +38,42 @@ function uniqueNonEmpty(values: string[]) {
   return out;
 }
 
+async function fetchCancelledVendaIdsBrowser(
+  sb: SupabaseClient,
+  companyId?: string | null,
+): Promise<Set<string>> {
+  let query = (sb as any)
+    .from("vendas")
+    .select("id")
+    .eq("cancelada", true)
+    .limit(2000);
+  if (companyId) query = query.eq("company_id", companyId);
+  const { data } = await query;
+  const ids = new Set<string>();
+  for (const row of (data || []) as any[]) {
+    if (row?.id) ids.add(String(row.id));
+  }
+  return ids;
+}
+
+async function fetchClienteIdMapBrowser(
+  sb: SupabaseClient,
+  vendaIds: string[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!vendaIds.length) return map;
+  const { data } = await (sb as any)
+    .from("vendas")
+    .select("id, cliente_id")
+    .in("id", vendaIds);
+  for (const row of (data || []) as any[]) {
+    if (row?.id && row?.cliente_id) {
+      map.set(String(row.id), String(row.cliente_id));
+    }
+  }
+  return map;
+}
+
 export async function findReciboReservaDuplicado(params: {
   client?: SupabaseClient;
   numeros: NumeroLookup[];
@@ -55,11 +91,15 @@ export async function findReciboReservaDuplicado(params: {
     return q;
   };
 
+  // Busca IDs de vendas canceladas via consulta separada para evitar
+  // dependência de filtragem de join PostgREST (pode ser instável).
+  const cancelledVendaIds = await fetchCancelledVendaIdsBrowser(sb, companyId);
+
   // VALIDAÇÃO DE RECIBOS (mantém comportamento original - não pode duplicar)
   if (recibos.length) {
-    let query = sb
+    let query = (sb as any)
       .from("vendas_recibos")
-      .select("id, numero_recibo, venda_id, vendas!inner(company_id, cancelada)")
+      .select("id, numero_recibo, venda_id, vendas!inner(company_id)")
       .in("numero_recibo", recibos);
 
     if (companyId) {
@@ -69,7 +109,9 @@ export async function findReciboReservaDuplicado(params: {
     const { data, error } = await applyFilters(query.limit(50));
     if (error) throw error;
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
-    const ativos = (data || []).filter((r: any) => r?.vendas?.cancelada !== true);
+    const ativos = (data || []).filter(
+      (r: any) => !cancelledVendaIds.has(String(r?.venda_id || ""))
+    );
     if (ativos.length) {
       return { tipo: "recibo", valor: ativos[0].numero_recibo };
     }
@@ -78,14 +120,14 @@ export async function findReciboReservaDuplicado(params: {
   // VALIDAÇÃO DE RESERVAS (NOVA LÓGICA - permite se cliente diferente)
   if (reservas.length) {
     // Busca todos os recibos com essas reservas
-    let query = sb
+    let query = (sb as any)
       .from("vendas_recibos")
       .select(`
         id,
         numero_recibo,
         numero_reserva,
         venda_id,
-        vendas!inner(cliente_id, company_id, cancelada)
+        vendas!inner(company_id)
       `)
       .in("numero_reserva", reservas);
 
@@ -97,10 +139,14 @@ export async function findReciboReservaDuplicado(params: {
     if (error) throw error;
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
     const recibosExistentes = (recibosRaw || []).filter(
-      (r: any) => r?.vendas?.cancelada !== true,
+      (r: any) => !cancelledVendaIds.has(String(r?.venda_id || ""))
     );
 
     if (recibosExistentes?.length) {
+      // Busca cliente_id das vendas relevantes para verificar conflito de cliente
+      const vendaIds = [...new Set<string>(recibosExistentes.map((r: any) => String(r?.venda_id || "")).filter(Boolean))];
+      const clienteIdMap = await fetchClienteIdMapBrowser(sb, vendaIds);
+
       // Para cada número da requisição, verifica se existe conflito
       for (const numeroAtual of numeros) {
         if (!numeroAtual.numero_reserva) continue;
@@ -117,7 +163,7 @@ export async function findReciboReservaDuplicado(params: {
 
         // Verifica se tem algum com o mesmo cliente_id
         const mesmoCliente = recibosComMesmaReserva.some(
-          (r: any) => r.vendas?.cliente_id === numeroAtual.cliente_id
+          (r: any) => clienteIdMap.get(String(r?.venda_id || "")) === numeroAtual.cliente_id
         );
 
         // Verifica se tem algum com o mesmo numero_recibo
@@ -143,7 +189,7 @@ export async function findReciboReservaDuplicado(params: {
             venda_id: r.venda_id,
             numero_recibo: r.numero_recibo,
             numero_reserva: r.numero_reserva,
-            cliente_id: r.vendas?.cliente_id,
+            cliente_id: clienteIdMap.get(String(r?.venda_id || "")) ?? null,
           })),
         };
       }

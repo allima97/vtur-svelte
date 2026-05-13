@@ -156,6 +156,46 @@ function isRexturRecibo(numeroRecibo?: string | null): boolean {
   return key === "REXTUR" || key.includes("REXTUR");
 }
 
+// ── helpers para validação sem join PostgREST ────────────────────────────────
+
+async function fetchCancelledVendaIds(
+  client: any,
+  companyId?: string | null,
+): Promise<Set<string>> {
+  let query = client
+    .from("vendas")
+    .select("id")
+    .eq("cancelada", true)
+    .limit(2000);
+  if (companyId) query = query.eq("company_id", companyId);
+  const { data } = await query;
+  const ids = new Set<string>();
+  for (const row of data || []) {
+    if (row?.id) ids.add(String(row.id));
+  }
+  return ids;
+}
+
+async function fetchClienteIdsByVendaIds(
+  client: any,
+  vendaIds: string[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!vendaIds.length) return map;
+  const { data } = await client
+    .from("vendas")
+    .select("id, cliente_id")
+    .in("id", vendaIds);
+  for (const row of data || []) {
+    if (row?.id && row?.cliente_id) {
+      map.set(String(row.id), String(row.cliente_id));
+    }
+  }
+  return map;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 export async function ensureReciboReservaUnicos(params: {
   client: any;
   companyId?: string | null;
@@ -182,11 +222,16 @@ export async function ensureReciboReservaUnicos(params: {
     throw new Error("RECIBO_DUPLICADO");
   }
 
+  // Busca IDs de vendas canceladas para excluir da validação.
+  // Usamos consulta separada para não depender de filtragem de join PostgREST
+  // (que pode ser instável dependendo da versão do PostgREST/supabase-js).
+  const cancelledVendaIds = await fetchCancelledVendaIds(client, companyId);
+
   if (receiptKeys.length > 0) {
     let query = client
       .from("vendas_recibos")
       .select(
-        "id, numero_recibo, numero_recibo_normalizado, venda_id, vendas!inner(company_id, cancelada)",
+        "id, numero_recibo, numero_recibo_normalizado, venda_id, vendas!inner(company_id)",
       )
       .in("numero_recibo_normalizado", receiptKeys);
     if (companyId) query = query.eq("vendas.company_id", companyId);
@@ -195,7 +240,7 @@ export async function ensureReciboReservaUnicos(params: {
     if (error) throw error;
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
     const ativos = (data || []).filter(
-      (row: any) => row?.vendas?.cancelada !== true,
+      (row: any) => !cancelledVendaIds.has(String(row?.venda_id || "")),
     );
     if (ativos.length > 0) {
       throw new Error("RECIBO_DUPLICADO");
@@ -206,7 +251,7 @@ export async function ensureReciboReservaUnicos(params: {
     let query = client
       .from("vendas_recibos")
       .select(
-        "id, numero_recibo, numero_reserva, venda_id, vendas!inner(cliente_id, company_id, cancelada)",
+        "id, numero_recibo, numero_reserva, venda_id, vendas!inner(company_id)",
       )
       .in(
         "numero_reserva",
@@ -221,8 +266,12 @@ export async function ensureReciboReservaUnicos(params: {
 
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
     const dadosAtivos = (data || []).filter(
-      (row: any) => row?.vendas?.cancelada !== true,
+      (row: any) => !cancelledVendaIds.has(String(row?.venda_id || "")),
     );
+
+    // Para reservas precisamos do cliente_id — buscamos as vendas ativas relevantes
+    const vendaIds = uniqueCleanStrings(dadosAtivos.map((r: any) => String(r?.venda_id || "")));
+    const clienteIdByVendaId = await fetchClienteIdsByVendaIds(client, vendaIds);
 
     for (const recibo of recibosParaValidar) {
       const reservaKey = normalizeReservaKey(recibo?.numero_reserva);
@@ -233,7 +282,7 @@ export async function ensureReciboReservaUnicos(params: {
       );
       const bloqueia = conflitos.some(
         (row: any) =>
-          String(row?.vendas?.cliente_id || "") === clienteId ||
+          String(clienteIdByVendaId.get(String(row?.venda_id || "")) || "") === clienteId ||
           normalizeReceiptKey(row?.numero_recibo) === reciboKey,
       );
       if (bloqueia) {
