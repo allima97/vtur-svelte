@@ -10,6 +10,36 @@
   import { parseISODateParts, todayISODateLocal } from '$lib/date';
   import { safeOpenNewTab } from '$lib/security/url';
 
+  type CanalAviso = 'whatsapp' | 'email';
+
+  type AvisoSendResponse = {
+    canal?: string | null;
+    whatsapp_url?: string | null;
+    [key: string]: unknown;
+  };
+
+  type AvisoEnviado = {
+    canal: CanalAviso;
+    mensagem: string;
+    assunto: string;
+    cliente_id: string;
+    template_id: string | null;
+    response: AvisoSendResponse;
+  };
+
+  type AvisoHistoricoItem = {
+    canal: string;
+    created_at: string;
+    assunto?: string | null;
+    mensagem?: string | null;
+    status?: string | null;
+  };
+
+  type AvisoHistoricoResponse = {
+    items?: AvisoHistoricoItem[];
+    unavailable?: boolean;
+  };
+
   export let open: boolean = false;
   export let clienteId: string = '';
   export let clienteNome: string = '';
@@ -18,9 +48,9 @@
   export let clienteNascimento: string | null = null;
   export let initialTema: string = 'all';
   export let onClose: () => void = () => {};
-  export let onEnviar: (dados: any) => void = () => {};
+  export let onEnviar: (dados: AvisoEnviado) => void = () => {};
 
-  let canalAtivo: 'whatsapp' | 'email' = 'whatsapp';
+  let canalAtivo: CanalAviso = 'whatsapp';
   let temaSelecionado = 'all';
   let templateSelecionado = '';
   let mensagemPersonalizada = '';
@@ -34,7 +64,7 @@
   let carregandoTemplates = false;
   let erroTemplates = '';
   let modalReady = false;
-  let historico: any[] = [];
+  let historico: AvisoHistoricoItem[] = [];
   let carregandoHistorico = false;
   let historicoIndisponivel = false;
   let lastTemaSelecionado = 'all';
@@ -338,7 +368,7 @@
     carregandoHistorico = true;
     historicoIndisponivel = false;
     try {
-      const data: any = await apiGet('/api/v1/clientes/avisos/history', { cliente_id: clienteId });
+      const data = await apiGet<AvisoHistoricoResponse>('/api/v1/clientes/avisos/history', { cliente_id: clienteId });
       historico = Array.isArray(data?.items) ? data.items : [];
       historicoIndisponivel = data?.unavailable === true;
     } catch (err) {
@@ -425,7 +455,7 @@
 
     enviando = true;
     try {
-      const payload: any = await apiPost('/api/v1/clientes/avisos/send', {
+      const payload = await apiPost<AvisoSendResponse>('/api/v1/clientes/avisos/send', {
           cliente_id: clienteId,
           canal: canalAtivo,
           template_id: templateSelecionado || null,
@@ -470,7 +500,7 @@
     return formatDateTime(value);
   }
 
-  function getStatusLabel(value: string) {
+  function getStatusLabel(value: string | null | undefined) {
     const key = String(value || '').toLowerCase();
     if (key === 'enviado') return 'Enviado';
     if (key === 'preparado') return 'Preparado';
