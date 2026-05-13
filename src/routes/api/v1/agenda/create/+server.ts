@@ -11,7 +11,7 @@ import {
   toErrorResponse
 } from '$lib/server/v1';
 
-function normalizePayload(body: any) {
+function normalizePayload(body: Record<string, unknown>) {
   const titulo = String(body?.titulo || body?.title || '').trim();
   const startDate = String(body?.start_date || body?.data_inicio || '').trim();
   const endDate = String(body?.end_date || body?.data_fim || startDate).trim() || startDate;
@@ -47,7 +47,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const payload = normalizePayload(body);
 

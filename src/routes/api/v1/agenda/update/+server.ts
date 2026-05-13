@@ -1,10 +1,11 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import { ensureAgendaAccess } from '$lib/server/agenda';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { getAdminClient, isUuid, requireAuthenticatedUser, resolveUserScope, toErrorResponse } from '$lib/server/v1';
 
-function normalizeUpdate(body: any) {
+function normalizeUpdate(body: Record<string, unknown>) {
   const payload: Record<string, unknown> = {};
 
   if (body?.titulo !== undefined || body?.title !== undefined) {
@@ -52,7 +53,7 @@ function normalizeUpdate(body: any) {
 
 const MAX_AGENDA_UPDATE_BODY_BYTES = 32 * 1024;
 
-async function handleUpdate(event: any) {
+async function handleUpdate(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
@@ -67,7 +68,7 @@ async function handleUpdate(event: any) {
     const id = String(event.url.searchParams.get('id') || '').trim();
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const targetId = id || String(body?.id || '').trim();
 
