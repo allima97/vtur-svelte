@@ -10,6 +10,8 @@
 /.vite
 /.wrangler
 /.svelte-kit
+/.svelte-kit.broken-*
+/.svelte-kit.stale-*
 /.svelte-kit.stuck-*
 /vite.config.ts.timestamp-*.mjs
 /public/pdfs
