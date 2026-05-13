@@ -11,6 +11,27 @@ import type { RequestEvent } from "@sveltejs/kit";
 
 type SupabaseAdminClient = ReturnType<typeof getAdminClient>;
 
+type MuralAttachmentRow = Record<string, unknown> & {
+  storage_bucket?: string | null;
+  storage_path?: string | null;
+  download_url?: string | null;
+};
+
+type MuralRecadoRow = Record<string, unknown> & {
+  arquivos?: MuralAttachmentRow[] | null;
+};
+
+type MuralAttachmentWithStorage = MuralAttachmentRow & {
+  storage_bucket: string;
+  storage_path: string;
+};
+
+function hasAttachmentStorage(
+  arquivo: MuralAttachmentRow,
+): arquivo is MuralAttachmentWithStorage {
+  return Boolean(arquivo?.storage_bucket && arquivo?.storage_path);
+}
+
 export const PRIVATE_JSON_SHORT_HEADERS = {
   "Content-Type": "application/json",
   "Cache-Control": "private, max-age=5",
@@ -110,19 +131,21 @@ export async function fetchRecados(client: SupabaseAdminClient, companyId: strin
   }
   if (resp.error) throw resp.error;
 
+  const recados = (resp.data || []) as unknown as MuralRecadoRow[];
   return {
-    recados: await withSignedAttachmentUrls(client, resp.data || []),
+    recados: await withSignedAttachmentUrls(client, recados),
     supportsAttachments,
   };
 }
 
-async function withSignedAttachmentUrls(client: SupabaseAdminClient, recados: any[]) {
+async function withSignedAttachmentUrls(
+  client: SupabaseAdminClient,
+  recados: MuralRecadoRow[],
+) {
   const files = recados.flatMap((recado) =>
     (recado.arquivos || [])
-      .filter(
-        (arquivo: any) => arquivo?.storage_bucket && arquivo?.storage_path,
-      )
-      .map((arquivo: any) => ({ recado, arquivo })),
+      .filter(hasAttachmentStorage)
+      .map((arquivo) => ({ recado, arquivo })),
   );
 
   await Promise.all(
