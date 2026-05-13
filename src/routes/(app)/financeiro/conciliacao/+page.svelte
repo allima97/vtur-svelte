@@ -1154,8 +1154,8 @@
       detailsReadOnly = true;
       showDetailsDialog = false;
       await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar atribuição.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Erro ao salvar atribuição.'));
     } finally {
       saving = false;
     }
