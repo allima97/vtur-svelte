@@ -10,6 +10,13 @@
 
   type TipoProduto = { id: string; nome: string };
   type Subdivisao = { id: string; nome: string };
+  type TipoProdutosResponse = { items?: TipoProduto[] | null };
+  type SubdivisoesResponse = { items?: Subdivisao[] | null };
+  type ImportacaoLoteResponse = {
+    criados?: number;
+    atualizados?: number;
+    erros?: string[] | null;
+  };
 
   let tipos: TipoProduto[] = [];
   let subdivisoes: Subdivisao[] = [];
@@ -27,8 +34,8 @@
 
   async function loadBase() {
     const [tiposPayload, subPayload] = await Promise.all([
-      apiGet<any>('/api/v1/tipo-produtos', { all: 1 }),
-      apiGet<any>('/api/v1/subdivisoes', { pageSize: 5000 })
+      apiGet<TipoProdutosResponse>('/api/v1/tipo-produtos', { all: 1 }),
+      apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', { pageSize: 5000 })
     ]);
     tipos = tiposPayload.items || [];
     subdivisoes = subPayload.items || [];
@@ -57,7 +64,7 @@
         ativo: true
       }));
 
-      const data = await apiPost<any>('/api/v1/produtos', {
+      const data = await apiPost<ImportacaoLoteResponse>('/api/v1/produtos', {
         produtos,
         subdivisao_id: subdivisaoId || null
       });
