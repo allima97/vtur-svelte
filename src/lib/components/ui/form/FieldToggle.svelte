@@ -2,6 +2,17 @@
   import { Helper, Toggle } from 'flowbite-svelte';
   import { uniqueFieldId } from './fieldId';
 
+  type FieldToggleBaseColor = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'teal' | 'orange';
+  type FieldToggleColor =
+    | FieldToggleBaseColor
+    | 'crm'
+    | 'clientes'
+    | 'vendas'
+    | 'financeiro'
+    | 'operacao'
+    | 'orcamentos'
+    | 'comissoes';
+
   export let label: string | null = null;
   export let checked = false;
   export let disabled = false;
@@ -10,24 +21,10 @@
   export let helper: string | null = null;
   export let error: string | null = null;
   export let size: 'small' | 'default' | 'large' = 'default';
-  export let color:
-    | 'blue'
-    | 'green'
-    | 'red'
-    | 'yellow'
-    | 'purple'
-    | 'teal'
-    | 'orange'
-    | 'crm'
-    | 'clientes'
-    | 'vendas'
-    | 'financeiro'
-    | 'operacao'
-    | 'orcamentos'
-    | 'comissoes' = 'blue';
+  export let color: FieldToggleColor = 'blue';
   export let class_name = '';
 
-  const colorAlias: Record<string, string> = {
+  const colorAlias: Record<FieldToggleColor, FieldToggleBaseColor> = {
     blue: 'blue',
     green: 'green',
     red: 'red',
@@ -70,7 +67,7 @@
       {checked}
       {disabled}
       {size}
-      color={resolvedColor as any}
+      color={resolvedColor}
       on:change
       on:blur
       on:focus
