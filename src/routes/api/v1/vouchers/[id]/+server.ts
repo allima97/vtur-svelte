@@ -13,6 +13,45 @@ const MAX_VOUCHER_UPDATE_BODY_BYTES = 512 * 1024;
 const errorResponse = (message: string, status: number, success = false) =>
   json({ success, error: message }, { status, headers: NO_STORE_HEADERS });
 
+type VoucherDiaDraft = {
+  dia_numero?: number | null;
+  titulo?: string | null;
+  descricao?: string | null;
+  data_referencia?: string | null;
+  cidade?: string | null;
+};
+
+type VoucherHotelDraft = {
+  cidade?: string | null;
+  hotel?: string | null;
+  endereco?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  noites?: number | null;
+  telefone?: string | null;
+  contato?: string | null;
+  status?: string | null;
+  observacao?: string | null;
+};
+
+type VoucherUpdateBody = {
+  provider?: string | null;
+  nome?: string | null;
+  codigo_systur?: string | null;
+  codigo_fornecedor?: string | null;
+  reserva_online?: string | null;
+  passageiros?: string | null;
+  tipo_acomodacao?: string | null;
+  operador?: string | null;
+  resumo?: string | null;
+  extra_data?: Record<string, unknown> | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  ativo?: boolean;
+  dias?: VoucherDiaDraft[];
+  hoteis?: VoucherHotelDraft[];
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -59,9 +98,9 @@ export async function PATCH(event) {
       ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 3, 'Sem permissão para editar vouchers.');
     }
 
-    const body =
+    const body: VoucherUpdateBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as VoucherUpdateBody)
         : {};
     const id = event.params.id;
 
@@ -97,7 +136,7 @@ export async function PATCH(event) {
     // Rebuild dias
     await client.from('voucher_dias').delete().eq('voucher_id', id);
     if (Array.isArray(body.dias) && body.dias.length > 0) {
-      const diasPayload = body.dias.map((dia: any, index: number) => ({
+      const diasPayload = body.dias.map((dia, index) => ({
         voucher_id: id,
         dia_numero: dia.dia_numero || index + 1,
         titulo: dia.titulo || null,
@@ -112,7 +151,7 @@ export async function PATCH(event) {
     // Rebuild hoteis
     await client.from('voucher_hoteis').delete().eq('voucher_id', id);
     if (Array.isArray(body.hoteis) && body.hoteis.length > 0) {
-      const hoteisPayload = body.hoteis.map((hotel: any, index: number) => ({
+      const hoteisPayload = body.hoteis.map((hotel, index) => ({
         voucher_id: id,
         cidade: String(hotel.cidade || ''),
         hotel: String(hotel.hotel || ''),
