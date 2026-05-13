@@ -308,8 +308,12 @@
     return value != null ? String(value) : "-";
   }
 
+  const HTML_TAG_RE = /<[^>]+>/;
+  const BLANK_TARGET_LINK_RE = /<a([^>]*\starget="_blank"[^>]*)>/gi;
+  const REL_ATTRIBUTE_RE = /\srel=/i;
+
   function isHtmlContent(value: string) {
-    return /<[^>]+>/.test(value);
+    return HTML_TAG_RE.test(value);
   }
 
   const DOMPURIFY_CONFIG: DOMPurifyConfig = {
@@ -325,8 +329,8 @@
     if (typeof window === 'undefined') return '';
     const clean = String(DOMPurify.sanitize(String(value || ''), DOMPURIFY_CONFIG));
     // Hardening: garante rel="noopener noreferrer" em links com target="_blank"
-    return clean.replace(/<a([^>]*\starget="_blank"[^>]*)>/gi, (match: string, attrs: string) => {
-      if (/\srel=/i.test(attrs)) return match;
+    return clean.replace(BLANK_TARGET_LINK_RE, (match: string, attrs: string) => {
+      if (REL_ATTRIBUTE_RE.test(attrs)) return match;
       return `<a${attrs} rel="noopener noreferrer">`;
     });
   }
