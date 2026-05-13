@@ -13,9 +13,20 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 
 const MAX_SEM_MOVIMENTO_BODY_BYTES = 8 * 1024;
 
-function isTableMissingError(error: any, tableName: string) {
-  const msg = String(error?.message || error || '').toLowerCase();
-  const code = String(error?.code || '').trim();
+type SemMovimentoBody = {
+  companyId?: unknown;
+  data?: unknown;
+  observacao?: unknown;
+};
+
+type CountResult = {
+  count?: number | null;
+};
+
+function isTableMissingError(error: unknown, tableName: string) {
+  const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+  const msg = String(errorRecord?.message || error || '').toLowerCase();
+  const code = String(errorRecord?.code || '').trim();
   return (
     code === '42P01' ||
     msg.includes('does not exist') ||
@@ -76,9 +87,9 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as SemMovimentoBody)
         : {};
-    const companyId = resolveScopedCompanyId(scope, body?.companyId);
+    const companyId = resolveScopedCompanyId(scope, String(body.companyId || '').trim() || null);
     const dataStr = String(body?.data || '').trim();
     const observacao = String(body?.observacao || '').trim() || null;
 
@@ -95,7 +106,8 @@ export async function POST(event) {
       .eq('movimento_data', dataStr);
 
     if (errExistentes) throw errExistentes;
-    if ((existentes as any)?.count > 0) {
+    const existentesCount = (existentes as CountResult | null)?.count || 0;
+    if (existentesCount > 0) {
       return json(
         { error: `Não é possível marcar "sem movimento" para ${dataStr}, pois já existem registros importados para esta data.` },
         { status: 409, headers: NO_STORE_HEADERS }
@@ -148,9 +160,9 @@ export async function DELETE(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as SemMovimentoBody)
         : {};
-    const companyId = resolveScopedCompanyId(scope, body?.companyId);
+    const companyId = resolveScopedCompanyId(scope, String(body.companyId || '').trim() || null);
     const dataStr = String(body?.data || '').trim();
 
     if (!companyId) return json({ error: 'Selecione uma empresa para remover dia sem movimento.' }, { status: 400, headers: NO_STORE_HEADERS });
