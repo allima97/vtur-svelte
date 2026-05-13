@@ -5,6 +5,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import type { RequestHandler } from './$types';
 
 const MAX_PASSKEY_REGISTER_BODY_BYTES = 32 * 1024;
+type RegistrationResponsePayload = Parameters<typeof verifyRegistration>[0]['response'];
 
 export const POST: RequestHandler = async (event) => {
   try {
@@ -19,10 +20,10 @@ export const POST: RequestHandler = async (event) => {
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_REGISTER_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const challengeId = String(body?.challengeId || '').trim();
-    const response = body?.response;
+    const response = body?.response as RegistrationResponsePayload | undefined;
     const name = String(body?.name || 'Passkey').trim();
 
     if (!challengeId || !response) {
