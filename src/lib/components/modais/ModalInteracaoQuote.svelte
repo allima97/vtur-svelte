@@ -13,11 +13,18 @@
   export let clienteNome: string = '';
   export let onClose: () => void = () => {};
   export let onSave: () => void = () => {};
+
+  type InteracaoQuote = {
+    tipo: string;
+    created_at: string;
+    observacoes: string;
+    data_agendamento?: string | null;
+  };
   
   // Estado
   let loading = false;
   let salvando = false;
-  let interacoes: any[] = [];
+  let interacoes: InteracaoQuote[] = [];
   
   let novaInteracao = {
     tipo: 'ligacao' as 'ligacao' | 'email' | 'whatsapp' | 'reuniao' | 'outro',
@@ -52,7 +59,7 @@
   async function carregarInteracoes() {
     loading = true;
     try {
-      const data: any = await apiGet('/api/v1/orcamentos/interacao', { quote_id: orcamentoId });
+      const data = await apiGet<{ interacoes?: InteracaoQuote[] }>('/api/v1/orcamentos/interacao', { quote_id: orcamentoId });
       interacoes = data.interacoes || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar interações.');
