@@ -1,23 +1,26 @@
 <script lang="ts">
   import { Alert } from 'flowbite-svelte';
+  import type { Component } from 'svelte';
   import Button from './Button.svelte';
   import { InfoCircleSolid, CheckCircleSolid, ExclamationCircleSolid, CloseCircleSolid } from 'flowbite-svelte-icons';
 
-  export let variant: 'error' | 'success' | 'info' | 'warning' = 'info';
+  type AlertVariant = 'error' | 'success' | 'info' | 'warning';
+
+  export let variant: AlertVariant = 'info';
   export let message = '';
   export let dismissable = false;
   export let title: string | null = null;
 
   let dismissed = false;
 
-  const colorMap: Record<string, 'blue' | 'green' | 'yellow' | 'red'> = {
+  const colorMap: Record<AlertVariant, 'blue' | 'green' | 'yellow' | 'red'> = {
     info: 'blue',
     success: 'green',
     warning: 'yellow',
     error: 'red'
   };
 
-  const IconMap: Record<string, any> = {
+  const IconMap: Record<AlertVariant, Component> = {
     info: InfoCircleSolid,
     success: CheckCircleSolid,
     warning: ExclamationCircleSolid,
