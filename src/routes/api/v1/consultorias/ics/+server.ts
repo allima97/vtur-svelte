@@ -4,6 +4,13 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { isUuid, logServerError, requireAuthenticatedUser } from '$lib/server/v1';
 import { todayISODateLocal } from '$lib/date';
 
+type ConsultoriaIcsRow = {
+  id?: string | null;
+  cliente_nome?: string | null;
+  data_hora?: string | null;
+  destino?: string | null;
+};
+
 function toIcsDate(value: Date) {
   const iso = value.toISOString().replace(/[-:]/g, "").split(".")[0];
   return `${iso}Z`;
@@ -41,7 +48,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       return json({ error: "Erro ao carregar consultorias." }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
-    const items = (rows || []).filter((row: any) => {
+    const items = ((rows || []) as ConsultoriaIcsRow[]).filter((row) => {
       const start = new Date(row?.data_hora || "");
       return !Number.isNaN(start.getTime());
     });
@@ -51,8 +58,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     }
 
     const events = items
-      .map((item: any) => {
-        const start = new Date(item.data_hora);
+      .map((item) => {
+        const start = new Date(item.data_hora || "");
         const end = new Date(start.getTime() + 60 * 60 * 1000);
         const summary = escapeIcsText(`Consultoria - ${item.cliente_nome || "Cliente"}`);
         const description = escapeIcsText(item.destino ? `Destino: ${item.destino}` : "Consultoria");
@@ -92,7 +99,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[consultorias/ics] falha ao exportar ICS", error);
     return json({ error: "Erro interno ao exportar consultorias." }, { status: 500, headers: NO_STORE_HEADERS });
   }
