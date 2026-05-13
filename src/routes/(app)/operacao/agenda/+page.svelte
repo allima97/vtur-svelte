@@ -43,6 +43,64 @@
     descricao: string;
   };
 
+  type CalendarView = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay';
+
+  type CalendarEventInput = {
+    id: string;
+    title: string;
+    start: string;
+    end?: string;
+    allDay: boolean;
+    editable: boolean;
+    backgroundColor: string;
+    borderColor: string;
+    extendedProps: {
+      descricao: string | null;
+      source: AgendaItem['source'];
+    };
+  };
+
+  type CalendarEventLike = {
+    id?: string;
+    allDay: boolean;
+    start: Date | null;
+    end: Date | null;
+  };
+
+  type CalendarController = {
+    changeView: (view: CalendarView) => void;
+    removeAllEvents: () => void;
+    addEventSource: (events: CalendarEventInput[]) => void;
+    render: () => void;
+  };
+
+  type CalendarDatesSetInfo = {
+    start: Date;
+    end: Date;
+  };
+
+  type CalendarSelectInfo = {
+    startStr: string;
+    endStr?: string;
+    allDay: boolean;
+  };
+
+  type CalendarDateClickInfo = {
+    dateStr: string;
+    allDay: boolean;
+  };
+
+  type CalendarEventClickInfo = {
+    event: {
+      id: string;
+    };
+  };
+
+  type CalendarEventMutationInfo = {
+    event: CalendarEventLike;
+    revert: () => void;
+  };
+
   const listColumns = [
     { key: 'title', label: 'Assunto', sortable: true },
     { key: 'sourceLabel', label: 'Origem', sortable: true },
@@ -77,7 +135,7 @@
   });
 
   let calendarEl: HTMLElement;
-  let calendar: any | null = null;
+  let calendar: CalendarController | null = null;
   let loading = true;
   let refreshing = false;
   let items: AgendaItem[] = [];
@@ -85,10 +143,10 @@
   let searchQuery = '';
   $: normalizedSearchQuery = searchQuery.trim().toLowerCase();
   let showFilterSheet = false;
-  let currentView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' = 'timeGridDay';
+  let currentView: CalendarView = 'timeGridDay';
   let initializingCalendar = false;
 
-  function changeView(view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') {
+  function changeView(view: CalendarView) {
     currentView = view;
     calendar?.changeView(view);
   }
@@ -127,7 +185,7 @@
     return { date, time: time.slice(0, 5) };
   }
 
-  function toCalendarEvent(item: AgendaItem) {
+  function toCalendarEvent(item: AgendaItem): CalendarEventInput {
     const isBirthday = item.source === 'birthday' || item.id.startsWith('birthday:');
     return {
       id: item.id,
@@ -206,14 +264,14 @@
         editable: true,
         selectable: true,
         dayMaxEvents: true,
-        datesSet: async (info: any) => {
+        datesSet: async (info: CalendarDatesSetInfo) => {
           const start = formatDate(info.start);
           const endDate = new Date(info.end.getTime());
           endDate.setDate(endDate.getDate() - 1);
           const end = formatDate(endDate);
           await loadRange(start, end, true);
         },
-        select: (info: any) => {
+        select: (info: CalendarSelectInfo) => {
           openCreateModal({
             startDate: info.startStr.split('T')[0],
             endDate: (info.endStr || info.startStr).split('T')[0],
@@ -222,7 +280,7 @@
             endTime: info.allDay ? '10:00' : info.endStr?.split('T')[1]?.slice(0, 5) || '10:00'
           });
         },
-        dateClick: (info: any) => {
+        dateClick: (info: CalendarDateClickInfo) => {
           openCreateModal({
             startDate: info.dateStr.split('T')[0],
             endDate: info.dateStr.split('T')[0],
@@ -231,12 +289,12 @@
             endTime: '10:00'
           });
         },
-        eventClick: (info: any) => {
+        eventClick: (info: CalendarEventClickInfo) => {
           const found = items.find((item) => item.id === info.event.id);
           if (!found) return;
           openExistingEvent(found);
         },
-        eventDrop: async (info: any) => {
+        eventDrop: async (info: CalendarEventMutationInfo) => {
           try {
             await updateFromCalendarEvent(info.event);
             toast.success('Evento reposicionado.');
@@ -245,7 +303,7 @@
             toast.error(error instanceof Error ? error.message : 'Erro ao mover evento.');
           }
         },
-        eventResize: async (info: any) => {
+        eventResize: async (info: CalendarEventMutationInfo) => {
           try {
             await updateFromCalendarEvent(info.event);
             toast.success('Periodo atualizado.');
@@ -265,7 +323,7 @@
     }
   }
 
-  function eventToPayload(event: any) {
+  function eventToPayload(event: CalendarEventLike) {
     const allDay = Boolean(event.allDay);
     const startDate = event.start ? formatDate(event.start) : todayIso;
     let endDate = event.end ? formatDate(event.end) : startDate;
@@ -285,7 +343,7 @@
     };
   }
 
-  async function updateFromCalendarEvent(event: any) {
+  async function updateFromCalendarEvent(event: CalendarEventLike) {
     if (String(event.id || '').startsWith('birthday:')) {
       throw new Error('Aniversarios sao somente leitura.');
     }
