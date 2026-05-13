@@ -1493,7 +1493,7 @@
       if (!parsed.linhas.length) {
         toast.error('Arquivo lido, mas nenhuma linha operacional foi identificada.');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       importText = '';
       importIgnored = 0;
       importRowsTotal = 0;
@@ -1501,7 +1501,7 @@
       importLookupMatches = {};
       importLookupSignature = '';
       importParseError = '';
-      toast.error(error?.message || 'Não foi possível ler o arquivo selecionado.');
+      toast.error(getErrorMessage(error, 'Não foi possível ler o arquivo selecionado.'));
     }
   }
 
