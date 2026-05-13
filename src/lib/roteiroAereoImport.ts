@@ -68,6 +68,9 @@ const SINGLE_DAY_RE =
 const DATE_CLASS_RE =
   /^(?:[a-zA-ZÀ-ÿ]{2,7},?\s*)?(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)\s*-\s*(.+)$/i;
 const PROVIDER2_DATE_TIME_RE = /^(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2}:\d{2})$/;
+const TIME_LINE_RE = /^\d{2}:\d{2}$/;
+const AIRPORT_CODE_RE = /^[A-Z]{3}$/;
+const OCCUPANCY_LINE_RE = /^total\s*\(/i;
 const PROVIDER_CARD_MARKERS = new Set(["aereo", "selecionado", "excluir", "detalhes", "multitrecho"]);
 const PROVIDER2_IGNORED_LINES = new Set(["sua escolha", "fechar"]);
 const AIRPORT_NOISE_WORDS_RE =
@@ -365,11 +368,11 @@ function extractMoneyValues(line?: string | null): number[] {
 }
 
 function isTimeLine(line: string) {
-  return /^\d{2}:\d{2}$/.test(normalizeLine(line));
+  return TIME_LINE_RE.test(normalizeLine(line));
 }
 
 function isAirportLine(line: string) {
-  return /^[A-Z]{3}$/.test(normalizeLine(line));
+  return AIRPORT_CODE_RE.test(normalizeLine(line));
 }
 
 function isFlightTypeLine(line: string) {
@@ -382,7 +385,7 @@ function isRefundLine(line: string) {
 }
 
 function isOccupancyLine(line: string) {
-  return /^total\s*\(/i.test(normalizeText(line));
+  return OCCUPANCY_LINE_RE.test(normalizeText(line));
 }
 
 function normalizeTrecho(line: string) {
@@ -597,7 +600,7 @@ function isProvider2AirportLine(
 }
 
 function isProvider2DurationLine(line: string) {
-  return /^\d{2}:\d{2}$/.test(normalizeLine(line));
+  return TIME_LINE_RE.test(normalizeLine(line));
 }
 
 function isEquipmentLine(line: string) {
