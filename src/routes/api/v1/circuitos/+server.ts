@@ -35,7 +35,7 @@ export async function GET(event) {
     if (error) throw error;
 
     return json({ success: true, items: data || [] }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar circuitos.');
   }
 }
@@ -57,7 +57,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const id = String(body.id || '').trim();
 
@@ -83,7 +83,7 @@ export async function POST(event) {
     }
 
     return json({ success: true, item: result }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao salvar circuito.');
   }
 }
