@@ -10,6 +10,7 @@ import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CONVITE_SEND_BODY_BYTES = 64 * 1024;
+const TITLE_CASE_SMALL_WORDS = new Set(["de", "da", "do", "dos", "das", "e", "o", "a", "os", "as", "um", "uma", "uns", "umas"]);
 
 function noStoreJson(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -20,11 +21,10 @@ function noStoreJson(data: unknown, init: ResponseInit = {}) {
 function titleCaseWithExceptions(input: string): string {
   if (!input) return "";
   const words = input.split(/\s+/);
-  const smallWords = new Set(["de", "da", "do", "dos", "das", "e", "o", "a", "os", "as", "um", "uma", "uns", "umas"]);
   return words
     .map((word, idx) => {
       if (!word) return "";
-      const isSmall = smallWords.has(word.toLowerCase());
+      const isSmall = TITLE_CASE_SMALL_WORDS.has(word.toLowerCase());
       const isFirst = idx === 0;
       if (isFirst || !isSmall) {
         return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
