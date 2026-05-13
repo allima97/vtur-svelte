@@ -12,6 +12,9 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PARAMETROS_EMPRESA_BODY_BYTES = 64 * 1024;
 const EMPRESA_ALLOWED_UPDATE_FIELDS = ['nome_empresa', 'nome_fantasia', 'cnpj', 'telefone', 'endereco', 'cidade', 'estado'];
+type EmpresaUpdateField = (typeof EMPRESA_ALLOWED_UPDATE_FIELDS)[number];
+type EmpresaRequestBody = Partial<Record<EmpresaUpdateField, unknown>>;
+type EmpresaUpdatePayload = Partial<Record<EmpresaUpdateField, unknown | null>>;
 
 export async function GET(event) {
   try {
@@ -62,10 +65,10 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as EmpresaRequestBody)
         : {};
 
-    const payload: Record<string, any> = {};
+    const payload: EmpresaUpdatePayload = {};
     for (const key of EMPRESA_ALLOWED_UPDATE_FIELDS) {
       if (key in body) {
         payload[key] = body[key] === '' ? null : body[key];
