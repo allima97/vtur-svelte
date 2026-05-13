@@ -20,6 +20,19 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_SUBDIVISOES_BODY_BYTES = 64 * 1024;
 
+type SubdivisaoRow = {
+  id: string;
+  nome: string | null;
+  pais_id: string | null;
+  codigo_admin1: string | null;
+  tipo: string | null;
+  created_at: string | null;
+  pais?: {
+    id: string;
+    nome: string | null;
+  }[] | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -43,7 +56,7 @@ export async function GET(event) {
         return json({ error: 'id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
 
-      const item = await getCachedReadModel<any | null>({
+      const item = await getCachedReadModel<SubdivisaoRow | null>({
         key: buildReadModelCacheKey('subdivisoes:get', { id }),
         tags: [READ_MODEL_TAGS.catalog],
         ttlMs: 60_000,
@@ -71,7 +84,7 @@ export async function GET(event) {
       return json({ error: 'pais_id inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
+    const { items, total } = await getCachedReadModel<{ items: SubdivisaoRow[]; total: number }>({
       key: buildReadModelCacheKey('subdivisoes:list', { q, paisId, page, pageSize }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
@@ -121,16 +134,18 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const { id, nome, pais_id, codigo_admin1, tipo } = body;
+    const { nome, codigo_admin1, tipo } = body;
+    const id = String(body.id || '').trim();
+    const paisId = String(body.pais_id || '').trim();
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
-    if (!pais_id || !isUuid(pais_id)) return json({ error: 'País obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!paisId || !isUuid(paisId)) return json({ error: 'País obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       nome: String(nome).trim(),
-      pais_id,
+      pais_id: paisId,
       codigo_admin1: String(codigo_admin1 || '').trim() || null,
       tipo: String(tipo || '').trim() || null
     };
