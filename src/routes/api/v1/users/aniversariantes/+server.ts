@@ -10,6 +10,23 @@ import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { parseISODateParts, todayISODateLocal } from '$lib/date';
 import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
+type SupabaseRelation<T> = T | T[] | null | undefined;
+
+type AniversarianteUserRow = {
+  id: string;
+  nome_completo: string | null;
+  email: string | null;
+  data_nascimento: string | null;
+  company_id: string | null;
+  user_types?: SupabaseRelation<{ name?: string | null }>;
+  companies?: SupabaseRelation<{ nome_fantasia?: string | null }>;
+};
+
+function firstRelation<T>(value: SupabaseRelation<T>): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -33,7 +50,7 @@ export async function GET(event) {
       return query;
     };
 
-    const rows: any[] = [];
+    const rows: AniversarianteUserRow[] = [];
     if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
       for (const batch of chunkArray(companyIds)) {
         const { data, error: queryError } = await buildQuery(batch);
@@ -48,25 +65,25 @@ export async function GET(event) {
 
     const hoje = parseISODateParts(todayISODateLocal());
     const items = rows
-      .filter((u: any) => {
+      .filter((u) => {
         if (!u.data_nascimento) return false;
         const d = parseISODateParts(u.data_nascimento);
         return d?.month === month;
       })
-      .map((u: any) => ({
+      .map((u) => ({
         id: u.id,
         nome_completo: u.nome_completo,
         email: u.email,
         data_nascimento: u.data_nascimento,
-        role: (u.user_types as any)?.name || '',
+        role: firstRelation(u.user_types)?.name || '',
         company_id: u.company_id,
-        company_nome: (u.companies as any)?.nome_fantasia || null,
+        company_nome: firstRelation(u.companies)?.nome_fantasia || null,
         aniversario_hoje: (() => {
           const d = parseISODateParts(u.data_nascimento);
           return Boolean(d && hoje && d.month === hoje.month && d.day === hoje.day);
         })()
       }))
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         const da = parseISODateParts(a.data_nascimento)?.day || 0;
         const db = parseISODateParts(b.data_nascimento)?.day || 0;
         return da - db;
