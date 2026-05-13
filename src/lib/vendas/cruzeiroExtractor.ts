@@ -798,8 +798,8 @@ export async function extractCruzeiroFromPdf(file: File): Promise<ContratoImport
   }
   try {
     return await extractCruzeiroFromText(fullText);
-  } catch (err: any) {
-    const msg = String(err?.message || "");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err || "");
     if (/Nenhum contrato encontrado/i.test(msg)) {
       throw new Error("Nenhum orcamento de cruzeiro encontrado no PDF.");
     }
