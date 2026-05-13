@@ -19,14 +19,15 @@ type ScopedUserRow = {
   company_id?: string | null;
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request, locals } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_EQUIPE_RELACAO_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
     const adminClient = getAdminClient();
     const scope = await resolveUserScope(adminClient, user.id);
