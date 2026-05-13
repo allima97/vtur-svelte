@@ -501,7 +501,7 @@
     if (ensuringCidadeId === id) return;
     ensuringCidadeId = id;
     try {
-      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { id });
+      const payload = await apiGet<Option | null>('/api/v1/vendas/cidades-busca', { id });
       if (payload?.id) mergeCidades([payload]);
     } catch {
       // Sem impacto funcional; mantemos a tela usavel.
