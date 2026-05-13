@@ -1,6 +1,8 @@
 import type { EffectiveConciliacaoReceipt } from '$lib/conciliacao/source';
 import { normalizeReceiptNumber, receiptNumberCore } from '$lib/conciliacao/receiptNumber';
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export type MergeAdapters<TVenda, TRecibo> = {
   getVendaId(venda: TVenda): string;
   getRecibos(venda: TVenda): TRecibo[];
@@ -22,7 +24,7 @@ export type MergeResult<TVenda> = {
 
 function toMonthKey(value?: string | null) {
   const raw = String(value || '').trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw.slice(0, 7) : '';
+  return ISO_DATE_PATTERN.test(raw) ? raw.slice(0, 7) : '';
 }
 
 function str(value: unknown) {
