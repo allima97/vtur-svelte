@@ -35,7 +35,7 @@ export async function GET(event) {
       if (cached) return buildJsonResponse(cached);
     }
 
-    let cidadesData: any[] = [];
+    let cidadesData: Array<Record<string, unknown>> = [];
     try {
       const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
       if (error) throw error;
