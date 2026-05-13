@@ -23,7 +23,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
     const { data, error } = await client
@@ -51,7 +51,7 @@ export async function POST(event) {
     if (error) throw error;
 
     return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao criar voucher.');
   }
 }
