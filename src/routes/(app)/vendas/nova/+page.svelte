@@ -76,6 +76,13 @@
     observacoes?: string | null;
   };
 
+  type CalculadoraResultado = {
+    valorFinal?: string | number | null;
+    valorBruto?: string | number | null;
+    descontoValor?: string | number | null;
+    taxas?: string | number | null;
+  };
+
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -572,7 +579,7 @@
     currentStep = bounded;
   }
 
-  function applyValoresCalculadora(resultado: any) {
+  function applyValoresCalculadora(resultado: CalculadoraResultado) {
     venda.valor_total = String(resultado.valorFinal || '');
     venda.valor_total_bruto = String(resultado.valorBruto || '');
     venda.desconto_comercial_aplicado = Number(resultado.descontoValor || 0) > 0;
