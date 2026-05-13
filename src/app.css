@@ -204,7 +204,7 @@
   .vtur-auth-brand-lockup {
     display: inline-flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.5rem;
   }
 
@@ -215,7 +215,8 @@
   }
 
   .vtur-auth-brand-logo {
-    height: 2.6rem;
+    height: 6rem;
+    width: auto;
   }
 
   .vtur-auth-brand-title {

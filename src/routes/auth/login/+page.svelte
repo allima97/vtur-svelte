@@ -301,12 +301,14 @@
   <div class="w-full max-w-md">
     <!-- Logo -->
     <div class="vtur-auth-brand">
-      <div class="vtur-auth-brand-lockup">
-        <div class="vtur-auth-brand-row">
-          <img src="/brand/vtur-symbol.png?v=7" alt="VTUR" class="vtur-auth-brand-logo w-auto object-contain drop-shadow-[0_14px_28px_rgba(15,23,42,0.18)]" />
-          <h1 class="vtur-auth-brand-title text-3xl font-bold">VTUR</h1>
+      <div class="vtur-auth-brand-lockup flex flex-col items-center">
+        <img src="/brand/vtur-app-symbol.png" alt="vtur-app" class="vtur-auth-brand-logo object-contain drop-shadow-[0_14px_28px_rgba(15,23,42,0.18)] mb-2" />
+        <div class="flex flex-col items-center gap-0.5">
+          <div class="flex items-baseline gap-0" style="font-size:2rem;font-weight:800;letter-spacing:-0.01em;line-height:1;">
+            <span style="color:#ffffff;font-family:'Segoe UI',system-ui,sans-serif;">vtur-</span><span style="color:#22d3ee;font-family:'Segoe UI',system-ui,sans-serif;">app</span>
+          </div>
+          <p style="color:rgba(255,255,255,0.6);font-size:0.65rem;letter-spacing:0.18em;font-weight:500;font-family:'Segoe UI',system-ui,sans-serif;">SIMPLIFICA · CONECTA · EVOLUI</p>
         </div>
-        <p class="vtur-auth-brand-subtitle">Sistema de Gestão de Viagens</p>
       </div>
     </div>
     

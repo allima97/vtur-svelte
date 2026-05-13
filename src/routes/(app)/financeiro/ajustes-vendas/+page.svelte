@@ -120,7 +120,7 @@
       key: 'rateio',
       label: 'Rateio',
       sortable: false,
-      formatter: (_: any, row: AjusteItem) => {
+      formatter: (_: unknown, row: AjusteItem) => {
         if (!row.rateio || !row.rateio.ativo) return '<span class="text-slate-400 text-xs">Sem rateio</span>';
         const nome = row.rateio.vendedor_destino_nome || row.rateio.vendedor_destino?.nome_completo || 'Vendedor';
         return `<span class="text-xs">${escapeHtml(nome)} · ${Number(row.rateio.percentual_destino || 0).toFixed(2).replace('.', ',')}%</span>`;
