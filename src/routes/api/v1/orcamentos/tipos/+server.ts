@@ -13,6 +13,12 @@ import {
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
 
+type OrcamentoTipoProdutoRow = {
+  id?: string | null;
+  nome?: string | null;
+  tipo?: string | null;
+};
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -28,7 +34,7 @@ export async function GET(event: RequestEvent) {
       );
     }
 
-    const data = await getCachedReadModel<any[]>({
+    const data = await getCachedReadModel<OrcamentoTipoProdutoRow[]>({
       key: buildReadModelCacheKey('orcamentos:tipos-produtos', {}),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
@@ -40,7 +46,7 @@ export async function GET(event: RequestEvent) {
           .order('nome', { ascending: true })
           .limit(500);
         if (error) throw error;
-        return data || [];
+        return (data || []) as OrcamentoTipoProdutoRow[];
       }
     });
 
