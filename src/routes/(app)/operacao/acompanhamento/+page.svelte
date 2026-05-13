@@ -60,8 +60,7 @@
   }
 
   function getEmailLink(item: FollowUpItem): string | null {
-    // Tenta pegar email do cliente se disponível
-    const email = (item as any).cliente_email || null;
+    const email = item.cliente_email || null;
     if (!email) return null;
     const assunto = encodeURIComponent('Como foi sua viagem?');
     const corpo = encodeURIComponent(buildMensagemFollowUp(item.cliente_nome));
@@ -73,6 +72,7 @@
     venda_id: string | null;
     cliente_id: string | null;
     cliente_nome: string;
+    cliente_email: string | null;
     cliente_whatsapp: string | null;
     cliente_telefone: string | null;
     destino_nome: string | null;
