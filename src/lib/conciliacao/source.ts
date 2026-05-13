@@ -110,6 +110,29 @@ type RateioQueryRow = {
   percentual_destino?: unknown;
 };
 
+type VendaReciboRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  venda_id?: string | null;
+  produto_id?: string | null;
+  data_venda?: string | null;
+  valor_total?: number | string | null;
+  valor_rav?: number | string | null;
+  cancelado_por_conciliacao_em?: string | null;
+  cancelado_por_conciliacao_observacao?: string | null;
+};
+
+type VendaReciboMeta = {
+  id?: string | null;
+  venda_id: string | null;
+  produto_id: string | null;
+  data_venda: string | null;
+  valor_total: number;
+  valor_rav: number;
+  cancelado_por_conciliacao_em: string | null;
+  cancelado_por_conciliacao_observacao: string | null;
+};
+
 function logSourceWarning(context: string, error: unknown) {
   if (dev) {
     console.warn(context, error);
@@ -866,8 +889,8 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
     }
   }
 
-  const recibosMap = new Map<string, any>();
-  const reciboByNumeroMap = new Map<string, any>();
+  const recibosMap = new Map<string, VendaReciboMeta>();
+  const reciboByNumeroMap = new Map<string, VendaReciboMeta>();
   if (reciboIds.length > 0) {
     for (const batch of chunkArray(reciboIds)) {
       const { data, error } = await client
@@ -877,7 +900,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         )
         .in("id", batch);
       if (error) throw error;
-      for (const row of data || []) {
+      for (const row of (data || []) as VendaReciboRow[]) {
         const id = toStr(row?.id);
         if (!id) continue;
         recibosMap.set(id, {
@@ -928,8 +951,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         .in("numero_recibo", batch);
       if (error) throw error;
 
+      const recibosPorNumero = (data || []) as VendaReciboRow[];
       const vendaIdsBatch = collectUuidValues(
-        (data || []).map((row: any) => row?.venda_id),
+        recibosPorNumero.map((row) => row?.venda_id),
       );
       const allowedVendaIds = new Set<string>();
       if (vendaIdsBatch.length > 0) {
@@ -952,7 +976,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         }
       }
 
-      for (const row of data || []) {
+      for (const row of recibosPorNumero) {
         const numero = toStr(row?.numero_recibo);
         const id = toStr(row?.id);
         const vendaId = toStr(row?.venda_id);
@@ -979,7 +1003,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
   const fallbackReciboIds = Array.from(
     new Set(
       Array.from(reciboByNumeroMap.values())
-        .map((row: any) => toStr(row?.id))
+        .map((row) => toStr(row?.id))
         .filter(isUuid)
         .filter((id: string) => !reciboRateioMap.has(id)),
     ),
@@ -1022,7 +1046,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       [
         ...vendaIds,
         ...Array.from(reciboByNumeroMap.values())
-          .map((row: any) => toStr(row?.venda_id))
+          .map((row) => toStr(row?.venda_id))
           .filter(isUuid),
       ].filter(Boolean),
     ),
