@@ -15,6 +15,21 @@ import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '
 const MAX_OPERACAO_RECADO_BODY_BYTES = 64 * 1024;
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+type JsonBody = Record<string, unknown>;
+type RecadoRow = {
+  id?: string | null;
+  created_at?: string | null;
+  [key: string]: unknown;
+};
+type UsuarioRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  [key: string]: unknown;
+};
+type ReceiverRow = {
+  company_id?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -61,7 +76,7 @@ export async function GET(event) {
       if (allowedCompanyIds[0] === NO_MATCH_COMPANY_ID) return { data: [], error: null };
       if (allowedCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildRecadosQuery(allowedCompanyIds);
 
-      const rows: any[] = [];
+      const rows: RecadoRow[] = [];
       for (const batch of chunkArray(allowedCompanyIds)) {
         const result = await buildRecadosQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
@@ -70,7 +85,7 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows)
-          .sort((left: any, right: any) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
+          .sort((left, right) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
           .slice(0, 200),
         error: null
       };
@@ -107,7 +122,7 @@ export async function GET(event) {
       if (allowedCompanyIds[0] === NO_MATCH_COMPANY_ID) return { data: [], error: null };
       if (allowedCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildUsersQuery(allowedCompanyIds);
 
-      const rows: any[] = [];
+      const rows: UsuarioRow[] = [];
       for (const batch of chunkArray(allowedCompanyIds)) {
         const result = await buildUsersQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
@@ -117,7 +132,7 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows)
-          .sort((left: any, right: any) =>
+          .sort((left, right) =>
             PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
           )
           .slice(0, 100),
@@ -149,7 +164,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
     const { receiver_id, assunto, conteudo } = body;
 
@@ -157,7 +172,8 @@ export async function POST(event) {
       return json({ error: 'Conteúdo obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const receiverId = receiver_id && isUuid(receiver_id) ? String(receiver_id) : null;
+    const receiverIdValue = String(receiver_id || '').trim();
+    const receiverId = isUuid(receiverIdValue) ? receiverIdValue : null;
     let receiverCompanyId: string | null = null;
     if (receiverId) {
       const { data: receiver, error: receiverError } = await client
@@ -168,7 +184,7 @@ export async function POST(event) {
         .maybeSingle();
       if (receiverError) throw receiverError;
       if (!receiver) return json({ error: 'Destinatário não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-      receiverCompanyId = String((receiver as any)?.company_id || '').trim() || null;
+      receiverCompanyId = String((receiver as ReceiverRow)?.company_id || '').trim() || null;
       if (!scope.isAdmin && !allowedCompanySet.has(receiverCompanyId || '')) {
         return json({ error: 'Destinatário fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
