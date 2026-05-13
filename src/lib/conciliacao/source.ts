@@ -1139,7 +1139,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
       ? new Set(uniqueCleanStrings(excludeVendedorIds))
       : null;
 
-  const concRowsByDocumento = new Map<string, any[]>();
+  const concRowsByDocumento = new Map<string, ConciliacaoSourceRow[]>();
   for (const row of concRows) {
     const key = getConciliacaoReceiptKey(row);
     if (!key) continue;
