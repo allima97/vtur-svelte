@@ -22,15 +22,86 @@ import {
 
 const ISO_DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 
+type ErrorWithCode = {
+  code?: string | null;
+  message?: string | null;
+};
+
+type AjusteVendaClienteRow = {
+  nome?: string | null;
+};
+
+type AjusteVendaVendaRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  cliente_id?: string | null;
+  cancelada?: boolean | null;
+  company_id?: string | null;
+  clientes?: AjusteVendaClienteRow | null;
+};
+
+type AjusteVendaReciboRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  data_venda?: string | null;
+  valor_total?: number | string | null;
+  valor_taxas?: number | string | null;
+  vendas?: AjusteVendaVendaRow | null;
+};
+
+type AjusteConciliacaoUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type AjusteConciliacaoRow = {
+  id?: string | null;
+  documento?: string | null;
+  movimento_data?: string | null;
+  valor_lancamentos?: number | string | null;
+  valor_venda_real?: number | string | null;
+  valor_taxas?: number | string | null;
+  ranking_vendedor_id?: string | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+  users?: AjusteConciliacaoUserRow | null;
+};
+
+type AjusteRateioVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type AjusteRateioRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+  conciliacao_recibo_id?: string | null;
+  ativo?: boolean | null;
+  vendedor_origem_id?: string | null;
+  vendedor_destino_id?: string | null;
+  percentual_origem?: number | string | null;
+  percentual_destino?: number | string | null;
+  observacao?: string | null;
+  updated_at?: string | null;
+  vendedor_destino?: AjusteRateioVendedorRow | null;
+};
+
+type AjusteVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
   if (!normalized) return true;
   return ISO_DATE_PATTERN.test(normalized);
 }
 
-function isRateioTableMissingError(err: any) {
-  const code = String(err?.code || "").trim();
-  const message = String(err?.message || "").toLowerCase();
+function isRateioTableMissingError(err: unknown) {
+  const error = err as ErrorWithCode;
+  const code = String(error?.code || "").trim();
+  const message = String(error?.message || "").toLowerCase();
   return (
     code === "42P01" &&
     (message.includes("vendas_recibos_rateio") || message.includes("does not exist"))
@@ -129,11 +200,11 @@ export async function GET(event: RequestEvent) {
         return buildVendaQuery();
       }
 
-      const rows: any[] = [];
+      const rows: AjusteVendaReciboRow[] = [];
       for (const batch of chunkArray(companyIds)) {
         const result = await buildVendaQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
-        rows.push(...(result.data || []));
+        rows.push(...((result.data || []) as AjusteVendaReciboRow[]));
       }
 
       return {
@@ -147,7 +218,8 @@ export async function GET(event: RequestEvent) {
     const { data, error } = await fetchVendaRows();
     if (error) throw error;
 
-    const reciboIds = uniqueCleanStrings((data || []).map((row: any) => row?.id));
+    const vendaRows = (data || []) as AjusteVendaReciboRow[];
+    const reciboIds = uniqueCleanStrings(vendaRows.map((row) => row?.id));
     const reciboIdSet = cleanStringSet(reciboIds);
 
     const buildConciliacaoQuery = (companyIdsFilter = companyIds) => {
@@ -188,11 +260,11 @@ export async function GET(event: RequestEvent) {
         return buildConciliacaoQuery();
       }
 
-      const rows: any[] = [];
+      const rows: AjusteConciliacaoRow[] = [];
       for (const batch of chunkArray(companyIds)) {
         const result = await buildConciliacaoQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
-        rows.push(...(result.data || []));
+        rows.push(...((result.data || []) as AjusteConciliacaoRow[]));
       }
 
       return {
@@ -206,10 +278,11 @@ export async function GET(event: RequestEvent) {
     const { data: conciliacaoData, error: conciliacaoError } = await fetchConciliacaoRows();
     if (conciliacaoError) throw conciliacaoError;
 
-    const conciliacaoIds = uniqueCleanStrings((conciliacaoData || []).map((row: any) => row?.id));
+    const conciliacaoRows = (conciliacaoData || []) as AjusteConciliacaoRow[];
+    const conciliacaoIds = uniqueCleanStrings(conciliacaoRows.map((row) => row?.id));
     const conciliacaoIdSet = cleanStringSet(conciliacaoIds);
 
-    let rateioMap = new Map<string, any>();
+    let rateioMap = new Map<string, AjusteRateioRow>();
     if (reciboIds.length > 0 || conciliacaoIds.length > 0) {
       const buildRateioQuery = () =>
         client
@@ -233,8 +306,8 @@ export async function GET(event: RequestEvent) {
             `
           );
 
-      const rateioDataRows: any[] = [];
-      let rateioError: any = null;
+      const rateioDataRows: AjusteRateioRow[] = [];
+      let rateioError: unknown = null;
       const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
       for (const batch of companyBatches) {
         let scopedRateioQuery = buildRateioQuery();
@@ -249,7 +322,7 @@ export async function GET(event: RequestEvent) {
           rateioError = batchError;
           break;
         }
-        rateioDataRows.push(...(batchData || []));
+        rateioDataRows.push(...((batchData || []) as AjusteRateioRow[]));
       }
 
       if (rateioError) {
@@ -275,7 +348,7 @@ export async function GET(event: RequestEvent) {
     }
 
     const vendedorIdsFromRows = uniqueCleanStrings(
-      (data || []).map((row: any) => row?.vendas?.vendedor_id)
+      vendaRows.map((row) => row?.vendas?.vendedor_id)
     );
     const vendedorNomeMap = new Map<string, string>();
     if (vendedorIdsFromRows.length > 0) {
@@ -293,7 +366,7 @@ export async function GET(event: RequestEvent) {
       }
     }
 
-    const itensVendas = (data || []).map((row: any) => {
+    const itensVendas = vendaRows.map((row) => {
       const baseId = String(row?.id || "").trim();
       const rateio = rateioMap.get(`vr:${baseId}`) || null;
       const vendedorOrigemId = String(row?.vendas?.vendedor_id || "");
@@ -326,7 +399,7 @@ export async function GET(event: RequestEvent) {
       };
     });
 
-    const itensConciliacao = (conciliacaoData || []).map((row: any) => {
+    const itensConciliacao = conciliacaoRows.map((row) => {
       const concId = String(row?.id || "").trim();
       const rateio = rateioMap.get(`cr:${concId}`) || null;
       const vendedorOrigemId = String(row?.ranking_vendedor_id || "");
@@ -375,13 +448,13 @@ export async function GET(event: RequestEvent) {
 
     const vendedoresData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
-    const vendedores = (vendedoresData || []).map((row: any) => ({
+    const vendedores = ((vendedoresData || []) as AjusteVendedorRow[]).map((row) => ({
       id: String(row?.id || ""),
       nome_completo: String(row?.nome_completo || "Sem nome"),
     }));
 
     return json({ items, vendedores }, { headers: SHORT_DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError("[financeiro/ajustes-vendas/list] erro ao carregar lista", err);
     return json(
       { error: "Erro ao carregar ajustes de vendas." },
