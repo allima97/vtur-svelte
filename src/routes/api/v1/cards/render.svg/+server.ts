@@ -39,7 +39,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       status: 200,
       headers: CARD_SVG_HEADERS,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[cards/render.svg] falha ao renderizar cartão", e);
     return new Response(
       JSON.stringify({

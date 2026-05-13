@@ -63,7 +63,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
       }
       throw error;
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[cards/render.png] falha ao renderizar cartão", e);
     return new Response(
       JSON.stringify({
