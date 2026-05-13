@@ -56,6 +56,17 @@ type ClienteRow = {
   updated_at: string | null;
 };
 
+type VendaResumoRow = {
+  id: string | null;
+  data_venda: string | null;
+  valor_total: number | string | null;
+};
+
+type QuoteResumoRow = {
+  id: string | null;
+  created_at: string | null;
+};
+
 const CLIENTE_SELECT_FIELDS =
   'id, nome, cpf, rg, telefone, email, whatsapp, nascimento, genero, nacionalidade, tipo_pessoa, tipo_cliente, classificacao, cep, endereco, numero, complemento, cidade, estado, notas, tags, ativo, active, company_id, created_by, created_at, updated_at';
 
@@ -92,19 +103,19 @@ async function fetchResumoRelacionamentos(
     return vendasQuery;
   };
 
-  let vendasData: any[] = [];
+  let vendasData: VendaResumoRow[] = [];
   const companyBatches = filters.companyIds.length > 0 ? chunkArray(filters.companyIds) : [undefined];
   const vendedorBatches = filters.vendedorIds.length > 0 ? chunkArray(filters.vendedorIds) : [undefined];
   for (const companyBatch of companyBatches) {
     for (const vendedorBatch of vendedorBatches) {
       const { data, error: vendasError } = await buildVendasQuery(companyBatch, vendedorBatch);
       if (vendasError) throw vendasError;
-      vendasData.push(...(data || []));
+      vendasData.push(...((data || []) as VendaResumoRow[]));
     }
   }
-  const vendasById = new Map<string, any>();
+  const vendasById = new Map<string, VendaResumoRow>();
   for (const row of vendasData) {
-    vendasById.set(String(row?.id || ''), row);
+    vendasById.set(String(row.id || ''), row);
   }
   vendasData = Array.from(vendasById.values());
 
@@ -121,19 +132,19 @@ async function fetchResumoRelacionamentos(
     return quotesQuery;
   };
 
-  let quotesData: any[] = [];
+  let quotesData: QuoteResumoRow[] = [];
   if (filters.vendedorIds.length > SUPABASE_IN_BATCH_SIZE) {
     for (const batch of chunkArray(filters.vendedorIds)) {
       const { data, error: quotesError } = await buildQuotesQuery(batch);
       if (quotesError) throw quotesError;
-      quotesData.push(...(data || []));
+      quotesData.push(...((data || []) as QuoteResumoRow[]));
     }
   } else {
     const { data, error: quotesError } = await buildQuotesQuery(
       filters.vendedorIds.length > 0 ? filters.vendedorIds : undefined
     );
     if (quotesError) throw quotesError;
-    quotesData = data || [];
+    quotesData = (data || []) as QuoteResumoRow[];
   }
 
   const { count, error: acompanhantesError } = await client
@@ -144,12 +155,12 @@ async function fetchResumoRelacionamentos(
 
   if (acompanhantesError) throw acompanhantesError;
 
-  const vendas = vendasData || [];
+  const vendas = vendasData;
   const totalGasto = vendas.reduce(
-    (acc: number, row: any) => acc + Number(row.valor_total || 0),
+    (acc, row) => acc + Number(row.valor_total || 0),
     0
   );
-  const ultimaCompra = vendas.reduce<string | null>((acc, row: any) => {
+  const ultimaCompra = vendas.reduce<string | null>((acc, row) => {
     const current = String(row.data_venda || '').trim() || null;
     if (!current) return acc;
     return !acc || current > acc ? current : acc;
@@ -224,7 +235,7 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const form: ClienteFormData = {
       ...createInitialClienteForm(),
