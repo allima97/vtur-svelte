@@ -14,6 +14,18 @@ import { rejectCrossOriginRequest, rejectLargePayload } from '$lib/server/reques
 
 const MAX_COMISSOES_VENDEDORES_BODY_BYTES = 8 * 1024;
 
+type CommissionRuleSummary = {
+  nome?: string | null;
+  tipo?: string | null;
+  meta_atingida?: number | string | null;
+};
+
+type VendedorComissaoRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+};
+
 // Retorna vendedores com suas regras de comissão (commission_rule)
 export async function GET(event) {
   try {
@@ -45,7 +57,7 @@ export async function GET(event) {
     // regrasMap é Record<id, Regra> — converte para array para compatibilidade
     const regrasArray = Object.entries(commissionContext.regrasMap).map(([id, rule]) => ({
       id,
-      nome: (rule as any).nome || 'Regra',
+      nome: (rule as CommissionRuleSummary).nome || 'Regra',
       tipo: rule.tipo || 'GERAL',
       meta_atingida: Number(rule.meta_atingida || 0),
       ativo: true
@@ -59,7 +71,7 @@ export async function GET(event) {
       ativo: rule.ativo
     }));
 
-    const items = (usersData || []).map((u: any) => {
+    const items = ((usersData || []) as VendedorComissaoRow[]).map((u) => {
       const regraBase = regrasArray[0] || null;
 
       return {
@@ -72,7 +84,7 @@ export async function GET(event) {
         regra_id: regraId && commissionContext.regrasMap[regraId] ? regraId : regraBase?.id || null,
         regra_nome:
           regraId && commissionContext.regrasMap[regraId]
-            ? (commissionContext.regrasMap[regraId] as any).nome || 'Regra selecionada'
+            ? (commissionContext.regrasMap[regraId] as CommissionRuleSummary).nome || 'Regra selecionada'
             : regraBase?.nome || 'Calculada por produto/pacote/meta',
         percentual_base: Number(regraBase?.meta_atingida || 0),
         ativo: true,
