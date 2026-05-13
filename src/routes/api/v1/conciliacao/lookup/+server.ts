@@ -90,6 +90,15 @@ type VendaScopeRow = {
   vendedor_id?: string | null;
 };
 
+type LookupRequestBody = {
+  companyId?: string | null;
+  documentos?: Array<{
+    documento?: string | null;
+    valor_lancamentos?: number | null;
+    valor_taxas?: number | null;
+  }>;
+};
+
 async function fetchReciboCandidates(params: {
   client: LookupClient;
   numero: string;
@@ -198,23 +207,23 @@ async function findReciboByNumero(params: {
   const targetTotal = Number(params.valorLancamento || 0);
   const targetTaxas = Number(params.valorTaxas || 0);
 
-  const reciboExato = rows.find((item: any) => String(item?.numero_recibo || '').trim() === numero);
+  const reciboExato = rows.find((item) => String(item.numero_recibo || '').trim() === numero);
   if (reciboExato) return { recibo: reciboExato };
 
-  const compativeis = rows.filter((item: any) => numeroReciboMatches(numero, item?.numero_recibo));
+  const compativeis = rows.filter((item) => numeroReciboMatches(numero, item.numero_recibo));
   if (compativeis.length === 0) return null;
 
-  const ranked = [...compativeis].sort((a: any, b: any) => {
-    const aTotalDiff = Math.abs(Number(a?.valor_total || 0) - targetTotal);
-    const bTotalDiff = Math.abs(Number(b?.valor_total || 0) - targetTotal);
+  const ranked = [...compativeis].sort((a, b) => {
+    const aTotalDiff = Math.abs(Number(a.valor_total || 0) - targetTotal);
+    const bTotalDiff = Math.abs(Number(b.valor_total || 0) - targetTotal);
     if (aTotalDiff !== bTotalDiff) return aTotalDiff - bTotalDiff;
-    const aTaxDiff = Math.abs(Number(a?.valor_taxas || 0) - targetTaxas);
-    const bTaxDiff = Math.abs(Number(b?.valor_taxas || 0) - targetTaxas);
+    const aTaxDiff = Math.abs(Number(a.valor_taxas || 0) - targetTaxas);
+    const bTaxDiff = Math.abs(Number(b.valor_taxas || 0) - targetTaxas);
     return aTaxDiff - bTaxDiff;
   });
 
-  const porValor = ranked.filter((item: any) => (params.valorLancamento == null ? true : matches(Number(item?.valor_total || 0), targetTotal)));
-  const porTaxas = porValor.filter((item: any) => (params.valorTaxas == null ? true : matches(Number(item?.valor_taxas || 0), targetTaxas)));
+  const porValor = ranked.filter((item) => (params.valorLancamento == null ? true : matches(Number(item.valor_total || 0), targetTotal)));
+  const porTaxas = porValor.filter((item) => (params.valorTaxas == null ? true : matches(Number(item.valor_taxas || 0), targetTaxas)));
 
   const escolhido =
     (porTaxas.length === 1 ? porTaxas[0] : null) ||
@@ -239,9 +248,9 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
-    const body =
+    const body: LookupRequestBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as LookupRequestBody)
         : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     if (companyIds.length === 0) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
