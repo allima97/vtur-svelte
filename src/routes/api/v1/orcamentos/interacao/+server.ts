@@ -16,6 +16,19 @@ const MAX_ORCAMENTO_INTERACAO_BODY_BYTES = 32 * 1024;
 const errorResponse = (message: string, status: number) =>
   json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
+type OrcamentoInteracaoBody = {
+  observacoes?: unknown;
+  notas?: unknown;
+  status?: unknown;
+};
+
+type OrcamentoInteracaoUpdate = {
+  last_interaction_at: string;
+  last_interaction_notes: unknown | null;
+  updated_at: string;
+  status_negociacao?: unknown;
+};
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -52,9 +65,9 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoInteracaoBody)
         : {};
-    const updateData: Record<string, any> = {
+    const updateData: OrcamentoInteracaoUpdate = {
       last_interaction_at: new Date().toISOString(),
       last_interaction_notes: body.observacoes || body.notas || null,
       updated_at: new Date().toISOString()
