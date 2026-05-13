@@ -14,6 +14,9 @@ import { isRankingEligibleUser, logServerError } from "$lib/server/v1";
 import { chunkArray, uniqueCleanStrings } from "$lib/utils/array";
 import { toCleanString as toStr, toFiniteNumber as toNumber } from "$lib/utils/values";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export type EffectiveConciliacaoReceipt = {
   id: string;
   conciliacao_ids: string[];
@@ -91,12 +94,7 @@ function moneyEquals(a: number, b: number, tolerance = 0.01) {
 }
 
 function isUuid(value?: string | null) {
-  return Boolean(
-    value &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      String(value),
-    ),
-  );
+  return Boolean(value && UUID_PATTERN.test(String(value)));
 }
 
 function collectUuidValues(values: unknown[]) {
@@ -114,7 +112,7 @@ function isPositive(value: unknown) {
 
 function toMonthKey(value?: string | null) {
   const raw = toStr(value);
-  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw.slice(0, 7) : "";
+  return ISO_DATE_PATTERN.test(raw) ? raw.slice(0, 7) : "";
 }
 
 function normalizeTextValue(value?: string | null) {
