@@ -229,7 +229,9 @@ export async function GET(event) {
               .filter(Boolean);
             if (termos.length > 0)
               termosNaoComissionaveis = uniqueCleanStrings(termos);
-          } catch {}
+          } catch {
+            // Optional configuration may be absent; keep default terms.
+          }
 
           const pagamentos = await fetchBatched<any>(vendaIds, (batch) =>
             client
