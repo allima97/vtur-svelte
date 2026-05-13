@@ -43,6 +43,50 @@ type VendaCompanySellerRow = {
   vendedor_id?: string | null;
 };
 
+type ConciliacaoSemMovimentoRow = {
+  data?: string | null;
+};
+
+type ConciliacaoMovimentoDataRow = {
+  movimento_data?: string | null;
+};
+
+type ReconcilePendenciaRow = {
+  id?: string | null;
+  company_id?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  movimento_data?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_venda_real?: number | null;
+  valor_saldo?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  faixa_comissao?: string | null;
+  is_seguro_viagem?: boolean | null;
+  ranking_vendedor_id?: string | null;
+  ranking_assigned_by?: string | null;
+  conciliado?: boolean | null;
+  venda_recibo_id?: string | null;
+  venda_id?: string | null;
+};
+
+type RankingVendedorIdRow = {
+  id?: string | null;
+};
+
+type ConciliacaoListPageRow = {
+  venda_recibo_id?: string | null;
+};
+
 export type ReconcileResult = {
   checked: number;
   reconciled: number;
@@ -835,14 +879,14 @@ export async function diagnosticarLacunasCronologicas(params: {
 
   if (semMovimentoErr) {
     const msg = String(semMovimentoErr.message || semMovimentoErr || '').toLowerCase();
-    const code = String((semMovimentoErr as any)?.code || '').trim();
+    const code = String((semMovimentoErr as { code?: string } | null)?.code || '').trim();
     const isMissing = code === '42P01' || msg.includes('does not exist') || msg.includes('could not find') || msg.includes('conciliacao_dias_sem_movimento');
     if (!isMissing) throw semMovimentoErr;
   }
 
-  const diasSemMovimento = uniqueCleanStrings((semMovimentoRows || []).map((r: any) => r?.data)).sort();
+  const diasSemMovimento = uniqueCleanStrings(((semMovimentoRows || []) as ConciliacaoSemMovimentoRow[]).map((r) => r?.data)).sort();
 
-  const diasImportados = uniqueCleanStrings((data || []).map((r: any) => r?.movimento_data)).sort();
+  const diasImportados = uniqueCleanStrings(((data || []) as ConciliacaoMovimentoDataRow[]).map((r) => r?.movimento_data)).sort();
 
   if (diasImportados.length === 0) {
     return { fronteira: null, diasFaltantes: [], diasImportados: [], diasBloqueados: [], diasSemMovimento, registrosBloqueados: 0 };
@@ -962,7 +1006,7 @@ async function reconcilePendentesCompany(params: {
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data || []).filter((item: any) => {
+  const rows = ((data || []) as ReconcilePendenciaRow[]).filter((item) => {
     if (!isConciliacaoEfetivada({ status: item?.status, descricao: item?.descricao })) return false;
 
     // Aplica fronteira cronológica somente para registros sem ranking_vendedor_id:
@@ -985,7 +1029,7 @@ async function reconcilePendentesCompany(params: {
   const equipeVturId = equipeVturVendedor?.id ?? null;
   const rankingVendedorPermitidos = new Set(
     (await fetchRankingVendedoresByCompanyIds(client, [params.companyId]))
-      .map((row: any) => String(row?.id || '').trim())
+      .map((row: RankingVendedorIdRow) => String(row?.id || '').trim())
       .filter(Boolean)
   );
   const sanitizeRankingVendedorId = (value?: unknown) => {
@@ -1261,8 +1305,8 @@ async function recalculateConciliacaoMetricsCompany(params: {
     const page = data || [];
     if (!page.length) break;
 
-    const reciboIdsToFetch = page
-      .map((row: any) => String(row.venda_recibo_id || '').trim())
+    const reciboIdsToFetch = (page as ConciliacaoListPageRow[])
+      .map((row) => String(row.venda_recibo_id || '').trim())
       .filter((id: string) => id && !reciboCache.has(id));
 
     const uniqueReciboIdsToFetch = uniqueCleanStrings(reciboIdsToFetch);
