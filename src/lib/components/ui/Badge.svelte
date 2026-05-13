@@ -1,14 +1,33 @@
 <script lang="ts">
   import { Badge as FlowbiteBadge } from 'flowbite-svelte';
 
-  export let color: 'gray' | 'dark' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'pink' | 'indigo' | 'teal' | 'operacao' | 'clientes' | 'vendas' | 'financeiro' | 'orcamentos' | 'comissoes' = 'gray';
-  export let size: 'sm' | 'md' = 'md';
+  type BadgeColor =
+    | 'gray'
+    | 'dark'
+    | 'blue'
+    | 'green'
+    | 'yellow'
+    | 'red'
+    | 'purple'
+    | 'pink'
+    | 'indigo'
+    | 'teal'
+    | 'operacao'
+    | 'clientes'
+    | 'vendas'
+    | 'financeiro'
+    | 'orcamentos'
+    | 'comissoes';
+  type BadgeSize = 'sm' | 'md';
+
+  export let color: BadgeColor = 'gray';
+  export let size: BadgeSize = 'md';
   export let dot = false;
   export let outline = false;
   export let className = '';
 
   // Módulos → flowbite-svelte Badge cores
-  const colorAlias: Record<string, string> = {
+  const colorAlias: Partial<Record<BadgeColor, BadgeColor>> = {
     operacao: 'teal',
     clientes: 'blue',
     orcamentos: 'blue',
@@ -17,7 +36,7 @@
     comissoes: 'yellow'
   };
 
-  const sizeClasses: Record<string, string> = {
+  const sizeClasses: Record<BadgeSize, string> = {
     sm: 'px-2 py-0.5 text-xs',
     md: 'px-2.5 py-1 text-xs'
   };
