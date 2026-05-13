@@ -57,6 +57,14 @@ export async function POST(event) {
     }
     const saleCompanyId = String(sale.company_id || '').trim();
 
+    // Exclui os recibos da venda antes de cancelar, liberando os números
+    // para que possam ser reimportados sem conflito de duplicidade.
+    const { error: recibosDeleteError } = await client
+      .from('vendas_recibos')
+      .delete()
+      .eq('venda_id', vendaId);
+    if (recibosDeleteError) throw recibosDeleteError;
+
     // Soft-delete: vendas.cancelada boolean NOT NULL DEFAULT false
     const cancelQuery = client
       .from('vendas')

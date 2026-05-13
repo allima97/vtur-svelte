@@ -226,7 +226,6 @@ export async function ensureReciboReservaUnicos(params: {
   // Usamos consulta separada para não depender de filtragem de join PostgREST
   // (que pode ser instável dependendo da versão do PostgREST/supabase-js).
   const cancelledVendaIds = await fetchCancelledVendaIds(client, companyId);
-  console.log("[ensureReciboReservaUnicos] cancelledVendaIds:", [...cancelledVendaIds]);
 
   if (receiptKeys.length > 0) {
     let query = client
@@ -239,12 +238,10 @@ export async function ensureReciboReservaUnicos(params: {
     if (ignoreVendaId) query = query.neq("venda_id", ignoreVendaId);
     const { data, error } = await query.limit(50);
     if (error) throw error;
-    console.log("[ensureReciboReservaUnicos] recibos encontrados:", JSON.stringify(data));
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
     const ativos = (data || []).filter(
       (row: any) => !cancelledVendaIds.has(String(row?.venda_id || "")),
     );
-    console.log("[ensureReciboReservaUnicos] recibos ativos (não cancelados):", JSON.stringify(ativos));
     if (ativos.length > 0) {
       throw new Error("RECIBO_DUPLICADO");
     }
