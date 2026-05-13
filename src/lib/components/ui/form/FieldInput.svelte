@@ -1,9 +1,14 @@
 <script lang="ts">
   import { Input, Label, Helper } from 'flowbite-svelte';
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
+  import type { HTMLInputAttributes } from 'svelte/elements';
   import Button from '../Button.svelte';
   import { buildVturInputClasses } from '../inputContract';
   import { inputMask, type MaskType } from '$lib/actions/inputMask';
   import { uniqueFieldId } from './fieldId';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   export let label: string | null = null;
   export let srLabel = false;
@@ -13,13 +18,13 @@
   export let required = false;
   export let disabled = false;
   export let readonly = false;
-  export let autocomplete: any = null;
+  export let autocomplete: HTMLInputAttributes['autocomplete'] | null = null;
   export let error: string | null = null;
   export let helper: string | null = null;
-  export let icon: any = null;
+  export let icon: IconComponent | null = null;
   export let prefix: string | null = null;
   export let suffix: string | null = null;
-  export let actionIcon: any = null;
+  export let actionIcon: IconComponent | null = null;
   export let actionLabel: string | null = null;
   export let onAction: (() => void) | undefined = undefined;
   export let actionDisabled = false;
