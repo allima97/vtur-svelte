@@ -16,6 +16,11 @@
   let factorId = "";
   let nextPath = "/";
 
+  type VerifiedTotpFactor = {
+    id?: string | null;
+    status?: string | null;
+  };
+
   function normalizeNextPath(value: string | null) {
     const raw = String(value || "").trim();
     if (!raw) return "/";
@@ -51,7 +56,7 @@
       // Busca fatores TOTP verificados
       const { data: factorsData } = await supabase.auth.mfa.listFactors();
       const verifiedFactor = factorsData?.totp?.find(
-        (f: any) => f.status === "verified",
+        (f: VerifiedTotpFactor) => f.status === "verified",
       );
 
       if (!verifiedFactor) {
@@ -70,8 +75,8 @@
       }
 
       factorId = verifiedFactor.id;
-    } catch (err: any) {
-      error = err.message || "Erro ao carregar verificação 2FA.";
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : "Erro ao carregar verificação 2FA.";
     } finally {
       loading = false;
     }
@@ -111,8 +116,8 @@
       const supabaseClient = supabase;
       await permissoes.refresh(supabaseClient);
       goto(nextPath);
-    } catch (err: any) {
-      const msg = String(err?.message || "").toLowerCase();
+    } catch (err: unknown) {
+      const msg = String(err instanceof Error ? err.message : "").toLowerCase();
       if (
         msg.includes("invalid") ||
         msg.includes("incorrect") ||
@@ -121,7 +126,7 @@
         error =
           "Código inválido ou expirado. Verifique o aplicativo autenticador.";
       } else {
-        error = err.message || "Erro ao verificar código.";
+        error = err instanceof Error ? err.message : "Erro ao verificar código.";
       }
       codigo = "";
     } finally {
