@@ -32,6 +32,23 @@ type Body = {
   textOffsetY?: number | string | null;
 };
 
+type MessageTemplateRow = {
+  id: string;
+  user_id: string | null;
+  company_id: string | null;
+  scope: string | null;
+  nome: string | null;
+  assunto: string | null;
+  titulo: string | null;
+  corpo: string | null;
+  assinatura: string | null;
+  ativo: boolean | null;
+  theme_id: string | null;
+  title_style: unknown;
+  body_style: unknown;
+  signature_style: unknown;
+};
+
 type ScopeValue = "system" | "master" | "gestor" | "user";
 
 function normalizeScope(value?: string | null): ScopeValue {
@@ -214,15 +231,16 @@ async function enviarEmailSMTP(
   return { ok: false, status: "smtp_not_supported" };
 }
 
-export const POST: RequestHandler = async ({ locals, request, url }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request, url } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_CLIENTE_TEMPLATE_SEND_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const userScope = await resolveUserScope(client, user.id);
     const isAdmin = Boolean(userScope.isAdmin);
     const companyIds = new Set<string>();
@@ -274,23 +292,24 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
         "",
     ).trim();
 
-    const { data: tpl, error: tplErr } = await dataClient
+    const { data: templateRow, error: tplErr } = await dataClient
       .from("user_message_templates")
       .select(
         "id, user_id, company_id, scope, nome, assunto, titulo, corpo, assinatura, ativo, theme_id, title_style, body_style, signature_style",
       )
       .eq("id", templateId)
       .maybeSingle();
-    if (tplErr || !tpl)
+    if (tplErr || !templateRow)
       return json({ error: "Template nao encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
+    const tpl = templateRow as MessageTemplateRow;
     if (
       !canAccessScopedRow({
         isAdmin,
         userId: user.id,
         companyIds,
-        rowUserId: (tpl as any)?.user_id || null,
-        rowCompanyId: (tpl as any)?.company_id || null,
-        rowScope: (tpl as any)?.scope || null,
+        rowUserId: tpl.user_id || null,
+        rowCompanyId: tpl.company_id || null,
+        rowScope: tpl.scope || null,
       })
     ) {
       return json({ error: "Template nao encontrado." }, { status: 404, headers: NO_STORE_HEADERS });
@@ -438,7 +457,7 @@ export const POST: RequestHandler = async ({ locals, request, url }) => {
     }
 
     return json({ status: "sent", provider: sentProvider, clienteId }, { headers: NO_STORE_HEADERS });
-  } catch (e: any) {
+  } catch (e: unknown) {
     return toErrorResponse(e, "Erro ao enviar template.");
   }
 };
