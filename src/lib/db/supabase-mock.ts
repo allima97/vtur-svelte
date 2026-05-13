@@ -101,7 +101,7 @@ export const mockSupabaseClient = {
       };
     },
     
-    onAuthStateChange: (callback: (event: string, session: any) => void) => {
+    onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
       // Retorna subscription mock
       return {
         data: {
