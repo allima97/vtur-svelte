@@ -15,6 +15,7 @@ import {
   type PersistReceiptPaymentRow
 } from '$lib/server/comissoes-registro';
 import { fetchSalesReportRows } from '$lib/server/relatorios';
+import type { ReportReceiptRow, ReportVendaRow } from '$lib/server/relatorios';
 import { todayISODateLocal } from '$lib/date';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateCommissionReadModels } from '$lib/server/readModelCache';
@@ -25,6 +26,24 @@ import { toFiniteNumber as toNum } from '$lib/utils/values';
 const MAX_COMISSOES_PAYMENT_BODY_BYTES = 64 * 1024;
 
 const SUPABASE_IN_BATCH_SIZE = 150;
+
+type CommissionPaymentBody = {
+  comissao_ids?: Array<string | number>;
+  data_pagamento?: string;
+  observacoes?: string | null;
+  empresa_id?: string | null;
+  company_id?: string | null;
+};
+
+type CommissionReceiptRow = NonNullable<ReportReceiptRow>;
+type CommissionReportRow = ReportVendaRow;
+type ReciboBaseRow = {
+  id?: string | null;
+  venda_id?: string | null;
+};
+type MutationIdRow = {
+  id?: string | null;
+};
 
 async function fetchBatched<T>(
   values: string[],
@@ -45,25 +64,29 @@ function isMissingComissoesSchema(error: unknown) {
   return code === '42P01' || code === '42703' || message.includes('does not exist');
 }
 
-function getReciboValor(recibo: any) {
+function isCommissionReceipt(recibo: ReportReceiptRow): recibo is CommissionReceiptRow {
+  return Boolean(recibo);
+}
+
+function getReciboValor(recibo: CommissionReceiptRow) {
   return Math.max(0, toNum(recibo?.valor_total) - toNum(recibo?.valor_rav));
 }
 
-function filterRowsToReceiptIds(rows: any[], receiptIds: Set<string>) {
+function filterRowsToReceiptIds(rows: CommissionReportRow[], receiptIds: Set<string>) {
   return (rows || [])
     .map((row) => ({
       ...row,
-      recibos: (Array.isArray(row?.recibos) ? row.recibos : []).filter((recibo: any) =>
+      recibos: (Array.isArray(row?.recibos) ? row.recibos : []).filter((recibo) =>
         receiptIds.has(String(recibo?.id || '').trim())
       )
     }))
     .filter((row) => Array.isArray(row.recibos) && row.recibos.length > 0);
 }
 
-function normalizeRowsToReceiptPeriod(rows: any[]) {
+function normalizeRowsToReceiptPeriod(rows: CommissionReportRow[]) {
   return (rows || []).map((row) => {
     const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
-    const firstReceiptDate = recibos.find((recibo: any) => recibo?.data_venda)?.data_venda;
+    const firstReceiptDate = recibos.find((recibo) => recibo?.data_venda)?.data_venda;
     return firstReceiptDate ? { ...row, data_venda: firstReceiptDate } : row;
   });
 }
@@ -95,7 +118,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CommissionPaymentBody)
         : {};
     const { comissao_ids, data_pagamento = todayISODateLocal(), observacoes = '' } = body;
 
@@ -110,14 +133,14 @@ export async function POST(event) {
     const reciboIds = uniqueIds(comissao_ids);
     const reciboIdSet = new Set(reciboIds);
 
-    const recibosBase = await fetchBatched<any>(reciboIds, (batch) =>
+    const recibosBase = await fetchBatched<ReciboBaseRow>(reciboIds, (batch) =>
       client
         .from('vendas_recibos')
         .select('id, venda_id')
         .in('id', batch)
     );
 
-    const vendaIds = uniqueIds(recibosBase.map((row: any) => row?.venda_id));
+    const vendaIds = uniqueIds(recibosBase.map((row) => row?.venda_id));
 
     const fetchedRows = await fetchSalesReportRows(client, {
       companyIds,
@@ -135,7 +158,7 @@ export async function POST(event) {
     const vendedoresSelecionados = uniqueIds(rows.map((row) => row.vendedor_id));
     const periodos = rows
       .flatMap((row) => (Array.isArray(row.recibos) ? row.recibos : []))
-      .map((recibo: any) => String(recibo?.data_venda || '').trim())
+      .map((recibo) => String(recibo?.data_venda || '').trim())
       .filter((data) => /^\d{4}-\d{2}/.test(data))
       .map((data) => data.slice(0, 7))
       .sort();
@@ -163,8 +186,8 @@ export async function POST(event) {
       rows: contextRowsForComissao
     });
 
-    const paymentRows: PersistReceiptPaymentRow[] = selectedRowsForComissao.flatMap((row: any) =>
-      (Array.isArray(row?.recibos) ? row.recibos : []).map((recibo: any) => ({
+    const paymentRows: PersistReceiptPaymentRow[] = selectedRowsForComissao.flatMap((row) =>
+      (Array.isArray(row?.recibos) ? row.recibos : []).filter(isCommissionReceipt).map((recibo) => ({
         venda_id: row.id,
         recibo_id: String(recibo?.id || '').trim(),
         vendedor_id: row.vendedor_id,
@@ -280,7 +303,7 @@ export async function PUT(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CommissionPaymentBody)
         : {};
     const { comissao_ids, data_pagamento = null, observacoes = '' } = body;
 
@@ -293,7 +316,7 @@ export async function PUT(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
     const reciboIds = uniqueIds(comissao_ids);
-    const updatedRows: any[] = [];
+    const updatedRows: MutationIdRow[] = [];
     const companyBatches =
       companyIds.length > SUPABASE_IN_BATCH_SIZE
         ? chunkArray(companyIds, SUPABASE_IN_BATCH_SIZE)
@@ -362,7 +385,7 @@ export async function DELETE(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CommissionPaymentBody)
         : {};
     const { comissao_ids, observacoes = '' } = body;
 
@@ -375,7 +398,7 @@ export async function DELETE(event) {
 
     const companyIds = resolveScopedCompanyIds(scope, body?.empresa_id || body?.company_id);
     const reciboIds = uniqueIds(comissao_ids);
-    const cancelledRows: any[] = [];
+    const cancelledRows: MutationIdRow[] = [];
     const companyBatches =
       companyIds.length > SUPABASE_IN_BATCH_SIZE
         ? chunkArray(companyIds, SUPABASE_IN_BATCH_SIZE)
