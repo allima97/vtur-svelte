@@ -18,6 +18,11 @@
     time: number;
   }> = [];
 
+  type DiagnosticApiResponse = {
+    error?: string | null;
+    items?: unknown[] | null;
+  };
+
   async function runDiagnostics() {
     running = true;
     hasRun = true;
@@ -48,7 +53,7 @@
     for (const api of apis) {
       const start = Date.now();
       try {
-        const json: any = await apiFetch(api, {
+        const json = await apiFetch<DiagnosticApiResponse>(api, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
         });
