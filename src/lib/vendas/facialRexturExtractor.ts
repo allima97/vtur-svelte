@@ -17,6 +17,21 @@
 
 import type { ContratoDraft, PassageiroDraft, PagamentoDraft } from './contratoCvcExtractor';
 
+const SSR_MONTH_MAP: Record<string, string> = {
+  JAN: '01',
+  FEB: '02',
+  MAR: '03',
+  APR: '04',
+  MAY: '05',
+  JUN: '06',
+  JUL: '07',
+  AUG: '08',
+  SEP: '09',
+  OCT: '10',
+  NOV: '11',
+  DEC: '12'
+};
+
 function parseCurrencyBR(value: string | null | undefined): number | null {
   if (!value) return null;
   const clean = value.replace(/R\$\s*/gi, '').replace(/\./g, '').replace(',', '.').trim();
@@ -171,17 +186,13 @@ export function extractRexturFromText(text: string): { contratos: ContratoDraft[
     let nascimento: string | null = null;
 
     const ssrRegex = /SSR DOCS[^/]*\/I\/BR\/(\d{11})\/BR\/(\d{2})([A-Z]{3})(\d{4})\/[MF]\/\S+\/([\w\s]+)/gi;
-    const monthMap: Record<string, string> = {
-      JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',
-      JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12'
-    };
     let sm: RegExpExecArray | null;
     while ((sm = ssrRegex.exec(text)) !== null) {
       const ssrNome = normalizeWS(sm[5]).toUpperCase();
       if (ssrNome.includes(sobrenome) || ssrNome.includes(nome) || nomeSearch.includes(ssrNome.split('/')[0]?.trim())) {
         cpf = sm[1];
         const day = sm[2];
-        const mon = monthMap[sm[3].toUpperCase()] || '01';
+        const mon = SSR_MONTH_MAP[sm[3].toUpperCase()] || '01';
         const year = sm[4];
         nascimento = `${year}-${mon}-${day}`;
         break;
