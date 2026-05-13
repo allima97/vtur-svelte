@@ -10,6 +10,7 @@
   import TurnstileWidget from '$lib/components/auth/TurnstileWidget.svelte';
   import { FieldCheckbox, FieldInput } from '$lib/components/ui';
   import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
+  import type { Session, User } from '@supabase/supabase-js';
   import { Mail, Lock, Eye, EyeOff, AlertCircle, TestTube, Clock, Fingerprint } from 'lucide-svelte';
   
   let email = '';
@@ -38,6 +39,12 @@
       user?: unknown;
     } | null;
     error: Error | null;
+  };
+
+  type LoginResponsePayload = {
+    session?: Session | null;
+    user?: User | null;
+    error?: string;
   };
 
   function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -192,7 +199,7 @@
           turnstile_token: turnstileToken
         })
       }, 20000);
-      const payload = await res.json().catch(() => ({}));
+      const payload = await res.json().catch(() => ({} as LoginResponsePayload));
       if (!res.ok) {
         if (res.status === 401) throw new Error('Email ou senha incorretos.');
         if (res.status === 403) {
@@ -212,11 +219,12 @@
         if (dev) console.warn('[login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
       });
 
-      auth.setAuth(payload.user ?? null, session as any);
+      auth.setAuth(payload.user ?? null, session);
       await finishLogin();
-    } catch (err: any) {
-      error = err.message || 'Erro ao fazer login';
-      if (err.message?.includes('Invalid login')) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      error = message || 'Erro ao fazer login';
+      if (message.includes('Invalid login')) {
         error = 'Email ou senha incorretos';
       }
       if (turnstileEnabled) {
@@ -263,7 +271,7 @@
           response: assertion
         })
       }, 20000);
-      const payload = await verifyResponse.json().catch(() => ({}));
+      const payload = await verifyResponse.json().catch(() => ({} as LoginResponsePayload));
       if (!verifyResponse.ok) {
         throw new Error(payload.error || 'Não foi possível entrar com passkey.');
       }
@@ -279,10 +287,10 @@
         if (dev) console.warn('[passkey-login] Sessão gravada no servidor, mas o storage do navegador não respondeu:', browserSyncError);
       });
 
-      auth.setAuth(payload.user ?? null, session as any);
+      auth.setAuth(payload.user ?? null, session);
       await finishLogin();
-    } catch (err: any) {
-      const message = String(err?.message || '').trim();
+    } catch (err: unknown) {
+      const message = String(err instanceof Error ? err.message : '').trim();
       if (message.includes('The operation either timed out or was not allowed')) {
         error = 'A autenticação por passkey foi cancelada ou expirou.';
       } else {
