@@ -14,6 +14,10 @@ import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orc
 
 const MAX_ORCAMENTO_DELETE_BODY_BYTES = 8 * 1024;
 
+type OrcamentoDeleteBody = {
+  id?: unknown;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -31,7 +35,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoDeleteBody)
         : {};
     const id = String(body?.id || '').trim();
     if (!id || !isUuid(id)) {
