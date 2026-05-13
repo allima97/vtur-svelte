@@ -59,8 +59,9 @@ export async function findReciboReservaDuplicado(params: {
   if (recibos.length) {
     let query = sb
       .from("vendas_recibos")
-      .select("id, numero_recibo, venda_id, vendas!inner(company_id)")
-      .in("numero_recibo", recibos);
+      .select("id, numero_recibo, venda_id, vendas!inner(company_id, cancelada)")
+      .in("numero_recibo", recibos)
+      .eq("vendas.cancelada", false);
 
     if (companyId) {
       query = query.eq("vendas.company_id", companyId);
@@ -83,9 +84,10 @@ export async function findReciboReservaDuplicado(params: {
         numero_recibo,
         numero_reserva,
         venda_id,
-        vendas!inner(cliente_id, company_id)
+        vendas!inner(cliente_id, company_id, cancelada)
       `)
-      .in("numero_reserva", reservas);
+      .in("numero_reserva", reservas)
+      .eq("vendas.cancelada", false);
 
     if (companyId) {
       query = query.eq("vendas.company_id", companyId);
