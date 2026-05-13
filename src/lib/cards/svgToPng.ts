@@ -31,7 +31,10 @@ export async function renderSvgToPng(svg: string, _request?: Request) {
 }
 
 export function isWasmCodegenBlockedError(error: unknown) {
-  const message = String((error as any)?.message || error || "");
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error || "");
   return (
     /createimagebitmap is not defined/i.test(message) ||
     /offscreencanvas is not defined/i.test(message) ||
