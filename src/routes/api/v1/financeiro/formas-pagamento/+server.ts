@@ -22,6 +22,14 @@ const FORMA_PAGAMENTO_SELECT =
   'id, company_id, nome, descricao, paga_comissao, permite_desconto, desconto_padrao_pct, ativo, created_at, updated_at';
 const MAX_FORMA_PAGAMENTO_BODY_BYTES = 16 * 1024;
 
+type JsonBody = Record<string, unknown>;
+type FormaPagamentoRow = Record<string, unknown>;
+
+function optionalString(value: unknown) {
+  if (value === null || value === undefined) return null;
+  return String(value);
+}
+
 function invalidateFinancePaymentModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
     tags: [
@@ -51,7 +59,7 @@ export async function GET(event) {
     const ativas = searchParams.get('ativas');
     const companyIds = resolveScopedCompanyIds(scope, searchParams.get('empresa_id'));
 
-    const items: any[] = [];
+    const items: FormaPagamentoRow[] = [];
     const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
     for (const companyBatch of companyBatches) {
       let query = client
@@ -101,9 +109,9 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
-    const companyId = resolveScopedCompanyId(scope, body.empresa_id || body.company_id);
+    const companyId = resolveScopedCompanyId(scope, optionalString(body.empresa_id || body.company_id));
 
     // Validar campos obrigatórios
     if (!body.nome) {
@@ -166,7 +174,7 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
 
     if (!isUuid(String(body.id || ''))) {
@@ -176,7 +184,7 @@ export async function PATCH(event) {
       );
     }
 
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString()
     };
 
