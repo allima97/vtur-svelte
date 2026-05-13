@@ -67,6 +67,21 @@ type CompanyIdOnlyRow = {
   company_id?: string | null;
 };
 
+type TermoNaoComissionavelRow = {
+  termo?: string | null;
+  termo_normalizado?: string | null;
+};
+
+type VendaRowWithReceiptAliases = ReportVendaRow & {
+  recibos?: ReportReceiptRow[] | null;
+  vendas_recibos?: ReportReceiptRow[] | null;
+};
+
+type ConciliacaoIdSource = {
+  id?: string | null;
+  conciliacao_ids?: Array<string | number | null | undefined> | null;
+};
+
 export type VendasKpiAgg = {
   totalVendas: number;
   totalTaxas: number;
@@ -388,8 +403,8 @@ async function carregarTermosNaoComissionaveis(
       .order("termo", { ascending: true });
     if (error) throw error;
 
-    const termos = (data || [])
-      .map((row: any) =>
+    const termos = ((data || []) as TermoNaoComissionavelRow[])
+      .map((row) =>
         normalizeTextValue(row?.termo_normalizado || row?.termo),
       )
       .filter(Boolean);
@@ -451,18 +466,18 @@ function mergeRowsById(
 function toRateioShape(rows: ReportVendaRow[]): VendaAggregateRow[] {
   return rows.map((row) => ({
     ...row,
-    vendas_recibos: Array.isArray((row as any)?.recibos)
-      ? (((row as any).recibos || []) as ReportReceiptRow[])
-      : Array.isArray((row as any)?.vendas_recibos)
-        ? (((row as any).vendas_recibos || []) as ReportReceiptRow[])
+    vendas_recibos: Array.isArray((row as VendaRowWithReceiptAliases)?.recibos)
+      ? (((row as VendaRowWithReceiptAliases).recibos || []) as ReportReceiptRow[])
+      : Array.isArray((row as VendaRowWithReceiptAliases)?.vendas_recibos)
+        ? (((row as VendaRowWithReceiptAliases).vendas_recibos || []) as ReportReceiptRow[])
         : [],
   }));
 }
 
-function getConciliacaoIds(item: any) {
+function getConciliacaoIds(item: ConciliacaoIdSource) {
   const ids = Array.isArray(item?.conciliacao_ids)
     ? item.conciliacao_ids
-        .map((value: any) => String(value || "").trim())
+        .map((value) => String(value || "").trim())
         .filter(Boolean)
     : [];
   if (ids.length > 0) return ids;
