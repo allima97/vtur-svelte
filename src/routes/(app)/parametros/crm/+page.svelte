@@ -66,6 +66,11 @@
     nome: string;
   };
 
+  type ClienteSearchResponse = {
+    clientes?: Cliente[];
+    items?: Cliente[];
+  };
+
   type AssinaturaForm = {
     linha1: string;
     linha1_font_size: number;
@@ -456,12 +461,12 @@
           linha1: '',
           linha1_font_size: 40,
           linha1_italic: false,
-          linha2: (savedSignature as any).linha2 || (data.settings?.consultor_nome || ''),
-          linha2_font_size: (savedSignature as any).linha2_font_size || 40,
-          linha2_italic: Boolean((savedSignature as any).linha2_italic),
-          linha3: (savedSignature as any).linha3 || '',
-          linha3_font_size: (savedSignature as any).linha3_font_size || 24,
-          linha3_italic: Boolean((savedSignature as any).linha3_italic),
+          linha2: savedSignature.linha2 || (data.settings?.consultor_nome || ''),
+          linha2_font_size: savedSignature.linha2_font_size || 40,
+          linha2_italic: Boolean(savedSignature.linha2_italic),
+          linha3: savedSignature.linha3 || '',
+          linha3_font_size: savedSignature.linha3_font_size || 24,
+          linha3_italic: Boolean(savedSignature.linha3_italic),
         };
       } else if (data.settings?.consultor_nome) {
         assinatura = { ...assinatura, linha2: data.settings.consultor_nome };
@@ -485,8 +490,12 @@
     }
     searchingClientes = true;
     try {
-      const data: any = await apiGet('/api/v1/clientes/search', { q: busca, limit: 10 });
-      clienteResults = (data.clientes || data.items || data || []).slice(0, 10);
+      const data = await apiGet<ClienteSearchResponse | Cliente[]>('/api/v1/clientes/search', {
+        q: busca,
+        limit: 10
+      });
+      const results = Array.isArray(data) ? data : data.clientes || data.items || [];
+      clienteResults = results.slice(0, 10);
       showClienteDropdown = clienteResults.length > 0;
     } catch {
       clienteResults = [];
