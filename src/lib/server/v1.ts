@@ -899,26 +899,26 @@ const ERROR_RESPONSE_HEADERS = {
 export function toErrorResponse(err: unknown, fallbackMessage: string) {
   const production = isProductionRuntime();
 
-  if (production) {
-    logServerError("[toErrorResponse]", err, { fallbackMessage });
-  } else {
-    // Log detalhado apenas fora de produção para não vazar payloads sensíveis em logs.
-    console.error("[toErrorResponse] Erro capturado:", err);
-    console.error("[toErrorResponse] Tipo:", typeof err);
-  }
+  const debugDetails =
+    !production && err && typeof err === "object"
+      ? (() => {
+          const errObj = err as Record<string, unknown>;
+          return {
+            type: typeof err,
+            properties: Object.keys(errObj),
+            status: errObj.status,
+            body: errObj.body,
+            message: errObj.message,
+          };
+        })()
+      : { type: typeof err };
 
-  if (!production && err && typeof err === "object") {
-    const errObj = err as Record<string, unknown>;
-    console.error("[toErrorResponse] Propriedades:", Object.keys(errObj));
-    console.error("[toErrorResponse] Status:", errObj.status);
-    console.error("[toErrorResponse] Body:", errObj.body);
-    console.error("[toErrorResponse] Message:", errObj.message);
-  }
+  logServerError("[toErrorResponse]", err, {
+    fallbackMessage,
+    ...(production ? {} : debugDetails),
+  });
 
   if (isHttpErrorLike(err)) {
-    if (!production) {
-      console.error("[toErrorResponse] Erro HTTP detectado:", err.status);
-    }
     const status = Number(err.status || 500);
     const message = production && status >= 500 ? fallbackMessage : err.body?.message || fallbackMessage;
     return json(
@@ -931,12 +931,6 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
   if (err && typeof err === "object") {
     const errObj = err as Record<string, unknown>;
     if (typeof errObj.status === "number") {
-      if (!production) {
-        console.error(
-          "[toErrorResponse] Erro com status detectado:",
-          errObj.status,
-        );
-      }
       const body = errObj.body as { message?: string } | undefined;
       const status = Number(errObj.status || 500);
       const message =
@@ -948,10 +942,6 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
         { status, headers: ERROR_RESPONSE_HEADERS },
       );
     }
-  }
-
-  if (!production) {
-    console.error(fallbackMessage, err);
   }
 
   if (production) {
