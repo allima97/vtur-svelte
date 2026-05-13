@@ -35,6 +35,62 @@ let rebuildScheduled = false;
 
 export type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
 
+type ErrorWithMessage = {
+  message?: string | null;
+};
+
+type DirtyStatusRow = {
+  company_id?: string | null;
+  mes?: string | null;
+  status?: string | null;
+};
+
+type ReciboContributionRow = {
+  companyId?: string | null;
+  vendedorId?: string | null;
+  vendaKey?: string | null;
+  reciboId?: string | null;
+  reciboNumero?: string | null;
+  reciboDate?: string | null;
+  factor?: number | string | null;
+  bruto?: number | string | null;
+  taxas?: number | string | null;
+  clienteId?: string | null;
+  vendaId?: string | null;
+  produtoId?: string | null;
+  produtoNome?: string | null;
+  destinoNome?: string | null;
+  isSeguro?: boolean | null;
+  sourceBruto?: number | string | null;
+  sourceTaxas?: number | string | null;
+  origem?: string | null;
+};
+
+type RankingReadModelRow = {
+  source_key: string;
+  company_id: string;
+  mes: string;
+  data_recibo: string;
+  vendedor_id: string;
+  cliente_id: string | null;
+  venda_id: string | null;
+  recibo_id: string | null;
+  venda_key: string;
+  recibo_numero: string | null;
+  produto_id: string | null;
+  produto_nome: string | null;
+  destino_nome: string | null;
+  valor_bruto: number;
+  valor_taxas: number;
+  valor_seguro: number;
+  is_seguro: boolean;
+  fator: number;
+  source_bruto: number;
+  source_taxas: number;
+  origem: string;
+  built_at: string;
+};
+
 function isExecutionContextLike(value: unknown): value is ExecutionContextLike {
   return Boolean(
     value &&
@@ -83,7 +139,7 @@ function toUuidOrNull(value?: string | null): string | null {
 }
 
 function buildSourceKey(
-  contribution: any,
+  contribution: ReciboContributionRow,
   companyId: string,
   mes: string,
 ): string {
@@ -126,7 +182,7 @@ async function fetchDirtyEntries(
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((row: any) => ({
+  return ((data || []) as DirtyStatusRow[]).map((row) => ({
     company_id: String(row.company_id),
     mes: String(row.mes).slice(0, 10),
     monthKey: monthKeyFromDate(String(row.mes).slice(0, 10)),
@@ -186,7 +242,7 @@ async function rebuildOneMonth(
     });
 
     // Converter contributions para linhas da tabela
-    const rows = (payload.contributions || [])
+    const rows = ((payload.contributions || []) as ReciboContributionRow[])
       .map((contribution) => {
         const cId = String(contribution.companyId || companyId).trim() || companyId;
         if (!cId || !contribution.vendedorId) return null;
@@ -217,7 +273,7 @@ async function rebuildOneMonth(
           built_at: new Date().toISOString(),
         };
       })
-      .filter(Boolean);
+      .filter((row): row is RankingReadModelRow => Boolean(row));
 
     // Substituir atomicamente: deletar o mês e reinserir
     const { error: deleteError } = await client
@@ -245,7 +301,8 @@ async function rebuildOneMonth(
 
     return { rebuilt: true, rows: rows.length };
   } catch (err) {
-    const errMsg = String((err as any)?.message || err).slice(0, 500);
+    const error = err as ErrorWithMessage;
+    const errMsg = String(error?.message || err).slice(0, 500);
     logServerError(`[read-model] rebuild falhou para ${companyId} / ${monthKey}`, err);
 
     await upsertStatus(client, companyId, mes, {
