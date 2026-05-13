@@ -640,8 +640,8 @@
 
       toast.success('Venda cadastrada com sucesso!');
       goto('/vendas');
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar venda.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar venda.');
     } finally {
       saving = false;
     }
