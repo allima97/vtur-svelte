@@ -27,6 +27,10 @@
     whatsapp?: string | null;
   };
 
+  type CidadeBuscaOption = {
+    nome?: string | null;
+  };
+
   const statusOptions = [
     { value: 'pendente', label: 'Pendente' },
     { value: 'confirmada', label: 'Confirmada' },
@@ -93,7 +97,10 @@
     }
 
     try {
-      const payload = await apiGet<any[]>('/api/v1/viagens/cidades-busca', { q: termo, limite: 12 });
+      const payload = await apiGet<CidadeBuscaOption[]>('/api/v1/viagens/cidades-busca', {
+        q: termo,
+        limite: 12
+      });
       const nomes = new Set<string>();
       for (const item of Array.isArray(payload) ? payload : []) {
         const nome = String(item?.nome || '').trim();
