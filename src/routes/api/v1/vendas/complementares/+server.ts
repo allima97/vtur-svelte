@@ -19,6 +19,69 @@ const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
   currency: 'BRL'
 });
 
+type ReceiptIdRow = {
+  id?: string | null;
+};
+
+type ComplementaryLinkRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  recibo_id?: string | null;
+};
+
+type LinkedReceiptRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  valor_total?: number | null;
+  produto_resolvido?: Array<{ nome?: string | null }> | null;
+};
+
+type LinkedSaleRow = {
+  id?: string | null;
+  cliente_id?: string | null;
+  destino_id?: string | null;
+  destino_cidade_id?: string | null;
+  clientes?: Array<{ nome?: string | null }> | null;
+  destinos?: Array<{ nome?: string | null }> | null;
+  destino_cidade?: Array<{ nome?: string | null }> | null;
+};
+
+type PairReceiptRow = {
+  id?: string | null;
+  venda_id?: string | null;
+};
+
+type SearchReceiptRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  valor_total?: number | null;
+  produto_resolvido?: Array<{ nome?: string | null }> | null;
+  vendas?: Array<{
+    id?: string | null;
+    cliente_id?: string | null;
+    vendedor_id?: string | null;
+    company_id?: string | null;
+    clientes?: Array<{ nome?: string | null }> | null;
+    destinos?: Array<{ nome?: string | null }> | null;
+    destino_cidade?: Array<{ nome?: string | null }> | null;
+  }> | null;
+};
+
+type ComplementarySuggestion = {
+  recibo_id: string;
+  venda_id: string;
+  numero_recibo: string | null;
+  valor_total: number;
+  produto_nome: string | null;
+  cliente_nome: string;
+  destino_nome: string;
+  destino_cidade_nome: string;
+  sale_receipt_ids: string[];
+  resumo: ReturnType<typeof getResumo>;
+};
+
 function getResumo(recibo?: {
   numero_recibo?: string | null;
   valor_total?: number | null;
@@ -41,6 +104,18 @@ function getResumo(recibo?: {
     .filter(Boolean)
     .join(' - ');
   return { titulo, detalhes };
+}
+
+function firstNome(
+  value?: Array<{ nome?: string | null }> | { nome?: string | null } | null,
+) {
+  if (Array.isArray(value)) return value[0]?.nome || '';
+  return value?.nome || '';
+}
+
+function firstItem<T>(value?: T[] | T | null) {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
 }
 
 export async function GET(event: RequestEvent) {
@@ -88,8 +163,8 @@ export async function GET(event: RequestEvent) {
       .eq('venda_id', vendaId);
     if (currentReceiptsError) throw currentReceiptsError;
 
-    const currentReceiptIds = (currentReceiptsData || [])
-      .map((row: any) => String(row?.id || '').trim())
+    const currentReceiptIds = ((currentReceiptsData || []) as ReceiptIdRow[])
+      .map((row) => String(row?.id || '').trim())
       .filter(Boolean);
 
     const { data: currentLinksData, error: currentLinksError } = await client
@@ -98,12 +173,12 @@ export async function GET(event: RequestEvent) {
       .eq('venda_id', vendaId);
     if (currentLinksError && String(currentLinksError.code || '') !== '42P01') throw currentLinksError;
 
-    const currentLinks = Array.isArray(currentLinksData) ? currentLinksData : [];
+    const currentLinks: ComplementaryLinkRow[] = Array.isArray(currentLinksData) ? currentLinksData : [];
     const linkedReceiptIds = currentLinks
-      .map((row: any) => String(row?.recibo_id || '').trim())
+      .map((row) => String(row?.recibo_id || '').trim())
       .filter(Boolean);
 
-    const linkedReceiptsData: any[] = [];
+    const linkedReceiptsData: LinkedReceiptRow[] = [];
     for (const batch of chunkArray(linkedReceiptIds)) {
       const { data, error: linkedReceiptsError } = await client
         .from('vendas_recibos')
@@ -119,9 +194,9 @@ export async function GET(event: RequestEvent) {
       linkedReceiptsData.push(...(data || []));
     }
 
-    const linkedSalesIds = uniqueCleanStrings((linkedReceiptsData || []).map((row: any) => row?.venda_id));
+    const linkedSalesIds = uniqueCleanStrings(linkedReceiptsData.map((row) => row?.venda_id));
 
-    const linkedSalesData: any[] = [];
+    const linkedSalesData: LinkedSaleRow[] = [];
     for (const batch of chunkArray(linkedSalesIds)) {
       const { data, error: linkedSalesError } = await client
         .from('vendas')
@@ -140,32 +215,32 @@ export async function GET(event: RequestEvent) {
     }
 
     const linkedReceiptsById = Object.fromEntries(
-      (linkedReceiptsData || []).map((row: any) => [
+      linkedReceiptsData.map((row) => [
         String(row?.id || ''),
         {
           id: String(row?.id || ''),
           venda_id: String(row?.venda_id || ''),
           numero_recibo: row?.numero_recibo || null,
           valor_total: Number(row?.valor_total || 0),
-          produto_nome: row?.produto_resolvido?.nome || null
+          produto_nome: firstNome(row?.produto_resolvido) || null
         }
       ])
     );
     const linkedSalesById = Object.fromEntries(
-      (linkedSalesData || []).map((row: any) => [
+      linkedSalesData.map((row) => [
         String(row?.id || ''),
         {
           id: String(row?.id || ''),
-          cliente_nome: row?.clientes?.nome || '',
-          destino_nome: row?.destinos?.nome || '',
-          destino_cidade_nome: row?.destino_cidade?.nome || ''
+          cliente_nome: firstNome(row?.clientes),
+          destino_nome: firstNome(row?.destinos),
+          destino_cidade_nome: firstNome(row?.destino_cidade)
         }
       ])
     );
 
     const pairSaleIds = uniqueCleanStrings(linkedSalesIds);
     const pairReceiptSaleIds = [vendaId, ...pairSaleIds];
-    const pairReceiptsData: any[] = [];
+    const pairReceiptsData: PairReceiptRow[] = [];
     for (const batch of chunkArray(pairReceiptSaleIds)) {
       const { data, error: pairReceiptsError } = await client
         .from('vendas_recibos')
@@ -176,16 +251,16 @@ export async function GET(event: RequestEvent) {
     }
 
     const receiptsBySale = new Map<string, string[]>();
-    for (const row of pairReceiptsData || []) {
-      const saleRef = String((row as any)?.venda_id || '').trim();
-      const receiptRef = String((row as any)?.id || '').trim();
+    for (const row of pairReceiptsData) {
+      const saleRef = String(row?.venda_id || '').trim();
+      const receiptRef = String(row?.id || '').trim();
       if (!saleRef || !receiptRef) continue;
       const current = receiptsBySale.get(saleRef) || [];
       current.push(receiptRef);
       receiptsBySale.set(saleRef, current);
     }
 
-    const allPairLinksData: any[] = [];
+    const allPairLinksData: ComplementaryLinkRow[] = [];
     for (const batch of chunkArray(pairReceiptSaleIds)) {
       const { data, error: allPairLinksError } = await client
         .from('vendas_recibos_complementares')
@@ -195,16 +270,16 @@ export async function GET(event: RequestEvent) {
       allPairLinksData.push(...(data || []));
     }
 
-    const allPairLinks = Array.isArray(allPairLinksData) ? allPairLinksData : [];
+    const allPairLinks: ComplementaryLinkRow[] = Array.isArray(allPairLinksData) ? allPairLinksData : [];
 
-    const current = currentLinks.map((link: any) => {
+    const current = currentLinks.map((link) => {
       const recibo = linkedReceiptsById[String(link?.recibo_id || '')];
       const linkedSaleId = String(recibo?.venda_id || '').trim();
       const sale = linkedSalesById[linkedSaleId];
       const currentSaleReceipts = new Set(receiptsBySale.get(vendaId) || currentReceiptIds);
       const linkedSaleReceipts = new Set(receiptsBySale.get(linkedSaleId) || []);
       const relatedIds = allPairLinks
-        .filter((row: any) => {
+        .filter((row) => {
           const rowSaleId = String(row?.venda_id || '').trim();
           const rowReceiptId = String(row?.recibo_id || '').trim();
           if (!rowSaleId || !rowReceiptId) return false;
@@ -212,7 +287,7 @@ export async function GET(event: RequestEvent) {
           if (rowSaleId === linkedSaleId && currentSaleReceipts.has(rowReceiptId)) return true;
           return false;
         })
-        .map((row: any) => String(row?.id || '').trim())
+        .map((row) => String(row?.id || '').trim())
         .filter(Boolean);
 
       return {
@@ -225,7 +300,7 @@ export async function GET(event: RequestEvent) {
       };
     });
 
-    let suggestions: any[] = [];
+    let suggestions: ComplementarySuggestion[] = [];
     if (busca.length >= 2) {
       const buildReceiptsQuery = (companyIdsFilter?: string[], vendedorIdsFilter?: string[]) => {
         let receiptsQuery = client
@@ -253,7 +328,7 @@ export async function GET(event: RequestEvent) {
         return receiptsQuery;
       };
 
-      const scopedReceiptsData: any[] = [];
+      const scopedReceiptsData: SearchReceiptRow[] = [];
       const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [undefined];
       const vendedorBatches = shouldApplySellerScope && vendedorIds.length > 0 ? chunkArray(vendedorIds) : [undefined];
       for (const companyBatch of companyBatches) {
@@ -269,9 +344,9 @@ export async function GET(event: RequestEvent) {
         currentLinkedIds.add(item.recibo_id);
       }
 
-      suggestions = (scopedReceiptsData || [])
-        .map((row: any) => {
-          const linkedSale = row?.vendas;
+      suggestions = scopedReceiptsData
+        .map((row) => {
+          const linkedSale = firstItem(row?.vendas);
           const linkedSaleId = String(linkedSale?.id || '').trim();
           const reciboId = String(row?.id || '').trim();
           return {
@@ -279,21 +354,21 @@ export async function GET(event: RequestEvent) {
             venda_id: linkedSaleId,
             numero_recibo: row?.numero_recibo || null,
             valor_total: Number(row?.valor_total || 0),
-            produto_nome: row?.produto_resolvido?.nome || null,
-            cliente_nome: linkedSale?.clientes?.nome || '',
-            destino_nome: linkedSale?.destinos?.nome || '',
-            destino_cidade_nome: linkedSale?.destino_cidade?.nome || '',
+            produto_nome: firstNome(row?.produto_resolvido) || null,
+            cliente_nome: firstNome(linkedSale?.clientes),
+            destino_nome: firstNome(linkedSale?.destinos),
+            destino_cidade_nome: firstNome(linkedSale?.destino_cidade),
             sale_receipt_ids: receiptsBySale.get(linkedSaleId) || [],
             resumo: getResumo(
               {
                 numero_recibo: row?.numero_recibo || null,
                 valor_total: Number(row?.valor_total || 0),
-                produto_nome: row?.produto_resolvido?.nome || null
+                produto_nome: firstNome(row?.produto_resolvido) || null
               },
               {
-                cliente_nome: linkedSale?.clientes?.nome || '',
-                destino_nome: linkedSale?.destinos?.nome || '',
-                destino_cidade_nome: linkedSale?.destino_cidade?.nome || ''
+                cliente_nome: firstNome(linkedSale?.clientes),
+                destino_nome: firstNome(linkedSale?.destinos),
+                destino_cidade_nome: firstNome(linkedSale?.destino_cidade)
               }
             )
           };
