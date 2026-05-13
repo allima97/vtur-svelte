@@ -52,7 +52,22 @@ type VendaAggregateRow = ReportVendaRow & {
   vendas_recibos?: ReportReceiptRow[] | null;
 };
 
+type VendaAggregateRowExtra = VendaAggregateRow & {
+  destino_id?: string | null;
+  valor_total?: number | string | null;
+  valor_total_bruto?: number | string | null;
+  status?: string | null;
+  company_id?: string | null;
+  cliente_id?: string | null;
+  destino_cidade?: { nome?: string | null } | null;
+  destinos?: { nome?: string | null } | null;
+};
+
 type NonNullReceiptRow = Exclude<ReportReceiptRow, null>;
+
+type ScopedReceiptRow = NonNullReceiptRow & {
+  rateio_scope_vendor_id?: string | null;
+};
 
 type SeguroReceiptFlags = ReportReceiptRow & {
   _conciliacao_is_seguro?: boolean | null;
@@ -896,14 +911,15 @@ async function fetchAndComputeVendasKpisLegacy(
   >();
 
   for (const row of rows) {
+    const rowExtra = row as VendaAggregateRowExtra;
     const syntheticKey = [
       toDateKey(row?.data_venda),
       toStr(row?.vendedor_id),
-      toStr((row as any)?.destino_id),
-      toStr((row as any)?.valor_total || (row as any)?.valor_total_bruto),
+      toStr(rowExtra.destino_id),
+      toStr(rowExtra.valor_total || rowExtra.valor_total_bruto),
     ].join("|");
     const vendaKey =
-      toStr((row as any)?.source_venda_id || row?.id) || `synt:${syntheticKey}`;
+      toStr(rowExtra.source_venda_id || row?.id) || `synt:${syntheticKey}`;
     const current = groupedByVenda.get(vendaKey) || {
       vendaRows: [],
       recibos: [],
@@ -919,10 +935,11 @@ async function fetchAndComputeVendasKpisLegacy(
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
+    const vendaPrincipalExtra = vendaPrincipal as VendaAggregateRowExtra;
 
     if (
       isStatusCancelado(
-        (vendaPrincipal as any)?.status,
+        vendaPrincipalExtra.status,
         vendaPrincipal?.cancelada,
       )
     )
@@ -990,6 +1007,7 @@ async function fetchAndComputeVendasKpisLegacy(
     countAtivas += 1;
 
     for (const recibo of recibosPeriodo) {
+      const reciboExtra = recibo as ScopedReceiptRow;
       const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
@@ -1013,9 +1031,9 @@ async function fetchAndComputeVendasKpisLegacy(
         : getReciboTaxas(recibo) * rankingGrupo.fatorTaxas;
 
       const vendedorId =
-        toStr((recibo as any)?.rateio_scope_vendor_id) ||
-        toStr((recibo as any)?.vendedor_id) ||
-        toStr((vendaPrincipal as any)?.vendedor_id);
+        toStr(reciboExtra.rateio_scope_vendor_id) ||
+        toStr(reciboExtra.vendedor_id) ||
+        toStr(vendaPrincipalExtra.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&
@@ -1142,10 +1160,11 @@ export async function fetchVendasKpiReciboContributionsRaw(
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
+    const vendaPrincipalExtra = vendaPrincipal as VendaAggregateRowExtra;
 
     if (
       isStatusCancelado(
-        (vendaPrincipal as any)?.status,
+        vendaPrincipalExtra.status,
         vendaPrincipal?.cancelada,
       )
     )
@@ -1305,14 +1324,14 @@ export async function fetchVendasKpiReciboContributionsRaw(
         );
         const destinoNome = toStr(
           recibo?.destino_cidade?.nome ||
-            (vendaPrincipal as any)?.destino_cidade?.nome ||
-            (vendaPrincipal as any)?.destinos?.nome ||
+            vendaPrincipalExtra.destino_cidade?.nome ||
+            vendaPrincipalExtra.destinos?.nome ||
             "Destino nao informado",
         );
 
         contributions.push({
-          companyId: toStr((vendaPrincipal as any)?.company_id),
-          clienteId: toStr((vendaPrincipal as any)?.cliente_id),
+          companyId: toStr(vendaPrincipalExtra.company_id),
+          clienteId: toStr(vendaPrincipalExtra.cliente_id),
           vendaId: isUuid(vendaKey) ? vendaKey : null,
           vendaKey,
           reciboId,
