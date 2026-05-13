@@ -879,7 +879,16 @@
   }
 
   async function loadSummary() {
-    const data = await apiGet<any>('/api/v1/conciliacao/summary', {
+    const data = await apiGet<{
+      total?: number | null;
+      efetivados?: number | null;
+      pendentes?: number | null;
+      semRanking?: number | null;
+      baixaRac?: number | null;
+      totalValor?: number | null;
+      timeline?: Array<{ date: string; value: number }>;
+      lacuna_cronologica?: ConciliacaoSummary['lacunaCronologica'];
+    }>('/api/v1/conciliacao/summary', {
       mes: monthFilter || undefined,
       company_id: empresaId || undefined
     });
