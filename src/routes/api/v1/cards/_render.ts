@@ -395,7 +395,25 @@ function normalizeColor(value: unknown, fallback: string) {
   return fallback;
 }
 
-function isRecord(value: unknown): value is Record<string, any> {
+type TemplateRow = {
+  theme_id?: string | null;
+  titulo?: string | null;
+  corpo?: string | null;
+  assinatura?: string | null;
+  signature_style?: unknown;
+};
+
+type ThemeRow = {
+  id?: string | null;
+  nome?: string | null;
+  asset_url?: string | null;
+  storage_path?: string | null;
+  width_px?: number | null;
+  height_px?: number | null;
+  signature_style?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
@@ -552,7 +570,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
   const themeName = limitText(url.searchParams.get("theme_name") || url.searchParams.get("theme_key"), MAX_SHORT_TEXT_PARAM_LENGTH);
   const themeAssetUrlFromQuery = sanitizeImageUrl(String(url.searchParams.get("theme_asset_url") || ""), url.origin);
 
-  let templateRow: Record<string, any> | null = null;
+  let templateRow: TemplateRow | null = null;
   if (canReadStoredRows && templateId) {
     const tplResp = await client
       .from("user_message_templates")
@@ -560,12 +578,12 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
       .eq("id", templateId)
       .maybeSingle();
     if (!tplResp.error && tplResp.data) {
-      templateRow = tplResp.data;
+      templateRow = tplResp.data as TemplateRow;
       if (!themeId && templateRow.theme_id) themeId = String(templateRow.theme_id);
     }
   }
 
-  let themeRow: Record<string, any> | null = null;
+  let themeRow: ThemeRow | null = null;
   if (canReadStoredRows && (themeId || themeName)) {
     let themeQuery = client
       .from("user_message_template_themes")
@@ -573,7 +591,7 @@ export async function renderCardSvg(event: RequestEvent): Promise<CardRenderResu
     if (themeId) themeQuery = themeQuery.eq("id", themeId);
     else themeQuery = themeQuery.eq("nome", themeName);
     const themeResp = await themeQuery.maybeSingle();
-    if (!themeResp.error && themeResp.data) themeRow = themeResp.data;
+    if (!themeResp.error && themeResp.data) themeRow = themeResp.data as ThemeRow;
     if (!themeId && themeRow?.id) themeId = String(themeRow.id);
   }
 
