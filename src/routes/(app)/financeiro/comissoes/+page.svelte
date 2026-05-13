@@ -55,6 +55,14 @@
     total_pendente: number;
   }
 
+  type ComissaoApiItem = Partial<Comissao> & Record<string, unknown>;
+
+  interface ComissoesResponse {
+    persistencia_disponivel?: boolean;
+    items?: ComissaoApiItem[];
+    resumo?: ResumoVendedor[];
+  }
+
   type EmpresaOption = { id: string; nome: string };
 
   let comissoes: Comissao[] = [];
@@ -165,13 +173,25 @@
         query.data_inicio = range.inicio;
         query.data_fim = range.fim;
       }
-      const data = await apiGet<{ persistencia_disponivel?: boolean; items?: any[]; resumo?: ResumoVendedor[] }>(
+      const data = await apiGet<ComissoesResponse>(
         '/api/v1/financeiro/comissoes',
         query
       );
       persistenciaDisponivel = data.persistencia_disponivel !== false;
-      comissoes = (data.items || []).map((item: any) => ({
-        ...item,
+      comissoes = (data.items || []).map((item) => ({
+        id: String(item.id || ''),
+        venda_id: String(item.venda_id || ''),
+        recibo_id: item.recibo_id ? String(item.recibo_id) : null,
+        numero_venda: String(item.numero_venda || ''),
+        numero_recibo: item.numero_recibo ? String(item.numero_recibo) : null,
+        numero_reserva: item.numero_reserva ? String(item.numero_reserva) : null,
+        produto: item.produto ? String(item.produto) : null,
+        vendedor_id: String(item.vendedor_id || ''),
+        vendedor: String(item.vendedor || ''),
+        cliente: String(item.cliente || ''),
+        data_venda: String(item.data_venda || ''),
+        regra_nome: item.regra_nome ? String(item.regra_nome) : undefined,
+        tipo_pacote: item.tipo_pacote ? String(item.tipo_pacote) : null,
         valor_venda: Number(item.valor_venda || 0),
         valor_comissionavel: Number(item.valor_comissionavel || 0),
         percentual_aplicado: Number(item.percentual_aplicado || 0),
