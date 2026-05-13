@@ -76,7 +76,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const updates = normalizeUpdates(body?.updates).slice(0, 120);
     if (updates.length === 0) {
