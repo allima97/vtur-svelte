@@ -42,6 +42,10 @@ type PreferenciaShareSummary = {
   } | null;
 };
 
+type PreferenciaOwnedRow = Record<string, unknown> & {
+  id?: unknown;
+};
+
 export async function GET(event) {
   try {
     const { client, user, scope } = await requirePreferenciasScope(event, 1);
@@ -123,7 +127,7 @@ export async function GET(event) {
           sharesByPref.set(pid, list);
         }
 
-        const owned = (ownedResp.data || []).map((p: any) => ({
+        const owned = ((ownedResp.data || []) as PreferenciaOwnedRow[]).map((p) => ({
           scope: "owned" as const,
           preferencia: p,
           shares: sharesByPref.get(String(p?.id || "")) || [],
