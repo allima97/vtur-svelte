@@ -72,6 +72,37 @@ type RoteiroHotelDraft = {
   ordem: number;
 };
 
+type RoteiroPasseioPayload = {
+  cidade?: string | null;
+  passeio?: string | null;
+  fornecedor?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  tipo?: string | null;
+  ingressos?: string | null;
+  qtd_adultos?: unknown;
+  qtd_criancas?: unknown;
+  valor_original?: unknown;
+  valor_final?: unknown;
+  ordem?: unknown;
+};
+
+type RoteiroPasseioDraft = {
+  roteiro_id: string;
+  cidade: string | null;
+  passeio: string | null;
+  fornecedor: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  tipo: string | null;
+  ingressos: string | null;
+  qtd_adultos: unknown;
+  qtd_criancas: unknown;
+  valor_original: unknown;
+  valor_final: unknown;
+  ordem: number;
+};
+
 type ScopedRoteiroEq<T> = T & {
   eq: (column: string, value: string | null | undefined) => T;
 };
@@ -291,7 +322,7 @@ export async function POST(event: RequestEvent) {
       await client.from('roteiro_passeio').delete().eq('roteiro_id', roteiroId);
       if (body.passeios.length > 0) {
         const passeios = body.passeios
-          .map((p: any, idx: number) => ({
+          .map((p: RoteiroPasseioPayload, idx: number): RoteiroPasseioDraft => ({
             roteiro_id: roteiroId,
             cidade: p.cidade || null,
             passeio: p.passeio || null,
@@ -306,7 +337,7 @@ export async function POST(event: RequestEvent) {
             valor_final: p.valor_final || null,
             ordem: typeof p.ordem === 'number' ? p.ordem : idx
           }))
-          .filter((p: any) =>
+          .filter((p: RoteiroPasseioDraft) =>
             Boolean(
               String(p.cidade || '').trim() ||
                 String(p.passeio || '').trim() ||
