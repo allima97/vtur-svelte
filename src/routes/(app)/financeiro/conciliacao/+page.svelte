@@ -1347,13 +1347,14 @@
       } else {
         toast.warning(`Auditoria concluída: ${critical} crítico(s), ${warnings} alerta(s).`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao auditar vínculos.');
       addOperationLog({
         action: apply ? 'Corrigir vínculos críticos' : 'Auditar vínculos',
         status: 'error',
-        message: error.message || 'Erro ao auditar vínculos.'
+        message
       });
-      toast.error(error.message || 'Erro ao auditar vínculos.');
+      toast.error(message);
     } finally {
       fixingVinculos = false;
       vinculosAuditLoading = false;
