@@ -70,7 +70,7 @@ export async function GET(event) {
       },
       { headers: DEBUG_HEADERS }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('[debug/permissions]', err);
     return json({ error: 'Erro interno.' }, { status: 500, headers: DEBUG_HEADERS });
   }
