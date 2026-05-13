@@ -142,7 +142,7 @@
     };
   }
 
-  async function requestApi<T = any>(
+  async function requestApi<T = unknown>(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     body?: Record<string, unknown>
   ): Promise<T | null> {

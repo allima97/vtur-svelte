@@ -332,7 +332,7 @@
     const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     return { id: String(value.id || ''), nome: String(value.nome || ''), descricao: value.descricao ? String(value.descricao) : null, company_id: value.company_id ? String(value.company_id) : null, tipo: value.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL', meta_nao_atingida: normalizeNumber(value.meta_nao_atingida), meta_atingida: normalizeNumber(value.meta_atingida), super_meta: normalizeNumber(value.super_meta), ativo: Boolean(value.ativo), commission_tier: cloneTiers(value.commission_tier as Tier[] | undefined) };
   }
-  async function requestRulesApi<T = any>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: Record<string, unknown>): Promise<T | null> {
+  async function requestRulesApi<T = unknown>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: Record<string, unknown>): Promise<T | null> {
     return apiFetch<T | null>('/api/v1/parametros/commission-rules', { method, query: method === 'GET' ? { empresa_id: empresaId || undefined } : undefined, body: method === 'GET' ? undefined : { ...(body || {}), empresa_id: empresaId || undefined } });
   }
   async function loadUserContext() {
