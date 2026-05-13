@@ -10,18 +10,6 @@ import {
 } from '$lib/server/v1';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
-  if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-    return (query as any).eq('created_by', scope.userId);
-  }
-
-  if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
-    return (query as any).eq('company_id', scope.companyId);
-  }
-
-  return query;
-}
-
 export async function DELETE(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -37,10 +25,14 @@ export async function DELETE(event: RequestEvent) {
     if (!id || !isUuid(id)) return json({ error: 'ID invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     // Verifica ownership
-    const { data: roteiro, error: findErr } = await applyRoteiroScope(
-      client.from('roteiro_personalizado').select('id').eq('id', id).maybeSingle(),
-      scope
-    );
+    let roteiroQuery = client.from('roteiro_personalizado').select('id').eq('id', id);
+    if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
+      roteiroQuery = roteiroQuery.eq('created_by', scope.userId);
+    } else if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
+      roteiroQuery = roteiroQuery.eq('company_id', scope.companyId);
+    }
+
+    const { data: roteiro, error: findErr } = await roteiroQuery.maybeSingle();
 
     if (findErr) throw findErr;
     if (!roteiro) return json({ error: 'Roteiro nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
