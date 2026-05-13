@@ -770,7 +770,7 @@ function selectBestReciboMatch(params: {
 }
 
 async function findReciboByNumero(params: {
-  client: any;
+  client: SupabaseClient;
   numero: string;
   companyId: string;
   valorLancamento?: number | null;
@@ -790,7 +790,7 @@ async function findReciboByNumero(params: {
 }
 
 async function findRexturReciboByReserva(params: {
-  client: any;
+  client: SupabaseClient;
   reserva: string;
   companyId: string;
   valorLancamento?: number | null;
@@ -852,7 +852,7 @@ export type DiagnosticoCronologico = {
  * intermediários sejam importados ou marcados como "sem movimento".
  */
 export async function diagnosticarLacunasCronologicas(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
 }): Promise<DiagnosticoCronologico> {
   const { client, companyId } = params;
@@ -942,7 +942,7 @@ export async function diagnosticarLacunasCronologicas(params: {
 
 /** Versão interna sem diagnóstico completo — usada no filtro da query de reconciliação. */
 async function resolverFronteiraCronologica(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
 }): Promise<string | null> {
   const result = await diagnosticarLacunasCronologicas(params);
@@ -956,7 +956,7 @@ async function reconcilePendentesCompany(params: {
   onlyCurrentMonth?: boolean;
   actor?: Actor;
   actorUserId?: string | null;
-  client: any;
+  client: SupabaseClient;
 }): Promise<ReconcileResult> {
   const limit = Math.max(1, Math.min(500, Number(params.limit || 200)));
   const actor = params.actor || 'user';
@@ -1275,7 +1275,7 @@ async function recalculateConciliacaoMetricsCompany(params: {
   companyId: string;
   actor?: Actor;
   actorUserId?: string | null;
-  client: any;
+  client: SupabaseClient;
 }): Promise<{ scanned: number; recalculated: number; updateErrors: number }> {
   const batchSize = Math.max(50, Math.min(2000, Number(params.batchSize || 500)));
   const monthRange = resolveMonthDateRange(params.month);
