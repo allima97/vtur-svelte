@@ -8,6 +8,36 @@ export type SeguroPasseioLike = {
 };
 
 const MONTH_SHORT_PT_BR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"] as const;
+const LOWER_CASE_BUDGET_ITEM_WORDS = new Set([
+  "a",
+  "à",
+  "ao",
+  "aos",
+  "as",
+  "às",
+  "com",
+  "da",
+  "das",
+  "de",
+  "do",
+  "dos",
+  "e",
+  "em",
+  "na",
+  "nas",
+  "no",
+  "nos",
+  "o",
+  "os",
+  "ou",
+  "para",
+  "por",
+  "sem",
+  "um",
+  "uma",
+  "uns",
+  "umas",
+]);
 
 function textValue(value?: string | null) {
   return String(value || "").trim();
@@ -23,36 +53,6 @@ function normalizeText(value?: string | null) {
 function formatBudgetItemText(value?: string | null) {
   const raw = textValue(value);
   if (!raw) return "";
-  const lowerWords = new Set([
-    "a",
-    "à",
-    "ao",
-    "aos",
-    "as",
-    "às",
-    "com",
-    "da",
-    "das",
-    "de",
-    "do",
-    "dos",
-    "e",
-    "em",
-    "na",
-    "nas",
-    "no",
-    "nos",
-    "o",
-    "os",
-    "ou",
-    "para",
-    "por",
-    "sem",
-    "um",
-    "uma",
-    "uns",
-    "umas",
-  ]);
   let seenWord = false;
   return raw
     .split(/(\s+|\/|-|\(|\)|,|\+)/)
@@ -61,7 +61,7 @@ function formatBudgetItemText(value?: string | null) {
       if (/^[A-Z0-9]{2,4}$/.test(part)) return part;
       if (/^\d+$/.test(part)) return part;
       const lower = part.toLowerCase();
-      const shouldLower = seenWord && lowerWords.has(lower);
+      const shouldLower = seenWord && LOWER_CASE_BUDGET_ITEM_WORDS.has(lower);
       seenWord = true;
       if (shouldLower) return lower;
       return lower.charAt(0).toUpperCase() + lower.slice(1);
