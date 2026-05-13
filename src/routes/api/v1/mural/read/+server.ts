@@ -1,3 +1,4 @@
+import type { RequestEvent } from "@sveltejs/kit";
 import { isUuid, logServerError } from "$lib/server/v1";
 import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/requestGuards";
 import {
@@ -10,7 +11,7 @@ import { invalidateMuralReadModels } from "$lib/server/readModelCache";
 
 const MAX_MURAL_READ_BODY_BYTES = 8 * 1024;
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
@@ -20,7 +21,7 @@ export async function POST(event) {
     const { client, user, scope } = await requireMuralScope(event);
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const id = String(body?.id || "").trim();
     if (!isUuid(id)) return noStoreTextResponse("ID inválido.", 400);
@@ -60,7 +61,7 @@ export async function POST(event) {
       userId: user.id,
     });
     return noStoreJsonResponse({ ok: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[mural/read] falha ao marcar recado como lido", e);
     return noStoreTextResponse("Erro ao marcar recado como lido.", 500);
   }
