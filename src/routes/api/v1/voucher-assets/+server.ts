@@ -7,7 +7,8 @@ import {
   resolveScopedCompanyId,
   resolveScopedCompanyIds,
   resolveUserScope,
-  toErrorResponse
+  toErrorResponse,
+  type UserScope
 } from '$lib/server/v1';
 import { validateUploadedFile } from '$lib/server/uploadValidation';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
@@ -25,7 +26,7 @@ const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const mutationError = (message: string, status: number) =>
   json({ success: false, error: message }, { status, headers: NO_STORE_HEADERS });
 
-function canAccessVoucherAssets(scope: any, level: number) {
+function canAccessVoucherAssets(scope: UserScope, level: number) {
   if (scope.isAdmin) return true;
   if (scope.isMaster || scope.isGestor) return true;
   ensureModuloAccess(scope, ['parametros', 'vouchers', 'operacao'], level, 'Sem acesso a Voucher Assets.');
@@ -88,7 +89,7 @@ async function withPreviewUrl(client: any, asset: any) {
   }
 }
 
-async function resolveTargetCompanyId(scope: any, requestedCompanyId?: string | null) {
+async function resolveTargetCompanyId(scope: UserScope, requestedCompanyId?: string | null) {
   const normalizedRequested = normalizeText(requestedCompanyId);
   if (normalizedRequested && !isUuid(normalizedRequested)) {
     throw new Error('Empresa inválida para o voucher asset.');
