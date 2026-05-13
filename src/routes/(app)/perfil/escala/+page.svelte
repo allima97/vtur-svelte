@@ -30,6 +30,12 @@
 
   type Feriado = { id: string; data: string; nome: string; tipo: string };
 
+  type EscalasPayload = {
+    dias?: EscalaDia[];
+    usuarios?: Usuario[];
+    feriados?: Feriado[];
+  };
+
   const TIPO_CODIGO: Record<string, string> = {
     TRABALHO: 'T', PLANTAO: 'P', FOLGA: 'F', FERIAS: 'X', LICENCA: 'L', FERIADO: 'H'
   };
@@ -82,11 +88,11 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/parametros/escalas', { periodo: periodoAtual });
+      const payload = await apiGet<EscalasPayload>('/api/v1/parametros/escalas', { periodo: periodoAtual });
       const userId = $auth.user?.id;
       diasEquipe = payload.dias || [];
       usuarios = payload.usuarios || [];
-      dias = diasEquipe.filter((d: any) => d.usuario_id === userId);
+      dias = diasEquipe.filter((d) => d.usuario_id === userId);
       feriados = payload.feriados || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar escala.');
