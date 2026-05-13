@@ -47,10 +47,10 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
     for (const key of USER_PROFILE_ALLOWED_UPDATE_FIELDS) {
       if (key in body) {
