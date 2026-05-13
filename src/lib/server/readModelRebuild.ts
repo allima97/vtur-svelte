@@ -24,6 +24,7 @@ const MODEL_NAME = 'recibo_contribuicoes_v1';
 const TABLE_STATUS = 'ranking_read_model_status';
 const TABLE_CONTRIBUICOES = 'ranking_recibo_contribuicoes';
 const INSERT_CHUNK_SIZE = 500;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Throttle: evita múltiplos rebuilds simultâneos para a mesma empresa/mês
 const inProgressKeys = new Set<string>();
@@ -61,7 +62,7 @@ function previousMonthKey() {
 function toUuidOrNull(value?: string | null): string | null {
   if (!value) return null;
   const v = String(value).trim();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v) ? v : null;
+  return UUID_PATTERN.test(v) ? v : null;
 }
 
 function buildSourceKey(

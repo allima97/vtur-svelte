@@ -186,9 +186,10 @@ export async function ensureReciboReservaUnicos(params: {
     let query = client
       .from("vendas_recibos")
       .select(
-        "id, numero_recibo, numero_recibo_normalizado, venda_id, vendas!inner(company_id)",
+        "id, numero_recibo, numero_recibo_normalizado, venda_id, vendas!inner(company_id, cancelada)",
       )
-      .in("numero_recibo_normalizado", receiptKeys);
+      .in("numero_recibo_normalizado", receiptKeys)
+      .eq("vendas.cancelada", false);
     if (companyId) query = query.eq("vendas.company_id", companyId);
     if (ignoreVendaId) query = query.neq("venda_id", ignoreVendaId);
     const { data, error } = await query.limit(1);
@@ -202,14 +203,15 @@ export async function ensureReciboReservaUnicos(params: {
     let query = client
       .from("vendas_recibos")
       .select(
-        "id, numero_recibo, numero_reserva, venda_id, vendas!inner(cliente_id, company_id)",
+        "id, numero_recibo, numero_reserva, venda_id, vendas!inner(cliente_id, company_id, cancelada)",
       )
       .in(
         "numero_reserva",
         recibosParaValidar
           .map((item) => toNullableString(item?.numero_reserva))
           .filter(Boolean),
-      );
+      )
+      .eq("vendas.cancelada", false);
     if (companyId) query = query.eq("vendas.company_id", companyId);
     if (ignoreVendaId) query = query.neq("venda_id", ignoreVendaId);
     const { data, error } = await query;
