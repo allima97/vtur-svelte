@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeText } from '$lib/normalizeText';
+import { logServerError } from '$lib/server/v1';
 import type { ReciboRelacionado } from './reciboReservaValidator';
 
 function normalizeNumero(valor?: string | null) {
@@ -8,11 +9,7 @@ function normalizeNumero(valor?: string | null) {
 }
 
 function logViajaComError(context: string, error: unknown) {
-  const err = error as Record<string, unknown> | null;
-  console.error(context, {
-    message: String(err?.message || ''),
-    code: String(err?.code || ''),
-  });
+  logServerError(context, error);
 }
 
 /**
