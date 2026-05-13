@@ -2,7 +2,7 @@
   import { dev } from '$app/environment';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, type ComponentType } from 'svelte';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -35,11 +35,6 @@
     produtos?: Array<{ id: string; nome?: string | null; cidade_id?: string | null }> | null;
     cidades?: Array<{ id: string; label?: string | null; nome?: string | null }> | null;
     tiposPacote?: Array<{ id?: string | null; nome?: string | null }> | null;
-  };
-
-  type RankingRecibosPayload = {
-    recibos?: unknown[] | null;
-    totais?: unknown;
   };
 
   type VendaReciboResumo = {
@@ -84,10 +79,10 @@
   };
 
   type RankingReciboConcMeta = {
-    valor_lancamentos?: number | null;
-    valor_descontos?: number | null;
-    valor_abatimentos?: number | null;
-    valor_nao_comissionavel?: number | null;
+    valor_lancamentos: number;
+    valor_descontos: number;
+    valor_abatimentos: number;
+    valor_nao_comissionavel: number;
   };
 
   type RankingReciboSnapshot = {
@@ -96,15 +91,15 @@
     provisorio?: boolean | null;
     conciliacao_status?: string | null;
     tem_conciliacao?: boolean | null;
-    valor_ranking_efetivo?: number | null;
-    venda_valor_total?: number | null;
+    valor_ranking_efetivo: number;
+    venda_valor_total: number;
     conc_valor_ranking?: number | null;
     is_seguro_viagem?: boolean | null;
     ranking_produto_nome?: string | null;
     diverge?: boolean | null;
-    divergencia_valor?: number | null;
+    divergencia_valor: number | null;
     diverge_taxas?: boolean | null;
-    divergencia_taxas?: number | null;
+    divergencia_taxas: number | null;
     rateio?: RankingReciboRateio | null;
     conc_meta?: RankingReciboConcMeta | null;
   };
@@ -112,9 +107,14 @@
   type RankingTotaisSnapshot = {
     algum_provisorio?: boolean | null;
     algum_diverge?: boolean | null;
-    valor_ranking_efetivo?: number | null;
-    divergencia_total?: number | null;
-    divergencia_taxas_total?: number | null;
+    valor_ranking_efetivo: number;
+    divergencia_total: number;
+    divergencia_taxas_total: number;
+  };
+
+  type RankingRecibosPayload = {
+    recibos?: RankingReciboSnapshot[] | null;
+    totais?: RankingTotaisSnapshot | null;
   };
 
   let venda: any = null;
@@ -126,7 +126,7 @@
   let error: string | null = null;
   let processando = false;
   let showMesclar = false;
-  let MesclarVendasModal: any = null;
+  let MesclarVendasModal: ComponentType | null = null;
   let loadingMesclarModal = false;
   let produtosCache: Record<string, { id: string; nome: string }> = {};
   let produtosBase: Array<{ id: string; nome: string; cidade_id?: string | null }> = [];
