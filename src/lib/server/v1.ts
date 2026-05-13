@@ -72,16 +72,16 @@ type HttpErrorLike = {
   };
 };
 
-type UserTypeNameRow = { name: string | null };
+type UserTypeNameRow = { name?: string | null };
 
 type RankingUserRow = {
-  id: string | null;
-  nome_completo: string | null;
-  email: string | null;
-  company_id: string | null;
-  active: boolean | null;
-  uso_individual: boolean | null;
-  participa_ranking: boolean | null;
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
   user_types?: UserTypeNameRow | UserTypeNameRow[] | null;
 };
 
