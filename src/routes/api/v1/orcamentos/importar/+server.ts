@@ -15,6 +15,33 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_ORCAMENTO_IMPORTAR_BODY_BYTES = 4 * 1024 * 1024;
 
+type OrcamentoImportarBody = {
+  client_id?: unknown;
+  client_name?: unknown;
+  client_whatsapp?: unknown;
+  client_email?: unknown;
+  destino_cidade_id?: unknown;
+  data_embarque?: unknown;
+  data_final?: unknown;
+  draft?: unknown;
+};
+
+type ImportDraft = {
+  items?: unknown;
+  currency?: unknown;
+  average_confidence?: unknown;
+  raw_json?: unknown;
+};
+
+type ClienteScopeRow = {
+  id?: unknown;
+  company_id?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
 function sanitizeNumber(value: unknown, fallback = 0): number {
   const num = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -50,17 +77,17 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoImportarBody)
         : {};
 
-    const clientId: string | null = body.client_id || null;
+    const clientId: string | null = body.client_id ? String(body.client_id) : null;
     const clientName: string | null = String(body.client_name || '').trim() || null;
     const clientWhatsapp: string | null = String(body.client_whatsapp || '').trim() || null;
     const clientEmail: string | null = String(body.client_email || '').trim() || null;
-    const destinoCidadeId: string | null = body.destino_cidade_id || null;
-    const dataEmbarque: string | null = body.data_embarque || null;
-    const dataFinal: string | null = body.data_final || null;
-    const draft = body.draft;
+    const destinoCidadeId: string | null = body.destino_cidade_id ? String(body.destino_cidade_id) : null;
+    const dataEmbarque: string | null = body.data_embarque ? String(body.data_embarque) : null;
+    const dataFinal: string | null = body.data_final ? String(body.data_final) : null;
+    const draft = isRecord(body.draft) ? (body.draft as ImportDraft) : null;
 
     if (!draft || !Array.isArray(draft.items) || draft.items.length === 0) {
       return json({ error: 'Nenhum item encontrado no rascunho.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -80,10 +107,11 @@ export async function POST(event: RequestEvent) {
         .eq('id', clientId)
         .maybeSingle();
       if (clienteError) throw clienteError;
-      if (!cliente?.id) {
+      const clienteRow = cliente as ClienteScopeRow | null;
+      if (!clienteRow?.id) {
         return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
       }
-      const clienteCompanyId = String((cliente as any).company_id || '').trim();
+      const clienteCompanyId = String(clienteRow.company_id || '').trim();
       if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
         return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
