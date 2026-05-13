@@ -235,12 +235,12 @@ export function buildClientePayload(form: ClienteFormData) {
   };
 }
 
-export function fillClienteFormFromApi(data: Record<string, any> | null | undefined): ClienteFormData {
+export function fillClienteFormFromApi(data: Record<string, unknown> | null | undefined): ClienteFormData {
   const initial = createInitialClienteForm();
   if (!data) return initial;
 
   const tipoPessoa =
-    data.tipo_pessoa === 'PJ' || onlyDigits(data.cpf).length > 11 ? 'PJ' : 'PF';
+    data.tipo_pessoa === 'PJ' || onlyDigits(String(data.cpf || '')).length > 11 ? 'PJ' : 'PF';
 
   return {
     ...initial,

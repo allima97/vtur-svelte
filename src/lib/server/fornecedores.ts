@@ -232,11 +232,11 @@ export async function fetchFornecedorById(client: SupabaseClient, id: string) {
   };
 }
 
-export function sanitizeFornecedorPayload(body: any, scope: UserScope) {
+export function sanitizeFornecedorPayload(body: Record<string, unknown>, scope: UserScope) {
   const nomeCompleto = String(body?.nome_completo || '').trim();
   const nomeFantasia = String(body?.nome_fantasia || '').trim();
   const localizacao = String(body?.localizacao || '').trim() === 'exterior' ? 'exterior' : 'brasil';
-  const companyId = isUuid(body?.company_id) ? String(body.company_id) : scope.companyId;
+  const companyId = isUuid(String(body?.company_id || '')) ? String(body.company_id) : scope.companyId;
 
   return {
     company_id: companyId || null,

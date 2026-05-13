@@ -73,7 +73,7 @@ export async function PUT(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const payload = sanitizeFornecedorPayload(body, scope);
 

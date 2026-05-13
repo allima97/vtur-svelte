@@ -43,10 +43,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const cpf = normalizeCpf(body.cpf);
-    const nome = titleCaseNome(sanitizeImportedClienteNome(body.nome)) || null;
+    const cpf = normalizeCpf(String(body.cpf || ''));
+    const nome = titleCaseNome(sanitizeImportedClienteNome(String(body.nome || ''))) || null;
     const nascimento = String(body.nascimento || '').trim() || null;
     const endereco = String(body.endereco || '').trim() || null;
     const numero = String(body.numero || '').trim() || null;

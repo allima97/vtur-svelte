@@ -57,6 +57,12 @@ type ClienteBaseRow = {
   created_at: string | null;
 };
 
+type FetchClientsResult = {
+  data?: ClienteBaseRow[] | null;
+  count?: number | null;
+  error?: unknown;
+};
+
 type VendaResumoRow = {
   cliente_id: string | null;
   data_venda: string | null;
@@ -397,7 +403,7 @@ export async function GET(event) {
       ttlMs: 45_000,
       staleTtlMs: 180_000,
       loader: async () => {
-        const result = (await fetchClients()) as any;
+        const result = (await fetchClients()) as FetchClientsResult;
         if (result?.error) throw result.error;
         return {
           data: ((result?.data || []) as ClienteBaseRow[]),

@@ -53,7 +53,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const nomeCompleto = String(body?.nome_completo || '').trim();
     if (!nomeCompleto) {
