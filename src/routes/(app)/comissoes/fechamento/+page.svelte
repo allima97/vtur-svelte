@@ -59,6 +59,7 @@
 
   const todayParts = parseISODateParts(todayISODateLocal());
   let filtroMes    = todayParts?.month || new Date().getMonth() + 1;
+  let filtroMesValue = String(filtroMes);
   let filtroAno    = todayParts?.year || new Date().getFullYear();
   let filtroVendedor = '';
   let filtroStatus = 'todas';
@@ -244,6 +245,13 @@
     }));
   }
 
+  $: {
+    const parsedMonth = Number.parseInt(filtroMesValue, 10);
+    filtroMes = Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+      ? parsedMonth
+      : todayParts?.month || new Date().getMonth() + 1;
+  }
+
   const statusOptions = [
     { value: 'todas', label: 'Todas' },
     { value: 'pendente', label: 'Pendentes' },
@@ -312,7 +320,7 @@
     <FieldSelect
       id="fech-mes"
       label="Mês"
-      bind:value={filtroMes as any}
+      bind:value={filtroMesValue}
       options={buildMonthOptions()}
       placeholder={null}
     />
@@ -357,7 +365,7 @@
     <FieldSelect
       id="fech-mes-mobile"
       label="Mês"
-      bind:value={filtroMes as any}
+      bind:value={filtroMesValue}
       options={buildMonthOptions()}
       placeholder={null}
       class_name="w-full"
