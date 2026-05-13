@@ -13,6 +13,8 @@ import {
 } from "$lib/date";
 import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 function collapseSpaces(value?: string | null) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -46,7 +48,7 @@ export function toISODateLocal(date: Date) {
 }
 
 export function isISODate(value?: string | null) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim());
+  return ISO_DATE_PATTERN.test(String(value || "").trim());
 }
 
 export function normalizeReceiptDisplay(value?: string | null): string {
