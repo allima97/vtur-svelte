@@ -147,7 +147,50 @@ function rexturReservaMatches(left?: string | null, right?: string | null) {
   return Boolean(leftNorm && rightNorm && leftNorm === rightNorm);
 }
 
-function duplicateGroupKey(row: any) {
+type ConciliacaoDuplicateRow = {
+  id?: string | null;
+  company_id?: string | null;
+  movimento_data?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  status?: string | null;
+  is_baixa_rac?: boolean | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_saldo?: number | null;
+  valor_opfax?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+  conciliado?: boolean | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+  ranking_vendedor_id?: string | null;
+  ranking_produto_id?: string | null;
+  ranking_assigned_by?: string | null;
+  ranking_assigned_at?: string | null;
+  conciliado_em?: string | null;
+  last_checked_at?: string | null;
+};
+
+const duplicatePatchFields: Array<keyof ConciliacaoDuplicateRow> = [
+  'ranking_vendedor_id',
+  'ranking_produto_id',
+  'venda_id',
+  'venda_recibo_id',
+  'ranking_assigned_by',
+  'ranking_assigned_at',
+  'conciliado_em'
+];
+
+function duplicateGroupKey(row: ConciliacaoDuplicateRow) {
   return [
     String(row?.company_id || '').trim(),
     String(row?.movimento_data || '').trim(),
@@ -158,7 +201,7 @@ function duplicateGroupKey(row: any) {
   ].join('::');
 }
 
-function rankDuplicateRow(row: any) {
+function rankDuplicateRow(row: ConciliacaoDuplicateRow) {
   const metrics = buildConciliacaoMetrics({
     descricao: row?.descricao,
     valorLancamentos: row?.valor_lancamentos,
@@ -189,7 +232,7 @@ function rankDuplicateRow(row: any) {
   };
 }
 
-function pickDuplicateWinner(rows: any[]) {
+function pickDuplicateWinner(rows: ConciliacaoDuplicateRow[]) {
   return [...rows].sort((left, right) => {
     const leftRank = rankDuplicateRow(left);
     const rightRank = rankDuplicateRow(right);
@@ -198,7 +241,7 @@ function pickDuplicateWinner(rows: any[]) {
   })[0];
 }
 
-function firstPresent(rows: any[], field: string) {
+function firstPresent(rows: ConciliacaoDuplicateRow[], field: keyof ConciliacaoDuplicateRow) {
   for (const row of rows) {
     const value = row?.[field];
     if (value !== null && value !== undefined && String(value).trim() !== '') return value;
@@ -206,21 +249,14 @@ function firstPresent(rows: any[], field: string) {
   return undefined;
 }
 
-function buildDuplicateWinnerPatch(winner: any, losers: any[]) {
-  const payload: Record<string, any> = {};
-  for (const field of [
-    'ranking_vendedor_id',
-    'ranking_produto_id',
-    'venda_id',
-    'venda_recibo_id',
-    'ranking_assigned_by',
-    'ranking_assigned_at',
-    'conciliado_em'
-  ]) {
+function buildDuplicateWinnerPatch(winner: ConciliacaoDuplicateRow, losers: ConciliacaoDuplicateRow[]) {
+  const payload: Partial<ConciliacaoDuplicateRow> = {};
+  const payloadRecord = payload as Record<string, unknown>;
+  for (const field of duplicatePatchFields) {
     const winnerValue = winner?.[field];
     if (winnerValue !== null && winnerValue !== undefined && String(winnerValue).trim() !== '') continue;
     const loserValue = firstPresent(losers, field);
-    if (loserValue !== undefined) payload[field] = loserValue;
+    if (loserValue !== undefined) payloadRecord[field] = loserValue;
   }
 
   if (!Boolean(winner?.conciliado) && losers.some((row) => Boolean(row?.conciliado))) {
