@@ -20,15 +20,37 @@ import { chunkArray } from '$lib/utils/array';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
-function companyLabel(row: any) {
+type DashboardScope = Awaited<ReturnType<typeof resolveUserScope>>;
+
+type DashboardCompanyRow = {
+  id: string | null;
+  nome_fantasia: string | null;
+  nome_empresa: string | null;
+  active: boolean | null;
+};
+
+type DashboardCompanyOption = {
+  id: string;
+  nome: string;
+  active: boolean;
+};
+
+type DashboardVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+};
+
+function companyLabel(row: DashboardCompanyRow) {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa sem nome');
 }
 
-function vendedorLabel(row: any) {
+function vendedorLabel(row: DashboardVendedorRow) {
   return String(row?.nome_completo || row?.email || 'Usuario sem nome');
 }
 
-function canUseDashboardFilters(scope: any) {
+function canUseDashboardFilters(scope: DashboardScope) {
   return (
     scope?.isAdmin ||
     scope?.isMaster ||
@@ -58,7 +80,7 @@ export async function GET(event) {
       scopedCompanyIds = [scope.companyId];
     }
 
-    const empresas = await getCachedReadModel({
+    const empresas = await getCachedReadModel<DashboardCompanyOption[]>({
       key: buildReadModelCacheKey('dashboard:base:empresas', {
         scopeCompanyIds: scope.companyIds,
         requestedCompanyId,
@@ -75,7 +97,7 @@ export async function GET(event) {
       ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
-        const rows: any[] = [];
+        const rows: DashboardCompanyRow[] = [];
         const companyBatches =
           !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
@@ -94,7 +116,7 @@ export async function GET(event) {
         }
 
         return rows
-          .map((row: any) => ({
+          .map((row) => ({
             id: String(row?.id || ''),
             nome: companyLabel(row),
             active: row?.active !== false
@@ -115,7 +137,7 @@ export async function GET(event) {
       return scope.companyIds;
     })();
 
-    let vendedores: any[] = [];
+    let vendedores: DashboardVendedorRow[] = [];
     if (scope.isAdmin || scope.isMaster || scope.isFinanceiro || scope.isGestor) {
       vendedores = await fetchRankingVendedoresByCompanyIds(client, companyIdsForVendedores);
     } else {
@@ -133,7 +155,7 @@ export async function GET(event) {
       companyNameById.set(row.id, row.nome);
     }
     const vendedoresFiltro = vendedores
-      .map((row: any) => ({
+      .map((row) => ({
         id: String(row?.id || ''),
         nome: vendedorLabel(row),
         company_id: String(row?.company_id || ''),
