@@ -40,10 +40,38 @@ function normalizeModuleKey(key?: string | null) {
   return raw.replace(/\s+/g, '_').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-export const GET: RequestHandler = async ({ locals }) => {
+type SystemModuleSettingRow = {
+  module_key: string;
+  enabled?: boolean | null;
+  reason?: string | null;
+  updated_at?: string | null;
+};
+
+type DisabledModuleInput = {
+  module_key?: string | null;
+  reason?: string | null;
+};
+
+type SystemModulesBody = {
+  disabled?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function toDisabledModuleInput(value: unknown): DisabledModuleInput {
+  if (!isRecord(value)) return {};
+  return {
+    module_key: typeof value.module_key === 'string' ? value.module_key : null,
+    reason: typeof value.reason === 'string' ? value.reason : null
+  };
+}
+
+export const GET: RequestHandler = async (event) => {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
@@ -73,8 +101,8 @@ export const GET: RequestHandler = async ({ locals }) => {
       throw error;
     }
 
-    const rows = (data || []) as any[];
-    const disabled = rows.reduce((acc: string[], row: any) => {
+    const rows = (data || []) as SystemModuleSettingRow[];
+    const disabled = rows.reduce((acc: string[], row) => {
       if (!row.enabled) acc.push(row.module_key);
       return acc;
     }, []);
@@ -94,15 +122,16 @@ export const GET: RequestHandler = async ({ locals }) => {
   }
 };
 
-export const POST: RequestHandler = async ({ locals, request }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_SYSTEM_MODULES_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
@@ -111,7 +140,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as SystemModulesBody)
         : {};
     const disabledList = Array.isArray(body?.disabled) ? body.disabled : [];
 
@@ -119,12 +148,13 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     const disabledNormalized = Array.from(
       new Map(
         disabledList
-          .map((item: any) => ({
+          .map((item) => toDisabledModuleInput(item))
+          .map((item) => ({
             module_key: normalizeModuleKey(item?.module_key),
             reason: String(item?.reason || '').trim() || null
           }))
-          .filter((item: any) => Boolean(item.module_key))
-          .map((item: any) => [item.module_key, item])
+          .filter((item) => Boolean(item.module_key))
+          .map((item) => [item.module_key, item])
       ).values()
     ) as { module_key: string; reason: string | null }[];
 
