@@ -10,7 +10,13 @@
   import { ArrowLeft, CreditCard, Plus, Receipt, Trash2 } from 'lucide-svelte';
   import { apiGet, apiPost } from '$lib/services/api';
 
-  let currentUser: { id: string; can_assign_vendedor?: boolean } | null = null;
+  type CurrentUserPayload = {
+    id: string;
+    can_assign_vendedor?: boolean;
+    company_id?: string | null;
+  };
+
+  let currentUser: CurrentUserPayload | null = null;
   $: canAssignVendedor = currentUser?.can_assign_vendedor ?? false;
 
   type Option = {
@@ -44,6 +50,30 @@
     telefone?: string | null;
     email?: string | null;
     whatsapp?: string | null;
+  };
+
+  type CadastroBasePayload = {
+    user?: CurrentUserPayload | null;
+    vendedoresEquipe?: Option[];
+    clientes?: Cliente[];
+    cidades?: Option[];
+    produtos?: Option[];
+    tipos?: Option[];
+    tiposPacote?: Option[];
+    formasPagamento?: Option[];
+    empresas?: Option[];
+  };
+
+  type OrcamentoResumoVenda = {
+    codigo?: string | null;
+    client_id?: string | null;
+    cliente?: {
+      nome?: string | null;
+      email?: string | null;
+      telefone?: string | null;
+    } | null;
+    notes?: string | null;
+    observacoes?: string | null;
   };
 
   const today = todayISODateLocal();
@@ -163,7 +193,7 @@
   onMount(async () => {
     loading = true;
     try {
-      const data = await apiGet<any>('/api/v1/vendas/cadastro-base');
+      const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
       currentUser = data.user ?? null;
       vendedoresEquipe = data.vendedoresEquipe || [];
       clientes = data.clientes || [];
@@ -192,7 +222,7 @@
   
   async function carregarOrcamento(orcamentoId: string) {
     try {
-      const orcamento = await apiGet<any>(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
+      const orcamento = await apiGet<OrcamentoResumoVenda>(`/api/v1/orcamentos/${orcamentoId}/resumo-venda`);
       
       if (orcamento.client_id) {
         venda.cliente_id = orcamento.client_id;
@@ -200,9 +230,9 @@
         if (!clienteExistente && orcamento.cliente) {
           mergeClientes([{
             id: orcamento.client_id,
-            nome: orcamento.cliente.nome,
-            email: orcamento.cliente.email,
-            telefone: orcamento.cliente.telefone
+            nome: orcamento.cliente.nome || '',
+            email: orcamento.cliente.email || null,
+            telefone: orcamento.cliente.telefone || null
           }]);
         }
       }
