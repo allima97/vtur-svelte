@@ -39,6 +39,15 @@ type VendaReciboLookupRow = {
   venda_id?: string | null;
 };
 
+type VendaIdRow = {
+  id?: string | null;
+};
+
+type VendaClienteLookupRow = {
+  id?: string | null;
+  cliente_id?: string | null;
+};
+
 type PagamentoParcelaInput = {
   valor?: unknown;
   [key: string]: unknown;
@@ -228,7 +237,7 @@ async function fetchCancelledVendaIds(
   if (companyId) query = query.eq("company_id", companyId);
   const { data } = await query;
   const ids = new Set<string>();
-  for (const row of data || []) {
+  for (const row of (data || []) as VendaIdRow[]) {
     if (row?.id) ids.add(String(row.id));
   }
   return ids;
@@ -244,7 +253,7 @@ async function fetchClienteIdsByVendaIds(
     .from("vendas")
     .select("id, cliente_id")
     .in("id", vendaIds);
-  for (const row of data || []) {
+  for (const row of (data || []) as VendaClienteLookupRow[]) {
     if (row?.id && row?.cliente_id) {
       map.set(String(row.id), String(row.cliente_id));
     }
