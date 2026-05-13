@@ -13,6 +13,14 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
+type DocumentoViagemRow = {
+  id?: string | null;
+  created_at?: string | null;
+  file_name?: string | null;
+  display_name?: string | null;
+  title?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -49,7 +57,7 @@ export async function GET(event) {
       if (allowedCompanyIds[0] === NO_MATCH_COMPANY_ID) return { data: [], error: null };
       if (allowedCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildQuery(allowedCompanyIds);
 
-      const rows: any[] = [];
+      const rows: DocumentoViagemRow[] = [];
       for (const batch of chunkArray(allowedCompanyIds)) {
         const result = await buildQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
@@ -58,7 +66,7 @@ export async function GET(event) {
 
       return {
         data: dedupeById(rows)
-          .sort((left: any, right: any) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
+          .sort((left, right) => String(right?.created_at || '').localeCompare(String(left?.created_at || '')))
           .slice(0, 200),
         error: null
       };
@@ -70,7 +78,7 @@ export async function GET(event) {
     let items = data || [];
     if (q) {
       const qLower = q.toLowerCase();
-      items = items.filter((item: any) =>
+      items = items.filter((item: DocumentoViagemRow) =>
         [item.file_name, item.display_name, item.title].join(' ').toLowerCase().includes(qLower)
       );
     }
