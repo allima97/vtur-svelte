@@ -21,6 +21,17 @@ type RoteiroDiaPayload = {
   [key: string]: unknown;
 };
 
+type RoteiroDiaDraft = {
+  created_by: string;
+  company_id: string | null | undefined;
+  roteiro_id: string;
+  cidade: string;
+  percurso: string;
+  data: string | null;
+  descricao: string;
+  ordem: number;
+};
+
 type ScopedRoteiroEq<T> = T & {
   eq: (column: string, value: string | null | undefined) => T;
 };
@@ -351,13 +362,13 @@ export async function POST(event: RequestEvent) {
         const sorted = body.dias
           .slice()
           .sort(
-            (a: any, b: any) =>
+            (a: RoteiroDiaPayload, b: RoteiroDiaPayload) =>
               (Number.isFinite(a?.ordem) ? a.ordem : 0) -
               (Number.isFinite(b?.ordem) ? b.ordem : 0)
           );
 
         const normalized = sorted
-          .map((d: any, idx: number) => {
+          .map((d: RoteiroDiaPayload, idx: number): RoteiroDiaDraft => {
             const cidade = String(d?.cidade || '').trim();
             const percurso = String(d?.percurso || '').trim();
             const dataRaw = String(d?.data || '').trim();
@@ -374,7 +385,7 @@ export async function POST(event: RequestEvent) {
               ordem: idx
             };
           })
-          .filter((d: any) =>
+          .filter((d: RoteiroDiaDraft) =>
             Boolean(
               (d.cidade || '').trim() ||
                 (d.percurso || '').trim() ||
@@ -384,7 +395,7 @@ export async function POST(event: RequestEvent) {
           );
 
         const seen = new Set<string>();
-        const unique: any[] = [];
+        const unique: RoteiroDiaDraft[] = [];
         for (const d of normalized) {
           const key = normalizeDiaKey({
             cidade: d.cidade,
@@ -398,7 +409,7 @@ export async function POST(event: RequestEvent) {
         }
 
         const dias = unique.map((d, idx) => ({ ...d, ordem: idx }));
-        let payload: any[] = dias;
+        let payload: RoteiroDiaDraft[] | Array<Omit<RoteiroDiaDraft, 'percurso'>> = dias;
         let triedStrip = false;
 
         for (let attempt = 0; attempt < 2; attempt++) {
