@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
   import type { ChartData } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
@@ -555,7 +556,7 @@
       );
       empresasComparativo = data.empresas || [];
     } catch (err) {
-      console.error('[comparativo] erro ao carregar:', err);
+      if (dev) console.error('[comparativo] erro ao carregar:', err);
       empresasComparativo = [];
     } finally {
       loadingComparativo = false;

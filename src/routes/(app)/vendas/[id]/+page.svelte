@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from '$app/environment';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { onDestroy, onMount } from 'svelte';
@@ -204,7 +205,7 @@
       rankingTotais = data.totais || null;
     } catch (err) {
       // Não bloqueia a tela principal, mas loga para facilitar diagnóstico
-      console.warn('[ranking-recibos] erro ao carregar snapshot:', err);
+      if (dev) console.warn('[ranking-recibos] erro ao carregar snapshot:', err);
       rankingRecibos = [];
       rankingTotais = null;
     } finally {
