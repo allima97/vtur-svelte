@@ -21,6 +21,41 @@ const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const COMMISSION_RULE_SELECT =
   'id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_at, updated_at, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)';
 
+type CommissionTierPayload = {
+  faixa?: string | null;
+  de_pct?: number | string | null;
+  ate_pct?: number | string | null;
+  inc_pct_meta?: number | string | null;
+  inc_pct_comissao?: number | string | null;
+};
+
+type CommissionRulePayload = {
+  id?: string;
+  nome?: string;
+  descricao?: string | null;
+  tipo?: string;
+  meta_nao_atingida?: number | string;
+  meta_atingida?: number | string;
+  super_meta?: number | string;
+  ativo?: boolean;
+  empresa_id?: string | null;
+  company_id?: string | null;
+  tiers?: CommissionTierPayload[];
+};
+
+type CommissionTierRow = CommissionTierPayload & {
+  id?: string;
+  ativo?: boolean | null;
+};
+
+type CommissionRuleRow = {
+  id: string;
+  nome?: string | null;
+  company_id?: string | null;
+  commission_tier?: CommissionTierRow[] | null;
+  [key: string]: unknown;
+};
+
 function canAccessCompany(
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
   companyId: string | null | undefined,
@@ -64,14 +99,14 @@ async function fetchCommissionRulesForScope(params: {
   includeAllCompanies: boolean;
 }) {
   const { client, ativo, tipo, companyIds, includeAllCompanies } = params;
-  const rows: any[] = [];
+  const rows: CommissionRuleRow[] = [];
 
   const runQuery = async (builder: any) => {
     const { data, error } = await applyRuleListFilters(builder, ativo, tipo).order('nome', {
       ascending: true
     });
     if (error) throw error;
-    rows.push(...(data || []));
+    rows.push(...((data || []) as CommissionRuleRow[]));
   };
 
   if (includeAllCompanies) {
@@ -126,7 +161,7 @@ export async function GET(event) {
         ? rows
         : rows.filter((row) => canAccessCompany(scope, row.company_id, scopedCompanySet));
 
-    const items = visibleRows.map((r: any) => ({
+    const items = visibleRows.map((r) => ({
       ...r,
       tiers: r.commission_tier || []
     }));
@@ -154,7 +189,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CommissionRulePayload)
         : {};
     const { nome, descricao, tipo = 'GERAL', meta_nao_atingida = 0, meta_atingida = 0, super_meta = 0, ativo = true, tiers = [] } = body;
     const companyId = scope.isAdmin
@@ -186,7 +221,7 @@ export async function POST(event) {
     if (regraError) throw regraError;
 
     if (tipo === 'ESCALONAVEL' && Array.isArray(tiers) && tiers.length > 0) {
-      const tiersData = tiers.map((tier: any) => ({
+      const tiersData = tiers.map((tier) => ({
         rule_id: regraData.id,
         faixa: tier.faixa === 'POS' ? 'POS' : 'PRE',
         de_pct: Number(tier.de_pct) || 0,
@@ -225,7 +260,7 @@ export async function PUT(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CommissionRulePayload)
         : {};
     const id = event.url.searchParams.get('id') || body.id;
     if (!id || !isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -237,7 +272,7 @@ export async function PUT(event) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     if ('nome' in body) payload.nome = body.nome;
     if ('ativo' in body) payload.ativo = body.ativo;
     if ('meta_atingida' in body) payload.meta_atingida = body.meta_atingida;
