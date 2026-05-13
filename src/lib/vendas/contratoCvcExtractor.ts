@@ -3569,7 +3569,12 @@ export async function extractPdfText(
     });
     const pageText = lines.length
       ? lines.join("\n")
-      : items.map((item: any) => (item?.str ? String(item.str) : "")).join(" ");
+      : items
+          .map((item) => {
+            const value = (item && typeof item === "object" ? item : {}) as { str?: unknown };
+            return value.str ? String(value.str) : "";
+          })
+          .join(" ");
     fullText += `\n${pageText}`;
   }
   return fullText;
@@ -3587,8 +3592,8 @@ export async function extractContratosFromPdf(
       forceRoteiro: options.forceRoteiro,
       disableRoteiro: options.disableRoteiro,
     });
-  } catch (err: any) {
-    const msg = String(err?.message || "");
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err || "");
     if (!fullText.trim()) {
       throw new Error("Não foi possível extrair texto do PDF. Tente colar o texto do contrato.");
     }
