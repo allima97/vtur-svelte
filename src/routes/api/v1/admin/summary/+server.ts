@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   canManageCompanies,
   canManageUsers,
@@ -22,7 +22,26 @@ const TEXT_NO_STORE_HEADERS = {
   ...NO_STORE_HEADERS
 };
 
-export async function GET(event) {
+type ActiveRow = {
+  active?: boolean | null;
+};
+
+type AtivoRow = {
+  ativo?: boolean | null;
+};
+
+type CompanyRow = ActiveRow & {
+  id?: string | null;
+};
+
+type BillingRow = {
+  company_id?: string | null;
+  status?: string | null;
+  valor_mensal?: number | string | null;
+  proximo_vencimento?: string | null;
+};
+
+export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -81,17 +100,17 @@ export async function GET(event) {
       pendingMasterLinks = 0;
     }
 
-    const usuariosRows = usuarios as any[];
-    const empresasRows = empresas as any[];
-    const planosRows = planos as any[];
+    const usuariosRows = usuarios as ActiveRow[];
+    const empresasRows = empresas as CompanyRow[];
+    const planosRows = planos as AtivoRow[];
 
-    const usuariosAtivos = usuariosRows.reduce((total, item: any) => total + (item.active !== false ? 1 : 0), 0);
+    const usuariosAtivos = usuariosRows.reduce((total, item) => total + (item.active !== false ? 1 : 0), 0);
     const usuariosInativos = usuariosRows.length - usuariosAtivos;
-    const empresasAtivas = empresasRows.reduce((total, item: any) => total + (item.active !== false ? 1 : 0), 0);
+    const empresasAtivas = empresasRows.reduce((total, item) => total + (item.active !== false ? 1 : 0), 0);
     const empresasInativas = empresasRows.length - empresasAtivas;
-    const planosAtivos = planosRows.reduce((total, item: any) => total + (item.ativo !== false ? 1 : 0), 0);
+    const planosAtivos = planosRows.reduce((total, item) => total + (item.ativo !== false ? 1 : 0), 0);
     const planosInativos = planosRows.length - planosAtivos;
-    const templatesAtivos = templates.reduce((total, item: any) => total + (item.ativo !== false ? 1 : 0), 0);
+    const templatesAtivos = (templates as AtivoRow[]).reduce((total, item) => total + (item.ativo !== false ? 1 : 0), 0);
     const emailConfigured = Boolean(
       emailSettings?.resend_api_key ||
         (emailSettings?.smtp_host && emailSettings?.smtp_user && emailSettings?.smtp_pass)
@@ -102,7 +121,7 @@ export async function GET(event) {
       const companyId = String(empresa.id || '').trim();
       if (companyId) companyIds.push(companyId);
     }
-    let billingRows: any[] = [];
+    let billingRows: BillingRow[] = [];
     if (companyIds.length > 0) {
       try {
         if (scope.isAdmin) {
@@ -110,16 +129,16 @@ export async function GET(event) {
             .from('company_billing')
             .select('company_id, status, valor_mensal, proximo_vencimento');
           if (error) throw error;
-          billingRows = data || [];
+          billingRows = (data || []) as BillingRow[];
         } else {
-          const rows: any[] = [];
+          const rows: BillingRow[] = [];
           for (const batch of chunkArray(companyIds)) {
             const { data, error } = await client
               .from('company_billing')
               .select('company_id, status, valor_mensal, proximo_vencimento')
               .in('company_id', batch);
             if (error) throw error;
-            rows.push(...(data || []));
+            rows.push(...((data || []) as BillingRow[]));
           }
           billingRows = rows;
         }
