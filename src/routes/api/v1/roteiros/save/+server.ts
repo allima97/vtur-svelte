@@ -21,13 +21,21 @@ type RoteiroDiaPayload = {
   [key: string]: unknown;
 };
 
-function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
+type ScopedRoteiroEq<T> = T & {
+  eq: (column: string, value: string | null | undefined) => T;
+};
+
+function applyRoteiroScope<T>(
+  query: T,
+  scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null },
+) {
+  const scopedQuery = query as ScopedRoteiroEq<T>;
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-    return (query as any).eq('created_by', scope.userId);
+    return scopedQuery.eq('created_by', scope.userId);
   }
 
   if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
-    return (query as any).eq('company_id', scope.companyId);
+    return scopedQuery.eq('company_id', scope.companyId);
   }
 
   return query;
