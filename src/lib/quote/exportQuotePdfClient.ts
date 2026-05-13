@@ -64,6 +64,37 @@ export type QuoteForPdf = {
   client_name?: string | null;
 };
 
+type QuotePreviewRow = QuoteForPdf & {
+  cliente?: { nome?: string | null } | null;
+};
+
+type QuoteItemSegmentRow = {
+  quote_item_id?: string | null;
+  segment_type?: string | null;
+  data?: Record<string, unknown> | null;
+  order_index?: number | null;
+};
+
+type SupabaseQueryResult = PromiseLike<{ data: unknown; error?: { message?: string } | null }> & {
+  eq: (column: string, value: unknown) => SupabaseQueryResult;
+  in: (column: string, values: readonly string[]) => SupabaseQueryResult;
+  order: (column: string, options: { ascending: boolean }) => SupabaseQueryResult;
+  maybeSingle: () => Promise<{ data: Record<string, unknown> | null; error?: { message?: string } | null }>;
+};
+
+type SupabasePreviewStorage = {
+  from: (bucket: string) => {
+    download: (path: string) => Promise<{ data: Blob | null; error?: { message?: string } | null }>;
+    createSignedUrl: (path: string, ttl: number) => Promise<{ data?: { signedUrl?: string } | null }>;
+  };
+};
+
+type SupabasePreviewClient = {
+  from: (table: string) => { select: (columns: string) => SupabaseQueryResult };
+  auth: { getUser: () => Promise<{ data: { user: User | null } }> };
+  storage: SupabasePreviewStorage;
+};
+
 // ---------------------------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------------------------
@@ -307,7 +338,7 @@ function guessMimeFromPath(path: string): string {
  * Fallback: tenta fetch direto com a URL pública/assinada.
  */
 async function storageImageToDataUrl(
-  supabase: any,
+  supabase: Pick<SupabasePreviewClient, 'storage'>,
   storagePath: string | null,
   fallbackUrl: string | null
 ): Promise<string | null> {
@@ -663,11 +694,7 @@ function buildQuotePreviewHtmlSync(params: {
 
 export async function openQuotePreview(params: {
   quoteId: string;
-  supabase: {
-    from: (table: string) => any;
-    auth: { getUser: () => Promise<{ data: { user: User | null } }> };
-    storage: { from: (bucket: string) => { createSignedUrl: (path: string, ttl: number) => Promise<{ data?: { signedUrl?: string } | null }> } };
-  };
+  supabase: SupabasePreviewClient;
   showItemValues?: boolean;
   discount?: number;
 }): Promise<void> {
@@ -684,7 +711,8 @@ export async function openQuotePreview(params: {
     .select('id, created_at, currency, total, status, client_name, raw_json, cliente:client_id (nome)')
     .eq('id', quoteId)
     .maybeSingle();
-  if (quoteError || !quote) throw new Error('Orçamento não encontrado.');
+  const quoteRow = quote as QuotePreviewRow | null;
+  if (quoteError || !quoteRow) throw new Error('Orçamento não encontrado.');
 
   // 3. Itens
   const { data: items, error: itemsError } = await supabase
@@ -711,9 +739,10 @@ export async function openQuotePreview(params: {
       .select('quote_item_id, segment_type, data, order_index')
       .in('quote_item_id', itemIds)
       .order('order_index', { ascending: true });
+    const segmentRows = (segments ?? []) as QuoteItemSegmentRow[];
 
     const segmentsByItem = new Map<string, NonNullable<QuoteItemForPdf['segments']>>();
-    for (const segment of segments ?? []) {
+    for (const segment of segmentRows) {
       const itemId = String(segment.quote_item_id || '');
       if (!itemId) continue;
       const current = segmentsByItem.get(itemId) || [];
@@ -759,13 +788,13 @@ export async function openQuotePreview(params: {
   ]);
 
   // 8. Monta HTML
-  const clientName = textVal(quote.client_name ?? quote.cliente?.nome);
+  const clientName = textVal(quoteRow.client_name ?? quoteRow.cliente?.nome);
   const html = buildQuotePreviewHtmlSync({
     quote: {
-      id: quote.id,
-      created_at: quote.created_at ?? null,
-      total: quote.total ?? 0,
-      currency: quote.currency ?? 'BRL',
+      id: quoteRow.id,
+      created_at: quoteRow.created_at ?? null,
+      total: quoteRow.total ?? 0,
+      currency: quoteRow.currency ?? 'BRL',
       client_name: clientName || null,
     },
     items: itemRows,
