@@ -72,6 +72,19 @@ type HttpErrorLike = {
   };
 };
 
+type UserTypeNameRow = { name: string | null };
+
+type RankingUserRow = {
+  id: string | null;
+  nome_completo: string | null;
+  email: string | null;
+  company_id: string | null;
+  active: boolean | null;
+  uso_individual: boolean | null;
+  participa_ranking: boolean | null;
+  user_types?: UserTypeNameRow | UserTypeNameRow[] | null;
+};
+
 export function isProductionRuntime() {
   return [publicEnv.PUBLIC_ENVIRONMENT, privateEnv.VTUR_ENV, privateEnv.NODE_ENV].some(
     (value) => String(value || "").trim().toLowerCase() === "production",
@@ -214,8 +227,8 @@ export function permLevel(value?: string | null) {
 
 export function resolveUserTypeName(
   userTypes:
-    | { name: string | null }
-    | { name: string | null }[]
+    | UserTypeNameRow
+    | UserTypeNameRow[]
     | null
     | undefined,
 ) {
@@ -231,7 +244,7 @@ export function isTechnicalRankingUserName(value?: string | null) {
   return normalized === "baixa rac" || normalized === "equipe vtur";
 }
 
-export function isRankingEligibleUser(row: any) {
+export function isRankingEligibleUser(row: RankingUserRow) {
   if (!row?.id) return false;
   if (row?.active === false) return false;
   if (row?.uso_individual === true) return false;
@@ -251,10 +264,10 @@ export async function fetchRankingVendedoresByCompanyIds(
   companyIds: string[],
 ) {
   const scopedCompanyIds = collectUniqueUuidValues(companyIds);
-  if (scopedCompanyIds.length === 0) return [] as any[];
+  if (scopedCompanyIds.length === 0) return [] as RankingUserRow[];
   const scopedCompanySet = new Set(scopedCompanyIds);
 
-  return getCachedReadModel({
+  return getCachedReadModel<RankingUserRow[]>({
     key: buildReadModelCacheKey("ranking-vendedores", {
       companyIds: scopedCompanyIds,
     }),
@@ -266,7 +279,7 @@ export async function fetchRankingVendedoresByCompanyIds(
     ttlMs: 60_000,
     staleTtlMs: 300_000,
     loader: async () => {
-      const rows: any[] = [];
+      const rows: RankingUserRow[] = [];
       for (const companyBatch of chunkArray(scopedCompanyIds)) {
         let query = client
           .from("users")
@@ -284,10 +297,10 @@ export async function fetchRankingVendedoresByCompanyIds(
 
         const { data, error } = await query;
         if (error) throw error;
-        rows.push(...(data || []));
+        rows.push(...((data || []) as unknown as RankingUserRow[]));
       }
 
-      return rows.filter((row: any) => {
+      return rows.filter((row) => {
         const companyId = String(row?.company_id || "").trim();
         return scopedCompanySet.has(companyId) && isRankingEligibleUser(row);
       });
@@ -435,7 +448,7 @@ export async function fetchVendedorIdsByCompanyIds(
     const data = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     return (data || [])
-      .map((row: any) => String(row?.id || "").trim())
+      .map((row) => String(row?.id || "").trim())
       .filter(Boolean);
   } catch {
     return [];
@@ -950,12 +963,15 @@ export function toErrorResponse(err: unknown, fallbackMessage: string) {
 
   const errDetails =
     err && typeof err === "object"
-      ? {
-          message: String((err as any).message || fallbackMessage),
-          code: String((err as any).code || ""),
-          details: String((err as any).details || ""),
-          hint: String((err as any).hint || ""),
-        }
+      ? (() => {
+          const error = err as Record<string, unknown>;
+          return {
+            message: String(error.message || fallbackMessage),
+            code: String(error.code || ""),
+            details: String(error.details || ""),
+            hint: String(error.hint || ""),
+          };
+        })()
       : { message: fallbackMessage };
 
   return json(
