@@ -39,6 +39,21 @@ type VendaReciboLookupRow = {
   venda_id?: string | null;
 };
 
+type PagamentoParcelaInput = {
+  valor?: unknown;
+  [key: string]: unknown;
+};
+
+type PagamentoInput = {
+  parcelas?: PagamentoParcelaInput[] | null;
+  valor_bruto?: unknown;
+  desconto_valor?: unknown;
+  valor_total?: unknown;
+  parcelas_qtd?: unknown;
+  parcelas_valor?: unknown;
+  [key: string]: unknown;
+};
+
 function collapseSpaces(value?: string | null) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -365,7 +380,7 @@ export function buildVendaPayload(
   };
 }
 
-function normalizeReciboPayload(item: any, fallbackDataVenda?: string | null) {
+function normalizeReciboPayload(item: ReciboInput & Record<string, unknown>, fallbackDataVenda?: string | null) {
   const itemDataVenda = String(item?.data_venda || "").trim();
   const fallbackDataVendaText = String(fallbackDataVenda || "").trim();
 
@@ -377,8 +392,8 @@ function normalizeReciboPayload(item: any, fallbackDataVenda?: string | null) {
         ? fallbackDataVendaText
         : null,
     numero_recibo: normalizeReceiptDisplay(item?.numero_recibo) || null,
-    cidade_nome: sanitizeLabel(item?.cidade_nome) || null,
-    produto_nome: sanitizeLabel(item?.produto_nome || item?.tipo_nome) || null,
+    cidade_nome: sanitizeLabel(toNullableString(item?.cidade_nome)) || null,
+    produto_nome: sanitizeLabel(toNullableString(item?.produto_nome) || toNullableString(item?.tipo_nome)) || null,
     valor_total: toNullableNumber(item?.valor_total) ?? 0,
     valor_taxas: toNullableNumber(item?.valor_taxas) ?? 0,
     valor_du: toNullableNumber(item?.valor_du) ?? 0,
@@ -386,9 +401,9 @@ function normalizeReciboPayload(item: any, fallbackDataVenda?: string | null) {
   };
 }
 
-function normalizePagamentoPayload(item: any) {
+function normalizePagamentoPayload(item: PagamentoInput) {
   const parcelas = Array.isArray(item?.parcelas)
-    ? item.parcelas.map((p: any) => ({
+    ? item.parcelas.map((p: PagamentoParcelaInput) => ({
         ...p,
         valor: toNullableNumber(p?.valor) ?? 0,
       }))
