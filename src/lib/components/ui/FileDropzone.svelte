@@ -1,7 +1,11 @@
 <script lang="ts">
   import { Helper, Label } from 'flowbite-svelte';
   import { createEventDispatcher } from 'svelte';
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import { uniqueFieldId } from './form/fieldId';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   export let label: string | null = null;
   export let title = 'Clique para escolher um arquivo';
@@ -15,7 +19,7 @@
   export let name: string | null = null;
   export let error: string | null = null;
   export let helper: string | null = null;
-  export let icon: any = null;
+  export let icon: IconComponent | null = null;
   export let class_name = '';
 
   const dispatch = createEventDispatcher();
