@@ -82,6 +82,10 @@ type ConciliacaoIdSource = {
   conciliacao_ids?: Array<string | number | null | undefined> | null;
 };
 
+type EffectiveConciliacaoReceipt = Awaited<
+  ReturnType<typeof fetchEffectiveConciliacaoReceipts>
+>[number];
+
 export type VendasKpiAgg = {
   totalVendas: number;
   totalTaxas: number;
@@ -552,9 +556,9 @@ async function fetchResolvedRowsUncached(
           excludeVendedorIds: baixaRacIds,
         }).catch((error) => {
           logServerError("[vendas-kpis] conciliacao indisponivel, seguindo sem overrides", error);
-          return [] as any[];
+          return [] as EffectiveConciliacaoReceipt[];
         })
-      : Promise.resolve([] as any[]),
+      : Promise.resolve([] as EffectiveConciliacaoReceipt[]),
   ]);
 
   // Carregar split rows se necessário (depende de splitSaleIds)
@@ -626,7 +630,7 @@ async function fetchResolvedRowsUncached(
   );
 
   if (splitConcIdSet.size > 0) {
-    let concAll: any[] = [];
+    let concAll: EffectiveConciliacaoReceipt[] = [];
     try {
       concAll = await fetchEffectiveConciliacaoReceipts({
         client,
@@ -643,7 +647,7 @@ async function fetchResolvedRowsUncached(
     }
 
     const seenConcIds = new Set(
-      (concReceipts || []).flatMap((item: any) => getConciliacaoIds(item)),
+      (concReceipts || []).flatMap((item: ConciliacaoIdSource) => getConciliacaoIds(item)),
     );
     for (const item of concAll) {
       const candidateIds = getConciliacaoIds(item);
