@@ -25,6 +25,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -33,7 +34,7 @@ function debugJson(body: unknown, init?: ResponseInit) {
 }
 
 function isISODate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+  return ISO_DATE_PATTERN.test(String(value || '').trim());
 }
 
 export async function GET(event: any) {
