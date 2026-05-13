@@ -44,6 +44,20 @@ type DashboardQuoteRow = {
   }> | null;
 };
 
+type DashboardScopeUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
+  user_types?:
+    | { name?: string | null }
+    | Array<{ name?: string | null }>
+    | null;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -69,7 +83,7 @@ function toDateKey(value?: string | null) {
 }
 
 async function fetchGestorCompanyScopeIds(
-  client: any,
+  client: ReturnType<typeof getAdminClient>,
   options: { companyIds?: string[]; userIds?: string[] },
 ) {
   const companyIds = uniqueCleanStrings(options.companyIds || []);
@@ -90,7 +104,7 @@ async function fetchGestorCompanyScopeIds(
       loader: async () =>
         uniqueCleanStrings(
           (await fetchRankingVendedoresByCompanyIds(client, companyIds)).map(
-            (row: any) => row?.id,
+            (row) => row?.id,
           ),
         ),
     });
@@ -109,7 +123,7 @@ async function fetchGestorCompanyScopeIds(
     staleTtlMs: 120_000,
     loader: async () => {
       try {
-        const rows: any[] = [];
+        const rows: DashboardScopeUserRow[] = [];
         const idBatches =
           userIds.length > 0 ? chunkArray(userIds) : companyIds.length > 0 ? [] : [null];
         const companyBatches =
@@ -137,14 +151,14 @@ async function fetchGestorCompanyScopeIds(
 
           const { data, error } = await query;
           if (error) throw error;
-          rows.push(...(data || []));
+          rows.push(...((data || []) as DashboardScopeUserRow[]));
         };
 
         for (const idBatch of idBatches) await fetchBatch({ userIds: idBatch });
         for (const companyBatch of companyBatches) await fetchBatch({ companyIds: companyBatch });
 
         const eligibleRows = rows
-          .filter((row: any) => {
+          .filter((row) => {
             if (!row?.id) return false;
             if (row?.active === false) return false;
             if (row?.uso_individual === true) return false;
@@ -153,7 +167,7 @@ async function fetchGestorCompanyScopeIds(
               return companyIdSet.has(String(row?.company_id || "").trim());
             return true;
           });
-        return uniqueCleanStrings(eligibleRows.map((row: any) => row?.id));
+        return uniqueCleanStrings(eligibleRows.map((row) => row?.id));
       } catch {
         return [];
       }
