@@ -2645,6 +2645,8 @@ function buildPassageiroNomeNomePrimeiro(p: RoteiroReservaPassageiroDraft) {
   return [p.nome, p.sobrenome].filter(Boolean).join(" ").trim();
 }
 
+const EMPTY_ROTEIRO_PASSAGEIRO: RoteiroReservaPassageiroDraft = {};
+
 function findCpfByNome(nome: string, passageiros: RoteiroReservaPassageiroDraft[]) {
   const nomeNorm = normalizeText(nome, { trim: true, collapseWhitespace: true });
   if (!nomeNorm) {
@@ -3151,7 +3153,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
     }
   }
   const contratanteInfoFinal = contratanteAjustado;
-  const passageiroPrincipalNome = buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || ({} as any));
+  const passageiroPrincipalNome = buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || EMPTY_ROTEIRO_PASSAGEIRO);
   if (passageiroPrincipalNome) {
     const currentNorm = normalizeText(contratanteInfoFinal.nome || "", { trim: true, collapseWhitespace: true });
     const passageiroNorm = normalizeText(passageiroPrincipalNome, { trim: true, collapseWhitespace: true });
@@ -3220,7 +3222,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
     !/taxa|valor|remessa|embarque|du|passageiro|https?:\/\//i.test(contratanteNomeClean) &&
     !/systur/i.test(contratanteNomeClean)
       ? contratanteNomeClean
-      : buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || ({} as any)) || contratanteNomeClean;
+      : buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || EMPTY_ROTEIRO_PASSAGEIRO) || contratanteNomeClean;
   function isInvalidContratanteName(value?: string | null) {
     if (!value) return true;
     const norm = normalizeText(value, { trim: true, collapseWhitespace: true });
@@ -3234,7 +3236,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   }
 
   let contratanteNomeFinal = isInvalidContratanteName(contratanteNome)
-    ? buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || ({} as any)) || null
+    ? buildPassageiroNomeNomePrimeiro(passageirosInfo[0] || EMPTY_ROTEIRO_PASSAGEIRO) || null
     : contratanteNome || null;
   if (isInvalidContratanteName(contratanteNomeFinal)) contratanteNomeFinal = null;
   if (!contratanteNomeFinal && passageirosInfo[0]) {
