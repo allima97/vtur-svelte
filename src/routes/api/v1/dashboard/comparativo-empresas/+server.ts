@@ -23,6 +23,31 @@ export type EmpresaComparativoItem = {
   atingimentoPct: number;
 };
 
+type CompanyRow = {
+  id: string | null;
+  nome_fantasia: string | null;
+  nome_empresa: string | null;
+};
+
+type VendaComparativoRow = {
+  id: string | null;
+  company_id: string | null;
+  recibos?: Array<{
+    id?: string | null;
+    valor_total?: number | string | null;
+  }> | null;
+};
+
+type VendedorCompanyRow = {
+  id: string | null;
+  company_id: string | null;
+};
+
+type MetaVendedorRow = {
+  vendedor_id: string | null;
+  meta_geral: number | string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -36,7 +61,7 @@ function chunks<T>(arr: T[], size = BATCH): T[][] {
   return r;
 }
 
-function companyLabel(row: any): string {
+function companyLabel(row: CompanyRow): string {
   return String(row?.nome_fantasia || row?.nome_empresa || 'Empresa').trim() || 'Empresa';
 }
 
@@ -81,7 +106,7 @@ export async function GET(event) {
         .limit(500);
       if (error) throw error;
       for (const row of data || []) {
-        empresaMap.set(String(row.id), companyLabel(row));
+        empresaMap.set(String(row.id), companyLabel(row as CompanyRow));
       }
     }
 
@@ -115,13 +140,13 @@ export async function GET(event) {
 
         if (error) throw error;
 
-        const rows = (data || []) as any[];
+        const rows = (data || []) as VendaComparativoRow[];
 
         for (const venda of rows) {
           const cid = String(venda.company_id || '').trim();
           if (!cid || cid === NO_MATCH) continue;
 
-          const recibos: any[] = Array.isArray(venda.recibos) ? venda.recibos : [];
+          const recibos = Array.isArray(venda.recibos) ? venda.recibos : [];
           const totalRecibos = recibos.reduce((s, r) => s + toNum(r.valor_total), 0);
           if (totalRecibos <= 0) continue;
 
@@ -146,7 +171,7 @@ export async function GET(event) {
         .eq('active', true)
         .limit(5000);
       if (error) throw error;
-      for (const row of data || []) {
+      for (const row of (data || []) as VendedorCompanyRow[]) {
         vendedorCompanyMap.set(String(row.id), String(row.company_id));
       }
     }
@@ -164,7 +189,7 @@ export async function GET(event) {
           .in('vendedor_id', batch)
           .limit(2000);
         if (error) throw error;
-        for (const row of data || []) {
+        for (const row of (data || []) as MetaVendedorRow[]) {
           const cid = vendedorCompanyMap.get(String(row.vendedor_id)) || '';
           if (!cid) continue;
           metaMap.set(cid, (metaMap.get(cid) ?? 0) + toNum(row.meta_geral));
