@@ -77,6 +77,27 @@
     formasPagamento?: Option[] | null;
   };
 
+  type PagamentoParcelaPayload = {
+    numero?: string | number | null;
+    valor?: string | number | null;
+    vencimento?: string | null;
+  };
+
+  type PagamentoPayload = {
+    forma_pagamento_id?: string | null;
+    forma_nome?: string | null;
+    operacao?: string | null;
+    plano?: string | null;
+    valor_bruto?: string | number | null;
+    desconto_valor?: string | number | null;
+    valor_total?: string | number | null;
+    parcelas_qtd?: string | number | null;
+    parcelas_valor?: string | number | null;
+    vencimento_primeira?: string | null;
+    paga_comissao?: boolean | null;
+    parcelas?: PagamentoParcelaPayload[] | null;
+  };
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -335,7 +356,7 @@
 
     const paymentsData = Array.isArray(sale?.pagamentos) ? sale.pagamentos : [];
     if (paymentsData.length > 0) {
-      pagamentos = paymentsData.map((item: any) => ({
+      pagamentos = paymentsData.map((item: PagamentoPayload) => ({
         forma_pagamento_id: String(item?.forma_pagamento_id || ''),
         forma_nome: String(item?.forma_nome || ''),
         operacao: String(item?.operacao || ''),
@@ -348,7 +369,7 @@
         vencimento_primeira: String(item?.vencimento_primeira || '').slice(0, 10),
         paga_comissao: item?.paga_comissao !== false,
         parcelas: Array.isArray(item?.parcelas)
-          ? item.parcelas.map((parcela: any, index: number) => ({
+          ? item.parcelas.map((parcela: PagamentoParcelaPayload, index: number) => ({
               numero: String(parcela?.numero || index + 1),
               valor: String(parcela?.valor || ''),
               vencimento: String(parcela?.vencimento || '').slice(0, 10)
