@@ -22,6 +22,39 @@
     label?: string | null;
   };
 
+  type ProdutoRelacionado = {
+    id?: string | null;
+    nome?: string | null;
+    destino?: string | null;
+    ativo?: boolean | null;
+  };
+
+  type VoucherRelacionado = {
+    id?: string | null;
+    codigo?: string | null;
+    status?: string | null;
+    data_utilizacao?: string | null;
+  };
+
+  type FornecedorDetalhe = {
+    nome_completo?: string | null;
+    nome_fantasia?: string | null;
+    localizacao?: string | null;
+    cnpj?: string | null;
+    cep?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    telefone?: string | null;
+    whatsapp?: string | null;
+    telefone_emergencia?: string | null;
+    responsavel?: string | null;
+    tipo_faturamento?: string | null;
+    principais_servicos?: string | null;
+    ativo?: boolean | null;
+    produtos?: ProdutoRelacionado[] | null;
+    vouchers?: VoucherRelacionado[] | null;
+  };
+
   const initialForm = {
     nome_completo: '',
     nome_fantasia: '',
@@ -49,8 +82,8 @@
   let buscandoCidade = false;
   let erroCidadeBusca = '';
   let showCidadeOptions = false;
-  let produtosRelacionados: any[] = [];
-  let vouchersRelacionados: any[] = [];
+  let produtosRelacionados: ProdutoRelacionado[] = [];
+  let vouchersRelacionados: VoucherRelacionado[] = [];
   let cidadeSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   $: isCreateMode = !fornecedorId;
@@ -66,7 +99,7 @@
 
   async function loadFornecedor() {
     if (!fornecedorId) return;
-    const result = await apiGet<{ data: any }>(`/api/v1/fornecedores/${fornecedorId}`);
+    const result = await apiGet<{ data: FornecedorDetalhe }>(`/api/v1/fornecedores/${fornecedorId}`);
     const data = result.data;
     form = {
       nome_completo: data.nome_completo || '',
@@ -182,8 +215,8 @@
       await apiDelete(`/api/v1/fornecedores/${fornecedorId}`);
       toast.success('Fornecedor excluído com sucesso.');
       goto('/cadastros/fornecedores');
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao excluir fornecedor.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir fornecedor.');
     } finally {
       deleting = false;
       showDeleteDialog = false;
