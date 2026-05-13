@@ -317,8 +317,14 @@ function buildSearchParts(searchTerm: string, digits: string, columns: string[])
     .filter(Boolean);
 }
 
+function createVendaIdQuery(client: ReturnType<typeof getAdminClient>) {
+  return client.from('vendas').select('id');
+}
+
+type VendaIdQuery = ReturnType<typeof createVendaIdQuery>;
+
 function applyVendaIdScope(
-  query: any,
+  query: VendaIdQuery,
   params: {
     inicio: string;
     fim: string;
@@ -374,7 +380,7 @@ async function fetchScopedVendaIds(
 ) {
   const rows: Array<{ id?: string | null }> = [];
 
-  const runQuery = async (configure?: (query: any) => any) => {
+  const runQuery = async (configure?: (query: VendaIdQuery) => VendaIdQuery) => {
     const companyBatches =
       params.companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(params.companyIds) : [params.companyIds];
     const vendedorBatches =
