@@ -14,6 +14,17 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_CONCILIACAO_REVERT_BODY_BYTES = 64 * 1024;
+type ConciliacaoChangeLookupRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+  changed_at?: string | null;
+};
+type ConciliacaoRevertBody = {
+  companyId?: unknown;
+  revertAll?: unknown;
+  limit?: unknown;
+  changeIds?: unknown;
+};
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
@@ -27,7 +38,7 @@ function matches(a: number, b: number) {
   return Math.abs(a - b) <= 0.01;
 }
 
-function collectChangeIds(rows: any[]) {
+function collectChangeIds(rows: ConciliacaoChangeLookupRow[]) {
   const ids: string[] = [];
   for (const row of rows) {
     const id = String(row?.id || '');
@@ -53,9 +64,11 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ConciliacaoRevertBody)
         : null;
-    const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
+    const requestedCompanyId =
+      typeof body?.companyId === 'string' ? body.companyId : null;
+    const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     const companyId = companyIds[0] || null;
     if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
@@ -82,11 +95,11 @@ export async function POST(event) {
         .is('reverted_at', null)
         .limit(limit);
       if (error) throw error;
-      const rows = data || [];
-      targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
+      const rows: ConciliacaoChangeLookupRow[] = data || [];
+      targetReciboIds = uniqueCleanStrings(rows.map((r) => r?.venda_recibo_id));
       changeIdsParaReverter = collectChangeIds(rows);
     } else {
-      const rows: any[] = [];
+      const rows: ConciliacaoChangeLookupRow[] = [];
       for (const batch of chunkArray(ids.slice(0, 500))) {
         const { data, error } = await client
           .from('conciliacao_recibo_changes')
@@ -97,7 +110,7 @@ export async function POST(event) {
         if (error) throw error;
         rows.push(...(data || []));
       }
-      targetReciboIds = uniqueCleanStrings(rows.map((r: any) => r?.venda_recibo_id));
+      targetReciboIds = uniqueCleanStrings(rows.map((r) => r?.venda_recibo_id));
       // Somente os IDs confirmados pelo banco (company_id validado acima)
       changeIdsParaReverter = collectChangeIds(rows);
     }
@@ -107,7 +120,7 @@ export async function POST(event) {
     }
 
     // Busca detalhes das alterações para agrupar os changeIds por recibo
-    const pendingChanges: any[] = [];
+    const pendingChanges: ConciliacaoChangeLookupRow[] = [];
     for (const batch of chunkArray(changeIdsParaReverter)) {
       const { data, error } = await client
         .from('conciliacao_recibo_changes')
