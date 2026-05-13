@@ -81,7 +81,7 @@ function canMutateRankingDebug(scope: Awaited<ReturnType<typeof resolveUserScope
 function canAccessCompany(scope: Awaited<ReturnType<typeof resolveUserScope>>, companyId: string | null | undefined) {
   const normalizedCompanyId = String(companyId || '').trim();
   if (scope.isAdmin) return true;
-  return Boolean(normalizedCompanyId && new Set(scope.companyIds).has(normalizedCompanyId));
+  return Boolean(normalizedCompanyId && scope.companyIds.includes(normalizedCompanyId));
 }
 
 function resolveDebugCompanyIds(
