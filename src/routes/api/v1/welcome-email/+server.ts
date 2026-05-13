@@ -88,8 +88,10 @@ function applyTemplate(text: string, vars: Record<string, string>) {
     .replace(/{{\s*empresa\s*}}/gi, vars.empresa || "");
 }
 
-function providerPayloadMessage(payload: any) {
-  return String(payload?.message || payload?.error || payload?.name || "").slice(0, 240);
+function providerPayloadMessage(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return '';
+  const value = payload as { message?: unknown; error?: unknown; name?: unknown };
+  return String(value.message || value.error || value.name || '').slice(0, 240);
 }
 
 async function enviarEmailResend(params: {
@@ -158,14 +160,15 @@ async function marcarEmailEnviado(userId: string) {
   }
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request, locals } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const payloadError = rejectLargePayload(request, MAX_WELCOME_EMAIL_BODY_BYTES);
     if (payloadError) return payloadError;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
 
     const rl = await checkPersistentRateLimit('welcome-email', user.id, { max: 5, windowMs: 60_000 });
@@ -302,7 +305,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     return errorResponse("Nenhum provedor de e-mail configurado.", 500);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[welcome-email] falha ao enviar boas-vindas", error);
     return errorResponse("Erro interno ao enviar e-mail de boas-vindas.", 500);
   }
