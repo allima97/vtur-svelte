@@ -158,6 +158,23 @@ type RoteiroTransporteDraft = {
   ordem: number;
 };
 
+type RoteiroInvestimentoPayload = {
+  tipo?: string | null;
+  valor_por_pessoa?: unknown;
+  qtd_apto?: unknown;
+  valor_por_apto?: unknown;
+  ordem?: unknown;
+};
+
+type RoteiroInvestimentoDraft = {
+  roteiro_id: string;
+  tipo: string | null;
+  valor_por_pessoa: number;
+  qtd_apto: number;
+  valor_por_apto: number;
+  ordem: number;
+};
+
 type ScopedRoteiroEq<T> = T & {
   eq: (column: string, value: string | null | undefined) => T;
 };
@@ -586,7 +603,7 @@ export async function POST(event: RequestEvent) {
       await client.from('roteiro_investimento').delete().eq('roteiro_id', roteiroId);
       if (body.investimentos.length > 0) {
         const investimentos = body.investimentos
-          .map((i: any, idx: number) => {
+          .map((i: RoteiroInvestimentoPayload, idx: number): RoteiroInvestimentoDraft => {
             const tipo = String(i.tipo || '').trim() || null;
             const valorPorPessoa = Number(i.valor_por_pessoa);
             const qtdApto = Number(i.qtd_apto);
@@ -601,7 +618,7 @@ export async function POST(event: RequestEvent) {
             };
           })
           .filter(
-            (i: any) =>
+            (i: RoteiroInvestimentoDraft) =>
               Boolean(
                 i.tipo ||
                   Number(i.valor_por_pessoa) > 0 ||
