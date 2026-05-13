@@ -23,6 +23,25 @@
     proximo_vencimento: string | null;
   };
 
+  type CompanyBillingPlan = {
+    nome?: string | null;
+  };
+
+  type CompanyBilling = {
+    status?: string | null;
+    valor_mensal?: number | null;
+    ultimo_pagamento?: string | null;
+    proximo_vencimento?: string | null;
+    plan?: CompanyBillingPlan | CompanyBillingPlan[] | null;
+  };
+
+  type AdminCompanyItem = {
+    id: string;
+    nome_fantasia?: string | null;
+    nome_empresa?: string | null;
+    billing?: CompanyBilling | CompanyBilling[] | null;
+  };
+
   const STATUS_LABELS: Record<string, string> = {
     active: 'Ativa', trial: 'Trial', past_due: 'Atrasada',
     suspended: 'Suspensa', canceled: 'Cancelada'
@@ -83,17 +102,22 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<{ items?: any[] }>('/api/v1/admin/empresas');
-      billings = (payload.items || []).map((item: any) => ({
-        id: item.id,
-        company_id: item.id,
-        company_nome: item.nome_fantasia || item.nome_empresa || 'Empresa',
-        plan_nome: item.billing?.plan?.nome || null,
-        status: item.billing?.status || 'trial',
-        valor_mensal: item.billing?.valor_mensal || null,
-        ultimo_pagamento: item.billing?.ultimo_pagamento || null,
-        proximo_vencimento: item.billing?.proximo_vencimento || null
-      }));
+      const payload = await apiGet<{ items?: AdminCompanyItem[] }>('/api/v1/admin/empresas');
+      billings = (payload.items || []).map((item) => {
+        const billing = Array.isArray(item.billing) ? item.billing[0] || null : item.billing || null;
+        const plan = Array.isArray(billing?.plan) ? billing.plan[0] || null : billing?.plan || null;
+
+        return {
+          id: item.id,
+          company_id: item.id,
+          company_nome: item.nome_fantasia || item.nome_empresa || 'Empresa',
+          plan_nome: plan?.nome || null,
+          status: billing?.status || 'trial',
+          valor_mensal: billing?.valor_mensal || null,
+          ultimo_pagamento: billing?.ultimo_pagamento || null,
+          proximo_vencimento: billing?.proximo_vencimento || null
+        };
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar dados financeiros.');
     } finally {

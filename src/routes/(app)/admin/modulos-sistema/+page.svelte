@@ -15,6 +15,11 @@
     reason: string;
   };
 
+  type ModuloCatalogItem = {
+    key: string;
+    label: string;
+  };
+
   let modulos: ModuloItem[] = [];
   let loading = true;
   let savingKey = '';
@@ -23,7 +28,7 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<{ table_missing?: boolean; catalog?: any[]; disabled?: string[] }>(
+      const payload = await apiGet<{ table_missing?: boolean; catalog?: ModuloCatalogItem[]; disabled?: string[] }>(
         '/api/v1/admin/modulos-sistema'
       );
 
@@ -31,7 +36,7 @@
       const catalog = payload.catalog || [];
       const disabled = new Set((payload.disabled || []).map((k: string) => k.toLowerCase()));
 
-      modulos = catalog.map((item: any) => ({
+      modulos = catalog.map((item) => ({
         key: item.key,
         label: item.label,
         enabled: !disabled.has(item.key.toLowerCase()),
