@@ -16,6 +16,12 @@ type CacheEntry = {
   payload: unknown;
 };
 
+type PreferenciasUserOption = {
+  id: string;
+  nome_completo: string;
+  email: string;
+};
+
 const cache = new Map<string, CacheEntry>();
 
 export async function requirePreferenciasScope(event: any, minLevel: number) {
@@ -124,13 +130,13 @@ export async function fetchPreferenciasBase(client: any, scope: UserScope, curre
   if (tiposResp.error) throw tiposResp.error;
   if (usuariosResp.error) throw usuariosResp.error;
 
-  const usuarios = (usuariosResp.data || [])
-    .map((row: any) => ({
+  const usuarios: PreferenciasUserOption[] = (usuariosResp.data || [])
+    .map((row: Record<string, unknown>) => ({
       id: String(row?.id || ''),
       nome_completo: String(row?.nome_completo || ''),
       email: String(row?.email || '')
     }))
-    .filter((u: any) => u.id && u.id !== currentUserId);
+    .filter((u: PreferenciasUserOption) => u.id && u.id !== currentUserId);
 
   return {
     tipos: tiposResp.data || [],
