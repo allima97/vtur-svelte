@@ -17,6 +17,9 @@ type UserTypeNameRow = { name?: string | null };
 type UserProfileNameRow = IdRow & { nome_completo?: string | null };
 type CompanyNameRow = { nome_fantasia?: string | null };
 type SharedGestorRow = { gestor_base_id?: string | null };
+type EmailDeliveryResult =
+  | { ok: true; status: string; id?: string }
+  | { ok: false; status: string; error?: unknown };
 
 function noStoreJson(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -133,7 +136,7 @@ async function enviarEmailResend(params: {
   text: string;
   fromEmail?: string;
   apiKey?: string;
-}) {
+}): Promise<EmailDeliveryResult> {
   const fromEmail = params.fromEmail;
   const key = params.apiKey;
   if (!key || !fromEmail) {
@@ -187,7 +190,7 @@ async function enviarEmailSendGrid(params: {
   html: string;
   text: string;
   fromEmail?: string;
-}) {
+}): Promise<EmailDeliveryResult> {
   const apiKey = String(env.SENDGRID_API_KEY || "").trim();
   const fromEmail = params.fromEmail || env.SENDGRID_FROM_EMAIL || env.ALERTA_FROM_EMAIL || env.ADMIN_FROM_EMAIL;
   if (!apiKey || !fromEmail) {
@@ -252,7 +255,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const bodyResult = await readJsonBodyLimited(request, MAX_CONVITE_SEND_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const email = String(body.email || "").trim().toLowerCase();
     const companyId = String(body.company_id || "").trim();
@@ -503,8 +506,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           {
             error: "Convite criado, mas falha ao enviar e-mail. Verifique a chave do Resend/SendGrid e o remetente configurado.",
             delivery: {
-              resend: providerErrorStatus("resend", resendResp.status, (resendResp as any).error),
-              sendgrid: providerErrorStatus("sendgrid", sendgridResp.status, (sendgridResp as any).error),
+              resend: providerErrorStatus("resend", resendResp.status, resendResp.error),
+              sendgrid: providerErrorStatus("sendgrid", sendgridResp.status, sendgridResp.error),
             },
           },
           { status: 500 }
