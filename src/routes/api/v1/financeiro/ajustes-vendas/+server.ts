@@ -24,6 +24,93 @@ import {
 
 const MAX_AJUSTES_VENDAS_BODY_BYTES = 32 * 1024;
 
+type AjusteVendaClienteRow = {
+  nome?: string | null;
+};
+
+type AjusteVendaVendaRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  cliente_id?: string | null;
+  cancelada?: boolean | null;
+  company_id?: string | null;
+  clientes?: AjusteVendaClienteRow | null;
+};
+
+type AjusteVendaReciboRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  data_venda?: string | null;
+  valor_total?: number | string | null;
+  valor_taxas?: number | string | null;
+  vendas?: AjusteVendaVendaRow | null;
+};
+
+type AjusteRateioVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type AjusteRateioRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+  ativo?: boolean | null;
+  vendedor_destino_id?: string | null;
+  percentual_origem?: number | string | null;
+  percentual_destino?: number | string | null;
+  observacao?: string | null;
+  updated_at?: string | null;
+  vendedor_destino?: AjusteRateioVendedorRow | null;
+};
+
+type AjusteVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type AjusteVendaBody = {
+  ajuste_id?: string | null;
+  vendedor_destino_id?: string | null;
+  percentual_destino?: number | string | null;
+  observacao?: string | null;
+};
+
+type AjusteConciliacaoRow = {
+  id?: string | null;
+  company_id?: string | null;
+  ranking_vendedor_id?: string | null;
+};
+
+type AjusteReciboRateioRow = {
+  id?: string | null;
+  vendas?: {
+    company_id?: string | null;
+    vendedor_id?: string | null;
+    cancelada?: boolean | null;
+  } | null;
+};
+
+type ReciboProdutoRow = {
+  produto_resolvido_id?: string | null;
+  produtos?: {
+    tipo_produto_id?: string | null;
+    tipo_produtos?: {
+      soma_na_meta?: boolean | null;
+    } | null;
+  } | null;
+};
+
+type VendedorDestinoRow = {
+  id?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+};
+
+type ExistingRateioRow = {
+  id?: string | null;
+};
+
 function invalidateAjustesVendasReadModels() {
   invalidateReadModelCache({
     tags: [
@@ -110,11 +197,11 @@ export async function GET(event) {
         return buildQuery();
       }
 
-      const rows: any[] = [];
+      const rows: AjusteVendaReciboRow[] = [];
       for (const batch of chunkArray(companyIds)) {
         const result = await buildQuery(batch);
         if (result.error) return { data: null, error: result.error } as typeof result;
-        rows.push(...(result.data || []));
+        rows.push(...((result.data || []) as AjusteVendaReciboRow[]));
       }
 
       return {
@@ -127,15 +214,16 @@ export async function GET(event) {
 
     const { data, error: queryError } = await fetchRows();
     if (queryError) throw queryError;
+    const vendaRows = (data || []) as AjusteVendaReciboRow[];
 
     const reciboIds: string[] = [];
-    for (const row of data || []) {
-      const id = String(row.id);
+    for (const row of vendaRows) {
+      const id = String(row.id || '');
       if (id) reciboIds.push(id);
     }
 
     // Busca rateios separadamente (evita joins problemáticos)
-    let rateioMap = new Map<string, any>();
+    let rateioMap = new Map<string, AjusteRateioRow>();
     if (reciboIds.length > 0) {
       for (const batch of chunkArray(reciboIds)) {
         const { data: rateioData, error: rateioError } = await client
@@ -148,14 +236,14 @@ export async function GET(event) {
           .in('venda_recibo_id', batch);
 
         if (rateioError && !String(rateioError.code || '').includes('42P01')) throw rateioError;
-        for (const r of rateioData || []) {
+        for (const r of (rateioData || []) as AjusteRateioRow[]) {
           if (r.venda_recibo_id) rateioMap.set(r.venda_recibo_id, r);
         }
       }
     }
 
     // Busca nomes dos vendedores
-    const vendedorIdsFromRows = uniqueCleanStrings((data || []).map((r: any) => r.vendas?.vendedor_id));
+    const vendedorIdsFromRows = uniqueCleanStrings(vendaRows.map((r) => r.vendas?.vendedor_id));
     const vendedorNomeMap = new Map<string, string>();
     if (vendedorIdsFromRows.length > 0) {
       for (const batch of chunkArray(vendedorIdsFromRows)) {
@@ -166,8 +254,8 @@ export async function GET(event) {
       }
     }
 
-    const items = (data || []).map((row: any) => {
-      const rateio = rateioMap.get(row.id) || null;
+    const items = vendaRows.map((row) => {
+      const rateio = rateioMap.get(String(row.id || '')) || null;
       const vendedorOrigemId = String(row.vendas?.vendedor_id || '');
       return {
         id: `vr:${row.id}`,
@@ -197,10 +285,16 @@ export async function GET(event) {
     const vendedoresData = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
     return json(
-      { items, vendedores: (vendedoresData || []).map((v: any) => ({ id: v.id, nome_completo: v.nome_completo })) },
+      {
+        items,
+        vendedores: ((vendedoresData || []) as AjusteVendedorRow[]).map((v) => ({
+          id: v.id,
+          nome_completo: v.nome_completo
+        }))
+      },
       { headers: SHORT_DYNAMIC_READ_HEADERS }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('[ajustes-vendas] falha ao carregar ajustes', err);
     return toErrorResponse(err, 'Erro ao carregar ajustes de vendas.');
   }
@@ -235,11 +329,12 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as AjusteVendaBody)
         : {};
     const { ajuste_id, vendedor_destino_id, percentual_destino, observacao } = body;
 
     const ajusteIdRaw = String(ajuste_id || '').trim();
+    const vendedorDestinoId = String(vendedor_destino_id || '').trim();
     const isConciliacao = ajusteIdRaw.startsWith('cr:');
     const isVendaRecibo = ajusteIdRaw.startsWith('vr:');
     const rawId = ajusteIdRaw.replace(/^vr:/, '').replace(/^cr:/, '').trim();
@@ -265,8 +360,9 @@ export async function POST(event) {
         .maybeSingle();
       if (concErr) throw concErr;
       if (!concRow) return json({ error: 'Recibo de conciliação não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-      reciboCompany = String((concRow as any)?.company_id || '');
-      vendedorOrigemId = String((concRow as any)?.ranking_vendedor_id || '').trim();
+      const conciliacao = concRow as AjusteConciliacaoRow;
+      reciboCompany = String(conciliacao?.company_id || '');
+      vendedorOrigemId = String(conciliacao?.ranking_vendedor_id || '').trim();
       conciliacaoReciboId = rawId;
     } else {
       const { data: reciboRow, error: reciboErr } = await client
@@ -277,8 +373,9 @@ export async function POST(event) {
         .maybeSingle();
       if (reciboErr) throw reciboErr;
       if (!reciboRow) return json({ error: 'Recibo não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-      reciboCompany = (reciboRow as any)?.vendas?.company_id;
-      vendedorOrigemId = String((reciboRow as any)?.vendas?.vendedor_id || '').trim();
+      const recibo = reciboRow as AjusteReciboRateioRow;
+      reciboCompany = recibo?.vendas?.company_id || null;
+      vendedorOrigemId = String(recibo?.vendas?.vendedor_id || '').trim();
       vendaReciboId = rawId;
     }
 
@@ -317,11 +414,11 @@ export async function POST(event) {
       return json({ ok: true, cleared: true }, { headers: NO_STORE_HEADERS });
     }
 
-    if (!isUuid(vendedor_destino_id)) {
+    if (!isUuid(vendedorDestinoId)) {
       return json({ error: 'Vendedor destino inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    if (vendedor_destino_id === vendedorOrigemId) {
+    if (vendedorDestinoId === vendedorOrigemId) {
       return json({ error: 'O vendedor destino deve ser diferente do vendedor de origem.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
@@ -335,18 +432,19 @@ export async function POST(event) {
       .maybeSingle();
 
     const somaNaMeta =
-      (reciboProduto as any)?.produtos?.tipo_produtos?.soma_na_meta ?? null;
+      (reciboProduto as ReciboProdutoRow | null)?.produtos?.tipo_produtos?.soma_na_meta ?? null;
 
     // Confirma que o vendedor destino pertence à mesma empresa e está ativo
     const { data: vendedorRow } = await client
       .from('users')
       .select('id, company_id, active')
-      .eq('id', vendedor_destino_id)
+      .eq('id', vendedorDestinoId)
       .eq('active', true)
       .maybeSingle();
 
     if (!vendedorRow) return json({ error: 'Vendedor destino não encontrado ou inativo.' }, { status: 404, headers: NO_STORE_HEADERS });
-    if (!scope.isAdmin && vendedorRow.company_id !== reciboCompany) {
+    const vendedorDestino = vendedorRow as VendedorDestinoRow;
+    if (!scope.isAdmin && vendedorDestino.company_id !== reciboCompany) {
       return json({ error: 'Vendedor destino fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
@@ -355,11 +453,11 @@ export async function POST(event) {
       const gestorCompanyIds = reciboCompany ? [reciboCompany] : scope.companyIds;
       const equipeIds = uniqueCleanStrings(
         (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
-          (row: any) => row?.id
+          (row) => row?.id
         )
       );
       const equipeSet = cleanStringSet(equipeIds);
-      if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedor_destino_id)) {
+      if (!equipeSet.has(vendedorOrigemId) || !equipeSet.has(vendedorDestinoId)) {
         return json({ error: 'Gestor só pode ratear vendas da própria empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
@@ -369,7 +467,7 @@ export async function POST(event) {
       conciliacao_recibo_id: conciliacaoReciboId,
       company_id: reciboCompany,
       vendedor_origem_id: vendedorOrigemId,
-      vendedor_destino_id,
+      vendedor_destino_id: vendedorDestinoId,
       percentual_origem: 100 - pct,
       percentual_destino: pct,
       observacao: String(observacao || '').trim() || null,
@@ -385,12 +483,13 @@ export async function POST(event) {
       existingQuery = existingQuery.eq('conciliacao_recibo_id', conciliacaoReciboId);
     }
     const { data: existing } = await existingQuery.maybeSingle();
+    const existingRateio = existing as ExistingRateioRow | null;
 
-    if (existing?.id) {
+    if (existingRateio?.id) {
       const { error: updateError } = await client
         .from('vendas_recibos_rateio')
         .update(payload)
-        .eq('id', existing.id);
+        .eq('id', existingRateio.id);
       if (updateError) throw updateError;
     } else {
       const { error: insertError } = await client
