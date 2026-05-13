@@ -14,6 +14,7 @@ import {
   getVendaVendedorNome,
   getVendaClienteNome
 } from '$lib/server/relatorios';
+import type { ReportReceiptRow, ReportVendaRow } from '$lib/server/relatorios';
 import { resolveGroupedReceiptCommissions } from '$lib/server/comissoes';
 import {
   applyPersistedComissao,
@@ -42,22 +43,77 @@ function scaleCommissionPart(part: number, calculatedTotal: number, appliedTotal
   return roundMoney((toNum(part) / total) * applied);
 }
 
-function getReciboValor(recibo: any) {
+type CommissionReceiptRow = NonNullable<ReportReceiptRow>;
+type CommissionReportRow = ReportVendaRow;
+type CommissionItem = {
+  id: string;
+  venda_id: string;
+  recibo_id: string;
+  numero_venda: string | null;
+  numero_recibo: string;
+  numero_reserva: string | null;
+  produto: string;
+  cliente: string;
+  cliente_id: string | null;
+  vendedor: string;
+  vendedor_short: string;
+  vendedor_label: string;
+  vendedor_id: string | null;
+  valor_venda: number;
+  valor_comissionavel: number;
+  percentual_aplicado: number;
+  percentual_comissao_geral: number;
+  percentual_seguro: number;
+  regra_nome: string | null;
+  tipo_pacote: string | null;
+  valor_comissao: number;
+  valor_comissao_geral: number;
+  valor_comissao_seguro: number;
+  valor_pago: number;
+  valor_taxas: number;
+  data_venda: string | null;
+  data_embarque: string | null;
+  status: string;
+  status_label: string;
+  data_pagamento: string | null;
+  observacoes_pagamento: string | null;
+};
+
+type CommissionResumo = {
+  vendedor_id: string | null;
+  vendedor_nome: string;
+  total_vendas: number;
+  total_comissao: number;
+  total_comissao_geral: number;
+  total_comissao_seguro: number;
+  total_pago: number;
+  total_pendente: number;
+};
+
+function isActiveReceipt(recibo: ReportReceiptRow): recibo is CommissionReceiptRow {
+  return Boolean(recibo && !recibo.cancelado_por_conciliacao_em);
+}
+
+function isCommissionItem(item: CommissionItem | null): item is CommissionItem {
+  return item !== null;
+}
+
+function getReciboValor(recibo: CommissionReceiptRow) {
   return Math.max(0, toNum(recibo?.valor_total) - toNum(recibo?.valor_rav));
 }
 
-function getReciboCodigo(recibo: any) {
+function getReciboCodigo(recibo: CommissionReceiptRow) {
   return String(recibo?.numero_recibo || recibo?.numero_reserva || '').trim();
 }
 
-function getReciboProduto(recibo: any) {
+function getReciboProduto(recibo: CommissionReceiptRow) {
   return String(recibo?.tipo_produtos?.nome || recibo?.produto_resolvido?.nome || 'Produto sem nome');
 }
 
-function normalizeRowsToReceiptPeriod(rows: any[]) {
+function normalizeRowsToReceiptPeriod(rows: CommissionReportRow[]) {
   return (rows || []).map((row) => {
     const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
-    const firstReceiptDate = recibos.find((recibo: any) => recibo?.data_venda)?.data_venda;
+    const firstReceiptDate = recibos.find((recibo) => recibo?.data_venda)?.data_venda;
     return firstReceiptDate ? { ...row, data_venda: firstReceiptDate } : row;
   });
 }
@@ -164,8 +220,8 @@ export async function GET(event) {
         const resolvedByReceiptId = await resolveGroupedReceiptCommissions(client, { companyIds, rows: rowsForComissao });
         const reciboIds = uniqueCleanStrings(
           rowsForComissao
-            .flatMap((row: any) => (Array.isArray(row?.recibos) ? row.recibos : []))
-            .map((recibo: any) => recibo?.id)
+            .flatMap((row) => (Array.isArray(row?.recibos) ? row.recibos : []))
+            .map((recibo) => recibo?.id)
         );
         const persistedSnapshot = await fetchPersistedComissoes(client, {
           companyIds,
@@ -180,12 +236,10 @@ export async function GET(event) {
           ] as const)
         );
 
-        let items = rowsForComissao.flatMap((row: any) => {
-          const recibos = (Array.isArray(row?.recibos) ? row.recibos : []).filter(
-            (recibo: any) => recibo && !recibo?.cancelado_por_conciliacao_em
-          );
+        let items = rowsForComissao.flatMap((row): Array<CommissionItem | null> => {
+          const recibos = (Array.isArray(row?.recibos) ? row.recibos : []).filter(isActiveReceipt);
 
-          return recibos.map((recibo: any) => {
+          return recibos.map((recibo) => {
             const reciboId = String(recibo?.id || '').trim();
             const commission = reciboId ? resolvedByReceiptId.get(reciboId) : undefined;
             if (!reciboId || !commission) return null;
@@ -245,7 +299,7 @@ export async function GET(event) {
               observacoes_pagamento: persisted?.observacoes_pagamento || null
             };
           });
-        }).filter(Boolean) as any[];
+        }).filter(isCommissionItem);
 
         if (!podeVerEquipe) {
           items = items.filter((item) => String(item.vendedor_id || '').trim() === scope.userId);
@@ -255,7 +309,7 @@ export async function GET(event) {
           items = items.filter((c) => c.status === status);
         }
 
-        const resumoMap = new Map<string, any>();
+        const resumoMap = new Map<string, CommissionResumo>();
         for (const c of items) {
           const vendedorKey = String(c.vendedor_id || '').trim() || 'sem-vendedor';
           const atual = resumoMap.get(vendedorKey) || {
