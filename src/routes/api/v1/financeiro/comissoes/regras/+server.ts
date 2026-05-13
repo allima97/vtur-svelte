@@ -56,6 +56,14 @@ type CommissionRuleRow = {
   [key: string]: unknown;
 };
 
+type RuleListQuery = PromiseLike<{
+  data: CommissionRuleRow[] | null;
+  error: unknown;
+}> & {
+  eq(column: string, value: boolean | string): RuleListQuery;
+  order(column: string, options: { ascending: boolean }): RuleListQuery;
+};
+
 function canAccessCompany(
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
   companyId: string | null | undefined,
@@ -85,10 +93,11 @@ function invalidateCommissionRuleReadModels(params?: {
   invalidateCommissionReadModels(params);
 }
 
-function applyRuleListFilters(query: any, ativo: string | null, tipo: string | null) {
-  if (ativo !== null && ativo !== '') query = query.eq('ativo', ativo === 'true');
-  if (tipo) query = query.eq('tipo', tipo);
-  return query;
+function applyRuleListFilters(query: unknown, ativo: string | null, tipo: string | null) {
+  let builder = query as RuleListQuery;
+  if (ativo !== null && ativo !== '') builder = builder.eq('ativo', ativo === 'true');
+  if (tipo) builder = builder.eq('tipo', tipo);
+  return builder;
 }
 
 async function fetchCommissionRulesForScope(params: {
@@ -101,7 +110,7 @@ async function fetchCommissionRulesForScope(params: {
   const { client, ativo, tipo, companyIds, includeAllCompanies } = params;
   const rows: CommissionRuleRow[] = [];
 
-  const runQuery = async (builder: any) => {
+  const runQuery = async (builder: unknown) => {
     const { data, error } = await applyRuleListFilters(builder, ativo, tipo).order('nome', {
       ascending: true
     });
