@@ -21,6 +21,29 @@ type AuthLinkData = {
   properties?: { action_link?: string | null } | null;
   user?: { id?: string | null } | null;
 };
+type InvitePayload = {
+  invited_user_id?: string | null;
+  invited_email?: string;
+  company_id?: string | null;
+  user_type_id?: string;
+  invited_by?: string;
+  invited_by_role?: "ADMIN" | "MASTER" | "GESTOR";
+  uso_individual?: boolean;
+  status?: "pending";
+  expires_at?: string;
+  cancelled_at?: string | null;
+};
+type UserUpdatePayload = {
+  email: string;
+  nome_completo?: string;
+  active?: boolean;
+  created_by_gestor?: boolean;
+};
+type GestorVendedorPayload = {
+  gestor_id: string;
+  vendedor_id: string;
+  ativo: boolean;
+};
 type EmailDeliveryResult =
   | { ok: true; status: string; id?: string }
   | { ok: false; status: string; error?: unknown };
@@ -356,17 +379,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     let inviteId = String((existingInvite as IdRow | null)?.id || "");
     if (inviteId) {
+      const inviteUpdatePayload: InvitePayload = {
+        company_id: usoIndividual ? null : companyId,
+        user_type_id: userTypeId,
+        invited_by: user.id,
+        invited_by_role: invitedByRole,
+        uso_individual: usoIndividual,
+        expires_at: expiresAt,
+        cancelled_at: null,
+      };
       const { error: updateErr } = await adminClient
         .from("user_convites")
-        .update({
-          company_id: usoIndividual ? null : companyId,
-          user_type_id: userTypeId,
-          invited_by: user.id,
-          invited_by_role: invitedByRole,
-          uso_individual: usoIndividual,
-          expires_at: expiresAt,
-          cancelled_at: null,
-        } as any)
+        .update(inviteUpdatePayload)
         .eq("id", inviteId);
       if (updateErr) {
         if (isMissingColumn(updateErr, "expires_at")) {
@@ -378,19 +402,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         throw updateErr;
       }
     } else {
+      const inviteInsertPayload: InvitePayload = {
+        invited_user_id: null,
+        invited_email: email,
+        company_id: usoIndividual ? null : companyId,
+        user_type_id: userTypeId,
+        invited_by: user.id,
+        invited_by_role: invitedByRole,
+        uso_individual: usoIndividual,
+        status: "pending",
+        expires_at: expiresAt,
+      };
       const { data: createdInvite, error: insertErr } = await adminClient
         .from("user_convites")
-        .insert({
-          invited_user_id: null,
-          invited_email: email,
-          company_id: usoIndividual ? null : companyId,
-          user_type_id: userTypeId,
-          invited_by: user.id,
-          invited_by_role: invitedByRole,
-          uso_individual: usoIndividual,
-          status: "pending",
-          expires_at: expiresAt,
-        } as any)
+        .insert(inviteInsertPayload)
         .select("id")
         .single();
       if (insertErr) {
@@ -448,10 +473,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       if (profileRow?.id) {
         await adminClient
           .from("user_convites")
-          .update({ invited_user_id: authUserId } as any)
+          .update({ invited_user_id: authUserId } satisfies InvitePayload)
           .eq("id", inviteId);
 
-        const updates: Record<string, any> = { email };
+        const updates: UserUpdatePayload = { email };
         const normalizedNome = titleCaseWithExceptions(nomeCompletoRaw);
         if (normalizedNome && !String((profileRow as UserProfileNameRow | null)?.nome_completo || "").trim()) {
           updates.nome_completo = normalizedNome;
@@ -545,7 +570,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .eq("vendedor_id", authUserId);
         await adminClient
           .from("gestor_vendedor")
-          .insert({ gestor_id: gestorEquipeId, vendedor_id: authUserId, ativo: true } as any);
+          .insert({ gestor_id: gestorEquipeId, vendedor_id: authUserId, ativo: true } satisfies GestorVendedorPayload);
       } catch (relErr) {
         logServerError("[convites/send] falha ao pre-atribuir vendedor na equipe", relErr);
       }
