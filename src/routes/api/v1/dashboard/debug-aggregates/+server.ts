@@ -12,6 +12,17 @@ import { toFiniteNumber as toNumber } from '$lib/utils/values';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 
+type ConciliacaoDebugRow = {
+  id: string | null;
+  documento: string | null;
+  status: string | null;
+  valor_lancamentos: number | string | null;
+  valor_venda_real: number | string | null;
+  venda_id: string | null;
+  venda_recibo_id: string | null;
+  movimento_data: string | null;
+};
+
 export async function GET(event: RequestEvent) {
   try {
     if (!isDebugEndpointEnabled(event)) {
@@ -166,7 +177,7 @@ export async function GET(event: RequestEvent) {
           count_linked_to_venda: concLinked,
           count_relevant_docs: relevantDocs.size
         },
-        conciliacao_sample: (concRecords || []).slice(0, 5).map((row: any) => ({
+        conciliacao_sample: ((concRecords || []) as ConciliacaoDebugRow[]).slice(0, 5).map((row) => ({
           id: row.id,
           documento: String(row.documento || '').replace(/\d(?=\d{4})/g, '*'),
           status: row.status,
