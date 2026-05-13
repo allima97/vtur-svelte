@@ -234,17 +234,16 @@ function extractContratanteCpfFromBlock(block: string | null, name?: string | nu
 }
 
 function extractResumoRow(lines: string[]): ResumoRow {
-  const reciboRegex = RECIBO_REGEX;
   for (let idx = 0; idx < lines.length; idx += 1) {
     let line = lines[idx];
-    if (!reciboRegex.test(line) && /\b\d{4}\s*-\s*$/.test(line) && lines[idx + 1]) {
+    if (!RECIBO_REGEX.test(line) && /\b\d{4}\s*-\s*$/.test(line) && lines[idx + 1]) {
       line = `${line} ${lines[idx + 1]}`;
       idx += 1;
     }
-    if (!reciboRegex.test(line)) continue;
+    if (!RECIBO_REGEX.test(line)) continue;
     const parts = splitColumns(line);
     if (parts.length > 1) {
-      const recIdx = parts.findIndex((p) => reciboRegex.test(p));
+      const recIdx = parts.findIndex((p) => RECIBO_REGEX.test(p));
       if (recIdx >= 0) {
         let nome = parts[recIdx - 1] || null;
         const nomeNorm = normalizeName(nome);
@@ -255,7 +254,7 @@ function extractResumoRow(lines: string[]): ResumoRow {
           .slice(recIdx + 1)
           .map((p) => parseCurrency(p))
           .filter((v) => v != null) as number[];
-        const reciboMatch = parts[recIdx].match(reciboRegex) || line.match(reciboRegex);
+        const reciboMatch = parts[recIdx].match(RECIBO_REGEX) || line.match(RECIBO_REGEX);
         return {
           nome,
           recibo: reciboMatch?.[0] ? normalizeRecibo(reciboMatch[0]) : null,
