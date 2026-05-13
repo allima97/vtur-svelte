@@ -1374,8 +1374,8 @@
       });
       toast.success(`Alterações revertidas: ${Number(data.reverted || 0)} recibos atualizados.`);
       await Promise.all([loadRegistros(), loadChanges()]);
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao reverter alterações.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Erro ao reverter alterações.'));
     } finally {
       reverting = false;
       operationMessage = '';
