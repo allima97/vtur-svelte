@@ -24,9 +24,10 @@ function escapeIcsText(value: string) {
     .replace(/,/g, "\\,");
 }
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async (event) => {
   try {
-    await requireAuthenticatedUser({ locals } as any);
+    const { url, locals } = event;
+    await requireAuthenticatedUser(event);
 
     const id = url.searchParams.get("id") || "";
     if (id && !isUuid(id)) {
