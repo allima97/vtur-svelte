@@ -74,8 +74,24 @@ type ReciboCandidate = {
   valor_taxas: number | null;
 };
 
+type LookupClient = ReturnType<typeof getAdminClient>;
+
+type ReciboCandidateRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+};
+
+type VendaScopeRow = {
+  id?: string | null;
+  company_id?: string | null;
+  vendedor_id?: string | null;
+};
+
 async function fetchReciboCandidates(params: {
-  client: any;
+  client: LookupClient;
   numero: string;
   companyIds: string[];
 }): Promise<ReciboCandidate[]> {
@@ -93,21 +109,21 @@ async function fetchReciboCandidates(params: {
           .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
           .eq('numero_recibo_normalizado', numeroNormalizado)
           .limit(30)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ReciboCandidateRow[] }),
     numero
       ? client
           .from('vendas_recibos')
           .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
           .eq('numero_recibo', numero)
           .limit(30)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ReciboCandidateRow[] }),
     token && token.length >= 5
       ? client
           .from('vendas_recibos')
           .select('id, venda_id, numero_recibo, valor_total, valor_taxas')
           .ilike('numero_recibo', `%${token}%`)
           .limit(50)
-      : Promise.resolve({ data: [] as any[] })
+      : Promise.resolve({ data: [] as ReciboCandidateRow[] })
   ]);
 
   for (const row of [...(normResp?.data || []), ...(exactResp?.data || []), ...(fuzzyResp?.data || [])]) {
@@ -130,7 +146,7 @@ async function fetchReciboCandidates(params: {
 
   const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
   const companySet = cleanStringSet(companyIds);
-  const vendas: any[] = [];
+  const vendas: VendaScopeRow[] = [];
   for (const batch of chunkArray(vendaIds)) {
     const { data, error } = await client
       .from('vendas')
@@ -142,13 +158,13 @@ async function fetchReciboCandidates(params: {
 
   const vendaMap = new Map<string, { company_id: string | null; vendedor_id: string | null }>();
   for (const row of vendas || []) {
-    const id = String((row as any)?.id || '').trim();
+    const id = String(row?.id || '').trim();
     if (!id) continue;
-    const companyId = String((row as any)?.company_id || '').trim();
+    const companyId = String(row?.company_id || '').trim();
     if (!companySet.has(companyId)) continue;
     vendaMap.set(id, {
       company_id: companyId || null,
-      vendedor_id: String((row as any)?.vendedor_id || '').trim() || null
+      vendedor_id: String(row?.vendedor_id || '').trim() || null
     });
   }
 
@@ -161,7 +177,7 @@ async function fetchReciboCandidates(params: {
 }
 
 async function findReciboByNumero(params: {
-  client: any;
+  client: LookupClient;
   companyIds: string[];
   numero: string;
   valorLancamento?: number | null;
