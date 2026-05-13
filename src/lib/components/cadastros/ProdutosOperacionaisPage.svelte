@@ -160,7 +160,7 @@
     { key: 'destino', label: 'Destino', sortable: true, width: '180px' },
     { key: 'cidade_nome', label: 'Cidade', sortable: true, width: '180px' },
     { key: 'fornecedor_nome', label: 'Fornecedor', sortable: true, width: '180px' },
-    { key: 'todas_as_cidades', label: 'Abrangência', sortable: true, width: '120px', formatter: (_value: any, row: Produto) => abrangenciaBadge(row) },
+    { key: 'todas_as_cidades', label: 'Abrangência', sortable: true, width: '120px', formatter: (_value: unknown, row: Produto) => abrangenciaBadge(row) },
     { key: 'ativo', label: 'Status', sortable: true, width: '110px', formatter: (value: boolean) => statusBadge(value) },
     { key: 'updated_at', label: 'Atualizado', sortable: true, width: '120px', formatter: (value: string) => formatDate(value) }
   ];
