@@ -36,6 +36,30 @@ type ExistingReciboRow = {
   venda_id?: string | null;
 };
 
+type QueryResultRow = Record<string, unknown>;
+
+type MinimalQuery<T extends QueryResultRow> = PromiseLike<{
+  data: T[] | null;
+  error?: Error | null;
+}> & {
+  eq(column: string, value: unknown): MinimalQuery<T>;
+  neq(column: string, value: unknown): MinimalQuery<T>;
+  in(column: string, values: readonly string[]): MinimalQuery<T>;
+  limit(count: number): MinimalQuery<T>;
+};
+
+type MinimalSupabaseFrom = {
+  select<T extends QueryResultRow>(columns: string): MinimalQuery<T>;
+};
+
+type MinimalSupabaseClient = {
+  from(table: string): MinimalSupabaseFrom;
+};
+
+function asMinimalClient(sb: SupabaseClient): MinimalSupabaseClient {
+  return sb as unknown as MinimalSupabaseClient;
+}
+
 function normalizeNumero(valor?: string | null) {
   if (!valor) return "";
   return normalizeText(valor, { trim: true, collapseWhitespace: true }).replace(/\s+/g, "");
@@ -58,9 +82,9 @@ async function fetchCancelledVendaIdsBrowser(
   sb: SupabaseClient,
   companyId?: string | null,
 ): Promise<Set<string>> {
-  let query = (sb as any)
+  let query = asMinimalClient(sb)
     .from("vendas")
-    .select("id")
+    .select<VendaIdRow>("id")
     .eq("cancelada", true)
     .limit(2000);
   if (companyId) query = query.eq("company_id", companyId);
@@ -78,9 +102,9 @@ async function fetchClienteIdMapBrowser(
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (!vendaIds.length) return map;
-  const { data } = await (sb as any)
+  const { data } = await asMinimalClient(sb)
     .from("vendas")
-    .select("id, cliente_id")
+    .select<VendaClienteLookupRow>("id, cliente_id")
     .in("id", vendaIds);
   for (const row of (data || []) as VendaClienteLookupRow[]) {
     if (row?.id && row?.cliente_id) {
@@ -101,7 +125,7 @@ export async function findReciboReservaDuplicado(params: {
   const recibos = uniqueNonEmpty(numeros.map((n) => n.numero_recibo || ""));
   const reservas = uniqueNonEmpty(numeros.map((n) => n.numero_reserva || ""));
 
-  const applyFilters = (query: any) => {
+  const applyFilters = <T extends QueryResultRow>(query: MinimalQuery<T>) => {
     let q = query;
     if (ignoreVendaId) q = q.neq("venda_id", ignoreVendaId);
     return q;
@@ -113,9 +137,9 @@ export async function findReciboReservaDuplicado(params: {
 
   // VALIDAÇÃO DE RECIBOS (mantém comportamento original - não pode duplicar)
   if (recibos.length) {
-    let query = (sb as any)
+    let query = asMinimalClient(sb)
       .from("vendas_recibos")
-      .select("id, numero_recibo, venda_id, vendas!inner(company_id)")
+      .select<ExistingReciboRow>("id, numero_recibo, venda_id, vendas!inner(company_id)")
       .in("numero_recibo", recibos);
 
     if (companyId) {
@@ -129,16 +153,16 @@ export async function findReciboReservaDuplicado(params: {
       (r) => !cancelledVendaIds.has(String(r?.venda_id || ""))
     );
     if (ativos.length) {
-      return { tipo: "recibo", valor: ativos[0].numero_recibo };
+      return { tipo: "recibo", valor: String(ativos[0]?.numero_recibo || "") };
     }
   }
 
   // VALIDAÇÃO DE RESERVAS (NOVA LÓGICA - permite se cliente diferente)
   if (reservas.length) {
     // Busca todos os recibos com essas reservas
-    let query = (sb as any)
+    let query = asMinimalClient(sb)
       .from("vendas_recibos")
-      .select(`
+      .select<ExistingReciboRow>(`
         id,
         numero_recibo,
         numero_reserva,
@@ -201,11 +225,11 @@ export async function findReciboReservaDuplicado(params: {
           tipo: "reserva",
           valor: numeroAtual.numero_reserva,
           recibos_relacionados: recibosComMesmaReserva.map((r) => ({
-            id: r.id,
-            venda_id: r.venda_id,
-            numero_recibo: r.numero_recibo,
-            numero_reserva: r.numero_reserva,
-            cliente_id: clienteIdMap.get(String(r?.venda_id || "")) ?? null,
+            id: String(r?.id || ""),
+            venda_id: String(r?.venda_id || ""),
+            numero_recibo: String(r?.numero_recibo || ""),
+            numero_reserva: String(r?.numero_reserva || ""),
+            cliente_id: String(clienteIdMap.get(String(r?.venda_id || "")) || ""),
           })),
         };
       }
