@@ -44,6 +44,55 @@ const AUDIT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   second: "2-digit",
 });
 
+type AssignClient = ReturnType<typeof getAdminClient>;
+
+type AssignRequestBody = {
+  companyId?: string | null;
+  conciliacaoId?: string | null;
+  rankingVendedorId?: string | null;
+  rankingProdutoId?: string | null;
+  vendaId?: string | null;
+  vendaReciboId?: string | null;
+  isBaixaRac?: boolean;
+  conciliado?: boolean;
+} & Partial<Record<(typeof CONCILIACAO_VALOR_PAYLOAD_FIELDS)[number], number | string | null>>;
+
+type MasterEmpresaRow = {
+  master_id: string | null;
+};
+
+type GestorMasterUserRow = {
+  email: string | null;
+  nome_completo: string | null;
+  user_types: Array<{ name: string | null }> | { name: string | null } | null;
+};
+
+type ConciliacaoAssignUpdate = {
+  ranking_assigned_at: string;
+  ranking_vendedor_id?: string | null;
+  ranking_assigned_by?: string;
+  ranking_produto_id?: string | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+  is_baixa_rac?: boolean;
+  conciliado?: boolean;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_opfax?: number | null;
+  valor_saldo?: number | null;
+  valor_venda_real?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  faixa_comissao?: string | null;
+  is_seguro_viagem?: boolean;
+  descricao_chave?: string | null;
+};
+
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
 // ---------------------------------------------------------------------------
@@ -54,7 +103,7 @@ const AUDIT_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
  * alterado.
  */
 async function fetchGestoresMasters(
-  client: any,
+  client: AssignClient,
   companyId: string,
 ): Promise<Array<{ email: string; nome: string }>> {
   try {
@@ -66,18 +115,18 @@ async function fetchGestoresMasters(
       .limit(100);
 
     const resultado: Array<{ email: string; nome: string }> = [];
-    for (const u of usuarios || []) {
+    for (const u of (usuarios || []) as GestorMasterUserRow[]) {
       const tipoBruto = String(
-        Array.isArray(u?.user_types)
+        Array.isArray(u.user_types)
           ? u.user_types[0]?.name
-          : u?.user_types?.name || "",
+          : u.user_types?.name || "",
       ).toUpperCase();
       if (tipoBruto.includes("GESTOR") || tipoBruto.includes("MASTER")) {
-        const email = String(u?.email || "").trim();
+        const email = String(u.email || "").trim();
         if (email && email.includes("@")) {
           resultado.push({
             email,
-            nome: String(u?.nome_completo || "").trim() || email,
+            nome: String(u.nome_completo || "").trim() || email,
           });
         }
       }
@@ -90,8 +139,8 @@ async function fetchGestoresMasters(
       .eq("company_id", companyId)
       .neq("status", "rejected");
 
-    const masterIds = (vinculos || [])
-      .map((v: any) => String(v?.master_id || "").trim())
+    const masterIds = ((vinculos || []) as MasterEmpresaRow[])
+      .map((v) => String(v.master_id || "").trim())
       .filter(Boolean);
     if (masterIds.length > 0) {
       const { data: masters } = await client
@@ -127,7 +176,7 @@ async function fetchGestoresMasters(
  * Falhas de envio são logadas mas NÃO propagadas — não devem bloquear a operação.
  */
 async function notificarTrocaVendedor(params: {
-  client: any;
+  client: AssignClient;
   companyId: string;
   conciliacaoId: string;
   documento: string;
@@ -192,7 +241,7 @@ async function notificarTrocaVendedor(params: {
  * para mudanças de vendedor (campo não numérico — usa old_value/new_value como strings via cast).
  */
 async function logVendedorChange(params: {
-  client: any;
+  client: AssignClient;
   companyId: string;
   conciliacaoReciboId: string;
   oldValue: string;
@@ -221,7 +270,7 @@ async function logVendedorChange(params: {
   }
 }
 
-function parseNullableNumber(value: any) {
+function parseNullableNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
@@ -247,9 +296,9 @@ export async function POST(event) {
       );
     }
 
-    const body =
+    const body: AssignRequestBody =
       bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as AssignRequestBody)
         : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
 
@@ -350,7 +399,7 @@ export async function POST(event) {
       String(registro.ranking_vendedor_id || "").trim() || null;
     const documentoRecibo = String(registro.documento || "").trim();
 
-    const update: Record<string, any> = {
+    const update: ConciliacaoAssignUpdate = {
       ranking_assigned_at: new Date().toISOString(),
     };
 
