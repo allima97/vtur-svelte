@@ -13,6 +13,15 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_COMMISSION_RULE_BODY_BYTES = 64 * 1024;
 
+type JsonBody = Record<string, unknown>;
+type CommissionTierPayload = {
+  faixa?: string | null;
+  de_pct?: number | string | null;
+  ate_pct?: number | string | null;
+  inc_pct_meta?: number | string | null;
+  inc_pct_comissao?: number | string | null;
+};
+
 function canAccessCompany(
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
   companyId: string | null | undefined,
@@ -81,7 +90,7 @@ export async function PUT(event) {
     const { id } = event.params;
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
 
     const { data: current, error: currentError } = await client
@@ -95,7 +104,7 @@ export async function PUT(event) {
       return json({ error: 'Sem acesso a esta regra.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if ('nome' in body) updateData.nome = body.nome;
     if ('descricao' in body) updateData.descricao = body.descricao;
     if ('tipo' in body) updateData.tipo = body.tipo;
@@ -117,7 +126,7 @@ export async function PUT(event) {
       await client.from('commission_tier').delete().eq('rule_id', id);
       if (Array.isArray(body.tiers) && body.tiers.length > 0) {
         await client.from('commission_tier').insert(
-          body.tiers.map((t: any) => ({
+          (body.tiers as CommissionTierPayload[]).map((t) => ({
             rule_id: id,
             faixa: t.faixa === 'POS' ? 'POS' : 'PRE',
             de_pct: Number(t.de_pct) || 0,
