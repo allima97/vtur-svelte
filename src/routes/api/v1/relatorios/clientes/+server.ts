@@ -94,10 +94,10 @@ export async function GET(event) {
           }
         >();
 
-	        for (const row of rows) {
-	          const clientKey =
-	            String(row.cliente_id || "").trim() || `sem-cliente:${row.id}`;
-	          const clienteRow = row.clientes as any;
+        for (const row of rows) {
+          const clientKey =
+            String(row.cliente_id || "").trim() || `sem-cliente:${row.id}`;
+          const clienteRow = row.clientes as { cpf?: string | null } | null | undefined;
           const cpf = clienteRow?.cpf ?? null;
           const current = byClient.get(clientKey) || {
             cliente_id: String(row.cliente_id || "").trim() || null,

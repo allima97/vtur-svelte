@@ -7,6 +7,8 @@ import {
   READ_MODEL_TAGS
 } from '$lib/server/readModelCache';
 
+type CidadeBuscaRow = Record<string, unknown>;
+
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -32,7 +34,7 @@ export async function GET(event: RequestEvent) {
       return json([], { headers: DYNAMIC_READ_HEADERS });
     }
 
-    const data = await getCachedReadModel<any[]>({
+    const data = await getCachedReadModel<CidadeBuscaRow[]>({
       key: buildReadModelCacheKey('relatorios:cidades-busca:query', { query, limite }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,

@@ -158,7 +158,7 @@ export async function GET(event: RequestEvent) {
           .filter(
             (row) =>
               tipoProdutoIds.size === 0 ||
-              row.vendas_recibos.some((recibo: any) =>
+              row.vendas_recibos.some((recibo: { produto_id?: string | null }) =>
                 tipoProdutoIds.has(String(recibo?.produto_id || "")),
               ),
           );

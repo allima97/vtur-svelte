@@ -42,6 +42,15 @@ export type KVNamespace = {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 };
 
+function isKVNamespace(value: unknown): value is KVNamespace {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof (value as { get?: unknown }).get === 'function' &&
+      typeof (value as { put?: unknown }).put === 'function',
+  );
+}
+
 /**
  * Inicializa a referência ao KV namespace.
  * Deve ser chamado com o env do Worker (event.platform.env).
@@ -50,8 +59,8 @@ export type KVNamespace = {
 export function initKvNamespace(env: Record<string, unknown> | null | undefined) {
   if (!env) return;
   const kv = env.KV_BINDING;
-  if (kv && typeof (kv as any).get === 'function' && typeof (kv as any).put === 'function') {
-    kvNamespaceRef = kv as KVNamespace;
+  if (isKVNamespace(kv)) {
+    kvNamespaceRef = kv;
   }
 }
 

@@ -81,7 +81,7 @@ export function formatDocumentoDisplay(value?: string | null) {
 }
 
 export function matchesClienteBusca(
-  item: Record<string, any>,
+  item: Record<string, unknown>,
   busca: string,
   extraValues: Array<string | null | undefined> = []
 ) {
@@ -104,7 +104,7 @@ export function matchesClienteBusca(
     item.tags_text,
     ...extraValues
   ]
-    .map((value) => normalizeText(value))
+    .map((value) => normalizeText(String(value || '')))
     .join(' ');
 
   if (haystack.includes(query)) {

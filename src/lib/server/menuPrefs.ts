@@ -45,7 +45,7 @@ export function normalizeMenuPrefs(raw: unknown): MenuPrefsV1 {
   }
 
   const section: Record<string, string> = {};
-  const rawSection = (raw as any)?.section;
+  const rawSection = raw.section;
   if (isPlainObject(rawSection)) {
     for (const [itemKey, sectionKey] of Object.entries(rawSection)) {
       const k = String(itemKey || '').trim();
