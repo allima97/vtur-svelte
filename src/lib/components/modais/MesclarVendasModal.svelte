@@ -66,6 +66,14 @@
     return `${day}/${m}/${y}`;
   }
 
+  function getErrorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === 'object' && 'message' in error) {
+      return String((error as { message?: unknown }).message || fallback);
+    }
+    return fallback;
+  }
+
   function toggleSelecionado(id: string) {
     const novo = new Set(selecionados);
     if (novo.has(id)) {
@@ -90,8 +98,8 @@
         venda_id: vendaId
       });
       candidatos = data.items || [];
-    } catch (e: any) {
-      erro = e?.message || 'Erro ao carregar vendas do cliente.';
+    } catch (e: unknown) {
+      erro = getErrorMessage(e, 'Erro ao carregar vendas do cliente.');
     } finally {
       loading = false;
     }
@@ -113,8 +121,8 @@
       );
       onMerged();
       fechar();
-    } catch (e: any) {
-      erro = e?.message || 'Erro ao mesclar vendas.';
+    } catch (e: unknown) {
+      erro = getErrorMessage(e, 'Erro ao mesclar vendas.');
       confirmando = false;
     } finally {
       mesclando = false;
