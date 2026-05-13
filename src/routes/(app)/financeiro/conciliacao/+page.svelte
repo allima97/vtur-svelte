@@ -1242,7 +1242,12 @@
     running = true;
     operationMessage = 'Forçando recálculo dos recibos da conciliação no mês selecionado.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+      const data = await apiPost<{
+        recalculated?: number | null;
+        recalculatedChecked?: number | null;
+        updateErrors?: number | null;
+        duplicatesRemoved?: number | null;
+      }>('/api/v1/conciliacao/run', {
         companyId: empresaId || undefined,
         recalculateAllMonth: true,
         recalculateMonth: monthFilter
