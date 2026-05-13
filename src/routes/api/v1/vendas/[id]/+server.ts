@@ -1,4 +1,5 @@
 import { json, error } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -25,11 +26,17 @@ import { chunkArray } from "$lib/utils/array";
 const MAX_VENDA_UPDATE_BODY_BYTES = 512 * 1024;
 const MAX_VENDA_DELETE_BODY_BYTES = 8 * 1024;
 
+type SyncChildrenErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+};
+
 function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
   logServerError(context, err, extra);
 }
 
-async function fetchVendaLite(client: any, id: string) {
+async function fetchVendaLite(client: SupabaseClient, id: string) {
   const { data, error: vendaError } = await client
     .from("vendas")
     .select(
@@ -71,9 +78,11 @@ async function fetchVendaLite(client: any, id: string) {
 }
 
 function mapSyncChildrenError(err: unknown) {
-  const code = String((err as any)?.code || "").trim();
-  const message = String((err as any)?.message || "").trim();
-  const detail = String((err as any)?.details || "").trim();
+  const errorLike =
+    err && typeof err === "object" ? (err as SyncChildrenErrorLike) : null;
+  const code = String(errorLike?.code || "").trim();
+  const message = String(errorLike?.message || "").trim();
+  const detail = String(errorLike?.details || "").trim();
   const lowered = `${message} ${detail}`.toLowerCase();
 
   if (message === "RECIBO_INVALIDO") {
@@ -205,8 +214,8 @@ export async function GET(event) {
       `id, numero_venda, vendedor_id, cliente_id, company_id, data_lancamento, data_venda, data_embarque, data_final, valor_total, valor_total_bruto, valor_taxas, valor_total_pago, valor_nao_comissionado, desconto_comercial_aplicado, desconto_comercial_valor, status, cancelada, notas, cliente:clientes!vendas_cliente_id_fkey(id,nome,cpf,telefone,email,whatsapp), vendedor:users!vendas_vendedor_id_fkey(id,nome_completo), destino:produtos!vendas_destino_id_fkey(id,nome,cidade_id,tipo_produto,todas_as_cidades), destino_cidade:cidades!vendas_destino_cidade_id_fkey(id,nome), recibos:vendas_recibos(id, venda_id, produto_id, produto_resolvido_id, destino_cidade_id, numero_recibo, numero_recibo_normalizado, numero_reserva, tipo_pacote, valor_total, valor_taxas, valor_du, valor_rav, data_inicio, data_fim, contrato_url, contrato_path, destino_cidade:cidades!destino_cidade_id(id,nome), produto_resolvido:produtos!produto_resolvido_id(id,nome,cidade_id,tipo_produto,todas_as_cidades), tipo_produtos:tipo_produtos!produto_id(id,nome,tipo)), pagamentos:vendas_pagamentos!vendas_pagamentos_venda_id_fkey(*)`,
     ];
 
-    let data: any = null;
-    let lastError: any = null;
+    let data: unknown = null;
+    let lastError: unknown = null;
 
     for (const selectClause of selectClauses) {
       const result = await client.from("vendas").select(selectClause).eq("id", id).maybeSingle();
