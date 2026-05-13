@@ -83,7 +83,7 @@
       key: 'uploader',
       label: 'Por',
       sortable: false,
-      formatter: (_: any, row: Documento) => row.uploader?.nome_completo || row.uploader?.email || '-'
+      formatter: (_: unknown, row: Documento) => row.uploader?.nome_completo || row.uploader?.email || '-'
     }
   ];
 
