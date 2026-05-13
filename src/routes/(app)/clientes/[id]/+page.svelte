@@ -86,6 +86,11 @@
     produto_nome?: string | null;
   };
 
+  type HistoricoClienteResponse = {
+    vendas?: HistoricoVenda[] | null;
+    orcamentos?: HistoricoOrcamento[] | null;
+  };
+
   const clienteId = $page.params.id;
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -166,8 +171,8 @@
 
     try {
       const [clientePayload, historicoPayload] = await Promise.all([
-        apiGet<any>(`/api/v1/clientes/${clienteId}`),
-        apiGet<any>('/api/v1/clientes/historico', { cliente_id: clienteId })
+        apiGet<ClienteDetalhe>(`/api/v1/clientes/${clienteId}`),
+        apiGet<HistoricoClienteResponse>('/api/v1/clientes/historico', { cliente_id: clienteId })
       ]);
 
       cliente = clientePayload;
