@@ -23,6 +23,30 @@ import { toFiniteNumber as toNum } from '$lib/utils/values';
 
 const NO_MATCH_USER_ID = '00000000-0000-0000-0000-000000000000';
 
+type ClienteExtraRow = {
+  id: string | null;
+  email: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  nascimento: string | null;
+};
+
+type VendedorAggregate = {
+  vendedor_id: string;
+  vendedor_nome: string;
+  valor: number;
+  quantidade: number;
+};
+
+type ClienteAggregate = {
+  cliente_id: string | null;
+  cliente_nome: string;
+  data_saida: string | null;
+  destino: string;
+  valor: number;
+  quantidade: number;
+};
+
 function getMonthRangeFromSearch(value?: string | null) {
   const raw = String(value || '').trim();
   const month = /^\d{4}-\d{2}$/.test(raw) ? raw : todayISODateLocal().slice(0, 7);
@@ -54,18 +78,18 @@ function normalizeLimit(value?: string | null, fallback = 5, max = 100) {
   return Math.min(max, Math.max(1, Math.trunc(parsed)));
 }
 
-function normalizeSale(row: ReportVendaRow, clienteExtra: Map<string, any>) {
+function normalizeSale(row: ReportVendaRow, clienteExtra: Map<string, ClienteExtraRow>) {
   const clienteId = String(row.cliente_id || '').trim();
-  const extra = clienteExtra.get(clienteId) || {};
+  const extra = clienteExtra.get(clienteId);
   return {
     id: row.id,
     numero_venda: row.numero_venda || null,
     cliente_id: clienteId || null,
     cliente_nome: getVendaClienteNome(row),
-    cliente_email: String(extra.email || row.clientes?.email || '').trim() || null,
-    cliente_telefone: String(extra.whatsapp || extra.telefone || '').trim() || null,
-    cliente_whatsapp: String(extra.whatsapp || '').trim() || null,
-    cliente_nascimento: String(extra.nascimento || '').trim() || null,
+    cliente_email: String(extra?.email || row.clientes?.email || '').trim() || null,
+    cliente_telefone: String(extra?.whatsapp || extra?.telefone || '').trim() || null,
+    cliente_whatsapp: String(extra?.whatsapp || '').trim() || null,
+    cliente_nascimento: String(extra?.nascimento || '').trim() || null,
     vendedor_id: String(row.vendedor_id || '').trim() || null,
     vendedor_nome: getVendaVendedorNome(row),
     company_id: String(row.company_id || '').trim() || null,
@@ -96,7 +120,7 @@ async function resolveDashboardSalesScope(client: ReturnType<typeof getAdminClie
 
   if (isMasterByType || isGestorByType || isFinanceiroByType) {
     const allowedRows = await fetchRankingVendedoresByCompanyIds(client, companyIds);
-    const allowedIds = uniqueCleanStrings(allowedRows.map((row: any) => row?.id));
+    const allowedIds = uniqueCleanStrings(allowedRows.map((row) => row?.id));
     const allowedIdSet = cleanStringSet(allowedIds);
     if (hasRequestedVendedorFilter) {
       const filtered = requestedVendedorIds.filter((id) => allowedIdSet.has(id));
@@ -134,7 +158,7 @@ export async function GET(event) {
     });
 
     const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
-    const clienteExtra = new Map<string, any>();
+    const clienteExtra = new Map<string, ClienteExtraRow>();
     if (clienteIds.length > 0) {
       const { data, error } = await client
         .from('clientes')
@@ -142,13 +166,13 @@ export async function GET(event) {
         .in('id', clienteIds);
       if (error) throw error;
       for (const row of data || []) {
-        clienteExtra.set(String(row.id), row);
+        clienteExtra.set(String(row.id), row as ClienteExtraRow);
       }
     }
 
     const sales = rows.map((row) => normalizeSale(row, clienteExtra));
 
-    const vendedorMap = new Map<string, { vendedor_id: string; vendedor_nome: string; valor: number; quantidade: number }>();
+    const vendedorMap = new Map<string, VendedorAggregate>();
     for (const item of sales) {
       const id = item.vendedor_id || 'sem-vendedor';
       const current = vendedorMap.get(id) || {
@@ -162,7 +186,7 @@ export async function GET(event) {
       vendedorMap.set(id, current);
     }
 
-    const clienteMap = new Map<string, any>();
+    const clienteMap = new Map<string, ClienteAggregate>();
     for (const item of sales) {
       const id = item.cliente_id || `sem-cliente:${item.cliente_nome}`;
       const current = clienteMap.get(id) || {
