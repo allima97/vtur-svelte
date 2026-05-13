@@ -45,6 +45,30 @@ type ChallengeRow = {
   used_at: string | null;
 };
 
+type ErrorDetails = {
+  code?: string | null;
+  message?: string | null;
+  status?: number;
+  body?: {
+    message?: string | null;
+  } | null;
+};
+
+type SupabaseLinkData = {
+  properties?: {
+    hashed_token?: string | null;
+  } | null;
+};
+
+type ExistingPasskeyRow = {
+  credential_id?: string | null;
+  transports?: unknown;
+};
+
+function errorDetails(err: unknown): ErrorDetails {
+  return err && typeof err === 'object' ? (err as ErrorDetails) : {};
+}
+
 function bytesToBase64Url(bytes: Uint8Array) {
   let binary = '';
   for (const byte of bytes) {
@@ -93,8 +117,9 @@ function normalizeTransports(value?: unknown): AuthenticatorTransportFuture[] {
 }
 
 function isMissingPasskeyTable(err: unknown) {
-  const code = String((err as any)?.code || '').toLowerCase();
-  const message = String((err as any)?.message || '').toLowerCase();
+  const details = errorDetails(err);
+  const code = String(details.code || '').toLowerCase();
+  const message = String(details.message || '').toLowerCase();
   return code === '42p01' || message.includes('auth_passkeys') || message.includes('auth_passkey_challenges');
 }
 
@@ -106,12 +131,13 @@ function passkeyUnavailable(): never {
 }
 
 export function toPasskeyErrorResponse(err: unknown, fallbackMessage: string) {
-  const status = typeof (err as any)?.status === 'number' ? (err as any).status : 500;
+  const details = errorDetails(err);
+  const status = typeof details.status === 'number' ? details.status : 500;
   if (status >= 500) {
     logServerError('[passkeys] erro interno', err, { fallbackMessage });
   }
 
-  const rawMessage = String((err as any)?.body?.message || (err as any)?.message || fallbackMessage);
+  const rawMessage = String(details.body?.message || details.message || fallbackMessage);
   const message = isProductionRuntime() && status >= 500 && status !== 503 ? fallbackMessage : rawMessage;
 
   if (status === 404) {
@@ -205,7 +231,7 @@ async function createSupabaseSessionForUser(event: RequestEvent, userId: string)
     email: user.email
   });
 
-  const tokenHash = (linkData as any)?.properties?.hashed_token;
+  const tokenHash = (linkData as SupabaseLinkData | null)?.properties?.hashed_token;
   if (linkError || !tokenHash) {
     logServerError('[passkeys] falha ao gerar sessao Supabase', linkError);
     throw error(500, 'Erro ao criar sessão por passkey.');
@@ -302,10 +328,12 @@ export async function buildRegistrationOptions(event: RequestEvent, user: { id: 
     userDisplayName: email,
     timeout: 60000,
     attestationType: 'none',
-    excludeCredentials: (existing || []).map((row: any) => ({
-      id: row.credential_id,
-      transports: normalizeTransports(row.transports)
-    })),
+    excludeCredentials: ((existing || []) as ExistingPasskeyRow[])
+      .filter((row) => Boolean(row.credential_id))
+      .map((row) => ({
+        id: String(row.credential_id),
+        transports: normalizeTransports(row.transports)
+      })),
     authenticatorSelection: {
       residentKey: 'required',
       userVerification: 'required'
@@ -369,7 +397,7 @@ export async function verifyRegistration(params: {
     });
 
     if (insertError) {
-      if (String((insertError as any).code || '') === '23505') {
+      if (String(errorDetails(insertError).code || '') === '23505') {
         throw error(409, 'Esta passkey já está cadastrada.');
       }
 
