@@ -80,10 +80,14 @@ export function writeMenuPrefs(userId: string, prefs: MenuPrefsV1) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(menuPrefsStorageKey(userId), JSON.stringify(prefs));
-  } catch {}
+  } catch {
+    // localStorage can be unavailable in restricted browser contexts.
+  }
   try {
     window.dispatchEvent(new CustomEvent(MENU_PREFS_UPDATED_EVENT, { detail: { userId } }));
-  } catch {}
+  } catch {
+    // Dispatch failures should not block persisting or using menu preferences.
+  }
 }
 
 export function isMenuItemHidden(prefs: MenuPrefsV1, itemKey: string) {
