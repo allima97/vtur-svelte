@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import {
   ensureCanManageCompanies,
   getAccessibleCompanyIds,
@@ -16,6 +17,37 @@ import { cleanStringSet, chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+
+type BillingPlanRow = {
+  id?: string | null;
+  nome?: string | null;
+};
+
+type CompanyBillingRow = {
+  id?: string | null;
+  status?: string | null;
+  valor_mensal?: number | null;
+  ultimo_pagamento?: string | null;
+  proximo_vencimento?: string | null;
+  plan?: BillingPlanRow | BillingPlanRow[] | null;
+};
+
+type CompanyListRow = {
+  id: string;
+  nome_fantasia?: string | null;
+  nome_empresa?: string | null;
+  cnpj?: string | null;
+  telefone?: string | null;
+  endereco?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  active?: boolean | null;
+  billing?: CompanyBillingRow | CompanyBillingRow[] | null;
+};
+
+type MasterCompanyLinkCountRow = {
+  company_id?: string | null;
+};
 
 async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient>, companyIds: string[] | null) {
   // companies schema: id, nome_fantasia, nome_empresa, cnpj, telefone, endereco, cidade, estado, active
@@ -55,11 +87,11 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
       return withBilling.data || [];
     }
 
-    const rows: any[] = [];
+    const rows: CompanyListRow[] = [];
     for (const batch of chunkArray(companyIds)) {
       const withBilling = await buildBillingQuery(batch);
       if (withBilling.error) throw withBilling.error;
-      rows.push(...(withBilling.data || []));
+      rows.push(...((withBilling.data || []) as CompanyListRow[]));
     }
     return dedupeById(rows).sort((left, right) =>
       PT_BR_COLLATOR.compare(String(left?.nome_fantasia || ''), String(right?.nome_fantasia || ''))
@@ -68,8 +100,8 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
 
   try {
     return await loadWithBilling();
-  } catch (withBillingError: any) {
-    const message = String(withBillingError.message || '').toLowerCase();
+  } catch (withBillingError: unknown) {
+    const message = String((withBillingError as { message?: unknown })?.message || '').toLowerCase();
     if (!message.includes('company_billing') && !message.includes('plans')) {
       throw withBillingError;
     }
@@ -81,13 +113,13 @@ async function loadCompaniesWithBilling(client: ReturnType<typeof getAdminClient
     .order('nome_fantasia', { ascending: true });
 
   if (fallback.error) throw fallback.error;
-  const rows = fallback.data || [];
+  const rows = (fallback.data || []) as CompanyListRow[];
   if (!companyIds || !companyIds.length) return rows;
   const companyIdSet = cleanStringSet(companyIds);
-  return rows.filter((row: any) => companyIdSet.has(String(row.id).trim()));
+  return rows.filter((row) => companyIdSet.has(String(row.id).trim()));
 }
 
-export async function GET(event) {
+export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -98,7 +130,7 @@ export async function GET(event) {
     const accessibleCompanyIds = scope.isAdmin ? null : getAccessibleCompanyIds(scope);
     const rows = await loadCompaniesWithBilling(client, accessibleCompanyIds);
 
-    const companyIds = rows.map((row: any) => row.id);
+    const companyIds = rows.map((row) => row.id);
     let masterLinkCounts = new Map<string, number>();
 
     try {
@@ -109,7 +141,7 @@ export async function GET(event) {
             : { data: [], error: null };
         if (masterLinksRes.error) throw masterLinksRes.error;
 
-        for (const row of masterLinksRes.data || []) {
+        for (const row of (masterLinksRes.data || []) as MasterCompanyLinkCountRow[]) {
           const companyId = String(row.company_id || '').trim();
           if (!companyId) continue;
           masterLinkCounts.set(companyId, Number(masterLinkCounts.get(companyId) || 0) + 1);
@@ -120,7 +152,7 @@ export async function GET(event) {
     }
 
     return json({
-      items: rows.map((row: any) => ({
+      items: rows.map((row) => ({
         id: row.id,
         nome_fantasia: row.nome_fantasia || '',
         nome_empresa: row.nome_empresa || '',
@@ -141,7 +173,7 @@ export async function GET(event) {
   }
 }
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
