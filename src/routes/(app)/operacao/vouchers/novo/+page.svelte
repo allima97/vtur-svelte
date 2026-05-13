@@ -42,6 +42,10 @@
     VoucherImportResult
   } from '$lib/vouchers/types';
 
+  function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error && error.message ? error.message : fallback;
+  }
+
   // Tipo para o formulário do wizard
   interface WizardForm {
     provider: VoucherProvider;
@@ -284,8 +288,8 @@
       const imported = parseVoucherImportText(travelPasteText, form.provider);
       applyImportedResult(imported, { replaceDays: false, replaceHotels: false });
       toast.success('Dados da viagem importados com sucesso');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao importar dados da viagem');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao importar dados da viagem'));
     } finally {
       importingTravel = false;
     }
@@ -304,8 +308,8 @@
           : parseVoucherImportText(circuitPasteText, form.provider);
       applyImportedResult(imported, { replaceDays: true, replaceHotels: false });
       toast.success('Itinerário importado com sucesso');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao importar itinerário');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao importar itinerário'));
     } finally {
       importingCircuit = false;
     }
@@ -324,8 +328,8 @@
           : parseVoucherImportText(hotelPasteText, form.provider);
       applyImportedResult(imported, { replaceDays: false, replaceHotels: true });
       toast.success('Hotéis importados com sucesso');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao importar hotéis');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao importar hotéis'));
     } finally {
       importingHotels = false;
     }
@@ -338,8 +342,8 @@
       const imported = await extractVoucherImportFromFile(file, form.provider);
       applyImportedResult(imported, { replaceDays: true, replaceHotels: true });
       toast.success('Arquivo importado com sucesso');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao importar arquivo');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao importar arquivo'));
     } finally {
       importingFile = false;
     }
