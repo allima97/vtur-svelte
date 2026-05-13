@@ -54,7 +54,6 @@ export async function POST(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const scopedCompanyIds = new Set(scope.companyIds);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(
@@ -123,7 +122,7 @@ export async function POST(event) {
       if (!reciboRow) return json({ error: 'Recibo nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
       const reciboCompany = String((reciboRow as any)?.vendas?.company_id || '').trim();
-      if (!scope.isAdmin && !scopedCompanyIds.has(reciboCompany)) {
+      if (!scope.isAdmin && !scope.companyIds.includes(reciboCompany)) {
         return json({ error: 'Recibo fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
@@ -142,7 +141,7 @@ export async function POST(event) {
       if (!concRow) return json({ error: 'Recibo da conciliacao nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
 
       const concCompany = String((concRow as any)?.company_id || '').trim();
-      if (!scope.isAdmin && !scopedCompanyIds.has(concCompany)) {
+      if (!scope.isAdmin && !scope.companyIds.includes(concCompany)) {
         return json({ error: 'Recibo de conciliacao fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
