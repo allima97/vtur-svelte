@@ -235,7 +235,7 @@ export function applyRateioToSalesForScopedVendedores<
 
     const recibosPorVendedor = new Map<string, Array<Record<string, any>>>();
 
-    recibos.forEach((recibo, reciboIndex) => {
+    for (const [reciboIndex, recibo] of recibos.entries()) {
       const rawReciboId = toStr(recibo?.id);
       const primaryReciboId = normalizeReciboLookupId(rawReciboId);
       const rateio =
@@ -290,7 +290,7 @@ export function applyRateioToSalesForScopedVendedores<
         });
         recibosPorVendedor.set(allocation.vendedorId, bucket);
       });
-    });
+    }
 
     return Array.from(recibosPorVendedor.entries())
       .map(([vendedorId, vendedorRecibos]) => {
