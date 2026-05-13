@@ -54,6 +54,19 @@ type VendaAggregateRow = ReportVendaRow & {
 
 type NonNullReceiptRow = Exclude<ReportReceiptRow, null>;
 
+type SeguroReceiptFlags = ReportReceiptRow & {
+  _conciliacao_is_seguro?: boolean | null;
+  is_seguro_viagem?: boolean | null;
+};
+
+type IdOnlyRow = {
+  id?: string | null;
+};
+
+type CompanyIdOnlyRow = {
+  company_id?: string | null;
+};
+
 export type VendasKpiAgg = {
   totalVendas: number;
   totalTaxas: number;
@@ -253,9 +266,10 @@ function isSeguroPorComissao(recibo?: ReportReceiptRow | null) {
 }
 
 function isSeguroProduto(recibo?: ReportReceiptRow | null) {
+  const reciboFlags = recibo as SeguroReceiptFlags | null | undefined;
   if (
-    (recibo as any)?._conciliacao_is_seguro === true ||
-    (recibo as any)?.is_seguro_viagem === true
+    reciboFlags?._conciliacao_is_seguro === true ||
+    reciboFlags?.is_seguro_viagem === true
   )
     return true;
   if (isSeguroFaixa(recibo?.faixa_comissao)) return true;
@@ -310,7 +324,7 @@ async function fetchBaixaRacVendedorIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  const rows: any[] = [];
+  const rows: IdOnlyRow[] = [];
   for (const companyBatch of chunkArray(companyIds)) {
     let query = client
       .from("users")
@@ -325,10 +339,10 @@ async function fetchBaixaRacVendedorIds(
 
     const { data, error } = await query;
     if (error) throw error;
-    rows.push(...(data || []));
+    rows.push(...((data || []) as IdOnlyRow[]));
   }
 
-  return uniqueCleanStrings(rows.map((row: any) => row?.id));
+  return uniqueCleanStrings(rows.map((row) => row?.id));
 }
 
 async function fetchConciliacaoCompanyIds(
@@ -337,7 +351,7 @@ async function fetchConciliacaoCompanyIds(
 ) {
   if (companyIds.length === 0) return [] as string[];
 
-  const rows: any[] = [];
+  const rows: CompanyIdOnlyRow[] = [];
   for (const companyBatch of chunkArray(companyIds)) {
     let query = client
       .from("parametros_comissao")
@@ -351,7 +365,7 @@ async function fetchConciliacaoCompanyIds(
 
     const { data, error } = await query;
     if (error) throw error;
-    rows.push(...(data || []));
+    rows.push(...((data || []) as CompanyIdOnlyRow[]));
   }
 
   const companyIdSet = new Set<string>();
