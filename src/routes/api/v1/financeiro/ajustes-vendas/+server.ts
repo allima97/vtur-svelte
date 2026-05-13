@@ -111,6 +111,10 @@ type ExistingRateioRow = {
   id?: string | null;
 };
 
+type QueryWithOr<T> = {
+  or(filters: string): T;
+};
+
 function invalidateAjustesVendasReadModels() {
   invalidateReadModelCache({
     tags: [
@@ -187,7 +191,7 @@ export async function GET(event) {
       if (vendedorId && isUuid(vendedorId)) {
         query = query.eq('vendas.vendedor_id', vendedorId);
       }
-      if (q) query = (query as any).or(`numero_recibo.ilike.%${q}%`);
+      if (q) query = (query as QueryWithOr<typeof query>).or(`numero_recibo.ilike.%${q}%`);
 
       return query;
     };
