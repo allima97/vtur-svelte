@@ -1,20 +1,9 @@
 <script lang="ts">
   import { Checkbox as FlowbiteCheckbox } from 'flowbite-svelte';
 
-  export let checked = false;
-  export let disabled = false;
-  export let required = false;
-  export let id: string | null = null;
-  export let name: string | null = null;
-  export let value = 'on';
-  export let color:
-    | 'blue'
-    | 'green'
-    | 'red'
-    | 'yellow'
-    | 'purple'
-    | 'teal'
-    | 'orange'
+  type FormColorType = 'blue' | 'red' | 'green' | 'purple' | 'teal' | 'yellow' | 'orange' | 'primary' | 'secondary';
+  type CheckboxColor =
+    | FormColorType
     | 'crm'
     | 'clientes'
     | 'vendas'
@@ -22,11 +11,19 @@
     | 'operacao'
     | 'orcamentos'
     | 'comissoes'
-    | 'default' = 'blue';
+    | 'default';
+
+  export let checked = false;
+  export let disabled = false;
+  export let required = false;
+  export let id: string | null = null;
+  export let name: string | null = null;
+  export let value = 'on';
+  export let color: CheckboxColor = 'blue';
   export let ariaLabel: string | null = null;
   export let class_name = '';
 
-  const colorAlias: Record<string, string> = {
+  const colorAlias: Record<CheckboxColor, FormColorType> = {
     blue: 'blue',
     green: 'green',
     red: 'red',
@@ -34,6 +31,8 @@
     purple: 'purple',
     teal: 'teal',
     orange: 'orange',
+    primary: 'primary',
+    secondary: 'secondary',
     crm: 'purple',
     clientes: 'blue',
     orcamentos: 'blue',
@@ -54,7 +53,7 @@
   bind:checked
   {disabled}
   {required}
-  color={resolvedColor as any}
+  color={resolvedColor}
   aria-label={ariaLabel ?? undefined}
   class={class_name}
   on:change
