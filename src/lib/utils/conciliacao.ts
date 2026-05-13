@@ -117,16 +117,17 @@ function getDefaultBandDefinition(key?: string | null) {
   );
 }
 
-function sanitizeTier(tier: any): ConciliacaoTier | null {
-  const faixa = String(tier?.faixa || "")
+function sanitizeTier(tier: unknown): ConciliacaoTier | null {
+  const value = (tier && typeof tier === "object" ? tier : {}) as Record<string, unknown>;
+  const faixa = String(value.faixa || "")
     .trim()
     .toUpperCase();
   if (faixa !== "PRE" && faixa !== "POS") return null;
 
-  const dePct = Number(tier?.de_pct ?? 0);
-  const atePct = Number(tier?.ate_pct ?? 0);
-  const incMeta = Number(tier?.inc_pct_meta ?? 0);
-  const incCom = Number(tier?.inc_pct_comissao ?? 0);
+  const dePct = Number(value.de_pct ?? 0);
+  const atePct = Number(value.ate_pct ?? 0);
+  const incMeta = Number(value.inc_pct_meta ?? 0);
+  const incCom = Number(value.inc_pct_comissao ?? 0);
 
   if (![dePct, atePct, incMeta, incCom].every(Number.isFinite)) return null;
 
@@ -255,11 +256,12 @@ export function sanitizeConciliacaoBandRules(
   }
 
   const sanitized = value
-    .map((item: any, index) => {
-      const legacyDefinition = getDefaultBandDefinition(item?.faixa_loja);
+    .map((item, index) => {
+      const value = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+      const legacyDefinition = getDefaultBandDefinition(value.faixa_loja as string | null | undefined);
       const normalizedId =
-        normalizeBandId(item?.faixa_loja) ||
-        normalizeBandId(item?.id) ||
+        normalizeBandId(value.faixa_loja as string | null | undefined) ||
+        normalizeBandId(value.id as string | null | undefined) ||
         `FAIXA_${index + 1}`;
       const base =
         defaults.find(
@@ -271,14 +273,14 @@ export function sanitizeConciliacaoBandRules(
             )
           : null);
       const tipoCalculo =
-        String(item?.tipo_calculo || "")
+        String(value.tipo_calculo || "")
           .trim()
           .toUpperCase() === "PRODUTO_DIFERENCIADO"
           ? "PRODUTO_DIFERENCIADO"
           : "CONCILIACAO";
-      const tipo = normalizeConciliacaoTipo(item?.tipo);
-      const tiers = Array.isArray(item?.tiers)
-        ? item.tiers
+      const tipo = normalizeConciliacaoTipo(value.tipo as string | null | undefined);
+      const tiers = Array.isArray(value.tiers)
+        ? value.tiers
             .map(sanitizeTier)
             .filter((tier: ConciliacaoTier | null): tier is ConciliacaoTier =>
               Boolean(tier),
@@ -288,39 +290,39 @@ export function sanitizeConciliacaoBandRules(
       return {
         faixa_loja: normalizedId,
         nome: normalizeBandName(
-          item?.nome ??
+          value.nome ??
             legacyDefinition?.nome ??
             base?.nome ??
-            item?.faixa_loja,
+            value.faixa_loja,
         ),
         percentual_min:
-          parseNullableNumber(item?.percentual_min) ??
+          parseNullableNumber(value.percentual_min) ??
           legacyDefinition?.percentual_min ??
           base?.percentual_min ??
           null,
         percentual_max:
-          parseNullableNumber(item?.percentual_max) ??
+          parseNullableNumber(value.percentual_max) ??
           legacyDefinition?.percentual_max ??
           base?.percentual_max ??
           null,
-        ordem: Number.isFinite(Number(item?.ordem))
-          ? Number(item.ordem)
+        ordem: Number.isFinite(Number(value.ordem))
+          ? Number(value.ordem)
           : (base?.ordem ?? (index + 1) * 10),
         ativo:
-          item?.ativo == null ? (base?.ativo ?? true) : Boolean(item.ativo),
+          value.ativo == null ? (base?.ativo ?? true) : Boolean(value.ativo),
         tipo_calculo: tipoCalculo,
         tipo,
         meta_nao_atingida:
-          item?.meta_nao_atingida != null
-            ? Number(item.meta_nao_atingida)
+          value.meta_nao_atingida != null
+            ? Number(value.meta_nao_atingida)
             : (base?.meta_nao_atingida ?? null),
         meta_atingida:
-          item?.meta_atingida != null
-            ? Number(item.meta_atingida)
+          value.meta_atingida != null
+            ? Number(value.meta_atingida)
             : (base?.meta_atingida ?? null),
         super_meta:
-          item?.super_meta != null
-            ? Number(item.super_meta)
+          value.super_meta != null
+            ? Number(value.super_meta)
             : (base?.super_meta ?? null),
         tiers,
       } satisfies ConciliacaoBandRule;
