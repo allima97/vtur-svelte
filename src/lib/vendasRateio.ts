@@ -163,7 +163,7 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   const scopedVendedorIds = uniqueCleanStrings(options.vendedorIds || []).filter(isUuid);
   if (scopedVendedorIds.length === 0) return [] as string[];
 
-  const splitRows: any[] = [];
+  const splitRows: SplitRateioLookupRow[] = [];
   const companyBatches =
     scopedCompanyIds.length > 0 ? chunkArray(scopedCompanyIds, SUPABASE_IN_BATCH_SIZE) : [null];
   for (const companyBatch of companyBatches) {
@@ -185,12 +185,8 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
     }
   }
 
-  const vendaReciboIds = uniqueCleanStrings(
-    (splitRows as SplitRateioLookupRow[]).map((row) => row?.venda_recibo_id)
-  ).filter(isUuid);
-  const concReciboIds = uniqueCleanStrings(
-    (splitRows as SplitRateioLookupRow[]).map((row) => row?.conciliacao_recibo_id)
-  ).filter(isUuid);
+  const vendaReciboIds = uniqueCleanStrings(splitRows.map((row) => row?.venda_recibo_id)).filter(isUuid);
+  const concReciboIds = uniqueCleanStrings(splitRows.map((row) => row?.conciliacao_recibo_id)).filter(isUuid);
 
   const vendaIds = new Set<string>();
 
