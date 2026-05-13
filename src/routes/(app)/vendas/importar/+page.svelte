@@ -84,6 +84,7 @@
   };
 
   const VENDA_READABLE_RETRY_STATUSES = new Set([404, 403, 0]);
+  const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -697,7 +698,7 @@
   }
 
   function isISODate(value?: string | null) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+    return ISO_DATE_PATTERN.test(String(value || '').trim());
   }
 
   function openSaveModal() {
