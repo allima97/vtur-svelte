@@ -29,6 +29,11 @@ const DEFAULT_NAO_COMISSIONAVEIS_NORMALIZED = DEFAULT_NAO_COMISSIONAVEIS.reduce<
 let cachedTermosNaoComissionaveis: string[] | null = null;
 let termosLoadPromise: Promise<string[]> | null = null;
 
+interface ParametroPagamentoNaoComissionavelRow {
+  termo?: string | null;
+  termo_normalizado?: string | null;
+}
+
 function normalizeTerm(value?: string | null) {
   return normalizeText(value || "", { trim: true, collapseWhitespace: true });
 }
@@ -46,7 +51,7 @@ export async function carregarTermosNaoComissionaveis(options: { force?: boolean
         .eq("ativo", true)
         .order("termo", { ascending: true });
       if (error) throw error;
-      const rows = (data || []) as any[];
+      const rows = (data || []) as ParametroPagamentoNaoComissionavelRow[];
       const termos = rows.reduce<string[]>((items, row) => {
         const termo = normalizeTerm(row?.termo_normalizado || row?.termo);
         if (termo) items.push(termo);
