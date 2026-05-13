@@ -11,6 +11,7 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_CIRCUITO_UPDATE_BODY_BYTES = 128 * 1024;
+const CIRCUITO_ALLOWED_UPDATE_FIELDS = ['nome', 'codigo', 'operador', 'resumo', 'ativo'];
 
 export async function GET(event) {
   try {
@@ -68,9 +69,8 @@ export async function PATCH(event) {
         : {};
 
     // Apenas colunas reais da tabela circuitos
-    const allowed = ['nome', 'codigo', 'operador', 'resumo', 'ativo'];
     const payload: Record<string, any> = {};
-    for (const key of allowed) {
+    for (const key of CIRCUITO_ALLOWED_UPDATE_FIELDS) {
       if (key in body) payload[key] = body[key];
     }
 

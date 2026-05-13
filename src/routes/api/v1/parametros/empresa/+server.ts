@@ -11,6 +11,7 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_PARAMETROS_EMPRESA_BODY_BYTES = 64 * 1024;
+const EMPRESA_ALLOWED_UPDATE_FIELDS = ['nome_empresa', 'nome_fantasia', 'cnpj', 'telefone', 'endereco', 'cidade', 'estado'];
 
 export async function GET(event) {
   try {
@@ -64,9 +65,8 @@ export async function PATCH(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
 
-    const allowed = ['nome_empresa', 'nome_fantasia', 'cnpj', 'telefone', 'endereco', 'cidade', 'estado'];
     const payload: Record<string, any> = {};
-    for (const key of allowed) {
+    for (const key of EMPRESA_ALLOWED_UPDATE_FIELDS) {
       if (key in body) {
         payload[key] = body[key] === '' ? null : body[key];
       }

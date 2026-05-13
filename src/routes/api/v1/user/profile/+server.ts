@@ -4,6 +4,11 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_USER_PROFILE_BODY_BYTES = 64 * 1024;
+const USER_PROFILE_ALLOWED_UPDATE_FIELDS = [
+  'nome_completo', 'cpf', 'data_nascimento',
+  'telefone', 'whatsapp', 'rg', 'cep', 'endereco', 'numero',
+  'complemento', 'cidade', 'estado'
+];
 
 export async function GET(event) {
   try {
@@ -45,15 +50,9 @@ export async function PATCH(event) {
         ? (bodyResult.data as Record<string, any>)
         : {};
 
-    // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
-    const allowed = [
-      'nome_completo', 'cpf', 'data_nascimento',
-      'telefone', 'whatsapp', 'rg', 'cep', 'endereco', 'numero',
-      'complemento', 'cidade', 'estado'
-    ];
-
     const payload: Record<string, any> = {};
-    for (const key of allowed) {
+    // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
+    for (const key of USER_PROFILE_ALLOWED_UPDATE_FIELDS) {
       if (key in body) {
         payload[key] = body[key] === '' ? null : body[key];
       }

@@ -13,6 +13,11 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
 
 const MAX_PAGAMENTO_UPDATE_BODY_BYTES = 64 * 1024;
+const PAGAMENTO_ALLOWED_UPDATE_FIELDS = [
+  'forma_nome', 'forma_pagamento_id', 'valor_total', 'valor_bruto',
+  'desconto_valor', 'paga_comissao', 'observacoes',
+  'parcelas_qtd', 'parcelas_valor', 'vencimento_primeira'
+];
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
@@ -106,13 +111,8 @@ export async function PATCH(event) {
       bodyResult.data && typeof bodyResult.data === 'object'
         ? (bodyResult.data as Record<string, any>)
         : {};
-    const allowed = [
-      'forma_nome', 'forma_pagamento_id', 'valor_total', 'valor_bruto',
-      'desconto_valor', 'paga_comissao', 'observacoes',
-      'parcelas_qtd', 'parcelas_valor', 'vencimento_primeira'
-    ];
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
-    for (const key of allowed) {
+    for (const key of PAGAMENTO_ALLOWED_UPDATE_FIELDS) {
       if (key in body) updateData[key] = body[key];
     }
 
