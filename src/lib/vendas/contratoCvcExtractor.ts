@@ -2646,6 +2646,9 @@ function buildPassageiroNomeNomePrimeiro(p: RoteiroReservaPassageiroDraft) {
 }
 
 const EMPTY_ROTEIRO_PASSAGEIRO: RoteiroReservaPassageiroDraft = {};
+const FRETAMENTO_DADOS_RESERVA: NonNullable<RoteiroReservaDraft['dados_reserva']> = {
+  tipo_pacote: "Fretamento"
+};
 
 function findCpfByNome(nome: string, passageiros: RoteiroReservaPassageiroDraft[]) {
   const nomeNorm = normalizeText(nome, { trim: true, collapseWhitespace: true });
@@ -3099,7 +3102,7 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
           tipo_pacote: dadosReservaInfoBase.tipo_pacote || (isFretamentoDetected ? "Fretamento" : null),
         }
       : isFretamentoDetected
-        ? ({ tipo_pacote: "Fretamento" } as any)
+        ? FRETAMENTO_DADOS_RESERVA
         : null;
   const tipoPacoteFromDados = dadosReservaInfo?.tipo_pacote || null;
   const tipoPacoteFromRoteiro = cleanTipoProdutoName(roteiroInfo?.tipo_produto);
