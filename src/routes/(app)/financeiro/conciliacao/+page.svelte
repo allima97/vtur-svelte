@@ -1105,7 +1105,13 @@
 
     detalheRateioLoading = true;
     try {
-      const data = await apiGet<any>('/api/v1/conciliacao/rateio-info', {
+      const data = await apiGet<{
+        rateio?: {
+          ativo?: boolean | null;
+          vendedor_destino_nome?: string | null;
+          percentual_destino?: number | null;
+        } | null;
+      }>('/api/v1/conciliacao/rateio-info', {
         company_id: empresaId || undefined,
         venda_recibo_id: vendaReciboId,
         conciliacao_recibo_id: String(row.id || '')
