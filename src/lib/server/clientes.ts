@@ -17,6 +17,14 @@ export type ClienteScopedFilters = {
   accessibleClientIds: string[] | null;
 };
 
+type PassageiroViagemAccessRow = {
+  viagens?: {
+    vendas?: {
+      cancelada?: boolean | null;
+    } | null;
+  } | null;
+};
+
 export function diffDays(fromDateIso: string, toDate = new Date()) {
   const diff = diffDaysISODate(fromDateIso, todayISODateLocal(toDate));
   return diff ?? Number.POSITIVE_INFINITY;
@@ -283,6 +291,27 @@ export async function ensureClienteAccess(
       const { data: vendaCliente, error: vendaClienteError } = await vendaClienteQuery;
       if (!vendaClienteError && vendaCliente?.[0]?.id) {
         return filters;
+      }
+    }
+  }
+
+  // Verifica se o cliente e passageiro de uma viagem do vendedor
+  // (importado como acompanhante/passageiro de outro cliente).
+  {
+    for (const companyBatch of companyBatches) {
+      for (const vendedorBatch of vendedorBatches) {
+        let passageiroQuery = client
+          .from('viagem_passageiros')
+          .select('viagem_id, viagens!inner(venda_id, vendas!inner(id, vendedor_id, company_id, cancelada))')
+          .eq('cliente_id', normalizedClienteId)
+          .limit(10);
+
+        if (companyBatch) passageiroQuery = passageiroQuery.in('viagens.vendas.company_id', companyBatch);
+        if (vendedorBatch) passageiroQuery = passageiroQuery.in('viagens.vendas.vendedor_id', vendedorBatch);
+
+        const { data: passRows } = await passageiroQuery;
+        const passageirosAtivos = (passRows || []) as PassageiroViagemAccessRow[];
+        if (passageirosAtivos.some((row) => row.viagens?.vendas?.cancelada === false)) return filters;
       }
     }
   }
