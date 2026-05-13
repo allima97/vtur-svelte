@@ -49,7 +49,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[push/unsubscribe] falha interna", error);
     return json({ error: "Erro interno ao desativar subscription." }, { status: 500, headers: NO_STORE_HEADERS });
   }
