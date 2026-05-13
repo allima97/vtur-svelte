@@ -98,6 +98,26 @@
     parcelas?: PagamentoParcelaPayload[] | null;
   };
 
+  type ReciboPayload = {
+    produto_id?: string | null;
+    produto_resolvido_id?: string | null;
+    produto_resolvido?: ProdutoResolvidoOptionSource | null;
+    tipo_produto_id?: string | null;
+    tipo_produtos?: { id?: string | null } | null;
+    destino_cidade_id?: string | null;
+    numero_recibo?: string | null;
+    numero_reserva?: string | null;
+    tipo_pacote?: string | null;
+    valor_total?: string | number | null;
+    valor_taxas?: string | number | null;
+    valor_du?: string | number | null;
+    valor_rav?: string | number | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    contrato_url?: string | null;
+    contrato_path?: string | null;
+  };
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -287,11 +307,11 @@
     if (recibosData.length > 0) {
       mergeProdutos(
         recibosData
-          .map((item: any) => produtoResolvidoToOption(item?.produto_resolvido))
+          .map((item: ReciboPayload) => produtoResolvidoToOption(item?.produto_resolvido))
           .filter(Boolean) as Option[]
       );
 
-      recibos = recibosData.map((item: any, index: number) => {
+      recibos = recibosData.map((item: ReciboPayload, index: number) => {
         const rawProdutoId = String(item?.produto_id || '').trim();
         const produtoIdEhTipo =
           Boolean(item?.tipo_produtos?.id) ||
