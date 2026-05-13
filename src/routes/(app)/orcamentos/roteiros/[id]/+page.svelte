@@ -134,6 +134,32 @@
     complementUrl: string | null;
   };
 
+  type RoteiroPayload = {
+    nome?: string | null;
+    duracao?: number | string | null;
+    inicio_cidade?: string | null;
+    fim_cidade?: string | null;
+    inclui_texto?: string | null;
+    nao_inclui_texto?: string | null;
+    informacoes_importantes?: string | null;
+    dias?: RotDia[] | null;
+    hoteis?: RotHotel[] | null;
+    passeios?: RotPasseio[] | null;
+    transportes?: RotTransporte[] | null;
+    investimentos?: RotInvestimento[] | null;
+    pagamentos?: RotPagamento[] | null;
+  };
+
+  type RoteiroResponse = {
+    roteiro: RoteiroPayload;
+  };
+
+  type SugestoesBuscaResponse = Record<string, string[]>;
+
+  type OrcamentosPdfResponse = {
+    settings?: PdfSettings | null;
+  };
+
   // ─── Constants ─────────────────────────────────────────────────────────────
   const ABAS = [
     { id: 'itinerario', label: 'Itinerário' },
@@ -517,12 +543,12 @@
     loading = true;
     try {
       const [payload, sugestoesData, settingsData] = await Promise.all([
-        apiFetch<{ roteiro: any }>(`/api/v1/roteiros/${roteiroId}`, {
+        apiFetch<RoteiroResponse>(`/api/v1/roteiros/${roteiroId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false
         }),
-        apiGet<any>('/api/v1/roteiros/sugestoes-busca').catch(() => null),
-        apiGet<any>('/api/v1/parametros/orcamentos-pdf').catch(() => null),
+        apiGet<SugestoesBuscaResponse>('/api/v1/roteiros/sugestoes-busca').catch(() => null),
+        apiGet<OrcamentosPdfResponse>('/api/v1/parametros/orcamentos-pdf').catch(() => null),
       ]);
       const r = payload.roteiro;
 
@@ -534,21 +560,21 @@
       naoIncluiTexto = r.nao_inclui_texto || '';
       informacoesImportantes = r.informacoes_importantes || '';
 
-      dias = (r.dias || []).map((d: any) => ({
+      dias = (r.dias || []).map((d) => ({
         ...newDia(d.ordem ?? 0),
         ...d,
         percurso: d.percurso || '',
         data: d.data || '',
         descricao: d.descricao || '',
       }));
-      hoteis = (r.hoteis || []).map((h: any) => ({ ...newHotel(h.ordem ?? 0), ...h }));
-      passeios = (r.passeios || []).map((p: any) => ({ ...newPasseio(p.ordem ?? 0), ...p }));
-      transportes = (r.transportes || []).map((t: any) => ({ ...newTransporte(t.ordem ?? 0), ...t }));
-      investimentos = (r.investimentos || []).map((i: any) => ({ ...newInvestimento(i.ordem ?? 0), ...i }));
-      pagamentos = (r.pagamentos || []).map((p: any) => ({ ...newPagamento(p.ordem ?? 0), ...p }));
+      hoteis = (r.hoteis || []).map((h) => ({ ...newHotel(h.ordem ?? 0), ...h }));
+      passeios = (r.passeios || []).map((p) => ({ ...newPasseio(p.ordem ?? 0), ...p }));
+      transportes = (r.transportes || []).map((t) => ({ ...newTransporte(t.ordem ?? 0), ...t }));
+      investimentos = (r.investimentos || []).map((i) => ({ ...newInvestimento(i.ordem ?? 0), ...i }));
+      pagamentos = (r.pagamentos || []).map((p) => ({ ...newPagamento(p.ordem ?? 0), ...p }));
 
       if (sugestoesData) {
-        sugestoes = sugestoesData || {};
+        sugestoes = sugestoesData;
       }
 
       if (settingsData) {
