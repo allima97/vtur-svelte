@@ -16,18 +16,30 @@ const TEMPLATE_DISPATCH_SELECT =
   'id, user_id, company_id, cliente_id, template_id, canal, categoria, status, recipient_name, recipient_contact, subject, sent_at, sent_day, created_at, updated_at';
 const MAX_TEMPLATE_DISPATCH_BODY_BYTES = 64 * 1024;
 
-export const GET: RequestHandler = async ({ locals, url }) => {
+type TemplateDispatchRow = {
+  id?: string | null;
+  sent_at?: string | null;
+  created_at?: string | null;
+};
+
+type TemplateDispatchBody = Record<string, unknown>;
+
+type ClienteCompanyRow = {
+  company_id?: string | null;
+};
+
+export const GET: RequestHandler = async (event) => {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
       ensureModuloAccess(scope, ['parametros_crm', 'crm', 'clientes'], 1, 'Sem acesso a envios de templates.');
     }
 
-    const clienteId = String(url.searchParams.get('cliente_id') || '').trim();
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || 50)));
+    const clienteId = String(event.url.searchParams.get('cliente_id') || '').trim();
+    const limit = Math.min(100, Math.max(1, Number(event.url.searchParams.get('limit') || 50)));
 
     const buildQuery = (companyIdsFilter?: string[]) => {
       let query = client
@@ -60,20 +72,20 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         return data || [];
       }
 
-      const rows: any[] = [];
+      const rows: TemplateDispatchRow[] = [];
       for (const batch of chunkArray(scope.companyIds)) {
         const { data, error } = await buildQuery(batch);
         if (error) throw error;
-        rows.push(...(data || []));
+        rows.push(...((data || []) as TemplateDispatchRow[]));
       }
 
-      const rowsById = new Map<string, any>();
+      const rowsById = new Map<string, TemplateDispatchRow>();
       for (const row of rows) {
         rowsById.set(String(row?.id || ''), row);
       }
 
       return Array.from(rowsById.values())
-        .sort((left: any, right: any) =>
+        .sort((left, right) =>
           String(right?.sent_at || right?.created_at || '').localeCompare(String(left?.sent_at || left?.created_at || ''))
         )
         .slice(0, limit);
@@ -85,15 +97,16 @@ export const GET: RequestHandler = async ({ locals, url }) => {
   }
 };
 
-export const POST: RequestHandler = async ({ locals, request }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_TEMPLATE_DISPATCH_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
     if (!scope.isAdmin) {
@@ -102,7 +115,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as TemplateDispatchBody)
         : {};
 
     const clienteId = String(body.clienteId || body.cliente_id || '').trim();
@@ -131,7 +144,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
       return json({ error: 'Cliente nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const clienteCompanyId = String((cliente as any).company_id || '').trim();
+    const clienteCompanyId = String((cliente as ClienteCompanyRow).company_id || '').trim();
     if (!scope.isAdmin) {
       const scopedCompanySet = cleanStringSet(scope.companyIds);
       const dentroDaEmpresa = clienteCompanyId && scopedCompanySet.has(clienteCompanyId);
