@@ -1295,7 +1295,10 @@
     running = true;
     operationMessage = 'Saneando recibos duplicados da conciliação no mês selecionado.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+      const data = await apiPost<{
+        duplicatesRemoved?: number | null;
+        duplicateGroups?: number | null;
+      }>('/api/v1/conciliacao/run', {
         companyId: empresaId || undefined,
         cleanupDuplicatesOnly: true,
         recalculateMonth: monthFilter
