@@ -1186,7 +1186,14 @@
       ? 'Reprocessando vínculo e valores do recibo selecionado.'
       : 'Executando conciliação automática dos recibos pendentes.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/run', {
+      const data = await apiPost<{
+        updateErrors?: number | null;
+        reconciled?: number | null;
+        reconciliados?: number | null;
+        recalculated?: number | null;
+        updatedTaxes?: number | null;
+        duplicatesRemoved?: number | null;
+      }>('/api/v1/conciliacao/run', {
         companyId: empresaId || undefined,
         limit: reciboId ? 1 : 100,
         conciliacaoReciboId: reciboId || null
