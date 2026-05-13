@@ -18,6 +18,7 @@ type RoteiroDiaPayload = {
   percurso?: string | null;
   data?: string | null;
   descricao?: string | null;
+  ordem?: unknown;
   [key: string]: unknown;
 };
 
@@ -29,6 +30,45 @@ type RoteiroDiaDraft = {
   percurso: string;
   data: string | null;
   descricao: string;
+  ordem: number;
+};
+
+type RoteiroHotelPayload = {
+  cidade?: string | null;
+  hotel?: string | null;
+  endereco?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  noites?: unknown;
+  qtd_apto?: unknown;
+  apto?: string | null;
+  categoria?: string | null;
+  regime?: string | null;
+  tipo_tarifa?: string | null;
+  qtd_adultos?: unknown;
+  qtd_criancas?: unknown;
+  valor_original?: unknown;
+  valor_final?: unknown;
+  ordem?: unknown;
+};
+
+type RoteiroHotelDraft = {
+  roteiro_id: string;
+  cidade: string | null;
+  hotel: string | null;
+  endereco: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  noites: unknown;
+  qtd_apto: unknown;
+  apto: string | null;
+  categoria: string | null;
+  regime: string | null;
+  tipo_tarifa: string | null;
+  qtd_adultos: unknown;
+  qtd_criancas: unknown;
+  valor_original: unknown;
+  valor_final: unknown;
   ordem: number;
 };
 
@@ -65,11 +105,17 @@ function normalizeDiaKey(d: {
   return `${data}__${cidade}__${percurso}__${descricao}`;
 }
 
-function stripPercursoField(list: RoteiroDiaPayload[]) {
+function stripPercursoField(list: RoteiroDiaDraft[]): Array<Omit<RoteiroDiaDraft, 'percurso'>> {
   return (list || []).map((d) => {
     const { percurso: _percurso, ...rest } = d || {};
     return rest;
   });
+}
+
+function readDiaOrdem(row: RoteiroDiaPayload): number {
+  if (typeof row?.ordem === 'number' && Number.isFinite(row.ordem)) return row.ordem;
+  const parsed = Number(row?.ordem);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function isMissingPercursoColumn(error: unknown) {
@@ -194,7 +240,7 @@ export async function POST(event: RequestEvent) {
       await client.from('roteiro_hotel').delete().eq('roteiro_id', roteiroId);
       if (body.hoteis.length > 0) {
         const hoteis = body.hoteis
-          .map((h: any, idx: number) => ({
+          .map((h: RoteiroHotelPayload, idx: number): RoteiroHotelDraft => ({
             roteiro_id: roteiroId,
             cidade: h.cidade || null,
             hotel: h.hotel || null,
@@ -213,7 +259,7 @@ export async function POST(event: RequestEvent) {
             valor_final: h.valor_final || null,
             ordem: typeof h.ordem === 'number' ? h.ordem : idx
           }))
-          .filter((h: any) =>
+          .filter((h: RoteiroHotelDraft) =>
             Boolean(
               String(h.cidade || '').trim() ||
                 String(h.hotel || '').trim() ||
@@ -363,8 +409,7 @@ export async function POST(event: RequestEvent) {
           .slice()
           .sort(
             (a: RoteiroDiaPayload, b: RoteiroDiaPayload) =>
-              (Number.isFinite(a?.ordem) ? a.ordem : 0) -
-              (Number.isFinite(b?.ordem) ? b.ordem : 0)
+              readDiaOrdem(a) - readDiaOrdem(b)
           );
 
         const normalized = sorted
@@ -409,6 +454,7 @@ export async function POST(event: RequestEvent) {
         }
 
         const dias = unique.map((d, idx) => ({ ...d, ordem: idx }));
+        const strippedDias = stripPercursoField(dias);
         let payload: RoteiroDiaDraft[] | Array<Omit<RoteiroDiaDraft, 'percurso'>> = dias;
         let triedStrip = false;
 
@@ -419,7 +465,7 @@ export async function POST(event: RequestEvent) {
           if (!error) break;
 
           if (!triedStrip && isMissingPercursoColumn(error)) {
-            payload = stripPercursoField(payload);
+            payload = strippedDias;
             triedStrip = true;
             continue;
           }
@@ -428,7 +474,7 @@ export async function POST(event: RequestEvent) {
             let { error: insertErr } = await client.from('roteiro_dia').insert(payload);
             if (insertErr) {
               if (!triedStrip && isMissingPercursoColumn(insertErr)) {
-                payload = stripPercursoField(payload);
+                payload = strippedDias;
                 triedStrip = true;
                 ({ error: insertErr } = await client.from('roteiro_dia').insert(payload));
               } else {
