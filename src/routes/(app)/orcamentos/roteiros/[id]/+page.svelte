@@ -639,6 +639,30 @@
 
   // ─── Gerar orçamento ───────────────────────────────────────────────────────
   let clienteSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+  interface ClienteBuscaResult {
+    id?: string | null;
+    nome?: string | null;
+    email?: string | null;
+    whatsapp?: string | null;
+  }
+  interface ClienteBuscaResponse {
+    items?: ClienteBuscaResult[];
+    clientes?: ClienteBuscaResult[];
+  }
+
+  function normalizeClienteBuscaResults(
+    data: ClienteBuscaResponse | ClienteBuscaResult[]
+  ): { id: string; nome: string; email?: string; whatsapp?: string }[] {
+    const rows = Array.isArray(data) ? data : data.items || data.clientes || [];
+    return rows
+      .map((item) => ({
+        id: item.id ? String(item.id) : '',
+        nome: item.nome ? String(item.nome) : '',
+        email: item.email ? String(item.email) : undefined,
+        whatsapp: item.whatsapp ? String(item.whatsapp) : undefined
+      }))
+      .filter((item) => item.id.length > 0 && item.nome.length > 0);
+  }
 
   $effect(() => {
     if (!showGerarModal || !gerarClienteQ || gerarClienteQ.length < 2) {
@@ -649,8 +673,8 @@
     clienteSearchTimeout = setTimeout(async () => {
       gerarClienteLoading = true;
       try {
-        const data = await apiGet<any>('/api/v1/clientes', { search: gerarClienteQ });
-        gerarClienteResults = data.items || data.clientes || data || [];
+        const data = await apiGet<ClienteBuscaResponse | ClienteBuscaResult[]>('/api/v1/clientes', { search: gerarClienteQ });
+        gerarClienteResults = normalizeClienteBuscaResults(data);
       } catch {
         gerarClienteResults = [];
       } finally {
