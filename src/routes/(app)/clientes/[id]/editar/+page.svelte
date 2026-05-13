@@ -52,6 +52,13 @@
   let errorMessage: string | null = null;
   let abaAtiva: 'dados' | 'acompanhantes' = 'dados';
 
+  type CepResponse = {
+    erro?: boolean;
+    logradouro?: string;
+    localidade?: string;
+    uf?: string;
+  };
+
   const tipoPessoaOptions = [
     { value: 'PF', label: 'Pessoa Fisica' },
     { value: 'PJ', label: 'Pessoa Juridica' }
@@ -67,7 +74,7 @@
     errorMessage = null;
 
     try {
-      const data = await apiGet<Record<string, any>>(`/api/v1/clientes/${clienteId}`);
+      const data = await apiGet<Record<string, unknown>>(`/api/v1/clientes/${clienteId}`);
       formData = fillClienteFormFromApi(data);
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : 'Erro ao carregar cliente.';
@@ -124,7 +131,7 @@
 
     try {
       cepStatus = 'Buscando CEP...';
-      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
       if (data?.erro) {
         throw new Error('CEP nao encontrado.');
       }

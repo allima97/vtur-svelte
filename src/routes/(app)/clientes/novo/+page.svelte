@@ -41,6 +41,13 @@
   let errors: Record<string, string> = {};
   let cepStatus: string | null = null;
 
+  type CepResponse = {
+    erro?: boolean;
+    logradouro?: string;
+    localidade?: string;
+    uf?: string;
+  };
+
   const tipoPessoaOptions = [
     { value: 'PF', label: 'Pessoa Fisica' },
     { value: 'PJ', label: 'Pessoa Juridica' }
@@ -92,7 +99,7 @@
 
     try {
       cepStatus = 'Buscando CEP...';
-      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
       if (data?.erro) {
         throw new Error('CEP nao encontrado.');
       }
