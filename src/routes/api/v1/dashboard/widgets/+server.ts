@@ -42,14 +42,25 @@ function writeCache(key: string, payload: unknown) {
   cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, payload });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function readErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (isRecord(error) && typeof error.message === 'string') return error.message;
+  return '';
+}
+
 function normalizeItems(input: unknown): WidgetInput[] {
   if (!Array.isArray(input)) return [];
   return input
     .map((raw) => {
-      const widget = String((raw as any)?.widget || '').trim();
+      if (!isRecord(raw)) return null;
+      const widget = String(raw.widget || '').trim();
       if (!widget) return null;
-      const visivel = (raw as any)?.visivel;
-      const settings = (raw as any)?.settings;
+      const visivel = raw.visivel;
+      const settings = raw.settings;
       return {
         widget,
         visivel: typeof visivel === 'boolean' ? visivel : undefined,
@@ -116,7 +127,7 @@ export async function POST(event: RequestEvent) {
       return new Response('Payload muito grande.', { status: 413, headers: NO_STORE_TEXT_HEADERS });
     }
     const body = safeJsonParse(rawBody);
-    const items = normalizeItems((body as any)?.items);
+    const items = normalizeItems(isRecord(body) ? body.items : undefined);
 
     if (!items.length) {
       return new Response('items obrigatorio.', { status: 400, headers: NO_STORE_TEXT_HEADERS });
@@ -137,14 +148,10 @@ export async function POST(event: RequestEvent) {
     try {
       const { error: insertError } = await client.from('dashboard_widgets').insert(rows);
       if (insertError) throw insertError;
-    } catch (err: any) {
-      const msg = String(err?.message || '');
+    } catch (err: unknown) {
+      const msg = readErrorMessage(err);
       if (msg.toLowerCase().includes('settings')) {
-        const payloadSemSettings = rows.map((row) => {
-          const clone: any = { ...row };
-          delete clone.settings;
-          return clone;
-        });
+        const payloadSemSettings = rows.map(({ settings: _settings, ...row }) => row);
         const { error: retryError } = await client.from('dashboard_widgets').insert(payloadSemSettings);
         if (retryError) throw retryError;
       } else {
