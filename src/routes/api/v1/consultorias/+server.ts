@@ -23,6 +23,39 @@ type ConsultoriaExistingRow = {
   created_by?: string | null;
 };
 
+type ConsultoriaRequestBody = {
+  id?: unknown;
+  cliente_id?: unknown;
+  clienteId?: unknown;
+  cliente_nome?: unknown;
+  clienteNome?: unknown;
+  data_hora?: unknown;
+  dataHora?: unknown;
+  lembrete?: unknown;
+  destino?: unknown;
+  quantidade_pessoas?: unknown;
+  quantidadePessoas?: unknown;
+  orcamento_id?: unknown;
+  orcamentoId?: unknown;
+  taxa_consultoria?: unknown;
+  taxaConsultoria?: unknown;
+  notas?: unknown;
+  fechada?: unknown;
+  fechada_em?: unknown;
+};
+
+function getBodyValue(body: ConsultoriaRequestBody, ...keys: (keyof ConsultoriaRequestBody)[]) {
+  for (const key of keys) {
+    const value = body[key];
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+function asOptionalString(value: unknown) {
+  return value == null ? undefined : String(value);
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -84,14 +117,14 @@ export async function POST(event: RequestEvent) {
     await resolveUserScope(client, user.id);
 
     const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as ConsultoriaRequestBody)
         : {};
 
-    const clienteNome = String(
-      body.cliente_nome || body.clienteNome || "",
-    ).trim();
-    const dataHora = body.data_hora || body.dataHora;
+    const clienteNome = String(getBodyValue(body, "cliente_nome", "clienteNome") ?? "").trim();
+    const dataHora = getBodyValue(body, "data_hora", "dataHora");
+    const clienteId = asOptionalString(getBodyValue(body, "cliente_id", "clienteId"));
+    const orcamentoId = asOptionalString(getBodyValue(body, "orcamento_id", "orcamentoId"));
 
     if (!clienteNome) {
       return errorResponse("cliente_nome é obrigatório.", 400);
@@ -101,19 +134,19 @@ export async function POST(event: RequestEvent) {
     }
 
     const payload = {
-      cliente_id: isUuid(body.cliente_id || body.clienteId)
-        ? body.cliente_id || body.clienteId
+      cliente_id: isUuid(clienteId)
+        ? clienteId
         : null,
       cliente_nome: clienteNome,
-      data_hora: new Date(dataHora).toISOString(),
+      data_hora: new Date(String(dataHora)).toISOString(),
       lembrete: String(body.lembrete || "15min").trim(),
       destino: String(body.destino || "").trim() || null,
       quantidade_pessoas: Math.max(
         1,
         Number(body.quantidade_pessoas ?? body.quantidadePessoas ?? 1) || 1,
       ),
-      orcamento_id: isUuid(body.orcamento_id || body.orcamentoId)
-        ? body.orcamento_id || body.orcamentoId
+      orcamento_id: isUuid(orcamentoId)
+        ? orcamentoId
         : null,
       taxa_consultoria: Number.isFinite(
         Number(body.taxa_consultoria ?? body.taxaConsultoria ?? 0),
@@ -161,8 +194,8 @@ export async function PATCH(event: RequestEvent) {
     const scope = await resolveUserScope(client, user.id);
 
     const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+      bodyResult.data && typeof bodyResult.data === "object"
+        ? (bodyResult.data as ConsultoriaRequestBody)
         : {};
     const id = String(body.id || "").trim();
 
@@ -201,15 +234,15 @@ export async function PATCH(event: RequestEvent) {
 
     // Aceitar campos em snake_case (padrão) ou camelCase (compatibilidade)
     if (body.cliente_id !== undefined || body.clienteId !== undefined) {
-      const val = body.cliente_id ?? body.clienteId;
+      const val = asOptionalString(getBodyValue(body, "cliente_id", "clienteId"));
       payload.cliente_id = isUuid(val) ? val : null;
     }
     if (body.cliente_nome !== undefined || body.clienteNome !== undefined)
       payload.cliente_nome =
         String(body.cliente_nome ?? body.clienteNome ?? "").trim() || null;
     if (body.data_hora !== undefined || body.dataHora !== undefined) {
-      const raw = body.data_hora ?? body.dataHora;
-      if (raw) payload.data_hora = new Date(raw).toISOString();
+      const raw = getBodyValue(body, "data_hora", "dataHora");
+      if (raw) payload.data_hora = new Date(String(raw)).toISOString();
     }
     if (body.lembrete !== undefined) payload.lembrete = body.lembrete;
     if (body.destino !== undefined)
@@ -221,7 +254,7 @@ export async function PATCH(event: RequestEvent) {
       payload.quantidade_pessoas =
         Number(body.quantidade_pessoas ?? body.quantidadePessoas ?? 1) || 1;
     if (body.orcamento_id !== undefined || body.orcamentoId !== undefined) {
-      const val = body.orcamento_id ?? body.orcamentoId;
+      const val = asOptionalString(getBodyValue(body, "orcamento_id", "orcamentoId"));
       payload.orcamento_id = isUuid(val) ? val : null;
     }
     if (
