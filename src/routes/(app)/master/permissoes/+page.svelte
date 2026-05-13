@@ -18,10 +18,20 @@
     ativos: number;
   };
 
+  type GlobalModuleSetting = {
+    module_key: string;
+    enabled?: boolean | null;
+  };
+
+  type SystemModuleCatalogItem = {
+    key: string;
+    label: string;
+  };
+
   let loading = true;
   let rows: UserPermissionRow[] = [];
   let globalModules: Array<{ module_key: string; enabled: boolean }> = [];
-  let systemModuleCatalog: Array<{ key: string; label: string }> = [];
+  let systemModuleCatalog: SystemModuleCatalogItem[] = [];
 
   const columns = [
     {
@@ -58,9 +68,13 @@
   async function loadPage() {
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/admin/permissoes');
+      const payload = await apiGet<{
+        items?: UserPermissionRow[];
+        global_modules?: GlobalModuleSetting[];
+        system_module_catalog?: SystemModuleCatalogItem[];
+      }>('/api/v1/admin/permissoes');
       rows = payload.items || [];
-      globalModules = (payload.global_modules || []).map((item: any) => ({
+      globalModules = (payload.global_modules || []).map((item) => ({
         module_key: item.module_key,
         enabled: item.enabled !== false
       }));

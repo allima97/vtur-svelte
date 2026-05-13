@@ -16,11 +16,23 @@
     ativo: boolean;
   };
 
+  type PermissionSection = {
+    id: string;
+    titulo: string;
+    modulos: string[];
+  };
+
+  type PermissionDetailResponse = {
+    user?: { id: string; nome: string; email: string | null } | null;
+    permissions?: PermissionEntry[];
+    sections?: PermissionSection[];
+  };
+
   let loading = true;
   let saving = false;
   let userInfo: { id: string; nome: string; email: string | null } | null = null;
   let permissions: PermissionEntry[] = [];
-  let sections: Array<{ id: string; titulo: string; modulos: string[] }> = [];
+  let sections: PermissionSection[] = [];
 
   const levels = [
     { value: 'none', label: 'Nenhum' },
@@ -33,15 +45,15 @@
 
   let lastLoadedId = '';
 
-  function entriesForSection(section: { modulos: string[] }) {
+  function entriesForSection(section: Pick<PermissionSection, 'modulos'>) {
     return permissions.filter((entry) => section.modulos.includes(entry.label));
   }
 
   async function loadPage() {
     loading = true;
     try {
-      const payload = await apiGet<any>(`/api/v1/admin/permissoes/${$page.params.id}`);
-      userInfo = payload.user;
+      const payload = await apiGet<PermissionDetailResponse>(`/api/v1/admin/permissoes/${$page.params.id}`);
+      userInfo = payload.user || null;
       permissions = payload.permissions || [];
       sections = payload.sections || [];
     } catch (err) {
