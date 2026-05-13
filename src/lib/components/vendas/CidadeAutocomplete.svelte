@@ -118,10 +118,17 @@
     return Array.from(byId.values());
   }
 
-  function parseItems(payload: any): CidadeOption[] {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.items)) return payload.items;
+  function parseItems(payload: unknown): CidadeOption[] {
+    if (Array.isArray(payload)) return payload as CidadeOption[];
+
+    const items = payload && typeof payload === 'object' ? (payload as { items?: unknown }).items : null;
+    if (Array.isArray(items)) return items as CidadeOption[];
+
     return [];
+  }
+
+  function hasCidadeId(payload: unknown): payload is CidadeOption {
+    return Boolean(payload && typeof payload === 'object' && String((payload as { id?: unknown }).id || '').trim());
   }
 
   function resolveSelectedCity() {
@@ -196,7 +203,7 @@
     ensuringId = idValue;
 
     try {
-      let payload: any = null;
+      let payload: unknown = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           payload = await apiGet('/api/v1/vendas/cidades-busca', { id: idValue }, undefined, 30_000);
@@ -205,7 +212,7 @@
           if (attempt < 2) await new Promise(r => setTimeout(r, 600));
         }
       }
-      if (!payload?.id) return;
+      if (!hasCidadeId(payload)) return;
       dispatch('loaded', [payload]);
       if (!showOptions) searchText = getCidadeLabel(payload);
     } catch {

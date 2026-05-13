@@ -57,9 +57,12 @@
     return Array.from(byId.values());
   }
 
-  function parseItems(payload: any): ClienteOption[] {
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.items)) return payload.items;
+  function parseItems(payload: unknown): ClienteOption[] {
+    if (Array.isArray(payload)) return payload as ClienteOption[];
+
+    const items = payload && typeof payload === 'object' ? (payload as { items?: unknown }).items : null;
+    if (Array.isArray(items)) return items as ClienteOption[];
+
     return [];
   }
 
