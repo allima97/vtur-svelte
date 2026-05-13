@@ -15,7 +15,7 @@
  */
 
 import { writable, derived, get } from 'svelte/store';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   MAPA_MODULOS,
   listarModulosComHeranca,
@@ -159,10 +159,15 @@ const initialState: PermissoesState = {
 function createPermissoesStore() {
   const { subscribe, set, update } = writable<PermissoesState>(initialState);
 
-  const isPermissionOrSessionError = (error: any) => {
-    const code = String(error?.code || '').toUpperCase();
-    const status = Number(error?.status || error?.statusCode || 0);
-    const message = String(error?.message || '').toLowerCase();
+  const getErrorField = (error: unknown, field: string): unknown => {
+    if (!error || typeof error !== 'object') return undefined;
+    return (error as Record<string, unknown>)[field];
+  };
+
+  const isPermissionOrSessionError = (error: unknown) => {
+    const code = String(getErrorField(error, 'code') || '').toUpperCase();
+    const status = Number(getErrorField(error, 'status') || getErrorField(error, 'statusCode') || 0);
+    const message = String(getErrorField(error, 'message') || '').toLowerCase();
     return (
       code === '42501' ||
       code === 'PGRST301' ||
@@ -174,8 +179,8 @@ function createPermissoesStore() {
     );
   };
 
-  const isTransientNetworkError = (error: any) => {
-    const message = String(error?.message || '').toLowerCase();
+  const isTransientNetworkError = (error: unknown) => {
+    const message = String(getErrorField(error, 'message') || '').toLowerCase();
     return (
       message.includes('failed to fetch') ||
       message.includes('err_connection_closed') ||
@@ -190,7 +195,7 @@ function createPermissoesStore() {
     update((s) => ({ ...s, loading: true, error: null }));
 
     try {
-      let user: any = null;
+      let user: User | null = null;
       try {
         const {
           data: { user: directUser },
