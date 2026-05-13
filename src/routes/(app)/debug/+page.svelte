@@ -7,7 +7,41 @@
   import { apiGet } from '$lib/services/api';
   import { Bug, RefreshCw, CheckCircle, XCircle } from 'lucide-svelte';
 
-  let debugData: any = null;
+  type DebugPermissionsResponse = {
+    usuario?: {
+      id?: string | null;
+      nome?: string | null;
+      email?: string | null;
+      company_id?: string | null;
+      user_type_id?: string | null;
+      uso_individual?: boolean | null;
+    } | null;
+    scope?: {
+      papel?: string | null;
+      isAdmin?: boolean | null;
+      isMaster?: boolean | null;
+      isGestor?: boolean | null;
+      isVendedor?: boolean | null;
+      companyIds?: string[] | null;
+    } | null;
+    permissoes_detalhadas?: Array<{
+      modulo?: string | null;
+      nivel?: number | string | null;
+      company_id?: string | null;
+    }> | null;
+    empresas_disponiveis?: Array<{
+      id: string;
+      nome_fantasia?: string | null;
+    }> | null;
+    sample_clientes?: Array<{
+      id: string;
+      nome?: string | null;
+      company_id?: string | null;
+      created_by?: string | null;
+    }> | null;
+  };
+
+  let debugData: DebugPermissionsResponse | null = null;
   let loading = true;
   let error: string | null = null;
 
@@ -19,15 +53,15 @@
     loading = true;
     error = null;
     try {
-      debugData = await apiGet('/api/v1/debug/permissions');
-    } catch (err: any) {
-      error = err.message;
+      debugData = await apiGet<DebugPermissionsResponse>('/api/v1/debug/permissions');
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
     } finally {
       loading = false;
     }
   }
 
-  function formatJSON(obj: any): string {
+  function formatJSON(obj: unknown): string {
     return JSON.stringify(obj, null, 2);
   }
 </script>
