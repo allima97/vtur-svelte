@@ -71,6 +71,39 @@ const PARAMETROS_COMISSAO_COLUMNS = [
   "updated_at",
 ];
 
+type UserParamRow = {
+  company_id?: unknown;
+  nome_completo?: unknown;
+};
+
+type ParametrosComissaoRow = {
+  id?: unknown;
+  company_id?: unknown;
+  owner_user_id?: unknown;
+  usar_taxas_na_meta?: unknown;
+  foco_valor?: unknown;
+  modo_corporativo?: unknown;
+  politica_cancelamento?: unknown;
+  foco_faturamento?: unknown;
+  conciliacao_sobrepoe_vendas?: unknown;
+  conciliacao_regra_ativa?: unknown;
+  conciliacao_tipo?: unknown;
+  conciliacao_meta_nao_atingida?: unknown;
+  conciliacao_meta_atingida?: unknown;
+  conciliacao_super_meta?: unknown;
+  conciliacao_tiers?: unknown;
+  conciliacao_faixas_loja?: unknown;
+  mfa_obrigatorio?: unknown;
+  exportacao_pdf?: unknown;
+  exportacao_excel?: unknown;
+  created_at?: unknown;
+  updated_at?: unknown;
+};
+
+type ParametrosSistemaBody = ParametrosComissaoRow & {
+  readonly?: unknown;
+};
+
 function readErrorField(error: unknown, field: string) {
   return error && typeof error === "object"
     ? (error as Record<string, unknown>)[field]
@@ -191,15 +224,17 @@ export async function GET(event) {
 
     if (userError) throw userError;
 
-    const companyId = String((userRow as any)?.company_id || "").trim() || null;
+    const currentUser = userRow as UserParamRow | null;
+    const companyId = String(currentUser?.company_id || "").trim() || null;
     const ownerNome =
-      String((userRow as any)?.nome_completo || "").trim() || null;
+      String(currentUser?.nome_completo || "").trim() || null;
 
     const { data, error: queryError } = await selectParametrosComissao(client, companyId);
 
     if (queryError) throw queryError;
 
-    const ownerUserId = String((data as any)?.owner_user_id || "").trim();
+    const paramsRow = data as ParametrosComissaoRow | null;
+    const ownerUserId = String(paramsRow?.owner_user_id || "").trim();
     let ownerUserNome = ownerNome;
 
     if (ownerUserId) {
@@ -208,13 +243,14 @@ export async function GET(event) {
         .select("nome_completo")
         .eq("id", ownerUserId)
         .maybeSingle();
+      const owner = ownerRow as UserParamRow | null;
       ownerUserNome =
         String(
-          (ownerRow as any)?.nome_completo || ownerUserNome || "",
+          owner?.nome_completo || ownerUserNome || "",
         ).trim() || ownerUserNome;
     }
 
-    if (!data) {
+    if (!paramsRow) {
       return json({
         params: {
           ...DEFAULT_PARAMS,
@@ -229,49 +265,49 @@ export async function GET(event) {
     }
 
     const conciliacaoContext: ParametrosConciliacaoShape = {
-      usar_taxas_na_meta: Boolean((data as any).usar_taxas_na_meta),
+      usar_taxas_na_meta: Boolean(paramsRow.usar_taxas_na_meta),
       foco_valor:
-        String((data as any).foco_valor || "bruto") === "liquido"
+        String(paramsRow.foco_valor || "bruto") === "liquido"
           ? "liquido"
           : "bruto",
       foco_faturamento:
-        String((data as any).foco_faturamento || "bruto") === "liquido"
+        String(paramsRow.foco_faturamento || "bruto") === "liquido"
           ? "liquido"
           : "bruto",
       conciliacao_sobrepoe_vendas: Boolean(
-        (data as any).conciliacao_sobrepoe_vendas,
+        paramsRow.conciliacao_sobrepoe_vendas,
       ),
-      conciliacao_regra_ativa: Boolean((data as any).conciliacao_regra_ativa),
+      conciliacao_regra_ativa: Boolean(paramsRow.conciliacao_regra_ativa),
       conciliacao_tipo: normalizeConciliacaoTipo(
-        (data as any).conciliacao_tipo,
+        String(paramsRow.conciliacao_tipo || ""),
       ),
       conciliacao_meta_nao_atingida:
-        (data as any).conciliacao_meta_nao_atingida != null
-          ? Number((data as any).conciliacao_meta_nao_atingida)
+        paramsRow.conciliacao_meta_nao_atingida != null
+          ? Number(paramsRow.conciliacao_meta_nao_atingida)
           : null,
       conciliacao_meta_atingida:
-        (data as any).conciliacao_meta_atingida != null
-          ? Number((data as any).conciliacao_meta_atingida)
+        paramsRow.conciliacao_meta_atingida != null
+          ? Number(paramsRow.conciliacao_meta_atingida)
           : null,
       conciliacao_super_meta:
-        (data as any).conciliacao_super_meta != null
-          ? Number((data as any).conciliacao_super_meta)
+        paramsRow.conciliacao_super_meta != null
+          ? Number(paramsRow.conciliacao_super_meta)
           : null,
       conciliacao_tiers: sanitizeConciliacaoTiers(
-        (data as any).conciliacao_tiers,
+        paramsRow.conciliacao_tiers,
       ),
     };
 
     const normalizedParams = {
-      id: (data as any).id || null,
+      id: paramsRow.id || null,
       company_id: companyId,
       owner_user_id: ownerUserId || user.id,
       owner_user_nome: ownerUserNome,
       usar_taxas_na_meta: conciliacaoContext.usar_taxas_na_meta,
       foco_valor: conciliacaoContext.foco_valor,
-      modo_corporativo: Boolean((data as any).modo_corporativo),
+      modo_corporativo: Boolean(paramsRow.modo_corporativo),
       politica_cancelamento:
-        String((data as any).politica_cancelamento || "cancelar_venda") ===
+        String(paramsRow.politica_cancelamento || "cancelar_venda") ===
         "estornar_recibos"
           ? "estornar_recibos"
           : "cancelar_venda",
@@ -285,21 +321,21 @@ export async function GET(event) {
       conciliacao_meta_atingida: conciliacaoContext.conciliacao_meta_atingida,
       conciliacao_super_meta: conciliacaoContext.conciliacao_super_meta,
       conciliacao_tiers: conciliacaoContext.conciliacao_tiers,
-      mfa_obrigatorio: Boolean((data as any).mfa_obrigatorio),
-      exportacao_pdf: Boolean((data as any).exportacao_pdf),
-      exportacao_excel: Boolean((data as any).exportacao_excel),
+      mfa_obrigatorio: Boolean(paramsRow.mfa_obrigatorio),
+      exportacao_pdf: Boolean(paramsRow.exportacao_pdf),
+      exportacao_excel: Boolean(paramsRow.exportacao_excel),
     };
 
     return json({
       params: {
         ...normalizedParams,
         conciliacao_faixas_loja: sanitizeConciliacaoBandRules(
-          (data as any).conciliacao_faixas_loja,
+          paramsRow.conciliacao_faixas_loja,
           conciliacaoContext,
         ),
       },
       ultima_atualizacao:
-        (data as any).updated_at || (data as any).created_at || null,
+        paramsRow.updated_at || paramsRow.created_at || null,
       origem: "banco",
       owner_nome: ownerUserNome,
     });
@@ -320,7 +356,7 @@ export async function POST(event) {
     const scope = await resolveUserScope(client, user.id);
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ParametrosSistemaBody)
         : {};
 
     if (
@@ -340,9 +376,10 @@ export async function POST(event) {
 
     if (userError) throw userError;
 
-    const companyId = String((userRow as any)?.company_id || "").trim() || null;
+    const currentUser = userRow as UserParamRow | null;
+    const companyId = String(currentUser?.company_id || "").trim() || null;
     const ownerNome =
-      String((userRow as any)?.nome_completo || "").trim() || null;
+      String(currentUser?.nome_completo || "").trim() || null;
 
     const normalizedBody: ParametrosConciliacaoShape = {
       usar_taxas_na_meta: Boolean(body.usar_taxas_na_meta),
@@ -354,7 +391,7 @@ export async function POST(event) {
           : "bruto",
       conciliacao_sobrepoe_vendas: Boolean(body.conciliacao_sobrepoe_vendas),
       conciliacao_regra_ativa: Boolean(body.conciliacao_regra_ativa),
-      conciliacao_tipo: normalizeConciliacaoTipo(body.conciliacao_tipo),
+      conciliacao_tipo: normalizeConciliacaoTipo(String(body.conciliacao_tipo || "")),
       conciliacao_meta_nao_atingida:
         body.conciliacao_meta_nao_atingida === "" ||
         body.conciliacao_meta_nao_atingida == null
