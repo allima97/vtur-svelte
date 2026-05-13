@@ -11,6 +11,11 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SUGESTAO_BODY_BYTES = 16 * 1024;
 
+type RoteiroSugestaoRow = {
+  id?: string | null;
+  uso_count?: number | null;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -24,7 +29,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : null;
     if (!body || !body.tipo || !body.valor) {
       return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
@@ -49,13 +54,14 @@ export async function POST(event: RequestEvent) {
 
     if (existing) {
       // Já existe – incrementa contagem de uso
+      const existingSugestao = existing as RoteiroSugestaoRow;
       await client
         .from('roteiro_sugestoes')
         .update({
-          uso_count: ((existing as any).uso_count || 1) + 1,
+          uso_count: (existingSugestao.uso_count || 1) + 1,
           updated_at: new Date().toISOString()
         })
-        .eq('id', (existing as any).id);
+        .eq('id', existingSugestao.id);
 
       return json({ ok: true, novo: false }, { headers: NO_STORE_HEADERS });
     }

@@ -23,7 +23,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : null;
     if (!body || !body.tipo || !body.valor) {
       return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
