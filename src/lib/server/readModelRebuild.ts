@@ -33,6 +33,23 @@ const inProgressKeys = new Set<string>();
 let pendingRebuildParams: { companyIds: string[]; monthKeys: string[] } | null = null;
 let rebuildScheduled = false;
 
+export type ExecutionContextLike = { waitUntil: (p: Promise<unknown>) => void };
+
+function isExecutionContextLike(value: unknown): value is ExecutionContextLike {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof (value as { waitUntil?: unknown }).waitUntil === 'function',
+  );
+}
+
+export function getPlatformExecutionContext(platform: unknown): ExecutionContextLike | null {
+  const ctx = platform && typeof platform === 'object'
+    ? (platform as { ctx?: unknown }).ctx
+    : null;
+  return isExecutionContextLike(ctx) ? ctx : null;
+}
+
 function monthStartFromKey(monthKey: string) {
   return `${monthKey}-01`;
 }
@@ -330,7 +347,7 @@ export async function rebuildReadModelForCompanyMonth(
 export function triggerRebuildAsync(params: {
   companyIds: string[];
   dataVenda?: string | null;
-  executionContext?: { waitUntil: (p: Promise<unknown>) => void } | null;
+  executionContext?: ExecutionContextLike | null;
 }) {
   const companyIds: string[] = [];
   for (const companyId of params.companyIds) {

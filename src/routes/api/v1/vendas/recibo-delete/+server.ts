@@ -12,7 +12,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 import { safeJsonParse } from '$lib/utils/json';
@@ -70,7 +70,7 @@ export async function POST(event: RequestEvent) {
     // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
     triggerRebuildAsync({
       companyIds: scopedCompanyIds,
-      executionContext: (event.platform as any)?.ctx ?? null,
+      executionContext: getPlatformExecutionContext(event.platform),
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)

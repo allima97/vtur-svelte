@@ -66,7 +66,9 @@ export async function POST(event: RequestEvent) {
       return new Response('Recibo nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const produtoResolvidoId = String((receipt as any)?.produto_resolvido_id || '').trim();
+    const produtoResolvidoId = String(
+      (receipt as { produto_resolvido_id?: string | null })?.produto_resolvido_id || ''
+    ).trim();
     if (!isUuid(produtoResolvidoId)) {
       return new Response('Recibo sem produto valido para definir como principal.', { status: 400, headers: NO_STORE_HEADERS });
     }

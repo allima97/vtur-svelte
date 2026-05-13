@@ -12,7 +12,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readTextBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 import { safeJsonParse } from '$lib/utils/json';
@@ -122,7 +122,7 @@ export async function PATCH(event: RequestEvent) {
       return new Response('Produto nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const tipoProdutoId = String((produto as any)?.tipo_produto || '').trim();
+    const tipoProdutoId = String((produto as { tipo_produto?: string | null })?.tipo_produto || '').trim();
     if (!isUuid(tipoProdutoId)) {
       return new Response('Produto sem tipo de produto valido.', { status: 400, headers: NO_STORE_HEADERS });
     }
@@ -154,7 +154,7 @@ export async function PATCH(event: RequestEvent) {
     // Reconstruir read model de ranking de forma assíncrona (fire-and-forget)
     triggerRebuildAsync({
       companyIds: scopedCompanyIds,
-      executionContext: (event.platform as any)?.ctx ?? null,
+      executionContext: getPlatformExecutionContext(event.platform),
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)

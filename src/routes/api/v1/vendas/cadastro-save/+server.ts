@@ -20,7 +20,7 @@ import {
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 import { invalidateSalesReadModels } from '$lib/server/readModelCache';
-import { triggerRebuildAsync } from '$lib/server/readModelRebuild';
+import { getPlatformExecutionContext, triggerRebuildAsync } from '$lib/server/readModelRebuild';
 import { publishKvInvalidationAsync } from '$lib/server/kvInvalidation';
 import { cleanStringSet } from '$lib/utils/array';
 
@@ -221,7 +221,7 @@ export async function POST(event: RequestEvent) {
     triggerRebuildAsync({
       companyIds: invalidationCompanyIds,
       dataVenda: String(vendaPayload.data_venda || ''),
-      executionContext: (event.platform as any)?.ctx ?? null,
+      executionContext: getPlatformExecutionContext(event.platform),
     });
 
     // Publicar invalidação no KV para propagar para outras instâncias Workers (fire-and-forget)
