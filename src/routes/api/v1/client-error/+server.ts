@@ -14,18 +14,19 @@ function trimField(value: unknown) {
   return text.length <= MAX_FIELD_CHARS ? text : text.slice(0, MAX_FIELD_CHARS);
 }
 
-function sanitizePayload(payload: any) {
+function sanitizePayload(payload: unknown) {
   if (!payload || typeof payload !== 'object') {
     return { message: '' };
   }
+  const fields = payload as Record<string, unknown>;
 
   return {
-    message: trimField(payload.message),
-    stack: dev ? trimField(payload.stack) : '',
-    page: trimField(payload.page),
-    source: trimField(payload.source),
-    ts: trimField(payload.ts),
-    ua: trimField(payload.ua)
+    message: trimField(fields.message),
+    stack: dev ? trimField(fields.stack) : '',
+    page: trimField(fields.page),
+    source: trimField(fields.source),
+    ts: trimField(fields.ts),
+    ua: trimField(fields.ua)
   };
 }
 
@@ -66,7 +67,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         ts: safePayload.ts
       });
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('CLIENT_ERROR_PARSE', err);
   }
 
