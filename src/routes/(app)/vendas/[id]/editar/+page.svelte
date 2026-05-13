@@ -118,6 +118,39 @@
     contrato_path?: string | null;
   };
 
+  type VendaEditPayload = {
+    vendedor_id?: string | null;
+    cliente_id?: string | null;
+    destino_id?: string | null;
+    destino_cidade_id?: string | null;
+    data_lancamento?: string | null;
+    data_venda?: string | null;
+    data_embarque?: string | null;
+    data_final?: string | null;
+    desconto_comercial_aplicado?: boolean | null;
+    desconto_comercial_valor?: string | number | null;
+    valor_total?: string | number | null;
+    valor_total_bruto?: string | number | null;
+    valor_total_pago?: string | number | null;
+    valor_taxas?: string | number | null;
+    valor_nao_comissionado?: string | number | null;
+    status?: string | null;
+    cancelada?: boolean | null;
+    notas?: string | null;
+    destino?: ProdutoResolvidoOptionSource | null;
+    recibos?: ReciboPayload[] | null;
+    pagamentos?: PagamentoPayload[] | null;
+    vendedor?: { id?: string | null; nome?: string | null; nome_completo?: string | null } | null;
+    cliente?: {
+      id?: string | null;
+      nome: string;
+      cpf?: string | null;
+      telefone?: string | null;
+      email?: string | null;
+      whatsapp?: string | null;
+    } | null;
+  } | null;
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -242,9 +275,9 @@
 
   // Busca os dados brutos da venda via HTTP — não usa nenhum dado de loadBase.
   // Pode ser disparado em paralelo com loadBase().
-  async function fetchVendaData(): Promise<any | null> {
+  async function fetchVendaData(): Promise<VendaEditPayload> {
     try {
-      return await apiFetch<any>(`/api/v1/vendas/${vendaId}`, {
+      return await apiFetch<VendaEditPayload>(`/api/v1/vendas/${vendaId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false
       });
@@ -270,10 +303,10 @@
   }
 
   // Processa os dados da venda após loadBase() ter populado produtos/cidades/clientes/etc.
-  async function processVendaData(data: any) {
+  async function processVendaData(data: VendaEditPayload) {
     if (!data) return;
 
-    const sale = data || {};
+    const sale = data;
     const destinoProduto = produtoResolvidoToOption(sale?.destino);
     if (destinoProduto) mergeProdutos([destinoProduto]);
     const statusNormalizado = String(sale?.status || 'pendente') === 'aberto' ? 'pendente' : String(sale?.status || 'pendente');
@@ -398,10 +431,11 @@
       }));
     }
 
-    if (sale.vendedor && !vendedoresEquipe.some((v) => String(v.id) === String(sale.vendedor.id))) {
+    const saleVendedor = sale.vendedor;
+    if (saleVendedor && !vendedoresEquipe.some((v) => String(v.id) === String(saleVendedor.id))) {
       vendedoresEquipe = [
         ...vendedoresEquipe,
-        { id: String(sale.vendedor.id), nome_completo: sale.vendedor.nome_completo || sale.vendedor.nome }
+        { id: String(saleVendedor.id), nome_completo: saleVendedor.nome_completo || saleVendedor.nome }
       ];
     }
 
