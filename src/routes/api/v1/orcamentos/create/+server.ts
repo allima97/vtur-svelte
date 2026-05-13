@@ -58,8 +58,7 @@ export async function POST(event) {
       }
       if (!scope.isAdmin) {
         const clienteCompanyId = String((cliente as any).company_id || '').trim();
-        const scopeCompanyIds = new Set(scope.companyIds);
-        if (clienteCompanyId && !scopeCompanyIds.has(clienteCompanyId)) {
+        if (clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
           return json({ error: 'Cliente fora do seu escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
         }
       }
