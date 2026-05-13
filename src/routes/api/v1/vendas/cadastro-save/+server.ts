@@ -30,6 +30,39 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_VENDA_CADASTRO_SAVE_BODY_BYTES = 512 * 1024;
 
+type CadastroSaveVendaPayload = Parameters<typeof buildVendaPayload>[0] & {
+  id?: string | null;
+  cliente_id?: string | null;
+  destino_id?: string | null;
+  vendedor_id?: string | null;
+  company_id?: string | null;
+  empresa_id?: string | null;
+};
+
+type CadastroSavePagamentosPayload = Parameters<
+  typeof syncVendaChildren
+>[0]['pagamentos'];
+type CadastroSaveRecibosPayload = Parameters<
+  typeof syncVendaChildren
+>[0]['recibos'];
+
+type CadastroSaveBody = {
+  venda?: CadastroSaveVendaPayload;
+  recibos?: CadastroSaveRecibosPayload;
+  pagamentos?: CadastroSavePagamentosPayload;
+  orcamento_id?: string | null;
+};
+
+type UserCompanyRow = {
+  id?: string | null;
+  company_id?: string | null;
+};
+
+type VendaCompanyRow = {
+  id?: string | null;
+  company_id?: string | null;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -41,11 +74,11 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(adminClient, user.id);
 
-    const body =
+    const body: CadastroSaveBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as CadastroSaveBody)
         : {};
-    const { venda, recibos = [], pagamentos = [], orcamento_id } = body ?? {};
+    const { venda, recibos = [], pagamentos = [], orcamento_id } = body;
 
     // Validações mínimas
     if (!venda || typeof venda !== 'object') {
@@ -102,7 +135,8 @@ export async function POST(event: RequestEvent) {
       .eq('id', vendedorId)
       .maybeSingle();
     if (sellerScopeError) throw sellerScopeError;
-    const sellerCompanyId = String((sellerScope as any)?.company_id || '').trim() || null;
+    const sellerCompanyId =
+      String((sellerScope as UserCompanyRow | null)?.company_id || '').trim() || null;
 
     if (!targetCompanyId && sellerCompanyId && (scope.isAdmin || scopedCompanySet.has(sellerCompanyId))) {
       targetCompanyId = sellerCompanyId;
@@ -123,7 +157,8 @@ export async function POST(event: RequestEvent) {
         .eq('id', vendaId)
         .maybeSingle();
       if (existingSaleError) throw existingSaleError;
-      const existingCompanyId = String((existingSale as any)?.company_id || '').trim();
+      const existingCompanyId =
+        String((existingSale as VendaCompanyRow | null)?.company_id || '').trim();
       if (!existingSale?.id || (!scope.isAdmin && scopedCompanySet.size > 0 && !scopedCompanySet.has(existingCompanyId))) {
         return json({ error: 'Venda não encontrada ou sem permissão.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
@@ -153,8 +188,9 @@ export async function POST(event: RequestEvent) {
         String(venda.destino_id),
         targetCompanyId
       );
-    } catch (e: any) {
-      if (e?.message === 'DATA_VENDA_INVALIDA') {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '';
+      if (message === 'DATA_VENDA_INVALIDA') {
         return json({ error: 'data_venda inválida.' }, { status: 400, headers: NO_STORE_HEADERS });
       }
       throw e;
@@ -230,8 +266,8 @@ export async function POST(event: RequestEvent) {
     });
 
     return json({ ok: true, venda_id: vendaIdFinal }, { status: isEdit ? 200 : 201, headers: NO_STORE_HEADERS });
-  } catch (err: any) {
-    const code = err?.message;
+  } catch (err: unknown) {
+    const code = err instanceof Error ? err.message : '';
     if (code === 'RECIBO_DUPLICADO' || code === 'RESERVA_DUPLICADA' || code === 'RECIBO_INVALIDO') {
       return json({ error: code }, { status: 409, headers: NO_STORE_HEADERS });
     }
