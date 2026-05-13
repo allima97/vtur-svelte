@@ -20,6 +20,19 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_CIDADES_BODY_BYTES = 64 * 1024;
 
+type CidadeListRow = {
+  id: string;
+  nome: string | null;
+  subdivisao_id: string | null;
+  descricao: string | null;
+  created_at: string | null;
+  subdivisao?: {
+    id: string;
+    nome: string | null;
+    pais_id: string | null;
+  }[] | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -46,7 +59,7 @@ export async function GET(event) {
     const selectFields = `id, nome, subdivisao_id, descricao, created_at,
         subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id)`;
 
-    const { items, total } = await getCachedReadModel<{ items: any[]; total: number }>({
+    const { items, total } = await getCachedReadModel<{ items: CidadeListRow[]; total: number }>({
       key: buildReadModelCacheKey('cidades:list', {
         q,
         subdivisaoId,
@@ -98,16 +111,18 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const { id, nome, subdivisao_id, descricao } = body;
+    const { nome, descricao } = body;
+    const id = String(body.id || '').trim();
+    const subdivisaoId = String(body.subdivisao_id || '').trim();
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
-    if (!subdivisao_id || !isUuid(subdivisao_id)) return json({ error: 'Estado/Subdivisão obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (!subdivisaoId || !isUuid(subdivisaoId)) return json({ error: 'Estado/Subdivisão obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const payload = {
       nome: String(nome).trim(),
-      subdivisao_id,
+      subdivisao_id: subdivisaoId,
       descricao: String(descricao || '').trim() || null
     };
 

@@ -69,13 +69,13 @@ export async function PATCH(event) {
     if (!isUuid(cidadeId)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
-    const updateData: any = {};
+    const updateData: Record<string, string | null> = {};
     
-    if (body.nome !== undefined) updateData.nome = body.nome.trim();
-    if (body.descricao !== undefined) updateData.descricao = body.descricao?.trim() || null;
+    if (body.nome !== undefined) updateData.nome = String(body.nome).trim();
+    if (body.descricao !== undefined) updateData.descricao = String(body.descricao || '').trim() || null;
 
     if (Object.keys(updateData).length === 0) {
       return json({ error: 'Nenhum campo para atualizar.' }, { status: 400, headers: NO_STORE_HEADERS });
