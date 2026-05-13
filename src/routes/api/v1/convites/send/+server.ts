@@ -34,20 +34,30 @@ function titleCaseWithExceptions(input: string): string {
     .join(" ");
 }
 
-function isTableMissing(error: any) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function readErrorField(error: unknown, field: string) {
+  return error && typeof error === "object"
+    ? (error as Record<string, unknown>)[field]
+    : undefined;
+}
+
+function errorMessage(error: unknown) {
+  return String(readErrorField(error, "message") || error || "");
+}
+
+function isTableMissing(error: unknown) {
+  const code = String(readErrorField(error, "code") || "");
+  const message = errorMessage(error).toLowerCase();
   return code === "42P01" || message.includes("does not exist");
 }
 
-function isMissingColumn(error: any, column: string) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function isMissingColumn(error: unknown, column: string) {
+  const code = String(readErrorField(error, "code") || "");
+  const message = errorMessage(error).toLowerCase();
   return code === "42703" && message.includes(column.toLowerCase());
 }
 
-function isAuthAlreadyRegisteredError(error: any) {
-  const message = String(error?.message || error || "").toLowerCase();
+function isAuthAlreadyRegisteredError(error: unknown) {
+  const message = errorMessage(error).toLowerCase();
   return (
     message.includes("already registered") ||
     message.includes("already been registered") ||
