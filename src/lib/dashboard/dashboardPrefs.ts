@@ -17,11 +17,20 @@ export type DashboardKpiId =
   | 'dias_mes'
   | 'seguro_viagem';
 
+type DashboardKpiSettings = {
+  order?: DashboardKpiId[] | null;
+  visible?: Partial<Record<DashboardKpiId, boolean>> | null;
+};
+
+type DashboardWidgetSettings = {
+  kpis?: DashboardKpiSettings | null;
+} & Record<string, unknown>;
+
 export type WidgetPrefRow = {
   widget?: string | null;
   ordem?: number | null;
   visivel?: boolean | null;
-  settings?: any;
+  settings?: DashboardWidgetSettings | null;
 };
 
 export const DASHBOARD_WIDGETS: Array<{ id: DashboardWidgetId; titulo: string }> = [
