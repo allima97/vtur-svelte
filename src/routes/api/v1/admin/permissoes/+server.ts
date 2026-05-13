@@ -7,7 +7,8 @@ import {
   listManagedUsers,
   loadSystemModuleSettings,
   saveSystemModuleSettings,
-  saveUserPermissions
+  saveUserPermissions,
+  type ManagedPermissionRow
 } from '$lib/server/admin';
 import {
   agruparModulosPorSecao,
@@ -28,6 +29,13 @@ import { chunkArray } from '$lib/utils/array';
 
 const MAX_PERMISSIONS_BODY_BYTES = 256 * 1024;
 
+type SystemModuleSettingRows = Awaited<ReturnType<typeof loadSystemModuleSettings>>['rows'];
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const { session, user } = await event.locals.safeGetSession();
@@ -40,7 +48,7 @@ export async function GET(event: RequestEvent) {
 
     const users = await listManagedUsers(client, scope);
     const userIds = users.map((row) => row.id);
-    const permissionsRows: any[] = [];
+    const permissionsRows: ManagedPermissionRow[] = [];
 
     for (const batch of chunkArray(userIds)) {
       if (batch.length === 0) continue;
@@ -50,7 +58,7 @@ export async function GET(event: RequestEvent) {
         .in('usuario_id', batch);
 
       if (permissionsRes.error) throw permissionsRes.error;
-      permissionsRows.push(...(permissionsRes.data || []));
+      permissionsRows.push(...((permissionsRes.data || []) as ManagedPermissionRow[]));
     }
 
     const activePermissionCounts = new Map<string, number>();
@@ -60,7 +68,7 @@ export async function GET(event: RequestEvent) {
       activePermissionCounts.set(userId, Number(activePermissionCounts.get(userId) || 0) + 1);
     }
 
-    let globalModules: any[] = [];
+    let globalModules: SystemModuleSettingRows = [];
     try {
       const settings = await loadSystemModuleSettings(client);
       globalModules = settings.rows;
@@ -72,24 +80,22 @@ export async function GET(event: RequestEvent) {
     return json(
       {
         items: users.map((row) => {
+          const userType = firstRelation(row.user_types);
+          const company = firstRelation(row.companies);
+
           return {
             id: row.id,
             nome: row.nome_completo || row.email || 'Usuario sem nome',
             email: row.email || null,
-            tipo: Array.isArray(row.user_types)
-              ? row.user_types[0]?.name || 'OUTRO'
-              : (row.user_types as any)?.name || 'OUTRO',
-            empresa:
-              (Array.isArray(row.companies)
-                ? (row.companies[0] as any)?.nome_fantasia || (row.companies[0] as any)?.nome_empresa
-                : (row.companies as any)?.nome_fantasia || (row.companies as any)?.nome_empresa) || 'Sem empresa',
+            tipo: userType?.name || 'OUTRO',
+            empresa: company?.nome_fantasia || company?.nome_empresa || 'Sem empresa',
             ativos: Number(activePermissionCounts.get(row.id) || 0)
           };
         }),
         sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES),
         global_modules: globalModules,
         system_module_catalog: listSystemModuleCatalog(
-          globalModules.map((row: any) => String(row.module_key || '').trim())
+          globalModules.map((row) => String(row.module_key || '').trim())
         )
       },
       { headers: DYNAMIC_READ_HEADERS }
