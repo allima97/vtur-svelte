@@ -28,6 +28,14 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PERMISSIONS_BODY_BYTES = 256 * 1024;
 
+type SystemModuleSettingRow = {
+  module_key?: string | null;
+  enabled?: boolean | null;
+  reason?: string | null;
+  updated_at?: string | null;
+  updated_by?: string | null;
+};
+
 export async function GET(event: RequestEvent) {
   try {
     const { session, user } = await event.locals.safeGetSession();
@@ -44,7 +52,7 @@ export async function GET(event: RequestEvent) {
     const targetUser = await loadManagedUser(client, scope, userId);
     const permissions = await loadUserPermissions(client, userId);
 
-    let globalModules: any[] = [];
+    let globalModules: SystemModuleSettingRow[] = [];
     try {
       const settings = await loadSystemModuleSettings(client);
       globalModules = settings.rows;
@@ -64,7 +72,7 @@ export async function GET(event: RequestEvent) {
         global_modules: globalModules,
         sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES),
         system_module_catalog: listSystemModuleCatalog(
-          globalModules.map((row: any) => String(row.module_key || '').trim())
+          globalModules.map((row) => String(row.module_key || '').trim())
         )
       },
       { headers: DYNAMIC_READ_HEADERS }
