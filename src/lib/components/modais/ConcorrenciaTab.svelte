@@ -114,7 +114,9 @@
   function salvarConfig() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    } catch {}
+    } catch {
+      // Persisting calculator preferences is optional; keep the modal usable.
+    }
   }
 
   onMount(() => {
