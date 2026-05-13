@@ -103,6 +103,61 @@ type RoteiroPasseioDraft = {
   ordem: number;
 };
 
+type RoteiroTransportePayload = {
+  trecho?: string | null;
+  cia_aerea?: string | null;
+  data_voo?: string | null;
+  classe_reserva?: string | null;
+  hora_saida?: string | null;
+  aeroporto_saida?: string | null;
+  duracao_voo?: string | null;
+  tipo_voo?: string | null;
+  hora_chegada?: string | null;
+  aeroporto_chegada?: string | null;
+  tarifa_nome?: string | null;
+  reembolso_tipo?: string | null;
+  qtd_adultos?: unknown;
+  qtd_criancas?: unknown;
+  taxas?: unknown;
+  valor_total?: unknown;
+  tipo?: string | null;
+  fornecedor?: string | null;
+  descricao?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  categoria?: string | null;
+  observacao?: string | null;
+  ordem?: unknown;
+};
+
+type RoteiroTransporteDraft = {
+  roteiro_id: string;
+  trecho: string | null;
+  cia_aerea: string | null;
+  data_voo: string | null;
+  classe_reserva: string | null;
+  hora_saida: string | null;
+  aeroporto_saida: string | null;
+  duracao_voo: string | null;
+  tipo_voo: string | null;
+  hora_chegada: string | null;
+  aeroporto_chegada: string | null;
+  tarifa_nome: string | null;
+  reembolso_tipo: string | null;
+  qtd_adultos: unknown;
+  qtd_criancas: unknown;
+  taxas: unknown;
+  valor_total: unknown;
+  tipo: string | null;
+  fornecedor: string | null;
+  descricao: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  categoria: string | null;
+  observacao: string | null;
+  ordem: number;
+};
+
 type ScopedRoteiroEq<T> = T & {
   eq: (column: string, value: string | null | undefined) => T;
 };
@@ -365,7 +420,7 @@ export async function POST(event: RequestEvent) {
       await client.from('roteiro_transporte').delete().eq('roteiro_id', roteiroId);
       if (body.transportes.length > 0) {
         const transportes = body.transportes
-          .map((t: any, idx: number) => ({
+          .map((t: RoteiroTransportePayload, idx: number): RoteiroTransporteDraft => ({
             roteiro_id: roteiroId,
             trecho: t.trecho || null,
             cia_aerea: t.cia_aerea || null,
@@ -392,7 +447,7 @@ export async function POST(event: RequestEvent) {
             observacao: t.observacao || null,
             ordem: typeof t.ordem === 'number' ? t.ordem : idx
           }))
-          .filter((t: any) =>
+          .filter((t: RoteiroTransporteDraft) =>
             Boolean(
               String(t.trecho || '').trim() ||
                 String(t.cia_aerea || '').trim() ||
