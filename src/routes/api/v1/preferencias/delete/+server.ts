@@ -23,7 +23,11 @@ export async function POST(event) {
     if (rawBody.length > MAX_PREFERENCIAS_DELETE_BODY_BYTES) {
       return buildNoStoreTextResponse("Payload muito grande.", 413);
     }
-    const body = safeJsonParse(rawBody) as any;
+    const parsedBody = safeJsonParse(rawBody);
+    const body =
+      parsedBody && typeof parsedBody === "object"
+        ? (parsedBody as Record<string, unknown>)
+        : {};
     const id = String(body?.id || "").trim();
     if (!isUuid(id)) return buildNoStoreTextResponse("id invalido.", 400);
 

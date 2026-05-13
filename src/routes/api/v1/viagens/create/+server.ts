@@ -37,7 +37,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const origem = String(body?.origem || "").trim();
     const destino = String(body?.destino || "").trim();
@@ -52,7 +52,7 @@ export async function POST(event: RequestEvent) {
     const observacoes = String(body?.observacoes || "").trim() || null;
     const followUpText = String(body?.follow_up_text || "").trim() || null;
     const followUpFechado = Boolean(body?.follow_up_fechado);
-    const requestedCompanyId = isUuid(body?.company_id)
+    const requestedCompanyId = isUuid(String(body?.company_id || ""))
       ? String(body.company_id)
       : null;
 

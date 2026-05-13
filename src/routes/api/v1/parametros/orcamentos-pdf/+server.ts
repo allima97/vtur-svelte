@@ -82,9 +82,12 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const { settings } = body;
+    const settings =
+      body.settings && typeof body.settings === 'object'
+        ? (body.settings as Record<string, unknown>)
+        : {};
 
     const payload: Record<string, string | null> = {
       owner_user_id: user.id,

@@ -34,9 +34,11 @@ export async function POST(event) {
     const client = event.locals.supabase;
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const assinatura: AssinaturaForm = body?.assinatura ?? body ?? {};
+    const assinatura = (
+      body?.assinatura && typeof body.assinatura === 'object' ? body.assinatura : body
+    ) as AssinaturaForm;
 
     const row = {
       user_id: user.id,
