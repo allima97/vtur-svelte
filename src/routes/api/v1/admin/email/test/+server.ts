@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, type RequestEvent } from '@sveltejs/kit';
 import { buildFromEmails, loadEmailSettings } from '$lib/server/admin';
 import { fetchWithTimeout } from '$lib/server/fetchWithTimeout';
 import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
@@ -19,25 +19,32 @@ function cleanText(value: unknown) {
   return String(value || '').trim();
 }
 
-function providerPayloadMessage(payload: any) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function providerPayloadMessage(payload: unknown) {
   if (!payload) return '';
   if (typeof payload === 'string') return payload.slice(0, 400);
-  const errors = Array.isArray(payload?.errors)
+  if (!isRecord(payload)) return '';
+
+  const errors = Array.isArray(payload.errors)
     ? payload.errors
-        .map((item: any) => item?.message || item?.field || item?.help)
+        .filter(isRecord)
+        .map((item) => item.message || item.field || item.help)
         .filter(Boolean)
         .join('; ')
     : '';
-  return String(payload?.message || payload?.error || payload?.name || errors || '').slice(0, 400);
+  return String(payload.message || payload.error || payload.name || errors || '').slice(0, 400);
 }
 
-function looksLikeResendSmtp(settings?: Record<string, any> | null) {
+function looksLikeResendSmtp(settings?: Record<string, unknown> | null) {
   const host = cleanText(settings?.smtp_host).toLowerCase();
   const user = cleanText(settings?.smtp_user).toLowerCase();
   return host === 'smtp.resend.com' && user === 'resend';
 }
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
@@ -123,10 +130,10 @@ export async function POST(event) {
           text: 'Configuracao de e-mail validada com sucesso.'
         })
       }, 45_000);
-    } catch (err: any) {
+    } catch (err) {
       logServerError('[admin/email/test] timeout/excecao no Resend', err);
       const message =
-        err?.name === 'AbortError'
+        err instanceof Error && err.name === 'AbortError'
           ? 'Tempo limite ao chamar o Resend. Verifique conectividade do servidor e tente novamente.'
           : 'Falha de conexao ao chamar o Resend.';
       return new Response(message, { status: 504, headers: NO_STORE_HEADERS });
@@ -148,7 +155,7 @@ export async function POST(event) {
     return json({
       ok: true,
       provider: 'resend',
-      id: payload?.id || null
+      id: isRecord(payload) ? payload.id || null : null
     }, { headers: NO_STORE_HEADERS });
   } catch (err) {
     return toErrorResponse(err, 'Erro ao enviar teste de e-mail.');
