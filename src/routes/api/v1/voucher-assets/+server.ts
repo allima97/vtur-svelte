@@ -193,7 +193,7 @@ export async function GET(event) {
     const withUrls = await Promise.all(assets.map((asset) => withPreviewUrl(client, asset)));
 
     return json({ success: true, items: withUrls }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar voucher assets.');
   }
 }
@@ -266,7 +266,7 @@ export async function POST(event) {
     }
 
     return json({ success: true, item: await withPreviewUrl(client, data) }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao criar voucher asset.');
   }
 }
@@ -378,7 +378,7 @@ export async function PATCH(event) {
       { success: true, item: await withPreviewUrl(client, updated) },
       { headers: NO_STORE_HEADERS }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao atualizar voucher asset.');
   }
 }
@@ -428,7 +428,7 @@ export async function DELETE(event) {
     }
 
     return json({ success: true, id: existing.id }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao excluir voucher asset.');
   }
 }
