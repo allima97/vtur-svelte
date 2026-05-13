@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
@@ -37,6 +38,53 @@ const UNFILTERED_VENDEDOR_VALUES = new Set([
   "undefined",
 ]);
 
+type RankingContributionRow = {
+  vendaKey: string;
+  reciboId: string | null;
+  reciboNumero: string | null;
+  vendedorId: string | null;
+  bruto: number;
+  taxas: number;
+  isSeguro: boolean;
+};
+
+type RankingUserTypeRow = {
+  name?: string | null;
+};
+
+type RankingTeamUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
+  company_id?: string | null;
+  user_types?: RankingUserTypeRow | RankingUserTypeRow[] | null;
+};
+
+type ParametrosComissaoRow = {
+  company_id?: string | null;
+  conciliacao_sobrepoe_vendas?: boolean | null;
+  usar_taxas_na_meta?: boolean | null;
+  foco_valor?: string | null;
+};
+
+type RankingQuoteRow = {
+  id?: string | null;
+  created_by?: string | null;
+  total?: number | null;
+};
+
+type RankingMetaRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  meta_geral?: number | string | null;
+  meta_diferenciada?: number | string | null;
+  periodo?: string | null;
+  ativo?: boolean | null;
+};
+
 function getPreviousPeriod(dataInicio: string, dataFim: string) {
   const diffDays = Math.max(1, (diffDaysISODate(dataInicio, dataFim) ?? 0) + 1);
   const previousEnd = addDaysISODate(dataInicio, -1);
@@ -64,14 +112,14 @@ function normalizeTendencia(currentValue: number, previousValue: number) {
  * Mantém conciliação, vendas manuais, REXTUR, rateio e regras não-comissionáveis em um só lugar.
  */
 async function buildRankingSimple(
-  client: any,
+  client: SupabaseClient,
   params: {
     dataInicio: string;
     dataFim: string;
     companyIds: string[];
     vendedorIds: string[];
   },
-) {
+): Promise<RankingContributionRow[]> {
   const { dataInicio, dataFim, companyIds, vendedorIds } = params;
   const canonical = await fetchVendasKpiReciboContributionsRaw(client, {
     dataInicio,
@@ -173,7 +221,7 @@ export async function GET(event) {
           : [];
 
       const companyEligibleIds = companyRankingUsers
-        .map((row: any) => String(row?.id || "").trim())
+        .map((row) => String(row?.id || "").trim())
         .filter(Boolean);
 
       if (hasRequestedVendedorFilter) {
@@ -208,14 +256,14 @@ export async function GET(event) {
       );
 
       vendedorIds = (companyUsers || [])
-        .map((row: any) => String(row?.id || "").trim())
+        .map((row) => String(row?.id || "").trim())
         .filter(Boolean);
     }
 
     const rankingTeamMap = new Map<string, { id: string; nome: string }>();
     const gestorIdsSet = new Set<string>();
     if (vendedorIds.length > 0) {
-      const teamUsers = await getCachedReadModel<any[]>({
+      const teamUsers = await getCachedReadModel<RankingTeamUserRow[]>({
         key: buildReadModelCacheKey("ranking:team-users", {
           companyIds,
           vendedorIds,
@@ -228,7 +276,7 @@ export async function GET(event) {
         ttlMs: 45_000,
         staleTtlMs: 180_000,
         loader: async () => {
-          const rows: any[] = [];
+          const rows: RankingTeamUserRow[] = [];
           const vendedorBatches = chunkArray(vendedorIds);
           const companyBatches =
             companyIds.length > 0 ? chunkArray(companyIds) : [null];
@@ -253,7 +301,7 @@ export async function GET(event) {
 
               const { data, error: teamUsersError } = await teamUsersQuery;
               if (teamUsersError) throw teamUsersError;
-              rows.push(...(data || []));
+              rows.push(...((data || []) as RankingTeamUserRow[]));
             }
           }
 
@@ -320,7 +368,7 @@ export async function GET(event) {
     let usarTaxasNaMeta = true;
     let focoValor: "bruto" | "liquido" = "bruto";
     if (companyIds.length > 0) {
-      const parametrosRows = await getCachedReadModel<any[]>({
+      const parametrosRows = await getCachedReadModel<ParametrosComissaoRow[]>({
         key: buildReadModelCacheKey("ranking:parametros-comissao", {
           companyIds,
         }),
@@ -332,7 +380,7 @@ export async function GET(event) {
         ttlMs: 30_000,
         staleTtlMs: 120_000,
         loader: async () => {
-          const rows: any[] = [];
+          const rows: ParametrosComissaoRow[] = [];
           for (const companyBatch of chunkArray(companyIds)) {
             const { data, error: parametrosError } = await client
               .from("parametros_comissao")
@@ -343,20 +391,20 @@ export async function GET(event) {
               .limit(1000);
 
             if (parametrosError) throw parametrosError;
-            rows.push(...(data || []));
+            rows.push(...((data || []) as ParametrosComissaoRow[]));
           }
           return rows;
         },
       });
 
-      conciliacaoSobrepoeVendas = (parametrosRows || []).some((row: any) =>
+      conciliacaoSobrepoeVendas = (parametrosRows || []).some((row) =>
         Boolean(row?.conciliacao_sobrepoe_vendas),
       );
-      usarTaxasNaMeta = (parametrosRows || []).some((row: any) =>
+      usarTaxasNaMeta = (parametrosRows || []).some((row) =>
         Boolean(row?.usar_taxas_na_meta),
       );
       const temFocoLiquido = (parametrosRows || []).some(
-        (row: any) => String(row?.foco_valor || "").toLowerCase() === "liquido",
+        (row) => String(row?.foco_valor || "").toLowerCase() === "liquido",
       );
       if (temFocoLiquido) focoValor = "liquido";
     }
@@ -367,7 +415,7 @@ export async function GET(event) {
       quotesDataResult,
       metasDataResult,
     ] = await Promise.allSettled([
-      getCachedReadModel({
+      getCachedReadModel<RankingContributionRow[]>({
           key: buildReadModelCacheKey("ranking:contributions", {
             dataInicio,
             dataFim,
@@ -390,7 +438,7 @@ export async function GET(event) {
               vendedorIds,
             }),
       }),
-      getCachedReadModel({
+      getCachedReadModel<RankingQuoteRow[]>({
           key: buildReadModelCacheKey("ranking:quotes", {
             dataInicio,
             dataFim,
@@ -404,7 +452,7 @@ export async function GET(event) {
           ttlMs: 30_000,
           staleTtlMs: 120_000,
           loader: async () => {
-            const rows: any[] = [];
+            const rows: RankingQuoteRow[] = [];
             const vendedorBatches =
               vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
             for (const vendedorBatch of vendedorBatches) {
@@ -421,12 +469,12 @@ export async function GET(event) {
 
               const { data, error } = await query;
               if (error) throw error;
-              rows.push(...(data || []));
+              rows.push(...((data || []) as RankingQuoteRow[]));
             }
             return rows;
           },
       }),
-      getCachedReadModel({
+      getCachedReadModel<RankingMetaRow[]>({
           key: buildReadModelCacheKey("ranking:metas", {
             mes: dataInicio.slice(0, 7),
             vendedorIds,
@@ -441,7 +489,7 @@ export async function GET(event) {
           loader: async () => {
             const metasReference =
               getMonthRangeFromKey(dataInicio.slice(0, 7)) || getMonthRange();
-            const rows: any[] = [];
+            const rows: RankingMetaRow[] = [];
             const vendedorBatches =
               vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
             for (const vendedorBatch of vendedorBatches) {
@@ -464,7 +512,7 @@ export async function GET(event) {
                 logServerError("[ranking] Erro ao buscar metas", error);
                 return [];
               }
-              rows.push(...(data || []));
+              rows.push(...((data || []) as RankingMetaRow[]));
             }
             return rows;
           },
