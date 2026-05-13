@@ -23,6 +23,30 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_PAGAMENTO_BODY_BYTES = 64 * 1024;
+type PagamentoListRow = {
+  id?: string | null;
+  created_at?: string | null;
+};
+type PagamentoCreateBody = {
+  venda_id?: unknown;
+  forma_pagamento_id?: unknown;
+  forma_nome?: unknown;
+  forma_pagamento?: unknown;
+  operacao?: unknown;
+  plano?: unknown;
+  valor_bruto?: unknown;
+  valor?: unknown;
+  desconto_valor?: unknown;
+  valor_total?: unknown;
+  parcelas?: unknown;
+  parcelas_qtd?: unknown;
+  parcelas_valor?: unknown;
+  vencimento_primeira?: unknown;
+  paga_comissao?: unknown;
+  observacoes?: unknown;
+  empresa_id?: unknown;
+  company_id?: unknown;
+};
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
@@ -105,7 +129,7 @@ export async function GET(event) {
       return query;
     };
 
-    const result = await getCachedReadModel<{ items: any[]; total: number }>({
+    const result = await getCachedReadModel<{ items: PagamentoListRow[]; total: number }>({
       key: buildReadModelCacheKey('pagamentos:list', {
         vendaId,
         formaPagamentoId,
@@ -115,11 +139,11 @@ export async function GET(event) {
         pageSize
       }),
       tags: [READ_MODEL_TAGS.payments, READ_MODEL_TAGS.sales, ...scopeCacheTags({ companyIds, userId: user.id })],
-      ttlMs: 30_000,
+        ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
         if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
-          const rows: any[] = [];
+          const rows: PagamentoListRow[] = [];
           let total = 0;
           for (const batch of chunkArray(companyIds)) {
             const { data, count, error } = await buildQuery(batch, false);
@@ -138,7 +162,7 @@ export async function GET(event) {
         const { data, count, error } = await buildQuery();
         if (error) throw error;
         return {
-          items: (data || []) as any[],
+          items: (data || []) as PagamentoListRow[],
           total: Number(count ?? data?.length ?? 0)
         };
       }
@@ -169,21 +193,30 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as PagamentoCreateBody)
         : {};
+    const vendaId = typeof body.venda_id === 'string' ? body.venda_id : '';
+    const formaPagamentoId =
+      typeof body.forma_pagamento_id === 'string' ? body.forma_pagamento_id : '';
+    const requestedCompanyId =
+      typeof body.empresa_id === 'string'
+        ? body.empresa_id
+        : typeof body.company_id === 'string'
+          ? body.company_id
+          : null;
 
-    if (!isUuid(body.venda_id)) {
+    if (!isUuid(vendaId)) {
       return json({ success: false, error: 'ID da venda invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    if (body.forma_pagamento_id && !isUuid(body.forma_pagamento_id)) {
+    if (formaPagamentoId && !isUuid(formaPagamentoId)) {
       return json({ success: false, error: 'ID da forma de pagamento invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
     const { data: venda, error: vendaErr } = await client
       .from('vendas')
       .select('id, company_id')
-      .eq('id', body.venda_id)
+      .eq('id', vendaId)
       .maybeSingle();
 
     if (vendaErr) throw vendaErr;
@@ -192,10 +225,7 @@ export async function POST(event) {
     }
 
     const vendaCompanyId = String(venda.company_id || '').trim();
-    const targetCompanyId = resolveScopedCompanyId(
-      scope,
-      body.empresa_id || body.company_id || vendaCompanyId
-    );
+    const targetCompanyId = resolveScopedCompanyId(scope, requestedCompanyId);
 
     if (!targetCompanyId) {
       return json(
@@ -211,9 +241,9 @@ export async function POST(event) {
     const { data, error } = await client
       .from('vendas_pagamentos')
       .insert([{
-        venda_id: body.venda_id,
+        venda_id: vendaId,
         company_id: targetCompanyId,
-        forma_pagamento_id: body.forma_pagamento_id || null,
+        forma_pagamento_id: formaPagamentoId || null,
         forma_nome: body.forma_nome || body.forma_pagamento || null,
         operacao: body.operacao || null,
         plano: body.plano || null,
