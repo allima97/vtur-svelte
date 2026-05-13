@@ -481,8 +481,8 @@ export async function syncVendaChildren(params: {
   vendedorId: string;
   userId: string;
   dataVenda?: string | null;
-  recibos: any[];
-  pagamentos: any[];
+  recibos: Array<ReciboInput & Record<string, unknown>>;
+  pagamentos: PagamentoInput[];
 }) {
   const {
     client,
