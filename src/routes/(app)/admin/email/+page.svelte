@@ -8,6 +8,20 @@
   import { Send, RefreshCw } from 'lucide-svelte';
   import { apiFetch, apiGet, apiPost } from '$lib/services/api';
 
+  type EmailSettings = {
+    smtp_host?: string | null;
+    smtp_port?: number | string | null;
+    smtp_secure?: boolean | null;
+    smtp_user?: string | null;
+    smtp_pass?: string | null;
+    resend_api_key?: string | null;
+    alerta_from_email?: string | null;
+    admin_from_email?: string | null;
+    avisos_from_email?: string | null;
+    financeiro_from_email?: string | null;
+    suporte_from_email?: string | null;
+  };
+
   let loading = true;
   let saving = false;
   let sendingTest = false;
@@ -29,7 +43,7 @@
   async function loadPage() {
     loading = true;
     try {
-      const payload = await apiGet<{ settings: Record<string, any> }>('/api/v1/admin/email');
+      const payload = await apiGet<{ settings: EmailSettings }>('/api/v1/admin/email');
       form = {
         smtp_host: payload.settings.smtp_host || '',
         smtp_port: String(payload.settings.smtp_port || '465'),

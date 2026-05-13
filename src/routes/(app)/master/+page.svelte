@@ -16,8 +16,16 @@
     AlertCircle
   } from 'lucide-svelte';
 
+  type AdminSummary = {
+    counts?: Record<string, number | undefined>;
+    indicators?: {
+      escopo?: string | null;
+      scope_company_ids?: string[] | null;
+    };
+  };
+
   let loading = true;
-  let summary: any = null;
+  let summary: AdminSummary | null = null;
 
   const modules = [
     {
@@ -45,7 +53,7 @@
   async function loadSummary() {
     loading = true;
     try {
-      summary = await apiGet('/api/v1/admin/summary');
+      summary = await apiGet<AdminSummary>('/api/v1/admin/summary');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nao foi possivel carregar o resumo.');
       summary = null;
