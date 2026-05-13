@@ -54,9 +54,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, termo, descricao, ativo } = body;
+    const itemId = String(id || '').trim();
 
     if (!String(termo || '').trim()) {
       return json({ error: 'Termo obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -70,8 +71,8 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
-      const { data, error: updateError } = await client.from('parametros_pagamentos_nao_comissionaveis').update(payload).eq('id', id).select('id').single();
+    if (isUuid(itemId)) {
+      const { data, error: updateError } = await client.from('parametros_pagamentos_nao_comissionaveis').update(payload).eq('id', itemId).select('id').single();
       if (updateError) throw updateError;
       result = data;
     } else {

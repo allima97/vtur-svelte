@@ -59,9 +59,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, moeda, data, valor } = body;
+    const cambioId = String(id || '').trim();
 
     if (!String(moeda || '').trim()) return json({ error: 'Moeda obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
     if (!String(data || '').trim()) return json({ error: 'Data obrigatória.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -77,8 +78,8 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
-      const { data: updated, error: updateError } = await client.from('parametros_cambios').update(payload).eq('id', id).select('id').single();
+    if (isUuid(cambioId)) {
+      const { data: updated, error: updateError } = await client.from('parametros_cambios').update(payload).eq('id', cambioId).select('id').single();
       if (updateError) throw updateError;
       result = updated;
     } else {

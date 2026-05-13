@@ -44,12 +44,12 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const produtoId = String(body?.produto_id || '').trim();
     if (!produtoId) throw error(400, 'produto_id é obrigatório.');
 
-    const tarifas = sanitizeTarifasPayload(produtoId, body?.tarifas || []);
+    const tarifas = sanitizeTarifasPayload(produtoId, Array.isArray(body?.tarifas) ? body.tarifas : []);
 
     const { error: deleteError } = await client.from('produtos_tarifas').delete().eq('produto_id', produtoId);
     if (deleteError) throw deleteError;

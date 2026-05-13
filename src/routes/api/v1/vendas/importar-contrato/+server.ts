@@ -803,6 +803,11 @@ export async function POST(event) {
       for (const p of passageiros) {
         const cpf = normalizeCpf(p.cpf);
         const passageiroNome = cleanImportedClienteNome(p.nome, 'Passageiro');
+        const passageiroNascimento = isISODate(p.nascimento) ? p.nascimento : null;
+
+        // Ignora se for o próprio cliente principal (mesmo CPF)
+        const isMesmoCpfPrincipal = cpf === normalizeCpf(principal.contratante?.cpf);
+
         let passageiroCliente = await findClienteByDocumento(client, cpf);
         if (!passageiroCliente) {
           const { data: created } = await client
@@ -810,7 +815,7 @@ export async function POST(event) {
             .insert({
               cpf: formatCpf(cpf),
               nome: String(passageiroNome).slice(0, 200),
-              nascimento: isISODate(p.nascimento) ? p.nascimento : null,
+              nascimento: passageiroNascimento,
               company_id: companyId,
               created_by: user.id,
               ativo: true
@@ -833,6 +838,7 @@ export async function POST(event) {
         }
 
         if (passageiroCliente) {
+          // Vincula à viagem como passageiro
           await client.from('viagem_passageiros').insert({
             viagem_id: viagem.id,
             cliente_id: passageiroCliente.id,
@@ -840,6 +846,29 @@ export async function POST(event) {
             papel: 'passageiro',
             created_by: user.id
           });
+
+          // Vincula como acompanhante do cliente principal (se não for o próprio)
+          if (!isMesmoCpfPrincipal) {
+            const cpfNorm = cpf.replace(/\D/g, '');
+            const { data: acompExistente } = await client
+              .from('cliente_acompanhantes')
+              .select('id')
+              .eq('cliente_id', clientePrincipal.id)
+              .eq('cpf', cpfNorm)
+              .maybeSingle();
+
+            if (!acompExistente?.id) {
+              await client.from('cliente_acompanhantes').insert({
+                cliente_id: clientePrincipal.id,
+                company_id: companyId,
+                nome_completo: String(passageiroNome).slice(0, 200),
+                cpf: cpfNorm || null,
+                data_nascimento: passageiroNascimento,
+                ativo: true,
+                created_by: user.id
+              });
+            }
+          }
         }
       }
     }

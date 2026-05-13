@@ -369,12 +369,12 @@ export async function fetchProdutoTarifas(client: SupabaseClient, produtoId: str
   })) as ProdutoTarifaItem[];
 }
 
-export function sanitizeProdutoPayload(body: any) {
+export function sanitizeProdutoPayload(body: Record<string, unknown>) {
   return {
     nome: String(body?.nome || '').trim(),
     destino: String(body?.destino || '').trim() || null,
-    cidade_id: isUuid(body?.cidade_id) ? String(body.cidade_id) : null,
-    tipo_produto: isUuid(body?.tipo_produto) ? String(body.tipo_produto) : null,
+    cidade_id: isUuid(String(body?.cidade_id || '')) ? String(body.cidade_id) : null,
+    tipo_produto: isUuid(String(body?.tipo_produto || '')) ? String(body.tipo_produto) : null,
     atracao_principal: String(body?.atracao_principal || '').trim() || null,
     melhor_epoca: String(body?.melhor_epoca || '').trim() || null,
     duracao_sugerida: String(body?.duracao_sugerida || body?.duracao || '').trim() || null,
@@ -382,8 +382,8 @@ export function sanitizeProdutoPayload(body: any) {
     imagem_url: String(body?.imagem_url || '').trim() || null,
     informacoes_importantes: String(body?.informacoes_importantes || body?.descricao || '').trim() || null,
     ativo: body?.ativo !== false,
-    fornecedor_id: isUuid(body?.fornecedor_id) ? String(body.fornecedor_id) : null,
-    circuito_id: isUuid(body?.circuito_id) ? String(body.circuito_id) : null,
+    fornecedor_id: isUuid(String(body?.fornecedor_id || '')) ? String(body.fornecedor_id) : null,
+    circuito_id: isUuid(String(body?.circuito_id || '')) ? String(body.circuito_id) : null,
     todas_as_cidades: body?.todas_as_cidades === true,
     valor_neto: Number(body?.valor_neto || 0) || 0,
     margem: body?.margem == null || body?.margem === '' ? null : Number(body.margem),

@@ -95,12 +95,13 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { action, vendedor_id, ativo } = body;
+    const vendedorId = String(vendedor_id || '').trim();
 
     if (action === 'toggle_relacao') {
-      if (!isUuid(vendedor_id)) return json({ error: 'Vendedor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+      if (!isUuid(vendedorId)) return json({ error: 'Vendedor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
       const gestorId = scope.isGestor ? scope.userId : String(body.gestor_id || '').trim();
       if (!isUuid(gestorId)) return json({ error: 'Gestor inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -110,7 +111,7 @@ export async function POST(event) {
         .from('gestor_vendedor')
         .select('id, ativo')
         .eq('gestor_id', gestorId)
-        .eq('vendedor_id', vendedor_id)
+        .eq('vendedor_id', vendedorId)
         .maybeSingle();
 
       if (existing) {
@@ -122,13 +123,13 @@ export async function POST(event) {
       } else {
         const { error: insertError } = await client
           .from('gestor_vendedor')
-          .insert({ gestor_id: gestorId, vendedor_id, ativo: ativo !== false });
+          .insert({ gestor_id: gestorId, vendedor_id: vendedorId, ativo: ativo !== false });
         if (insertError) throw insertError;
       }
 
       invalidateUserReadModels({
         companyIds: scope.companyIds,
-        vendedorIds: [gestorId, vendedor_id],
+        vendedorIds: [gestorId, vendedorId],
         userId: user.id
       });
       return json({ ok: true }, { headers: NO_STORE_HEADERS });

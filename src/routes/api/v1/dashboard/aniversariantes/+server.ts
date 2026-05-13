@@ -76,39 +76,75 @@ export async function GET(event) {
       );
     }
 
-    const clientes = await getCachedReadModel<any[]>({
-      key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', {
-        companyIds
-      }),
-      tags: [
-        READ_MODEL_TAGS.clients,
-        READ_MODEL_TAGS.dashboard,
-        ...scopeCacheTags({ companyIds, userId: user.id })
-      ],
-      ttlMs: 60_000,
-      staleTtlMs: 300_000,
-      loader: async () => {
-        const rows: any[] = [];
-        const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
-
-        for (const companyBatch of companyBatches) {
-          let clientesQuery = client
-            .from('clientes')
-            .select('id, nome, nascimento, telefone, whatsapp, email')
-            .not('nascimento', 'is', null)
-            .limit(2000);
-
-          if (companyBatch) clientesQuery = clientesQuery.in('company_id', companyBatch);
-
-          const { data, error } = await clientesQuery;
-          if (error) throw error;
-          rows.push(...(data || []));
+    const [clientes, acompanhantes] = await Promise.all([
+      getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', { companyIds }),
+        tags: [
+          READ_MODEL_TAGS.clients,
+          READ_MODEL_TAGS.dashboard,
+          ...scopeCacheTags({ companyIds, userId: user.id })
+        ],
+        ttlMs: 60_000,
+        staleTtlMs: 300_000,
+        loader: async () => {
+          const rows: any[] = [];
+          const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          for (const companyBatch of companyBatches) {
+            let q = client
+              .from('clientes')
+              .select('id, nome, nascimento, telefone, whatsapp, email')
+              .not('nascimento', 'is', null)
+              .limit(2000);
+            if (companyBatch) q = q.in('company_id', companyBatch);
+            const { data, error } = await q;
+            if (error) throw error;
+            rows.push(...(data || []));
+          }
+          return rows;
         }
-        return rows;
-      }
-    });
+      }),
+      getCachedReadModel<any[]>({
+        key: buildReadModelCacheKey('dashboard:aniversariantes-acompanhantes', { companyIds }),
+        tags: [
+          READ_MODEL_TAGS.clients,
+          READ_MODEL_TAGS.dashboard,
+          ...scopeCacheTags({ companyIds, userId: user.id })
+        ],
+        ttlMs: 60_000,
+        staleTtlMs: 300_000,
+        loader: async () => {
+          const rows: any[] = [];
+          const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
+          for (const companyBatch of companyBatches) {
+            let q = client
+              .from('cliente_acompanhantes')
+              .select('id, cliente_id, nome_completo, data_nascimento, telefone')
+              .eq('ativo', true)
+              .not('data_nascimento', 'is', null)
+              .limit(4000);
+            if (companyBatch) q = q.in('company_id', companyBatch);
+            const { data, error } = await q;
+            if (error) throw error;
+            rows.push(...(data || []));
+          }
+          return rows;
+        }
+      })
+    ]);
 
-    const aniversariantesFiltrados = (clientes || [])
+    function getNextBirthdayMs(nascimento: string, hojeMs: number, hojeYear: number) {
+      const birth = parseISODateParts(nascimento);
+      if (!birth) return Number.POSITIVE_INFINITY;
+      let nextMs = Date.UTC(hojeYear, birth.month - 1, birth.day);
+      if (nextMs < hojeMs) nextMs = Date.UTC(hojeYear + 1, birth.month - 1, birth.day);
+      return nextMs;
+    }
+
+    const hoje = parseISODateParts(todayISODateLocal());
+    const hojeMs = hoje ? Date.UTC(hoje.year, hoje.month - 1, hoje.day) : 0;
+    const hojeYear = hoje?.year ?? new Date().getFullYear();
+
+    const clientesAniv = (clientes || [])
       .filter((c: any) => isBirthdayInRange(c.nascimento, diasAfrente))
       .map((c: any) => ({
         id: c.id,
@@ -116,28 +152,37 @@ export async function GET(event) {
         nascimento: c.nascimento,
         telefone: c.telefone,
         whatsapp: c.whatsapp,
-        email: c.email,
+        email: null as string | null,
         aniversario_hoje: isToday(c.nascimento),
-        pessoa_tipo: 'cliente' as const
-      }))
-      .sort((a: any, b: any) => {
-        const hoje = parseISODateParts(todayISODateLocal());
-        if (!hoje) return 0;
-        const hojeMs = Date.UTC(hoje.year, hoje.month - 1, hoje.day);
-        const getNextBirthday = (nascimento: string) => {
-          const birth = parseISODateParts(nascimento);
-          if (!birth) return Number.POSITIVE_INFINITY;
-          let nextMs = Date.UTC(hoje.year, birth.month - 1, birth.day);
-          if (nextMs < hojeMs) nextMs = Date.UTC(hoje.year + 1, birth.month - 1, birth.day);
-          return nextMs;
-        };
-        return getNextBirthday(a.nascimento) - getNextBirthday(b.nascimento);
-      });
+        pessoa_tipo: 'cliente' as const,
+        cliente_id: c.id as string | null
+      }));
+
+    const acompanhantesAniv = (acompanhantes || [])
+      .filter((a: any) => isBirthdayInRange(a.data_nascimento, diasAfrente))
+      .map((a: any) => ({
+        id: a.id,
+        nome: a.nome_completo,
+        nascimento: a.data_nascimento,
+        telefone: a.telefone,
+        whatsapp: null as string | null,
+        email: null as string | null,
+        aniversario_hoje: isToday(a.data_nascimento),
+        pessoa_tipo: 'acompanhante' as const,
+        cliente_id: a.cliente_id as string | null
+      }));
+
+    const aniversariantesFiltrados = [...clientesAniv, ...acompanhantesAniv]
+      .sort((a, b) =>
+        getNextBirthdayMs(a.nascimento, hojeMs, hojeYear) -
+        getNextBirthdayMs(b.nascimento, hojeMs, hojeYear)
+      );
+
     const aniversariantes = hasExplicitLimit
       ? aniversariantesFiltrados.slice(0, outputLimit)
       : aniversariantesFiltrados;
     const hojeCount = aniversariantesFiltrados.reduce(
-      (total: number, aniversariante: any) => total + (aniversariante.aniversario_hoje ? 1 : 0),
+      (total: number, a: any) => total + (a.aniversario_hoje ? 1 : 0),
       0
     );
 

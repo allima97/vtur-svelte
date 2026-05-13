@@ -30,7 +30,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const id = String(body?.id || '').trim();
     const displayName = String(body?.display_name || '').trim();
