@@ -1,7 +1,11 @@
 <script lang="ts">
   import { uniqueCleanStrings } from '$lib/utils/array';
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import FieldInput from './FieldInput.svelte';
   import { uniqueFieldId } from './fieldId';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   export let label: string | null = null;
   export let value = '';
@@ -13,7 +17,7 @@
   export let readonly = false;
   export let error: string | null = null;
   export let helper: string | null = null;
-  export let icon: any = null;
+  export let icon: IconComponent | null = null;
   export let id: string | null = null;
   export let name: string | null = null;
   export let min: string | null = null;
