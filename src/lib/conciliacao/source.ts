@@ -4,7 +4,6 @@ import {
   isConciliacaoEfetivada,
   resolveConciliacaoStatus,
 } from "$lib/conciliacao/business";
-import { dev } from "$app/environment";
 import { EQUIPE_VTUR_USER_NAME } from "$lib/conciliacao/baixaRac";
 import {
   calcularNaoComissionavelResumo,
@@ -134,11 +133,7 @@ type VendaReciboMeta = {
 };
 
 function logSourceWarning(context: string, error: unknown) {
-  if (dev) {
-    console.warn(context, error);
-  } else {
-    logServerError(context, error);
-  }
+  logServerError(context, error);
 }
 
 function getErrorMessage(error: unknown) {
