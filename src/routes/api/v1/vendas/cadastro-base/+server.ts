@@ -21,13 +21,55 @@ import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
-function isIgnorableQueryError(err: any) {
-  const code = String(err?.code || '');
-  const message = String(err?.message || '');
+type QueryErrorLike = {
+  code?: string | null;
+  message?: string | null;
+};
+
+type QueryResultLike<T> = {
+  data?: T[] | null;
+  error?: QueryErrorLike | null;
+};
+
+type CidadeRow = {
+  id?: string | null;
+  nome?: string | null;
+  grau_importancia?: number | string | null;
+  subdivisao?: {
+    nome?: string | null;
+    codigo_admin1?: string | null;
+  } | null;
+};
+
+type CidadeOption = {
+  id: string | null | undefined;
+  nome: string | null | undefined;
+  subdivisao: CidadeRow['subdivisao'];
+  estado: string | null;
+  grau_importancia: number | null;
+  label: string;
+};
+
+type EmpresaRow = {
+  id?: string | null;
+  nome_fantasia?: string | null;
+  nome_empresa?: string | null;
+};
+
+type ProdutoRow = {
+  ativo?: boolean | null;
+  cidade_id?: string | null;
+  todas_as_cidades?: boolean | null;
+} & Record<string, unknown>;
+
+function isIgnorableQueryError(err: unknown) {
+  const error = err && typeof err === 'object' ? (err as QueryErrorLike) : null;
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
   return code === 'PGRST205' || code === '42P01' || code === '42703' || message.includes('PGRST205') || message.includes('42P01') || message.includes('42703');
 }
 
-function safeRows<T = any>(result: any, options?: { optional?: boolean }) {
+function safeRows<T = unknown>(result: QueryResultLike<T> | null | undefined, options?: { optional?: boolean }) {
   const optional = options?.optional ?? true;
   const err = result?.error;
   if (err) {
@@ -61,13 +103,13 @@ export async function GET(event: RequestEvent) {
     let vendedoresEquipe: Array<{ id: string; nome_completo: string | null; company_id?: string | null }> = [
       { id: scope.userId, nome_completo: scope.nome || 'Você', company_id: scope.companyId || null }
     ];
-    let clientes: any[] = [];
-    let cidades: any[] = [];
-    let produtos: any[] = [];
-    let tipos: any[] = [];
-    let tiposPacote: any[] = [];
-    let formasPagamento: any[] = [];
-    let empresas: any[] = [];
+    let clientes: unknown[] = [];
+    let cidades: CidadeOption[] = [];
+    let produtos: ProdutoRow[] = [];
+    let tipos: unknown[] = [];
+    let tiposPacote: unknown[] = [];
+    let formasPagamento: unknown[] = [];
+    let empresas: Array<{ id: string | null | undefined; nome: string }> = [];
     const canLoadClientes =
       scope.isAdmin ||
       !scope.isFinanceiro ||
@@ -76,7 +118,7 @@ export async function GET(event: RequestEvent) {
     const cacheScopeTags = scopeCacheTags({ companyIds: activeCompanyIds, userId: user.id });
 
     if ((scope.isGestor || scope.isMaster || scope.isFinanceiro) && activeCompanyIds.length > 0) {
-      const data = await getCachedReadModel<any[]>({
+      const data = await getCachedReadModel<Array<{ id?: string | null; nome_completo?: string | null; email?: string | null; company_id?: string | null }>>({
         key: buildReadModelCacheKey('vendas-cadastro-base:vendedores', {
           companyIds: activeCompanyIds
         }),
@@ -86,11 +128,12 @@ export async function GET(event: RequestEvent) {
         loader: () => fetchRankingVendedoresByCompanyIds(client, activeCompanyIds)
       });
       vendedoresEquipe = (data || [])
-        .map((row: any) => ({
-          id: row.id,
+        .map((row) => ({
+          id: String(row.id || '').trim(),
           nome_completo: row.nome_completo || row.email || 'Vendedor',
           company_id: row.company_id || null
         }))
+        .filter((row) => row.id)
         .sort((a, b) => PT_BR_COLLATOR.compare(String(a.nome_completo || ''), String(b.nome_completo || '')));
     }
 
@@ -264,9 +307,9 @@ export async function GET(event: RequestEvent) {
     ])) as any[];
 
     clientes = safeRows(clientesRes);
-    const cidadesRaw = safeRows(cidadesRes);
+    const cidadesRaw = safeRows<CidadeRow>(cidadesRes);
     cidades = cidadesRaw
-      .map((row: any) => {
+      .map((row) => {
       // subdivisoes.codigo_admin1 = state code (e.g. "SP"), subdivisoes.nome = state name
         const sub = row?.subdivisao;
         const estado = sub?.codigo_admin1 || sub?.nome || null;
@@ -279,18 +322,18 @@ export async function GET(event: RequestEvent) {
           label: estado ? `${row?.nome || ''} (${estado})` : row?.nome || ''
         };
       })
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         const importanceDiff = getImportanceRank(a?.grau_importancia) - getImportanceRank(b?.grau_importancia);
         if (importanceDiff !== 0) return importanceDiff;
         const nomeDiff = PT_BR_BASE_COLLATOR.compare(String(a?.nome || ''), String(b?.nome || ''));
         if (nomeDiff !== 0) return nomeDiff;
         return PT_BR_BASE_COLLATOR.compare(String(a?.estado || ''), String(b?.estado || ''));
       });
-    produtos = safeRows(produtosRes);
+    produtos = safeRows<ProdutoRow>(produtosRes);
     tipos = safeRows(tiposRes);
     tiposPacote = safeRows(pacotesRes);
     formasPagamento = safeRows(formasRes);
-    empresas = safeRows(empresasRes).map((row: any) => ({
+    empresas = safeRows<EmpresaRow>(empresasRes).map((row) => ({
       id: row.id,
       nome: row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'
     }));
@@ -319,8 +362,8 @@ export async function GET(event: RequestEvent) {
       clientes,
       cidades,
       produtos: produtos
-        .filter((row: any) => row?.ativo !== false)
-        .map((row: any) => ({
+        .filter((row) => row?.ativo !== false)
+        .map((row) => ({
           ...row,
           todas_as_cidades: row?.todas_as_cidades === true || (!row?.cidade_id && row?.todas_as_cidades !== false)
         })),
