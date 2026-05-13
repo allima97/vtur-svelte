@@ -42,6 +42,16 @@
     countAtivas: number;
   }
 
+  type VendasListPayload = {
+    items?: Venda[] | null;
+    total?: number | null;
+    vendedores?: Array<{ id: string; nome_completo: string }> | null;
+  };
+
+  type VendasKpisPayload = {
+    kpis?: Partial<VendasKpis> | null;
+  };
+
   type PeriodoModo = 'mes' | 'periodo';
 
   const today = todayISODateLocal();
@@ -172,7 +182,7 @@
     errorMessage = null;
 
     try {
-      const payload: any = await apiGet('/api/v1/vendas/list', {
+      const payload = await apiGet<VendasListPayload>('/api/v1/vendas/list', {
         page: listPage,
         pageSize: listPageSize,
         q: searchTerm,
@@ -220,7 +230,7 @@
     loadingKpis = true;
     try {
       const range = getCurrentMonthRange();
-      const payload: any = await apiGet('/api/v1/vendas/kpis', {
+      const payload = await apiGet<VendasKpisPayload>('/api/v1/vendas/kpis', {
         inicio: range.inicio,
         fim: range.fim
       });
