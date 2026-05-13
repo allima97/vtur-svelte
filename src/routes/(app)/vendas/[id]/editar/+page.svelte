@@ -46,6 +46,13 @@
     whatsapp?: string | null;
   };
 
+  type CalculadoraResultado = {
+    valorFinal?: string | number | null;
+    valorBruto?: string | number | null;
+    descontoValor?: string | number | null;
+    taxas?: string | number | null;
+  };
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -778,7 +785,7 @@
     currentStep = bounded;
   }
 
-  function applyValoresCalculadora(resultado: any) {
+  function applyValoresCalculadora(resultado: CalculadoraResultado) {
     venda.valor_total = String(resultado.valorFinal || '');
     venda.valor_total_bruto = String(resultado.valorBruto || '');
     venda.desconto_comercial_aplicado = Number(resultado.descontoValor || 0) > 0;
@@ -853,8 +860,8 @@
 
       toast.success('Venda atualizada com sucesso!');
       goto('/vendas');
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao atualizar venda.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar venda.');
     } finally {
       saving = false;
     }
