@@ -21,6 +21,25 @@ import { chunkArray, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
 const DEFAULT_LIST_LIMIT = 300;
 const MAX_LIST_LIMIT = 500;
+const INTERNACIONAL_DESTINO_KEYWORDS = [
+  "europa",
+  "asia",
+  "africa",
+  "oceania",
+  "américa do norte",
+  "eua",
+  "canada",
+  "mexico",
+  "caribe",
+  "orlando",
+  "miami",
+  "new york",
+  "paris",
+  "londres",
+  "italia",
+  "espanha",
+  "portugal",
+];
 const VIAGENS_LIST_SELECT = `
   id,
   venda_id,
@@ -382,26 +401,6 @@ export async function GET(event) {
           }
         }
 
-        const internacionalKeywords = [
-          "europa",
-          "asia",
-          "africa",
-          "oceania",
-          "américa do norte",
-          "eua",
-          "canada",
-          "mexico",
-          "caribe",
-          "orlando",
-          "miami",
-          "new york",
-          "paris",
-          "londres",
-          "italia",
-          "espanha",
-          "portugal",
-        ];
-
         const items = (scopedData || [])
           .map((row: any) => {
             const resolvedStatus =
@@ -412,7 +411,7 @@ export async function GET(event) {
               : 0;
             const tipoViagem =
               row.destino &&
-              internacionalKeywords.some((k) =>
+              INTERNACIONAL_DESTINO_KEYWORDS.some((k) =>
                 row.destino.toLowerCase().includes(k),
               )
                 ? "internacional"
