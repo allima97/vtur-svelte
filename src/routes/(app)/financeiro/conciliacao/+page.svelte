@@ -953,7 +953,7 @@
   async function loadExecutions() {
     executionsLoading = true;
     try {
-      const data = await apiGet<any[]>('/api/v1/conciliacao/executions', {
+      const data = await apiGet<ConciliacaoExecution[]>('/api/v1/conciliacao/executions', {
         company_id: empresaId || undefined,
         limit: 20
       });
