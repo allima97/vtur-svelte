@@ -14,6 +14,21 @@ import { invalidateClientReadModels } from '$lib/server/readModelCache';
 
 const MAX_ORCAMENTO_CLIENTE_CREATE_BODY_BYTES = 32 * 1024;
 
+type OrcamentoClienteCreateBody = {
+  nome?: unknown;
+  telefone?: unknown;
+  company_id?: unknown;
+};
+
+type ClienteInsertPayload = {
+  nome: string;
+  telefone: string;
+  whatsapp: string;
+  ativo: boolean;
+  active: boolean;
+  company_id?: string;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -29,7 +44,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoClienteCreateBody)
         : null;
     const nome = titleCaseNome(String(body?.nome || '').trim());
     const telefone = String(body?.telefone || '').trim();
@@ -46,7 +61,7 @@ export async function POST(event: RequestEvent) {
       });
     }
 
-    const payload: Record<string, any> = {
+    const payload: ClienteInsertPayload = {
       nome,
       telefone,
       whatsapp: telefone,
