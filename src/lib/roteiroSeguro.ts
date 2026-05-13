@@ -8,6 +8,9 @@ export type SeguroPasseioLike = {
 };
 
 const MONTH_SHORT_PT_BR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"] as const;
+const BUDGET_ITEM_SEPARATOR_RE = /^(\s+|\/|-|\(|\)|,|\+)$/;
+const BUDGET_ITEM_ACRONYM_RE = /^[A-Z0-9]{2,4}$/;
+const NUMERIC_TEXT_RE = /^\d+$/;
 const LOWER_CASE_BUDGET_ITEM_WORDS = new Set([
   "a",
   "à",
@@ -57,9 +60,9 @@ function formatBudgetItemText(value?: string | null) {
   return raw
     .split(/(\s+|\/|-|\(|\)|,|\+)/)
     .map((part) => {
-      if (!part || /^(\s+|\/|-|\(|\)|,|\+)$/.test(part)) return part;
-      if (/^[A-Z0-9]{2,4}$/.test(part)) return part;
-      if (/^\d+$/.test(part)) return part;
+      if (!part || BUDGET_ITEM_SEPARATOR_RE.test(part)) return part;
+      if (BUDGET_ITEM_ACRONYM_RE.test(part)) return part;
+      if (NUMERIC_TEXT_RE.test(part)) return part;
       const lower = part.toLowerCase();
       const shouldLower = seenWord && LOWER_CASE_BUDGET_ITEM_WORDS.has(lower);
       seenWord = true;
