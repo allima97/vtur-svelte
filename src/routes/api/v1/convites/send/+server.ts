@@ -271,12 +271,13 @@ async function enviarEmailSendGrid(params: {
   return { ok: true, status: String(resp.status || 202) };
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const adminClient = getAdminClient();
 
     const rl = await checkPersistentRateLimit('convites-send', user.id, { max: 10, windowMs: 60_000 });
