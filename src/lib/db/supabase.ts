@@ -18,7 +18,7 @@ function isRetryableNetworkError(error: unknown) {
 
 function createResilientFetch(baseUrl: string) {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
-    const runFetch = () => fetch(input as any, init);
+    const runFetch = () => fetch(input, init);
 
     try {
       return await runFetch();
