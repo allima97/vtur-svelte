@@ -13,6 +13,35 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 
+type PreferenciaShareUser = {
+  id?: unknown;
+  nome_completo?: unknown;
+  email?: unknown;
+};
+
+type PreferenciaShareRow = {
+  id?: unknown;
+  preferencia_id?: unknown;
+  status?: unknown;
+  created_at?: unknown;
+  accepted_at?: unknown;
+  revoked_at?: unknown;
+  shared_with_user?: PreferenciaShareUser | null;
+};
+
+type PreferenciaShareSummary = {
+  id: string;
+  status: string;
+  created_at: unknown;
+  accepted_at: unknown;
+  revoked_at: unknown;
+  shared_with: {
+    id: string;
+    nome_completo: string;
+    email: string;
+  } | null;
+};
+
 export async function GET(event) {
   try {
     const { client, user, scope } = await requirePreferenciasScope(event, 1);
@@ -70,8 +99,8 @@ export async function GET(event) {
         if (sharesToMeResp.error) throw sharesToMeResp.error;
         if (sharesByMeResp.error) throw sharesByMeResp.error;
 
-        const sharesByPref = new Map<string, any[]>();
-        for (const row of (sharesByMeResp.data || []) as any[]) {
+        const sharesByPref = new Map<string, PreferenciaShareSummary[]>();
+        for (const row of (sharesByMeResp.data || []) as PreferenciaShareRow[]) {
           const pid = String(row?.preferencia_id || "");
           if (!pid) continue;
           const list = sharesByPref.get(pid) || [];
@@ -81,15 +110,15 @@ export async function GET(event) {
             created_at: row?.created_at || null,
             accepted_at: row?.accepted_at || null,
             revoked_at: row?.revoked_at || null,
-	            shared_with: row?.shared_with_user
-	              ? {
-	                  id: String(row?.shared_with_user?.id || ""),
-	                  nome_completo: String(
-	                    row?.shared_with_user?.nome_completo || "",
-	                  ),
-	                  email: String(row?.shared_with_user?.email || ""),
-	                }
-	              : null,
+            shared_with: row?.shared_with_user
+              ? {
+                  id: String(row?.shared_with_user?.id || ""),
+                  nome_completo: String(
+                    row?.shared_with_user?.nome_completo || "",
+                  ),
+                  email: String(row?.shared_with_user?.email || ""),
+                }
+              : null,
           });
           sharesByPref.set(pid, list);
         }
