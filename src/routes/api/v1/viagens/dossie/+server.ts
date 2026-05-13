@@ -54,8 +54,7 @@ export async function GET(event) {
 
     // ✅ Ownership compatível com MASTER (múltiplos companyIds)
     const companyIds = resolveScopedCompanyIds(scope, viagem.company_id);
-    const companyIdSet = new Set(companyIds);
-    if (!scope.isAdmin && !companyIdSet.has(viagem.company_id)) {
+    if (!scope.isAdmin && !companyIds.includes(viagem.company_id)) {
       return json({ error: 'Viagem fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
