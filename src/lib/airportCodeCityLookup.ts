@@ -1,6 +1,7 @@
 export type AirportCodeCityLookup = Record<string, string>;
 
 const AIRPORT_CODE_CITY_LOOKUP_URL = "/data/airports-iata-city.json";
+const IATA_CODE_PATTERN = /^[A-Z]{3}$/;
 
 let airportLookupCache: AirportCodeCityLookup | null = null;
 let airportLookupPromise: Promise<AirportCodeCityLookup> | null = null;
@@ -11,7 +12,7 @@ function normalizeAirportLookup(raw: unknown): AirportCodeCityLookup {
   for (const [code, city] of Object.entries(raw as Record<string, unknown>)) {
     const normalizedCode = String(code || "").trim().toUpperCase();
     const normalizedCity = String(city || "").trim();
-    if (!/^[A-Z]{3}$/.test(normalizedCode) || !normalizedCity) continue;
+    if (!IATA_CODE_PATTERN.test(normalizedCode) || !normalizedCity) continue;
     out[normalizedCode] = normalizedCity;
   }
   return out;
