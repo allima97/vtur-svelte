@@ -29,6 +29,12 @@ const ALLOWED_FIELDS = [
 
 const MAX_UPDATE_VALORES_BODY_BYTES = 16 * 1024;
 
+type UpdateValoresBody = {
+  conciliacaoId?: string | null;
+  companyId?: string | null;
+  valores?: Partial<Record<(typeof ALLOWED_FIELDS)[number], number | string | null>>;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -55,9 +61,9 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body =
+    const body: UpdateValoresBody | null =
       bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as UpdateValoresBody)
         : null;
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
@@ -80,7 +86,7 @@ export async function POST(event: RequestEvent) {
     const updatePayload: Record<string, number | null> = {};
     for (const field of ALLOWED_FIELDS) {
       if (Object.prototype.hasOwnProperty.call(valores, field)) {
-        const raw = (valores as any)[field];
+        const raw = valores[field];
         if (raw === null || raw === undefined) {
           updatePayload[field] = null;
         } else {
