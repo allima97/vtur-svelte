@@ -1194,13 +1194,14 @@
           : `Conciliação executada: ${reconciled} conciliados, ${recalculated} recalculados, ${updatedTaxes} taxas atualizadas${duplicateText}.`
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, 'Erro ao executar conciliação.');
       addOperationLog({
         action: actionLabel,
         status: 'error',
-        message: error.message || 'Erro ao executar conciliação.'
+        message
       });
-      toast.error(error.message || 'Erro ao executar conciliação.');
+      toast.error(message);
     } finally {
       running = false;
       operationMessage = '';
