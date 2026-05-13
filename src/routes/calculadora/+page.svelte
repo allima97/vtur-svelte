@@ -7,11 +7,16 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Tabs from '$lib/components/ui/Tabs.svelte';
 
+  type BeforeInstallPromptEvent = Event & {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform?: string }>;
+  };
+
   let abaAtiva = 'calculadora';
   let showInstallHint = false;
   let isInstalled = false;
   let canGoBack = false;
-  let deferredPrompt: any = null;
+  let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
   const abas = [
     { key: 'calculadora', label: 'Calculadora', icon: Calculator },
@@ -29,7 +34,7 @@
     // Captura o evento beforeinstallprompt
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
-      deferredPrompt = e;
+      deferredPrompt = e as BeforeInstallPromptEvent;
       showInstallHint = true;
     });
 
