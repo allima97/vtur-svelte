@@ -32,6 +32,14 @@
     refresh_token: string;
   };
 
+  type BrowserSessionResult = {
+    data: {
+      session?: unknown;
+      user?: unknown;
+    } | null;
+    error: Error | null;
+  };
+
   function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
@@ -47,8 +55,8 @@
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(input, { ...init, signal: controller.signal });
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('Tempo esgotado ao tentar entrar. Verifique sua conexão e tente novamente.');
       }
       throw err;
@@ -84,7 +92,7 @@
       supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token
-      }) as Promise<{ data: any; error: any }>,
+      }) as Promise<BrowserSessionResult>,
       12000,
       'Tempo esgotado ao sincronizar a sessão no navegador.'
     );
