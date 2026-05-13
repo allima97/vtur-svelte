@@ -40,7 +40,7 @@ export async function GET(event) {
     if (!data) return json({ success: false, error: 'Circuito não encontrado' }, { status: 404, headers: NO_STORE_HEADERS });
 
     return json({ success: true, item: data }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar circuito.');
   }
 }
@@ -65,11 +65,11 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
     // Apenas colunas reais da tabela circuitos
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     for (const key of CIRCUITO_ALLOWED_UPDATE_FIELDS) {
       if (key in body) payload[key] = body[key];
     }
@@ -84,7 +84,7 @@ export async function PATCH(event) {
     if (error) throw error;
 
     return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao atualizar circuito.');
   }
 }
@@ -113,7 +113,7 @@ export async function DELETE(event) {
     if (error) throw error;
 
     return json({ success: true }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao excluir circuito.');
   }
 }
