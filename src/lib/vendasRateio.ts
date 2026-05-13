@@ -18,13 +18,23 @@ type RateioRow = {
   ativo?: boolean | null;
 };
 
+type ReciboLike = Record<string, unknown>;
+type SplitRateioLookupRow = {
+  venda_recibo_id?: string | null;
+  conciliacao_recibo_id?: string | null;
+};
+type LinkedConciliacaoReciboRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
 function normalizeReciboLookupId(value?: unknown) {
   const raw = toStr(value);
   if (!raw) return "";
   return raw.replace(/::rateio:[^:]+$/i, "").replace(/:recibo$/i, "");
 }
 
-function isAplicavelRateio(row: any) {
+function isAplicavelRateio(row: Pick<RateioRow, "percentual_origem" | "percentual_destino"> | null | undefined) {
   return toNumber(row?.percentual_origem) > 0 && toNumber(row?.percentual_destino) > 0;
 }
 
@@ -43,11 +53,11 @@ function scaleNumericField(value: unknown, factor: number) {
   return Math.round(parsed * factor * 100) / 100;
 }
 
-function resolveReciboBruto(recibo: Record<string, any>) {
+function resolveReciboBruto(recibo: ReciboLike) {
   return Math.max(0, toNumber(recibo?.valor_bruto_override ?? recibo?.valor_total));
 }
 
-export function cloneReciboWithFactor<T extends Record<string, any>>(
+export function cloneReciboWithFactor<T extends ReciboLike>(
   recibo: T,
   fator: number,
   vendedorId: string,
@@ -81,7 +91,7 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
 
   const map = new Map<string, RateioRow>();
 
-  const byConcReciboRows: any[] = [];
+  const byConcReciboRows: RateioRow[] = [];
 
   for (const chunk of chunkArray(ids, SUPABASE_IN_BATCH_SIZE)) {
     const { data: byVendaRecibo, error: byVendaErr } = await client
@@ -117,7 +127,7 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
   const concIds = Array.from(
     new Set(
       byConcReciboRows
-        .map((row: any) => toStr(row?.conciliacao_recibo_id))
+        .map((row) => toStr(row?.conciliacao_recibo_id))
         .filter(isUuid)
     )
   );
@@ -176,10 +186,10 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
   }
 
   const vendaReciboIds = uniqueCleanStrings(
-    (splitRows || []).map((row: any) => row?.venda_recibo_id)
+    (splitRows as SplitRateioLookupRow[]).map((row) => row?.venda_recibo_id)
   ).filter(isUuid);
   const concReciboIds = uniqueCleanStrings(
-    (splitRows || []).map((row: any) => row?.conciliacao_recibo_id)
+    (splitRows as SplitRateioLookupRow[]).map((row) => row?.conciliacao_recibo_id)
   ).filter(isUuid);
 
   const vendaIds = new Set<string>();
@@ -217,8 +227,9 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
 
 export function applyRateioToSalesForScopedVendedores<
   T extends {
+    id?: string | null;
     vendedor_id?: string | null;
-    vendas_recibos?: Array<Record<string, any>> | null;
+    vendas_recibos?: Array<ReciboLike> | null;
   }
 >(items: T[], rateioMap: Map<string, RateioRow>, scopedVendedorIds?: string[] | null) {
   const scopedSet = cleanStringSet(scopedVendedorIds || []);
@@ -230,7 +241,7 @@ export function applyRateioToSalesForScopedVendedores<
     if (recibos.length === 0) return [];
     const sourceBrutoTotal = recibos.reduce((sum, recibo) => sum + resolveReciboBruto(recibo), 0);
 
-    const recibosPorVendedor = new Map<string, Array<Record<string, any>>>();
+    const recibosPorVendedor = new Map<string, ReciboLike[]>();
 
     for (const [reciboIndex, recibo] of recibos.entries()) {
       const rawReciboId = toStr(recibo?.id);
@@ -304,7 +315,7 @@ export function applyRateioToSalesForScopedVendedores<
           ...item,
           vendedor_id: vendedorId,
           vendas_recibos: vendedorRecibos,
-          rateio_source_venda_id: toStr((item as any)?.id) || null,
+          rateio_source_venda_id: toStr(item?.id) || null,
           rateio_scope_bruto_total: scopeBrutoTotal,
           rateio_source_bruto_total: sourceBrutoTotal,
           rateio_scope_factor: scopeFactor,
