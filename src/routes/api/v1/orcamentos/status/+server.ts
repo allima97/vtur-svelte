@@ -14,6 +14,20 @@ import { isQuoteCreatorAllowed, resolveQuoteCreatorScope } from '$lib/server/orc
 
 const MAX_ORCAMENTO_STATUS_BODY_BYTES = 16 * 1024;
 
+type OrcamentoStatusBody = {
+  status?: unknown;
+  status_negociacao?: unknown;
+  observacoes?: unknown;
+};
+
+type OrcamentoStatusUpdate = {
+  updated_at: string;
+  status?: unknown;
+  status_negociacao?: unknown;
+  last_interaction_notes?: unknown;
+  last_interaction_at?: string;
+};
+
 export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -36,7 +50,7 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoStatusBody)
         : {};
 
     const quoteScope = await resolveQuoteCreatorScope(client, scope, {
@@ -54,7 +68,7 @@ export async function PATCH(event) {
       return json({ error: 'Orcamento nao encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
-    const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    const updateData: OrcamentoStatusUpdate = { updated_at: new Date().toISOString() };
     if (body.status_negociacao !== undefined) updateData.status_negociacao = body.status_negociacao;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.observacoes) {
