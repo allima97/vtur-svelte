@@ -84,15 +84,23 @@ export function writeCache(key: string, payload: unknown, ttlMs: number) {
   cache.set(key, { expiresAt: Date.now() + ttlMs, payload });
 }
 
-export function matchesBusca(item: any, busca: string) {
+function readRecordValue(value: unknown, key: string) {
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
+export function matchesBusca(item: unknown, busca: string) {
   if (!busca) return true;
+  const cidade = readRecordValue(item, 'cidade');
+  const tipoProduto = readRecordValue(item, 'tipo_produto');
   const hay = [
-    item?.nome,
-    item?.localizacao,
-    item?.classificacao,
-    item?.observacao,
-    item?.cidade?.nome,
-    item?.tipo_produto?.nome
+    readRecordValue(item, 'nome'),
+    readRecordValue(item, 'localizacao'),
+    readRecordValue(item, 'classificacao'),
+    readRecordValue(item, 'observacao'),
+    readRecordValue(cidade, 'nome'),
+    readRecordValue(tipoProduto, 'nome')
   ]
     .map((v) => String(v || '').toLowerCase())
     .join(' | ');
