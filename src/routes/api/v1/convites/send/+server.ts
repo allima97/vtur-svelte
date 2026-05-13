@@ -17,6 +17,10 @@ type UserTypeNameRow = { name?: string | null };
 type UserProfileNameRow = IdRow & { nome_completo?: string | null };
 type CompanyNameRow = { nome_fantasia?: string | null };
 type SharedGestorRow = { gestor_base_id?: string | null };
+type AuthLinkData = {
+  properties?: { action_link?: string | null } | null;
+  user?: { id?: string | null } | null;
+};
 type EmailDeliveryResult =
   | { ok: true; status: string; id?: string }
   | { ok: false; status: string; error?: unknown };
@@ -99,6 +103,14 @@ function providerPayloadMessage(payload: unknown) {
 function providerErrorStatus(provider: string, status?: string | number, payload?: unknown) {
   const detail = providerPayloadMessage(payload);
   return detail ? `${provider}:${status || "erro"}:${detail}` : `${provider}:${status || "erro"}`;
+}
+
+function readAuthLinkData(data: unknown) {
+  const linkData = data as AuthLinkData | null;
+  return {
+    actionLink: String(linkData?.properties?.action_link || ""),
+    authUserId: String(linkData?.user?.id || "") || null
+  };
 }
 
 async function getUserTypeNameById(client: ReturnType<typeof getAdminClient>, userTypeId: string) {
@@ -413,12 +425,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           options: { redirectTo },
         });
         if (magicErr) throw magicErr;
-        actionLink = String((magicData as any)?.properties?.action_link || "");
-        authUserId = String((magicData as any)?.user?.id || "") || null;
+        ({ actionLink, authUserId } = readAuthLinkData(magicData));
       } else {
         if (inviteErr) throw inviteErr;
-        actionLink = String((inviteData as any)?.properties?.action_link || "");
-        authUserId = String((inviteData as any)?.user?.id || "") || null;
+        ({ actionLink, authUserId } = readAuthLinkData(inviteData));
       }
     } catch (err: unknown) {
       logServerError("[convites/send] falha ao gerar link de convite", err);
