@@ -1,5 +1,7 @@
 const DEFAULT_ALLOWED_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
 const ABSOLUTE_HTTP_PROTOCOLS = new Set(["http:", "https:"]);
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+const DANGEROUS_URL_SCHEME_PATTERN = /^(javascript|vbscript|data):/i;
 
 function getBaseUrl() {
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -13,8 +15,8 @@ export function sanitizeHref(
   allowedProtocols: string[] = DEFAULT_ALLOWED_PROTOCOLS,
 ) {
   const raw = String(value || "").trim();
-  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return "";
-  if (/^(javascript|vbscript|data):/i.test(raw)) return "";
+  if (!raw || CONTROL_CHAR_PATTERN.test(raw)) return "";
+  if (DANGEROUS_URL_SCHEME_PATTERN.test(raw)) return "";
 
   if (raw.startsWith("/")) {
     return raw.startsWith("//") || raw.startsWith("/\\") ? "" : raw;
@@ -38,8 +40,8 @@ export function safeOpenNewTab(value: unknown, allowedProtocols?: string[]) {
 
 export function sanitizeAbsoluteHttpUrl(value: unknown) {
   const raw = String(value || "").trim();
-  if (!raw || /[\u0000-\u001f\u007f]/.test(raw)) return "";
-  if (/^(javascript|vbscript|data):/i.test(raw)) return "";
+  if (!raw || CONTROL_CHAR_PATTERN.test(raw)) return "";
+  if (DANGEROUS_URL_SCHEME_PATTERN.test(raw)) return "";
 
   try {
     const parsed = new URL(raw);
