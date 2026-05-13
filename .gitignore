@@ -11,6 +11,7 @@
 /.wrangler
 /.svelte-kit
 /.svelte-kit.stuck-*
+/vite.config.ts.timestamp-*.mjs
 /public/pdfs
 /supabase/.temp
 src/src/
