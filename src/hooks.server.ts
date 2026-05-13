@@ -61,12 +61,32 @@ type UserTypeLookupRow = {
 	user_types?: { name?: string | null } | Array<{ name?: string | null }> | null;
 };
 
+type UserProfileRow = {
+	id?: string | null;
+	company_id?: string | null;
+	nome_completo?: string | null;
+	telefone?: string | null;
+	cidade?: string | null;
+	estado?: string | null;
+	uso_individual?: boolean | null;
+	active?: boolean | null;
+	must_change_password?: boolean | null;
+	user_types?: UserTypeLookupRow['user_types'];
+};
+
+type CompanyCommissionParamsRow = {
+	mfa_obrigatorio?: boolean | null;
+};
+
 type PlatformLike = {
 	env?: Record<string, unknown> | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null;
+
+const getErrorCode = (value: unknown) => (isRecord(value) ? String(value.code || '') : '');
+const getErrorMessage = (value: unknown) => (isRecord(value) ? String(value.message || '') : '');
 
 const buildPerms = (
 	rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
@@ -602,7 +622,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		(accRowsRes.data || []) as Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
 	);
 
-	const perfil = userProfileRes.data as any;
+	const perfil = userProfileRes.data as UserProfileRow | null;
 	const rawType = extractUserTypeName(perfil);
 	const userType = normalizeUserType(rawType);
 	const isSystemAdmin = isSystemAdminRole(userType);
@@ -621,8 +641,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
 
 	if (!isSenhaObrigatoriaAllowed) {
 		const missingColumn =
-			String((userProfileRes.error as any)?.code || '') === '42703' ||
-			String((userProfileRes.error as any)?.message || '').toLowerCase().includes('must_change_password');
+			getErrorCode(userProfileRes.error) === '42703' ||
+			getErrorMessage(userProfileRes.error).toLowerCase().includes('must_change_password');
 
 		if (!userProfileRes.error || missingColumn) {
 			if (Boolean(perfil?.must_change_password)) {
@@ -662,7 +682,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 				.eq('company_id', companyId)
 				.maybeSingle();
 			if (paramErr) throw paramErr;
-			mfaObrigatorio = Boolean((paramData as any)?.mfa_obrigatorio);
+			mfaObrigatorio = Boolean((paramData as CompanyCommissionParamsRow | null)?.mfa_obrigatorio);
 		}
 
 		const [{ data: aalData, error: aalError }, { data: factorsData, error: factorsError }] =
