@@ -16,6 +16,35 @@ import {
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 import { chunkArray } from '$lib/utils/array';
 
+type ClienteAniversarianteRow = {
+  id: string;
+  nome: string | null;
+  nascimento: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+};
+
+type AcompanhanteAniversarianteRow = {
+  id: string;
+  cliente_id: string | null;
+  nome_completo: string | null;
+  data_nascimento: string | null;
+  telefone: string | null;
+};
+
+type AniversarianteItem = {
+  id: string;
+  nome: string | null;
+  nascimento: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  aniversario_hoje: boolean;
+  pessoa_tipo: 'cliente' | 'acompanhante';
+  cliente_id: string | null;
+};
+
 /** Extrai mês (1–12) e dia (1–31) de uma string "YYYY-MM-DD" sem criar Date,
  *  evitando qualquer problema de timezone/DST. */
 function extractMonthDay(nascimento: string | null): { month: number; day: number } | null {
@@ -77,7 +106,7 @@ export async function GET(event) {
     }
 
     const [clientes, acompanhantes] = await Promise.all([
-      getCachedReadModel<any[]>({
+      getCachedReadModel<ClienteAniversarianteRow[]>({
         key: buildReadModelCacheKey('dashboard:aniversariantes-clientes', { companyIds }),
         tags: [
           READ_MODEL_TAGS.clients,
@@ -87,7 +116,7 @@ export async function GET(event) {
         ttlMs: 60_000,
         staleTtlMs: 300_000,
         loader: async () => {
-          const rows: any[] = [];
+          const rows: ClienteAniversarianteRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
           for (const companyBatch of companyBatches) {
             let q = client
@@ -103,7 +132,7 @@ export async function GET(event) {
           return rows;
         }
       }),
-      getCachedReadModel<any[]>({
+      getCachedReadModel<AcompanhanteAniversarianteRow[]>({
         key: buildReadModelCacheKey('dashboard:aniversariantes-acompanhantes', { companyIds }),
         tags: [
           READ_MODEL_TAGS.clients,
@@ -113,7 +142,7 @@ export async function GET(event) {
         ttlMs: 60_000,
         staleTtlMs: 300_000,
         loader: async () => {
-          const rows: any[] = [];
+          const rows: AcompanhanteAniversarianteRow[] = [];
           const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
           for (const companyBatch of companyBatches) {
             let q = client
@@ -132,7 +161,7 @@ export async function GET(event) {
       })
     ]);
 
-    function getNextBirthdayMs(nascimento: string, hojeMs: number, hojeYear: number) {
+    function getNextBirthdayMs(nascimento: string | null, hojeMs: number, hojeYear: number) {
       const birth = parseISODateParts(nascimento);
       if (!birth) return Number.POSITIVE_INFINITY;
       let nextMs = Date.UTC(hojeYear, birth.month - 1, birth.day);
@@ -145,8 +174,8 @@ export async function GET(event) {
     const hojeYear = hoje?.year ?? new Date().getFullYear();
 
     const clientesAniv = (clientes || [])
-      .filter((c: any) => isBirthdayInRange(c.nascimento, diasAfrente))
-      .map((c: any) => ({
+      .filter((c) => isBirthdayInRange(c.nascimento, diasAfrente))
+      .map((c): AniversarianteItem => ({
         id: c.id,
         nome: c.nome,
         nascimento: c.nascimento,
@@ -159,8 +188,8 @@ export async function GET(event) {
       }));
 
     const acompanhantesAniv = (acompanhantes || [])
-      .filter((a: any) => isBirthdayInRange(a.data_nascimento, diasAfrente))
-      .map((a: any) => ({
+      .filter((a) => isBirthdayInRange(a.data_nascimento, diasAfrente))
+      .map((a): AniversarianteItem => ({
         id: a.id,
         nome: a.nome_completo,
         nascimento: a.data_nascimento,
@@ -182,7 +211,7 @@ export async function GET(event) {
       ? aniversariantesFiltrados.slice(0, outputLimit)
       : aniversariantesFiltrados;
     const hojeCount = aniversariantesFiltrados.reduce(
-      (total: number, a: any) => total + (a.aniversario_hoje ? 1 : 0),
+      (total, a) => total + (a.aniversario_hoje ? 1 : 0),
       0
     );
 
