@@ -18,6 +18,27 @@ import { ensureClienteModuloAccess } from '$lib/server/clientes';
 const MAX_CLIENTE_AVISO_SEND_BODY_BYTES = 128 * 1024;
 const VALID_AVISO_CHANNELS = new Set(['email', 'whatsapp']);
 
+type ClienteAvisoHistoricoInsert = {
+  cliente_id: string;
+  template_id: string | null;
+  canal: 'email' | 'whatsapp';
+  assunto: string;
+  mensagem: string;
+  status: string;
+  provider: string;
+  provider_id: string | null;
+  destinatario: string;
+  enviado_por: string;
+};
+
+type ClienteAvisoSendBody = {
+  cliente_id?: string | null;
+  canal?: string | null;
+  template_id?: string | null;
+  assunto?: string | null;
+  mensagem?: string | null;
+};
+
 function normalizePhone(value: string) {
   return String(value || '').replace(/\D+/g, '');
 }
@@ -36,7 +57,7 @@ function renderHtml(text: string) {
     .join('');
 }
 
-async function tryInsertHistorico(client: ReturnType<typeof getAdminClient>, payload: Record<string, any>) {
+async function tryInsertHistorico(client: ReturnType<typeof getAdminClient>, payload: ClienteAvisoHistoricoInsert) {
   const { error } = await client.from('cliente_avisos_historico').insert(payload);
   if (!error) return true;
 
@@ -106,9 +127,9 @@ export async function POST(event) {
     }
 
     const scope = await resolveUserScope(client, user.id);
-    const body =
+    const body: ClienteAvisoSendBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ClienteAvisoSendBody)
         : {};
 
     if (!scope.isAdmin) {
