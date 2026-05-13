@@ -27,12 +27,13 @@ function normalizeUpdates(raw: unknown): UpdateInput[] {
 
   return raw
     .map((item) => {
-      const id = String((item as any)?.id || "").trim();
+      const itemRecord = item as Record<string, unknown>;
+      const id = String(itemRecord?.id || "").trim();
       if (!isUuid(id)) return null;
 
-      const statusRaw = (item as any)?.status;
-      const categoriaRaw = (item as any)?.categoria_id;
-      const doneRaw = (item as any)?.done;
+      const statusRaw = itemRecord?.status;
+      const categoriaRaw = itemRecord?.categoria_id;
+      const doneRaw = itemRecord?.done;
 
       const normalized: UpdateInput = { id };
 
