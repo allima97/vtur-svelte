@@ -20,6 +20,12 @@ type UpdateInput = {
   done?: boolean;
 };
 
+type ExistingTodoRow = {
+  id: unknown;
+  user_id: unknown;
+  tipo: unknown;
+};
+
 const MAX_TODO_BATCH_BODY_BYTES = 128 * 1024;
 
 function normalizeUpdates(raw: unknown): UpdateInput[] {
@@ -85,7 +91,7 @@ export async function POST(event) {
     }
 
     const ids = updates.map((item) => item.id);
-    const existingRows: any[] = [];
+    const existingRows: ExistingTodoRow[] = [];
     for (const batch of chunkArray(ids)) {
       const { data, error: existingError } = await client
         .from("agenda_itens")
@@ -97,7 +103,7 @@ export async function POST(event) {
     }
 
     const existingMap = new Map(
-      (existingRows || []).map((row: any) => [String(row.id), row]),
+      (existingRows || []).map((row) => [String(row.id), row]),
     );
     const errors: Array<{ id: string; message: string }> = [];
     let updated = 0;
