@@ -13,6 +13,26 @@
   let saving = false;
   let cepStatus: string | null = null;
 
+  type PerfilOnboarding = {
+    nome_completo?: string | null;
+    cpf?: string | null;
+    data_nascimento?: string | null;
+    telefone?: string | null;
+    whatsapp?: string | null;
+    cep?: string | null;
+    endereco?: string | null;
+    numero?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    uso_individual?: boolean | null;
+  };
+
+  type CepResponse = {
+    logradouro?: string;
+    localidade?: string;
+    uf?: string;
+  };
+
   let form = {
     nome_completo: '',
     cpf: '',
@@ -32,7 +52,7 @@
   async function load() {
     loading = true;
     try {
-      const perfil = await apiGet<any>('/api/v1/user/profile');
+      const perfil = await apiGet<PerfilOnboarding>('/api/v1/user/profile');
       form = {
         nome_completo: perfil.nome_completo || '',
         cpf: perfil.cpf || '',
@@ -44,7 +64,7 @@
         numero: perfil.numero || '',
         cidade: perfil.cidade || '',
         estado: perfil.estado || '',
-        uso_individual: perfil.uso_individual
+        uso_individual: perfil.uso_individual ?? null
       };
     } catch (err) {
       toast.error('Erro ao carregar perfil.');
@@ -58,7 +78,7 @@
     if (digits.length !== 8) { cepStatus = null; return; }
     cepStatus = 'Buscando CEP...';
     try {
-      const data = await apiGet<any>('/api/v1/enderecos/cep', { cep: digits });
+      const data = await apiGet<CepResponse>('/api/v1/enderecos/cep', { cep: digits });
       form = { ...form, endereco: data.logradouro || form.endereco, cidade: data.localidade || form.cidade, estado: data.uf || form.estado };
       cepStatus = 'Endereço carregado.';
     } catch {
