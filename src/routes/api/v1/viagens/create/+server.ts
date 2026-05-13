@@ -84,10 +84,9 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const scopeCompanyIds = new Set(scope.companyIds);
     if (
       !scope.isAdmin &&
-      (!scopeCompanyIds.has(companyId) ||
+      (!scope.companyIds.includes(companyId) ||
         (requestedCompanyId && requestedScopedCompanyId !== requestedCompanyId))
     ) {
       return json(
