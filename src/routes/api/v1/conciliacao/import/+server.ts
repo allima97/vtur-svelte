@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ensureModuloAccess,
   fetchRankingVendedoresByCompanyIds,
@@ -126,8 +127,23 @@ type ReciboCandidate = {
   valor_taxas: number | null;
 };
 
+type ReciboCandidateLookupRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+};
+
+type VendaLookupRow = {
+  id?: string | null;
+  company_id?: string | null;
+  vendedor_id?: string | null;
+};
+
 async function fetchReciboCandidates(params: {
-  client: any;
+  client: SupabaseClient;
   numero: string;
   companyId: string;
 }): Promise<ReciboCandidate[]> {
@@ -144,21 +160,21 @@ async function fetchReciboCandidates(params: {
           .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
           .eq("numero_recibo_normalizado", numeroNormalizado)
           .limit(30)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ReciboCandidateLookupRow[] }),
     numero
       ? client
           .from("vendas_recibos")
           .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
           .eq("numero_recibo", numero)
           .limit(30)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ReciboCandidateLookupRow[] }),
     token && token.length >= 5
       ? client
           .from("vendas_recibos")
           .select("id, venda_id, numero_recibo, valor_total, valor_taxas")
           .ilike("numero_recibo", `%${token}%`)
           .limit(50)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as ReciboCandidateLookupRow[] }),
   ]);
 
   for (const row of [
@@ -214,7 +230,7 @@ async function fetchReciboCandidates(params: {
 }
 
 async function findReciboByNumero(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
   numero: string;
   valorLancamento?: number | null;
@@ -234,16 +250,16 @@ async function findReciboByNumero(params: {
   const targetTaxas = Number(params.valorTaxas || 0);
 
   const reciboExato = rows.find(
-    (item: any) => String(item?.numero_recibo || "").trim() === numero,
+    (item) => String(item?.numero_recibo || "").trim() === numero,
   );
   if (reciboExato) return { recibo: reciboExato };
 
-  const compativeis = rows.filter((item: any) =>
+  const compativeis = rows.filter((item) =>
     numeroReciboMatches(numero, item?.numero_recibo),
   );
   if (compativeis.length === 0) return null;
 
-  const ranked = [...compativeis].sort((a: any, b: any) => {
+  const ranked = [...compativeis].sort((a, b) => {
     const aTotalDiff = Math.abs(Number(a?.valor_total || 0) - targetTotal);
     const bTotalDiff = Math.abs(Number(b?.valor_total || 0) - targetTotal);
     if (aTotalDiff !== bTotalDiff) return aTotalDiff - bTotalDiff;
@@ -252,12 +268,12 @@ async function findReciboByNumero(params: {
     return aTaxDiff - bTaxDiff;
   });
 
-  const porValor = ranked.filter((item: any) =>
+  const porValor = ranked.filter((item) =>
     params.valorLancamento == null
       ? true
       : matches(Number(item?.valor_total || 0), targetTotal),
   );
-  const porTaxas = porValor.filter((item: any) =>
+  const porTaxas = porValor.filter((item) =>
     params.valorTaxas == null
       ? true
       : matches(Number(item?.valor_taxas || 0), targetTaxas),
@@ -272,7 +288,7 @@ async function findReciboByNumero(params: {
 }
 
 async function findRexturReciboByReserva(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
   reserva?: string | null;
   valorLancamento?: number | null;
@@ -293,7 +309,7 @@ async function findRexturReciboByReserva(params: {
     .limit(20);
 
   const recibos = (rows || [])
-    .map((row: any) => ({
+    .map((row: ReciboCandidateLookupRow) => ({
       id: String(row?.id || "").trim(),
       venda_id: String(row?.venda_id || "").trim(),
       numero_recibo: row?.numero_recibo ?? null,
@@ -302,11 +318,11 @@ async function findRexturReciboByReserva(params: {
       valor_taxas: row?.valor_taxas ?? null,
       vendedor_id: null as string | null,
     }))
-    .filter((row: any) => row.id && row.venda_id);
+    .filter((row) => row.id && row.venda_id);
 
   if (recibos.length === 0) return null;
 
-  const vendaIds = uniqueCleanStrings(recibos.map((row: any) => row.venda_id));
+  const vendaIds = uniqueCleanStrings(recibos.map((row) => row.venda_id));
   const vendaMap = new Map<string, string | null>();
   for (const batch of chunkArray(vendaIds)) {
     const { data: vendas } = await params.client
@@ -315,19 +331,19 @@ async function findRexturReciboByReserva(params: {
       .in("id", batch)
       .eq("company_id", params.companyId);
 
-    for (const venda of vendas || []) {
-      const id = String((venda as any)?.id || "").trim();
+    for (const venda of (vendas || []) as VendaLookupRow[]) {
+      const id = String(venda?.id || "").trim();
       if (id)
         vendaMap.set(
           id,
-          String((venda as any)?.vendedor_id || "").trim() || null,
+          String(venda?.vendedor_id || "").trim() || null,
         );
     }
   }
 
   const candidatos = recibos
-    .filter((row: any) => vendaMap.has(row.venda_id))
-    .map((row: any) => ({
+    .filter((row) => vendaMap.has(row.venda_id))
+    .map((row) => ({
       ...row,
       vendedor_id: vendaMap.get(row.venda_id) || null,
     }));
@@ -337,12 +353,12 @@ async function findRexturReciboByReserva(params: {
 
   const targetTotal = Number(params.valorLancamento || 0);
   const targetTaxas = Number(params.valorTaxas || 0);
-  const porValor = candidatos.filter((item: any) =>
+  const porValor = candidatos.filter((item) =>
     params.valorLancamento == null
       ? true
       : matches(Number(item?.valor_total || 0), targetTotal),
   );
-  const porTaxas = porValor.filter((item: any) =>
+  const porTaxas = porValor.filter((item) =>
     params.valorTaxas == null
       ? true
       : matches(Number(item?.valor_taxas || 0), targetTaxas),
