@@ -102,6 +102,24 @@ type ViagemListItem = {
   created_at: string | null;
 };
 
+type ViagensListQueryResult = PromiseLike<{
+  data: unknown;
+  error: unknown;
+}>;
+
+type ViagensListQueryBuilder = {
+  order: (
+    column: string,
+    options: { ascending: boolean; nullsFirst: boolean },
+  ) => ViagensListQueryBuilder;
+  in: (column: string, values: readonly string[]) => ViagensListQueryBuilder;
+  gte: (column: string, value: string) => ViagensListQueryBuilder;
+  lte: (column: string, value: string) => ViagensListQueryBuilder;
+  eq: (column: string, value: string) => ViagensListQueryBuilder;
+  limit: (value: number) => ViagensListQueryResult;
+  range: (from: number, to: number) => ViagensListQueryResult;
+};
+
 function clampInt(
   value: string | null,
   fallback: number,
@@ -270,7 +288,7 @@ export async function GET(event) {
 
         const periodoFilter = getPeriodoFilter(periodo);
 
-        const applyOrdering = (query: any) => {
+        const applyOrdering = (query: ViagensListQueryBuilder) => {
           if (ordenar === "embarque_desc") {
             return query
               .order("data_inicio", { ascending: false, nullsFirst: false })
@@ -309,7 +327,9 @@ export async function GET(event) {
 
         const fetchBatchedViagens = async (
           selectFields: string,
-          configure: (query: any) => any,
+          configure: (
+            query: ViagensListQueryBuilder,
+          ) => ViagensListQueryBuilder,
           limitRows: number,
         ) => {
           const companyBatches = companyIds.length > SUPABASE_IN_BATCH_SIZE ? chunkArray(companyIds) : [companyIds];
@@ -317,7 +337,7 @@ export async function GET(event) {
           for (const batch of companyBatches) {
             const result = await configure(buildQuery(selectFields, batch)).limit(limitRows);
             if (result.error) throw result.error;
-            rows.push(...(result.data || []));
+            rows.push(...((result.data as ViagemListRow[] | null) || []));
           }
           return rows;
         };
@@ -358,7 +378,7 @@ export async function GET(event) {
             to,
           );
           if (error) throw error;
-          scopedData = data || [];
+          scopedData = (data as ViagemListRow[] | null) || [];
         }
 
         const resolvedStatuses = await syncViagensStatus(
