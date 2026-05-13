@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const bodyResult = await readJsonBodyLimited(request, MAX_SET_SESSION_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data as Record<string, any> | null;
+    const body = bodyResult.data as Record<string, unknown> | null;
     if (!body || typeof body !== 'object') {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
