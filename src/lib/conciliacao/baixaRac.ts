@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export const BAIXA_RAC_USER_NAME = "Baixa RAC";
 export const BAIXA_RAC_DESCRICAO = "BAIXA DE RAC";
 
@@ -8,7 +10,7 @@ export function isEquipeVturNome(value?: string | null) {
   return String(value || "").trim().toLowerCase() === EQUIPE_VTUR_USER_NAME_NORMALIZED;
 }
 
-export async function findEquipeVturVendedor(client: any, companyId: string | null) {
+export async function findEquipeVturVendedor(client: SupabaseClient, companyId: string | null) {
   if (!companyId) return null;
 
   const { data, error } = await client
@@ -56,7 +58,7 @@ export function isBaixaRacVendorId(vendedorId: string | null | undefined, baixaR
   return normalizedVendedorId === normalizedBaixaRacId;
 }
 
-export async function findBaixaRacVendedor(client: any, companyId: string | null) {
+export async function findBaixaRacVendedor(client: SupabaseClient, companyId: string | null) {
   if (!companyId) return null;
 
   const { data, error } = await client
