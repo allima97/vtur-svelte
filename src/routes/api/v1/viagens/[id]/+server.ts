@@ -1,10 +1,12 @@
 import { json } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ensureModuloAccess,
   getAdminClient,
   requireAuthenticatedUser,
   resolveScopedCompanyIds,
   resolveScopedVendedorIds,
+  type UserScope,
   resolveUserScope,
   toErrorResponse,
 } from "$lib/server/v1";
@@ -24,11 +26,51 @@ const VIAGEM_ALLOWED_UPDATE_FIELDS = [
   "follow_up_text",
   "follow_up_fechado",
   "responsavel_user_id",
-];
+] as const;
+
+type VendaResponsavelRow = {
+  vendedor_id?: string | null;
+};
+
+type ClienteCreatedByRow = {
+  created_by?: string | null;
+};
+
+type ViagemAccessRow = {
+  company_id?: string | null;
+  responsavel_user_id?: string | null;
+  venda_id?: string | null;
+  cliente_id?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status?: string | null;
+};
+
+type ViagemUpdateBody = Partial<Record<(typeof VIAGEM_ALLOWED_UPDATE_FIELDS)[number] | "company_id", unknown>>;
+
+type ViagemVendaResumo = {
+  id?: string | null;
+  valor_total?: number | null;
+  valor_total_pago?: number | null;
+  status?: string | null;
+  data_venda?: string | null;
+  recibos?: Array<Record<string, unknown> & { produto_nome?: string }>;
+};
+
+type ViagemUpdateData = {
+  updated_at: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status?: string | null;
+  observacoes?: string | null;
+  follow_up_text?: string | null;
+  follow_up_fechado?: boolean | null;
+  responsavel_user_id?: string | null;
+};
 
 async function hasViagemAccessByResponsavel(
-  client: any,
-  scope: any,
+  client: SupabaseClient,
+  scope: UserScope,
   userId: string,
   responsavelUserId?: string | null,
 ) {
@@ -45,8 +87,8 @@ async function hasViagemAccessByResponsavel(
 }
 
 async function hasViagemAccessByVenda(
-  client: any,
-  scope: any,
+  client: SupabaseClient,
+  scope: UserScope,
   userId: string,
   vendaId?: string | null,
 ) {
@@ -67,13 +109,14 @@ async function hasViagemAccessByVenda(
     .eq("id", id)
     .maybeSingle();
 
-  const vendedorId = String((venda as any)?.vendedor_id || "").trim();
+  const vendaRow = venda as VendaResponsavelRow | null;
+  const vendedorId = String(vendaRow?.vendedor_id || "").trim();
   return vendedorId ? allowedResponsavelIds.includes(vendedorId) : false;
 }
 
 async function hasViagemAccessByCliente(
-  client: any,
-  scope: any,
+  client: SupabaseClient,
+  scope: UserScope,
   userId: string,
   clienteId?: string | null,
 ) {
@@ -106,20 +149,21 @@ async function hasViagemAccessByCliente(
     .eq("id", id)
     .maybeSingle();
   if (!clienteError) {
-    const createdBy = String((cliente as any)?.created_by || "").trim();
+    const clienteRow = cliente as ClienteCreatedByRow | null;
+    const createdBy = String(clienteRow?.created_by || "").trim();
     if (createdBy && allowedResponsavelIds.includes(createdBy)) return true;
   }
 
   return false;
 }
 
-function shouldRestrictViagemToOwner(scope: any) {
+function shouldRestrictViagemToOwner(scope: UserScope) {
   // Gestor/Master/Admin podem operar a empresa. Vendedor comum fica restrito
   // à própria operação comercial; o fallback por cliente é controlado abaixo.
   return !scope.isAdmin && !scope.isGestor && !scope.isMaster;
 }
 
-function shouldAllowClienteFallback(scope: any) {
+function shouldAllowClienteFallback(scope: UserScope) {
   // Vendedor comum não pode enxergar/alterar uma viagem só porque já vendeu
   // para o mesmo cliente em outra oportunidade. Para ele, a viagem precisa
   // estar vinculada à própria venda ou atribuída diretamente.
@@ -210,7 +254,7 @@ export async function GET(event) {
       }
     }
 
-    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as any);
+    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as ViagemAccessRow);
     const viagemComStatus = { ...viagem, status: statusAtual };
 
     let cliente = null;
@@ -232,7 +276,7 @@ export async function GET(event) {
         .single();
 
       if (vendaData) {
-        venda = { ...vendaData } as any;
+        venda = { ...vendaData } as ViagemVendaResumo;
 
         const { data: recibosData } = await client
           .from("vendas_recibos")
@@ -256,7 +300,7 @@ export async function GET(event) {
         const produtoIds = [
           ...new Set(
             (recibosData || [])
-              .map((r: any) => r.produto_id || r.produto_resolvido_id)
+              .map((r) => r.produto_id || r.produto_resolvido_id)
               .filter(Boolean),
           ),
         ];
@@ -272,7 +316,7 @@ export async function GET(event) {
           }
         }
 
-        venda.recibos = (recibosData || []).map((r: any) => ({
+        venda.recibos = (recibosData || []).map((r) => ({
           ...r,
           produto_nome:
             produtosMap.get(r.produto_id || r.produto_resolvido_id) ||
@@ -353,9 +397,13 @@ export async function PATCH(event) {
     const { id } = event.params;
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ViagemUpdateBody)
         : {};
-    const companyIds = resolveScopedCompanyIds(scope, body.company_id);
+    const companyId =
+      typeof body.company_id === "string" || body.company_id == null
+        ? body.company_id
+        : undefined;
+    const companyIds = resolveScopedCompanyIds(scope, companyId);
 
     const { data: existing, error: checkError } = await client
       .from("viagens")
@@ -373,18 +421,19 @@ export async function PATCH(event) {
       return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
+    const existingRow = existing as ViagemAccessRow;
     if (shouldRestrictViagemToOwner(scope)) {
       const hasResponsavelAccess = await hasViagemAccessByResponsavel(
         client,
         scope,
         user.id,
-        (existing as any)?.responsavel_user_id,
+        existingRow.responsavel_user_id,
       );
       const hasVendaAccess = await hasViagemAccessByVenda(
         client,
         scope,
         user.id,
-        (existing as any)?.venda_id ?? null,
+        existingRow.venda_id ?? null,
       );
       const hasClienteAccess =
         shouldAllowClienteFallback(scope) &&
@@ -392,23 +441,37 @@ export async function PATCH(event) {
           client,
           scope,
           user.id,
-          (existing as any)?.cliente_id ?? null,
+          existingRow.cliente_id ?? null,
         ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
         return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
 
-    const updateData: Record<string, any> = {
+    const updateData: ViagemUpdateData = {
       updated_at: new Date().toISOString(),
     };
     for (const field of VIAGEM_ALLOWED_UPDATE_FIELDS) {
-      if (body[field] !== undefined) updateData[field] = body[field];
+      const value = body[field];
+      if (value === undefined) continue;
+      if (field === "follow_up_fechado") {
+        updateData.follow_up_fechado = typeof value === "boolean" ? value : null;
+        continue;
+      }
+      if (field === "responsavel_user_id") {
+        updateData.responsavel_user_id = typeof value === "string" ? value : null;
+        continue;
+      }
+      if (field === "observacoes" || field === "follow_up_text") {
+        updateData[field] = typeof value === "string" ? value : null;
+        continue;
+      }
+      updateData[field] = typeof value === "string" ? value : null;
     }
     updateData.status = resolveViagemStatus({
-      status: updateData.status ?? (existing as any).status,
-      data_inicio: updateData.data_inicio ?? (existing as any).data_inicio,
-      data_fim: updateData.data_fim ?? (existing as any).data_fim,
+      status: updateData.status ?? existingRow.status,
+      data_inicio: updateData.data_inicio ?? existingRow.data_inicio,
+      data_fim: updateData.data_fim ?? existingRow.data_fim,
     });
 
     const { data, error } = await client
@@ -422,15 +485,16 @@ export async function PATCH(event) {
 
     if (error) throw error;
 
+    const updatedRow = data as ViagemAccessRow | null;
     invalidateTripReadModels({
       companyIds: [
         String(
-          (data as any)?.company_id || (existing as any)?.company_id || "",
+          updatedRow?.company_id || existingRow.company_id || "",
         ),
       ].filter(Boolean),
       vendedorIds: [
-        String((existing as any)?.responsavel_user_id || ""),
-        String((data as any)?.responsavel_user_id || ""),
+        String(existingRow.responsavel_user_id || ""),
+        String(updatedRow?.responsavel_user_id || ""),
       ].filter(Boolean),
       userId: user.id,
     });
@@ -487,18 +551,19 @@ export async function DELETE(event) {
       return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
+    const existingRow = existing as ViagemAccessRow;
     if (shouldRestrictViagemToOwner(scope)) {
       const hasResponsavelAccess = await hasViagemAccessByResponsavel(
         client,
         scope,
         user.id,
-        (existing as any)?.responsavel_user_id,
+        existingRow.responsavel_user_id,
       );
       const hasVendaAccess = await hasViagemAccessByVenda(
         client,
         scope,
         user.id,
-        (existing as any)?.venda_id ?? null,
+        existingRow.venda_id ?? null,
       );
       const hasClienteAccess =
         shouldAllowClienteFallback(scope) &&
@@ -506,7 +571,7 @@ export async function DELETE(event) {
           client,
           scope,
           user.id,
-          (existing as any)?.cliente_id ?? null,
+          existingRow.cliente_id ?? null,
         ));
       if (!hasResponsavelAccess && !hasVendaAccess && !hasClienteAccess) {
         return json({ error: "Sem acesso a esta viagem" }, { status: 403, headers: NO_STORE_HEADERS });
@@ -517,9 +582,9 @@ export async function DELETE(event) {
     if (error) throw error;
 
     invalidateTripReadModels({
-      companyIds: [String((existing as any)?.company_id || "")].filter(Boolean),
+      companyIds: [String(existingRow.company_id || "")].filter(Boolean),
       vendedorIds: [
-        String((existing as any)?.responsavel_user_id || ""),
+        String(existingRow.responsavel_user_id || ""),
       ].filter(Boolean),
       userId: user.id,
     });
