@@ -123,7 +123,7 @@ export async function GET(event) {
           throw error;
         }
 
-        const items = (data || []).map((row: any) => ({
+        const items = ((data || []) as TarefaClienteRow[]).map((row) => ({
           id: row.id,
           nome: row.nome,
           email: row.email,

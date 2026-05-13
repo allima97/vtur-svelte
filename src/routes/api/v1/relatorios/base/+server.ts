@@ -14,6 +14,33 @@ import { chunkArray } from '$lib/utils/array';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+type CompanyFilterRow = {
+  id?: string | null;
+  nome_fantasia?: string | null;
+  nome_empresa?: string | null;
+  active?: boolean | null;
+};
+
+type UserTypeFilterRow = {
+  name?: string | null;
+};
+
+type UserCompanyFilterRow = {
+  nome_fantasia?: string | null;
+  nome_empresa?: string | null;
+};
+
+type UserFilterRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  user_types?: UserTypeFilterRow | UserTypeFilterRow[] | null;
+  companies?: UserCompanyFilterRow | UserCompanyFilterRow[] | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -49,7 +76,7 @@ export async function GET(event) {
     }
 
     const fetchCompanies = async () => {
-      const rows: any[] = [];
+      const rows: CompanyFilterRow[] = [];
       const companyBatches =
         !scope.isAdmin && scope.companyIds.length > 0 ? chunkArray(scope.companyIds) : [null];
 
@@ -64,13 +91,13 @@ export async function GET(event) {
 
         const { data, error } = await query;
         if (error) throw error;
-        rows.push(...(data || []));
+        rows.push(...((data || []) as CompanyFilterRow[]));
       }
       return rows;
     };
 
     const fetchUsers = async () => {
-      const rows: any[] = [];
+      const rows: UserFilterRow[] = [];
       const runQuery = async (filters?: { ids?: string[] | null; companyIds?: string[] | null }) => {
         let query = client
           .from('users')
@@ -96,7 +123,7 @@ export async function GET(event) {
 
         const { data, error } = await query;
         if (error) throw error;
-        rows.push(...(data || []));
+        rows.push(...((data || []) as UserFilterRow[]));
       };
 
       if (!scope.isAdmin && scopedTeamIds.length > 0) {
@@ -116,21 +143,21 @@ export async function GET(event) {
 
     const [companiesRows, usersRows] = await Promise.all([fetchCompanies(), fetchUsers()]);
 
-    const empresas = companiesRows.map((row: any) => ({
+    const empresas = companiesRows.map((row) => ({
       id: String(row.id || ''),
       nome: String(row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'),
       active: row.active !== false
     }));
 
     const vendedores = usersRows
-      .filter((row: any) => {
+      .filter((row) => {
         if (row?.active === false) return false;
         if (row?.uso_individual === true && String(row?.id || '') !== user.id) return false;
         if (isGestorByType && scopedTeamIds.length > 0) return true;
         if (String(row?.id || '') === user.id && scope.isVendedor) return true;
         return isRankingEligibleUser(row);
       })
-      .map((row: any) => {
+      .map((row) => {
         const userType = Array.isArray(row?.user_types) ? row.user_types[0] : row?.user_types;
         const company = Array.isArray(row?.companies) ? row.companies[0] : row?.companies;
 

@@ -17,6 +17,13 @@ import {
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { chunkArray } from "$lib/utils/array";
 
+type TarefaUsuarioRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -54,7 +61,7 @@ export async function GET(event) {
       ttlMs: 30_000,
       staleTtlMs: 120_000,
       loader: async () => {
-        const rows: any[] = [];
+        const rows: TarefaUsuarioRow[] = [];
         const fetchUsers = async (companyBatch?: string[] | null) => {
           let query = client
             .from("users")
@@ -69,7 +76,7 @@ export async function GET(event) {
 
           const { data, error } = await query;
           if (error) throw error;
-          rows.push(...(data || []));
+          rows.push(...((data || []) as TarefaUsuarioRow[]));
         };
 
         if (companyIds.length > 0) {
@@ -80,7 +87,7 @@ export async function GET(event) {
           await fetchUsers();
         }
 
-        const items = rows.map((row: any) => ({
+        const items = rows.map((row) => ({
           id: row.id,
           nome: row.nome_completo || row.email,
           email: row.email,

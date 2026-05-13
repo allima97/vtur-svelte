@@ -19,6 +19,10 @@ import {
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { uniqueCleanStrings } from "$lib/utils/array";
 
+type TodoCategorySourceRow = {
+  categoria_id?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -64,7 +68,7 @@ export async function GET(event) {
         if (error) throw error;
 
         const categoriaIds = uniqueCleanStrings(
-          (data || []).map((row: any) => row?.categoria_id),
+          ((data || []) as TodoCategorySourceRow[]).map((row) => row?.categoria_id),
         );
 
         let categoriasMap = new Map<string, string>();
