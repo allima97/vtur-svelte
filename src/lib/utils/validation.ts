@@ -38,6 +38,7 @@ export const PHONE_PATTERN  = /^\(\d{2}\) \d{4,5}-\d{4}$/;
 export const EMAIL_PATTERN  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CEP_PATTERN    = /^\d{5}-\d{3}$/;
 export const DATE_BR_PATTERN = /^\d{2}\/\d{2}\/\d{4}$/;
+const REPEATED_DIGITS_PATTERN = /^(\d)\1+$/;
 
 // ─── Validação de campo individual ───────────────────────────────────────────
 
@@ -99,7 +100,7 @@ export function validateCPF(value: unknown): boolean {
   if (!value) return false;
   const n = String(value).replace(/\D/g, '');
   if (n.length !== 11) return false;
-  if (/^(\d)\1+$/.test(n)) return false; // todos iguais
+  if (REPEATED_DIGITS_PATTERN.test(n)) return false; // todos iguais
 
   let sum = 0;
   for (let i = 0; i < 9; i++) sum += parseInt(n[i]) * (10 - i);
@@ -122,7 +123,7 @@ export function validateCNPJ(value: unknown): boolean {
   if (!value) return false;
   const n = String(value).replace(/\D/g, '');
   if (n.length !== 14) return false;
-  if (/^(\d)\1+$/.test(n)) return false;
+  if (REPEATED_DIGITS_PATTERN.test(n)) return false;
 
   const calc = (digits: string, weights: number[]) => {
     const sum = digits.split('').reduce((acc, d, i) => acc + parseInt(d) * weights[i], 0);
