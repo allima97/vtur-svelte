@@ -182,5 +182,5 @@
 
 | Job | Endpoint | Status |
 |---|---|---|
-| Alerta comissão | `/api/v1/cron/alerta-comissao` | ✅ |
-| Lembretes consultoria | `/api/v1/cron/lembretes-consultoria` | ✅ |
+| Alerta comissão | `/api/v1/cron/alerta-comissao` | Desativado explicitamente (no-op autenticado) |
+| Lembretes consultoria | `/api/v1/cron/lembretes-consultoria` | Desativado explicitamente (no-op autenticado) |

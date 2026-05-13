@@ -2,7 +2,6 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited } from '$lib/server/requestGuards';
-import { logServerError } from '$lib/server/v1';
 import { env } from '$env/dynamic/private';
 
 const MAX_CRON_BODY_BYTES = 4 * 1024;
@@ -17,6 +16,21 @@ function secretMatches(expected: string, received: string | null) {
   return diff === 0;
 }
 
+function disabledCronResponse(dryRun: boolean) {
+  return json(
+    {
+      status: "disabled",
+      implemented: false,
+      dryRun,
+      action: "none",
+      pendentes: 0,
+      message:
+        "Cron lembretes-consultoria esta desativado: endpoint reservado, sem execucao operacional."
+    },
+    { headers: NO_STORE_HEADERS }
+  );
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   const CRON_SECRET = env.CRON_SECRET_CONSULTORIA || env.CRON_SECRET;
   const secret = request.headers.get("x-cron-secret");
@@ -25,25 +39,11 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   const bodyResult = await readJsonBodyLimited(request, MAX_CRON_BODY_BYTES);
-    if (!bodyResult.ok) return bodyResult.response;
+  if (!bodyResult.ok) return bodyResult.response;
 
-  try {
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
-        : {};
-    const dryRun = !!body.dryRun;
-
-    if (dryRun) {
-      return json({ status: "ok", dryRun: true, pendentes: 0 }, { headers: NO_STORE_HEADERS });
-    }
-
-    return json(
-      { status: "ok", message: "Cron lembretes-consultoria placeholder - implementar quando necessario" },
-      { headers: NO_STORE_HEADERS }
-    );
-  } catch (error: any) {
-    logServerError("[cron/lembretes-consultoria] falha na execução", error);
-    return json({ error: "Erro interno ao executar rotina." }, { status: 500, headers: NO_STORE_HEADERS });
-  }
+  const body =
+    bodyResult.data && typeof bodyResult.data === 'object'
+      ? (bodyResult.data as Record<string, unknown>)
+      : {};
+  return disabledCronResponse(Boolean(body.dryRun));
 };
