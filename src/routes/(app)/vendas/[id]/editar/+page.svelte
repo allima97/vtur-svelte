@@ -64,6 +64,8 @@
     tipo_produto?: string | null;
   } | null;
 
+  type ProdutoResolvidoOptionSource = NonNullable<ProdutoLookupPayload>;
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -442,7 +444,7 @@
     produtos = Array.from(byId.values()).sort((a, b) => PT_BR_BASE_COLLATOR.compare(String(a.nome || ''), String(b.nome || '')));
   }
 
-  function produtoResolvidoToOption(produto: any): Option | null {
+  function produtoResolvidoToOption(produto: ProdutoResolvidoOptionSource | null | undefined): Option | null {
     const id = String(produto?.id || '').trim();
     if (!id) return null;
     return {
