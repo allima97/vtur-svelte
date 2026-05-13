@@ -19,6 +19,12 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_TIPO_PACOTES_BODY_BYTES = 64 * 1024;
 
+type TipoPacoteRow = {
+  id: string;
+  nome?: string | null;
+  ativo?: boolean | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -29,7 +35,7 @@ export async function GET(event) {
       ensureModuloAccess(scope, ['parametros'], 1, 'Sem acesso a Parâmetros.');
     }
 
-    const { items } = await getCachedReadModel<{ items: any[] }>({
+    const { items } = await getCachedReadModel<{ items: TipoPacoteRow[] }>({
       key: buildReadModelCacheKey('parametros:tipo-pacotes:list', {}),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
@@ -41,7 +47,7 @@ export async function GET(event) {
           .order('nome');
 
         if (queryError) throw queryError;
-        return { items: data || [] };
+        return { items: (data || []) as unknown as TipoPacoteRow[] };
       }
     });
 
@@ -68,13 +74,14 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, nome, ativo } = body;
+    const idRaw = String(id || '').trim();
 
     const nomeTrimmed = String(nome || '').trim().slice(0, 120);
     if (!nomeTrimmed) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
-    if (id && !isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
+    if (idRaw && !isUuid(idRaw)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
     const nomeBusca = sanitizePostgrestSearchTerm(nomeTrimmed, 120);
 
     // Verifica duplicata
@@ -84,7 +91,7 @@ export async function POST(event) {
       .ilike('nome', nomeBusca || nomeTrimmed)
       .limit(1);
 
-    if (existing && existing.length > 0 && existing[0].id !== id) {
+    if (existing && existing.length > 0 && existing[0].id !== idRaw) {
       return json({ error: 'Já existe um tipo de pacote com este nome.' }, { status: 409, headers: NO_STORE_HEADERS });
     }
 
@@ -94,8 +101,8 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
-      const { data: updated, error: updateError } = await client.from('tipo_pacotes').update(payload).eq('id', id).select('id').single();
+    if (idRaw && isUuid(idRaw)) {
+      const { data: updated, error: updateError } = await client.from('tipo_pacotes').update(payload).eq('id', idRaw).select('id').single();
       if (updateError) throw updateError;
       result = updated;
     } else {
