@@ -77,7 +77,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
         "Content-Type": "image/svg+xml; charset=utf-8",
       },
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[cards/render] falha ao renderizar cartão", e);
     return new Response(
       JSON.stringify({
