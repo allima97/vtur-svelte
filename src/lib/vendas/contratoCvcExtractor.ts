@@ -3531,11 +3531,15 @@ export async function extractPdfText(
   const pdf = await pdfjsLib.getDocument({ data }).promise;
   const maxPages = Math.max(1, options.maxPages ?? 4);
   const totalPages = Math.min(pdf.numPages, maxPages);
+  type PdfTextContentItem = {
+    str?: string;
+    transform?: ArrayLike<number>;
+  };
   let fullText = "";
   for (let p = 1; p <= totalPages; p += 1) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-    const items = (content.items || []) as any[];
+    const items = (content.items || []) as PdfTextContentItem[];
     const rows: { y: number; items: { x: number; text: string }[] }[] = [];
     const tolerance = 2;
     for (const item of items) {
