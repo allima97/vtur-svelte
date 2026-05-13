@@ -20,6 +20,7 @@ import { invalidateSalesReadModels } from '$lib/server/readModelCache';
 import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function textNoStore(message: string, status: number) {
   return new Response(message, { status, headers: NO_STORE_HEADERS });
@@ -44,7 +45,7 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
 ];
 
 function isISODate(value?: string | null) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+  return ISO_DATE_PATTERN.test(String(value || '').trim());
 }
 
 function normalizeCpf(value?: string | null) {
