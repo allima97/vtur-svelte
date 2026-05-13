@@ -6,6 +6,7 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import type { RequestHandler } from './$types';
 
 const MAX_PASSKEY_VERIFY_BODY_BYTES = 32 * 1024;
+type AuthenticationResponsePayload = Parameters<typeof verifyAuthentication>[0]['response'];
 
 export const POST: RequestHandler = async (event) => {
   try {
@@ -29,10 +30,10 @@ export const POST: RequestHandler = async (event) => {
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_VERIFY_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const challengeId = String(body?.challengeId || '').trim();
-    const response = body?.response;
+    const response = body?.response as AuthenticationResponsePayload | undefined;
 
     if (!challengeId || !response) {
       return json({ error: 'Dados da passkey incompletos.' }, { status: 400, headers: NO_STORE_HEADERS });
