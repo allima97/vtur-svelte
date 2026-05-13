@@ -800,10 +800,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	);
 
 	const modulosPermitidos = new Set<string>();
-	modulosConsulta.forEach((entry) => {
+	for (const entry of modulosConsulta) {
 		const normalized = normalizeModuloKey(entry);
 		if (normalized) modulosPermitidos.add(normalized);
-	});
+	}
 
 	// Filtra os acessos ja em memoria — sem nova query ao banco
 	const accRowsParaModulo = (accRowsRes.data || []) as Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>;
