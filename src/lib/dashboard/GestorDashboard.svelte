@@ -1,7 +1,7 @@
 <script lang="ts">
   import { dev } from '$app/environment';
   import { onDestroy, onMount } from 'svelte';
-  import type { ChartData } from 'chart.js';
+  import type { ChartData, TooltipItem } from 'chart.js';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import { FieldInput, FieldSelect, LoadingState } from '$lib/components/ui';
@@ -410,8 +410,11 @@
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => {
-            const value = ctx.parsed.x ?? ctx.parsed.y ?? 0;
+          label: (ctx: TooltipItem<'bar'>) => {
+            const parsed = typeof ctx.parsed === 'object' && ctx.parsed
+              ? ctx.parsed
+              : null;
+            const value = parsed?.x ?? parsed?.y ?? 0;
             return ' ' + BRL_CURRENCY_FORMATTER.format(value);
           }
         }
@@ -423,10 +426,11 @@
         ticks: {
           color: '#94a3b8',
           font: { size: 11 },
-          callback: (value: any) => {
-            if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`;
-            if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(0)}K`;
-            return `R$ ${value}`;
+          callback: (value: unknown) => {
+            const numericValue = Number(value);
+            if (numericValue >= 1_000_000) return `R$ ${(numericValue / 1_000_000).toFixed(1)}M`;
+            if (numericValue >= 1_000) return `R$ ${(numericValue / 1_000).toFixed(0)}K`;
+            return `R$ ${numericValue}`;
           }
         }
       },
