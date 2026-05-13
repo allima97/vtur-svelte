@@ -22,6 +22,66 @@
     nome_fantasia?: string | null;
   };
 
+  type AvisoTemplate = {
+    id: string;
+    nome?: string | null;
+    assunto?: string | null;
+    mensagem?: string | null;
+    ativo?: boolean | null;
+    sender_key?: string | null;
+  };
+
+  type PermissionSummaryEntry = {
+    label: string;
+    modulo: string;
+    permissao: string;
+    ativo: boolean;
+  };
+
+  type UserMeta = {
+    id: string;
+    nome: string;
+    email: string | null;
+    telefone?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    tipo: string;
+    tipo_id: string | null;
+    empresa: string;
+    empresa_id: string | null;
+    ativo: boolean;
+    uso_individual: boolean;
+    created_by_gestor: boolean;
+    participa_ranking: boolean;
+    financeiro_company_ids?: string[] | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  };
+
+  type UserDetailResponse = {
+    user: UserMeta;
+    permissions?: PermissionSummaryEntry[] | null;
+    default_permissions?: PermissionSummaryEntry[] | null;
+    available?: {
+      user_types?: Option[] | null;
+      companies?: Option[] | null;
+      aviso_templates?: AvisoTemplate[] | null;
+      company_ids?: string[] | null;
+    } | null;
+  };
+
+  type OptionsListResponse = {
+    items?: Option[] | null;
+  };
+
+  type AvisoTemplatesResponse = {
+    items?: AvisoTemplate[] | null;
+  };
+
+  type MfaStatusResponse = {
+    statuses?: Record<string, { enabled: boolean; verified_count: number; factor_count: number } | null> | null;
+  };
+
   const emptyForm = {
     id: '',
     nome_completo: '',
@@ -37,12 +97,12 @@
   let loading = true;
   let saving = false;
   let userForm = { ...emptyForm };
-  let userMeta: any = null;
-  let permissionsSummary: any[] = [];
-  let defaultPermissionsSummary: any[] = [];
+  let userMeta: UserMeta | null = null;
+  let permissionsSummary: PermissionSummaryEntry[] = [];
+  let defaultPermissionsSummary: PermissionSummaryEntry[] = [];
   let userTypes: Option[] = [];
   let companies: Option[] = [];
-  let avisoTemplates: any[] = [];
+  let avisoTemplates: AvisoTemplate[] = [];
   let mfaStatus: { enabled: boolean; verified_count: number; factor_count: number } | null = null;
   let financeiroCompanyIds: string[] = [];
   let showAvisoDialog = false;
@@ -82,9 +142,9 @@
   async function loadCreateReference() {
     await ensureServerSessionCookie();
     const [typesPayload, companiesPayload, templatesPayload] = await Promise.all([
-      apiGet<any>('/api/v1/admin/tipos-usuario'),
-      apiGet<any>('/api/v1/admin/empresas'),
-      apiGet<any>('/api/v1/admin/avisos')
+      apiGet<OptionsListResponse>('/api/v1/admin/tipos-usuario'),
+      apiGet<OptionsListResponse>('/api/v1/admin/empresas'),
+      apiGet<AvisoTemplatesResponse>('/api/v1/admin/avisos')
     ]);
 
     userTypes = typesPayload.items || [];
@@ -100,7 +160,7 @@
 
   async function loadMfaStatus(userId: string) {
     try {
-      const payload = await apiPost<any>('/api/v1/admin/auth/mfa-status', { user_ids: [userId] });
+      const payload = await apiPost<MfaStatusResponse>('/api/v1/admin/auth/mfa-status', { user_ids: [userId] });
       mfaStatus = payload?.statuses?.[userId] || null;
     } catch {
       mfaStatus = null;
@@ -114,9 +174,9 @@
         await loadCreateReference();
       } else {
         await ensureServerSessionCookie();
-        let payload: any;
+        let payload: UserDetailResponse;
         try {
-          payload = await apiFetch(`/api/v1/admin/usuarios/${currentId}`, {
+          payload = await apiFetch<UserDetailResponse>(`/api/v1/admin/usuarios/${currentId}`, {
             redirectOnForbidden: false,
             redirectOnUnauthorized: false
           });
