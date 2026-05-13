@@ -940,7 +940,7 @@
   async function loadChanges() {
     changesLoading = true;
     try {
-      const data = await apiGet<any[]>('/api/v1/conciliacao/changes', {
+      const data = await apiGet<ConciliacaoChange[]>('/api/v1/conciliacao/changes', {
         company_id: empresaId || undefined,
         month: monthFilter || undefined
       });
