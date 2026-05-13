@@ -151,6 +151,16 @@ const TEXT_STOP_KEYWORDS = [
   "id do carrinho",
   "taxas inclusas",
 ];
+const SERVICE_DESCRIPTION_KEYWORDS = [
+  "transporte",
+  "transfer",
+  "traslado",
+  "servico",
+  "serviços",
+  "ingresso",
+  "passeio",
+  "tour",
+];
 
 const MONTHS_PT: Record<string, number> = {
   jan: 1,
@@ -695,17 +705,8 @@ function extractSeguroProductName() {
 }
 
 function extractServiceDescription(lines: string[]) {
-  const keywords = [
-    "transporte",
-    "transfer",
-    "traslado",
-    "servico",
-    "serviços",
-    "ingresso",
-    "passeio",
-    "tour",
-  ];
-  const hasKeyword = (normalized: string) => keywords.some((keyword) => normalized.includes(keyword));
+  const hasKeyword = (normalized: string) =>
+    SERVICE_DESCRIPTION_KEYWORDS.some((keyword) => normalized.includes(keyword));
   const isValidCandidate = (line: string, cleaned: string, normalized: string) => {
     if (!normalized) return false;
     if (isCurrencyLine(line)) return false;
