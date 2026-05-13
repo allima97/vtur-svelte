@@ -1349,14 +1349,16 @@
         : 'Auditando vínculos da conciliação no mês selecionado.';
 
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/fix-vinculos', {
+      const data = await apiPost<VinculoAuditResult & {
+        incorretos?: number | null;
+      }>('/api/v1/conciliacao/fix-vinculos', {
         companyId: empresaId || undefined,
         dryRun: !apply,
         limit: conciliacaoId ? 1 : 2000,
         month: conciliacaoId ? null : monthFilter || null,
         conciliacaoReciboId: conciliacaoId
       });
-      vinculosAuditResult = data as VinculoAuditResult;
+      vinculosAuditResult = data;
       const checked = Number(data.checked || 0);
       const critical = Number(data.critical || data.incorretos || 0);
       const warnings = Number(data.warnings || 0);
