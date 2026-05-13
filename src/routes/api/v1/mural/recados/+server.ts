@@ -1,3 +1,4 @@
+import type { RequestEvent } from "@sveltejs/kit";
 import {
   assertCompanyAccess,
   fetchRecados,
@@ -18,7 +19,7 @@ import {
 
 const MAX_MURAL_RECADO_BODY_BYTES = 64 * 1024;
 
-export async function GET(event) {
+export async function GET(event: RequestEvent) {
   try {
     const companyId = String(
       event.url.searchParams.get("company_id") || "",
@@ -50,13 +51,13 @@ export async function GET(event) {
     });
 
     return privateJsonResponse(payload);
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[mural/recados] falha ao carregar recados", e);
     return noStoreTextResponse("Erro ao carregar recados.", 500);
   }
 }
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
@@ -66,7 +67,7 @@ export async function POST(event) {
     const { client, scope } = await requireMuralScope(event, 2);
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
 
     const rawCompanyId = String(body?.company_id || "").trim();
@@ -131,13 +132,13 @@ export async function POST(event) {
         userId: receiverId,
       });
     return noStoreJsonResponse({ ok: true, id: data?.id || null });
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[mural/recados] falha ao enviar recado", e);
     return noStoreTextResponse("Erro ao enviar recado.", 500);
   }
 }
 
-export async function DELETE(event) {
+export async function DELETE(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
@@ -198,7 +199,7 @@ export async function DELETE(event) {
       userId: String(recado.receiver_id || ""),
     });
     return noStoreJsonResponse({ ok: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[mural/recados] falha ao excluir recado", e);
     return noStoreTextResponse("Erro ao excluir recado.", 500);
   }
