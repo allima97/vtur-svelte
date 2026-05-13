@@ -19,6 +19,14 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PAISES_BODY_BYTES = 64 * 1024;
 
+type PaisRow = {
+  id: string;
+  nome: string | null;
+  codigo_iso: string | null;
+  continente: string | null;
+  created_at: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -32,7 +40,7 @@ export async function GET(event) {
     const { searchParams } = event.url;
     const q = sanitizePostgrestSearchTerm(searchParams.get('q'), 80);
 
-    const items = await getCachedReadModel<any[]>({
+    const items = await getCachedReadModel<PaisRow[]>({
       key: buildReadModelCacheKey('paises:list', { q }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
@@ -49,7 +57,7 @@ export async function GET(event) {
         let items = data || [];
         if (q) {
           const qLower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          items = items.filter((item: any) =>
+          items = items.filter((item) =>
             String(item.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(qLower) ||
             String(item.codigo_iso || '').toLowerCase().includes(qLower)
           );
@@ -81,9 +89,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const { id, nome, codigo_iso, continente } = body;
+    const { nome, codigo_iso, continente } = body;
+    const id = String(body.id || '').trim();
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
