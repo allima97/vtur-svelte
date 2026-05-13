@@ -52,7 +52,7 @@ export async function GET(event) {
     });
 
     return privateJsonResponse(payload);
-  } catch (e: any) {
+  } catch (e: unknown) {
     logServerError("[mural/company] falha ao carregar mural", e);
     return noStoreTextResponse("Erro ao carregar mural.", 500);
   }
