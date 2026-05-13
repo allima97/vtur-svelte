@@ -131,13 +131,13 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
         .select("id, venda_recibo_id")
         .in("id", chunk);
       if (concErr) throw concErr;
-      (concRows || []).forEach((row: any) => {
+      for (const row of concRows || []) {
         const concId = toStr(row?.id);
         const linkedVendaReciboId = toStr(row?.venda_recibo_id);
-        if (!concId || !linkedVendaReciboId) return;
+        if (!concId || !linkedVendaReciboId) continue;
         const rateio = map.get(concId);
         if (rateio) map.set(linkedVendaReciboId, rateio);
-      });
+      }
     }
   }
 
