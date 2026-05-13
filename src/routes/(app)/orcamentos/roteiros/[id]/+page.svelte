@@ -345,7 +345,11 @@
     transportes = updateItem(transportes, index, { [field]: num });
   }
 
-  function onInvestimentoChange(index: number, field: keyof RotInvestimento, rawValue: string) {
+  function onInvestimentoChange(
+    index: number,
+    field: 'valor_por_pessoa' | 'qtd_apto' | 'valor_por_apto',
+    rawValue: string
+  ) {
     const num = rawValue === '' ? null : Number(rawValue);
     const v = num !== null && isFinite(num) ? num : null;
     if (field === 'valor_por_pessoa' || field === 'qtd_apto') {
@@ -355,7 +359,7 @@
       const vpa = vpp * qa;
       investimentos = updateItem(investimentos, index, { [field]: v, valor_por_apto: vpa > 0 ? vpa : null });
     } else {
-      investimentos = updateItem(investimentos, index, { [field]: v } as any);
+      investimentos = updateItem(investimentos, index, { [field]: v });
     }
   }
 
