@@ -31,6 +31,8 @@ export type RateioRow = {
   ativo?: boolean | null;
 };
 
+type ReciboLike = Record<string, unknown>;
+
 type SplitRateioLookupRow = {
   venda_recibo_id?: string | null;
   conciliacao_recibo_id?: string | null;
@@ -74,7 +76,7 @@ function scaleNumericField(value: unknown, factor: number) {
   return Math.round(parsed * factor * 100) / 100;
 }
 
-function resolveReciboBruto(recibo: Record<string, any>) {
+function resolveReciboBruto(recibo: ReciboLike) {
   return Math.max(0, toNumber(recibo?.valor_bruto_override ?? recibo?.valor_total));
 }
 
@@ -88,7 +90,7 @@ function resolveReciboBruto(recibo: Record<string, any>) {
  *
  * Portabilizado fielmente do vtur-app cloneReciboWithFactor().
  */
-export function cloneReciboWithFactor<T extends Record<string, any>>(
+export function cloneReciboWithFactor<T extends ReciboLike>(
   recibo: T,
   fator: number,
   vendedorId: string,
@@ -283,8 +285,9 @@ export async function fetchSplitSaleIdsForDestinationVendedores(
  */
 export function applyRateioToSalesForScopedVendedores<
   T extends {
+    id?: string | null;
     vendedor_id?: string | null;
-    vendas_recibos?: Array<Record<string, any>> | null;
+    vendas_recibos?: Array<ReciboLike> | null;
   }
 >(
   items: T[],
@@ -305,7 +308,7 @@ export function applyRateioToSalesForScopedVendedores<
     if (recibos.length === 0) return [];
     const sourceBrutoTotal = recibos.reduce((sum, recibo) => sum + resolveReciboBruto(recibo), 0);
 
-    const recibosPorVendedor = new Map<string, Array<Record<string, any>>>();
+    const recibosPorVendedor = new Map<string, Array<ReciboLike>>();
 
     for (const [reciboIndex, recibo] of recibos.entries()) {
       const rawReciboId = toStr(recibo?.id);
@@ -379,7 +382,7 @@ export function applyRateioToSalesForScopedVendedores<
           ...item,
           vendedor_id: vendedorId,
           vendas_recibos: vendedorRecibos,
-          rateio_source_venda_id: toStr((item as any)?.id) || null,
+          rateio_source_venda_id: toStr(item?.id) || null,
           rateio_scope_bruto_total: scopeBrutoTotal,
           rateio_source_bruto_total: sourceBrutoTotal,
           rateio_scope_factor: scopeFactor,
