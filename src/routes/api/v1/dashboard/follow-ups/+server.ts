@@ -20,6 +20,47 @@ import {
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from "$lib/server/httpCache";
 import { chunkArray, cleanStringSet, uniqueCleanStrings } from "$lib/utils/array";
 
+type FollowUpClienteRow = {
+  id?: string | null;
+  nome?: string | null;
+  whatsapp?: string | null;
+  telefone?: string | null;
+};
+
+type FollowUpDestinoRow = {
+  id?: string | null;
+  nome?: string | null;
+};
+
+type FollowUpVendaRow = {
+  id?: string | null;
+  data_embarque?: string | null;
+  data_final?: string | null;
+  vendedor_id?: string | null;
+  cancelada?: boolean | null;
+  cliente_id?: string | null;
+  clientes?: FollowUpClienteRow | null;
+  destino_cidade?: FollowUpDestinoRow | null;
+};
+
+type DashboardFollowUpRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  company_id?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  status?: string | null;
+  follow_up_text?: string | null;
+  follow_up_fechado?: boolean | null;
+  updated_at?: string | null;
+  venda?: FollowUpVendaRow | FollowUpVendaRow[] | null;
+  __allClosed?: boolean;
+};
+
+type DashboardFollowUpGroupRow = Omit<DashboardFollowUpRow, "venda"> & {
+  venda: FollowUpVendaRow | null;
+};
+
 function normalizeStatusFilter(value: string | null) {
   const raw = String(value || "")
     .trim()
@@ -40,18 +81,21 @@ function clampIntParam(
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
-function getVendaFromRow(row: any) {
+function getVendaFromRow(row: DashboardFollowUpRow) {
   const venda = Array.isArray(row?.venda) ? row.venda[0] : row?.venda;
   return venda && typeof venda === "object" ? venda : null;
 }
 
-function hasLinkedVenda(row: any) {
+function hasLinkedVenda(row: DashboardFollowUpRow) {
   return Boolean(
     String(row?.venda_id || getVendaFromRow(row)?.id || "").trim(),
   );
 }
 
-function isFollowUpAllowedForVendedores(row: any, vendedorIdSet: ReadonlySet<string>) {
+function isFollowUpAllowedForVendedores(
+  row: DashboardFollowUpRow,
+  vendedorIdSet: ReadonlySet<string>,
+) {
   const venda = getVendaFromRow(row);
 
   if (hasLinkedVenda(row)) {
@@ -196,7 +240,7 @@ export async function GET(event) {
 
         const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
         const vendedorBatches = vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
-        const candidatasData: any[] = [];
+        const candidatasData: DashboardFollowUpRow[] = [];
 
         for (const companyBatch of companyBatches) {
           for (const vendedorBatch of vendedorBatches) {
@@ -205,24 +249,24 @@ export async function GET(event) {
               { companyBatch, vendedorBatch },
             );
             if (candidatasError) throw candidatasError;
-            candidatasData.push(...(data || []));
+            candidatasData.push(...((data || []) as DashboardFollowUpRow[]));
           }
         }
 
-        const candidatas = ((candidatasData || []) as any[]).filter((row) =>
+        const candidatas = candidatasData.filter((row) =>
           isFollowUpAllowedForVendedores(row, vendedorIdSet),
         );
         await syncViagensStatus(client, candidatas);
 
         const vendaIds = uniqueCleanStrings(
-          candidatas.map((row: any) => row?.venda_id || getVendaFromRow(row)?.id),
+          candidatas.map((row) => row?.venda_id || getVendaFromRow(row)?.id),
         );
 
-        const avulsas = candidatas.filter((row: any) => !hasLinkedVenda(row));
+        const avulsas = candidatas.filter((row) => !hasLinkedVenda(row));
 
-        let detalhadas: any[] = [];
+        let detalhadas: DashboardFollowUpRow[] = [];
         if (vendaIds.length > 0) {
-          const detalheRows: any[] = [];
+          const detalheRows: DashboardFollowUpRow[] = [];
           for (const vendaBatch of chunkArray(vendaIds)) {
             for (const companyBatch of companyBatches) {
               for (const vendedorBatch of vendedorBatches) {
@@ -231,7 +275,7 @@ export async function GET(event) {
                   { companyBatch, vendedorBatch, vendaBatch, usePeriod: false },
                 );
                 if (detalhadasError) throw detalhadasError;
-                detalheRows.push(...(data || []));
+                detalheRows.push(...((data || []) as DashboardFollowUpRow[]));
               }
             }
           }
@@ -241,10 +285,13 @@ export async function GET(event) {
           await syncViagensStatus(client, detalhadas);
         }
 
-        const grupos = new Map<string, any>();
+        const grupos = new Map<string, DashboardFollowUpGroupRow>();
 
         for (const sourceItem of [...detalhadas, ...avulsas]) {
-          const item = { ...sourceItem, venda: getVendaFromRow(sourceItem) };
+          const item: DashboardFollowUpGroupRow = {
+            ...sourceItem,
+            venda: getVendaFromRow(sourceItem),
+          };
           const key = String(
             item?.venda_id || item?.venda?.id || item?.id || "",
           ).trim();
@@ -287,22 +334,22 @@ export async function GET(event) {
         }
 
         const items = Array.from(grupos.values())
-          .filter((item: any) => {
+          .filter((item) => {
             if (statusFilter === "abertos") return item.__allClosed !== true;
             if (statusFilter === "fechados") return item.__allClosed === true;
             return true;
           })
-          .filter((item: any) => {
+          .filter((item) => {
             const retorno = String(
               item?.data_fim || item?.venda?.data_final || "",
             ).trim();
             return Boolean(retorno) && retorno >= inicio && retorno <= fim;
           })
-          .sort((a: any, b: any) =>
+          .sort((a, b) =>
             String(b?.data_fim || "").localeCompare(String(a?.data_fim || "")),
           )
           .slice(0, outputLimit)
-          .map((item: any) => ({
+          .map((item) => ({
             id: String(item.id),
             venda_id: item?.venda_id
               ? String(item.venda_id)
