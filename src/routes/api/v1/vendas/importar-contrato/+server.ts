@@ -1,4 +1,5 @@
 import { json, error } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getAdminClient,
   ensureModuloAccess,
@@ -21,6 +22,62 @@ import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 
 const MAX_VENDA_IMPORTAR_CONTRATO_BODY_BYTES = 8 * 1024 * 1024;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type TermoNaoComissionavelRow = {
+  termo: string | null;
+  termo_normalizado: string | null;
+  ativo: boolean | null;
+};
+
+type TipoProdutoLookup = {
+  id: string;
+  nome: string | null;
+  tipo: string | null;
+};
+
+type ProdutoLookup = {
+  id: string;
+  nome: string | null;
+  tipo_produto: string | null;
+  cidade_id: string | null;
+  todas_as_cidades: boolean | null;
+};
+
+type CidadeLookupRow = {
+  id: string;
+  nome: string | null;
+};
+
+type ProdutoCidadeLookupRow = {
+  cidade_id: string | null;
+  nome: string | null;
+};
+
+type ClienteLookupRow = {
+  id: string;
+  cpf: string | null;
+  nome: string | null;
+  nascimento: string | null;
+  endereco: string | null;
+  numero: string | null;
+  cidade: string | null;
+  estado: string | null;
+  cep: string | null;
+  rg: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+};
+
+type ClienteUpdatePayload = {
+  nome?: string;
+  endereco?: string;
+  numero?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  rg?: string;
+};
 
 function textNoStore(message: string, status: number) {
   return new Response(message, { status, headers: NO_STORE_HEADERS });
@@ -150,7 +207,7 @@ function calcularTotalPagamentos(pagamentos: PagamentoDraft[]) {
   }, 0);
 }
 
-async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
+async function carregarTermosNaoComissionaveis(client: SupabaseClient): Promise<string[]> {
   try {
     const { data, error } = await client
       .from('parametros_pagamentos_nao_comissionaveis')
@@ -159,8 +216,8 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
       .order('termo', { ascending: true });
     if (error) throw error;
 
-    const termos = (data || [])
-      .map((row: any) => normalizeText(row?.termo_normalizado || row?.termo))
+    const termos = ((data || []) as TermoNaoComissionavelRow[])
+      .map((row) => normalizeText(row.termo_normalizado || row.termo))
       .filter(Boolean);
 
     return termos.length > 0 ? uniqueCleanStrings(termos) : DEFAULT_NAO_COMISSIONAVEIS.map((termo) => normalizeText(termo));
@@ -194,7 +251,7 @@ function pickProdutoNome(contrato: ContratoDraft, fallbackDestino?: string | nul
   return String(candidates.find((value) => String(value || '').trim()) || 'Produto').trim();
 }
 
-function resolveTipoProdutoId(contrato: ContratoDraft, tipos: any[]) {
+function resolveTipoProdutoId(contrato: ContratoDraft, tipos: TipoProdutoLookup[]) {
   const normalized = normalizeText(
     [
       contrato.produto_principal,
@@ -207,8 +264,8 @@ function resolveTipoProdutoId(contrato: ContratoDraft, tipos: any[]) {
   );
 
   const matches = (patterns: string[]) =>
-    tipos.find((tipo: any) => {
-      const label = normalizeText(`${tipo?.nome || ''} ${tipo?.tipo || ''}`);
+    tipos.find((tipo) => {
+      const label = normalizeText(`${tipo.nome || ''} ${tipo.tipo || ''}`);
       return patterns.some((pattern) => label.includes(pattern));
     });
 
@@ -231,12 +288,12 @@ function resolveTipoProdutoId(contrato: ContratoDraft, tipos: any[]) {
 }
 
 async function resolveProdutoOperacional(params: {
-  client: any;
+  client: SupabaseClient;
   contrato: ContratoDraft;
   produtoId?: string | null;
   cidadeId?: string | null;
   destinoNome?: string | null;
-  tiposProduto: any[];
+  tiposProduto: TipoProdutoLookup[];
 }) {
   const { client, contrato, produtoId, cidadeId, destinoNome, tiposProduto } = params;
   const existingId = String(produtoId || '').trim();
@@ -247,7 +304,7 @@ async function resolveProdutoOperacional(params: {
       .eq('id', existingId)
       .maybeSingle();
     if (error) throw error;
-    if (data?.id) return data;
+    if (data?.id) return data as ProdutoLookup;
   }
 
   const nome = titleCaseNome(pickProdutoNome(contrato, destinoNome));
@@ -267,7 +324,7 @@ async function resolveProdutoOperacional(params: {
 
   const { data: existentes, error: existentesError } = await query.limit(1);
   if (existentesError) throw existentesError;
-  if (Array.isArray(existentes) && existentes[0]?.id) return existentes[0];
+  if (Array.isArray(existentes) && existentes[0]?.id) return existentes[0] as ProdutoLookup;
 
   const payload = {
     nome: String(nome).slice(0, 200),
@@ -284,7 +341,7 @@ async function resolveProdutoOperacional(params: {
     .select('id, nome, tipo_produto, cidade_id, todas_as_cidades')
     .single();
   if (criarError) throw criarError;
-  return criado;
+  return criado as ProdutoLookup;
 }
 
 function guessPagaComissaoDefault(forma: string, termosNaoComissionaveis?: string[]) {
@@ -343,7 +400,7 @@ function findWordBoundaryMatch(rows: { id: string; nome: string | null }[], term
   return exact?.id || null;
 }
 
-async function findCidadeIdByTerm(client: any, termo: string) {
+async function findCidadeIdByTerm(client: SupabaseClient, termo: string) {
   const safeTerm = sanitizePostgrestSearchTerm(termo, 120);
   if (safeTerm.length < 2) return null;
 
@@ -354,10 +411,10 @@ async function findCidadeIdByTerm(client: any, termo: string) {
   if (prefix.data?.[0]?.id) return prefix.data[0].id;
 
   const contains = await client.from('cidades').select('id, nome').ilike('nome', `%${safeTerm}%`).limit(10);
-  return findWordBoundaryMatch((contains.data || []) as { id: string; nome: string | null }[], safeTerm);
+  return findWordBoundaryMatch((contains.data || []) as CidadeLookupRow[], safeTerm);
 }
 
-async function findCidadeIdByDestinoTerm(client: any, termo: string) {
+async function findCidadeIdByDestinoTerm(client: SupabaseClient, termo: string) {
   const safeTerm = sanitizePostgrestSearchTerm(termo, 120);
   if (safeTerm.length < 2) return null;
 
@@ -370,16 +427,13 @@ async function findCidadeIdByDestinoTerm(client: any, termo: string) {
 
   const contains = await client.from('produtos').select('cidade_id, nome').ilike('nome', `%${safeTerm}%`).limit(10);
   const matchId = findWordBoundaryMatch(
-    (contains.data || []).map((row: any) => ({ id: row.cidade_id, nome: row.nome })) as {
-      id: string;
-      nome: string | null;
-    }[],
+    ((contains.data || []) as ProdutoCidadeLookupRow[]).map((row) => ({ id: row.cidade_id || '', nome: row.nome })),
     safeTerm
   );
   return matchId || null;
 }
 
-async function findClienteByDocumento(client: any, documento: string) {
+async function findClienteByDocumento(client: SupabaseClient, documento: string) {
   const documentoDigits = normalizeCpf(documento);
   const candidatos =
     documentoDigits.length === 11
@@ -396,10 +450,10 @@ async function findClienteByDocumento(client: any, documento: string) {
   const selectCols = 'id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email';
 
   const { data } = await client.from('clientes').select(selectCols).in('cpf', candidatos).limit(10);
-  return Array.isArray(data) && data.length > 0 ? data[0] : null;
+  return Array.isArray(data) && data.length > 0 ? (data[0] as ClienteLookupRow) : null;
 }
 
-async function resolveClienteImport(client: any, companyId: string, userId: string, params: {
+async function resolveClienteImport(client: SupabaseClient, companyId: string, userId: string, params: {
   cpf: string;
   nome?: string | null;
   nascimento?: string | null;
@@ -416,7 +470,7 @@ async function resolveClienteImport(client: any, companyId: string, userId: stri
 
   const existing = await findClienteByDocumento(client, cpf);
   if (existing) {
-    const updates: any = {};
+    const updates: ClienteUpdatePayload = {};
     const existingNome = String(existing.nome || '').trim();
     const existingNomeLimpo = cleanImportedClienteNome(existingNome, '');
     if (existingNomeLimpo && existingNomeLimpo !== existingNome) {
@@ -455,8 +509,8 @@ async function resolveClienteImport(client: any, companyId: string, userId: stri
     .select('id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email')
     .single();
 
-  if (insertError) throw insertError;
-  return created;
+    if (insertError) throw insertError;
+  return created as ClienteLookupRow;
 }
 
 export async function POST(event) {
@@ -479,19 +533,19 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const contratos: ContratoDraft[] = Array.isArray(body?.contratos) ? body.contratos : [];
-    const principalIndex = Number(body?.principalIndex || 0);
-    const dataVenda = String(body?.dataVenda || '').trim();
-    const vendedorId = String(body?.vendedorId || '').trim() || user.id;
-    const destinoCidadeId = String(body?.destinoCidadeId || '').trim() || null;
-    const destinoProdutoId = String(body?.destinoProdutoId || '').trim() || null;
-    const tipoImportacao = String(body?.tipoImportacao || '').trim();
+    const contratos: ContratoDraft[] = Array.isArray(body.contratos) ? (body.contratos as ContratoDraft[]) : [];
+    const principalIndex = Number(body.principalIndex || 0);
+    const dataVenda = String(body.dataVenda || '').trim();
+    const vendedorId = String(body.vendedorId || '').trim() || user.id;
+    const destinoCidadeId = String(body.destinoCidadeId || '').trim() || null;
+    const destinoProdutoId = String(body.destinoProdutoId || '').trim() || null;
+    const tipoImportacao = String(body.tipoImportacao || '').trim();
     const isFacialRextur = tipoImportacao === 'facial_rextur';
-    const clienteTelefone = sanitizeOptionalContact(body?.clienteTelefone);
-    const clienteWhatsapp = sanitizeOptionalContact(body?.clienteWhatsapp);
-    const clienteEmail = sanitizeOptionalContact(body?.clienteEmail);
+    const clienteTelefone = sanitizeOptionalContact(body.clienteTelefone as string | null | undefined);
+    const clienteWhatsapp = sanitizeOptionalContact(body.clienteWhatsapp as string | null | undefined);
+    const clienteEmail = sanitizeOptionalContact(body.clienteEmail as string | null | undefined);
 
     if (!contratos.length) {
       return textNoStore('Nenhum contrato para salvar.', 400);
@@ -502,7 +556,7 @@ export async function POST(event) {
     const hoje = todayISODateLocal();
     const dataLancamento = dataVenda > hoje ? hoje : dataVenda;
 
-    const requestedCompanyId = String(body?.company_id || body?.empresa_id || '').trim();
+    const requestedCompanyId = String(body.company_id || body.empresa_id || '').trim();
     const companyId = scope.isAdmin
       ? requestedCompanyId || scope.companyId
       : resolveScopedCompanyId(scope, requestedCompanyId || scope.companyId);
@@ -820,11 +874,11 @@ export async function POST(event) {
               created_by: user.id,
               ativo: true
             })
-            .select('id')
+            .select('id, cpf, nome, nascimento, endereco, numero, cidade, estado, cep, rg, telefone, whatsapp, email')
             .single();
-          passageiroCliente = created;
+          passageiroCliente = created as ClienteLookupRow;
         } else {
-          const existingNome = String((passageiroCliente as any)?.nome || '').trim();
+          const existingNome = String(passageiroCliente.nome || '').trim();
           const existingNomeLimpo = cleanImportedClienteNome(existingNome, '');
           const updates: Record<string, string> = {};
           if (existingNomeLimpo && existingNomeLimpo !== existingNome) {
