@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import {
   ensureCanManageCompanies,
   getAccessibleCompanyIds,
@@ -20,7 +21,35 @@ const ADMIN_COMPANY_ALLOWED_UPDATE_FIELDS = [
   'endereco', 'cidade', 'estado', 'active'
 ] as const;
 
-export async function GET(event) {
+type PlanRow = {
+  id: string;
+  nome?: string | null;
+  ativo?: boolean | null;
+};
+
+type UserTypeRelation = { name?: string | null } | Array<{ name?: string | null }> | null;
+
+type MasterUserRow = {
+  id: string;
+  nome_completo?: string | null;
+  email?: string | null;
+  user_types?: UserTypeRelation;
+};
+
+type MasterCompanyLinkRow = {
+  id: string;
+  master_id?: string | null;
+  company_id?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  approved_at?: string | null;
+};
+
+function relationTypeName(value: UserTypeRelation | undefined) {
+  return String(Array.isArray(value) ? value[0]?.name || '' : value?.name || '');
+}
+
+export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -45,7 +74,7 @@ export async function GET(event) {
     }
 
     let billing = null;
-    let plans: any[] = [];
+    let plans: PlanRow[] = [];
     try {
       const [billingRes, plansRes] = await Promise.all([
         client
@@ -56,7 +85,7 @@ export async function GET(event) {
         client.from('plans').select('id, nome, ativo').order('nome', { ascending: true })
       ]);
       if (!billingRes.error) billing = billingRes.data || null;
-      if (!plansRes.error) plans = plansRes.data || [];
+      if (!plansRes.error) plans = (plansRes.data || []) as PlanRow[];
     } catch {
       billing = null;
       plans = [];
@@ -77,14 +106,14 @@ export async function GET(event) {
     if (linksRes.error) throw linksRes.error;
     if (mastersRes.error) throw mastersRes.error;
 
-    const masterRows = (mastersRes.data || []).filter((row: any) =>
-      String(Array.isArray(row.user_types) ? row.user_types[0]?.name || '' : row.user_types?.name || '')
+    const masterRows = ((mastersRes.data || []) as MasterUserRow[]).filter((row) =>
+      relationTypeName(row.user_types)
         .toUpperCase()
         .includes('MASTER')
     );
 
     const mastersMap = new Map(
-      masterRows.map((row: any) => [
+      masterRows.map((row) => [
         String(row.id),
         {
           id: row.id,
@@ -98,7 +127,7 @@ export async function GET(event) {
       empresa: companyRow,
       billing,
       plans,
-      master_links: (linksRes.data || []).map((row: any) => ({
+      master_links: ((linksRes.data || []) as MasterCompanyLinkRow[]).map((row) => ({
         ...row,
         master: mastersMap.get(String(row.master_id)) || null
       })),
@@ -109,7 +138,7 @@ export async function GET(event) {
   }
 }
 
-export async function PATCH(event) {
+export async function PATCH(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
