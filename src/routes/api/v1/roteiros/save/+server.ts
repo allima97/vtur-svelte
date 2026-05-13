@@ -13,6 +13,14 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SAVE_BODY_BYTES = 512 * 1024;
 
+type RoteiroDiaPayload = {
+  cidade?: string | null;
+  percurso?: string | null;
+  data?: string | null;
+  descricao?: string | null;
+  [key: string]: unknown;
+};
+
 function applyRoteiroScope<T>(query: T, scope: { isAdmin?: boolean; isGestor?: boolean; isMaster?: boolean; userId?: string | null; companyId?: string | null }) {
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
     return (query as any).eq('created_by', scope.userId);
@@ -38,16 +46,17 @@ function normalizeDiaKey(d: {
   return `${data}__${cidade}__${percurso}__${descricao}`;
 }
 
-function stripPercursoField(list: any[]) {
-  return (list || []).map((d: any) => {
+function stripPercursoField(list: RoteiroDiaPayload[]) {
+  return (list || []).map((d) => {
     const { percurso: _percurso, ...rest } = d || {};
     return rest;
   });
 }
 
-function isMissingPercursoColumn(error: any) {
-  const code = String(error?.code || '');
-  const msg = String(error?.message || '');
+function isMissingPercursoColumn(error: unknown) {
+  const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+  const code = String(errorRecord?.code || '');
+  const msg = String(errorRecord?.message || '');
   return (
     code === '42703' ||
     (/percurso/i.test(msg) &&
@@ -55,18 +64,20 @@ function isMissingPercursoColumn(error: any) {
   );
 }
 
-function isMissingOnConflictConstraint(error: any) {
-  const code = String(error?.code || '');
-  const msg = String(error?.message || '');
+function isMissingOnConflictConstraint(error: unknown) {
+  const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+  const code = String(errorRecord?.code || '');
+  const msg = String(errorRecord?.message || '');
   return (
     code === '42P10' || /unique or exclusion constraint/i.test(msg)
   );
 }
 
-function isDuplicateOrdensUnique(error: any) {
-  const code = String(error?.code || '');
-  const msg = String(error?.message || '');
-  const details = String(error?.details || '');
+function isDuplicateOrdensUnique(error: unknown) {
+  const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+  const code = String(errorRecord?.code || '');
+  const msg = String(errorRecord?.message || '');
+  const details = String(errorRecord?.details || '');
   return (
     code === '23505' ||
     /duplicate key value violates unique constraint/i.test(msg) ||
@@ -491,9 +502,10 @@ export async function POST(event: RequestEvent) {
     }
 
     return json({ ok: true, id: roteiroId }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
-    const code = String(err?.code || '');
-    const msg = String(err?.message || '');
+  } catch (err: unknown) {
+    const errorRecord = typeof err === 'object' && err !== null ? (err as Record<string, unknown>) : null;
+    const code = String(errorRecord?.code || '');
+    const msg = String(errorRecord?.message || '');
 
     if (/row-level security/i.test(msg)) {
       return new Response('Sem permissão para salvar os dias do roteiro (RLS).', {
