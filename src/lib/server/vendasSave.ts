@@ -188,13 +188,16 @@ export async function ensureReciboReservaUnicos(params: {
       .select(
         "id, numero_recibo, numero_recibo_normalizado, venda_id, vendas!inner(company_id, cancelada)",
       )
-      .in("numero_recibo_normalizado", receiptKeys)
-      .eq("vendas.cancelada", false);
+      .in("numero_recibo_normalizado", receiptKeys);
     if (companyId) query = query.eq("vendas.company_id", companyId);
     if (ignoreVendaId) query = query.neq("venda_id", ignoreVendaId);
-    const { data, error } = await query.limit(1);
+    const { data, error } = await query.limit(50);
     if (error) throw error;
-    if (Array.isArray(data) && data.length > 0) {
+    // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
+    const ativos = (data || []).filter(
+      (row: any) => row?.vendas?.cancelada !== true,
+    );
+    if (ativos.length > 0) {
       throw new Error("RECIBO_DUPLICADO");
     }
   }
@@ -210,18 +213,22 @@ export async function ensureReciboReservaUnicos(params: {
         recibosParaValidar
           .map((item) => toNullableString(item?.numero_reserva))
           .filter(Boolean),
-      )
-      .eq("vendas.cancelada", false);
+      );
     if (companyId) query = query.eq("vendas.company_id", companyId);
     if (ignoreVendaId) query = query.neq("venda_id", ignoreVendaId);
     const { data, error } = await query;
     if (error) throw error;
 
+    // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
+    const dadosAtivos = (data || []).filter(
+      (row: any) => row?.vendas?.cancelada !== true,
+    );
+
     for (const recibo of recibosParaValidar) {
       const reservaKey = normalizeReservaKey(recibo?.numero_reserva);
       if (!reservaKey) continue;
       const reciboKey = normalizeReceiptKey(recibo?.numero_recibo);
-      const conflitos = (data || []).filter(
+      const conflitos = dadosAtivos.filter(
         (row: any) => normalizeReservaKey(row?.numero_reserva) === reservaKey,
       );
       const bloqueia = conflitos.some(

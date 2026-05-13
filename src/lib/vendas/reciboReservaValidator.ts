@@ -60,17 +60,18 @@ export async function findReciboReservaDuplicado(params: {
     let query = sb
       .from("vendas_recibos")
       .select("id, numero_recibo, venda_id, vendas!inner(company_id, cancelada)")
-      .in("numero_recibo", recibos)
-      .eq("vendas.cancelada", false);
+      .in("numero_recibo", recibos);
 
     if (companyId) {
       query = query.eq("vendas.company_id", companyId);
     }
 
-    const { data, error } = await applyFilters(query.limit(1));
+    const { data, error } = await applyFilters(query.limit(50));
     if (error) throw error;
-    if (data?.length) {
-      return { tipo: "recibo", valor: data[0].numero_recibo };
+    // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
+    const ativos = (data || []).filter((r: any) => r?.vendas?.cancelada !== true);
+    if (ativos.length) {
+      return { tipo: "recibo", valor: ativos[0].numero_recibo };
     }
   }
 
@@ -86,16 +87,18 @@ export async function findReciboReservaDuplicado(params: {
         venda_id,
         vendas!inner(cliente_id, company_id, cancelada)
       `)
-      .in("numero_reserva", reservas)
-      .eq("vendas.cancelada", false);
+      .in("numero_reserva", reservas);
 
     if (companyId) {
       query = query.eq("vendas.company_id", companyId);
     }
 
-    const { data: recibosExistentes, error } = await applyFilters(query);
-
+    const { data: recibosRaw, error } = await applyFilters(query);
     if (error) throw error;
+    // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
+    const recibosExistentes = (recibosRaw || []).filter(
+      (r: any) => r?.vendas?.cancelada !== true,
+    );
 
     if (recibosExistentes?.length) {
       // Para cada número da requisição, verifica se existe conflito

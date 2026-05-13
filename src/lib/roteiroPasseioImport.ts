@@ -47,6 +47,9 @@ const MONTH_INDEX: Record<string, number> = {
 const SINGLE_DATE_RE = /^(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)(?:\s*\([^)]*\))?$/i;
 const RANGE_DATE_RE =
   /^(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)\s*-\s*(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)(?:\s*\([^)]*\))?$/i;
+const SERVICE_CODE_LINE_RE = /^\d{5,}$/;
+const OCCUPANCY_LINE_RE = /^total\s*\(/i;
+const DISCOUNT_META_LINE_RE = /^-\d+%$/;
 
 function normalizeText(value?: string | null) {
   return String(value || "")
@@ -92,7 +95,7 @@ function isDateLine(line: string) {
 }
 
 function isServiceCodeLine(line: string) {
-  return /^\d{5,}$/.test(normalizeLine(line));
+  return SERVICE_CODE_LINE_RE.test(normalizeLine(line));
 }
 
 function isRefundLine(line: string) {
@@ -100,7 +103,7 @@ function isRefundLine(line: string) {
 }
 
 function isOccupancyLine(line: string) {
-  return /^total\s*\(/i.test(normalizeText(line));
+  return OCCUPANCY_LINE_RE.test(normalizeText(line));
 }
 
 function isIgnoredMetaLine(line: string) {
@@ -110,7 +113,7 @@ function isIgnoredMetaLine(line: string) {
   if (normalized === "excluir") return true;
   if (normalized === "detalhes") return true;
   if (normalized === "recomendado") return true;
-  if (/^-\d+%$/.test(normalized)) return true;
+  if (DISCOUNT_META_LINE_RE.test(normalized)) return true;
   return false;
 }
 
