@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { ComponentType } from 'svelte';
   import { goto } from '$app/navigation';
   import PageHeader from '$lib/components/ui/PageHeader.svelte';
   import Button from '$lib/components/ui/Button.svelte';
@@ -20,7 +21,7 @@
   let companyId: string | null = null;
   let deleteConfirmVoucher: VoucherRecord | null = null;
   let showDeleteDialog = false;
-  let VoucherPreviewModal: any = null;
+  let VoucherPreviewModal: ComponentType | null = null;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
   

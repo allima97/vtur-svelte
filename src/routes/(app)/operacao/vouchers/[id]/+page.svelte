@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import type { ComponentType } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import PageHeader from "$lib/components/ui/PageHeader.svelte";
@@ -40,8 +41,8 @@
   let showEditor = false;
   let showPreview = false;
   let companyId: string | null = null;
-  let VoucherEditorModal: any = null;
-  let VoucherPreviewModal: any = null;
+  let VoucherEditorModal: ComponentType | null = null;
+  let VoucherPreviewModal: ComponentType | null = null;
   let loadingEditorModal = false;
   let loadingPreviewModal = false;
   let assetsLoaded = false;
