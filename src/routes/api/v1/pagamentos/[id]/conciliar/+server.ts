@@ -69,8 +69,7 @@ export async function POST(event) {
     const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
     if (!scope.isAdmin) {
       const companyIds = resolveScopedCompanyIds(scope, null);
-      const companyIdSet = new Set(companyIds);
-      if (!targetCompanyId || companyIds.length === 0 || !companyIdSet.has(targetCompanyId)) {
+      if (!targetCompanyId || companyIds.length === 0 || !companyIds.includes(targetCompanyId)) {
         return json({ success: false, error: 'Acesso negado.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }

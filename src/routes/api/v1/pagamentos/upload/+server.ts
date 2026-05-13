@@ -73,8 +73,8 @@ export async function POST(event) {
 
     const targetCompanyId = String((pagamentoAtual as { company_id?: string | null })?.company_id || '').trim();
     if (!scope.isAdmin) {
-      const allowedCompanyIds = new Set(resolveScopedCompanyIds(scope, null));
-      if (!targetCompanyId || allowedCompanyIds.size === 0 || !allowedCompanyIds.has(targetCompanyId)) {
+      const allowedCompanyIds = resolveScopedCompanyIds(scope, null);
+      if (!targetCompanyId || allowedCompanyIds.length === 0 || !allowedCompanyIds.includes(targetCompanyId)) {
         return json({ success: false, error: 'Pagamento fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
     }
