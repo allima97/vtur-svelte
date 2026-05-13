@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   isViagemStatusPersisted,
   resolveViagemStatus,
@@ -20,7 +21,7 @@ export function resolveStatusFromViagemRow(row: ViagemStatusRow): StatusViagem {
   });
 }
 
-export async function syncViagemStatusIfNeeded(client: any, row: ViagemStatusRow) {
+export async function syncViagemStatusIfNeeded(client: SupabaseClient, row: ViagemStatusRow) {
   const id = String(row?.id || '').trim();
   if (!id) return resolveStatusFromViagemRow(row);
 
@@ -44,7 +45,7 @@ export async function syncViagemStatusIfNeeded(client: any, row: ViagemStatusRow
   return resolvedStatus;
 }
 
-export async function syncViagensStatus(client: any, rows: ViagemStatusRow[]) {
+export async function syncViagensStatus(client: SupabaseClient, rows: ViagemStatusRow[]) {
   const statuses = new Map<string, StatusViagem>();
   for (const row of rows || []) {
     const id = String(row?.id || '').trim();

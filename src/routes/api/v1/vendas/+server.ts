@@ -35,6 +35,20 @@ type VendaRow = {
   recibos?: Array<{ valor_taxas?: number | null; tipo_pacote?: string | null; numero_recibo?: string | null; numero_reserva?: string | null }> | null;
 };
 
+type LegacyVendaItem = {
+  id: string;
+  codigo: string;
+  cliente_id: string | null;
+  cliente: { nome: string };
+  cliente_nome: string;
+  valor_total: number;
+  data_venda: string | null;
+  data_embarque: string | null;
+  status: string;
+  tipo: string;
+  comissao: number;
+};
+
 function deriveStatus(row: VendaRow) {
   if (row.cancelada) return 'cancelada';
   const todayIso = todayISODateLocal();
@@ -73,7 +87,7 @@ export async function GET(event) {
         ? await resolveAccessibleClientIds(client, { companyIds, vendedorIds })
         : [];
 
-    const { items } = await getCachedReadModel<{ items: any[] }>({
+    const { items } = await getCachedReadModel<{ items: LegacyVendaItem[] }>({
       key: buildReadModelCacheKey('vendas:legacy-list', {
         clienteId,
         companyIds,

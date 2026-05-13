@@ -16,6 +16,11 @@ import { cleanStringSet, chunkArray, uniqueCleanStrings } from '$lib/utils/array
 
 const MAX_RECIBO_COMPLEMENTAR_LINK_BODY_BYTES = 64 * 1024;
 
+type ScopedSaleLinkRow = {
+  id?: string | null;
+  company_id?: string | null;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -53,7 +58,7 @@ export async function POST(event: RequestEvent) {
     const companySet = cleanStringSet(companyIds);
 
     const fetchScopedSales = async (saleIds: string[]) => {
-      const rows: any[] = [];
+      const rows: ScopedSaleLinkRow[] = [];
       const uniqueSaleIds = uniqueCleanStrings(saleIds).filter((id) => isUuid(id));
       for (const batch of chunkArray(uniqueSaleIds)) {
         const { data, error } = await client
@@ -64,7 +69,7 @@ export async function POST(event: RequestEvent) {
         rows.push(...(data || []));
       }
 
-      const map = new Map<string, any>();
+      const map = new Map<string, ScopedSaleLinkRow>();
       for (const row of rows) {
         const id = String(row?.id || '').trim();
         const companyId = String(row?.company_id || '').trim();

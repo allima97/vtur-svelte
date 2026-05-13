@@ -17,6 +17,11 @@ import { safeJsonParse } from '$lib/utils/json';
 
 const MAX_RECIBO_COMPLEMENTAR_REMOVE_BODY_BYTES = 16 * 1024;
 
+type ComplementaryLinkRow = {
+  id?: string | null;
+  venda?: unknown;
+};
+
 function parseBodyIds(values?: unknown[] | null) {
   if (!Array.isArray(values)) return [];
   const ids: string[] = [];
@@ -67,11 +72,11 @@ export async function POST(event: RequestEvent) {
     if (linksError) throw linksError;
 
     const allowedIds = (links || [])
-      .filter((link: any) => {
+      .filter((link: ComplementaryLinkRow) => {
         const venda = Array.isArray(link?.venda) ? link.venda[0] : link?.venda;
         return isSaleInScope(venda, { scope, companyIds, vendedorIds });
       })
-      .map((link: any) => String(link.id));
+      .map((link: ComplementaryLinkRow) => String(link.id));
 
     if (allowedIds.length !== ids.length) {
       return json({ error: 'Vinculo complementar fora do escopo.' }, { status: 403, headers: NO_STORE_HEADERS });
