@@ -1583,6 +1583,10 @@
 
   function buildImportPreviewRows(rows: ConciliacaoLinhaInput[], fallbackDate: string | null): ImportPreviewRow[] {
     return rows.map((row) => {
+      const hydratedRow = row as ConciliacaoLinhaInput & {
+        venda_id?: string | null;
+        venda_recibo_id?: string | null;
+      };
       const metrics = buildConciliacaoMetrics({
         descricao: row.descricao,
         valorLancamentos: row.valor_lancamentos,
@@ -1601,8 +1605,8 @@
       const documento = String(row.documento || '').trim();
       const lookup = documento ? importLookupMatches[documento] : null;
       const rankingVendedorId = String(row.ranking_vendedor_id || lookup?.vendedor_id || '').trim() || null;
-      const vendaId = String((row as any).venda_id || lookup?.venda_id || '').trim() || null;
-      const vendaReciboId = String((row as any).venda_recibo_id || lookup?.venda_recibo_id || '').trim() || null;
+      const vendaId = String(hydratedRow.venda_id || lookup?.venda_id || '').trim() || null;
+      const vendaReciboId = String(hydratedRow.venda_recibo_id || lookup?.venda_recibo_id || '').trim() || null;
       const temDiferenca = Boolean(lookup?.diff_total != null || lookup?.diff_taxas != null);
 
       return {
