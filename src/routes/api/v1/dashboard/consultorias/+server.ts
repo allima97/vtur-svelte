@@ -30,6 +30,15 @@ const CONSULTORIA_PERMISSION_LEVELS = new Set([
   "admin",
 ]);
 
+type DashboardConsultoriaRow = {
+  id: string | null;
+  cliente_nome: string | null;
+  data_hora: string | null;
+  lembrete: string | null;
+  destino: string | null;
+  orcamento_id: string | null;
+};
+
 function clampIntParam(
   value: string | null,
   fallback: number,
@@ -41,9 +50,10 @@ function clampIntParam(
   return Math.min(max, Math.max(min, Math.trunc(parsed)));
 }
 
-function isRpcMissing(error: any, fnName: string) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function isRpcMissing(error: unknown, fnName: string) {
+  const err = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const code = String(err.code || "");
+  const message = String(err.message || "").toLowerCase();
   const needle = String(fnName || "").toLowerCase();
   return (
     code === "42883" ||
@@ -141,7 +151,7 @@ export async function GET(event: RequestEvent) {
         );
         if (rpcErr) throw rpcErr;
         return { items: (rpcData || []).slice(0, limit) };
-      } catch (rpcError: any) {
+      } catch (rpcError: unknown) {
         if (!isRpcMissing(rpcError, "rpc_dashboard_consultorias"))
           throw rpcError;
       }
@@ -173,7 +183,7 @@ export async function GET(event: RequestEvent) {
 
         const { data, error } = await consultoriasQuery;
         if (error) throw error;
-        return data || [];
+        return (data || []) as DashboardConsultoriaRow[];
       };
 
       if (creatorIds.length <= SUPABASE_IN_BATCH_SIZE) {
@@ -182,12 +192,12 @@ export async function GET(event: RequestEvent) {
         };
       }
 
-      const rows: any[] = [];
+      const rows: DashboardConsultoriaRow[] = [];
       for (const batch of chunkArray(creatorIds)) {
         rows.push(...(await fetchRows(batch)));
       }
 
-      const rowsById = new Map<string, any>();
+      const rowsById = new Map<string, DashboardConsultoriaRow>();
       for (const row of rows) {
         rowsById.set(String(row?.id || ""), row);
       }
@@ -225,7 +235,7 @@ export async function GET(event: RequestEvent) {
     return json(payload, {
       headers: noCache ? NO_STORE_HEADERS : SHORT_DYNAMIC_READ_HEADERS,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError(
       "[dashboard/consultorias] falha ao carregar consultorias",
       error,
