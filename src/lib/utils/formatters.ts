@@ -27,6 +27,9 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
 });
 const DATE_SHORT_FORMATTER = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 const MONTH_LONG_UTC_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' });
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const YEAR_MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+const NON_DIGIT_PATTERN = /\D/g;
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return '-';
@@ -79,7 +82,7 @@ export function formatDate(value: string | Date | null | undefined): string {
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '-';
 
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+  if (typeof value === 'string' && ISO_DATE_PATTERN.test(value.trim())) {
     return formatISODateBR(value);
   }
 
@@ -102,7 +105,7 @@ export function formatDateShort(value: string | Date | null | undefined): string
 
 export function formatYearMonthLabel(value: string | null | undefined): string {
   const raw = String(value || '').trim();
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return raw || '-';
+  if (!YEAR_MONTH_PATTERN.test(raw)) return raw || '-';
 
   const [yearText, monthText] = raw.split('-');
   const monthDate = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1));
@@ -118,7 +121,7 @@ export function formatYearMonthLabel(value: string | null | undefined): string {
 
 export function formatCPF(value: string | null | undefined): string {
   if (!value) return '-';
-  const n = value.replace(/\D/g, '').slice(0, 11);
+  const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 11);
   return n
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -127,7 +130,7 @@ export function formatCPF(value: string | null | undefined): string {
 
 export function formatCNPJ(value: string | null | undefined): string {
   if (!value) return '-';
-  const n = value.replace(/\D/g, '').slice(0, 14);
+  const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 14);
   return n
     .replace(/(\d{2})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -137,7 +140,7 @@ export function formatCNPJ(value: string | null | undefined): string {
 
 export function formatPhone(value: string | null | undefined): string {
   if (!value) return '-';
-  const n = value.replace(/\D/g, '');
+  const n = value.replace(NON_DIGIT_PATTERN, '');
   if (n.length <= 10) {
     return n
       .slice(0, 10)
@@ -152,7 +155,7 @@ export function formatPhone(value: string | null | undefined): string {
 
 export function formatCEP(value: string | null | undefined): string {
   if (!value) return '-';
-  const n = value.replace(/\D/g, '').slice(0, 8);
+  const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 8);
   return n.replace(/(\d{5})(\d{1,3})$/, '$1-$2');
 }
 
