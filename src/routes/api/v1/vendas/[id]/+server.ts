@@ -547,11 +547,14 @@ export async function DELETE(event) {
     if (recibosError) throw recibosError;
 
     const reciboIds = (recibosData || [])
-      .map((row: any) => String(row?.id || "").trim())
+      .map((row: { id?: string | null }) => String(row?.id || "").trim())
       .filter((value: string) => isUuid(value));
 
-    const ignoreMissingTable = (err: any) => {
-      const code = String(err?.code || "").trim();
+    const ignoreMissingTable = (err: unknown) => {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code || "").trim()
+          : "";
       return code === "42P01" || code === "42703";
     };
 
@@ -643,13 +646,12 @@ export async function DELETE(event) {
       .eq("company_id", String(saleScopeData.company_id || "").trim());
     if (deleteError) throw deleteError;
 
-    const deletedSaleScope = saleScopeData as any;
     invalidateSalesReadModels({
-      companyIds: deletedSaleScope?.company_id
-        ? [deletedSaleScope.company_id]
+      companyIds: saleScopeData?.company_id
+        ? [saleScopeData.company_id]
         : companyIds,
-      vendedorIds: deletedSaleScope?.vendedor_id
-        ? [deletedSaleScope.vendedor_id]
+      vendedorIds: saleScopeData?.vendedor_id
+        ? [saleScopeData.vendedor_id]
         : [],
       userId: user.id,
     });
