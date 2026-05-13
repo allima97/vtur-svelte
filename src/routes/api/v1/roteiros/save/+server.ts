@@ -175,6 +175,23 @@ type RoteiroInvestimentoDraft = {
   ordem: number;
 };
 
+type RoteiroPagamentoPayload = {
+  servico?: string | null;
+  valor_total_com_taxas?: unknown;
+  taxas?: unknown;
+  forma_pagamento?: string | null;
+  ordem?: unknown;
+};
+
+type RoteiroPagamentoDraft = {
+  roteiro_id: string;
+  servico: string | null;
+  valor_total_com_taxas: number;
+  taxas: number;
+  forma_pagamento: string | null;
+  ordem: number;
+};
+
 type ScopedRoteiroEq<T> = T & {
   eq: (column: string, value: string | null | undefined) => T;
 };
@@ -639,7 +656,7 @@ export async function POST(event: RequestEvent) {
       await client.from('roteiro_pagamento').delete().eq('roteiro_id', roteiroId);
       if (body.pagamentos.length > 0) {
         const pagamentos = body.pagamentos
-          .map((p: any, idx: number) => {
+          .map((p: RoteiroPagamentoPayload, idx: number): RoteiroPagamentoDraft => {
             const servico = String(p.servico || '').trim() || null;
             const formaPagamento = String(p.forma_pagamento || '').trim() || null;
             const valorTotal = Number(p.valor_total_com_taxas);
@@ -653,7 +670,7 @@ export async function POST(event: RequestEvent) {
               ordem: typeof p.ordem === 'number' ? p.ordem : idx
             };
           })
-          .filter((p: any) =>
+          .filter((p: RoteiroPagamentoDraft) =>
             Boolean(
               p.servico ||
                 p.forma_pagamento ||
