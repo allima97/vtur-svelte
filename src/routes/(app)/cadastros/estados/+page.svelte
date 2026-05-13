@@ -51,7 +51,7 @@
 
   const columns = [
     { key: 'nome', label: 'Nome', sortable: true },
-    { key: 'pais', label: 'País', sortable: false, formatter: (_: any, row: Subdivisao) => row.pais?.nome || '-' },
+    { key: 'pais', label: 'País', sortable: false, formatter: (_: unknown, row: Subdivisao) => row.pais?.nome || '-' },
     { key: 'codigo_admin1', label: 'Código', sortable: true, width: '100px', formatter: (v: string | null) => v || '-' },
     { key: 'tipo', label: 'Tipo', sortable: true, width: '120px', formatter: (v: string | null) => v || '-' }
   ];
