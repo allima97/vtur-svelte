@@ -106,7 +106,9 @@
     try {
       const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { q, limite: 10 });
       cidadeResultados = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : []);
-    } catch {} finally {
+    } catch {
+      // City autocomplete is optional; keep the form usable if lookup fails.
+    } finally {
       buscandoCidade = false;
     }
   }
