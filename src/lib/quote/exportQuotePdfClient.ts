@@ -81,6 +81,8 @@ function textVal(value?: string | null): string {
 }
 
 const CURRENCY_FORMATTERS = new Map<string, Intl.NumberFormat>();
+const AIRLINE_IATA_CODE_RE = /^[A-Z0-9]{2,3}$/i;
+const AIRPORT_IATA_CODE_RE = /^[A-Z]{3}$/;
 
 function getCurrencyFormatter(currency: string): Intl.NumberFormat {
   const cached = CURRENCY_FORMATTERS.get(currency);
@@ -143,7 +145,7 @@ function resolveAirlineIata(value?: string | null) {
   if (normalized.includes('qatar')) return 'QR';
   if (normalized.includes('turkish')) return 'TK';
   const raw = String(value || '').trim();
-  return /^[A-Z0-9]{2,3}$/i.test(raw) ? raw.toUpperCase() : raw.slice(0, 3).toUpperCase();
+  return AIRLINE_IATA_CODE_RE.test(raw) ? raw.toUpperCase() : raw.slice(0, 3).toUpperCase();
 }
 
 function formatFlightCity(value?: string | null) {
@@ -163,7 +165,7 @@ function formatFlightPlace(city?: string | null, airport?: string | null) {
     return airportLabel;
   }
   const code = airportLabel.toUpperCase();
-  if (cityLabel && /^[A-Z]{3}$/.test(code)) return `${cityLabel} (${code})`;
+  if (cityLabel && AIRPORT_IATA_CODE_RE.test(code)) return `${cityLabel} (${code})`;
   if (cityLabel) return cityLabel;
   if (code) return code;
   return '-';
