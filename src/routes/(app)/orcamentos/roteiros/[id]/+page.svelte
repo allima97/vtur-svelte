@@ -202,7 +202,13 @@
   let showDiasBusca = $state(false);
   let diasBuscaQ = $state('');
   let diasBuscaCidade = $state('');
-  let diasBuscaResults: any[] = $state([]);
+  interface DiaBuscaResult {
+    percurso?: string | null;
+    cidade?: string | null;
+    data?: string | null;
+    descricao?: string | null;
+  }
+  let diasBuscaResults: DiaBuscaResult[] = $state([]);
   let diasBuscaLoading = $state(false);
   let showDiasImport = $state(false);
   let diasImportText = $state('');
@@ -607,7 +613,7 @@
   async function buscarDias() {
     diasBuscaLoading = true;
     try {
-      const data = await apiGet<{ dias?: any[] }>('/api/v1/roteiros/dias-busca', {
+      const data = await apiGet<{ dias?: DiaBuscaResult[] }>('/api/v1/roteiros/dias-busca', {
         q: diasBuscaQ,
         cidade: diasBuscaCidade
       });
@@ -619,7 +625,7 @@
     }
   }
 
-  function addDiaBanco(dia: any) {
+  function addDiaBanco(dia: DiaBuscaResult) {
     const nextItem: RotDia = {
       percurso: String(dia.percurso || '').trim(),
       cidade: String(dia.cidade || '').trim(),
