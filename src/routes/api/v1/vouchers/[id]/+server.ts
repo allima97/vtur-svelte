@@ -39,7 +39,7 @@ export async function GET(event) {
     if (!data) return errorResponse('Voucher não encontrado', 404);
 
     return json({ success: true, item: data }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar voucher.');
   }
 }
@@ -130,7 +130,7 @@ export async function PATCH(event) {
     }
 
     return json({ success: true }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao atualizar voucher.');
   }
 }
@@ -163,7 +163,7 @@ export async function DELETE(event) {
     if (error) throw error;
 
     return json({ success: true }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao excluir voucher.');
   }
 }
