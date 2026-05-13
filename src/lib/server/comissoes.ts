@@ -55,6 +55,38 @@ type TipoProdutoRow = {
   exibe_kpi_comissao?: boolean | null;
 };
 
+type CommissionRuleRow = {
+  id?: string | null;
+  tipo?: string | null;
+  meta_nao_atingida?: number | null;
+  meta_atingida?: number | null;
+  super_meta?: number | null;
+  commission_tier?: Tier[] | null;
+};
+
+type RegraProdutoRow = {
+  produto_id?: string | null;
+  tipo_pacote?: string | null;
+  rule_id?: string | null;
+  fix_meta_nao_atingida?: number | string | null;
+  fix_meta_atingida?: number | string | null;
+  fix_super_meta?: number | string | null;
+};
+
+type RegraTipoPacoteRow = Omit<RegraProdutoRow, 'produto_id' | 'tipo_pacote'> & {
+  nome?: string | null;
+};
+
+type MetaVendedorRow = {
+  id?: string | null;
+  meta_geral?: number | string | null;
+};
+
+type MetaProdutoRow = {
+  produto_id?: string | null;
+  valor?: number | string | null;
+};
+
 export type CommissionContext = {
   params: ParametrosComissao;
   regrasMap: Record<string, Regra>;
@@ -427,17 +459,19 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
       .order('nome', { ascending: true })
       .limit(1000);
 
-  let data: any[] | null = null;
+  let data: CommissionRuleRow[] | null = null;
   let error: unknown = null;
 
   if (scopedCompanyIds.length === 0) {
-    ({ data, error } = await baseQuery(selectWithCompany));
+    const result = await baseQuery(selectWithCompany);
+    data = result.data as unknown as CommissionRuleRow[] | null;
+    error = result.error;
   } else {
-    const rowsById = new Map<string, any>();
+    const rowsById = new Map<string, CommissionRuleRow>();
 
     const globalResult = await baseQuery(selectWithCompany).is('company_id', null);
     error = globalResult.error;
-    for (const row of (globalResult.data || []) as any[]) {
+    for (const row of (globalResult.data || []) as unknown as CommissionRuleRow[]) {
       if (row?.id) rowsById.set(String(row.id), row);
     }
 
@@ -446,7 +480,7 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
         const batchResult = await baseQuery(selectWithCompany).in('company_id', batch);
         error = batchResult.error;
         if (error) break;
-        for (const row of (batchResult.data || []) as any[]) {
+        for (const row of (batchResult.data || []) as unknown as CommissionRuleRow[]) {
           if (row?.id) rowsById.set(String(row.id), row);
         }
       }
@@ -458,14 +492,14 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
   if (error && isMissingSchemaError(error)) {
     const fallback = await baseQuery(selectWithoutCompany);
 
-    data = fallback.data;
+    data = fallback.data as unknown as CommissionRuleRow[] | null;
     error = fallback.error;
   }
 
   if (error && !isMissingSchemaError(error)) throw error;
 
   const map: Record<string, Regra> = {};
-  for (const rule of (data || []) as any[]) {
+  for (const rule of data || []) {
     if (!rule.id) continue;
     map[rule.id] = {
       id: rule.id,
@@ -473,7 +507,7 @@ async function fetchRegras(client: SupabaseClient, companyIds: string[]): Promis
       meta_nao_atingida: rule.meta_nao_atingida ?? 0,
       meta_atingida: rule.meta_atingida ?? rule.meta_nao_atingida ?? 0,
       super_meta: rule.super_meta ?? rule.meta_atingida ?? rule.meta_nao_atingida ?? 0,
-      commission_tier: Array.isArray(rule.commission_tier) ? rule.commission_tier : []
+      commission_tier: Array.isArray(rule.commission_tier) ? (rule.commission_tier as Tier[]) : []
     };
   }
   return map;
@@ -491,7 +525,7 @@ async function fetchRegraProdutoMap(
   if (error && !isMissingSchemaError(error)) throw error;
 
   const map: Record<string, RegraProduto> = {};
-  for (const row of (data || []) as any[]) {
+  for (const row of (data || []) as unknown as RegraProdutoRow[]) {
     const produtoId = String(row.produto_id || '').trim();
     if (!produtoId) continue;
     map[produtoId] = {
@@ -517,7 +551,7 @@ async function fetchRegraProdutoPacoteMap(
   if (error && !isMissingSchemaError(error)) throw error;
 
   const map: Record<string, Record<string, RegraProduto>> = {};
-  for (const row of (data || []) as any[]) {
+  for (const row of (data || []) as unknown as RegraProdutoRow[]) {
     const produtoId = String(row.produto_id || '').trim();
     const key = normalizeTipoPacoteRuleKey(String(row.tipo_pacote || ''));
     if (!produtoId || !key) continue;
@@ -543,7 +577,7 @@ async function fetchRegraTipoPacoteMap(client: SupabaseClient): Promise<Record<s
   if (error && !isMissingSchemaError(error)) throw error;
 
   const map: Record<string, RegraPacote> = {};
-  for (const row of (data || []) as any[]) {
+  for (const row of (data || []) as unknown as RegraTipoPacoteRow[]) {
     const key = normalizeTipoPacoteRuleKey(String(row.nome || ''));
     if (!key) continue;
     map[key] = {
@@ -578,7 +612,7 @@ async function fetchTipoProdutoMap(
   if (error) throw error;
 
   const map: Record<string, TipoProdutoRow> = {};
-  for (const row of (data || []) as any[]) {
+  for (const row of (data || []) as unknown as TipoProdutoRow[]) {
     if (!row.id) continue;
     map[String(row.id)] = row as TipoProdutoRow;
   }
@@ -593,7 +627,7 @@ async function fetchMetas(
   const ids = uniqueIds(vendedorIds);
   if (ids.length === 0 || !periodo) return { metaPlanejada: 0, metaProdutoMap: {} };
 
-  const { data: metasData, error: metasErr } = await fetchBatched<any>(ids, (batch) =>
+  const { data: metasData, error: metasErr } = await fetchBatched<MetaVendedorRow>(ids, (batch) =>
     client
       .from('metas_vendedor')
       .select('id, meta_geral')
@@ -606,13 +640,13 @@ async function fetchMetas(
 
   if (metasErr && !isMissingSchemaError(metasErr)) throw metasErr;
 
-  const metas = (metasData || []) as any[];
-  const metaPlanejada = metas.reduce((acc: number, m: any) => acc + toNum(m.meta_geral), 0);
-  const metaIds = uniqueIds(metas.map((m: any) => String(m.id || '')));
+  const metas = metasData || [];
+  const metaPlanejada = metas.reduce((acc, m) => acc + toNum(m.meta_geral), 0);
+  const metaIds = uniqueIds(metas.map((m) => String(m.id || '')));
 
   if (metaIds.length === 0) return { metaPlanejada, metaProdutoMap: {} };
 
-  const { data: prodData, error: prodErr } = await fetchBatched<any>(metaIds, (batch) =>
+  const { data: prodData, error: prodErr } = await fetchBatched<MetaProdutoRow>(metaIds, (batch) =>
     client
       .from('metas_vendedor_produto')
       .select('produto_id, valor')
@@ -623,7 +657,7 @@ async function fetchMetas(
   if (prodErr && !isMissingSchemaError(prodErr)) throw prodErr;
 
   const metaProdutoMap: Record<string, number> = {};
-  for (const row of (prodData || []) as any[]) {
+  for (const row of prodData || []) {
     if (!row.produto_id) continue;
     metaProdutoMap[row.produto_id] = (metaProdutoMap[row.produto_id] || 0) + toNum(row.valor);
   }
