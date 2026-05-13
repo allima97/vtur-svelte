@@ -1470,8 +1470,8 @@
       clearImportState();
       await Promise.all([loadRegistros(), loadSummary()]);
       activeTab = 'registros';
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao importar conciliação.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Erro ao importar conciliação.'));
     } finally {
       importing = false;
       operationMessage = '';
