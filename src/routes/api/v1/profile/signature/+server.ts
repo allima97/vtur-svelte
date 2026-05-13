@@ -13,11 +13,11 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PROFILE_SIGNATURE_BODY_BYTES = 32 * 1024;
 
-export const GET: RequestHandler = async ({ locals }) => {
+export const GET: RequestHandler = async (event) => {
   try {
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
-    const scope = await resolveUserScope(client, user.id);
+    const user = await requireAuthenticatedUser(event);
+    await resolveUserScope(client, user.id);
 
     const [{ data: userRow, error: userErr }, { data: settingsRow, error: settingsErr }] = await Promise.all([
       client
@@ -51,16 +51,17 @@ export const GET: RequestHandler = async ({ locals }) => {
   }
 };
 
-export const PATCH: RequestHandler = async ({ locals, request }) => {
+export const PATCH: RequestHandler = async (event) => {
   try {
+    const { request } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_PROFILE_SIGNATURE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
     const client = getAdminClient();
-    const user = await requireAuthenticatedUser({ locals } as any);
-    const scope = await resolveUserScope(client, user.id);
+    const user = await requireAuthenticatedUser(event);
+    await resolveUserScope(client, user.id);
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
