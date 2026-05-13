@@ -70,7 +70,7 @@ function mergeDashboardViagens(...groups: DashboardViagemRow[][]) {
 }
 
 async function fetchDashboardViagens(params: {
-  client: any;
+  client: ReturnType<typeof getAdminClient>;
   companyIds: string[];
   vendedorIds: string[];
   from: string;
@@ -118,15 +118,15 @@ async function fetchDashboardViagens(params: {
 
         if (responsavelResult.error) throw responsavelResult.error;
         if (vendaResult.error) throw vendaResult.error;
-        rows.push(...((responsavelResult.data || []) as DashboardViagemRow[]));
-        rows.push(...((vendaResult.data || []) as DashboardViagemRow[]));
+        rows.push(...((responsavelResult.data || []) as unknown as DashboardViagemRow[]));
+        rows.push(...((vendaResult.data || []) as unknown as DashboardViagemRow[]));
       }
     }
   } else {
     for (const companyBatch of companyBatches) {
       const result = await buildQuery(baseSelect, companyBatch);
       if (result.error) throw result.error;
-      rows.push(...((result.data || []) as DashboardViagemRow[]));
+      rows.push(...((result.data || []) as unknown as DashboardViagemRow[]));
     }
   }
 
@@ -135,10 +135,10 @@ async function fetchDashboardViagens(params: {
     .filter((row) => !isCancelledStatus(row.status));
 }
 
-async function hydrateViagens(client: any, rows: DashboardViagemRow[]) {
+async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: DashboardViagemRow[]) {
   if (rows.length === 0) return [];
 
-  const resolvedStatuses = await syncViagensStatus(client, rows as any[]);
+  const resolvedStatuses = await syncViagensStatus(client, rows);
 
   const clienteIds = uniqueCleanStrings(rows.map((row) => row.cliente_id));
   const clientesMap = new Map<
@@ -307,7 +307,7 @@ export async function GET(event) {
             : [];
       const equipeIds = uniqueCleanStrings(
         (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
-          (row: any) => row?.id,
+          (row) => row?.id,
         ),
       );
       const equipeSet = cleanStringSet(equipeIds);
