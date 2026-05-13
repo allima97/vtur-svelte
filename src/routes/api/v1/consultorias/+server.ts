@@ -18,6 +18,11 @@ const MAX_CONSULTORIA_BODY_BYTES = 64 * 1024;
 const errorResponse = (message: string, status: number) =>
   json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
+type ConsultoriaExistingRow = {
+  id?: string | null;
+  created_by?: string | null;
+};
+
 export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
@@ -175,12 +180,13 @@ export async function PATCH(event: RequestEvent) {
     if (checkErr) throw checkErr;
     if (!existing)
       return errorResponse("Consultoria não encontrada.", 404);
+    const existingConsultoria = existing as ConsultoriaExistingRow;
 
     const podeEditar =
       scope.isAdmin ||
       scope.isGestor ||
       scope.isMaster ||
-      existing.created_by === user.id;
+      existingConsultoria.created_by === user.id;
 
     if (!podeEditar) {
       return json(
@@ -242,7 +248,7 @@ export async function PATCH(event: RequestEvent) {
     if (error) throw error;
 
     invalidateConsultoriaReadModels({
-      vendedorIds: [String((existing as any)?.created_by || "")].filter(
+      vendedorIds: [String(existingConsultoria.created_by || "")].filter(
         Boolean,
       ),
       userId: user.id,
