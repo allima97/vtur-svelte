@@ -1,4 +1,20 @@
 <script lang="ts">
+  type CardColor =
+    | 'default'
+    | 'blue'
+    | 'green'
+    | 'orange'
+    | 'teal'
+    | 'purple'
+    | 'crm'
+    | 'clientes'
+    | 'vendas'
+    | 'financeiro'
+    | 'operacao'
+    | 'orcamentos'
+    | 'comissoes';
+  type CardPadding = 'none' | 'sm' | 'md' | 'lg';
+
   /*
    * Card — visual limpo e uniforme.
    * A prop `color` é mantida para não quebrar nenhum uso existente,
@@ -8,12 +24,12 @@
   export let title: string | null = null;
   export let header: string | null = null;
   export let subtitle: string | null = null;
-  export let color: 'default' | 'blue' | 'green' | 'orange' | 'teal' | 'purple' | 'crm' | 'clientes' | 'vendas' | 'financeiro' | 'operacao' | 'orcamentos' | 'comissoes' = 'default';
-  export let padding: 'none' | 'sm' | 'md' | 'lg' = 'md';
+  export let color: CardColor = 'default';
+  export let padding: CardPadding = 'md';
 
   $: color;
 
-  const paddingClasses: Record<string, string> = {
+  const paddingClasses: Record<CardPadding, string> = {
     none: 'p-0',
     sm: 'p-4',
     md: 'p-5',
