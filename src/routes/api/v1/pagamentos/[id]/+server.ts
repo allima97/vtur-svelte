@@ -55,7 +55,7 @@ async function resolvePagamentoComScope(
 function canAccessPagamentoCompany(scope: any, companyId: string | null) {
   if (scope.isAdmin) return true;
   const companyIds = resolveScopedCompanyIds(scope, null);
-  return Boolean(companyId && companyIds.length > 0 && new Set(companyIds).has(companyId));
+  return Boolean(companyId && companyIds.length > 0 && companyIds.includes(companyId));
 }
 
 export async function GET(event) {
