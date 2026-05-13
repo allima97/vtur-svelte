@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildConciliacaoMetrics, isConciliacaoEfetivada } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import { findEquipeVturVendedor } from '$lib/conciliacao/baixaRac';
@@ -342,7 +343,7 @@ function getCurrentMonthRange() {
 }
 
 async function insertConciliacaoNumericAudit(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
   conciliacaoReciboId: string;
   vendaId?: string | null;
@@ -381,7 +382,7 @@ async function insertConciliacaoNumericAudit(params: {
 }
 
 async function persistExecutionLog(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
   actor: Actor;
   actorUserId?: string | null;
@@ -409,7 +410,7 @@ async function persistExecutionLog(params: {
 }
 
 async function moveDuplicateRateioToWinner(params: {
-  client: any;
+  client: SupabaseClient;
   winnerId: string;
   loserIds: string[];
 }) {
@@ -463,7 +464,7 @@ async function moveDuplicateRateioToWinner(params: {
 }
 
 async function cleanupDuplicateConciliacaoRowsCompany(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string;
   onlyCurrentMonth?: boolean;
   month?: string | null;
@@ -552,7 +553,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
 }
 
 async function fetchReciboCandidates(params: {
-  client: any;
+  client: SupabaseClient;
   numero: string;
   companyId: string;
 }): Promise<ReciboMatchRow[]> {
@@ -648,7 +649,7 @@ async function fetchReciboCandidates(params: {
 }
 
 async function fetchRexturReciboCandidatesByReserva(params: {
-  client: any;
+  client: SupabaseClient;
   reserva: string;
   companyId: string;
 }): Promise<ReciboMatchRow[]> {
