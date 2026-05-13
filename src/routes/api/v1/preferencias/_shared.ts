@@ -6,6 +6,7 @@ import {
   resolveUserScope,
   type UserScope
 } from '$lib/server/v1';
+import type { RequestEvent } from '@sveltejs/kit';
 import { safeJsonParse } from '$lib/utils/json';
 
 export { logServerError };
@@ -24,7 +25,7 @@ type PreferenciasUserOption = {
 
 const cache = new Map<string, CacheEntry>();
 
-export async function requirePreferenciasScope(event: any, minLevel: number) {
+export async function requirePreferenciasScope(event: RequestEvent, minLevel: number) {
   const client = getAdminClient();
   const user = await requireAuthenticatedUser(event);
   const scope = await resolveUserScope(client, user.id);
@@ -113,7 +114,11 @@ export function matchesBusca(item: unknown, busca: string) {
   return hay.includes(busca.toLowerCase());
 }
 
-export async function fetchPreferenciasBase(client: any, scope: UserScope, currentUserId: string) {
+export async function fetchPreferenciasBase(
+  client: ReturnType<typeof getAdminClient>,
+  scope: UserScope,
+  currentUserId: string
+) {
   const companyId = scope.companyId;
   if (!companyId) return { tipos: [], usuarios: [] };
 
