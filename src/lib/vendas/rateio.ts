@@ -57,7 +57,9 @@ function normalizeReciboLookupId(value?: unknown) {
   return raw.replace(/::rateio:[^:]+$/i, '').replace(/:recibo$/i, '');
 }
 
-function isAplicavelRateio(row: any) {
+function isAplicavelRateio(
+  row: Pick<RateioRow, 'percentual_origem' | 'percentual_destino'> | null | undefined
+) {
   return toNumber(row?.percentual_origem) > 0 && toNumber(row?.percentual_destino) > 0;
 }
 
