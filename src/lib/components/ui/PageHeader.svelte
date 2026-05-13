@@ -1,6 +1,10 @@
 <script lang="ts">
   import { ChevronRight, Home } from 'lucide-svelte';
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import Button from './Button.svelte';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   interface Breadcrumb {
     label: string;
@@ -12,7 +16,7 @@
     onClick?: (e: MouseEvent) => void;
     href?: string;
     variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-    icon?: any;
+    icon?: IconComponent;
   }
 
   export let title: string;
