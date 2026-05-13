@@ -30,6 +30,14 @@
     created_at: string;
   }
 
+  interface CircuitoApiItem extends Omit<Circuito, 'destinos' | 'destinos_str'> {
+    destinos?: string[] | string | null;
+  }
+
+  interface CircuitosResponse {
+    items?: CircuitoApiItem[] | null;
+  }
+
   let circuitos: Circuito[] = [];
   let loading = true;
   let showDeleteDialog = false;
@@ -62,13 +70,13 @@
   async function carregarCircuitos() {
     loading = true;
     try {
-      const data: any = await apiGet('/api/v1/circuitos', {
+      const data = await apiGet<CircuitosResponse>('/api/v1/circuitos', {
         tipo: filtroTipo || undefined,
         ativo: filtroStatus ? filtroStatus === 'ativo' : undefined
       });
-      circuitos = (data.items || []).map((c: any) => ({
+      circuitos = (data.items || []).map((c): Circuito => ({
         ...c,
-        destinos: c.destinos || [],
+        destinos: Array.isArray(c.destinos) ? c.destinos : c.destinos ? [c.destinos] : [],
         destinos_str: Array.isArray(c.destinos) ? c.destinos.join(', ') : c.destinos || ''
       }));
     } catch (err) {
