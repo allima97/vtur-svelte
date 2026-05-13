@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -26,6 +27,14 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+type ConciliacaoFaixaResumo = {
+  faixa_loja?: string | null;
+  ativo?: boolean | null;
+  tipo_calculo?: string | null;
+  meta_nao_atingida?: number | null;
+  percentual_min?: number | null;
+  percentual_max?: number | null;
+};
 
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -37,7 +46,7 @@ function isISODate(value: string) {
   return ISO_DATE_PATTERN.test(String(value || '').trim());
 }
 
-export async function GET(event: any) {
+export async function GET(event: RequestEvent) {
   try {
     if (!isDebugEndpointEnabled(event)) {
       return debugJson({ error: 'Not found' }, { status: 404 });
@@ -156,9 +165,9 @@ export async function GET(event: any) {
     return debugJson({ diag, params_summary: {
       conciliacao_regra_ativa: params?.conciliacao_regra_ativa,
       conciliacao_tipo: params?.conciliacao_tipo,
-      faixas: params?.conciliacao_faixas_loja?.map((f: any) => ({ faixa_loja: f.faixa_loja, ativo: f.ativo, tipo_calculo: f.tipo_calculo, meta_nao_atingida: f.meta_nao_atingida, percentual_min: f.percentual_min, percentual_max: f.percentual_max }))
+      faixas: params?.conciliacao_faixas_loja?.map((f: ConciliacaoFaixaResumo) => ({ faixa_loja: f.faixa_loja, ativo: f.ativo, tipo_calculo: f.tipo_calculo, meta_nao_atingida: f.meta_nao_atingida, percentual_min: f.percentual_min, percentual_max: f.percentual_max }))
     }, pctMetaGeral });
-  } catch (e: any) {
+  } catch (e: unknown) {
     const response = toErrorResponse(e, 'Erro no diagnóstico de comissão.');
     response.headers.set('Cache-Control', DEBUG_HEADERS['Cache-Control']);
     return response;
