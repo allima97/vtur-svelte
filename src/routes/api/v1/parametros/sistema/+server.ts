@@ -71,8 +71,14 @@ const PARAMETROS_COMISSAO_COLUMNS = [
   "updated_at",
 ];
 
-function isMissingColumn(error: any) {
-  const message = String(error?.message || "");
+function readErrorField(error: unknown, field: string) {
+  return error && typeof error === "object"
+    ? (error as Record<string, unknown>)[field]
+    : undefined;
+}
+
+function isMissingColumn(error: unknown) {
+  const message = String(readErrorField(error, "message") || "");
   const match =
     message.match(/column ["']?([a-zA-Z0-9_]+)["']? does not exist/i) ||
     message.match(/Could not find the ['"]([a-zA-Z0-9_]+)['"] column/i);

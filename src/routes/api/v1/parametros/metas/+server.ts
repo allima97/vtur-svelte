@@ -39,10 +39,16 @@ type MetaInput = {
   meta_produtos?: MetaProdutoInput[] | null;
 };
 
-function isMissingSchemaError(err: any) {
-  const code = String(err?.code || "");
-  const message = String(err?.message || "").toLowerCase();
-  const details = String(err?.details || "").toLowerCase();
+function readErrorField(error: unknown, field: string) {
+  return error && typeof error === "object"
+    ? (error as Record<string, unknown>)[field]
+    : undefined;
+}
+
+function isMissingSchemaError(err: unknown) {
+  const code = String(readErrorField(err, "code") || "");
+  const message = String(readErrorField(err, "message") || "").toLowerCase();
+  const details = String(readErrorField(err, "details") || "").toLowerCase();
 
   return (
     code === "42P01" ||
