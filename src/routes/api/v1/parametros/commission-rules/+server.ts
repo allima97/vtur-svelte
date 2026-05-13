@@ -25,6 +25,39 @@ type TierPayload = {
   inc_pct_comissao: number;
 };
 
+type CommissionRuleBody = {
+  id?: unknown;
+  nome?: unknown;
+  descricao?: unknown;
+  tipo?: unknown;
+  meta_nao_atingida?: unknown;
+  meta_atingida?: unknown;
+  super_meta?: unknown;
+  ativo?: unknown;
+  tiers?: unknown;
+  empresa_id?: unknown;
+  company_id?: unknown;
+};
+
+type CommissionRuleRow = {
+  id?: unknown;
+  nome?: unknown;
+  descricao?: unknown;
+  tipo?: unknown;
+  meta_nao_atingida?: unknown;
+  meta_atingida?: unknown;
+  super_meta?: unknown;
+  ativo?: unknown;
+  company_id?: unknown;
+  created_by?: unknown;
+  commission_tier?: unknown;
+};
+
+function parseObjectBody(text: string): CommissionRuleBody {
+  const parsed = safeJsonParse(text);
+  return parsed && typeof parsed === 'object' ? (parsed as CommissionRuleBody) : {};
+}
+
 function normalizeTipo(value: unknown): 'GERAL' | 'ESCALONAVEL' {
   return String(value || '').trim().toUpperCase() === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL';
 }
@@ -38,16 +71,17 @@ function sanitizeTiers(value: unknown): TierPayload[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((tier: any) => {
-      const faixa = String(tier?.faixa || '').trim().toUpperCase();
+    .map((tier: unknown) => {
+      const record = tier && typeof tier === 'object' ? (tier as Record<string, unknown>) : {};
+      const faixa = String(record.faixa || '').trim().toUpperCase();
       if (faixa !== 'PRE' && faixa !== 'POS') return null;
 
       return {
         faixa,
-        de_pct: normalizeNumber(tier?.de_pct, 0),
-        ate_pct: normalizeNumber(tier?.ate_pct, 0),
-        inc_pct_meta: normalizeNumber(tier?.inc_pct_meta, 0),
-        inc_pct_comissao: normalizeNumber(tier?.inc_pct_comissao, 0)
+        de_pct: normalizeNumber(record.de_pct, 0),
+        ate_pct: normalizeNumber(record.ate_pct, 0),
+        inc_pct_meta: normalizeNumber(record.inc_pct_meta, 0),
+        inc_pct_comissao: normalizeNumber(record.inc_pct_comissao, 0)
       } as TierPayload;
     })
     .filter((tier): tier is TierPayload => Boolean(tier));
@@ -87,7 +121,7 @@ function canAccessRuleCompany(companyId: string | null | undefined, allowedCompa
   return allowedCompanySet.has(companyId);
 }
 
-function getRequestedCompanyId(event: RequestEvent, body?: any) {
+function getRequestedCompanyId(event: RequestEvent, body?: CommissionRuleBody) {
   return String(
     body?.empresa_id ||
       body?.company_id ||
@@ -123,9 +157,10 @@ async function getRuleCompanyForWrite(
     .maybeSingle();
 
   if (!primary.error) {
+    const rule = primary.data as CommissionRuleRow | null;
     return {
-      exists: Boolean(primary.data),
-      companyId: String((primary.data as any)?.company_id || '').trim() || null,
+      exists: Boolean(rule),
+      companyId: String(rule?.company_id || '').trim() || null,
       legacySchema: false
     };
   }
@@ -193,7 +228,7 @@ export async function GET(event: RequestEvent) {
     const scopedCompanyIds = resolveScopedCompanyIds(access.scope, requestedCompanyId);
     const scopedCompanySet = cleanStringSet(scopedCompanyIds);
 
-    let data: any[] | null = null;
+    let data: CommissionRuleRow[] | null = null;
     let error: unknown = null;
 
     const primary = await client
@@ -201,7 +236,7 @@ export async function GET(event: RequestEvent) {
       .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, company_id, created_by, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
       .order('nome', { ascending: true });
 
-    data = primary.data as any[] | null;
+    data = primary.data as CommissionRuleRow[] | null;
     error = primary.error;
 
     if (error && isMissingColumnError(error)) {
@@ -210,7 +245,7 @@ export async function GET(event: RequestEvent) {
         .select('id, nome, descricao, tipo, meta_nao_atingida, meta_atingida, super_meta, ativo, commission_tier(id, faixa, de_pct, ate_pct, inc_pct_meta, inc_pct_comissao, ativo)')
         .order('nome', { ascending: true });
 
-      data = fallback.data as any[] | null;
+      data = fallback.data as CommissionRuleRow[] | null;
       error = fallback.error;
     }
 
@@ -255,7 +290,7 @@ export async function POST(event: RequestEvent) {
     const client = access.client;
 
     const rawBody = textResult.text;
-    const body = safeJsonParse(rawBody) as any;
+    const body = parseObjectBody(rawBody);
     const nome = String(body?.nome || '').trim();
     const requestedCompanyId = getRequestedCompanyId(event, body);
     const writableCompanyId = resolveWritableCompanyId(access, requestedCompanyId);
@@ -393,7 +428,7 @@ export async function PATCH(event: RequestEvent) {
     const client = access.client;
 
     const rawBody = textResult.text;
-    const body = safeJsonParse(rawBody) as any;
+    const body = parseObjectBody(rawBody);
     const id = String(body?.id || '').trim();
 
     if (!isUuid(id)) {
@@ -451,7 +486,7 @@ export async function DELETE(event: RequestEvent) {
     const client = access.client;
 
     const rawBody = textResult.text;
-    const body = safeJsonParse(rawBody) as any;
+    const body = parseObjectBody(rawBody);
     const id = String(body?.id || '').trim();
 
     if (!isUuid(id)) {
