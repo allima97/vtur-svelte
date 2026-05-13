@@ -356,7 +356,12 @@ async function moveDuplicateRateioToWinner(params: {
   if (params.loserIds.length === 0) return;
 
   try {
-    const rateios: any[] = [];
+    type DuplicateRateioRow = {
+      id?: string | null;
+      conciliacao_recibo_id?: string | null;
+    };
+
+    const rateios: DuplicateRateioRow[] = [];
     const loserIdSet = cleanStringSet(params.loserIds);
     const idsToLookup = uniqueCleanStrings([params.winnerId, ...params.loserIds]);
     for (const batch of chunkArray(idsToLookup, SUPABASE_IN_BATCH_SIZE)) {
@@ -369,8 +374,8 @@ async function moveDuplicateRateioToWinner(params: {
     }
 
     const rows = Array.isArray(rateios) ? rateios : [];
-    const winnerHasRateio = rows.some((row: any) => String(row?.conciliacao_recibo_id || '') === params.winnerId);
-    const loserRateios = rows.filter((row: any) => loserIdSet.has(String(row?.conciliacao_recibo_id || '')));
+    const winnerHasRateio = rows.some((row) => String(row?.conciliacao_recibo_id || '') === params.winnerId);
+    const loserRateios = rows.filter((row) => loserIdSet.has(String(row?.conciliacao_recibo_id || '')));
     const [firstLoserRateio, ...extraLoserRateios] = loserRateios;
 
     if (!winnerHasRateio && firstLoserRateio?.id) {
@@ -381,7 +386,7 @@ async function moveDuplicateRateioToWinner(params: {
     }
 
     const rateiosToDelete = winnerHasRateio ? loserRateios : extraLoserRateios;
-    const idsToDelete = uniqueCleanStrings(rateiosToDelete.map((row: any) => row?.id));
+    const idsToDelete = uniqueCleanStrings(rateiosToDelete.map((row) => row?.id));
     if (idsToDelete.length > 0) {
       for (const batch of chunkArray(idsToDelete, SUPABASE_IN_BATCH_SIZE)) {
         const { error: deleteError } = await params.client.from('vendas_recibos_rateio').delete().in('id', batch);
@@ -389,8 +394,9 @@ async function moveDuplicateRateioToWinner(params: {
       }
     }
   } catch (error) {
-    const code = String((error as any)?.code || '').trim();
-    const message = String((error as any)?.message || error || '').toLowerCase();
+    const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
+    const code = String(errorRecord?.code || '').trim();
+    const message = String(errorRecord?.message || error || '').toLowerCase();
     if (code === '42P01' || message.includes('vendas_recibos_rateio')) return;
     throw error;
   }
