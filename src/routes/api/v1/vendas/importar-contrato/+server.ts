@@ -460,6 +460,7 @@ async function resolveClienteImport(client: any, companyId: string, userId: stri
 }
 
 export async function POST(event) {
+  console.log("[importar-contrato] POST iniciado");
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;

@@ -30,6 +30,16 @@ const MONTH_LONG_UTC_FORMATTER = new Intl.DateTimeFormat('pt-BR', { month: 'long
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const YEAR_MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const NON_DIGIT_PATTERN = /\D/g;
+const CPF_FIRST_BLOCK_PATTERN = /(\d{3})(\d)/;
+const CPF_LAST_BLOCK_PATTERN = /(\d{3})(\d{1,2})$/;
+const CNPJ_FIRST_BLOCK_PATTERN = /(\d{2})(\d)/;
+const CNPJ_MIDDLE_BLOCK_PATTERN = /(\d{3})(\d)/;
+const CNPJ_SLASH_BLOCK_PATTERN = /(\d{3})(\d)/;
+const CNPJ_LAST_BLOCK_PATTERN = /(\d{4})(\d{1,2})$/;
+const PHONE_DDD_PATTERN = /(\d{2})(\d)/;
+const PHONE_EIGHT_DIGIT_PATTERN = /(\d{4})(\d{1,4})$/;
+const PHONE_NINE_DIGIT_PATTERN = /(\d{5})(\d{1,4})$/;
+const CEP_BLOCK_PATTERN = /(\d{5})(\d{1,3})$/;
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return '-';
@@ -123,19 +133,19 @@ export function formatCPF(value: string | null | undefined): string {
   if (!value) return '-';
   const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 11);
   return n
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    .replace(CPF_FIRST_BLOCK_PATTERN, '$1.$2')
+    .replace(CPF_FIRST_BLOCK_PATTERN, '$1.$2')
+    .replace(CPF_LAST_BLOCK_PATTERN, '$1-$2');
 }
 
 export function formatCNPJ(value: string | null | undefined): string {
   if (!value) return '-';
   const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 14);
   return n
-    .replace(/(\d{2})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1/$2')
-    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+    .replace(CNPJ_FIRST_BLOCK_PATTERN, '$1.$2')
+    .replace(CNPJ_MIDDLE_BLOCK_PATTERN, '$1.$2')
+    .replace(CNPJ_SLASH_BLOCK_PATTERN, '$1/$2')
+    .replace(CNPJ_LAST_BLOCK_PATTERN, '$1-$2');
 }
 
 export function formatPhone(value: string | null | undefined): string {
@@ -144,19 +154,19 @@ export function formatPhone(value: string | null | undefined): string {
   if (n.length <= 10) {
     return n
       .slice(0, 10)
-      .replace(/(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{4})(\d{1,4})$/, '$1-$2');
+      .replace(PHONE_DDD_PATTERN, '($1) $2')
+      .replace(PHONE_EIGHT_DIGIT_PATTERN, '$1-$2');
   }
   return n
     .slice(0, 11)
-    .replace(/(\d{2})(\d)/, '($1) $2')
-    .replace(/(\d{5})(\d{1,4})$/, '$1-$2');
+    .replace(PHONE_DDD_PATTERN, '($1) $2')
+    .replace(PHONE_NINE_DIGIT_PATTERN, '$1-$2');
 }
 
 export function formatCEP(value: string | null | undefined): string {
   if (!value) return '-';
   const n = value.replace(NON_DIGIT_PATTERN, '').slice(0, 8);
-  return n.replace(/(\d{5})(\d{1,3})$/, '$1-$2');
+  return n.replace(CEP_BLOCK_PATTERN, '$1-$2');
 }
 
 // ─── Texto ────────────────────────────────────────────────────────────────────
