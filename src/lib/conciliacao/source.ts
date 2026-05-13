@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   calcularValorVendaReal,
   isConciliacaoEfetivada,
@@ -56,6 +57,48 @@ export type SuppressedConciliacaoReceipt = {
   numero_reserva?: string | null;
   linked_venda_id: string | null;
   linked_recibo_id: string | null;
+};
+
+type ConciliacaoRankingProduto = {
+  id?: string | null;
+  nome?: string | null;
+  tipo?: string | null;
+};
+
+type ConciliacaoSourceRow = {
+  id?: string | null;
+  company_id?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  descricao?: string | null;
+  movimento_data?: string | null;
+  status?: string | null;
+  valor_lancamentos?: number | string | null;
+  valor_taxas?: number | string | null;
+  valor_descontos?: number | string | null;
+  valor_abatimentos?: number | string | null;
+  valor_nao_comissionavel?: number | string | null;
+  valor_venda_real?: number | string | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  faixa_comissao?: string | null;
+  is_seguro_viagem?: boolean | null;
+  ranking_vendedor_id?: string | null;
+  ranking_produto_id?: string | null;
+  ranking_produto?: ConciliacaoRankingProduto | null;
+  conciliado?: boolean | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
+type ParametroPagamentoNaoComissionavelRow = {
+  termo?: string | null;
+  termo_normalizado?: string | null;
+};
+
+type DatabaseErrorLike = {
+  code?: string | null;
+  message?: string | null;
 };
 
 function logSourceWarning(context: string, error: unknown) {
@@ -159,7 +202,7 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito",
 ].map((termo) => normalizeTextValue(termo));
 
-async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
+async function carregarTermosNaoComissionaveis(client: SupabaseClient): Promise<string[]> {
   try {
     const { data, error } = await client
       .from("parametros_pagamentos_nao_comissionaveis")
@@ -167,8 +210,8 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
       .eq("ativo", true)
       .order("termo", { ascending: true });
     if (error) throw error;
-    const termos: string[] = (data || [])
-      .map((row: any) =>
+    const termos: string[] = ((data || []) as ParametroPagamentoNaoComissionavelRow[])
+      .map((row) =>
         normalizeTextValue(row?.termo_normalizado || row?.termo),
       )
       .filter(Boolean);
@@ -182,7 +225,7 @@ async function carregarTermosNaoComissionaveis(client: any): Promise<string[]> {
   }
 }
 
-export function pickConciliacaoSourceRow(rows: any[]) {
+export function pickConciliacaoSourceRow(rows: ConciliacaoSourceRow[]) {
   const sortedRows = [...(rows || [])].sort((a, b) =>
     toStr(a?.movimento_data).localeCompare(toStr(b?.movimento_data)),
   );
@@ -296,16 +339,18 @@ export function pickConciliacaoSourceRow(rows: any[]) {
   };
 }
 
-function isMissingNaoComissionavelColumn(error: any) {
-  const message = String(error?.message || error || "").toLowerCase();
+function isMissingNaoComissionavelColumn(error: unknown) {
+  const errorLike = error as DatabaseErrorLike;
+  const message = String(errorLike?.message || error || "").toLowerCase();
   return (
     message.includes("valor_nao_comissionavel") &&
     (message.includes("does not exist") || message.includes("nao existe"))
   );
 }
 
-function isMissingOptionalConciliacaoColumn(error: any) {
-  const message = String(error?.message || error || "").toLowerCase();
+function isMissingOptionalConciliacaoColumn(error: unknown) {
+  const errorLike = error as DatabaseErrorLike;
+  const message = String(errorLike?.message || error || "").toLowerCase();
   const missing =
     message.includes("does not exist") || message.includes("nao existe");
   return (
@@ -315,9 +360,10 @@ function isMissingOptionalConciliacaoColumn(error: any) {
   );
 }
 
-function isRateioTableMissingError(error: any) {
-  const code = String(error?.code || "").trim();
-  const message = String(error?.message || error || "").toLowerCase();
+function isRateioTableMissingError(error: unknown) {
+  const errorLike = error as DatabaseErrorLike;
+  const code = String(errorLike?.code || "").trim();
+  const message = String(errorLike?.message || error || "").toLowerCase();
   return (
     code === "42P01" &&
     (message.includes("vendas_recibos_rateio") ||
