@@ -101,12 +101,26 @@ type DatabaseErrorLike = {
   message?: string | null;
 };
 
+type RateioQueryRow = {
+  conciliacao_recibo_id?: string | null;
+  venda_recibo_id?: string | null;
+  vendedor_origem_id?: unknown;
+  vendedor_destino_id?: unknown;
+  percentual_origem?: unknown;
+  percentual_destino?: unknown;
+};
+
 function logSourceWarning(context: string, error: unknown) {
   if (dev) {
     console.warn(context, error);
   } else {
     logServerError(context, error);
   }
+}
+
+function getErrorMessage(error: unknown) {
+  const errorLike = error as DatabaseErrorLike;
+  return errorLike?.message || error;
 }
 
 function normalizeConciliacaoReserva(value?: unknown) {
@@ -750,18 +764,18 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           rateioQueryFailed = true;
           break;
         }
-        for (const row of rateioRows || []) {
+        for (const row of (rateioRows || []) as RateioQueryRow[]) {
           const id = toStr(row?.conciliacao_recibo_id);
           if (!id) continue;
           concRowIdsWithRateio.add(id);
           setRateioRow(concRateioMap, id, row);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Qualquer erro inesperado na query de rateio → segue sem aplicar rateio,
         // não derruba a busca principal de conciliação.
         logSourceWarning(
           "[source] rateio query falhou, seguindo sem rateio:",
-          err?.message || err,
+          getErrorMessage(err),
         );
         rateioQueryFailed = true;
         break;
@@ -789,13 +803,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           rateioQueryFailed = true;
           break;
         }
-        for (const row of rateioRows || []) {
+        for (const row of (rateioRows || []) as RateioQueryRow[]) {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo falhou, seguindo sem rateio:",
-          err?.message || err,
+          getErrorMessage(err),
         );
         rateioQueryFailed = true;
         break;
@@ -990,13 +1004,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           if (!isMissing) throw rateioError;
           break;
         }
-        for (const row of rateioRows || []) {
+        for (const row of (rateioRows || []) as RateioQueryRow[]) {
           setRateioRow(reciboRateioMap, toStr(row?.venda_recibo_id), row);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         logSourceWarning(
           "[source] rateio por recibo fallback falhou, seguindo sem rateio:",
-          err?.message || err,
+          getErrorMessage(err),
         );
         break;
       }
