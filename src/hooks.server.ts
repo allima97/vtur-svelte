@@ -57,6 +57,17 @@ const normalizeModuloKey = (value?: string | null) => {
 	return MODULO_ALIASES[raw] || raw.replace(/\s+/g, '_');
 };
 
+type UserTypeLookupRow = {
+	user_types?: { name?: string | null } | Array<{ name?: string | null }> | null;
+};
+
+type PlatformLike = {
+	env?: Record<string, unknown> | null;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null;
+
 const buildPerms = (
 	rows: Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>
 ) => {
@@ -259,7 +270,7 @@ async function isSystemAdminApiUser(event: Parameters<Handle>[0]['event'], userI
 		.eq('id', userId)
 		.maybeSingle();
 	if (error) return false;
-	return isSystemAdminRole(normalizeUserType(extractUserTypeName(data as any)));
+	return isSystemAdminRole(normalizeUserType(extractUserTypeName(data as UserTypeLookupRow | null)));
 }
 
 function isRequestBodyTooLarge(event: Parameters<Handle>[0]['event'], limitBytes: number) {
@@ -323,7 +334,8 @@ const supabaseHook: Handle = async ({ event, resolve }) => {
 	// Inicializar KV namespace e verificar epoch de invalidação cross-instance.
 	// initKvNamespace é idempotente — apenas guarda referência na primeira chamada.
 	// checkKvEpochAsync é throttled (5s) e fire-and-forget — não bloqueia requests.
-	initKvNamespace((event.platform as any)?.env ?? null);
+	const platformEnv = isRecord(event.platform) ? (event.platform as PlatformLike).env ?? null : null;
+	initKvNamespace(platformEnv);
 	checkKvEpochAsync();
 
 	let safeSessionPromise: ReturnType<typeof event.locals.safeGetSession> | null = null;
