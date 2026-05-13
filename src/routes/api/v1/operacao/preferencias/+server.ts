@@ -19,6 +19,8 @@ import {
 
 const MAX_OPERACAO_PREFERENCIA_BODY_BYTES = 64 * 1024;
 
+type JsonBody = Record<string, unknown>;
+
 function ensurePreferenciasAccess(
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
   minLevel: number,
@@ -105,7 +107,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
     const {
       id,
@@ -116,7 +118,10 @@ export async function POST(event) {
       classificacao,
       observacao,
     } = body;
-    ensurePreferenciasAccess(scope, id && isUuid(id) ? 3 : 2);
+    const idValue = String(id || "").trim();
+    const tipoProdutoId = String(tipo_produto_id || "").trim();
+    const cidadeId = String(cidade_id || "").trim();
+    ensurePreferenciasAccess(scope, isUuid(idValue) ? 3 : 2);
 
     if (!String(nome || "").trim())
       return json({ error: "Nome obrigatório." }, { status: 400, headers: NO_STORE_HEADERS });
@@ -125,8 +130,8 @@ export async function POST(event) {
       created_by: scope.userId,
       company_id: scope.companyId,
       tipo_produto_id:
-        tipo_produto_id && isUuid(tipo_produto_id) ? tipo_produto_id : null,
-      cidade_id: cidade_id && isUuid(cidade_id) ? cidade_id : null,
+        isUuid(tipoProdutoId) ? tipoProdutoId : null,
+      cidade_id: isUuid(cidadeId) ? cidadeId : null,
       nome: String(nome).trim(),
       localizacao: String(localizacao || "").trim() || null,
       classificacao: String(classificacao || "").trim() || null,
@@ -134,11 +139,11 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
+    if (isUuid(idValue)) {
       const { data, error: updateError } = await client
         .from("minhas_preferencias")
         .update(payload)
-        .eq("id", id)
+        .eq("id", idValue)
         .eq("created_by", scope.userId)
         .select("id")
         .single();
@@ -207,16 +212,19 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
     const { action } = body;
-    ensurePreferenciasAccess(scope, action === "accept" ? 1 : 3);
+    const actionValue = String(action || "").trim();
+    ensurePreferenciasAccess(scope, actionValue === "accept" ? 1 : 3);
 
-    if (action === "share") {
+    if (actionValue === "share") {
       const { preferencia_id, shared_with_email } = body;
-      if (!isUuid(preferencia_id))
+      const preferenciaId = String(preferencia_id || "").trim();
+      const sharedWithEmail = String(shared_with_email || "").trim();
+      if (!isUuid(preferenciaId))
         return json({ error: "preferencia_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
-      if (!shared_with_email)
+      if (!sharedWithEmail)
         return json(
           { error: "shared_with_email obrigatorio." },
           { status: 400, headers: NO_STORE_HEADERS },
@@ -227,7 +235,7 @@ export async function PATCH(event) {
       const { data: preferencia, error: preferenciaError } = await client
         .from("minhas_preferencias")
         .select("id")
-        .eq("id", preferencia_id)
+        .eq("id", preferenciaId)
         .eq("company_id", scope.companyId)
         .eq("created_by", scope.userId)
         .maybeSingle();
@@ -239,7 +247,7 @@ export async function PATCH(event) {
       const { data: targetUser } = await client
         .from("users")
         .select("id")
-        .eq("email", shared_with_email.toLowerCase())
+        .eq("email", sharedWithEmail.toLowerCase())
         .eq("company_id", scope.companyId)
         .eq("active", true)
         .maybeSingle();
@@ -253,7 +261,7 @@ export async function PATCH(event) {
 
       const payload = {
         company_id: scope.companyId,
-        preferencia_id,
+        preferencia_id: preferenciaId,
         shared_by: scope.userId,
         shared_with: targetUser.id,
         status: "pending",
@@ -271,15 +279,16 @@ export async function PATCH(event) {
       return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    if (action === "accept") {
+    if (actionValue === "accept") {
       const { share_id } = body;
-      if (!isUuid(share_id))
+      const shareId = String(share_id || "").trim();
+      if (!isUuid(shareId))
         return json({ error: "share_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const { data, error } = await client
         .from("minhas_preferencias_shares")
         .update({ status: "accepted", accepted_at: new Date().toISOString() })
-        .eq("id", share_id)
+        .eq("id", shareId)
         .eq("shared_with", scope.userId)
         .select("id")
         .maybeSingle();
@@ -295,15 +304,16 @@ export async function PATCH(event) {
       return json({ ok: true }, { headers: NO_STORE_HEADERS });
     }
 
-    if (action === "revoke") {
+    if (actionValue === "revoke") {
       const { share_id } = body;
-      if (!isUuid(share_id))
+      const shareId = String(share_id || "").trim();
+      if (!isUuid(shareId))
         return json({ error: "share_id invalido." }, { status: 400, headers: NO_STORE_HEADERS });
 
       const { data, error } = await client
         .from("minhas_preferencias_shares")
         .update({ status: "revoked", revoked_at: new Date().toISOString() })
-        .eq("id", share_id)
+        .eq("id", shareId)
         .eq("shared_by", scope.userId)
         .select("id")
         .maybeSingle();
