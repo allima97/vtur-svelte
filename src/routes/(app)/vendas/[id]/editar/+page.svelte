@@ -66,6 +66,17 @@
 
   type ProdutoResolvidoOptionSource = NonNullable<ProdutoLookupPayload>;
 
+  type CadastroBasePayload = {
+    user?: { id: string; can_assign_vendedor?: boolean } | null;
+    vendedoresEquipe?: Option[] | null;
+    clientes?: Cliente[] | null;
+    cidades?: Option[] | null;
+    produtos?: Option[] | null;
+    tipos?: Option[] | null;
+    tiposPacote?: Option[] | null;
+    formasPagamento?: Option[] | null;
+  };
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -177,7 +188,7 @@
   }
 
   async function loadBase() {
-    const data = await apiGet<any>('/api/v1/vendas/cadastro-base');
+    const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
     currentUser = data.user ?? null;
     vendedoresEquipe = data.vendedoresEquipe || [];
     clientes = data.clientes || [];
