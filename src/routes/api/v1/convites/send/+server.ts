@@ -66,19 +66,28 @@ function isAuthAlreadyRegisteredError(error: unknown) {
   );
 }
 
-function providerPayloadMessage(payload: any) {
+function providerPayloadMessage(payload: unknown) {
   if (!payload) return "";
   if (typeof payload === "string") return payload.slice(0, 240);
-  const errors = Array.isArray(payload?.errors)
-    ? payload.errors
-        .map((item: any) => item?.message || item?.field || item?.help)
+  const errorsValue = readErrorField(payload, "errors");
+  const errors = Array.isArray(errorsValue)
+    ? errorsValue
+        .map((item: unknown) =>
+          readErrorField(item, "message") || readErrorField(item, "field") || readErrorField(item, "help")
+        )
         .filter(Boolean)
         .join("; ")
     : "";
-  return String(payload?.message || payload?.error || payload?.name || errors || "").slice(0, 240);
+  return String(
+    readErrorField(payload, "message") ||
+      readErrorField(payload, "error") ||
+      readErrorField(payload, "name") ||
+      errors ||
+      ""
+  ).slice(0, 240);
 }
 
-function providerErrorStatus(provider: string, status?: string | number, payload?: any) {
+function providerErrorStatus(provider: string, status?: string | number, payload?: unknown) {
   const detail = providerPayloadMessage(payload);
   return detail ? `${provider}:${status || "erro"}:${detail}` : `${provider}:${status || "erro"}`;
 }
@@ -140,9 +149,13 @@ async function enviarEmailResend(params: {
         text: params.text,
       }),
     }, 12_000);
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError("[convites/send] excecao no Resend", err);
-    return { ok: false, status: err?.name === "AbortError" ? "resend_timeout" : "resend_exception", error: err?.message || err };
+    return {
+      ok: false,
+      status: readErrorField(err, "name") === "AbortError" ? "resend_timeout" : "resend_exception",
+      error: readErrorField(err, "message") || err
+    };
   }
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
@@ -193,9 +206,13 @@ async function enviarEmailSendGrid(params: {
         ],
       }),
     }, 12_000);
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError("[convites/send] excecao no SendGrid", err);
-    return { ok: false, status: err?.name === "AbortError" ? "sendgrid_timeout" : "sendgrid_exception", error: err?.message || err };
+    return {
+      ok: false,
+      status: readErrorField(err, "name") === "AbortError" ? "sendgrid_timeout" : "sendgrid_exception",
+      error: readErrorField(err, "message") || err
+    };
   }
 
   if (!resp.ok) {
