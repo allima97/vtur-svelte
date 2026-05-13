@@ -18,6 +18,29 @@
     | 'financeiro'
     | 'orcamentos'
     | 'comissoes';
+  type FlowbiteBadgeColor =
+    | 'gray'
+    | 'dark'
+    | 'blue'
+    | 'green'
+    | 'yellow'
+    | 'red'
+    | 'purple'
+    | 'pink'
+    | 'indigo'
+    | 'teal';
+  type FlowbiteBadgePropColor =
+    | 'none'
+    | 'primary'
+    | 'blue'
+    | 'green'
+    | 'red'
+    | 'yellow'
+    | 'purple'
+    | 'dark'
+    | 'indigo'
+    | 'pink'
+    | undefined;
   type BadgeSize = 'sm' | 'md';
 
   export let color: BadgeColor = 'gray';
@@ -27,7 +50,7 @@
   export let className = '';
 
   // Módulos → flowbite-svelte Badge cores
-  const colorAlias: Partial<Record<BadgeColor, BadgeColor>> = {
+  const colorAlias: Partial<Record<BadgeColor, FlowbiteBadgeColor>> = {
     operacao: 'teal',
     clientes: 'blue',
     orcamentos: 'blue',
@@ -41,11 +64,11 @@
     md: 'px-2.5 py-1 text-xs'
   };
 
-  $: resolvedColor = (colorAlias[color] || color) as any;
+  $: resolvedColor = (colorAlias[color] || color) as FlowbiteBadgeColor;
 </script>
 
 <FlowbiteBadge
-  color={resolvedColor}
+  color={resolvedColor as FlowbiteBadgePropColor}
   border={outline}
   rounded
   class="{sizeClasses[size]} font-medium {className} inline-flex items-center gap-1"
