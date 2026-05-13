@@ -53,6 +53,17 @@
     taxas?: string | number | null;
   };
 
+  type CidadeLookupPayload = Option | null;
+
+  type ProdutoLookupPayload = {
+    id: string;
+    nome?: string | null;
+    cidade_id?: string | null;
+    todas_as_cidades?: boolean | null;
+    tipo?: string | null;
+    tipo_produto?: string | null;
+  } | null;
+
   const vendaId = String($page.params.id || '');
   const today = todayISODateLocal();
   const BRL_CURRENCY_FORMATTER = new Intl.NumberFormat('pt-BR', {
@@ -684,7 +695,7 @@
     if (ensuringCidadeId === id) return;
     ensuringCidadeId = id;
     try {
-      const payload = await apiGet<any>('/api/v1/vendas/cidades-busca', { id });
+      const payload = await apiGet<CidadeLookupPayload>('/api/v1/vendas/cidades-busca', { id });
       if (payload?.id) mergeCidades([payload]);
     } catch {
       // Mantem a tela funcionando mesmo sem prefetch complementar.
@@ -700,7 +711,7 @@
     if (ensuringProdutoId === id) return;
     ensuringProdutoId = id;
     try {
-      const payload = await apiGet<any>(`/api/v1/produtos/${encodeURIComponent(id)}`);
+      const payload = await apiGet<ProdutoLookupPayload>(`/api/v1/produtos/${encodeURIComponent(id)}`);
       if (payload?.id) {
         const todasAsCidades =
           payload.todas_as_cidades === true ||
