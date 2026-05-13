@@ -8,6 +8,25 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 const MAX_CONVITE_ACTIVATE_BODY_BYTES = 32 * 1024;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type InviteActivateBody = {
+  invite_id?: unknown;
+  email?: unknown;
+  password?: unknown;
+  nome?: unknown;
+};
+
+type UserInviteRow = {
+  id: string;
+  status?: string | null;
+  invited_email?: string | null;
+  invited_user_id?: string | null;
+  company_id?: string | null;
+  user_type_id?: string | null;
+  invited_by_role?: string | null;
+  expires_at?: string | null;
+  uso_individual?: boolean | null;
+};
+
 function errorJson(message: string, status: number) {
   return json({ error: message }, { status, headers: NO_STORE_HEADERS });
 }
@@ -35,7 +54,7 @@ export const POST: RequestHandler = async (event) => {
     const bodyResult = await readJsonBodyLimited(event.request, MAX_CONVITE_ACTIVATE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as InviteActivateBody)
       : {};
     const inviteId = String(body.invite_id || '').trim();
     const email = normalizeEmail(body.email);
@@ -68,31 +87,32 @@ export const POST: RequestHandler = async (event) => {
 
     if (conviteErr) throw conviteErr;
     if (!convite?.id) return errorJson('Convite nao encontrado.', 404);
+    const conviteRow = convite as UserInviteRow;
 
-    const status = String((convite as any).status || '').toLowerCase();
+    const status = String(conviteRow.status || '').toLowerCase();
     if (status !== 'pending') return errorJson('Convite nao esta pendente.', 409);
 
-    const invitedEmail = normalizeEmail((convite as any).invited_email);
+    const invitedEmail = normalizeEmail(conviteRow.invited_email);
     if (invitedEmail !== email) return errorJson('Convite nao corresponde a este e-mail.', 403);
 
-    const expiresAtRaw = String((convite as any).expires_at || '');
+    const expiresAtRaw = String(conviteRow.expires_at || '');
     if (expiresAtRaw) {
       const expiresAt = new Date(expiresAtRaw);
       if (!Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now()) {
         await adminClient
           .from('user_convites')
-          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() } as any)
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
           .eq('id', inviteId);
         return errorJson('Convite expirado. Solicite um novo convite.', 410);
       }
     }
 
-    const companyId = String((convite as any).company_id || '').trim();
-    const userTypeId = String((convite as any).user_type_id || '').trim();
-    const usoIndividual = Boolean((convite as any).uso_individual);
+    const companyId = String(conviteRow.company_id || '').trim();
+    const userTypeId = String(conviteRow.user_type_id || '').trim();
+    const usoIndividual = Boolean(conviteRow.uso_individual);
     if ((!usoIndividual && !companyId) || !userTypeId) return errorJson('Convite incompleto. Solicite um novo convite.', 400);
 
-    let authUserId = String((convite as any).invited_user_id || '').trim();
+    let authUserId = String(conviteRow.invited_user_id || '').trim();
     let createdAuthUser = false;
 
     if (authUserId) {
@@ -136,7 +156,7 @@ export const POST: RequestHandler = async (event) => {
       if (!authUserId) return errorJson('Falha ao criar usuario do convite.', 500);
     }
 
-    const createdByGestor = String((convite as any).invited_by_role || '').toUpperCase() === 'GESTOR';
+    const createdByGestor = String(conviteRow.invited_by_role || '').toUpperCase() === 'GESTOR';
     const nowIso = new Date().toISOString();
 
     const { error: profileErr } = await adminClient
@@ -152,7 +172,7 @@ export const POST: RequestHandler = async (event) => {
           active: true,
           created_by_gestor: createdByGestor,
           updated_at: nowIso
-        } as any,
+        },
         { onConflict: 'id' }
       );
     if (profileErr) throw profileErr;
@@ -163,7 +183,7 @@ export const POST: RequestHandler = async (event) => {
         invited_user_id: authUserId,
         status: 'accepted',
         accepted_at: nowIso
-      } as any)
+      })
       .eq('id', inviteId)
       .eq('status', 'pending')
       .select('id')
