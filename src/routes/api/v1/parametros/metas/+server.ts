@@ -1,4 +1,5 @@
 import { json } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentMonthRangeISODate, monthRangeFromKey } from "$lib/date";
 import {
   ensureModuloAccess,
@@ -37,6 +38,52 @@ type MetaInput = {
   meta_diferenciada?: number | string | null;
   ativo?: boolean | null;
   meta_produtos?: MetaProdutoInput[] | null;
+};
+
+type UserTypeNameRow = { name?: string | null };
+
+type RankingUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
+  user_types?: UserTypeNameRow | UserTypeNameRow[] | null;
+};
+
+type ProdutoDiferenciadoRow = {
+  id?: string | null;
+  nome?: string | null;
+  tipo?: string | null;
+  ativo?: boolean | null;
+  soma_na_meta?: boolean | null;
+  regra_comissionamento?: string | null;
+  usa_meta_produto?: boolean | null;
+  meta_produto_valor?: number | string | null;
+};
+
+type ProdutoMetaRow = {
+  id?: string | null;
+  meta_vendedor_id?: string | null;
+  produto_id?: string | null;
+  valor?: number | string | null;
+  produto?: ProdutoDiferenciadoRow | null;
+};
+
+type MetaVendedorRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  periodo?: string | null;
+  meta_geral?: number | string | null;
+  meta_diferenciada?: number | string | null;
+  ativo?: boolean | null;
+  scope?: string | null;
+};
+
+type MetasPostBody = MetaInput & {
+  items?: MetaInput[] | null;
 };
 
 function readErrorField(error: unknown, field: string) {
@@ -103,10 +150,10 @@ function normalizeProdutoMetas(items: MetaProdutoInput[] | null | undefined) {
 }
 
 async function loadScopedVendedores(
-  client: any,
+  client: SupabaseClient,
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
 ) {
-  const sortByName = (rows: any[]) =>
+  const sortByName = (rows: RankingUserRow[]) =>
     [...rows].sort((a, b) =>
       PT_BR_COLLATOR.compare(
         String(a?.nome_completo || a?.email || ""),
@@ -115,7 +162,7 @@ async function loadScopedVendedores(
     );
 
   if (scope.isAdmin) {
-    return getCachedReadModel({
+    return getCachedReadModel<RankingUserRow[]>({
       key: buildReadModelCacheKey("parametros-metas:vendedores-admin", {}),
       tags: [READ_MODEL_TAGS.users, READ_MODEL_TAGS.metas],
       ttlMs: 30_000,
@@ -132,7 +179,7 @@ async function loadScopedVendedores(
           .limit(5000);
 
         if (error) throw error;
-        return sortByName((data || []).filter(isRankingEligibleUser));
+        return sortByName(((data || []) as RankingUserRow[]).filter(isRankingEligibleUser));
       },
     });
   }
@@ -155,8 +202,8 @@ async function loadScopedVendedores(
   return data ? [data] : [];
 }
 
-async function loadProdutosDiferenciados(client: any) {
-  return getCachedReadModel({
+async function loadProdutosDiferenciados(client: SupabaseClient) {
+  return getCachedReadModel<ProdutoDiferenciadoRow[]>({
     key: buildReadModelCacheKey("parametros-metas:produtos-diferenciados", {}),
     tags: [READ_MODEL_TAGS.catalog, READ_MODEL_TAGS.metas, READ_MODEL_TAGS.comissoes],
     ttlMs: 60_000,
@@ -165,12 +212,14 @@ async function loadProdutosDiferenciados(client: any) {
       const fullCols =
         "id, nome, tipo, ativo, soma_na_meta, regra_comissionamento, usa_meta_produto, meta_produto_valor";
 
-      let { data, error } = await client
+      const primary = await client
         .from("tipo_produtos")
         .select(fullCols)
         .eq("ativo", true)
         .order("nome")
         .limit(500);
+      let data = (primary.data || []) as ProdutoDiferenciadoRow[];
+      let error = primary.error;
 
       if (error && isMissingSchemaError(error)) {
         const fallback = await client
@@ -179,13 +228,13 @@ async function loadProdutosDiferenciados(client: any) {
           .eq("ativo", true)
           .order("nome")
           .limit(500);
-        data = fallback.data || [];
+        data = (fallback.data || []) as unknown as ProdutoDiferenciadoRow[];
         error = fallback.error;
       }
 
       if (error) throw error;
 
-      return (data || []).filter((row: any) => {
+      return ((data || []) as ProdutoDiferenciadoRow[]).filter((row) => {
         const nomeTipo = `${row?.nome || ""} ${row?.tipo || ""}`.toLowerCase();
         return (
           row?.regra_comissionamento === "diferenciado" ||
@@ -198,10 +247,10 @@ async function loadProdutosDiferenciados(client: any) {
   });
 }
 
-async function loadProdutoMetas(client: any, metaIds: string[]) {
-  if (metaIds.length === 0) return new Map<string, any[]>();
+async function loadProdutoMetas(client: SupabaseClient, metaIds: string[]) {
+  if (metaIds.length === 0) return new Map<string, ProdutoMetaRow[]>();
 
-  const rows = await getCachedReadModel<any[]>({
+  const rows = await getCachedReadModel<ProdutoMetaRow[]>({
     key: buildReadModelCacheKey("parametros-metas:produto-metas", {
       metaIds: [...metaIds].sort(),
     }),
@@ -209,7 +258,7 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
     ttlMs: 45_000,
     staleTtlMs: 180_000,
     loader: async () => {
-      const rows: any[] = [];
+      const rows: ProdutoMetaRow[] = [];
       for (const metaBatch of chunkArray(metaIds)) {
         const { data, error } = await client
           .from("metas_vendedor_produto")
@@ -222,13 +271,13 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
           if (isMissingSchemaError(error)) return [];
           throw error;
         }
-        rows.push(...(data || []));
+        rows.push(...((data || []) as unknown as ProdutoMetaRow[]));
       }
       return rows;
     },
   });
 
-  const map = new Map<string, any[]>();
+  const map = new Map<string, ProdutoMetaRow[]>();
   for (const row of rows) {
     const metaId = String(row?.meta_vendedor_id || "").trim();
     if (!metaId) continue;
@@ -241,7 +290,7 @@ async function loadProdutoMetas(client: any, metaIds: string[]) {
 }
 
 async function assertTargetAllowed(
-  client: any,
+  client: SupabaseClient,
   scope: Awaited<ReturnType<typeof resolveUserScope>>,
   vendedorId: string,
 ) {
@@ -249,7 +298,7 @@ async function assertTargetAllowed(
   if (scope.isMaster || scope.isGestor) {
     const scopedVendedores = await loadScopedVendedores(client, scope);
     return scopedVendedores.some(
-      (row: any) => String(row?.id || "") === vendedorId,
+      (row) => String(row?.id || "") === vendedorId,
     );
   }
 
@@ -257,7 +306,7 @@ async function assertTargetAllowed(
 }
 
 async function findExistingMetaId(
-  client: any,
+  client: SupabaseClient,
   vendedorId: string,
   periodo: string,
 ) {
@@ -287,7 +336,7 @@ async function findExistingMetaId(
   return String(data?.[0]?.id || "");
 }
 
-async function resolveMetaUserScope(client: any, userId: string): Promise<"vendedor" | "gestor"> {
+async function resolveMetaUserScope(client: SupabaseClient, userId: string): Promise<"vendedor" | "gestor"> {
   try {
     const { data, error } = await client
       .from("users")
@@ -297,10 +346,11 @@ async function resolveMetaUserScope(client: any, userId: string): Promise<"vende
     if (error || !data) return "vendedor";
     const usoIndividual = Boolean(data?.uso_individual);
     if (usoIndividual) return "vendedor";
+    const userRow = data as RankingUserRow;
     const tipoNome = String(
-      Array.isArray(data?.user_types)
-        ? (data.user_types[0]?.name || "")
-        : (data?.user_types?.name || "")
+      Array.isArray(userRow.user_types)
+        ? (userRow.user_types[0]?.name || "")
+        : (userRow.user_types?.name || "")
     ).toUpperCase();
     return tipoNome.includes("GESTOR") ? "gestor" : "vendedor";
   } catch {
@@ -309,7 +359,7 @@ async function resolveMetaUserScope(client: any, userId: string): Promise<"vende
 }
 
 async function upsertMeta(
-  client: any,
+  client: SupabaseClient,
   input: MetaInput,
   fallbackPeriod?: string,
 ) {
@@ -326,7 +376,7 @@ async function upsertMeta(
   // A constraint do banco exige scope="gestor" para usuários do tipo GESTOR.
   const userScope = await resolveMetaUserScope(client, targetVendedorId);
 
-  const payload: Record<string, any> = {
+  const payload: Record<string, unknown> = {
     vendedor_id: targetVendedorId,
     periodo: periodoFull,
     meta_geral: toNumber(input?.meta_geral),
@@ -339,7 +389,7 @@ async function upsertMeta(
   if (!isUuid(metaId))
     metaId = await findExistingMetaId(client, targetVendedorId, periodoFull);
 
-  const savePayload = async (row: Record<string, any>) => {
+  const savePayload = async (row: Record<string, unknown>) => {
     const saveQuery = metaId
       ? client.from("metas_vendedor").update(row).eq("id", metaId)
       : client.from("metas_vendedor").insert(row);
@@ -403,15 +453,15 @@ export async function GET(event) {
 
     const scopedVendedores = await loadScopedVendedores(client, scope);
     const scopedIds = scopedVendedores
-      .map((row: any) => String(row?.id || "").trim())
+      .map((row) => String(row?.id || "").trim())
       .filter(isUuid);
     const vendedorIds =
       vendedorId && scopedIds.includes(vendedorId) ? [vendedorId] : scopedIds;
 
-    let metas: any[] = [];
+    let metas: MetaVendedorRow[] = [];
     if (vendedorIds.length > 0) {
       for (const vendedorBatch of chunkArray(vendedorIds)) {
-        let batchData: any[] = [];
+        let batchData: MetaVendedorRow[] = [];
         // Tenta com filtro de scope (coluna pode não existir em bancos antigos)
         const withScope = await client
           .from("metas_vendedor")
@@ -459,7 +509,7 @@ export async function GET(event) {
     }
 
     const metaIds = metas
-      .map((row: any) => String(row?.id || "").trim())
+      .map((row) => String(row?.id || "").trim())
       .filter(isUuid);
 
     // produtoMetasMap depende de metaIds; loadProdutosDiferenciados é independente.
@@ -470,10 +520,10 @@ export async function GET(event) {
     ]);
 
     const vendedorMap = new Map(
-      scopedVendedores.map((row: any) => [String(row?.id || ""), row]),
+      scopedVendedores.map((row) => [String(row?.id || ""), row]),
     );
 
-    const items = metas.map((row: any) => {
+    const items = metas.map((row) => {
       const detalhes = produtoMetasMap.get(String(row?.id || "")) || [];
       return {
         ...row,
@@ -515,7 +565,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as MetasPostBody)
         : {};
     const inputs: MetaInput[] = Array.isArray(body?.items)
       ? body.items
@@ -526,12 +576,12 @@ export async function POST(event) {
     const scopedVendedores = await loadScopedVendedores(client, scope);
     const allowedIds = new Set(
       scopedVendedores
-        .map((row: any) => String(row?.id || "").trim())
+        .map((row) => String(row?.id || "").trim())
         .filter(isUuid),
     );
     const vendedorCompanyById = new Map(
       scopedVendedores
-        .map((row: any) => [
+        .map((row) => [
           String(row?.id || "").trim(),
           String(row?.company_id || "").trim(),
         ] as const)
