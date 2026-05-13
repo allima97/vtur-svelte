@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
   ensureCanManagePermissions,
@@ -18,7 +18,16 @@ import { chunkArray } from '$lib/utils/array';
 
 const MAX_TIPO_USUARIO_BODY_BYTES = 32 * 1024;
 
-export async function GET(event) {
+type DefaultPermissionRow = {
+  user_type_id?: string | null;
+  ativo?: boolean | null;
+};
+
+type UserTypeUserRow = {
+  user_type_id?: string | null;
+};
+
+export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -29,8 +38,8 @@ export async function GET(event) {
     const userTypes = await loadManagedUserTypes(client, scope);
     const typeIds = userTypes.map((row) => row.id);
 
-    const defaultPermRows: any[] = [];
-    const userRows: any[] = [];
+    const defaultPermRows: DefaultPermissionRow[] = [];
+    const userRows: UserTypeUserRow[] = [];
     for (const batch of chunkArray(typeIds)) {
       if (batch.length === 0) continue;
       const [defaultPermsRes, usersRes] = await Promise.all([
@@ -43,8 +52,8 @@ export async function GET(event) {
 
       if (defaultPermsRes.error) throw defaultPermsRes.error;
       if (usersRes.error) throw usersRes.error;
-      defaultPermRows.push(...(defaultPermsRes.data || []));
-      userRows.push(...(usersRes.data || []));
+      defaultPermRows.push(...((defaultPermsRes.data || []) as DefaultPermissionRow[]));
+      userRows.push(...((usersRes.data || []) as UserTypeUserRow[]));
     }
 
 	const defaultPermCounts = new Map<string, number>();
@@ -80,7 +89,7 @@ export async function GET(event) {
   }
 }
 
-export async function POST(event) {
+export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
     if (originError) return originError;
