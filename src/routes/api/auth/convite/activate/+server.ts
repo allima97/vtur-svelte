@@ -6,6 +6,7 @@ import { checkPersistentRateLimit } from '$lib/server/persistentRateLimit';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_CONVITE_ACTIVATE_BODY_BYTES = 32 * 1024;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function errorJson(message: string, status: number) {
   return json({ error: message }, { status, headers: NO_STORE_HEADERS });
@@ -16,7 +17,7 @@ function normalizeEmail(value: unknown) {
 }
 
 function isEmailLike(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return EMAIL_PATTERN.test(value);
 }
 
 function authAlreadyExists(error: unknown) {
