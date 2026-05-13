@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient, logServerError, requireAuthenticatedUser, resolveUserScope } from '$lib/server/v1';
 import {
   OFFICIAL_CARD_THEMES,
@@ -62,6 +63,14 @@ type BrandingSettingsRow = {
   consultor_nome?: string | null;
 } | null;
 
+type LegacyThemeRow = Omit<ThemeRow, "logo_url" | "logo_path">;
+
+type ThemeFetchResult = {
+  data: ThemeRow[];
+  error: unknown;
+  logoColumnsAvailable: boolean;
+};
+
 function normalizeScope(value?: string | null): ScopeValue {
   const scope = String(value || "").trim().toLowerCase();
   if (scope === "system" || scope === "master" || scope === "gestor" || scope === "user") return scope;
@@ -96,6 +105,10 @@ function normalizeLibraryKey(value?: string | null) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "";
 }
 
 function mergeThemesWithOfficial(userId: string, companyId: string | null, rows: ThemeRow[]) {
@@ -191,8 +204,8 @@ function mergeMessagesWithOfficial(userId: string, companyId: string | null, the
   return Array.from(merged.values());
 }
 
-function isThemeLogoColumnMissingError(error: any) {
-  const message = String(error?.message || "").toLowerCase();
+function isThemeLogoColumnMissingError(error: unknown) {
+  const message = getErrorMessage(error).toLowerCase();
   if (!message) return false;
   return (
     (message.includes("column") && message.includes("logo_url")) ||
@@ -202,7 +215,7 @@ function isThemeLogoColumnMissingError(error: any) {
   );
 }
 
-async function fetchThemesWithLogoFallback(client: any) {
+async function fetchThemesWithLogoFallback(client: SupabaseClient): Promise<ThemeFetchResult> {
   const withLogoResp = await client
     .from("user_message_template_themes")
     .select(THEME_SELECT_WITH_LOGO)
@@ -210,7 +223,7 @@ async function fetchThemesWithLogoFallback(client: any) {
   if (!withLogoResp.error) {
     return {
       data: (withLogoResp.data || []) as ThemeRow[],
-      error: null as any,
+      error: null,
       logoColumnsAvailable: true,
     };
   }
@@ -235,7 +248,7 @@ async function fetchThemesWithLogoFallback(client: any) {
     };
   }
 
-  const normalized = ((legacyResp.data || []) as any[]).map((row) => ({
+  const normalized = ((legacyResp.data || []) as LegacyThemeRow[]).map((row) => ({
     ...row,
     storage_path: row.storage_path ?? null,
     logo_url: null,
@@ -244,12 +257,12 @@ async function fetchThemesWithLogoFallback(client: any) {
 
   return {
     data: normalized,
-    error: null as any,
+    error: null,
     logoColumnsAvailable: false,
   };
 }
 
-async function resolveBrandingLogo(client: any, settings: BrandingSettingsRow) {
+async function resolveBrandingLogo(client: SupabaseClient, settings: BrandingSettingsRow) {
   if (!settings) return null;
   const rawUrl = cleanUrl(settings.logo_url);
   const logoPath = String(settings.logo_path || extractStoragePath(rawUrl) || "").trim();
@@ -303,7 +316,7 @@ export async function GET(event: import('@sveltejs/kit').RequestEvent) {
     }
     if (currentCompanyId) masterCompanyIds.add(currentCompanyId);
 
-    const dataClient: any = getAdminClient();
+    const dataClient: SupabaseClient = getAdminClient();
 
     const [catsResp, themesResp, messagesResp, sigResp, settingsResp] = await Promise.all([
       dataClient
