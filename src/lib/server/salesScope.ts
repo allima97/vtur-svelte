@@ -23,12 +23,14 @@ type FetchSaleForScopeParams = SaleScopeParams & {
   extraSelect?: string;
 };
 
+const BASE_SALE_SCOPE_COLUMNS = ['id', 'company_id', 'vendedor_id'] as const;
+
 function normalizedIdSet(ids?: string[] | null) {
   return cleanStringSet(ids);
 }
 
 function buildSaleSelect(extraSelect?: string) {
-  const columns = new Set(['id', 'company_id', 'vendedor_id']);
+  const columns = new Set<string>(BASE_SALE_SCOPE_COLUMNS);
   for (const rawColumn of String(extraSelect || '').split(',')) {
     const column = rawColumn.trim();
     if (column) columns.add(column);
