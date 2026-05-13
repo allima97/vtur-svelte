@@ -2,9 +2,9 @@
   import { Button as FlowbiteButton } from 'flowbite-svelte';
   import { sanitizeHref } from '$lib/security/url';
 
-  export let variant: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' | 'selected' = 'primary';
-  export let size: 'xs' | 'sm' | 'md' | 'lg' = 'md';
-  export let color:
+  type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'unstyled' | 'selected';
+  type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+  type ButtonColor =
     | 'blue'
     | 'green'
     | 'red'
@@ -18,7 +18,11 @@
     | 'financeiro'
     | 'operacao'
     | 'orcamentos'
-    | 'comissoes' = 'blue';
+    | 'comissoes';
+
+  export let variant: ButtonVariant = 'primary';
+  export let size: ButtonSize = 'md';
+  export let color: ButtonColor = 'blue';
   export let loading = false;
   export let disabled = false;
   export let type: 'button' | 'submit' | 'reset' = 'button';
@@ -45,7 +49,7 @@
   export let style: string | null = null;
   export let class_name = '';
 
-  const colorAlias: Record<string, string> = {
+  const colorAlias: Record<ButtonColor, string> = {
     blue: 'blue',
     green: 'green',
     red: 'red',
@@ -62,14 +66,14 @@
     comissoes: 'orange'
   };
 
-  const sizeClasses: Record<string, string> = {
+  const sizeClasses: Record<ButtonSize, string> = {
     xs: 'px-2.5 py-1.5 text-xs',
     sm: 'px-3.5 py-2 text-sm',
     md: 'px-4 py-2.5 text-sm',
     lg: 'px-5 py-3 text-base'
   };
 
-  const variantClasses: Record<string, string> = {
+  const variantClasses: Record<ButtonVariant, string> = {
     primary:
       'border-transparent bg-gradient-to-r from-[#5b5ce6] to-[#3b82f6] text-white hover:from-[#4f46e5] hover:to-[#2563eb] focus:ring-indigo-200 shadow-[0_12px_28px_rgba(79,70,229,0.28)]',
     secondary:
@@ -90,7 +94,7 @@
 
   // Variantes que controlam 100% das cores via variantClasses — não devem
   // receber a cor Flowbite (que injeta background azul sobrescrevendo bg-transparent)
-  const neutralVariants = new Set(['secondary', 'outline', 'ghost', 'unstyled', 'selected']);
+  const neutralVariants = new Set<ButtonVariant>(['secondary', 'outline', 'ghost', 'unstyled', 'selected']);
   $: flowbiteColor = neutralVariants.has(variant) ? 'none' : (resolvedColor as any);
 
   $: buttonClasses = `vtur-button inline-flex items-center justify-center rounded-xl font-semibold tracking-[0.01em] transition-all duration-150 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClasses[size]} ${variantClasses[variant]} ${class_name}`;
