@@ -21,6 +21,45 @@ type VoucherListRow = {
   [key: string]: unknown;
 };
 
+type VoucherDiaDraft = {
+  dia_numero?: number | null;
+  titulo?: string | null;
+  descricao?: string | null;
+  data_referencia?: string | null;
+  cidade?: string | null;
+};
+
+type VoucherHotelDraft = {
+  cidade?: string | null;
+  hotel?: string | null;
+  endereco?: string | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  noites?: number | null;
+  telefone?: string | null;
+  contato?: string | null;
+  status?: string | null;
+  observacao?: string | null;
+};
+
+type VoucherCreateBody = {
+  provider?: string | null;
+  nome?: string | null;
+  codigo_systur?: string | null;
+  codigo_fornecedor?: string | null;
+  reserva_online?: string | null;
+  passageiros?: string | null;
+  tipo_acomodacao?: string | null;
+  operador?: string | null;
+  resumo?: string | null;
+  extra_data?: Record<string, unknown> | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  ativo?: boolean;
+  dias?: VoucherDiaDraft[];
+  hoteis?: VoucherHotelDraft[];
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -97,9 +136,9 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_vouchers', 'vouchers', 'operacao'], 2, 'Sem permissão para criar vouchers.');
     }
 
-    const body =
+    const body: VoucherCreateBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as VoucherCreateBody)
         : {};
 
     const { data: voucher, error: voucherError } = await client
@@ -127,7 +166,7 @@ export async function POST(event) {
     if (voucherError) throw voucherError;
 
     if (Array.isArray(body.dias) && body.dias.length > 0) {
-      const diasPayload = body.dias.map((dia: any, index: number) => ({
+      const diasPayload = body.dias.map((dia, index) => ({
         voucher_id: voucher.id,
         dia_numero: dia.dia_numero || index + 1,
         titulo: dia.titulo || null,
@@ -141,7 +180,7 @@ export async function POST(event) {
     }
 
     if (Array.isArray(body.hoteis) && body.hoteis.length > 0) {
-      const hoteisPayload = body.hoteis.map((hotel: any, index: number) => ({
+      const hoteisPayload = body.hoteis.map((hotel, index) => ({
         voucher_id: voucher.id,
         cidade: String(hotel.cidade || ''),
         hotel: String(hotel.hotel || ''),
