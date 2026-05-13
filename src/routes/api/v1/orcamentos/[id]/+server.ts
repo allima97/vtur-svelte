@@ -22,6 +22,51 @@ const MAX_ORCAMENTO_UPDATE_BODY_BYTES = 256 * 1024;
 const errorResponse = (message: string, status: number) =>
   json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
+type OrcamentoUpdateBody = {
+  status?: unknown;
+  status_negociacao?: unknown;
+  total?: unknown;
+  currency?: unknown;
+  client_id?: unknown;
+  client_name?: unknown;
+  cliente_nome?: unknown;
+  client_whatsapp?: unknown;
+  cliente_telefone?: unknown;
+  client_email?: unknown;
+  data_embarque?: unknown;
+  data_final?: unknown;
+  itens?: unknown;
+};
+
+type OrcamentoUpdatePayload = {
+  updated_at: string;
+  status?: unknown;
+  status_negociacao?: unknown;
+  total?: unknown;
+  currency?: unknown;
+  client_id?: string | null;
+  client_name?: string | null;
+  client_whatsapp?: string | null;
+  client_email?: string | null;
+  data_embarque?: unknown;
+  data_final?: unknown;
+};
+
+type ClienteScopeRow = {
+  id?: unknown;
+  company_id?: unknown;
+};
+
+type OrcamentoUpdateItem = Record<string, unknown> & {
+  title?: unknown;
+  product_name?: unknown;
+  item_type?: unknown;
+  quantity?: unknown;
+  unit_price?: unknown;
+  total_amount?: unknown;
+  city_name?: unknown;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -133,9 +178,9 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoUpdateBody)
         : {};
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: OrcamentoUpdatePayload = { updated_at: new Date().toISOString() };
     if (body.status !== undefined) updateData.status = body.status;
     if (body.status_negociacao !== undefined) updateData.status_negociacao = body.status_negociacao;
     if (body.total !== undefined) updateData.total = body.total;
@@ -152,8 +197,9 @@ export async function PATCH(event) {
           .eq('id', nextClientId)
           .maybeSingle();
         if (clienteErr) throw clienteErr;
-        if (!cliente?.id) return errorResponse('Cliente nao encontrado.', 404);
-        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        const clienteRow = cliente as ClienteScopeRow | null;
+        if (!clienteRow?.id) return errorResponse('Cliente nao encontrado.', 404);
+        const clienteCompanyId = String(clienteRow.company_id || '').trim();
         if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
           return errorResponse('Cliente fora do seu escopo.', 403);
         }
@@ -180,7 +226,8 @@ export async function PATCH(event) {
 
     if (body.itens && Array.isArray(body.itens)) {
       await client.from('quote_item').delete().eq('quote_id', id);
-      const itensParaInserir = body.itens.map((item: any, index: number) => ({
+      const itens = body.itens as OrcamentoUpdateItem[];
+      const itensParaInserir = itens.map((item, index: number) => ({
         quote_id: id,
         title: item.title || '',
         product_name: item.product_name || null,
