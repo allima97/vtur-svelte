@@ -55,6 +55,7 @@
     desconto_padrao_pct: null as number | null,
     ativo: true
   };
+  let descontoPadraoPctValue = '';
 
   const columns = [
     { 
@@ -104,6 +105,10 @@
 
   $: empresaOptions = empresas.map((empresa) => ({ value: empresa.id, label: empresa.nome }));
   $: temVariasEmpresas = empresas.length > 1;
+  $: {
+    const normalized = descontoPadraoPctValue.replace(',', '.').trim();
+    form.desconto_padrao_pct = normalized ? Number(normalized) : null;
+  }
 
   onMount(async () => {
     await carregarContexto();
@@ -147,6 +152,7 @@
         desconto_padrao_pct: forma.desconto_padrao_pct ?? null,
         ativo: forma.ativo
       };
+      descontoPadraoPctValue = forma.desconto_padrao_pct != null ? String(forma.desconto_padrao_pct) : '';
     } else {
       editando = null;
       form = {
@@ -157,6 +163,7 @@
         desconto_padrao_pct: null,
         ativo: true
       };
+      descontoPadraoPctValue = '';
     }
     showFormDialog = true;
   }
@@ -502,7 +509,7 @@
       id="forma-pagamento-desconto"
       label="Desconto padrão (%)"
       type="number"
-      bind:value={form.desconto_padrao_pct as any}
+      bind:value={descontoPadraoPctValue}
       min="0"
       max="100"
       step="0.01"
