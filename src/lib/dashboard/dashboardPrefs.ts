@@ -49,8 +49,7 @@ export const DEFAULT_WIDGET_ORDER = DASHBOARD_WIDGETS.map((item) => item.id);
 export const DEFAULT_KPI_ORDER = DASHBOARD_KPIS.map((item) => item.id);
 
 export function normalizeOrder<T extends string>(order: T[], allowed: T[]): T[] {
-  const allowedSet = new Set(allowed);
-  const cleaned = order.filter((id, idx) => allowedSet.has(id) && order.indexOf(id) === idx);
+  const cleaned = order.filter((id, idx) => allowed.includes(id) && order.indexOf(id) === idx);
   for (const id of allowed) {
     if (!cleaned.includes(id)) cleaned.push(id);
   }
