@@ -10,9 +10,26 @@ import {
 import { syncViagemStatusIfNeeded } from '$lib/server/viagensStatus';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-function vendedorOwnsViagem(userId: string, viagem: any) {
+type ViagemDossieRow = {
+  id: string | null;
+  company_id: string | null;
+  venda_id: string | null;
+  cliente_id: string | null;
+  responsavel_user_id: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: string | null;
+  venda:
+    | {
+        vendedor_id: string | null;
+      }[]
+    | null;
+};
+
+function vendedorOwnsViagem(userId: string, viagem: ViagemDossieRow) {
   const responsavelId = String(viagem?.responsavel_user_id || '').trim();
-  const vendedorId = String(viagem?.venda?.vendedor_id || '').trim();
+  const venda = Array.isArray(viagem?.venda) ? (viagem.venda[0] ?? null) : null;
+  const vendedorId = String(venda?.vendedor_id || '').trim();
   return responsavelId === userId || vendedorId === userId;
 }
 
@@ -62,7 +79,7 @@ export async function GET(event) {
       return json({ error: 'Sem acesso a esta viagem.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const statusAtual = await syncViagemStatusIfNeeded(client, viagem as any);
+    const statusAtual = await syncViagemStatusIfNeeded(client, viagem);
     const viagemComStatus = { ...viagem, status: statusAtual };
 
     const { data: acompanhantes } = await client
