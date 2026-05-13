@@ -32,6 +32,38 @@ type SyncChildrenErrorLike = {
   details?: string | null;
 };
 
+type VendaUpdateVendaPayload = Parameters<typeof buildVendaPayload>[0] & {
+  vendedor_id?: string | null;
+  cliente_id?: string | null;
+  destino_id?: string | null;
+};
+type VendaUpdatePagamentosPayload = Parameters<
+  typeof syncVendaChildren
+>[0]["pagamentos"];
+
+type VendaUpdateBody = {
+  venda?: VendaUpdateVendaPayload;
+  recibos?: VendaUpdateReciboPayload[];
+  pagamentos?: VendaUpdatePagamentosPayload;
+};
+
+type VendaUpdateReciboPayload = {
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+  produto_id?: string | null;
+  produto_resolvido_id?: string | null;
+  destino_cidade_id?: string | null;
+} & Record<string, unknown>;
+
+type VendaReciboLookupRow = {
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+  produto_id?: string | null;
+  produto_resolvido_id?: string | null;
+  destino_cidade_id?: string | null;
+};
+
 function logVendaError(context: string, err: unknown, extra?: Record<string, unknown>) {
   logServerError(context, err, extra);
 }
@@ -285,11 +317,14 @@ export async function PATCH(event) {
       );
     }
 
-    const body =
+    const body: VendaUpdateBody =
       bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as VendaUpdateBody)
         : {};
-    const venda = body?.venda || body || {};
+    const venda: VendaUpdateVendaPayload =
+      body.venda && typeof body.venda === "object"
+        ? body.venda
+        : ((body as unknown) as VendaUpdateVendaPayload);
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
 
@@ -334,14 +369,18 @@ export async function PATCH(event) {
     const payloadReceiptKeys = Array.from(
       new Set(
         recibos
-          .map((item: any) => normalizeReceiptKey(item?.numero_recibo))
+          .map((item: VendaUpdateReciboPayload) =>
+            normalizeReceiptKey(item?.numero_recibo),
+          )
           .filter(Boolean),
       ),
     ).sort();
     const payloadReservaKeys = Array.from(
       new Set(
         recibos
-          .map((item: any) => normalizeReservaKey(item?.numero_reserva))
+          .map((item: VendaUpdateReciboPayload) =>
+            normalizeReservaKey(item?.numero_reserva),
+          )
           .filter(Boolean),
       ),
     ).sort();
@@ -354,9 +393,9 @@ export async function PATCH(event) {
       .eq("venda_id", id);
     if (currentRecibosError) throw currentRecibosError;
 
-    const currentReciboByReceipt = new Map<string, any>();
-    const currentReciboByReserva = new Map<string, any>();
-    for (const row of currentRecibos || []) {
+    const currentReciboByReceipt = new Map<string, VendaReciboLookupRow>();
+    const currentReciboByReserva = new Map<string, VendaReciboLookupRow>();
+    for (const row of (currentRecibos || []) as VendaReciboLookupRow[]) {
       const receiptKey = normalizeReceiptKey(
         row?.numero_recibo_normalizado || row?.numero_recibo,
       );
@@ -365,7 +404,7 @@ export async function PATCH(event) {
       if (reservaKey) currentReciboByReserva.set(reservaKey, row);
     }
 
-    const recibosForSync = recibos.map((item: any) => {
+    const recibosForSync = recibos.map((item: VendaUpdateReciboPayload) => {
       const current =
         currentReciboByReceipt.get(normalizeReceiptKey(item?.numero_recibo)) ||
         currentReciboByReserva.get(normalizeReservaKey(item?.numero_reserva)) ||
@@ -383,8 +422,8 @@ export async function PATCH(event) {
 
     const currentReceiptKeys = Array.from(
       new Set(
-        (currentRecibos || [])
-          .map((row: any) =>
+        ((currentRecibos || []) as VendaReciboLookupRow[])
+          .map((row) =>
             normalizeReceiptKey(
               row?.numero_recibo_normalizado || row?.numero_recibo,
             ),
@@ -394,8 +433,8 @@ export async function PATCH(event) {
     ).sort();
     const currentReservaKeys = Array.from(
       new Set(
-        (currentRecibos || [])
-          .map((row: any) => normalizeReservaKey(row?.numero_reserva))
+        ((currentRecibos || []) as VendaReciboLookupRow[])
+          .map((row) => normalizeReservaKey(row?.numero_reserva))
           .filter(Boolean),
       ),
     ).sort();
