@@ -67,9 +67,14 @@ function normalizeIds(values?: string[] | null) {
   return uniqueCleanStrings(values || []).sort();
 }
 
+function errorDetails(error: unknown) {
+  return error && typeof error === "object" ? (error as Record<string, unknown>) : {};
+}
+
 function isUnavailableError(error: unknown) {
-  const code = toStr((error as any)?.code);
-  const message = toStr((error as any)?.message).toLowerCase();
+  const details = errorDetails(error);
+  const code = toStr(details.code);
+  const message = toStr(details.message).toLowerCase();
   return (
     code === "42P01" ||
     code === "42703" ||
@@ -367,11 +372,12 @@ async function rebuildMonth(
       last_error: null,
     });
   } catch (error) {
+    const details = errorDetails(error);
     await upsertStatus(client, companyId, mes, {
       status: "error",
       dirty_at: new Date().toISOString(),
       rebuilt_at: null,
-      last_error: String((error as any)?.message || error).slice(0, 500),
+      last_error: String(details.message || error).slice(0, 500),
     }).catch(() => undefined);
     throw error;
   }
