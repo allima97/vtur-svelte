@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeText } from "$lib/normalizeText";
 import {
   isRankingEligibleUser,
@@ -47,6 +48,9 @@ type VendaClienteLookupRow = {
   id?: string | null;
   cliente_id?: string | null;
 };
+
+type LookupClient = Pick<SupabaseClient, "from">;
+type MutationClient = Pick<SupabaseClient, "from" | "rpc">;
 
 type PagamentoParcelaInput = {
   valor?: unknown;
@@ -158,7 +162,7 @@ export function calcularStatusPeriodo(
 }
 
 export async function ensureAssignableActiveSeller(
-  client: any,
+  client: LookupClient,
   scope: UserScope,
   vendedorId: string,
 ) {
@@ -226,7 +230,7 @@ function isRexturRecibo(numeroRecibo?: string | null): boolean {
 // ── helpers para validação sem join PostgREST ────────────────────────────────
 
 async function fetchCancelledVendaIds(
-  client: any,
+  client: LookupClient,
   companyId?: string | null,
 ): Promise<Set<string>> {
   let query = client
@@ -244,7 +248,7 @@ async function fetchCancelledVendaIds(
 }
 
 async function fetchClienteIdsByVendaIds(
-  client: any,
+  client: LookupClient,
   vendaIds: string[],
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
@@ -264,7 +268,7 @@ async function fetchClienteIdsByVendaIds(
 // ────────────────────────────────────────────────────────────────────────────
 
 export async function ensureReciboReservaUnicos(params: {
-  client: any;
+  client: LookupClient;
   companyId?: string | null;
   clienteId: string;
   ignoreVendaId?: string | null;
@@ -449,7 +453,7 @@ function normalizePagamentoPayload(item: PagamentoInput) {
 }
 
 export async function markRankingReadModelDirty(params: {
-  client: any;
+  client: MutationClient;
   companyId?: string | null;
   dataVenda?: string | null;
 }) {
@@ -486,13 +490,14 @@ export async function markRankingReadModelDirty(params: {
       .eq("mes", mes)
       .limit(1)
       .maybeSingle();
+    const existingRow = existing as { id?: string | null } | null;
 
     if (existingError) return;
-    if (existing?.id) {
+    if (existingRow?.id) {
       await params.client
         .from("ranking_read_model_status")
         .update(statusPayload)
-        .eq("id", existing.id);
+        .eq("id", existingRow.id);
       return;
     }
     await params.client.from("ranking_read_model_status").insert(statusPayload);
@@ -502,7 +507,7 @@ export async function markRankingReadModelDirty(params: {
 }
 
 export async function syncVendaChildren(params: {
-  client: any;
+  client: MutationClient;
   vendaId: string;
   companyId?: string | null;
   clienteId: string;
@@ -551,7 +556,7 @@ export async function syncVendaChildren(params: {
 }
 
 export async function closeQuoteIfNeeded(
-  client: any,
+  client: LookupClient,
   orcamentoId?: string | null,
 ) {
   const id = String(orcamentoId || "").trim();
