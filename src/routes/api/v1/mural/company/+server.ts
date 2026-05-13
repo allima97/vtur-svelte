@@ -1,3 +1,4 @@
+import type { RequestEvent } from "@sveltejs/kit";
 import {
   assertCompanyAccess,
   fetchRecados,
@@ -14,7 +15,7 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 
-export async function GET(event) {
+export async function GET(event: RequestEvent) {
   try {
     const companyId = String(
       event.url.searchParams.get("company_id") || "",
