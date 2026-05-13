@@ -91,6 +91,31 @@ type VendaItem = {
 
 type CampoBusca = 'todos' | 'cliente' | 'vendedor' | 'destino' | 'produto' | 'recibo';
 
+type IdRow = {
+  id?: string | null;
+};
+
+type VendaIdRow = {
+  venda_id?: string | null;
+};
+
+type VendaDestinoHydrationRow = {
+  id?: string | null;
+  destino_id?: string | null;
+  destino_cidade_id?: string | null;
+};
+
+type ProdutoHydrationRow = {
+  id?: string | null;
+  nome?: string | null;
+  cidade_id?: string | null;
+};
+
+type CidadeHydrationRow = {
+  id?: string | null;
+  nome?: string | null;
+};
+
 const MAX_SEARCH_CANDIDATES = 1000;
 const VALID_CAMPO_BUSCA = new Set<CampoBusca>(['todos', 'cliente', 'vendedor', 'destino', 'produto', 'recibo']);
 const PUSHABLE_STATUS_FILTERS = new Set(['cancelada', 'concluida', 'confirmada', 'pendente']);
@@ -303,7 +328,7 @@ function applyVendaIdScope(
     vendedorIdsFilter?: string[];
     statusQuery?: string;
   }
-) {
+){
   if (params.inicio) query = query.gte('data_venda', params.inicio);
   if (params.fim) query = query.lte('data_venda', params.fim);
   const companyIdsFilter = params.companyIdsFilter || params.companyIds;
@@ -439,7 +464,7 @@ async function resolveVendaSearchIds(
         .or(receiptOrParts.join(','))
         .limit(MAX_SEARCH_CANDIDATES);
       if (error) throw error;
-      return uniqueIds((data || []).map((row: any) => row?.venda_id));
+      return uniqueIds(((data || []) as VendaIdRow[]).map((row) => row?.venda_id));
     })() : Promise.resolve([] as string[]),
 
     // 2. Busca por cliente
@@ -454,7 +479,7 @@ async function resolveVendaSearchIds(
           if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
           const { data, error } = await query;
           if (error) throw error;
-          return uniqueIds((data || []).map((row: any) => row?.id), 300);
+          return uniqueIds(((data || []) as IdRow[]).map((row) => row?.id), 300);
         })
       );
       return results.flat();
@@ -472,7 +497,7 @@ async function resolveVendaSearchIds(
           if (companyBatch.length > 0) query = query.in('company_id', companyBatch);
           const { data, error } = await query;
           if (error) throw error;
-          return uniqueIds((data || []).map((row: any) => row?.id), 100);
+          return uniqueIds(((data || []) as IdRow[]).map((row) => row?.id), 100);
         })
       );
       return results.flat();
@@ -493,11 +518,14 @@ async function resolveVendaSearchIds(
           if (tiposResult.error) throw tiposResult.error;
           if (cidadesResult.error) throw cidadesResult.error;
 
-          const productIds = uniqueIds((produtosResult.data || []).map((r: any) => r?.id), 300);
-          const tipoProdutoIds = uniqueIds((tiposResult.data || []).map((r: any) => r?.id), 300);
+          const produtosRows = (produtosResult.data || []) as Array<{ id?: string | null; cidade_id?: string | null }>;
+          const tiposRows = (tiposResult.data || []) as IdRow[];
+          const cidadesRows = (cidadesResult.data || []) as IdRow[];
+          const productIds = uniqueIds(produtosRows.map((row) => row?.id), 300);
+          const tipoProdutoIds = uniqueIds(tiposRows.map((row) => row?.id), 300);
           const cityIds = uniqueIds([
-            ...(produtosResult.data || []).map((r: any) => r?.cidade_id),
-            ...(cidadesResult.data || []).map((r: any) => r?.id),
+            ...produtosRows.map((row) => row?.cidade_id),
+            ...cidadesRows.map((row) => row?.id),
           ], 300);
 
           // Lookup de vendas/recibos por produto, tipo e cidade — tudo em paralelo
@@ -564,7 +592,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
   if (vendaIds.length === 0) return;
 
   try {
-    const vendaDestinos: any[] = [];
+    const vendaDestinos: VendaDestinoHydrationRow[] = [];
     for (const batch of chunkArray(vendaIds)) {
       const { data, error: vendaDestinosError } = await client
         .from('vendas')
@@ -576,11 +604,11 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         logServerError('[vendas/list] could not load venda destino ids for hydration', vendaDestinosError);
         return;
       }
-      vendaDestinos.push(...((data || []) as any[]));
+      vendaDestinos.push(...((data || []) as VendaDestinoHydrationRow[]));
     }
 
     const destinoByVendaId = new Map<string, { destino_id: string; destino_cidade_id: string }>();
-    for (const row of (vendaDestinos || []) as any[]) {
+    for (const row of vendaDestinos) {
       const id = String(row?.id || '').trim();
       if (!id) continue;
       destinoByVendaId.set(id, {
@@ -593,7 +621,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
     const produtoIds = uniqueCleanStrings(destinos.map((row) => row.destino_id));
     const cidadeIds = uniqueCleanStrings(destinos.map((row) => row.destino_cidade_id));
 
-    const produtosData: any[] = [];
+    const produtosData: ProdutoHydrationRow[] = [];
     for (const batch of chunkArray(produtoIds)) {
       const { data, error } = await client
         .from('produtos')
@@ -604,10 +632,10 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         logServerError('[vendas/list] could not load produtos for destino hydration', error);
         break;
       }
-      produtosData.push(...((data || []) as any[]));
+      produtosData.push(...((data || []) as ProdutoHydrationRow[]));
     }
 
-    const cidadesData: any[] = [];
+    const cidadesData: CidadeHydrationRow[] = [];
     for (const batch of chunkArray(cidadeIds)) {
       const { data, error } = await client
         .from('cidades')
@@ -618,7 +646,7 @@ async function hydrateDestinosFromVendaIds(client: ReturnType<typeof getAdminCli
         logServerError('[vendas/list] could not load cidades for destino hydration', error);
         break;
       }
-      cidadesData.push(...((data || []) as any[]));
+      cidadesData.push(...((data || []) as CidadeHydrationRow[]));
     }
 
     const produtosById = new Map<string, { nome: string; cidade_id: string }>();
@@ -1071,7 +1099,7 @@ export async function GET(event) {
         ? await fetchRankingVendedoresByCompanyIds(client, companyIds)
         : [];
 
-      vendedores = ((usersData || []) as any[])
+      vendedores = (usersData || [])
         .map((row) => ({
           id: String(row.id || ''),
           nome_completo: String(row.nome_completo || row.email || 'Usuário sem nome')
