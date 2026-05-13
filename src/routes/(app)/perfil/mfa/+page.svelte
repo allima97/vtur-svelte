@@ -9,6 +9,7 @@
   import { toast } from '$lib/stores/ui';
   import { apiFetch, apiGet, apiPost } from '$lib/services/api';
   import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
+  import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
   import { Shield, KeyRound, CheckCircle, AlertCircle, Trash2, QrCode, Fingerprint } from 'lucide-svelte';
 
   import { confirmAction } from '$lib/stores/confirm';
@@ -28,6 +29,19 @@
     last_used_at?: string | null;
     created_at: string;
   };
+
+  type PasskeysResponse = {
+    passkeys?: Passkey[];
+  };
+
+  type PasskeyRegistrationOptionsResponse = {
+    challengeId: string;
+    options: PublicKeyCredentialCreationOptionsJSON;
+  };
+
+  function getErrorMessage(err: unknown, fallback: string) {
+    return err instanceof Error ? err.message || fallback : fallback;
+  }
 
   let loading = true;
   let factors: MfaFactor[] = [];
@@ -51,8 +65,8 @@
       const { data, error: factorsError } = await supabase.auth.mfa.listFactors();
       if (factorsError) throw factorsError;
       factors = data?.totp || [];
-    } catch (err: any) {
-      error = err.message || 'Erro ao carregar fatores 2FA.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao carregar fatores 2FA.');
     } finally {
       loading = false;
     }
@@ -61,10 +75,10 @@
   async function loadPasskeys() {
     passkeysLoading = true;
     try {
-      const payload: any = await apiGet('/api/auth/passkeys');
+      const payload = await apiGet<PasskeysResponse>('/api/auth/passkeys');
       passkeys = payload.passkeys || [];
-    } catch (err: any) {
-      error = err.message || 'Erro ao carregar passkeys.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao carregar passkeys.');
     } finally {
       passkeysLoading = false;
     }
@@ -85,8 +99,8 @@
         qrCode: data.totp.qr_code,
         secret: data.totp.secret
       };
-    } catch (err: any) {
-      error = err.message || 'Erro ao iniciar configuração 2FA.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao iniciar configuração 2FA.');
     } finally {
       enrolling = false;
     }
@@ -120,10 +134,11 @@
       enrollmentData = null;
       verificationCode = '';
       await loadFactors();
-    } catch (err: any) {
-      error = err.message?.includes('invalid') || err.message?.includes('Invalid')
+    } catch (err) {
+      const message = getErrorMessage(err, 'Erro ao verificar código.');
+      error = message.includes('invalid') || message.includes('Invalid')
         ? 'Código inválido. Verifique o aplicativo autenticador.'
-        : err.message || 'Erro ao verificar código.';
+        : message;
     } finally {
       verifying = false;
     }
@@ -140,8 +155,8 @@
 
       toast.success('Fator 2FA removido.');
       await loadFactors();
-    } catch (err: any) {
-      error = err.message || 'Erro ao remover fator 2FA.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao remover fator 2FA.');
     } finally {
       removing = false;
     }
@@ -157,7 +172,7 @@
     error = null;
 
     try {
-      const optionsPayload: any = await apiPost('/api/auth/passkeys/register/options', null);
+      const optionsPayload = await apiPost<PasskeyRegistrationOptionsResponse>('/api/auth/passkeys/register/options', null);
 
       const registration = await startRegistration({ optionsJSON: optionsPayload.options });
       await apiPost('/api/auth/passkeys/register/verify', {
@@ -168,8 +183,8 @@
 
       toast.success('Passkey cadastrada com sucesso.');
       await loadPasskeys();
-    } catch (err: any) {
-      error = err.message || 'Erro ao cadastrar passkey.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao cadastrar passkey.');
     } finally {
       registeringPasskey = false;
     }
@@ -189,8 +204,8 @@
 
       toast.success('Passkey removida.');
       await loadPasskeys();
-    } catch (err: any) {
-      error = err.message || 'Erro ao remover passkey.';
+    } catch (err) {
+      error = getErrorMessage(err, 'Erro ao remover passkey.');
     } finally {
       removingPasskeyId = null;
     }
