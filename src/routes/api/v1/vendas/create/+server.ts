@@ -21,6 +21,13 @@ import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_VENDA_CREATE_BODY_BYTES = 512 * 1024;
 
+type JsonObject = Record<string, unknown>;
+type SellerScopeRow = { company_id?: string | null } | null;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -42,10 +49,10 @@ export async function POST(event) {
     }
 
     const body =
-      bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+      isJsonObject(bodyResult.data)
+        ? bodyResult.data
         : {};
-    const venda = body?.venda || {};
+    const venda = isJsonObject(body.venda) ? body.venda : {};
     const recibos = Array.isArray(body?.recibos) ? body.recibos : [];
     const pagamentos = Array.isArray(body?.pagamentos) ? body.pagamentos : [];
 
@@ -74,7 +81,7 @@ export async function POST(event) {
     if (sellerScopeError) throw sellerScopeError;
 
     const sellerCompanyId =
-      String((sellerScope as any)?.company_id || "").trim() || null;
+      String((sellerScope as SellerScopeRow)?.company_id || "").trim() || null;
     const requestedCompanyId = String(
       venda?.company_id || venda?.empresa_id || "",
     ).trim();
@@ -163,7 +170,7 @@ export async function POST(event) {
       pagamentos,
     });
 
-    await closeQuoteIfNeeded(client, body?.orcamento_id);
+    await closeQuoteIfNeeded(client, String(body.orcamento_id || ""));
     invalidateSalesReadModels({
       companyIds: [targetCompanyId],
       vendedorIds: [vendedorId],

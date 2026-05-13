@@ -16,6 +16,8 @@ import { fetchSaleForScope } from '$lib/server/salesScope';
 
 const MAX_VENDA_STATUS_BODY_BYTES = 8 * 1024;
 
+type JsonObject = Record<string, unknown>;
+
 export async function PATCH(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -38,7 +40,7 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonObject)
         : {};
     const newStatus = String(body?.status || '').trim();
     if (!newStatus) {
@@ -69,7 +71,7 @@ export async function PATCH(event) {
 
     invalidateSalesReadModels();
     return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err) {
     return toErrorResponse(err, 'Erro ao atualizar status da venda.');
   }
 }
