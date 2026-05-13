@@ -503,7 +503,7 @@ export async function fetchSuppressedConciliacaoReceipts(params: {
 }
 
 export async function fetchEffectiveConciliacaoReceipts(params: {
-  client: any;
+  client: SupabaseClient;
   companyId: string | null;
   companyIds?: string[] | null;
   inicio: string;
@@ -574,7 +574,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
         ? query.eq("company_id", normalizedCompanyIds[0])
         : query.in("company_id", normalizedCompanyIds);
 
-    let { data, error } = await query;
+    const queryResult = await query;
+    let data = queryResult.data as ConciliacaoSourceRow[] | null;
+    let error = queryResult.error;
     if (error && isMissingOptionalConciliacaoColumn(error)) {
       let fallbackQuery = client
         .from("conciliacao_recibos")
@@ -593,12 +595,12 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           : fallbackQuery.in("company_id", normalizedCompanyIds);
 
       const fallback = await fallbackQuery;
-      data = fallback.data;
+      data = fallback.data as ConciliacaoSourceRow[] | null;
       error = fallback.error;
     }
     if (error) throw error;
 
-    const chunk = Array.isArray(data) ? data : [];
+    const chunk = (Array.isArray(data) ? data : []) as ConciliacaoSourceRow[];
     for (const row of chunk) {
       const temValor =
         toNumber(row?.valor_lancamentos) > 0 ||
@@ -617,7 +619,7 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
 
   if (relevantDocs.size === 0) return [] as EffectiveConciliacaoReceipt[];
 
-  const concRows: any[] = [];
+  const concRows: ConciliacaoSourceRow[] = [];
   const documentos = Array.from(relevantDocs);
 
   for (let i = 0; i < documentos.length; i += 200) {
@@ -638,7 +640,9 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
           ? query.eq("company_id", normalizedCompanyIds[0])
           : query.in("company_id", normalizedCompanyIds);
 
-      let { data, error } = await query;
+      const queryResult = await query;
+      let data = queryResult.data as ConciliacaoSourceRow[] | null;
+      let error = queryResult.error;
 
       if (
         error &&
@@ -661,13 +665,13 @@ export async function fetchEffectiveConciliacaoReceipts(params: {
             : fallbackQuery.in("company_id", normalizedCompanyIds);
 
         const fallback = await fallbackQuery;
-        data = fallback.data;
+        data = fallback.data as ConciliacaoSourceRow[] | null;
         error = fallback.error;
       }
 
       if (error) throw error;
 
-      const chunk = Array.isArray(data) ? data : [];
+      const chunk = (Array.isArray(data) ? data : []) as ConciliacaoSourceRow[];
       concRows.push(...chunk);
       if (chunk.length < pageSize) break;
     }
