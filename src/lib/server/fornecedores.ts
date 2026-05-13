@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { isUuid, resolveScopedCompanyIds, type UserScope } from '$lib/server/v1';
 import {
   buildReadModelCacheKey,
@@ -8,12 +8,13 @@ import {
 } from '$lib/server/readModelCache';
 import { chunkArray, dedupeById, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
-type RowsResult<T> = { data: T[] | null; error: any };
-type SingleResult<T> = { data: T | null; error: any };
+type RowsResult<T> = { data: T[] | null; error: PostgrestError | null };
+type SingleResult<T> = { data: T | null; error: PostgrestError | null };
 
-function isMissingColumnOrRelation(err: any) {
-  const code = String(err?.code || '');
-  const message = String(err?.message || '');
+function isMissingColumnOrRelation(err: unknown) {
+  const error = err as Partial<PostgrestError> | null | undefined;
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
   return (
     code === '42703' ||
     code === 'PGRST200' ||
@@ -62,6 +63,13 @@ export type FornecedorRecord = {
   updated_at?: string | null;
   // Campos computados (não existem no DB)
   produtos_vinculados?: number;
+};
+
+type ProdutoFornecedorRow = {
+  id?: string | null;
+  nome?: string | null;
+  destino?: string | null;
+  fornecedor_id?: string | null;
 };
 
 function normalizeFornecedor(row: FornecedorRecord) {
@@ -121,8 +129,8 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
       }
       if (ids.length === 0) return { items: [], total: 0 };
 
-      const detailRows: any[] = [];
-      const products: any[] = [];
+      const detailRows: FornecedorRecord[] = [];
+      const products: ProdutoFornecedorRow[] = [];
       const fornecedorSelect = [
         'id',
         'company_id',
@@ -145,14 +153,14 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
 
       for (const batch of chunkArray(ids)) {
         detailRows.push(
-          ...(await optionalRows<any>(
+          ...((await optionalRows(
             client.from('fornecedores').select(fornecedorSelect).in('id', batch)
-          ))
+          )) as unknown as FornecedorRecord[])
         );
         products.push(
-          ...(await optionalRows<any>(
+          ...((await optionalRows(
             client.from('produtos').select('id, fornecedor_id').in('fornecedor_id', batch).limit(10000)
-          ))
+          )) as unknown as ProdutoFornecedorRow[])
         );
       }
 
@@ -164,14 +172,14 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
       }
 
       const items = detailRows
-        .map((row: FornecedorRecord) => {
+        .map((row) => {
           const normalized = normalizeFornecedor(row);
           return {
             ...normalized,
             produtos_vinculados: productsCount.get(normalized.id) || 0
           };
         })
-        .sort((a: any, b: any) => {
+        .sort((a, b) => {
           const aName = String(a.nome_fantasia || a.nome_completo || '').toLowerCase();
           const bName = String(b.nome_fantasia || b.nome_completo || '').toLowerCase();
           return aName.localeCompare(bName);
@@ -186,7 +194,7 @@ export async function fetchFornecedores(client: SupabaseClient, scope: UserScope
 }
 
 export async function fetchFornecedorById(client: SupabaseClient, id: string) {
-  const row = await optionalSingle<any>(
+  const row = await optionalSingle<FornecedorRecord>(
     client
       .from('fornecedores')
       .select(
@@ -216,7 +224,7 @@ export async function fetchFornecedorById(client: SupabaseClient, id: string) {
 
   if (!row) return null;
 
-  const produtos = await optionalRows(
+  const produtos = await optionalRows<ProdutoFornecedorRow>(
     client
       .from('produtos')
       .select('id, nome, destino')
