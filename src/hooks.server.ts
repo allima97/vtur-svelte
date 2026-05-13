@@ -768,10 +768,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
 					)
 				);
 				const modulosPermitidosDisabled = new Set<string>();
-				modulosConsultaDisabled.forEach((entry) => {
+				for (const entry of modulosConsultaDisabled) {
 					const normalized = normalizeModuloKey(entry);
 					if (normalized) modulosPermitidosDisabled.add(normalized);
-				});
+				}
 
 				const temPermissaoIndividual = (accRowsRes.data || []).some((row: any) => {
 					if (!row?.ativo) return false;
