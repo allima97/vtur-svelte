@@ -1569,7 +1569,7 @@
 
     importLookupLoading = true;
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/lookup', {
+      const data = await apiPost<{ matches?: Record<string, ImportLookupMatch | null> }>('/api/v1/conciliacao/lookup', {
         companyId: empresaId || undefined,
         documentos: docs
       });
