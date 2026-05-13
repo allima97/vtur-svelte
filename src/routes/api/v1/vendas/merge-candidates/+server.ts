@@ -13,6 +13,29 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { fetchSaleForScope } from '$lib/server/salesScope';
 import { chunkArray, SUPABASE_IN_BATCH_SIZE, uniqueCleanStrings } from '$lib/utils/array';
 
+type MergeCandidateSaleRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  cliente_id?: string | null;
+  destino_id?: string | null;
+  destino_cidade_id?: string | null;
+  company_id?: string | null;
+  data_lancamento?: string | null;
+  data_venda?: string | null;
+  data_embarque?: string | null;
+  data_final?: string | null;
+  valor_total?: number | string | null;
+  clientes?: { nome?: string | null } | null;
+  destinos?: { nome?: string | null; cidade_id?: string | null } | null;
+  destino_cidade?: { id?: string | null; nome?: string | null } | null;
+  vendedor?: { nome_completo?: string | null } | null;
+};
+
+type MergeCandidateReceiptRow = {
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -88,18 +111,18 @@ export async function GET(event) {
     const { data: salesData, error: salesError } = await query;
     if (salesError) throw salesError;
 
-    const scopedSalesData = (salesData || []).filter((row: any) => {
+    const scopedSalesData = ((salesData || []) as MergeCandidateSaleRow[]).filter((row) => {
       if (companyIds.length === 0 || companyIds.length <= SUPABASE_IN_BATCH_SIZE) return true;
       return companyScopeSet.has(String(row?.company_id || '').trim());
     });
 
     const saleIds = scopedSalesData
-      .map((row: any) => String(row?.id || '').trim())
+      .map((row) => String(row?.id || '').trim())
       .filter(Boolean);
 
     const receiptsBySale = new Map<string, string[]>();
     if (saleIds.length > 0) {
-      const receiptsData: any[] = [];
+      const receiptsData: MergeCandidateReceiptRow[] = [];
       for (const batch of chunkArray(saleIds)) {
         const { data, error: receiptsError } = await client
           .from('vendas_recibos')
@@ -111,8 +134,8 @@ export async function GET(event) {
       }
 
       for (const row of receiptsData) {
-        const refSaleId = String((row as any)?.venda_id || '').trim();
-        const numeroRecibo = String((row as any)?.numero_recibo || '').trim();
+        const refSaleId = String(row?.venda_id || '').trim();
+        const numeroRecibo = String(row?.numero_recibo || '').trim();
         if (!refSaleId || !numeroRecibo) continue;
         const current = receiptsBySale.get(refSaleId) || [];
         current.push(numeroRecibo);
@@ -120,7 +143,7 @@ export async function GET(event) {
       }
     }
 
-    const items = scopedSalesData.map((row: any) => {
+    const items = scopedSalesData.map((row) => {
       const numerosRecibo = uniqueCleanStrings(receiptsBySale.get(String(row?.id || '')) || []);
       const cidadeId = row?.destino_cidade_id || row?.destinos?.cidade_id || '';
       return {
