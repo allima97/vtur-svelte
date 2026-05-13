@@ -15,6 +15,10 @@ import {
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS } from '$lib/server/httpCache';
 
+type CidadeBuscaItem = {
+  nome?: string | null;
+};
+
 function parseLimit(value: string | null, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -40,7 +44,7 @@ export async function GET(event: RequestEvent) {
     const limite = parseLimit(event.url.searchParams.get('limite'), query ? 50 : 200);
 
     if (!query) {
-      const items = await getCachedReadModel<any[]>({
+      const items = await getCachedReadModel<CidadeBuscaItem[]>({
         key: buildReadModelCacheKey('orcamentos:cidades-busca:iniciais', { limite }),
         tags: [READ_MODEL_TAGS.catalog],
         ttlMs: 60_000,
@@ -48,13 +52,13 @@ export async function GET(event: RequestEvent) {
         loader: async () => {
           const { data, error } = await client.from('cidades').select('nome').order('nome').limit(limite);
           if (error) throw error;
-          return (data || []).map((item: any) => ({ nome: item.nome }));
+          return ((data || []) as CidadeBuscaItem[]).map((item) => ({ nome: item.nome }));
         }
       });
       return json(items, { headers: DYNAMIC_READ_HEADERS });
     }
 
-    const items = await getCachedReadModel<any[]>({
+    const items = await getCachedReadModel<CidadeBuscaItem[]>({
       key: buildReadModelCacheKey('orcamentos:cidades-busca:query', { query, limite }),
       tags: [READ_MODEL_TAGS.catalog],
       ttlMs: 60_000,
@@ -73,8 +77,10 @@ export async function GET(event: RequestEvent) {
             .order('nome')
             .limit(limite);
           if (error) throw error;
-          const filtered = (data || []).filter((item: any) => normalizeText(item?.nome || '').includes(normalizedQuery));
-          return filtered.map((item: any) => ({ nome: item.nome }));
+          const filtered = ((data || []) as CidadeBuscaItem[]).filter((item) =>
+            normalizeText(item?.nome || '').includes(normalizedQuery)
+          );
+          return filtered.map((item) => ({ nome: item.nome }));
         }
       }
     });
