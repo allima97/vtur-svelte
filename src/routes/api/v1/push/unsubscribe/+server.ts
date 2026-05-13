@@ -6,14 +6,20 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PUSH_UNSUBSCRIBE_BODY_BYTES = 8 * 1024;
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+type PushSubscriptionUpdate = {
+  active: boolean;
+  updated_at: string;
+};
+
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request, locals } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_PUSH_UNSUBSCRIBE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
 
     const body =
@@ -39,7 +45,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const { error } = await client
       .from("push_subscriptions")
-      .update({ active: false, updated_at: new Date().toISOString() } as any)
+      .update({
+        active: false,
+        updated_at: new Date().toISOString()
+      } satisfies PushSubscriptionUpdate)
       .eq("endpoint", endpoint)
       .eq("user_id", user.id);
 
