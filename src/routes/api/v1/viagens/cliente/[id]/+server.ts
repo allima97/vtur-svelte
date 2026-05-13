@@ -20,6 +20,30 @@ import {
 import { DYNAMIC_READ_HEADERS } from "$lib/server/httpCache";
 import { chunkArray, dedupeById as dedupeRowsById, SUPABASE_IN_BATCH_SIZE } from "$lib/utils/array";
 
+type ViagemClienteRow = {
+  id: string | null;
+  venda_id: string | null;
+  orcamento_id: string | null;
+  cliente_id: string | null;
+  company_id: string | null;
+  responsavel_user_id: string | null;
+  origem: string | null;
+  destino: string | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: string | null;
+  observacoes: string | null;
+  follow_up_text: string | null;
+  follow_up_fechado: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  recibo_id: string | null;
+};
+
+type VendaIdRow = {
+  id: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -120,35 +144,35 @@ export async function GET(event) {
             throw error;
           }
 
-          return (data || []) as any[];
+          return (data || []) as ViagemClienteRow[];
         };
 
-        let data: any[] = [];
+        let data: ViagemClienteRow[] = [];
         if (companyIds.length > SUPABASE_IN_BATCH_SIZE) {
           for (const batch of chunkArray(companyIds)) {
             data.push(...(await fetchViagens(batch)));
           }
-          data = dedupeRowsById(data).sort((a: any, b: any) =>
+          data = dedupeRowsById(data).sort((a, b) =>
             String(b?.data_inicio || "").localeCompare(String(a?.data_inicio || "")),
           );
         } else {
           data = await fetchViagens(companyIds.length > 0 ? companyIds : undefined);
         }
 
-        let scopedRows = (data || []) as any[];
+        let scopedRows = data || [];
         if (filters.vendedorIds.length > 0) {
           const vendedorIdSet = new Set(filters.vendedorIds);
           const vendaIds = Array.from(
             new Set(
               scopedRows
-                .map((row: any) => String(row?.venda_id || "").trim())
+                .map((row) => String(row?.venda_id || "").trim())
                 .filter(Boolean),
             ),
           );
           let vendaIdsPermitidas = new Set<string>();
 
           if (vendaIds.length > 0) {
-            const vendasRows: any[] = [];
+            const vendasRows: VendaIdRow[] = [];
             for (const vendaBatch of chunkArray(vendaIds)) {
               for (const vendedorBatch of chunkArray(filters.vendedorIds)) {
                 const { data: batchRows, error: vendasError } = await client
@@ -162,12 +186,12 @@ export async function GET(event) {
             }
             vendaIdsPermitidas = new Set(
               (vendasRows || [])
-                .map((row: any) => String(row?.id || "").trim())
+                .map((row) => String(row?.id || "").trim())
                 .filter(Boolean),
             );
           }
 
-          scopedRows = scopedRows.filter((row: any) => {
+          scopedRows = scopedRows.filter((row) => {
             const responsavelId = String(row?.responsavel_user_id || "").trim();
             const vendaId = String(row?.venda_id || "").trim();
             return (
@@ -186,7 +210,7 @@ export async function GET(event) {
           .eq("id", clienteId)
           .single();
 
-        const items = scopedRows.map((row: any) => ({
+        const items = scopedRows.map((row) => ({
           id: row.id,
           venda_id: row.venda_id,
           orcamento_id: row.orcamento_id,
@@ -197,7 +221,7 @@ export async function GET(event) {
           data_inicio: row.data_inicio,
           data_fim: row.data_fim,
           status:
-            resolvedStatuses.get(row.id) || normalizeViagemStatus(row.status),
+            resolvedStatuses.get(String(row.id || "")) || normalizeViagemStatus(row.status),
           observacoes: row.observacoes || "",
           follow_up_text: row.follow_up_text || "",
           follow_up_fechado: row.follow_up_fechado || false,
