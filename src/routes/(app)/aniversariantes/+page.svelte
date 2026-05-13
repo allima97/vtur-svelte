@@ -20,7 +20,14 @@
     whatsapp: string | null;
     email: string | null;
     aniversario_hoje: boolean;
-    pessoa_tipo: 'cliente';
+    pessoa_tipo: 'cliente' | 'acompanhante';
+    cliente_id?: string | null;
+  };
+
+  type AniversariantesResponse = {
+    items?: Aniversariante[];
+    hoje?: number;
+    proximos?: number;
   };
 
   let aniversariantes: Aniversariante[] = [];
@@ -75,7 +82,9 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/dashboard/aniversariantes', { dias: diasAfrente });
+      const payload = await apiGet<AniversariantesResponse>('/api/v1/dashboard/aniversariantes', {
+        dias: diasAfrente
+      });
       aniversariantes = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar aniversariantes.');
