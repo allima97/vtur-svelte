@@ -14,6 +14,11 @@ const MAX_EQUIPE_RELACAO_BODY_BYTES = 16 * 1024;
 const errorResponse = (message: string, status: number) =>
   json({ error: message }, { status, headers: NO_STORE_HEADERS });
 
+type ScopedUserRow = {
+  id?: string | null;
+  company_id?: string | null;
+};
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const originError = rejectCrossOriginRequest(request);
@@ -28,7 +33,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const gestorId = String(body.gestor_id || "").trim();
     const vendedorId = String(body.vendedor_id || "").trim();
@@ -47,12 +52,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .in("id", [gestorId, vendedorId]);
     if (scopedErr) throw scopedErr;
 
-    const byId = new Map<string, any>();
-    for (const row of scopedUsers || []) {
+    const byId = new Map<string, ScopedUserRow>();
+    for (const row of (scopedUsers || []) as ScopedUserRow[]) {
       byId.set(String(row.id), row);
     }
-    const gestor = byId.get(gestorId) as any;
-    const vendedor = byId.get(vendedorId) as any;
+    const gestor = byId.get(gestorId);
+    const vendedor = byId.get(vendedorId);
     if (!gestor || !vendedor) {
       return errorResponse("Gestor ou vendedor nao encontrado.", 404);
     }
@@ -79,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     return json(data || { ok: true, ativo }, { headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[equipe/relacao] falha ao atualizar equipe", error);
     return errorResponse("Erro ao atualizar equipe.", 500);
   }
