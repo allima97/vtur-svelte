@@ -31,6 +31,7 @@ const SSR_MONTH_MAP: Record<string, string> = {
   NOV: '11',
   DEC: '12'
 };
+const IGNORED_LOC_CANDIDATES = new Set(['PRAZO', 'DADOS', 'FILIAL', 'GRUPO', 'STATUS', 'ROTA']);
 
 function parseCurrencyBR(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -74,11 +75,10 @@ function extractLoc(text: string) {
   const bilheteLocMatch = text.match(/n[úu]mero\s+do\s+bilhete[\s\S]*?\bloc\b[\s\S]*?\b\d{3}\s+\d{10,}\s+([A-Z0-9]{5,8})\b/i);
   if (bilheteLocMatch?.[1]) return bilheteLocMatch[1].trim().toUpperCase();
 
-  const ignored = new Set(['PRAZO', 'DADOS', 'FILIAL', 'GRUPO', 'STATUS', 'ROTA']);
   const fallbackMatches = [...text.matchAll(/\bloc\b[\s\n:]+([A-Z0-9]{5,8})\b/gi)];
   for (const match of fallbackMatches) {
     const candidate = String(match[1] || '').trim().toUpperCase();
-    if (candidate && !ignored.has(candidate)) return candidate;
+    if (candidate && !IGNORED_LOC_CANDIDATES.has(candidate)) return candidate;
   }
 
   return '';
