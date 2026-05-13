@@ -1454,7 +1454,7 @@ async function recalculateConciliadosCompany(params: {
   companyId: string;
   actor?: Actor;
   actorUserId?: string | null;
-  client: any;
+  client: SupabaseClient;
 }) {
   const result = await recalculateConciliacaoMetricsCompany({
     month: params.month,
@@ -1478,7 +1478,7 @@ export async function reconcilePendentes(params: {
   cleanupDuplicatesOnly?: boolean;
   actor?: Actor;
   actorUserId?: string | null;
-  client: any;
+  client: SupabaseClient;
 }): Promise<ReconcileResult> {
   const actor = params.actor || 'user';
   const actorUserId = params.actorUserId || null;
