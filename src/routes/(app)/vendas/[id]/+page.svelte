@@ -31,6 +31,17 @@
   });
   const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+  type CadastroBasePayload = {
+    produtos?: Array<{ id: string; nome?: string | null; cidade_id?: string | null }> | null;
+    cidades?: Array<{ id: string; label?: string | null; nome?: string | null }> | null;
+    tiposPacote?: Array<{ id?: string | null; nome?: string | null }> | null;
+  };
+
+  type RankingRecibosPayload = {
+    recibos?: unknown[] | null;
+    totais?: unknown;
+  };
+
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
@@ -70,20 +81,20 @@
 
   async function loadReciboBaseData() {
     try {
-      const data: any = await apiGet('/api/v1/vendas/cadastro-base');
-      produtosBase = (data.produtos || []).map((item: any) => ({
+      const data = await apiGet<CadastroBasePayload>('/api/v1/vendas/cadastro-base');
+      produtosBase = (data.produtos || []).map((item) => ({
         id: String(item.id),
         nome: item.nome || 'Produto',
         cidade_id: item.cidade_id || null
       }));
-      cidadesBase = (data.cidades || []).map((item: any) => ({
+      cidadesBase = (data.cidades || []).map((item) => ({
         id: String(item.id),
         label: item.label || item.nome || 'Cidade',
         nome: item.nome || 'Cidade'
       }));
       tiposPacoteBase = (data.tiposPacote || [])
-        .map((item: any) => ({ id: String(item.id || item.nome || ''), nome: item.nome || '' }))
-        .filter((item: any) => item.nome);
+        .map((item) => ({ id: String(item.id || item.nome || ''), nome: item.nome || '' }))
+        .filter((item) => item.nome);
     } catch {
       // Nao bloqueia a tela principal.
     }
@@ -200,7 +211,7 @@
     if (!vendaId) return;
     rankingLoading = true;
     try {
-      const data: any = await apiGet(`/api/v1/vendas/${vendaId}/ranking-recibos`);
+      const data = await apiGet<RankingRecibosPayload>(`/api/v1/vendas/${vendaId}/ranking-recibos`);
       rankingRecibos = data.recibos || [];
       rankingTotais = data.totais || null;
     } catch (err) {
