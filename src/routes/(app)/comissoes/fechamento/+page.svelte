@@ -43,6 +43,14 @@
     razao_social?: string | null;
   }
 
+  interface ComissoesResponse {
+    items?: ComissaoItem[] | null;
+  }
+
+  interface VendedoresResponse {
+    items?: VendedorOption[] | null;
+  }
+
   // ─── Estado ─────────────────────────────────────────────────────────────────
   let comissoes: ComissaoItem[] = [];
   let vendedores: VendedorOption[] = [];
@@ -133,7 +141,7 @@
 
     loading = true;
     try {
-      const data = await apiGet<any>('/api/v1/financeiro/comissoes/calcular', {
+      const data = await apiGet<ComissoesResponse>('/api/v1/financeiro/comissoes/calcular', {
         status: filtroStatus !== 'todas' ? filtroStatus : undefined,
         mes: filtroMes,
         ano: filtroAno,
@@ -151,7 +159,7 @@
 
   async function loadVendedores() {
     try {
-      const data = await apiGet<any>('/api/v1/financeiro/comissoes/vendedores', {
+      const data = await apiGet<VendedoresResponse>('/api/v1/financeiro/comissoes/vendedores', {
         empresa_id: empresaId || undefined
       });
       vendedores = Array.isArray(data.items) ? data.items : [];
