@@ -1513,10 +1513,10 @@
 
   async function loadDiasSemMovimento() {
     try {
-      const data = await apiGet<any>('/api/v1/conciliacao/sem-movimento', {
+      const data = await apiGet<{ dias?: Array<{ data?: string | null }> }>('/api/v1/conciliacao/sem-movimento', {
         companyId: empresaId || undefined
       });
-      diasSemMovimento = (data.dias || []).map((d: any) => String(d.data || '')).filter(Boolean);
+      diasSemMovimento = (data.dias || []).map((d) => String(d.data || '')).filter(Boolean);
     } catch {
       diasSemMovimento = [];
     }
