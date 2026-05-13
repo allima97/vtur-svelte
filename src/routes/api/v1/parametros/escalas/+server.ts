@@ -24,25 +24,28 @@ import { cleanStringSet, chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/a
 
 const MAX_PARAMETROS_ESCALAS_BODY_BYTES = 512 * 1024;
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
+const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+const ISO_DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/;
+const TIME_PREFIX_PATTERN = /^\d{2}:\d{2}/;
 
 const ESCALA_HORARIO_SELECT =
   'id, company_id, usuario_id, seg_inicio, seg_fim, ter_inicio, ter_fim, qua_inicio, qua_fim, qui_inicio, qui_fim, sex_inicio, sex_fim, sab_inicio, sab_fim, dom_inicio, dom_fim, feriado_inicio, feriado_fim, auto_aplicar, created_at, updated_at';
 
 function normalizePeriod(value: unknown) {
   const raw = String(value || '').trim();
-  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return `${raw}-01`;
-  if (/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(raw)) return `${raw.slice(0, 7)}-01`;
+  if (MONTH_KEY_PATTERN.test(raw)) return `${raw}-01`;
+  if (ISO_DATE_PATTERN.test(raw)) return `${raw.slice(0, 7)}-01`;
   return '';
 }
 
 function normalizeDate(value: unknown) {
   const raw = String(value || '').trim();
-  return /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(raw) ? raw : '';
+  return ISO_DATE_PATTERN.test(raw) ? raw : '';
 }
 
 function normalizeTime(value: unknown) {
   const raw = String(value || '').trim();
-  return /^\d{2}:\d{2}/.test(raw) ? raw.slice(0, 5) : null;
+  return TIME_PREFIX_PATTERN.test(raw) ? raw.slice(0, 5) : null;
 }
 
 async function fetchFeriadosNacionais(ano: number, periodo: string) {
