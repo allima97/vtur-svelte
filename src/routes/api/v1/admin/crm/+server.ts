@@ -77,9 +77,14 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const { entity, action, data: payload, id } = body;
+    const { data: payload } = body;
+    const entity = String(body.entity || '').trim();
+    const action = String(body.action || '').trim();
+    const id = String(body.id || '').trim();
+    const payloadObject =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
 
     const tableMap: Record<string, string> = {
       categoria: 'crm_template_categories',
@@ -99,10 +104,10 @@ export async function POST(event) {
 
     if (action === 'upsert') {
       if (id && isUuid(id)) {
-        const { error: updateError } = await client.from(table).update(payload).eq('id', id);
+        const { error: updateError } = await client.from(table).update(payloadObject).eq('id', id);
         if (updateError) throw updateError;
       } else {
-        const { error: insertError } = await client.from(table).insert(payload);
+        const { error: insertError } = await client.from(table).insert(payloadObject);
         if (insertError) throw insertError;
       }
       return json({ ok: true }, { headers: NO_STORE_HEADERS });

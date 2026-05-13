@@ -107,7 +107,7 @@ export async function GET(event) {
         updated_at: targetUser.updated_at || null
       },
       permissions: buildPermissionMatrix(permissions),
-      default_permissions: buildPermissionMatrix(defaultPermissions as any),
+      default_permissions: buildPermissionMatrix(defaultPermissions),
       available: {
         user_types: userTypes,
         companies,

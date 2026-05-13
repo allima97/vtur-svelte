@@ -51,9 +51,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, nome, descricao, valor_mensal, moeda, ativo } = body;
+    const planId = String(id || '').trim();
 
     if (!String(nome || '').trim()) return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
 
@@ -66,8 +67,8 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
-      const { data, error: updateError } = await client.from('plans').update(payload).eq('id', id).select('id').single();
+    if (isUuid(planId)) {
+      const { data, error: updateError } = await client.from('plans').update(payload).eq('id', planId).select('id').single();
       if (updateError) throw updateError;
       result = data;
     } else {

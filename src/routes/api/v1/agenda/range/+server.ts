@@ -24,6 +24,12 @@ import {
 } from '$lib/server/readModelCache';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+type AgendaBirthdayUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  data_nascimento?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -59,7 +65,7 @@ export async function GET(event) {
 
     if (!scope.isVendedor && birthdayCompanyId) {
       try {
-        const birthdayUsers = await getCachedReadModel<any[]>({
+        const birthdayUsers = await getCachedReadModel<AgendaBirthdayUserRow[]>({
           key: buildReadModelCacheKey('agenda:birthday-users', {
             companyId: birthdayCompanyId
           }),

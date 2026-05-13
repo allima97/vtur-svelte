@@ -39,7 +39,7 @@ export async function GET(event) {
     const rows = await loadUserTypeDefaultPermissions(client, userTypeId);
     return json(
       {
-        permissions: buildPermissionMatrix(rows as any),
+        permissions: buildPermissionMatrix(rows),
         sections: agruparModulosPorSecao(MODULOS_ADMIN_PERMISSOES)
       },
       { headers: DYNAMIC_READ_HEADERS }

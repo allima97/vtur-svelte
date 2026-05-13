@@ -39,9 +39,9 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
-    const companyId = resolveScopedCompanyId(scope, body?.companyId);
+    const companyId = resolveScopedCompanyId(scope, String(body?.companyId || ""));
 
     if (!companyId)
       return json(

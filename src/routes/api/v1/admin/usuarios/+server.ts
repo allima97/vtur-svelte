@@ -29,6 +29,10 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_ADMIN_USER_BODY_BYTES = 64 * 1024;
 
+type UserTypeNameRow = {
+  name?: string | null;
+};
+
 function invalidateManagedUserCache(params: {
   actorId?: string | null;
   userId?: string | null;
@@ -181,7 +185,7 @@ export async function POST(event) {
         return new Response('Tipo de usuario invalido.', { status: 400, headers: NO_STORE_HEADERS });
       }
 
-      userTypeName = String((userTypeRow as any).name || '').trim().toUpperCase();
+      userTypeName = String((userTypeRow as UserTypeNameRow).name || '').trim().toUpperCase();
       ensureAssignableUserType(scope, userTypeName);
     }
 
