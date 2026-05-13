@@ -527,8 +527,8 @@
       
       toast.success(finalizar ? 'Voucher finalizado com sucesso!' : 'Rascunho salvo com sucesso!');
       goto('/operacao/vouchers');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar voucher');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Erro ao salvar voucher'));
     } finally {
       saving = false;
     }
