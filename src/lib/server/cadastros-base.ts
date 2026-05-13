@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import type { UserScope } from '$lib/server/v1';
 import { isUuid, normalizeText, parseIntSafe, sanitizePostgrestSearchTerm } from '$lib/server/v1';
 import {
@@ -8,11 +8,26 @@ import {
   scopeCacheTags
 } from '$lib/server/readModelCache';
 
-type QueryResult<T> = { data: T[] | null; error: any };
+type QueryResult<T> = { data: T[] | null; error: PostgrestError | null };
+type OptionalResult<T> = { data: T | null; error: PostgrestError | null };
+type CatalogRow = Record<string, unknown> & {
+  id?: string;
+  nome?: string;
+  tipo?: string;
+  estado?: string;
+  uf?: string;
+  pais?: string;
+  subdivisao_nome?: string;
+  subdivisao?: {
+    codigo_admin1?: string | null;
+    nome?: string | null;
+  } | Array<Record<string, unknown>> | null;
+};
 
-function isMissingColumnOrRelation(err: any) {
-  const code = String(err?.code || '');
-  const message = String(err?.message || '');
+function isMissingColumnOrRelation(err: unknown) {
+  const error = err as Partial<PostgrestError> | null | undefined;
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
   return (
     code === '42703' ||
     code === 'PGRST200' ||
@@ -32,7 +47,7 @@ async function optionalRows<T>(promise: PromiseLike<QueryResult<T>>) {
   return (result.data || []) as T[];
 }
 
-async function optionalSingle<T>(promise: PromiseLike<{ data: T | null; error: any }>) {
+async function optionalSingle<T>(promise: PromiseLike<OptionalResult<T>>) {
   const result = await promise;
   if (result.error) {
     if (isMissingColumnOrRelation(result.error)) return null;
@@ -219,7 +234,7 @@ export async function fetchProdutosBase(
 
   if (produtosResp.error) throw produtosResp.error;
 
-  const cidadesMap = new Map<string, any>();
+  const cidadesMap = new Map<string, CatalogRow>();
   for (const row of cidadesBase) cidadesMap.set(String(row.id), { ...row });
   for (const row of cidadesComPais) {
     cidadesMap.set(String(row.id), {
@@ -228,7 +243,7 @@ export async function fetchProdutosBase(
     });
   }
 
-  let produtos = ((produtosResp.data || []) as any[]).map((row) => ({
+  let produtos = ((produtosResp.data || []) as unknown as ProdutoBaseItem[]).map((row) => ({
     ...row,
     todas_as_cidades: row?.todas_as_cidades === true || (!row?.cidade_id && row?.todas_as_cidades !== false)
   })) as ProdutoBaseItem[];
@@ -237,15 +252,16 @@ export async function fetchProdutosBase(
     const term = normalizeText(search);
     produtos = produtos.filter((produto) => {
       const cidade = produto.cidade_id ? cidadesMap.get(produto.cidade_id) : null;
+      const subdivisao = Array.isArray(cidade?.subdivisao) ? cidade?.subdivisao[0] : cidade?.subdivisao;
       const estado =
         cidade?.estado ||
         cidade?.uf ||
         cidade?.subdivisao_nome ||
-        cidade?.subdivisao?.codigo_admin1 ||
-        cidade?.subdivisao?.nome ||
+        subdivisao?.codigo_admin1 ||
+        subdivisao?.nome ||
         '';
       const pais = cidade?.pais || '';
-      const tipo = tipos.find((item: any) => item.id === produto.tipo_produto);
+      const tipo = tipos.find((item) => String((item as CatalogRow).id || '') === produto.tipo_produto) as CatalogRow | undefined;
       return [
         produto.nome,
         produto.destino,
@@ -273,7 +289,7 @@ export async function fetchProdutosBase(
 }
 
 export async function fetchProdutoById(client: SupabaseClient, id: string) {
-  const base = await optionalSingle<any>(
+  const base = await optionalSingle<ProdutoBaseItem>(
     client
       .from('produtos')
       .select(
@@ -341,7 +357,7 @@ export async function fetchProdutoById(client: SupabaseClient, id: string) {
 export async function fetchProdutoTarifas(client: SupabaseClient, produtoId: string) {
   if (!isUuid(produtoId)) return [] as ProdutoTarifaItem[];
 
-  const rows = await optionalRows<any>(
+  const rows = await optionalRows<ProdutoTarifaItem>(
     client
       .from('produtos_tarifas')
       .select(
@@ -352,7 +368,7 @@ export async function fetchProdutoTarifas(client: SupabaseClient, produtoId: str
       .limit(500)
   );
 
-  return rows.map((row: any) => ({
+  return rows.map((row) => ({
     id: String(row.id || ''),
     acomodacao: String(row.acomodacao || ''),
     qte_pax: Number(row.qte_pax || 0),
@@ -403,21 +419,24 @@ export function sanitizeTarifasPayload(produtoId: string, rawTarifas: unknown[])
   if (!isUuid(produtoId)) return [];
 
   return (Array.isArray(rawTarifas) ? rawTarifas : [])
-    .map((item: any) => ({
-      produto_id: produtoId,
-      acomodacao: String(item?.acomodacao || '').trim(),
-      qte_pax: Math.max(0, Math.trunc(Number(item?.qte_pax || 0) || 0)),
-      tipo: String(item?.tipo || '').trim(),
-      validade_de: toNullableDate(item?.validade_de),
-      validade_ate: toNullableDate(item?.validade_ate),
-      valor_neto: Number(item?.valor_neto || 0) || 0,
-      padrao: String(item?.padrao || '').trim() === 'Manual' ? 'Manual' : 'Padrao',
-      margem: item?.margem == null || item?.margem === '' ? null : Number(item.margem),
-      valor_venda: Number(item?.valor_venda || 0) || 0,
-      moeda: String(item?.moeda || 'USD').trim() || 'USD',
-      cambio: Number(item?.cambio || 1) || 1,
-      valor_em_reais: Number(item?.valor_em_reais || 0) || 0
-    }))
+    .map((rawItem) => {
+      const item = rawItem && typeof rawItem === 'object' ? (rawItem as Record<string, unknown>) : {};
+      return {
+        produto_id: produtoId,
+        acomodacao: String(item?.acomodacao || '').trim(),
+        qte_pax: Math.max(0, Math.trunc(Number(item?.qte_pax || 0) || 0)),
+        tipo: String(item?.tipo || '').trim(),
+        validade_de: toNullableDate(item?.validade_de),
+        validade_ate: toNullableDate(item?.validade_ate),
+        valor_neto: Number(item?.valor_neto || 0) || 0,
+        padrao: String(item?.padrao || '').trim() === 'Manual' ? 'Manual' : 'Padrao',
+        margem: item?.margem == null || item?.margem === '' ? null : Number(item.margem),
+        valor_venda: Number(item?.valor_venda || 0) || 0,
+        moeda: String(item?.moeda || 'USD').trim() || 'USD',
+        cambio: Number(item?.cambio || 1) || 1,
+        valor_em_reais: Number(item?.valor_em_reais || 0) || 0
+      };
+    })
     .filter((item) => item.acomodacao || item.tipo || item.valor_neto || item.valor_venda || item.validade_de || item.validade_ate)
     .slice(0, 400);
 }
