@@ -11,25 +11,6 @@
   let canvas: HTMLCanvasElement;
   let chart: ChartType | null = null;
   
-  // Cores do tema VTUR
-  const colors = {
-    clientes: {
-      primary: '#2457a6',
-      light: '#c7d7f2',
-      bg: 'rgba(36, 87, 166, 0.12)'
-    },
-    financeiro: {
-      primary: '#b45309',
-      light: '#f3c48b',
-      bg: 'rgba(180, 83, 9, 0.12)'
-    },
-    vendas: {
-      primary: '#0f766e',
-      light: '#99f6e4',
-      bg: 'rgba(15, 118, 110, 0.12)'
-    }
-  };
-  
   const defaultOptions: ChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
