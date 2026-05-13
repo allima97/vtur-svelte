@@ -23,6 +23,17 @@
 
   type Pais = { id: string; nome: string };
 
+  type PaisesResponse = {
+    items?: Pais[] | null;
+  };
+
+  type SubdivisoesResponse = {
+    items?: Subdivisao[] | null;
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  };
+
   let subdivisoes: Subdivisao[] = [];
   let paises: Pais[] = [];
   let loading = true;
@@ -47,7 +58,7 @@
 
   async function loadPaises() {
     try {
-      const payload = await apiGet<any>('/api/v1/paises');
+      const payload = await apiGet<PaisesResponse>('/api/v1/paises');
       paises = payload.items || [];
     } catch {
       paises = [];
@@ -56,10 +67,10 @@
 
   async function load() {
     loading = true;
-    let payload: any = null;
+    let payload: SubdivisoesResponse | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        payload = await apiGet<any>('/api/v1/subdivisoes', {
+        payload = await apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', {
           pais_id: filtroPais || undefined,
           pageSize: 500
         }, undefined, 30_000);
