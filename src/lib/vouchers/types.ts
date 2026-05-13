@@ -90,6 +90,7 @@ export type VoucherRecord = {
   company_id: string;
   provider: VoucherProvider;
   nome: string;
+  status?: 'rascunho' | 'finalizado' | 'cancelado' | null;
   codigo_systur?: string | null;
   codigo_fornecedor?: string | null;
   reserva_online?: string | null;

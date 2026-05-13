@@ -235,7 +235,7 @@
 <PageHeader
   title={voucher?.nome || "Detalhes do Voucher"}
   subtitle={voucher
-    ? `${providerConfig[voucher.provider]?.label || voucher.provider} • ${getStatusLabel((voucher as any).status)}`
+    ? `${providerConfig[voucher.provider]?.label || voucher.provider} • ${getStatusLabel(voucher.status || undefined)}`
     : ""}
   color="clientes"
   breadcrumbs={[
@@ -289,10 +289,10 @@
               </span>
               <span
                 class="px-3 py-1 rounded-full text-sm font-medium {getStatusBadgeColor(
-                  (voucher as any).status,
+                  voucher.status || undefined,
                 )}"
               >
-                {getStatusLabel((voucher as any).status)}
+                {getStatusLabel(voucher.status || undefined)}
               </span>
               {#if voucher.codigo_fornecedor}
                 <span class="text-sm text-slate-500"
