@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+import { json, type RequestEvent } from '@sveltejs/kit';
 import {
   buildPermissionMatrix,
   ensureCanManagePermissions,
@@ -13,7 +13,13 @@ import {
 } from '$lib/server/v1';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
-export async function GET(event) {
+type UserTypeDetailUserRow = {
+  id: string;
+  nome_completo?: string | null;
+  email?: string | null;
+};
+
+export async function GET(event: RequestEvent) {
   try {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
@@ -38,8 +44,8 @@ export async function GET(event) {
     return json(
       {
         tipo: target,
-        default_permissions: buildPermissionMatrix(defaultPermsRes as any),
-        usuarios: (usersRes.data || []).map((row: any) => ({
+        default_permissions: buildPermissionMatrix(defaultPermsRes),
+        usuarios: ((usersRes.data || []) as UserTypeDetailUserRow[]).map((row) => ({
           id: row.id,
           nome: row.nome_completo || row.email || 'Usuario sem nome',
           email: row.email || null
