@@ -126,18 +126,19 @@
     }));
   }
 
-  function normalizeRule(raw: any): Rule {
+  function normalizeRule(raw: unknown): Rule {
+    const value = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     return {
-      id: String(raw?.id || ''),
-      nome: String(raw?.nome || ''),
-      descricao: raw?.descricao ? String(raw.descricao) : null,
-      company_id: raw?.company_id ? String(raw.company_id) : null,
-      tipo: raw?.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL',
-      meta_nao_atingida: normalizeNumber(raw?.meta_nao_atingida),
-      meta_atingida: normalizeNumber(raw?.meta_atingida),
-      super_meta: normalizeNumber(raw?.super_meta),
-      ativo: Boolean(raw?.ativo),
-      commission_tier: cloneTiers(raw?.commission_tier)
+      id: String(value.id || ''),
+      nome: String(value.nome || ''),
+      descricao: value.descricao ? String(value.descricao) : null,
+      company_id: value.company_id ? String(value.company_id) : null,
+      tipo: value.tipo === 'ESCALONAVEL' ? 'ESCALONAVEL' : 'GERAL',
+      meta_nao_atingida: normalizeNumber(value.meta_nao_atingida),
+      meta_atingida: normalizeNumber(value.meta_atingida),
+      super_meta: normalizeNumber(value.super_meta),
+      ativo: Boolean(value.ativo),
+      commission_tier: cloneTiers(value.commission_tier as Tier[] | undefined)
     };
   }
 
