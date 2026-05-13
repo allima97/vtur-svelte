@@ -67,7 +67,7 @@ export function createSupabaseBrowserClient() {
   // Usa mock se não há credenciais válidas
   if (shouldUseMock()) {
     usingMock = true;
-    return mockSupabaseClient as any;
+    return mockSupabaseClient as unknown as BaseSupabaseClient;
   }
   
   if (!browserClient) {
@@ -91,7 +91,9 @@ export function createSupabaseBrowserClient() {
 /**
  * Cliente Supabase para uso em stores e componentes
  */
-export const supabase = browser ? createSupabaseBrowserClient() : null as any;
+export const supabase: BaseSupabaseClient = browser
+  ? createSupabaseBrowserClient()
+  : (null as unknown as BaseSupabaseClient);
 
 /**
  * Indica se está usando modo mock (sem Supabase real)
@@ -110,7 +112,7 @@ export function createSupabaseServerClient(cookies: {
 }) {
   // Usa mock se não há credenciais válidas
   if (shouldUseMock()) {
-    return mockSupabaseClient as any;
+    return mockSupabaseClient as unknown as BaseSupabaseClient;
   }
 
   const { url, anonKey } = getSupabasePublicConfig();
