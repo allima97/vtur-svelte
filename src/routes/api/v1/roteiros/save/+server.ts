@@ -109,7 +109,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : null;
     if (!body) return new Response('Body invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
@@ -128,7 +128,7 @@ export async function POST(event: RequestEvent) {
     let roteiroId: string;
 
     if (isNew) {
-      const insertPayload: Record<string, any> = {
+      const insertPayload: Record<string, unknown> = {
         created_by: user.id,
         company_id: companyId,
         nome,
@@ -159,7 +159,7 @@ export async function POST(event: RequestEvent) {
       if (existingError) throw existingError;
       if (!existing) return new Response('Roteiro nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
 
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         nome,
         duracao: body.duracao || null,
         inicio_cidade: body.inicio_cidade || null,
