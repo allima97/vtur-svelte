@@ -11,6 +11,7 @@
 import { construirLinkWhatsApp } from '$lib/whatsapp';
 import { safeOpenNewTab } from '$lib/security/url';
 import { formatISODateBR } from '$lib/date';
+import type { User } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------
 // TIPOS
@@ -664,6 +665,7 @@ export async function openQuotePreview(params: {
   quoteId: string;
   supabase: {
     from: (table: string) => any;
+    auth: { getUser: () => Promise<{ data: { user: User | null } }> };
     storage: { from: (bucket: string) => { createSignedUrl: (path: string, ttl: number) => Promise<{ data?: { signedUrl?: string } | null }> } };
   };
   showItemValues?: boolean;
@@ -672,7 +674,7 @@ export async function openQuotePreview(params: {
   const { quoteId, supabase, showItemValues = true, discount = 0 } = params;
 
   // 1. Autenticação
-  const { data: authData } = await (supabase as any).auth.getUser();
+  const { data: authData } = await supabase.auth.getUser();
   const userId = authData?.user?.id;
   if (!userId) throw new Error('Usuário não autenticado.');
 
