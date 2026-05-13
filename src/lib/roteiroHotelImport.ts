@@ -49,6 +49,8 @@ const MONTH_INDEX: Record<string, number> = {
 
 const DATE_RANGE_RE =
   /^(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)\s*-\s*(\d{1,2})\s+de\s+([a-zA-ZçÇãÃáÁàÀéÉêÊíÍóÓôÔõÕúÚ]+)(?:\s*\((\d+)\s*dias?(?:\s*e\s*(\d+)\s*noites?)?\))?$/i;
+const ROOM_LINE_RE = /^\d+\s+\S+/i;
+const OCCUPANCY_LINE_RE = /^total\s*\(/i;
 
 function normalizeText(value?: string | null) {
   return String(value || "")
@@ -121,11 +123,11 @@ function isRecommendedLine(line: string) {
 }
 
 function isRoomLine(line: string) {
-  return /^\d+\s+\S+/i.test(normalizeLine(line));
+  return ROOM_LINE_RE.test(normalizeLine(line));
 }
 
 function isOccupancyLine(line: string) {
-  return /^total\s*\(/i.test(normalizeText(line));
+  return OCCUPANCY_LINE_RE.test(normalizeText(line));
 }
 
 function isRefundLine(line: string) {
