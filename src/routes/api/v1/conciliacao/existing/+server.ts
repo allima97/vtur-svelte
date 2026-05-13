@@ -7,6 +7,34 @@ import { chunkArray, uniqueCleanStrings } from '$lib/utils/array';
 const MAX_CONCILIACAO_EXISTING_BODY_BYTES = 256 * 1024;
 const MAX_EXISTING_DOCUMENTOS = 1000;
 
+type ExistingRequestBody = {
+  companyId?: string | null;
+  documentos?: string[];
+};
+
+type ExistingConciliacaoRow = {
+  id: string;
+  documento: string | null;
+  numero_reserva: string | null;
+  movimento_data: string | null;
+  ranking_vendedor_id: string | null;
+  ranking_produto_id: string | null;
+  venda_id: string | null;
+  venda_recibo_id: string | null;
+  conciliado: boolean | null;
+  valor_lancamentos: number | null;
+  valor_taxas: number | null;
+  valor_descontos: number | null;
+  valor_abatimentos: number | null;
+  valor_nao_comissionavel: number | null;
+  valor_calculada_loja: number | null;
+  valor_visao_master: number | null;
+  valor_opfax: number | null;
+  valor_saldo: number | null;
+};
+
+type ExistingRecord = Omit<ExistingConciliacaoRow, 'id' | 'documento' | 'movimento_data'>;
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -22,9 +50,9 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
-    const body =
+    const body: ExistingRequestBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ExistingRequestBody)
         : {};
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     const companyId = companyIds[0] || null;
@@ -41,7 +69,7 @@ export async function POST(event) {
 
     if (documentos.length === 0) return json({ records: {} }, { headers: NO_STORE_HEADERS });
 
-    const rows: any[] = [];
+    const rows: ExistingConciliacaoRow[] = [];
     for (const batch of chunkArray(uniqueCleanStrings(documentos))) {
       const { data, error } = await client
         .from('conciliacao_recibos')
@@ -56,7 +84,7 @@ export async function POST(event) {
       rows.push(...(data || []));
     }
 
-    const records: Record<string, any> = {};
+    const records: Record<string, ExistingRecord> = {};
 
     for (const row of rows) {
       const doc = String(row?.documento || '').trim();
