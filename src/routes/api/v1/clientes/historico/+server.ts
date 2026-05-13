@@ -24,6 +24,84 @@ function sortByDateDesc<T>(items: T[], getDate: (item: T) => string | null) {
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 
+type ClienteHistoricoVenda = {
+  id: string;
+  data_lancamento: string | null;
+  data_embarque: string | null;
+  destino_nome: string;
+  destino_cidade_nome: string;
+  valor_total: number;
+  valor_taxas: number;
+  origem_vinculo: string;
+};
+
+type ClienteHistoricoOrcamento = {
+  id: string;
+  data_orcamento: string | null;
+  status: string | null;
+  valor: number | string | null;
+  produto_nome: string | null;
+};
+
+type VendaHistoricoRow = {
+  id: string;
+  cliente_id?: string | null;
+  vendedor_id?: string | null;
+  company_id?: string | null;
+  data_lancamento: string | null;
+  data_embarque: string | null;
+  destino_cidade_id: string | null;
+  destino?: {
+    nome?: string | null;
+    cidade_id?: string | null;
+  } | null;
+  origem_vinculo?: 'titular' | 'passageiro';
+};
+
+type ViagemPassageiroRow = {
+  viagem_id: string | null;
+};
+
+type ViagemVendaRow = {
+  id: string | null;
+  venda_id: string | null;
+};
+
+type ReciboHistoricoRow = {
+  venda_id: string | null;
+  valor_total: number | string | null;
+  valor_taxas: number | string | null;
+};
+
+type QuoteHistoricoRow = {
+  id: string;
+  created_at: string | null;
+  status: string | null;
+  status_negociacao: string | null;
+  total: number | string | null;
+  client_id?: string | null;
+  created_by: string | null;
+  quote_item?: Array<{
+    title?: string | null;
+    item_type?: string | null;
+  }> | null;
+};
+
+type CidadeRow = {
+  id: string | null;
+  nome: string | null;
+};
+
+type UserCompanyRow = {
+  id: string | null;
+  company_id: string | null;
+};
+
+type ScopedVendasQuery = {
+  in: (column: string, values: string[]) => ScopedVendasQuery;
+  then: PromiseLike<{ data: VendaHistoricoRow[] | null; error: unknown }>['then'];
+};
+
 async function fetchBatched<T>(
   values: string[],
   loader: (batch: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>
@@ -55,7 +133,10 @@ export async function GET(event) {
     const filterCompanyIdSet = cleanStringSet(filters.companyIds);
     const filterVendedorIdSet = cleanStringSet(filters.vendedorIds);
 
-    const result = await getCachedReadModel<{ vendas: any[]; orcamentos: any[] }>({
+    const result = await getCachedReadModel<{
+      vendas: ClienteHistoricoVenda[];
+      orcamentos: ClienteHistoricoOrcamento[];
+    }>({
       key: buildReadModelCacheKey('clientes:historico', {
         clienteId,
         companyIds: filters.companyIds,
@@ -78,8 +159,8 @@ export async function GET(event) {
       loader: async () => {
         const vendaSelect =
           'id, cliente_id, vendedor_id, company_id, data_lancamento, data_embarque, destino_cidade_id, destino:produtos!vendas_destino_id_fkey(nome, cidade_id)';
-        const fetchScopedVendas = async (buildBaseQuery: () => any) => {
-          const rows: any[] = [];
+        const fetchScopedVendas = async (buildBaseQuery: () => ScopedVendasQuery) => {
+          const rows: VendaHistoricoRow[] = [];
           const companyBatches =
             filters.companyIds.length > 0 ? chunkArray(filters.companyIds, SUPABASE_IN_BATCH_SIZE) : [null];
           const vendedorBatches =
@@ -100,10 +181,10 @@ export async function GET(event) {
         };
 
         const vendasTitular = await fetchScopedVendas(() =>
-          client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId)
+          client.from('vendas').select(vendaSelect).eq('cliente_id', clienteId) as unknown as ScopedVendasQuery
         );
 
-        let vendasPassageiro: any[] = [];
+        let vendasPassageiro: VendaHistoricoRow[] = [];
         try {
           const { data: viagensComoPassageiro } = await client
             .from('viagem_passageiros')
@@ -112,14 +193,14 @@ export async function GET(event) {
 
           const viagemIds = Array.from(
             new Set(
-              (viagensComoPassageiro || [])
-                .map((row: any) => String(row?.viagem_id || '').trim())
+              ((viagensComoPassageiro || []) as ViagemPassageiroRow[])
+                .map((row) => String(row.viagem_id || '').trim())
                 .filter(Boolean)
             )
           );
 
           if (viagemIds.length > 0) {
-            const viagensRows = await fetchBatched<any>(viagemIds, (batch) =>
+            const viagensRows = await fetchBatched<ViagemVendaRow>(viagemIds, (batch) =>
               client
                 .from('viagens')
                 .select('id, venda_id')
@@ -129,15 +210,15 @@ export async function GET(event) {
             const vendaIds = Array.from(
               new Set(
                 viagensRows
-                  .map((row: any) => String(row?.venda_id || '').trim())
+                  .map((row) => String(row.venda_id || '').trim())
                   .filter(Boolean)
               )
             );
 
             if (vendaIds.length > 0) {
-              vendasPassageiro = await fetchBatched<any>(vendaIds, async (batch) => ({
+              vendasPassageiro = await fetchBatched<VendaHistoricoRow>(vendaIds, async (batch) => ({
                 data: await fetchScopedVendas(() =>
-                  client.from('vendas').select(vendaSelect).in('id', batch)
+                  client.from('vendas').select(vendaSelect).in('id', batch) as unknown as ScopedVendasQuery
                 ),
                 error: null
               }));
@@ -147,7 +228,7 @@ export async function GET(event) {
           // falha silenciosa — vínculos de passageiro são complementares
         }
 
-        const vendasMap = new Map<string, any>();
+        const vendasMap = new Map<string, VendaHistoricoRow>();
         for (const row of vendasTitular || []) {
           vendasMap.set(row.id, { ...row, origem_vinculo: 'titular' });
         }
@@ -168,7 +249,7 @@ export async function GET(event) {
         const [{ data: recibosData, error: recibosError }, { data: quoteRows, error: quotesError }] =
           await Promise.all([
             vendaIds.length > 0
-              ? fetchBatched<any>(vendaIds, (batch) =>
+              ? fetchBatched<ReciboHistoricoRow>(vendaIds, (batch) =>
                   client
                     .from('vendas_recibos')
                     .select('venda_id, valor_total, valor_taxas')
@@ -190,7 +271,7 @@ export async function GET(event) {
         const cidadeIds = Array.from(
           new Set(
             vendasData
-              .map((row: any) =>
+              .map((row) =>
                 String(row?.destino_cidade_id || row?.destino?.cidade_id || '').trim()
               )
               .filter(Boolean)
@@ -199,14 +280,14 @@ export async function GET(event) {
 
         let cidadesMap = new Map<string, string>();
         if (cidadeIds.length > 0) {
-          const cidadesData = await fetchBatched<any>(cidadeIds, (batch) =>
+          const cidadesData = await fetchBatched<CidadeRow>(cidadeIds, (batch) =>
             client
               .from('cidades')
               .select('id, nome')
               .in('id', batch)
           );
           cidadesMap = new Map(
-            cidadesData.map((row: { id?: string | null; nome?: string | null }) => [
+            cidadesData.map((row) => [
               String(row?.id || '').trim(),
               String(row?.nome || '').trim()
             ])
@@ -216,14 +297,14 @@ export async function GET(event) {
         let creatorCompanyMap = new Map<string, string>();
         const creatorIds = Array.from(
           new Set(
-            (quoteRows || [])
-              .map((row: any) => String(row?.created_by || '').trim())
+            ((quoteRows || []) as QuoteHistoricoRow[])
+              .map((row) => String(row.created_by || '').trim())
               .filter(Boolean)
           )
         );
 
         if (filters.companyIds.length > 0 && creatorIds.length > 0) {
-          const creators = await fetchBatched<any>(creatorIds, (batch) =>
+          const creators = await fetchBatched<UserCompanyRow>(creatorIds, (batch) =>
             client
               .from('users')
               .select('id, company_id')
@@ -231,21 +312,23 @@ export async function GET(event) {
           );
 
           creatorCompanyMap = new Map(
-            creators.map((row: { id?: string | null; company_id?: string | null }) => [
+            creators.map((row) => [
               String(row?.id || '').trim(),
               String(row?.company_id || '').trim()
             ])
           );
         }
 
-        const vendas = vendasData.map((row: any) => {
-          const recs = (recibosData || []).filter((recibo: any) => recibo.venda_id === row.id);
+        const vendas = vendasData.map((row) => {
+          const recs = ((recibosData || []) as ReciboHistoricoRow[]).filter(
+            (recibo) => recibo.venda_id === row.id
+          );
           const total = recs.reduce(
-            (acc: number, recibo: any) => acc + Number(recibo.valor_total || 0),
+            (acc, recibo) => acc + Number(recibo.valor_total || 0),
             0
           );
           const taxas = recs.reduce(
-            (acc: number, recibo: any) => acc + Number(recibo.valor_taxas || 0),
+            (acc, recibo) => acc + Number(recibo.valor_taxas || 0),
             0
           );
           const cidadeId = String(row?.destino_cidade_id || row?.destino?.cidade_id || '').trim();
@@ -261,17 +344,17 @@ export async function GET(event) {
           };
         });
 
-        const orcamentos = (quoteRows || [])
-          .filter((row: any) => {
+        const orcamentos = ((quoteRows || []) as QuoteHistoricoRow[])
+          .filter((row) => {
             if (filters.vendedorIds.length > 0) {
-              return filterVendedorIdSet.has(String(row?.created_by || '').trim());
+              return filterVendedorIdSet.has(String(row.created_by || '').trim());
             }
             if (filters.companyIds.length === 0) return true;
             const creatorCompany =
-              creatorCompanyMap.get(String(row?.created_by || '').trim()) || '';
+              creatorCompanyMap.get(String(row.created_by || '').trim()) || '';
             return creatorCompany ? filterCompanyIdSet.has(creatorCompany) : true;
           })
-          .map((row: any) => ({
+          .map((row) => ({
             id: row.id,
             data_orcamento: row.created_at || null,
             status: row.status_negociacao || row.status || null,
