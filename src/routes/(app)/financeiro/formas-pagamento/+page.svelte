@@ -186,8 +186,8 @@
       toast.success(editando ? 'Forma de pagamento atualizada!' : 'Forma de pagamento criada!');
       showFormDialog = false;
       await carregarFormasPagamento({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       processando = false;
     }
@@ -203,8 +203,8 @@
       showDeleteDialog = false;
       excluindo = null;
       await carregarFormasPagamento({ silent: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao excluir');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao excluir');
     } finally {
       processando = false;
     }
