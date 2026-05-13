@@ -55,6 +55,44 @@
     status?: string | null;
   }
 
+  interface OrcamentoItemResumo {
+    title?: string | null;
+    descricao?: string | null;
+    city_name?: string | null;
+    cidade?: string | null;
+    item_type?: string | null;
+    quantity?: number | null;
+    quantidade?: number | null;
+    unit_price?: number | null;
+    valor_unitario?: number | null;
+    total_amount?: number | null;
+    valor_total?: number | null;
+  }
+
+  interface OrcamentoClienteResumo {
+    nome?: string | null;
+    email?: string | null;
+    telefone?: string | null;
+  }
+
+  interface OrcamentoDetalhe {
+    codigo?: string | null;
+    status?: string | null;
+    status_negociacao?: string | null;
+    valid_until?: string | null;
+    data_validade?: string | null;
+    total?: number | null;
+    currency?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    notes?: string | null;
+    observacoes?: string | null;
+    cliente?: OrcamentoClienteResumo | string | null;
+    cliente_email?: string | null;
+    itens?: OrcamentoItemResumo[] | null;
+    [key: string]: unknown;
+  }
+
   // ── Desconto para exportação PDF (somente aplicado no PDF, não salvo no BD)
   let exportDesconto = '';
   $: exportDescontoNum = (() => {
@@ -63,7 +101,7 @@
     return Number.isFinite(n) && n > 0 ? n : 0;
   })();
 
-  let orcamento: any = null;
+  let orcamento: OrcamentoDetalhe | null = null;
   let interacoes: OrcamentoInteracao[] = [];
   let loading = true;
   let error: string | null = null;
@@ -86,7 +124,7 @@
 
   async function carregarOrcamento() {
     try {
-      const data = await apiFetch<any>(`/api/v1/orcamentos/${orcamentoId}`, {
+      const data = await apiFetch<OrcamentoDetalhe>(`/api/v1/orcamentos/${orcamentoId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false,
       });
@@ -138,8 +176,10 @@
         status_negociacao: novoStatus,
       });
 
-      orcamento.status = novoStatus;
-      orcamento.status_negociacao = novoStatus;
+      if (orcamento) {
+        orcamento.status = novoStatus;
+        orcamento.status_negociacao = novoStatus;
+      }
       toast.success(
         `Orçamento ${getStatusLabel(novoStatus).toLowerCase()} com sucesso!`,
       );
@@ -311,7 +351,7 @@
 
   $: valorTotal =
     orcamento?.itens?.reduce(
-      (acc: number, item: any) => acc + (item.total_amount || 0),
+      (acc: number, item) => acc + Number(item.total_amount || 0),
       0,
     ) || 0;
   $: quantidadeItens = orcamento?.itens?.length || 0;
@@ -321,6 +361,21 @@
   $: isExpirado = orcamento?.valid_until
     ? compareISODate(orcamento.valid_until, todayISODateLocal()) < 0
     : false;
+  $: clienteObj =
+    orcamento?.cliente && typeof orcamento.cliente === "object"
+      ? orcamento.cliente
+      : null;
+  $: clienteNome =
+    clienteObj?.nome ||
+    (typeof orcamento?.cliente === "string" ? orcamento.cliente : "") ||
+    "Cliente";
+  $: clienteEmail = clienteObj?.email || orcamento?.cliente_email || "";
+  $: clienteTelefone = clienteObj?.telefone || "";
+  $: dataCriacaoOrcamento = orcamento?.created_at || null;
+  $: dataValidadeOrcamento =
+    orcamento?.valid_until || orcamento?.data_validade || null;
+  $: dataAtualizacaoOrcamento =
+    orcamento?.updated_at || orcamento?.created_at || null;
   $: ultimaInteracao = interacoes.length > 0 ? interacoes[0] : null;
   $: diasSemInteracao = getDiasSemInteracao(
     ultimaInteracao?.created_at || null,
@@ -364,16 +419,16 @@
   </div>
 {:else if orcamento}
   <PageHeader
-    title="Orçamento {orcamento.codigo}"
+    title="Orçamento {orcamento.codigo || ''}"
     subtitle="Criado em {formatDate(
-      orcamento.created_at,
+      dataCriacaoOrcamento,
     )} • Válido até {formatDate(
-      orcamento.valid_until || orcamento.data_validade,
+      dataValidadeOrcamento,
     )}"
     color="clientes"
     breadcrumbs={[
       { label: "Orçamentos", href: "/orcamentos" },
-      { label: orcamento.codigo },
+      { label: orcamento.codigo || "" },
     ]}
     actions={[
       {
@@ -418,7 +473,7 @@
       <div>
         <p class="text-sm font-medium text-slate-500">Status comercial</p>
         <p class="text-2xl font-bold text-slate-900">
-          {getStatusLabel(orcamento.status)}
+          {getStatusLabel(orcamento.status || "")}
         </p>
       </div>
     </Button>
@@ -454,7 +509,7 @@
       <div>
         <p class="text-sm font-medium text-slate-500">Vencimento</p>
         <p class="text-2xl font-bold text-slate-900">
-          {formatDate(orcamento.valid_until || orcamento.data_validade)}
+          {formatDate(dataValidadeOrcamento)}
         </p>
       </div>
     </Button>
@@ -485,11 +540,11 @@
     </Button>
   </div>
 
-  <div class="mb-6 p-4 rounded-lg border {getStatusColor(orcamento.status)}">
+  <div class="mb-6 p-4 rounded-lg border {getStatusColor(orcamento.status || '')}">
     <div class="flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-lg font-semibold">
-          Status: {getStatusLabel(orcamento.status)}
+          Status: {getStatusLabel(orcamento.status || "")}
         </span>
         {#if isExpirado && !STATUS_SEM_ALERTA_EXPIRADO.has(statusAtual)}
           <span
@@ -507,9 +562,7 @@
         {/if}
       </div>
       <div class="text-sm opacity-75">
-        Última atualização: {formatDateTime(
-          orcamento.updated_at || orcamento.created_at,
-        )}
+        Última atualização: {formatDateTime(dataAtualizacaoOrcamento)}
       </div>
     </div>
   </div>
@@ -633,7 +686,7 @@
       <div>
         <p class="text-sm font-medium text-slate-500">Validade</p>
         <p class="text-2xl font-bold text-slate-900">
-          {formatDate(orcamento.valid_until || orcamento.data_validade)}
+          {formatDate(dataValidadeOrcamento)}
         </p>
       </div>
     </div>
@@ -681,14 +734,10 @@
             </div>
             <div>
               <p class="text-sm text-slate-500">Cliente</p>
-              <p class="font-medium text-slate-900">
-                {orcamento.cliente?.nome ||
-                  orcamento.cliente ||
-                  "Não informado"}
-              </p>
+              <p class="font-medium text-slate-900">{clienteNome || "Não informado"}</p>
             </div>
           </div>
-          {#if orcamento.cliente?.email || orcamento.cliente_email}
+          {#if clienteEmail}
             <div class="flex items-center gap-3">
               <div
                 class="w-10 h-10 rounded-full bg-clientes-100 flex items-center justify-center"
@@ -698,16 +747,15 @@
               <div>
                 <p class="text-sm text-slate-500">Email</p>
                 <a
-                  href="mailto:{orcamento.cliente?.email ||
-                    orcamento.cliente_email}"
+                  href="mailto:{clienteEmail}"
                   class="font-medium text-clientes-600 hover:underline"
                 >
-                  {orcamento.cliente?.email || orcamento.cliente_email}
+                  {clienteEmail}
                 </a>
               </div>
             </div>
           {/if}
-          {#if orcamento.cliente?.telefone}
+          {#if clienteTelefone}
             <div class="flex items-center gap-3">
               <div
                 class="w-10 h-10 rounded-full bg-clientes-100 flex items-center justify-center"
@@ -716,9 +764,7 @@
               </div>
               <div>
                 <p class="text-sm text-slate-500">Telefone</p>
-                <p class="font-medium text-slate-900">
-                  {orcamento.cliente.telefone}
-                </p>
+                <p class="font-medium text-slate-900">{clienteTelefone}</p>
               </div>
             </div>
           {/if}
@@ -1003,7 +1049,7 @@
   <ModalInteracaoQuote
     bind:open={showInteracaoModal}
     {orcamentoId}
-    clienteNome={orcamento?.cliente?.nome || orcamento?.cliente || "Cliente"}
+    clienteNome={clienteNome}
     onClose={() => (showInteracaoModal = false)}
     onSave={carregarInteracoes}
   />
