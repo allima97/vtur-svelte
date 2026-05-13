@@ -78,6 +78,18 @@ type CompanyCommissionParamsRow = {
 	mfa_obrigatorio?: boolean | null;
 };
 
+type DisabledModuleRow = {
+	module_key?: string | null;
+};
+
+type AccessRow = {
+	modulo: string | null;
+	permissao: string | null;
+	ativo: boolean | null;
+};
+
+type PermissionLevel = 'none' | 'view' | 'create' | 'edit' | 'delete' | 'admin';
+
 type PlatformLike = {
 	env?: Record<string, unknown> | null;
 };
@@ -785,7 +797,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 			if (!isMissingSystemModuleSettingsTable(disabledErr)) throw disabledErr;
 		} else {
 			const disabledModules = (disabledRows || [])
-				.map((row: any) => String(row?.module_key || ''))
+				.map((row) => String((row as DisabledModuleRow | null)?.module_key || ''))
 				.filter(Boolean);
 
 			if (isSystemModuleDisabled(modulo, disabledModules, false)) {
@@ -805,7 +817,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 					if (normalized) modulosPermitidosDisabled.add(normalized);
 				}
 
-				const temPermissaoIndividual = (accRowsRes.data || []).some((row: any) => {
+				const temPermissaoIndividual = ((accRowsRes.data || []) as AccessRow[]).some((row) => {
 					if (!row?.ativo) return false;
 					const moduloKey = normalizeModuloKey(row?.modulo);
 					if (!moduloKey || !modulosPermitidosDisabled.has(moduloKey)) return false;
@@ -838,7 +850,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
 	}
 
 	// Filtra os acessos ja em memoria — sem nova query ao banco
-	const accRowsParaModulo = (accRowsRes.data || []) as Array<{ modulo: string | null; permissao: string | null; ativo: boolean | null }>;
+	const accRowsParaModulo = (accRowsRes.data || []) as AccessRow[];
 	const acessosValidos = accRowsParaModulo.filter((row) => {
 		if (!row?.ativo) return false;
 		const moduloKey = normalizeModuloKey(row?.modulo);
@@ -849,15 +861,18 @@ const authGuard: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/negado');
 	}
 
-	const nivelOrdem = ['none', 'view', 'create', 'edit', 'delete', 'admin'];
+	const nivelOrdem: PermissionLevel[] = ['none', 'view', 'create', 'edit', 'delete', 'admin'];
 	const melhorPermissao = acessosValidos.reduce(
 		(acc, row) => {
-			const perm = String(row.permissao || 'none');
-			const idx = nivelOrdem.indexOf(perm as any);
+			const rawPerm = String(row.permissao || 'none');
+			const perm: PermissionLevel = nivelOrdem.includes(rawPerm as PermissionLevel)
+				? (rawPerm as PermissionLevel)
+				: 'none';
+			const idx = nivelOrdem.indexOf(perm);
 			if (idx > acc.idx) return { perm, idx };
 			return acc;
 		},
-		{ perm: 'none', idx: 0 }
+		{ perm: 'none' as PermissionLevel, idx: 0 }
 	);
 
 	if (nivelOrdem.indexOf(melhorPermissao.perm) < 1) {
