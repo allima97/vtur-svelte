@@ -18,6 +18,8 @@ const PAGAMENTO_ALLOWED_UPDATE_FIELDS = [
   'desconto_valor', 'paga_comissao', 'observacoes',
   'parcelas_qtd', 'parcelas_valor', 'vencimento_primeira'
 ];
+type PagamentoAllowedUpdateField = (typeof PAGAMENTO_ALLOWED_UPDATE_FIELDS)[number];
+type PagamentoUpdateBody = Partial<Record<PagamentoAllowedUpdateField, unknown>>;
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
@@ -79,7 +81,7 @@ export async function GET(event) {
     }
 
     return json({ success: true, item: result.pagamento }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar pagamento.');
   }
 }
@@ -109,9 +111,9 @@ export async function PATCH(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as PagamentoUpdateBody)
         : {};
-    const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const key of PAGAMENTO_ALLOWED_UPDATE_FIELDS) {
       if (key in body) updateData[key] = body[key];
     }
@@ -126,7 +128,7 @@ export async function PATCH(event) {
     if (error) throw error;
     invalidatePagamentoReadModels(result.companyId, user.id);
     return json({ success: true, item: data }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao atualizar pagamento.');
   }
 }
@@ -160,7 +162,7 @@ export async function DELETE(event) {
     if (error) throw error;
     invalidatePagamentoReadModels(result.companyId, user.id);
     return json({ success: true }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao excluir pagamento.');
   }
 }

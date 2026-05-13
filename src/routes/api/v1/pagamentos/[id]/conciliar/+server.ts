@@ -13,6 +13,10 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { invalidateReadModelCache, READ_MODEL_TAGS, scopeCacheTags } from '$lib/server/readModelCache';
 
 const MAX_PAGAMENTO_CONCILIAR_BODY_BYTES = 16 * 1024;
+type PagamentoConciliarBody = {
+  venda_recibo_id?: unknown;
+  paga_comissao?: unknown;
+};
 
 function invalidatePagamentoReadModels(companyId: string | null | undefined, userId: string) {
   invalidateReadModelCache({
@@ -45,7 +49,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as PagamentoConciliarBody)
         : {};
     const pagamentoId = String(event.params.id || '').trim();
     if (!isUuid(pagamentoId)) {
@@ -75,7 +79,7 @@ export async function POST(event) {
     }
 
     // Atualiza o pagamento com o recibo de conciliação vinculado
-    const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.venda_recibo_id) updateData.venda_recibo_id = body.venda_recibo_id;
     if (body.paga_comissao !== undefined) updateData.paga_comissao = body.paga_comissao;
 
@@ -90,7 +94,7 @@ export async function POST(event) {
 
     invalidatePagamentoReadModels(targetCompanyId, user.id);
     return json({ success: true, item: pagamento }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao conciliar pagamento.');
   }
 }
