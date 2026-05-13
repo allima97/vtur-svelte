@@ -42,6 +42,22 @@
     totais?: unknown;
   };
 
+  type VendaReciboResumo = {
+    id?: string | null;
+    numero_recibo?: string | null;
+    produto_id?: string | null;
+    produto_resolvido_id?: string | null;
+    numero_reserva?: string | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    valor_total?: number | string | null;
+    tipo_pacote?: string | null;
+    destino_cidade_id?: string | null;
+    destino_cidade?: { nome?: string | null } | null;
+    produto_resolvido?: { nome?: string | null } | null;
+    produto?: { nome?: string | null } | null;
+  };
+
   let venda: any = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
@@ -100,7 +116,7 @@
     }
   }
 
-  function ensureReciboFormOptions(recibo: any) {
+  function ensureReciboFormOptions(recibo: VendaReciboResumo) {
     const produtoId = String(recibo?.produto_resolvido_id || recibo?.produto_id || '').trim();
     const produtoNome =
       produtosCache[produtoId]?.nome || recibo?.produto_resolvido?.nome || recibo?.produto?.nome || 'Produto';
@@ -120,9 +136,9 @@
     }
   }
 
-  function startEditRecibo(recibo: any) {
+  function startEditRecibo(recibo: VendaReciboResumo) {
     ensureReciboFormOptions(recibo);
-    editingReciboId = recibo.id;
+    editingReciboId = recibo.id ? String(recibo.id) : null;
     isEditingReciboDetails = false;
     reciboForm = {
       numero_recibo: String(recibo?.numero_recibo || ''),
@@ -455,7 +471,7 @@
     return formatDateValue(dateString);
   }
 
-  function getReciboCidade(recibo: any): string {
+  function getReciboCidade(recibo: VendaReciboResumo): string {
     return String(recibo?.destino_cidade?.nome || venda?.destino_cidade?.nome || '').trim() || 'Não informada';
   }
 
@@ -484,7 +500,7 @@
   $: valorLiquido = valorTotal - valorTaxas;
   $: quantidadeRecibos = venda?.recibos?.length || 0;
   $: totalRecibosValor = Array.isArray(venda?.recibos)
-    ? venda.recibos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
+    ? venda.recibos.reduce((acc: number, item: VendaReciboResumo) => acc + Number(item.valor_total || 0), 0)
     : 0;
   $: totalPagamentosValor = Array.isArray(venda?.pagamentos)
     ? venda.pagamentos.reduce((acc: number, item: any) => acc + Number(item.valor_total || 0), 0)
@@ -495,7 +511,7 @@
     ? Array.from(
         new Set(
           venda.recibos
-            .map((recibo: any) => String(recibo?.destino_cidade?.nome || '').trim())
+            .map((recibo: VendaReciboResumo) => String(recibo?.destino_cidade?.nome || '').trim())
             .filter(Boolean)
         )
       )
