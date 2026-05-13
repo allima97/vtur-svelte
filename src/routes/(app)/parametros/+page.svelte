@@ -515,6 +515,7 @@
   }
 
   type MenuPrefs = { hidden: string[] };
+  type MenuPrefsResponse = { prefs?: Partial<MenuPrefs> | null };
   let secoesVisiveis = SECOES;
   let prefs: MenuPrefs = { hidden: [] };
   let menuLoading = true;
@@ -527,7 +528,7 @@
   async function loadMenuPrefs() {
     menuLoading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/menu/prefs');
+      const payload = await apiGet<MenuPrefsResponse>('/api/v1/menu/prefs');
       const hidden = Array.isArray(payload?.prefs?.hidden) ? payload.prefs.hidden : [];
       prefs = { hidden };
       localStorage.setItem(MENU_PREFS_KEY, JSON.stringify({ hidden }));
