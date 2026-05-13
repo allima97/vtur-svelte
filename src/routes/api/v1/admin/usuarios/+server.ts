@@ -52,6 +52,15 @@ function matchesSearch(haystack: string, query: string) {
   return haystack.toLowerCase().includes(query);
 }
 
+function resolveFinanceiroCompanyIds(input: unknown[], companyId?: string | null) {
+  return Array.from(
+    new Set([
+      ...input.map((id: unknown) => String(id || '').trim()),
+      ...(companyId ? [companyId] : [])
+    ])
+  );
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -197,12 +206,7 @@ export async function POST(event) {
         return new Response('Somente ADMIN pode criar usuario individual sem empresa.', { status: 403, headers: NO_STORE_HEADERS });
       }
 
-      const financeiroCompanyIds = Array.from(
-        new Set([
-          ...financeiroCompanyIdsInput.map((id: unknown) => String(id || '').trim()),
-          ...(companyId ? [companyId] : [])
-        ])
-      );
+      const financeiroCompanyIds = resolveFinanceiroCompanyIds(financeiroCompanyIdsInput, companyId);
       if (isFinanceiroRole(userTypeName)) {
         if (usoIndividual) {
           return new Response('Usuario financeiro deve ser corporativo e vinculado a empresa.', { status: 400, headers: NO_STORE_HEADERS });
@@ -253,12 +257,7 @@ export async function POST(event) {
     const effectiveUsoIndividual =
       'uso_individual' in body ? usoIndividual : Boolean(currentUser.uso_individual);
     const effectiveCompanyId = companyId || currentUser.company_id || null;
-    const financeiroCompanyIds = Array.from(
-      new Set([
-        ...financeiroCompanyIdsInput.map((id: unknown) => String(id || '').trim()),
-        ...(effectiveCompanyId ? [effectiveCompanyId] : [])
-      ])
-    );
+    const financeiroCompanyIds = resolveFinanceiroCompanyIds(financeiroCompanyIdsInput, effectiveCompanyId);
 
     if (requestedId !== scope.userId) {
       ensureAssignableCompany(scope, effectiveUsoIndividual ? null : effectiveCompanyId);
