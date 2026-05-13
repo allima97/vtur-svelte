@@ -64,7 +64,7 @@
       key: 'owner_user',
       label: 'Registrado por',
       sortable: false,
-      formatter: (_: any, row: Cambio) => String(row.owner_user?.nome_completo || '-')
+      formatter: (_: unknown, row: Cambio) => String(row.owner_user?.nome_completo || '-')
     }
   ];
 

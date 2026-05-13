@@ -88,7 +88,7 @@
   function getTipoNome(usuario: Usuario): string {
     const tipo = usuario.user_types;
     if (!tipo) return '';
-    return String((tipo as any).name || '');
+    return String(tipo.name || '');
   }
 
   $: usuariosFiltrados = usuarios.filter((u) => {
