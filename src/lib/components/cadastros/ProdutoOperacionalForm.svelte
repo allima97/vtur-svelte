@@ -42,6 +42,47 @@
     valor_em_reais: number;
   };
 
+  type DestinoProdutoSugestao = {
+    destino?: string | null;
+    atracao_principal?: string | null;
+    melhor_epoca?: string | null;
+  };
+
+  type ProdutoDetalhe = {
+    nome?: string | null;
+    destino?: string | null;
+    cidade_id?: string | null;
+    tipo_produto?: string | null;
+    atracao_principal?: string | null;
+    melhor_epoca?: string | null;
+    duracao_sugerida?: string | null;
+    nivel_preco?: string | null;
+    imagem_url?: string | null;
+    informacoes_importantes?: string | null;
+    ativo?: boolean | null;
+    fornecedor_id?: string | null;
+    fornecedor?: {
+      nome_fantasia?: string | null;
+      nome_completo?: string | null;
+    } | null;
+    todas_as_cidades?: boolean | null;
+    valor_neto?: number | string | null;
+    margem?: number | string | null;
+    valor_venda?: number | string | null;
+    moeda?: string | null;
+    cambio?: number | string | null;
+    valor_em_reais?: number | string | null;
+    tarifas?: Array<Partial<Tarifa>>;
+  };
+
+  type ProdutoSaveResponse = {
+    data?: {
+      id?: string | null;
+      data?: { id?: string | null } | null;
+      produto?: { id?: string | null } | null;
+    } | null;
+  };
+
   const initialForm = {
     nome: '',
     destino: '',
@@ -104,7 +145,7 @@
       tipos?: Option[];
       cidades?: Option[];
       fornecedores?: Option[];
-      destinosProdutos?: any[];
+      destinosProdutos?: DestinoProdutoSugestao[];
     }>('/api/v1/produtos/base', { all: 1, page: 1, pageSize: 500 });
     tipos = data.tipos || [];
     cidades = data.cidades || [];
@@ -131,7 +172,7 @@
 
   async function loadProduto() {
     if (!produtoId) return;
-    const data = await apiGet<any>(`/api/v1/produtos/${produtoId}`);
+    const data = await apiGet<ProdutoDetalhe>(`/api/v1/produtos/${produtoId}`);
     const fornecedorLabel = data?.fornecedor?.nome_fantasia || data?.fornecedor?.nome_completo || '';
     form = {
       nome: data.nome || '',
@@ -155,7 +196,7 @@
       cambio: Number(data.cambio || 1),
       valor_em_reais: Number(data.valor_em_reais || 0)
     };
-    tarifas = (data.tarifas || []).map((item: any) => ({
+    tarifas = (data.tarifas || []).map((item) => ({
       id: item.id,
       acomodacao: item.acomodacao || '',
       qte_pax: Number(item.qte_pax || 0),
@@ -233,7 +274,7 @@
     tarifas = tarifas.filter((_item, current) => current !== index);
   }
 
-  function updateTarifa(index: number, key: keyof Tarifa, value: any) {
+  function updateTarifa(index: number, key: keyof Tarifa, value: Tarifa[keyof Tarifa]) {
     tarifas = tarifas.map((item, current) => {
       if (current !== index) return item;
       const next = { ...item, [key]: value };
@@ -270,17 +311,17 @@
       };
 
       const data = isCreateMode
-        ? await apiPost<any>('/api/v1/produtos/create', payload)
-        : await apiPatch<any>(`/api/v1/produtos/${produtoId}`, payload);
+        ? await apiPost<ProdutoSaveResponse>('/api/v1/produtos/create', payload)
+        : await apiPatch<ProdutoSaveResponse>(`/api/v1/produtos/${produtoId}`, payload);
 
       const savedId = String(data?.data?.id || data?.data?.data?.id || data?.data?.produto?.id || data?.data?.id || produtoId || '');
       if (savedId) await saveTarifas(savedId);
 
       toast.success(isCreateMode ? 'Cadastro salvo com sucesso.' : 'Cadastro atualizado com sucesso.');
       goto(routeBase);
-    } catch (err: any) {
+    } catch (err) {
       if (dev) console.error(err);
-      toast.error(err?.message || 'Erro ao salvar cadastro.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar cadastro.');
     } finally {
       saving = false;
     }
