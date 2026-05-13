@@ -15,9 +15,24 @@ import { cleanStringSet, chunkArray } from "$lib/utils/array";
 
 const MAX_VIAGEM_DELETE_BODY_BYTES = 64 * 1024;
 
-function vendedorOwnsViagem(userId: string, viagem: any) {
-  const responsavelId = String(viagem?.responsavel_user_id || "").trim();
-  const vendedorId = String(viagem?.venda?.vendedor_id || "").trim();
+type ViagemDeleteBody = {
+  id?: string | null;
+  venda_id?: string | null;
+  company_id?: string | null;
+  empresa_id?: string | null;
+};
+
+type ViagemDeleteRow = {
+  id: string | null;
+  company_id: string | null;
+  responsavel_user_id: string | null;
+  venda: { vendedor_id: string | null }[] | null;
+};
+
+function vendedorOwnsViagem(userId: string, viagem: ViagemDeleteRow) {
+  const responsavelId = String(viagem.responsavel_user_id || "").trim();
+  const vendaRow = Array.isArray(viagem.venda) ? (viagem.venda[0] ?? null) : null;
+  const vendedorId = String(vendaRow?.vendedor_id || "").trim();
   return responsavelId === userId || vendedorId === userId;
 }
 
@@ -41,9 +56,9 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body =
+    const body: ViagemDeleteBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ViagemDeleteBody)
         : {};
     const id = String(body?.id || "").trim();
     const vendaId = String(body?.venda_id || "").trim();
@@ -85,8 +100,8 @@ export async function POST(event: RequestEvent) {
     }
 
     const companySet = cleanStringSet(companyIds);
-    const scopedAffectedRows = (affectedRows || []).filter((row: any) => {
-      const companyId = String(row?.company_id || "").trim();
+    const scopedAffectedRows = ((affectedRows || []) as ViagemDeleteRow[]).filter((row) => {
+      const companyId = String(row.company_id || "").trim();
       if (companySet.size > 0 && !companySet.has(companyId)) return false;
       if (scope.isVendedor && !vendedorOwnsViagem(user.id, row)) return false;
       return true;
@@ -97,7 +112,7 @@ export async function POST(event: RequestEvent) {
     }
 
     const allowedIds = scopedAffectedRows
-      .map((row: any) => String(row?.id || "").trim())
+      .map((row) => String(row.id || "").trim())
       .filter((rowId) => isUuid(rowId));
     if (allowedIds.length === 0) {
       return json({ error: "Viagem nao encontrada." }, { status: 404, headers: NO_STORE_HEADERS });
@@ -112,14 +127,14 @@ export async function POST(event: RequestEvent) {
       companyIds: Array.from(
         new Set(
           scopedAffectedRows
-            .map((row: any) => String(row?.company_id || ""))
+            .map((row) => String(row.company_id || ""))
             .filter(Boolean),
         ),
       ),
       vendedorIds: Array.from(
         new Set(
           scopedAffectedRows
-            .map((row: any) => String(row?.responsavel_user_id || ""))
+            .map((row) => String(row.responsavel_user_id || ""))
             .filter(Boolean),
         ),
       ),
