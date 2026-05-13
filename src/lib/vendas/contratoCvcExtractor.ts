@@ -35,6 +35,73 @@ const FORNECEDOR_HOTEL_KEYWORDS = ["hotel", "resort", "pousada", "hospedagem", "
 const FORNECEDOR_AEREO_KEYWORDS = ["aereo", "aéreo", "voo", "passagem", "airlines", "latam", "gol"];
 const FORNECEDOR_TRANSPORTE_KEYWORDS = ["transporte", "translado", "traslado", "transfer", "transporte compartilhado"];
 const FRETAMENTO_KEYWORDS = ["fretamento", "fretado"];
+const ROTEIRO_INLINE_STOP_LABELS = [
+  /\bTipo\s+de\s+Produto\b/i,
+  /\bN[uú]mero\s+do\s+Roteiro\b/i,
+  /\bRoteiro\s+Systur\b/i,
+  /\bData\s+de\s+Sa[ií]da\b/i,
+  /\bData\s+de\s+Retorno\b/i,
+];
+const TIPO_PACOTE_BLOCKED_LABELS = [
+  "desvio loja",
+  "quantidade de passageiros por hotel",
+  "quantidade de hotel",
+  "quantidade de apartamento",
+  "fornecedor online",
+  "reserva da intranet",
+  "adultos",
+  "criancas",
+  "crianças",
+];
+const TIPO_PACOTE_HEADER_TOKENS = [
+  "sobrenome",
+  "nome",
+  "nascimento",
+  "sexo",
+  "idade",
+  "local de embarque",
+  "turno de refeição",
+  "passageiros",
+  "observação",
+];
+const ROTEIRO_LABELS = [
+  "Descricao do Roteiro",
+  "Descrição do Roteiro",
+  "Tipo de Produto",
+  "Numero do Roteiro",
+  "Número do Roteiro",
+  "Roteiro Systur",
+  "Data de Saida",
+  "Data de Saída",
+  "Data de Retorno",
+  "Vendedor",
+  "OFFICE ID",
+  "Voo",
+  "Vôo",
+  "Mensagem",
+];
+const DADOS_RESERVA_LABELS = [
+  "Filial",
+  "Carrinho ID",
+  "Tipo de Venda",
+  "Pedido",
+  "Pedido gerado Via Orçamento Dinâmico",
+  "Pedido gerado Via Orcamento Dinamico",
+  "Numero da Reserva",
+  "Número da Reserva",
+  "Vendedor da Reserva",
+  "Data da Reserva",
+  "Remarcação",
+  "Remarcacao",
+  "Validade da Reserva",
+  "Tipo de Reserva",
+  "Tabela",
+  "Observação",
+  "Observacao",
+  "Operador Online",
+  "Tipo de Pacote",
+  "Desvio Loja",
+];
 
 function buildFretamentoLabel(raw?: string | null) {
   if (!raw) return null;
@@ -360,15 +427,8 @@ function extractBlockValue(block: string, label: string, stopLabels: string[]) {
 }
 
 function stripRoteiroInlineStopLabels(value: string) {
-  const stops = [
-    /\bTipo\s+de\s+Produto\b/i,
-    /\bN[uú]mero\s+do\s+Roteiro\b/i,
-    /\bRoteiro\s+Systur\b/i,
-    /\bData\s+de\s+Sa[ií]da\b/i,
-    /\bData\s+de\s+Retorno\b/i,
-  ];
   let cutIndex = value.length;
-  for (const stop of stops) {
+  for (const stop of ROTEIRO_INLINE_STOP_LABELS) {
     const idx = value.search(stop);
     if (idx >= 0 && idx < cutIndex) cutIndex = idx;
   }
@@ -612,30 +672,8 @@ function sanitizeTipoPacote(value?: string | null) {
   if (!trimmed) return null;
   const normalized = normalizeText(trimmed, { trim: true, collapseWhitespace: true });
   if (!normalized || normalized === "0" || normalized === "00" || normalized === "0,00") return null;
-  const blocked = [
-    "desvio loja",
-    "quantidade de passageiros por hotel",
-    "quantidade de hotel",
-    "quantidade de apartamento",
-    "fornecedor online",
-    "reserva da intranet",
-    "adultos",
-    "criancas",
-    "crianças",
-  ];
-  if (blocked.some((label) => normalized.includes(label))) return null;
-  const headerTokens = [
-    "sobrenome",
-    "nome",
-    "nascimento",
-    "sexo",
-    "idade",
-    "local de embarque",
-    "turno de refeição",
-    "passageiros",
-    "observação",
-  ];
-  if (headerTokens.some((token) => normalized.includes(token))) return null;
+  if (TIPO_PACOTE_BLOCKED_LABELS.some((label) => normalized.includes(label))) return null;
+  if (TIPO_PACOTE_HEADER_TOKENS.some((token) => normalized.includes(token))) return null;
   return normalizePlaceholderValue(trimmed) || null;
 }
 
@@ -1125,22 +1163,7 @@ function parseRoteiroContratante(lines: string[]) {
 function parseRoteiroRoteiro(lines: string[]) {
   if (!lines.length) return null;
   const text = lines.join("\n");
-  const labels = [
-    "Descricao do Roteiro",
-    "Descrição do Roteiro",
-    "Tipo de Produto",
-    "Numero do Roteiro",
-    "Número do Roteiro",
-    "Roteiro Systur",
-    "Data de Saida",
-    "Data de Saída",
-    "Data de Retorno",
-    "Vendedor",
-    "OFFICE ID",
-    "Voo",
-    "Vôo",
-    "Mensagem",
-  ];
+  const labels = ROTEIRO_LABELS;
 
   const descricaoRaw =
     extractDescricaoRoteiro(lines) ||
@@ -1312,28 +1335,7 @@ function extractValueBetweenSplitLabels(
 function parseRoteiroDadosReserva(lines: string[]) {
   if (!lines.length) return null;
   const text = lines.join(" ");
-  const labels = [
-    "Filial",
-    "Carrinho ID",
-    "Tipo de Venda",
-    "Pedido",
-    "Pedido gerado Via Orçamento Dinâmico",
-    "Pedido gerado Via Orcamento Dinamico",
-    "Numero da Reserva",
-    "Número da Reserva",
-    "Vendedor da Reserva",
-    "Data da Reserva",
-    "Remarcação",
-    "Remarcacao",
-    "Validade da Reserva",
-    "Tipo de Reserva",
-    "Tabela",
-    "Observação",
-    "Observacao",
-    "Operador Online",
-    "Tipo de Pacote",
-    "Desvio Loja",
-  ];
+  const labels = DADOS_RESERVA_LABELS;
 
   const filial = extractLabelValueFromBlock(text, "Filial", labels);
   const carrinho_id = extractLabelValueFromBlock(text, "Carrinho ID", labels);
