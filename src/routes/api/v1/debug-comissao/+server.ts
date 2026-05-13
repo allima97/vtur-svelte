@@ -27,6 +27,29 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const DEBUG_HEADERS = NO_STORE_HEADERS;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type DebugRecibo = {
+  id?: string | null;
+  produto_id?: string | null;
+  percentual_comissao_loja?: number | string | null;
+  faixa_comissao?: string | null;
+  is_seguro_viagem?: boolean | null;
+  valor_bruto_override?: number | null;
+  valor_liquido_override?: number | null;
+  valor_meta_override?: number | null;
+  tipo_produtos?: {
+    id?: string | null;
+    nome?: string | null;
+  } | null;
+};
+
+type SyntheticVendaRow = (ReturnType<typeof buildConciliacaoSyntheticVendas>)[number];
+type DebugSyntheticRow = SyntheticVendaRow & {
+  vendas_recibos?: DebugRecibo[] | null;
+  recibos: DebugRecibo[];
+};
+type CommissionRowsInput = Parameters<typeof calcularComissaoRows>[0];
+
 type ConciliacaoFaixaResumo = {
   faixa_loja?: string | null;
   ativo?: boolean | null;
@@ -80,31 +103,38 @@ export async function GET(event: RequestEvent) {
     });
 
     const syntheticVendas = buildConciliacaoSyntheticVendas(concReceipts);
-    const syntheticRows = syntheticVendas.map((row: any) => ({
+    const syntheticRows = syntheticVendas.map((row): DebugSyntheticRow => ({
       ...row,
       recibos: Array.isArray(row?.vendas_recibos) ? row.vendas_recibos : []
     }));
 
     const periodoMeta = dataInicio ? dataInicio.slice(0, 7) + '-01' : '';
-    const ctx = await fetchCommissionContext(client, { companyIds, rows: syntheticRows, periodo: periodoMeta });
+    const ctx = await fetchCommissionContext(client, {
+      companyIds,
+      rows: syntheticRows as unknown as CommissionRowsInput,
+      periodo: periodoMeta,
+    });
     const params = ctx.params;
 
     // Diagnóstico deep para "Passagem Facial"
-    const passagemRows = syntheticRows.filter((row: any) =>
-      (row.recibos || []).some((r: any) =>
+    const passagemRows = syntheticRows.filter((row) =>
+      (row.recibos || []).some((r) =>
         String(r?.tipo_produtos?.nome || '').toLowerCase().includes('passagem') ||
         String(r?.produto_id || '') === '5ef10eb0-2b54-42bd-bc1e-d3dbb727726e'
       )
     );
 
     // Calcula comissão via engine completo para estas rows
-    const { pctMetaGeral, pctByReceiptId } = calcularComissaoRows(syntheticRows as any, ctx);
+    const { pctMetaGeral, pctByReceiptId } = calcularComissaoRows(
+      syntheticRows as unknown as CommissionRowsInput,
+      ctx,
+    );
 
-    const diag = passagemRows.slice(0, 3).map((row: any) => {
-      return (row.recibos || []).filter((r: any) =>
+    const diag = passagemRows.slice(0, 3).map((row) => {
+      return (row.recibos || []).filter((r) =>
         String(r?.tipo_produtos?.nome || '').toLowerCase().includes('passagem') ||
         String(r?.produto_id || '') === '5ef10eb0-2b54-42bd-bc1e-d3dbb727726e'
-      ).map((recibo: any) => {
+      ).map((recibo) => {
         const productId = String(recibo?.tipo_produtos?.id || recibo?.produto_id || '');
         const produtoRegraBase = productId ? ctx.regraProdutoMap[productId] || null : null;
         const selectedRuleHasFixed = Boolean(produtoRegraBase && regraProdutoTemFixo(produtoRegraBase));
