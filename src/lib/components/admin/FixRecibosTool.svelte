@@ -54,6 +54,33 @@
     nome_completo: string;
   };
 
+  type SearchDocumentsResponse = {
+    conciliacao_rows?: ConcRow[];
+  };
+
+  type SearchUsersResponse = {
+    usuarios?: UserOption[];
+  };
+
+  type FixRecibosAction = 'fix_link' | 'fix_vendor' | 'fix_valor';
+
+  type FixRecibosPayload = {
+    action: string;
+    id: string;
+    vendedor_id?: string;
+    venda_recibo_id?: string;
+    valor_lancamentos?: number;
+    valor_venda_real?: number;
+  };
+
+  type FixRecibosResponse = {
+    updated?: { documento?: string | null } | Array<{ documento?: string | null }>;
+  };
+
+  type ApiErrorLike = {
+    message?: string;
+  };
+
   const FIX_OPTIONS = [
     { value: 'fix_link', label: 'Corrigir vínculo com recibo de venda' },
     { value: 'fix_vendor', label: 'Trocar vendedor atribuido no ranking' },
@@ -67,7 +94,7 @@
   let errorMsg = '';
 
   let fixId = '';
-  let fixAction = 'fix_vendor';
+  let fixAction: FixRecibosAction = 'fix_vendor';
   let fixVendedorId = '';
   let fixValorLancamentos = '';
   let fixValorVendaReal = '';
@@ -126,7 +153,7 @@
     rows = [];
 
     try {
-      const data: any = await apiFetch(API_ENDPOINT, {
+      const data = await apiFetch<SearchDocumentsResponse>(API_ENDPOINT, {
         method: 'GET',
         query: { docs },
         redirectOnForbidden: false
@@ -135,8 +162,8 @@
       if (!options.suppressSuccessMessage) {
         message = `${rows.length} linha(s) encontrada(s)`;
       }
-    } catch (err: any) {
-      errorMsg = err.message || 'Erro ao buscar dados';
+    } catch (err: unknown) {
+      errorMsg = (err as ApiErrorLike).message || 'Erro ao buscar dados';
     } finally {
       loading = false;
     }
@@ -149,7 +176,7 @@
     userResults = [];
 
     try {
-      const data: any = await apiFetch(API_ENDPOINT, {
+      const data = await apiFetch<SearchUsersResponse>(API_ENDPOINT, {
         method: 'GET',
         query: {
           busca_usuario: userSearch,
@@ -158,8 +185,8 @@
         redirectOnForbidden: false
       });
       userResults = data.usuarios || [];
-    } catch (err: any) {
-      errorMsg = err.message || 'Erro ao buscar vendedores';
+    } catch (err: unknown) {
+      errorMsg = (err as ApiErrorLike).message || 'Erro ao buscar vendedores';
     } finally {
       userSearchLoading = false;
     }
@@ -176,7 +203,7 @@
     message = '';
 
     try {
-      const body: any = { action: fixAction, id: fixId };
+      const body: FixRecibosPayload = { action: fixAction, id: fixId };
 
       if (fixAction === 'fix_vendor') {
         if (!fixVendedorId.trim()) {
@@ -231,7 +258,7 @@
         }
       }
 
-      const data: any = await apiFetch(API_ENDPOINT, {
+      const data = await apiFetch<FixRecibosResponse>(API_ENDPOINT, {
         method: 'POST',
         body,
         redirectOnForbidden: false
@@ -239,8 +266,8 @@
       await fetchDocs({ suppressSuccessMessage: true });
       const updated = Array.isArray(data.updated) ? data.updated[0] : data.updated;
       message = `Correção aplicada em ${updated?.documento || 'registro selecionado'}.`;
-    } catch (err: any) {
-      errorMsg = err.message || 'Erro ao aplicar correção';
+    } catch (err: unknown) {
+      errorMsg = (err as ApiErrorLike).message || 'Erro ao aplicar correção';
     } finally {
       loading = false;
     }
