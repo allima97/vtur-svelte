@@ -20,10 +20,12 @@ import {
   uniqueCleanStrings
 } from '$lib/utils/array';
 
+const ISO_DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+
 function isIsoDate(value?: string | null) {
   const normalized = String(value || "").trim();
   if (!normalized) return true;
-  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(normalized);
+  return ISO_DATE_PATTERN.test(normalized);
 }
 
 function isRateioTableMissingError(err: any) {
