@@ -60,6 +60,10 @@ export type FollowUpItem = {
   updated_at: string | null;
 };
 
+const ISO_DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
+const ISO_DATE_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
+const BR_DATE_PATTERN = /^\d{2}\/\d{2}\/\d{4}$/;
+
 export function ensureAgendaAccess(scope: UserScope, minLevel: number, message: string) {
   if (scope.isAdmin) return;
   ensureModuloAccess(scope, ['operacao_agenda', 'agenda', 'operacao'], minLevel, message);
@@ -81,7 +85,7 @@ export function ensureFollowUpAccess(scope: UserScope, minLevel: number, message
 }
 
 export function isIsoDate(value?: string | null) {
-  return /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(value || '').trim());
+  return ISO_DATE_PATTERN.test(String(value || '').trim());
 }
 
 export function normalizeTodoStatus(value: unknown): TodoStatus {
@@ -126,10 +130,10 @@ export function parseDateToUTC(value: string) {
   const raw = String(value || '').trim();
   if (!raw) return new Date(NaN);
 
-  const isoPrefix = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  const isoPrefix = raw.match(ISO_DATE_PREFIX_PATTERN);
   if (isoPrefix?.[1]) return new Date(`${isoPrefix[1]}T00:00:00Z`);
 
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+  if (BR_DATE_PATTERN.test(raw)) {
     const [dd, mm, yyyy] = raw.split('/');
     return new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
   }
