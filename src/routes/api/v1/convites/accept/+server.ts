@@ -6,6 +6,24 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_CONVITE_ACCEPT_BODY_BYTES = 32 * 1024;
 
+type ConviteRow = {
+  id?: string | null;
+  status?: string | null;
+  invited_email?: string | null;
+  invited_user_id?: string | null;
+  company_id?: string | null;
+  user_type_id?: string | null;
+  invited_by_role?: string | null;
+  expires_at?: string | null;
+  uso_individual?: boolean | null;
+};
+
+type PerfilExistenteRow = {
+  id?: string | null;
+  company_id?: string | null;
+  uso_individual?: boolean | null;
+};
+
 function readErrorField(error: unknown, field: string) {
   return error && typeof error === "object"
     ? (error as Record<string, unknown>)[field]
@@ -72,19 +90,21 @@ export const POST: RequestHandler = async (event) => {
       throw conviteErr;
     }
 
-    if (!convite?.id) return errorJson("Convite nao encontrado.", 404);
+    const conviteRow = convite as ConviteRow | null;
 
-    const status = String((convite as any)?.status || "").toLowerCase();
+    if (!conviteRow?.id) return errorJson("Convite nao encontrado.", 404);
+
+    const status = String(conviteRow.status || "").toLowerCase();
     if (status !== "pending") {
       return errorJson("Convite nao esta pendente.", 409);
     }
 
-    const invitedEmail = String((convite as any)?.invited_email || "").trim().toLowerCase();
+    const invitedEmail = String(conviteRow.invited_email || "").trim().toLowerCase();
     if (invitedEmail !== email) {
       return errorJson("Convite nao corresponde a este e-mail.", 403);
     }
 
-    const expiresAtRaw = String((convite as any)?.expires_at || "");
+    const expiresAtRaw = String(conviteRow.expires_at || "");
     if (expiresAtRaw) {
       const expiresAt = new Date(expiresAtRaw);
       if (!Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now()) {
@@ -96,14 +116,14 @@ export const POST: RequestHandler = async (event) => {
       }
     }
 
-    const alreadyBoundId = (convite as any)?.invited_user_id as string | null;
+    const alreadyBoundId = conviteRow.invited_user_id || null;
     if (alreadyBoundId && alreadyBoundId !== user.id) {
       return errorJson("Convite ja foi associado a outro usuario.", 409);
     }
 
-    const companyId = String((convite as any)?.company_id || "").trim();
-    const userTypeId = String((convite as any)?.user_type_id || "").trim();
-    const usoIndividual = Boolean((convite as any)?.uso_individual);
+    const companyId = String(conviteRow.company_id || "").trim();
+    const userTypeId = String(conviteRow.user_type_id || "").trim();
+    const usoIndividual = Boolean(conviteRow.uso_individual);
     if ((!usoIndividual && !companyId) || !userTypeId) {
       return errorJson("Convite invalido (empresa/cargo ausente).", 400);
     }
@@ -115,16 +135,17 @@ export const POST: RequestHandler = async (event) => {
       .maybeSingle();
     if (perfilErr) throw perfilErr;
 
-    const companyAtual = String((perfilExistente as any)?.company_id || "").trim();
-    const usoAtual = (perfilExistente as any)?.uso_individual as boolean | null | undefined;
+    const perfilRow = perfilExistente as PerfilExistenteRow | null;
+    const companyAtual = String(perfilRow?.company_id || "").trim();
+    const usoAtual = perfilRow?.uso_individual;
 
     if (!usoIndividual && companyAtual && companyAtual !== companyId && usoAtual === false) {
       return errorJson("Usuario ja vinculado a outra empresa.", 409);
     }
 
-    const createdByGestor = String((convite as any)?.invited_by_role || "").toUpperCase() === "GESTOR";
+    const createdByGestor = String(conviteRow.invited_by_role || "").toUpperCase() === "GESTOR";
 
-    if (!perfilExistente?.id) {
+    if (!perfilRow?.id) {
       const { error: insertErr } = await adminClient.from("users").insert({
         id: user.id,
         email,
