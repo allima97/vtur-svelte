@@ -27,6 +27,22 @@ type ReciboMatchRow = {
   data_venda: string | null;
 };
 
+type VendaReciboCandidateRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+  data_venda?: string | null;
+};
+
+type VendaCompanySellerRow = {
+  id?: string | null;
+  company_id?: string | null;
+  vendedor_id?: string | null;
+};
+
 export type ReconcileResult = {
   checked: number;
   reconciled: number;
@@ -445,7 +461,7 @@ async function cleanupDuplicateConciliacaoRowsCompany(params: {
   const { data, error } = await query.limit(5000);
   if (error) throw error;
 
-  const grouped = new Map<string, any[]>();
+  const grouped = new Map<string, ConciliacaoDuplicateRow[]>();
   for (const row of data || []) {
     const key = duplicateGroupKey(row);
     const bucket = grouped.get(key) || [];
@@ -500,7 +516,7 @@ async function fetchReciboCandidates(params: {
   const normalizedKey = normalizeReceiptKey(numero);
   const candidatesById = new Map<string, ReciboMatchRow>();
 
-  const collect = (rows: any[]) => {
+  const collect = (rows: VendaReciboCandidateRow[]) => {
     for (const row of rows || []) {
       const id = String(row?.id || '').trim();
       const vendaId = String(row?.venda_id || '').trim();
@@ -559,7 +575,7 @@ async function fetchReciboCandidates(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
-  const vendas: any[] = [];
+  const vendas: VendaCompanySellerRow[] = [];
   for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
       .from('vendas')
@@ -597,7 +613,7 @@ async function fetchRexturReciboCandidatesByReserva(params: {
   if (!localizador) return [];
 
   const candidatesById = new Map<string, ReciboMatchRow>();
-  const collect = (rows: any[]) => {
+  const collect = (rows: VendaReciboCandidateRow[]) => {
     for (const row of rows || []) {
       const id = String(row?.id || '').trim();
       const vendaId = String(row?.venda_id || '').trim();
@@ -640,7 +656,7 @@ async function fetchRexturReciboCandidatesByReserva(params: {
   if (candidates.length === 0) return [];
 
   const vendaIds = uniqueCleanStrings(candidates.map((row) => row.venda_id));
-  const vendas: any[] = [];
+  const vendas: VendaCompanySellerRow[] = [];
   for (const batch of chunkArray(vendaIds, SUPABASE_IN_BATCH_SIZE)) {
     const { data, error } = await client
       .from('vendas')
