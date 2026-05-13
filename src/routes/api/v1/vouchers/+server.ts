@@ -15,6 +15,12 @@ import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_VOUCHER_BODY_BYTES = 512 * 1024;
 
+type VoucherListRow = {
+  id: string | null;
+  updated_at: string | null;
+  [key: string]: unknown;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -51,27 +57,27 @@ export async function GET(event) {
         return data || [];
       }
 
-      const rows: any[] = [];
+      const rows: VoucherListRow[] = [];
       for (const batch of chunkArray(companyIds)) {
         const { data, error } = await buildQuery(batch);
         if (error) throw error;
         rows.push(...(data || []));
       }
 
-      const rowsById = new Map<string, any>();
+      const rowsById = new Map<string, VoucherListRow>();
       for (const row of rows) {
         rowsById.set(String(row?.id || ''), row);
       }
 
       return Array.from(rowsById.values())
-        .sort((left: any, right: any) =>
+        .sort((left, right) =>
           String(right?.updated_at || '').localeCompare(String(left?.updated_at || ''))
         )
         .slice(0, 500);
     };
 
     return json({ success: true, items: await fetchItems() }, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao carregar vouchers.');
   }
 }
@@ -154,7 +160,7 @@ export async function POST(event) {
     }
 
     return json({ success: true, item: { id: voucher.id } }, { headers: NO_STORE_HEADERS });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return toErrorResponse(err, 'Erro ao criar voucher.');
   }
 }
