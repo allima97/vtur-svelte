@@ -14,6 +14,29 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_GERAR_ORCAMENTO_BODY_BYTES = 64 * 1024;
 
+type GerarOrcamentoBody = {
+  roteiro_id?: unknown;
+  client_name?: unknown;
+  client_whatsapp?: unknown;
+  client_email?: unknown;
+  client_id?: unknown;
+};
+
+type RoteiroPagamentoRow = {
+  servico?: string | null;
+  valor_total_com_taxas?: number | string | null;
+  taxas?: number | string | null;
+  forma_pagamento?: string | null;
+  ordem?: number | null;
+};
+
+type ClienteResumoRow = {
+  nome?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+};
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -29,7 +52,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as GerarOrcamentoBody)
         : null;
     if (!body) return new Response('Body invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
@@ -59,11 +82,11 @@ export async function POST(event: RequestEvent) {
     if (pagErr) throw pagErr;
 
     const total = (pagamentos || []).reduce(
-      (sum: number, p: any) => sum + Number(p.valor_total_com_taxas || 0),
+      (sum: number, p: RoteiroPagamentoRow) => sum + Number(p.valor_total_com_taxas || 0),
       0
     );
     const taxesTotal = (pagamentos || []).reduce(
-      (sum: number, p: any) => sum + Number(p.taxas || 0),
+      (sum: number, p: RoteiroPagamentoRow) => sum + Number(p.taxas || 0),
       0
     );
 
@@ -83,12 +106,13 @@ export async function POST(event: RequestEvent) {
         .maybeSingle();
 
       if (cliente) {
-        const clienteCompanyId = String((cliente as any).company_id || '').trim();
+        const clienteRow = cliente as ClienteResumoRow;
+        const clienteCompanyId = String(clienteRow.company_id || '').trim();
         if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
           return new Response('Cliente fora do seu escopo.', { status: 403, headers: NO_STORE_HEADERS });
         }
-        clientWhatsapp = clientWhatsapp || (cliente as any).whatsapp || null;
-        clientEmail = clientEmail || (cliente as any).email || null;
+        clientWhatsapp = clientWhatsapp || clienteRow.whatsapp || null;
+        clientEmail = clientEmail || clienteRow.email || null;
       }
     }
 
@@ -117,7 +141,7 @@ export async function POST(event: RequestEvent) {
 
     // Criar quote_items a partir dos pagamentos
     if (pagamentos && pagamentos.length > 0) {
-      const items = pagamentos.map((p: any, idx: number) => ({
+      const items = pagamentos.map((p: RoteiroPagamentoRow, idx: number) => ({
         quote_id: quote.id,
         item_type: p.servico || 'Servico',
         title: p.servico || 'Servico',
