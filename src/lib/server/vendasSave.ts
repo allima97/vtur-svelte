@@ -54,6 +54,25 @@ type PagamentoInput = {
   [key: string]: unknown;
 };
 
+type VendaInput = {
+  data_venda?: unknown;
+  data_lancamento?: unknown;
+  destino_cidade_id?: unknown;
+  data_embarque?: unknown;
+  data_final?: unknown;
+  desconto_comercial_aplicado?: unknown;
+  desconto_comercial_valor?: unknown;
+  valor_total_bruto?: unknown;
+  valor_total_pago?: unknown;
+  valor_total?: unknown;
+  valor_taxas?: unknown;
+  valor_nao_comissionado?: unknown;
+  produto_id?: unknown;
+  status?: unknown;
+  cancelada?: unknown;
+  notas?: unknown;
+};
+
 function collapseSpaces(value?: string | null) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -332,7 +351,7 @@ export async function ensureReciboReservaUnicos(params: {
 }
 
 export function buildVendaPayload(
-  venda: any,
+  venda: VendaInput,
   vendedorId: string,
   clienteId: string,
   destinoId: string,
