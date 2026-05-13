@@ -10,6 +10,10 @@ import type {
   VoucherTransferInfo,
 } from "./types";
 
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const SHORT_DATE_RE = /^(\d{2})\/(\d{2})$/;
+const DAY_TITLE_RE = /^\(([^)]+)\)\s*:\s*(.+)$/;
+
 function textValue(value?: string | null) {
   return String(value || "").trim();
 }
@@ -33,10 +37,10 @@ function normalizeLookupValue(value?: string | null) {
 function formatDateBR(value?: string | null) {
   const raw = textValue(value);
   if (!raw) return "";
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const match = raw.match(ISO_DATE_RE);
   if (match) return `${match[3]}/${match[2]}/${match[1]}`;
 
-  const shortMatch = raw.match(/^(\d{2})\/(\d{2})$/);
+  const shortMatch = raw.match(SHORT_DATE_RE);
   if (shortMatch) return raw;
   return raw;
 }
@@ -187,7 +191,7 @@ function buildRouteTitle(voucher: VoucherRecord) {
 
 function parseDayTitle(value?: string | null) {
   const raw = textValue(value);
-  const match = raw.match(/^\(([^)]+)\)\s*:\s*(.+)$/);
+  const match = raw.match(DAY_TITLE_RE);
   if (!match) return { note: "", title: raw };
   return {
     note: textValue(match[1]),
