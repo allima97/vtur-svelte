@@ -21,39 +21,43 @@ function normalizeDateValue(value?: string | null) {
   return raw;
 }
 
-function normalizePassengerDetail(value: any, index: number): VoucherPassengerDetail {
+function normalizePassengerDetail(value: unknown, index: number): VoucherPassengerDetail {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    nome: textValue(value?.nome),
-    passenger_id: textValue(value?.passenger_id) || null,
-    tipo: textValue(value?.tipo) || null,
-    passaporte: textValue(value?.passaporte) || null,
-    data_nascimento: normalizeDateValue(value?.data_nascimento) || null,
-    nacionalidade: textValue(value?.nacionalidade) || null,
-    ordem: Number.isFinite(Number(value?.ordem)) ? Number(value.ordem) : index,
+    nome: textValue(raw.nome as string | null | undefined),
+    passenger_id: textValue(raw.passenger_id as string | null | undefined) || null,
+    tipo: textValue(raw.tipo as string | null | undefined) || null,
+    passaporte: textValue(raw.passaporte as string | null | undefined) || null,
+    data_nascimento: normalizeDateValue(raw.data_nascimento as string | null | undefined) || null,
+    nacionalidade: textValue(raw.nacionalidade as string | null | undefined) || null,
+    ordem: Number.isFinite(Number(raw.ordem)) ? Number(raw.ordem) : index,
   };
 }
 
-function normalizeTransferInfo(value: any): VoucherTransferInfo {
+function normalizeTransferInfo(value: unknown): VoucherTransferInfo {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    detalhes: textValue(value?.detalhes) || null,
-    notas: textValue(value?.notas) || null,
-    telefone_transferista: textValue(value?.telefone_transferista) || null,
+    detalhes: textValue(raw.detalhes as string | null | undefined) || null,
+    notas: textValue(raw.notas as string | null | undefined) || null,
+    telefone_transferista: textValue(raw.telefone_transferista as string | null | undefined) || null,
   };
 }
 
-function normalizeEmergencyInfo(value: any): VoucherEmergencyInfo {
+function normalizeEmergencyInfo(value: unknown): VoucherEmergencyInfo {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    escritorio: textValue(value?.escritorio) || null,
-    emergencia_24h: textValue(value?.emergencia_24h) || null,
-    whatsapp: textValue(value?.whatsapp) || null,
+    escritorio: textValue(raw.escritorio as string | null | undefined) || null,
+    emergencia_24h: textValue(raw.emergencia_24h as string | null | undefined) || null,
+    whatsapp: textValue(raw.whatsapp as string | null | undefined) || null,
   };
 }
 
-function normalizeAppInfo(value: any, index: number): VoucherAppInfo {
+function normalizeAppInfo(value: unknown, index: number): VoucherAppInfo {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    nome: textValue(value?.nome),
-    descricao: textValue(value?.descricao) || null,
-    ordem: Number.isFinite(Number(value?.ordem)) ? Number(value.ordem) : index,
+    nome: textValue(raw.nome as string | null | undefined),
+    descricao: textValue(raw.descricao as string | null | undefined) || null,
+    ordem: Number.isFinite(Number(raw.ordem)) ? Number(raw.ordem) : index,
   };
 }
 
@@ -101,23 +105,23 @@ export function createEmptyVoucherExtraData(_provider?: VoucherProvider): Vouche
   };
 }
 
-export function normalizeVoucherExtraData(value: any, provider?: VoucherProvider): VoucherExtraData {
+export function normalizeVoucherExtraData(value: unknown, provider?: VoucherProvider): VoucherExtraData {
   const empty = createEmptyVoucherExtraData(provider);
-  const raw = value && typeof value === "object" ? value : {};
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   return {
-    localizador_agencia: textValue(raw.localizador_agencia) || empty.localizador_agencia || "",
+    localizador_agencia: textValue(raw.localizador_agencia as string | null | undefined) || empty.localizador_agencia || "",
     passageiros_detalhes: Array.isArray(raw.passageiros_detalhes)
       ? raw.passageiros_detalhes
-          .map((item: any, index: number) => normalizePassengerDetail(item, index))
+          .map((item, index: number) => normalizePassengerDetail(item, index))
           .filter((item: VoucherPassengerDetail) => item.nome)
           .sort((a: VoucherPassengerDetail, b: VoucherPassengerDetail) => a.ordem - b.ordem)
       : [],
     traslado_chegada: normalizeTransferInfo(raw.traslado_chegada || empty.traslado_chegada),
     traslado_saida: normalizeTransferInfo(raw.traslado_saida || empty.traslado_saida),
-    informacoes_importantes: textValue(raw.informacoes_importantes) || "",
+    informacoes_importantes: textValue(raw.informacoes_importantes as string | null | undefined) || "",
     apps_recomendados: Array.isArray(raw.apps_recomendados)
       ? raw.apps_recomendados
-          .map((item: any, index: number) => normalizeAppInfo(item, index))
+          .map((item, index: number) => normalizeAppInfo(item, index))
           .filter((item: VoucherAppInfo) => item.nome || item.descricao)
           .sort((a: VoucherAppInfo, b: VoucherAppInfo) => a.ordem - b.ordem)
       : [],
