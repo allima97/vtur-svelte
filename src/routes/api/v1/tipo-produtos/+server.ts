@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { PostgrestError } from '@supabase/supabase-js';
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -12,10 +13,20 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_TIPO_PRODUTOS_BODY_BYTES = 64 * 1024;
 
-function isMissingColumnError(err: any) {
-  const code = String(err?.code || '');
-  const message = String(err?.message || '').toLowerCase();
-  const details = String(err?.details || '').toLowerCase();
+type TipoProdutoRow = {
+  id?: string | null;
+  nome?: string | null;
+  tipo?: string | null;
+  descricao?: string | null;
+  ativo?: boolean | null;
+  created_at?: string | null;
+};
+
+function isMissingColumnError(err: unknown) {
+  const error = err as Partial<PostgrestError> | null | undefined;
+  const code = String(error?.code || '');
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
   return (
     code === '42703' ||
     code === 'PGRST204' ||
@@ -46,7 +57,9 @@ export async function GET(event) {
 
     if (!all) query = query.eq('ativo', true);
 
-    let { data, error } = await query;
+    const { data, error: queryError } = await query;
+    let error = queryError;
+    let items = (data || []) as unknown as TipoProdutoRow[];
 
     // Se falhar por colunas inexistentes, tenta com colunas basicas reais
     if (error && isMissingColumnError(error)) {
@@ -56,10 +69,10 @@ export async function GET(event) {
         .order('nome', { ascending: true })
         .limit(200);
       if (!fallback.error) {
-        data = (fallback.data || []).map((row: any) => ({
+        items = ((fallback.data || []) as unknown as TipoProdutoRow[]).map((row) => ({
           ...row,
           descricao: null
-        })) as any;
+        }));
         error = null;
       }
     }
@@ -68,7 +81,7 @@ export async function GET(event) {
 
     return json(
       {
-        items: data || []
+        items
       },
       { headers: DYNAMIC_READ_HEADERS }
     );
@@ -94,9 +107,10 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, nome, tipo, descricao, ativo } = body;
+    const idRaw = String(id || '').trim();
 
     const nomeTrimmed = String(nome || '').trim();
     if (!nomeTrimmed) {
@@ -117,11 +131,11 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
+    if (idRaw && isUuid(idRaw)) {
       const { data: updated, error: updateError } = await client
         .from('tipo_produtos')
         .update(payload)
-        .eq('id', id)
+        .eq('id', idRaw)
         .select('id')
         .single();
 
@@ -130,7 +144,7 @@ export async function POST(event) {
         const { data: fallbackUpdated, error: fallbackUpdateError } = await client
           .from('tipo_produtos')
           .update(fallbackPayload)
-          .eq('id', id)
+          .eq('id', idRaw)
           .select('id')
           .single();
         if (fallbackUpdateError) throw fallbackUpdateError;
