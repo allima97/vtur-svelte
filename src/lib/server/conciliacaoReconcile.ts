@@ -1186,7 +1186,7 @@ async function reconcilePendentesCompany(params: {
     // a correção administrativa e volta para o vendedor da venda.
     const rankingVendedorResolvido =
       temRankingManual ? rankingVendedorAtual : vendedorIdDaVendaValido || rankingVendedorAtual || null;
-    const updatePayload: Record<string, any> = {
+    const updatePayload: Record<string, unknown> = {
       venda_id: recibo.venda_id,
       venda_recibo_id: recibo.id,
       valor_venda_real: metrics.valorVendaReal,
@@ -1575,13 +1575,17 @@ export async function reconcilePendentes(params: {
 
     return result;
   } catch (error) {
+    const errorMessage =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message?: unknown }).message ?? '')
+        : '';
     await persistExecutionLog({
       client: params.client,
       companyId: params.companyId,
       actor,
       actorUserId,
       status: 'error',
-      errorMessage: (error as any)?.message ?? String(error),
+      errorMessage: errorMessage || String(error),
       result: { checked: 0, reconciled: 0, updatedTaxes: 0, stillPending: 0, updateErrors: 0 }
     });
     throw error;
