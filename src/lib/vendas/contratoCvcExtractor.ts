@@ -1,6 +1,20 @@
 import { normalizeText } from "../normalizeText";
 import { uniqueCleanStrings } from "../utils/array";
 
+const PLACEHOLDER_VALUES = new Set(["-", "—", "–", "nº", "n°", "n", "nao informado", "não informado"]);
+const ROTEIRO_PASSAGEIRO_PLACEHOLDERS = new Set([
+  "-",
+  "—",
+  "–",
+  "nao",
+  "não",
+  "informado",
+  "informada",
+  "informados",
+  "informadas",
+]);
+const PASSENGER_NAME_CONNECTORS = new Set(["da", "de", "do", "dos", "das"]);
+
 function buildFretamentoLabel(raw?: string | null) {
   if (!raw) return null;
   const firstSegment = raw.split("*").find((seg) => seg && seg.trim());
@@ -396,8 +410,7 @@ function normalizePlaceholderValue(value?: string | null) {
   if (!trimmed) return null;
   const normalized = normalizeText(trimmed, { trim: true, collapseWhitespace: true });
   const normalizedNoPunct = normalized.replace(/[.:]/g, "");
-  const placeholders = new Set(["-", "—", "–", "nº", "n°", "n", "nao informado", "não informado"]);
-  if (placeholders.has(normalized) || placeholders.has(normalizedNoPunct)) return null;
+  if (PLACEHOLDER_VALUES.has(normalized) || PLACEHOLDER_VALUES.has(normalizedNoPunct)) return null;
   if (/^-+$/.test(normalized)) return null;
   if (/^n[º°]?$/.test(normalized) || /^n[º°]?$/.test(normalizedNoPunct)) return null;
   return trimmed;
@@ -1500,17 +1513,6 @@ function parseRoteiroPassageiros(lines: string[]) {
   const passageiros: RoteiroReservaPassageiroDraft[] = [];
   let current: RoteiroReservaPassageiroDraft | null = null;
 
-  const placeholders = new Set([
-    "-",
-    "—",
-    "–",
-    "nao",
-    "não",
-    "informado",
-    "informada",
-    "informados",
-    "informadas",
-  ]);
   const dateRe = /\b\d{2}\/\d{2}\/\d{4}\b/;
   const isStopHeading = (normalized: string) => stopHeadings.some((h) => normalized.startsWith(h));
   const extractSurnameSegment = (raw: string) => {
@@ -1522,7 +1524,7 @@ function parseRoteiroPassageiros(lines: string[]) {
     for (const token of tokens) {
       const normTok = normalizeText(token, { trim: true, collapseWhitespace: true });
       if (!normTok) continue;
-      if (placeholders.has(normTok)) break;
+      if (ROTEIRO_PASSAGEIRO_PLACEHOLDERS.has(normTok)) break;
       if (normTok === "cpf" || normTok === "rg" || normTok === "telefone" || normTok === "email") break;
       if (/^\d+$/.test(token)) break;
       if (token === "|") break;
@@ -2008,7 +2010,6 @@ function extractPassageiros(text: string): PassageiroDraft[] {
     if (parts <= 1) return [words.join(" ").trim()];
     const result: string[] = [];
     let start = 0;
-    const connectors = new Set(["da", "de", "do", "dos", "das"]);
     for (let i = 0; i < parts; i += 1) {
       const remainingWords = words.length - start;
       const remainingParts = parts - i;
@@ -2017,7 +2018,7 @@ function extractPassageiros(text: string): PassageiroDraft[] {
       let end = start + size;
       if (end < words.length) {
         const lastWord = normalizeText(words[end - 1], { trim: true, collapseWhitespace: true });
-        if (connectors.has(lastWord) && end - 1 > start) {
+        if (PASSENGER_NAME_CONNECTORS.has(lastWord) && end - 1 > start) {
           end -= 1;
         }
       }
