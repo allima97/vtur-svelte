@@ -212,7 +212,7 @@ export async function GET(event) {
             .limit(limit);
 
         const applyCommonFilters = (
-          query: any,
+          query: ReturnType<typeof buildBaseQuery>,
           options: {
             companyBatch?: string[] | null;
             vendedorBatch?: string[] | null;
