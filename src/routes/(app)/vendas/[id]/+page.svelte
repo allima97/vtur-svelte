@@ -285,6 +285,10 @@
     return err instanceof ApiError && INITIAL_LOAD_RETRY_STATUSES.has(err.status);
   }
 
+  function getErrorMessage(err: unknown) {
+    return err instanceof Error ? err.message : 'falha inesperada';
+  }
+
   async function applyVendaData(data: any, opts: { loadProdutos?: boolean } = {}) {
     venda = data;
 
@@ -333,7 +337,7 @@
     if (isInitialLoad && fromRecentWrite) {
       try {
         loadingHint = fromImport ? 'Abrindo a venda importada...' : 'Abrindo a venda...';
-        const liteData: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+        const liteData = await apiFetch(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 6_000,
@@ -357,7 +361,7 @@
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const data: any = await apiFetch(`/api/v1/vendas/${vendaId}`, {
+        const data = await apiFetch(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 15_000,
@@ -368,7 +372,7 @@
         refreshing = false;
         stopLoadingRecoveryGuard();
         return;
-      } catch (err: any) {
+      } catch (err: unknown) {
         lastError = err;
         if (attempt < maxAttempts - 1 && shouldRetryInitialLoad(err)) {
           loadingHint = fromImport
@@ -383,7 +387,7 @@
       }
     }
 
-    const err = lastError as any;
+    const err = lastError;
     if (preserveData && venda) {
       toast.error('Não foi possível atualizar todos os detalhes agora. A venda permanece aberta.');
       loading = false;
@@ -406,7 +410,7 @@
         ? 'Não foi possível carregar a venda após salvar. Volte para a lista e abra novamente.'
         : 'Venda não encontrada';
     } else {
-      error = `Erro ao carregar dados da venda: ${err?.message || 'falha inesperada'}`;
+      error = `Erro ao carregar dados da venda: ${getErrorMessage(err)}`;
       toast.error('Erro ao carregar venda');
     }
 
