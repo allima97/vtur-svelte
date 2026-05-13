@@ -31,6 +31,14 @@ type AssignableSellerRow = {
   user_types?: { name?: string | null } | null;
 };
 
+type VendaReciboLookupRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+  venda_id?: string | null;
+};
+
 function collapseSpaces(value?: string | null) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -255,8 +263,8 @@ export async function ensureReciboReservaUnicos(params: {
     const { data, error } = await query.limit(50);
     if (error) throw error;
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
-    const ativos = (data || []).filter(
-      (row: any) => !cancelledVendaIds.has(String(row?.venda_id || "")),
+    const ativos = ((data || []) as VendaReciboLookupRow[]).filter(
+      (row) => !cancelledVendaIds.has(String(row?.venda_id || "")),
     );
     if (ativos.length > 0) {
       throw new Error("RECIBO_DUPLICADO");
@@ -281,12 +289,12 @@ export async function ensureReciboReservaUnicos(params: {
     if (error) throw error;
 
     // Ignora recibos de vendas canceladas — permite reimportar após cancelamento
-    const dadosAtivos = (data || []).filter(
-      (row: any) => !cancelledVendaIds.has(String(row?.venda_id || "")),
+    const dadosAtivos = ((data || []) as VendaReciboLookupRow[]).filter(
+      (row) => !cancelledVendaIds.has(String(row?.venda_id || "")),
     );
 
     // Para reservas precisamos do cliente_id — buscamos as vendas ativas relevantes
-    const vendaIds = uniqueCleanStrings(dadosAtivos.map((r: any) => String(r?.venda_id || "")));
+    const vendaIds = uniqueCleanStrings(dadosAtivos.map((r) => String(r?.venda_id || "")));
     const clienteIdByVendaId = await fetchClienteIdsByVendaIds(client, vendaIds);
 
     for (const recibo of recibosParaValidar) {
@@ -294,10 +302,10 @@ export async function ensureReciboReservaUnicos(params: {
       if (!reservaKey) continue;
       const reciboKey = normalizeReceiptKey(recibo?.numero_recibo);
       const conflitos = dadosAtivos.filter(
-        (row: any) => normalizeReservaKey(row?.numero_reserva) === reservaKey,
+        (row) => normalizeReservaKey(row?.numero_reserva) === reservaKey,
       );
       const bloqueia = conflitos.some(
-        (row: any) =>
+        (row) =>
           String(clienteIdByVendaId.get(String(row?.venda_id || "")) || "") === clienteId ||
           normalizeReceiptKey(row?.numero_recibo) === reciboKey,
       );
