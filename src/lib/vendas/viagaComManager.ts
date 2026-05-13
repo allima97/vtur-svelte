@@ -12,6 +12,28 @@ function logViajaComError(context: string, error: unknown) {
   logServerError(context, error);
 }
 
+interface ReciboComplementarClienteRow {
+  nome?: string | null;
+}
+
+interface ReciboComplementarVendaRow {
+  cliente_id?: string | null;
+  clientes?: ReciboComplementarClienteRow[] | null;
+}
+
+interface ReciboComplementarReciboRow {
+  id?: string | null;
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+  venda_id?: string | null;
+  vendas?: ReciboComplementarVendaRow[] | null;
+}
+
+export interface ReciboComplementarRow {
+  recibo_id?: string | null;
+  vendas_recibos?: ReciboComplementarReciboRow[] | null;
+}
+
 /**
  * Cria vínculos automáticos "Viaja Com" entre recibos de diferentes
  * contratantes que compartilham a mesma reserva.
@@ -109,7 +131,7 @@ export async function criarVinculosViajaComAutomaticos(params: {
 export async function buscarRecibosComplementares(params: {
   client: SupabaseClient;
   vendaId: string;
-}): Promise<any[]> {
+}): Promise<ReciboComplementarRow[]> {
   const { client, vendaId } = params;
 
   const { data, error } = await client
