@@ -2,6 +2,17 @@
   import { Checkbox, Helper } from 'flowbite-svelte';
   import { uniqueFieldId } from './fieldId';
 
+  type FieldCheckboxBaseColor = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'teal' | 'orange';
+  type FieldCheckboxColor =
+    | FieldCheckboxBaseColor
+    | 'crm'
+    | 'clientes'
+    | 'vendas'
+    | 'financeiro'
+    | 'operacao'
+    | 'orcamentos'
+    | 'comissoes';
+
   export let label: string | null = null;
   export let checked = false;
   export let disabled = false;
@@ -12,24 +23,10 @@
   export let name: string | null = null;
   export let value = 'on';
   export let align: 'start' | 'center' = 'start';
-  export let color:
-    | 'blue'
-    | 'green'
-    | 'red'
-    | 'yellow'
-    | 'purple'
-    | 'teal'
-    | 'orange'
-    | 'crm'
-    | 'clientes'
-    | 'vendas'
-    | 'financeiro'
-    | 'operacao'
-    | 'orcamentos'
-    | 'comissoes' = 'blue';
+  export let color: FieldCheckboxColor = 'blue';
   export let class_name = '';
 
-  const colorAlias: Record<string, string> = {
+  const colorAlias: Record<FieldCheckboxColor, FieldCheckboxBaseColor> = {
     blue: 'blue',
     green: 'green',
     red: 'red',
@@ -61,7 +58,7 @@
       bind:checked
       {disabled}
       {required}
-      color={resolvedColor as any}
+      color={resolvedColor}
       class={error ? 'text-red-600 focus:ring-red-200' : ''}
       on:change
       on:blur
