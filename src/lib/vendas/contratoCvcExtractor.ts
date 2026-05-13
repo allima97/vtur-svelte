@@ -14,6 +14,27 @@ const ROTEIRO_PASSAGEIRO_PLACEHOLDERS = new Set([
   "informadas",
 ]);
 const PASSENGER_NAME_CONNECTORS = new Set(["da", "de", "do", "dos", "das"]);
+const TABLE_ROW_HOTEL_KEYWORDS = ["hotel", "resort", "pousada", "flat", "suite", "suíte", "villa", "palace", "spa"];
+const SEGURO_PRODUTO_KEYWORDS = [
+  "inter basico",
+  "inter top",
+  "inter plus",
+  "inter prime",
+  "inter diamante",
+  "maritimo inter",
+  "maritimo nacional",
+  "nacional plus",
+  "nacional top",
+  "receptivo top",
+  "receptivo plus",
+  "receptivo prime",
+  "on trip",
+];
+const CAR_PRODUTO_KEYWORDS = ["locacao", "locadora", "veiculo", "km livre", "km", "locação", "locadora"];
+const FORNECEDOR_HOTEL_KEYWORDS = ["hotel", "resort", "pousada", "hospedagem", "flat", "suíte", "suite", "diária", "diaria"];
+const FORNECEDOR_AEREO_KEYWORDS = ["aereo", "aéreo", "voo", "passagem", "airlines", "latam", "gol"];
+const FORNECEDOR_TRANSPORTE_KEYWORDS = ["transporte", "translado", "traslado", "transfer", "transporte compartilhado"];
+const FRETAMENTO_KEYWORDS = ["fretamento", "fretado"];
 
 function buildFretamentoLabel(raw?: string | null) {
   if (!raw) return null;
@@ -2213,12 +2234,11 @@ function isHotelCandidateLine(normalized: string) {
 }
 
 function findHotelNameInTableRow(cols: string[]) {
-  const keywords = ["hotel", "resort", "pousada", "flat", "suite", "suíte", "villa", "palace", "spa"];
   for (const col of cols) {
     if (!col) continue;
     const normalized = normalizeText(col, { trim: true, collapseWhitespace: true });
     if (!normalized) continue;
-    if (!keywords.some((keyword) => normalized.includes(keyword))) continue;
+    if (!TABLE_ROW_HOTEL_KEYWORDS.some((keyword) => normalized.includes(keyword))) continue;
     if (/^\d+$/.test(normalized.replace(/\s+/g, ""))) continue;
     return col.trim();
   }
@@ -2373,22 +2393,7 @@ function extractProdutoPrincipal(text: string): { nome: string | null; tipo: str
     return cleanServiceProductLine(lines[0] || "");
   })();
 
-  const seguroKeywords = [
-    "inter basico",
-    "inter top",
-    "inter plus",
-    "inter prime",
-    "inter diamante",
-    "maritimo inter",
-    "maritimo nacional",
-    "nacional plus",
-    "nacional top",
-    "receptivo top",
-    "receptivo plus",
-    "receptivo prime",
-    "on trip",
-  ];
-  const hasSeguro = normalizedLines.some((line) => seguroKeywords.some((k) => line.includes(k)));
+  const hasSeguro = normalizedLines.some((line) => SEGURO_PRODUTO_KEYWORDS.some((k) => line.includes(k)));
   if (hasSeguro) {
     const seguroNome = firstServicoLine || lines.find((line) => normalizeText(line).includes("seguro")) || "Seguro Viagem";
     return { nome: seguroNome, tipo: "Seguro viagem", detalhes };
@@ -2399,12 +2404,11 @@ function extractProdutoPrincipal(text: string): { nome: string | null; tipo: str
     return { nome: lines[ingressoLineIdx], tipo: "Ingressos", detalhes };
   }
 
-  const carKeywords = ["locacao", "locadora", "veiculo", "km livre", "km", "locação", "locadora"];
-  const hasCar = normalizedLines.some((line) => carKeywords.some((k) => line.includes(k)));
+  const hasCar = normalizedLines.some((line) => CAR_PRODUTO_KEYWORDS.some((k) => line.includes(k)));
   if (hasCar) {
     const carLine =
       lines.find((line) => /^[A-Z0-9]{3,5}\s*-\s*/.test(line.trim())) ||
-      lines.find((line) => carKeywords.some((k) => normalizeText(line).includes(k)));
+      lines.find((line) => CAR_PRODUTO_KEYWORDS.some((k) => normalizeText(line).includes(k)));
     const carName = cleanServiceProductLine(carLine || "");
     return { nome: carName || carLine || firstServicoLine || "Locação de Veículo", tipo: "Aluguel de Carro", detalhes };
   }
@@ -2783,7 +2787,6 @@ function buildFretamentoProductName(
 
 function findHotelNameFromFornecedores(fornecedores?: RoteiroReservaFornecedorDraft[]) {
   if (!fornecedores?.length) return null;
-  const hotelKeywords = ["hotel", "resort", "pousada", "hospedagem", "flat", "suíte", "suite", "diária", "diaria"];
   for (const fornecedor of fornecedores) {
     const combined = normalizeText(
       `${fornecedor.tipo_servico || ""} ${fornecedor.categoria || ""} ${fornecedor.nome || ""} ${
@@ -2792,7 +2795,7 @@ function findHotelNameFromFornecedores(fornecedores?: RoteiroReservaFornecedorDr
       { trim: true, collapseWhitespace: true }
     );
     if (!combined) continue;
-    if (!hotelKeywords.some((keyword) => combined.includes(keyword))) continue;
+    if (!FORNECEDOR_HOTEL_KEYWORDS.some((keyword) => combined.includes(keyword))) continue;
     const hotelOverride = normalizePlaceholderValue(fornecedor.hotel_nome);
     if (hotelOverride && !normalizeMaybeNumero(hotelOverride) && !isGenericServicoLabel(hotelOverride)) {
       return hotelOverride;
@@ -2811,7 +2814,6 @@ function findHotelNameFromFornecedores(fornecedores?: RoteiroReservaFornecedorDr
 
 function hasAereoFornecedor(fornecedores?: RoteiroReservaFornecedorDraft[]) {
   if (!fornecedores?.length) return false;
-  const airlineKeywords = ["aereo", "aéreo", "voo", "passagem", "airlines", "latam", "gol"];
   for (const fornecedor of fornecedores) {
     const combined = normalizeText(
       `${fornecedor.tipo_servico || ""} ${fornecedor.categoria || ""} ${fornecedor.servico || ""} ${
@@ -2827,7 +2829,7 @@ function hasAereoFornecedor(fornecedores?: RoteiroReservaFornecedorDraft[]) {
     ) {
       return true;
     }
-    if (airlineKeywords.some((keyword) => combined.includes(keyword))) {
+    if (FORNECEDOR_AEREO_KEYWORDS.some((keyword) => combined.includes(keyword))) {
       return true;
     }
   }
@@ -2836,7 +2838,6 @@ function hasAereoFornecedor(fornecedores?: RoteiroReservaFornecedorDraft[]) {
 
 function findTransporteCompartilhadoLabel(fornecedores?: RoteiroReservaFornecedorDraft[]) {
   if (!fornecedores?.length) return null;
-  const keywords = ["transporte", "translado", "traslado", "transfer", "transporte compartilhado"];
   for (const fornecedor of fornecedores) {
     const combined = normalizeText(
       `${fornecedor.tipo_servico || ""} ${fornecedor.categoria || ""} ${fornecedor.nome || ""} ${
@@ -2845,7 +2846,7 @@ function findTransporteCompartilhadoLabel(fornecedores?: RoteiroReservaFornecedo
       { trim: true, collapseWhitespace: true }
     );
     if (!combined) continue;
-    if (!keywords.some((keyword) => combined.includes(keyword))) continue;
+    if (!FORNECEDOR_TRANSPORTE_KEYWORDS.some((keyword) => combined.includes(keyword))) continue;
     if (combined.includes("aereo") || combined.includes("aéreo")) continue;
     const candidate =
       normalizePlaceholderValue(fornecedor.nome) ||
@@ -3072,9 +3073,8 @@ function extractRoteiroReservaFromText(text: string): ContratoImportResult {
   const excursaoMatch = cleaned.match(/Excurs[aã]o:\s*([0-9.]+)/i);
   const excursaoNumero = excursaoMatch?.[1]?.trim() || "";
   const isExcursaoFretamento = /^4\.0{3,}/.test(excursaoNumero);
-  const fretamentoKeywords = ["fretamento", "fretado"];
   let isFretamentoDetected =
-    fretamentoKeywords.some(
+    FRETAMENTO_KEYWORDS.some(
       (keyword) =>
         normalizedCleaned.includes(keyword) || observacaoNormalized.includes(keyword)
     ) ||
