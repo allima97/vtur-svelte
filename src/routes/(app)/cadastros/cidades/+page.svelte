@@ -24,6 +24,20 @@
 
   type Subdivisao = { id: string; nome: string; pais_id: string; pais?: { nome: string } | null };
 
+  type SubdivisoesResponse = {
+    items?: Subdivisao[] | null;
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  };
+
+  type CidadesResponse = {
+    items?: Cidade[] | null;
+    total?: number;
+    page?: number;
+    pageSize?: number;
+  };
+
   let cidades: Cidade[] = [];
   let subdivisoes: Subdivisao[] = [];
   let loading = true;
@@ -70,7 +84,7 @@
 
     loadingSubdivisoes = true;
     try {
-      const payload = await apiGet<any>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 }, undefined, 30_000);
+      const payload = await apiGet<SubdivisoesResponse>('/api/v1/subdivisoes', { q: term, page: 1, pageSize: 200 }, undefined, 30_000);
       subdivisoes = Array.isArray(payload?.items) ? payload.items : [];
     } catch {
       subdivisoes = [];
@@ -92,10 +106,10 @@
     }
 
     loading = true;
-    let payload: any = null;
+    let payload: CidadesResponse | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        payload = await apiGet<any>('/api/v1/cidades', {
+        payload = await apiGet<CidadesResponse>('/api/v1/cidades', {
           q: hasCityTerm ? term : undefined,
           subdivisao_id: hasSubdivisaoFilter ? filtroSubdivisao : undefined,
           page: 1,
