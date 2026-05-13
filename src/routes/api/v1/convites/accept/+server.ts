@@ -6,15 +6,25 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_CONVITE_ACCEPT_BODY_BYTES = 32 * 1024;
 
-function isTableMissing(error: any) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function readErrorField(error: unknown, field: string) {
+  return error && typeof error === "object"
+    ? (error as Record<string, unknown>)[field]
+    : undefined;
+}
+
+function errorMessage(error: unknown) {
+  return String(readErrorField(error, "message") || error || "");
+}
+
+function isTableMissing(error: unknown) {
+  const code = String(readErrorField(error, "code") || "");
+  const message = errorMessage(error).toLowerCase();
   return code === "42P01" || message.includes("does not exist");
 }
 
-function isMissingColumn(error: any, column: string) {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
+function isMissingColumn(error: unknown, column: string) {
+  const code = String(readErrorField(error, "code") || "");
+  const message = errorMessage(error).toLowerCase();
   return code === "42703" && message.includes(column.toLowerCase());
 }
 
@@ -22,18 +32,19 @@ function errorJson(message: string, status: number) {
   return json({ error: message }, { status, headers: NO_STORE_HEADERS });
 }
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const adminClient = getAdminClient();
 
     const bodyResult = await readJsonBodyLimited(request, MAX_CONVITE_ACCEPT_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const inviteId = String(body.invite_id || "").trim();
     if (!inviteId) return errorJson("invite_id e obrigatorio.", 400);
@@ -146,7 +157,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .eq("id", inviteId);
 
     return json({ ok: true }, { headers: NO_STORE_HEADERS });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[convites/accept] falha ao aceitar convite", error);
     return errorJson("Erro interno ao aceitar convite.", 500);
   }
