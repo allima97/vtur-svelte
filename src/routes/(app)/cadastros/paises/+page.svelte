@@ -18,6 +18,10 @@
     created_at: string | null;
   };
 
+  type PaisesResponse = {
+    items?: Pais[] | null;
+  };
+
   const CONTINENTES = ['África', 'América do Norte', 'América do Sul', 'América Central', 'Ásia', 'Europa', 'Oceania', 'Antártida'];
 
   let paises: Pais[] = [];
@@ -38,7 +42,7 @@
   async function load() {
     loading = true;
     try {
-      const payload = await apiGet<any>('/api/v1/paises');
+      const payload = await apiGet<PaisesResponse>('/api/v1/paises');
       paises = payload.items || [];
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao carregar países.');
