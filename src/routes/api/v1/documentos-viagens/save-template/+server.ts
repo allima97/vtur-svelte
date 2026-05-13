@@ -28,19 +28,25 @@ function normalizeTitle(value: unknown) {
   return clampText(value, 160).trim().replace(/\s+/g, ' ');
 }
 
+function readRecordValue(value: unknown, key: string) {
+  return value && typeof value === 'object'
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
 function normalizeFields(raw: unknown): TemplateField[] {
   if (!Array.isArray(raw)) return [];
   const out: TemplateField[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    const key = String((item as any)?.key || '')
+    const key = String(readRecordValue(item, 'key') || '')
       .trim()
       .replace(/[^a-zA-Z0-9_]/g, '')
       .slice(0, 64);
     if (!key || seen.has(key)) continue;
-    const typeRaw = String((item as any)?.type || 'text');
+    const typeRaw = String(readRecordValue(item, 'type') || 'text');
     const type: TemplateField['type'] = typeRaw === 'date' || typeRaw === 'signature' ? typeRaw : 'text';
-    const label = String((item as any)?.label || key).trim().replace(/\s+/g, ' ').slice(0, 80);
+    const label = String(readRecordValue(item, 'label') || key).trim().replace(/\s+/g, ' ').slice(0, 80);
     seen.add(key);
     out.push({ key, label: label || key, type });
   }
@@ -64,7 +70,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const id = String(body?.id || '').trim();
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -97,7 +103,7 @@ export async function POST(event: RequestEvent) {
       .update({
         title,
         template_text: templateText,
-        template_fields: templateFields as any,
+        template_fields: templateFields,
         updated_at: new Date().toISOString(),
         updated_by: user.id
       })
