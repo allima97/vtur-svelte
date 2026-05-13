@@ -1540,8 +1540,8 @@
       semMovimentoObservacao = '';
       await loadDiasSemMovimento();
       await loadSummary();
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao marcar dia sem movimento.');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Erro ao marcar dia sem movimento.'));
     } finally {
       semMovimentoLoading = false;
     }
