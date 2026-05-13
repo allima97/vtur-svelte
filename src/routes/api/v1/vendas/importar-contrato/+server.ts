@@ -79,6 +79,29 @@ type ClienteUpdatePayload = {
   rg?: string;
 };
 
+type SellerScopeRow = {
+  id: string;
+  company_id: string | null;
+};
+
+type TargetSellerRow = SellerScopeRow & {
+  active: boolean | null;
+  uso_individual: boolean | null;
+  user_types: { name: string | null } | { name: string | null }[] | null;
+};
+
+type ClienteContatoUpdatePayload = {
+  telefone?: string;
+  whatsapp?: string;
+  email?: string;
+};
+
+type ContratoImportRow = ContratoDraft & {
+  desconto_comercial?: number | null;
+  destino_cidade_id?: string | null;
+  produto_resolvido_id?: string | null;
+};
+
 function textNoStore(message: string, status: number) {
   return new Response(message, { status, headers: NO_STORE_HEADERS });
 }
@@ -237,6 +260,11 @@ function isFormaNaoComissionavel(nome?: string | null, termos?: string[]) {
 function isAllowedSellerTipo(tipoNome?: string | null) {
   const tipo = String(tipoNome || '').toUpperCase();
   return tipo.includes('VENDEDOR') || tipo.includes('GESTOR') || tipo.includes('MASTER');
+}
+
+function readUserTypeName(userTypes: TargetSellerRow['user_types']) {
+  if (Array.isArray(userTypes)) return userTypes[0]?.name || null;
+  return userTypes?.name || null;
 }
 
 function pickProdutoNome(contrato: ContratoDraft, fallbackDestino?: string | null) {
@@ -579,7 +607,7 @@ export async function POST(event) {
       .eq('id', vendedorId)
       .maybeSingle();
     if (vendedorScopeError) throw vendedorScopeError;
-    const vendedorCompanyId = String((vendedorScope as any)?.company_id || '').trim() || null;
+    const vendedorCompanyId = String((vendedorScope as SellerScopeRow | null)?.company_id || '').trim() || null;
     if (vendedorCompanyId && vendedorCompanyId !== companyId) {
       return textNoStore('Vendedor fora da empresa selecionada.', 403);
     }
@@ -597,16 +625,17 @@ export async function POST(event) {
           return textNoStore('Vendedor informado nao encontrado.', 404);
         }
 
-        const targetCompanyId = String((targetSeller as any)?.company_id || '').trim() || null;
+        const typedTargetSeller = targetSeller as TargetSellerRow | null;
+        const targetCompanyId = String(typedTargetSeller?.company_id || '').trim() || null;
         if (!targetCompanyId || targetCompanyId !== companyId) {
           return textNoStore('Vendedor fora da empresa selecionada.', 403);
         }
 
-        if (!Boolean((targetSeller as any)?.active) || Boolean((targetSeller as any)?.uso_individual)) {
+        if (!Boolean(typedTargetSeller?.active) || Boolean(typedTargetSeller?.uso_individual)) {
           return textNoStore('Vendedor informado nao pode receber venda.', 403);
         }
 
-        if (!isAllowedSellerTipo((targetSeller as any)?.user_types?.name)) {
+        if (!isAllowedSellerTipo(readUserTypeName(typedTargetSeller?.user_types || null))) {
           return textNoStore('Usuario informado nao pode receber venda.', 403);
         }
       } else {
@@ -663,7 +692,7 @@ export async function POST(event) {
       rg: principal.contratante?.rg
     });
 
-    const contatos: any = {};
+    const contatos: ClienteContatoUpdatePayload = {};
     if (clienteTelefone) contatos.telefone = clienteTelefone;
     if (clienteWhatsapp) contatos.whatsapp = clienteWhatsapp;
     if (clienteEmail) contatos.email = clienteEmail;
@@ -702,7 +731,7 @@ export async function POST(event) {
     const totalBruto = contratos.reduce((sum, c) => sum + parseMoney(c.total_bruto), 0);
     const totalPago = contratos.reduce((sum, c) => sum + parseMoney(c.total_pago), 0);
     const totalTaxas = contratos.reduce((sum, c) => sum + parseMoney(c.taxas_embarque), 0);
-    const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney((c as any).desconto_comercial), 0);
+    const descontoComercial = contratos.reduce((sum, c) => sum + parseMoney((c as ContratoImportRow).desconto_comercial), 0);
     const pagamentosDedup = dedupePagamentos(contratos.flatMap((c) => c.pagamentos || []));
     const totalPagoFallback = pagamentosDedup.length ? calcularTotalPagamentos(pagamentosDedup) : 0;
     const totalPagoFinal = totalPago > 0 ? totalPago : totalPagoFallback;
@@ -710,7 +739,7 @@ export async function POST(event) {
     const cidadeIds = Array.from(
       new Set(
         contratos
-          .map((contrato: any) => String(contrato?.destino_cidade_id || '').trim() || cidadeId || '')
+          .map((contrato) => String((contrato as ContratoImportRow).destino_cidade_id || '').trim() || cidadeId || '')
           .filter(Boolean)
       )
     );
@@ -735,15 +764,15 @@ export async function POST(event) {
     if (tiposProdutoError) throw tiposProdutoError;
     const tiposProduto = tiposProdutoData || [];
 
-    const produtosMap = new Map<string, any>();
-    for (const contrato of contratos as any[]) {
-      const reciboCidadeId = String(contrato?.destino_cidade_id || '').trim() || cidadeId || null;
+    const produtosMap = new Map<string, ProdutoLookup>();
+    for (const contrato of contratos as ContratoImportRow[]) {
+      const reciboCidadeId = String(contrato.destino_cidade_id || '').trim() || cidadeId || null;
       const produto = await resolveProdutoOperacional({
         client,
         contrato,
-        produtoId: String(contrato?.produto_resolvido_id || '').trim() || null,
+        produtoId: String(contrato.produto_resolvido_id || '').trim() || null,
         cidadeId: reciboCidadeId,
-        destinoNome: cidadeNomeMap.get(String(reciboCidadeId || '')) || contrato?.destino || null,
+        destinoNome: cidadeNomeMap.get(String(reciboCidadeId || '')) || contrato.destino || null,
         tiposProduto
       });
       contrato.produto_resolvido_id = produto.id;
@@ -753,7 +782,7 @@ export async function POST(event) {
     const produtoIds = Array.from(produtosMap.keys());
 
     const produtoVendaId =
-      String((contratos[0] as any)?.produto_resolvido_id || '').trim() ||
+      String((contratos[0] as ContratoImportRow | undefined)?.produto_resolvido_id || '').trim() ||
       destinoProdutoId ||
       produtoIds[0] ||
       null;
@@ -790,14 +819,15 @@ export async function POST(event) {
     const allPagamentos: PagamentoDraft[] = [];
 
     for (const contrato of contratos) {
-      const produtoReciboId = String((contrato as any)?.produto_resolvido_id || '').trim() || destinoProdutoId || '';
+      const contratoImport = contrato as ContratoImportRow;
+      const produtoReciboId = String(contratoImport.produto_resolvido_id || '').trim() || destinoProdutoId || '';
       const produtoRecibo = produtosMap.get(produtoReciboId);
       if (!produtoRecibo?.id) {
         return textNoStore('Produto do recibo inválido.', 400);
       }
 
-      const reciboCidadeId = String((contrato as any)?.destino_cidade_id || '').trim() || cidadeId || null;
-      const tipoProdutoId = String((produtoRecibo as any)?.tipo_produto || '').trim() || null;
+      const reciboCidadeId = String(contratoImport.destino_cidade_id || '').trim() || cidadeId || null;
+      const tipoProdutoId = String(produtoRecibo.tipo_produto || '').trim() || null;
       const reciboNumeros = resolveContratoReciboNumeros(contrato, isFacialRextur);
 
       const { data: recibo, error: reciboError } = await client
