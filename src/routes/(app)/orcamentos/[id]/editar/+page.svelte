@@ -100,15 +100,41 @@
     }
   }
 
+  interface OrcamentoEditClientePayload {
+    nome?: string | null;
+    email?: string | null;
+  }
+
+  interface OrcamentoEditPayload extends Record<string, unknown> {
+    client_id?: string | null;
+    client_name?: string | null;
+    client_whatsapp?: string | null;
+    client_email?: string | null;
+    cliente_email?: string | null;
+    status?: string | null;
+    status_negociacao?: string | null;
+    currency?: string | null;
+    valid_until?: string | null;
+    data_validade?: string | null;
+    notes?: string | null;
+    observacoes?: string | null;
+    cliente?: OrcamentoEditClientePayload | string | null;
+    itens?: Record<string, unknown>[] | null;
+  }
+
   // ─── Carregar orçamento existente ───────────────────────────────────────────────
   async function carregarOrcamento() {
     try {
       loading = true;
-      const data = await apiFetch<Record<string, any>>(`/api/v1/orcamentos/${orcamentoId}`, {
+      const data = await apiFetch<OrcamentoEditPayload>(`/api/v1/orcamentos/${orcamentoId}`, {
         redirectOnUnauthorized: false,
         redirectOnForbidden: false
       });
       orcamentoOriginal = data;
+      const clientePayload =
+        data.cliente && typeof data.cliente === 'object'
+          ? data.cliente
+          : null;
 
       const itensCarregados: ItemOrcamento[] = (Array.isArray(data.itens) ? data.itens : []).map(
         (item: Record<string, unknown>, index: number) => ({
@@ -126,9 +152,9 @@
 
       formData = {
         client_id:         String(data.client_id  ?? ''),
-        cliente_nome:      String(data.client_name ?? data.cliente?.nome ?? data.cliente ?? ''),
+        cliente_nome:      String(data.client_name ?? clientePayload?.nome ?? data.cliente ?? ''),
         cliente_telefone:  String(data.client_whatsapp ?? ''),
-        cliente_email:     String(data.client_email ?? data.cliente?.email ?? data.cliente_email ?? ''),
+        cliente_email:     String(data.client_email ?? clientePayload?.email ?? data.cliente_email ?? ''),
         status:            String(data.status           ?? 'pendente'),
         status_negociacao: String(data.status_negociacao ?? data.status ?? 'novo'),
         currency:          String(data.currency         ?? 'BRL'),
