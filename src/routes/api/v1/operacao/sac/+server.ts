@@ -14,6 +14,18 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_SAC_BODY_BYTES = 64 * 1024;
 
+type JsonBody = Record<string, unknown>;
+type SacRow = {
+  recibo?: string | null;
+  tour?: string | null;
+  motivo?: string | null;
+  contratante_pax?: string | null;
+  responsavel?: string | null;
+};
+type ExistingSacRow = {
+  company_id?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -47,7 +59,7 @@ export async function GET(event) {
     let items = data || [];
     if (q) {
       const qLower = q.toLowerCase();
-      items = items.filter((item: any) =>
+      items = items.filter((item: SacRow) =>
         [item.recibo, item.tour, item.motivo, item.contratante_pax, item.responsavel]
           .join(' ').toLowerCase().includes(qLower)
       );
@@ -76,7 +88,7 @@ export async function POST(event) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as JsonBody)
         : {};
     const { id, recibo, tour, data_solicitacao, motivo, contratante_pax, ok_quando, status, responsavel, prazo } = body;
 
@@ -94,22 +106,23 @@ export async function POST(event) {
     };
 
     let result;
-    if (id && isUuid(id)) {
+    const idValue = String(id || '').trim();
+    if (isUuid(idValue)) {
       const { data: existing, error: existingError } = await client
         .from('sac_controle')
         .select('id, company_id')
-        .eq('id', id)
+        .eq('id', idValue)
         .maybeSingle();
       if (existingError) throw existingError;
       if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-      const existingCompanyId = String((existing as any)?.company_id || '').trim();
+      const existingCompanyId = String((existing as ExistingSacRow)?.company_id || '').trim();
       const allowedCompanyIds = resolveScopedCompanyIds(scope, existingCompanyId || null);
       const allowedCompanySet = cleanStringSet(allowedCompanyIds);
       if (!scope.isAdmin && !allowedCompanySet.has(existingCompanyId)) {
         return json({ error: 'Registro SAC fora do escopo da empresa.' }, { status: 403, headers: NO_STORE_HEADERS });
       }
 
-      const { data, error: updateError } = await client.from('sac_controle').update(payload).eq('id', id).select('id').single();
+      const { data, error: updateError } = await client.from('sac_controle').update(payload).eq('id', idValue).select('id').single();
       if (updateError) throw updateError;
       result = data;
     } else {
@@ -147,7 +160,7 @@ export async function DELETE(event) {
       .maybeSingle();
     if (existingError) throw existingError;
     if (!existing) return json({ error: 'Registro SAC não encontrado.' }, { status: 404, headers: NO_STORE_HEADERS });
-    const existingCompanyId = String((existing as any)?.company_id || '').trim();
+    const existingCompanyId = String((existing as ExistingSacRow)?.company_id || '').trim();
     const allowedCompanyIds = resolveScopedCompanyIds(scope, existingCompanyId || null);
     const allowedCompanySet = cleanStringSet(allowedCompanyIds);
     if (!scope.isAdmin && !allowedCompanySet.has(existingCompanyId)) {
