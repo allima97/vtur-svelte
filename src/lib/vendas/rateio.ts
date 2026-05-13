@@ -11,6 +11,7 @@
  *  - rateio_source_recibo_id preserva o ID original (sem sufixo ::rateio:)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   cleanStringSet,
   chunkArray,
@@ -131,7 +132,7 @@ export function cloneReciboWithFactor<T extends ReciboLike>(
  * Portabilizado fielmente do vtur-app fetchRateioByReciboIds().
  */
 export async function fetchRateioByReciboIds(
-  client: any,
+  client: SupabaseClient,
   reciboIds: string[]
 ): Promise<Map<string, RateioRow>> {
   const ids = uniqueCleanStrings((reciboIds || []).map((id) => normalizeReciboLookupId(id)));
@@ -201,7 +202,7 @@ export async function fetchRateioByReciboIds(
  * Portabilizado fielmente do vtur-app fetchSplitSaleIdsForDestinationVendedores().
  */
 export async function fetchSplitSaleIdsForDestinationVendedores(
-  client: any,
+  client: SupabaseClient,
   options: {
     companyId?: string | null;
     companyIds?: string[] | null;
