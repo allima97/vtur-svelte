@@ -8,25 +8,50 @@ const MAX_ENDPOINT_LENGTH = 2048;
 const MAX_KEY_LENGTH = 512;
 const MAX_PUSH_SUBSCRIBE_BODY_BYTES = 16 * 1024;
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+type PushSubscriptionKeysBody = {
+  p256dh?: unknown;
+  auth?: unknown;
+};
+
+type PushSubscriptionBody = {
+  endpoint?: unknown;
+  keys?: PushSubscriptionKeysBody | null;
+};
+
+type PushSubscribeRequestBody = {
+  subscription?: PushSubscriptionBody | null;
+};
+
+type PushSubscriptionUpsert = {
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  active: boolean;
+  updated_at: string;
+};
+
+export const POST: RequestHandler = async (event) => {
   try {
+    const { request, locals } = event;
     const originError = rejectCrossOriginRequest(request);
     if (originError) return originError;
     const bodyResult = await readJsonBodyLimited(request, MAX_PUSH_SUBSCRIBE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
 
-    const user = await requireAuthenticatedUser({ locals } as any);
+    const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as PushSubscribeRequestBody)
         : {};
-    const subscription = body?.subscription || body;
+    const subscription = (body.subscription || body) as PushSubscriptionBody;
     const endpoint = String(subscription?.endpoint || "").trim();
     const keys = subscription?.keys || {};
-    const p256dh = keys?.p256dh;
-    const auth = keys?.auth;
+    const p256dh = String(keys?.p256dh || "").trim();
+    const auth = String(keys?.auth || "").trim();
 
     if (!endpoint || !p256dh || !auth) {
       return json({ error: "Subscription invalida." }, { status: 400, headers: NO_STORE_HEADERS });
@@ -55,11 +80,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       user_agent: request.headers.get("user-agent") || null,
       active: true,
       updated_at: new Date().toISOString(),
-    };
+    } satisfies PushSubscriptionUpsert;
 
     const { error } = await client
       .from("push_subscriptions")
-      .upsert(payload as any, { onConflict: "endpoint" });
+      .upsert(payload, { onConflict: "endpoint" });
 
     if (error) {
       logServerError("[push/subscribe] falha ao salvar subscription", error);
