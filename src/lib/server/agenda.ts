@@ -60,6 +60,34 @@ export type FollowUpItem = {
   updated_at: string | null;
 };
 
+type AgendaDbRow = {
+  id?: string | null;
+  titulo?: string | null;
+  start_at?: string | null;
+  start_date?: string | null;
+  end_at?: string | null;
+  end_date?: string | null;
+  descricao?: string | null;
+  all_day?: boolean | null;
+};
+
+type TodoDbRow = {
+  id?: string | null;
+  titulo?: string | null;
+  descricao?: string | null;
+  done?: boolean | null;
+  categoria_id?: string | null;
+  prioridade?: string | null;
+  status?: string | null;
+  arquivo?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type RankingVendedorRow = {
+  id?: string | null;
+};
+
 const ISO_DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 const ISO_DATE_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
 const BR_DATE_PATTERN = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -106,7 +134,7 @@ export function normalizeTodoPriority(value: unknown): TodoPrioridade {
   return 'media';
 }
 
-export function mapAgendaRowToEvent(row: any): AgendaEventItem | null {
+export function mapAgendaRowToEvent(row: AgendaDbRow): AgendaEventItem | null {
   const id = String(row?.id || '').trim();
   const title = String(row?.titulo || '').trim();
   const start = String(row?.start_at || row?.start_date || '').trim();
@@ -171,7 +199,7 @@ export function buildAgendaOverlapFilter(inicio: string, fim: string) {
   ].join(',');
 }
 
-export function mapTodoRow(row: any): TodoItem | null {
+export function mapTodoRow(row: TodoDbRow): TodoItem | null {
   const id = String(row?.id || '').trim();
   const titulo = String(row?.titulo || '').trim();
   if (!id || !titulo) return null;
@@ -217,7 +245,7 @@ export async function resolveFollowUpFilters(
         : [];
     const equipeIds = uniqueCleanStrings(
       (await fetchRankingVendedoresByCompanyIds(client, gestorCompanyIds)).map(
-        (row: any) => row?.id
+        (row: RankingVendedorRow) => row?.id
       )
     );
     const equipeSet = cleanStringSet(equipeIds);

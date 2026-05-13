@@ -17,6 +17,20 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const PT_BR_BASE_COLLATOR = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
+type CidadeSubdivisaoRow = {
+  nome?: string | null;
+  codigo_admin1?: string | null;
+};
+
+type CidadeBuscaRow = {
+  id?: string | null;
+  nome?: string | null;
+  grau_importancia?: number | string | null;
+  subdivisao_nome?: string | null;
+  pais_nome?: string | null;
+  subdivisao?: CidadeSubdivisaoRow | CidadeSubdivisaoRow[] | null;
+};
+
 function parseLimit(value: string | null) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 20;
@@ -55,7 +69,7 @@ function getCidadeSearchScore(item: ReturnType<typeof mapCidade>, normalizedQuer
   return 10;
 }
 
-function mapCidade(row: any) {
+function mapCidade(row: CidadeBuscaRow) {
   const nome = String(row?.nome || '').trim();
   const subdivisaoNome = String(row?.subdivisao_nome || '').trim();
   const subdivisao = Array.isArray(row?.subdivisao) ? row.subdivisao[0] : row?.subdivisao;
@@ -107,7 +121,7 @@ export async function GET(event) {
         ttlMs: 60_000,
         staleTtlMs: 300_000,
         loader: async () => {
-          let data: any = null;
+          let data: CidadeBuscaRow | null = null;
           const detailed = await client
             .from('cidades')
             .select('id, nome, grau_importancia, subdivisao:subdivisoes(nome, codigo_admin1)')
@@ -143,12 +157,12 @@ export async function GET(event) {
       ttlMs: 60_000,
       staleTtlMs: 300_000,
       loader: async () => {
-        let rows: any[] = [];
+        let rows: CidadeBuscaRow[] = [];
 
         try {
           const { data, error } = await client.rpc('buscar_cidades', { q: query, limite });
           if (error) throw error;
-          rows = Array.isArray(data) ? data : [];
+          rows = Array.isArray(data) ? (data as CidadeBuscaRow[]) : [];
         } catch {
           const fallbackWithSubdivisao = await client
             .from('cidades')

@@ -93,6 +93,16 @@ export type EmailSettingsPayload = {
   suporte_from_email?: string | null;
 };
 
+export type AvisoTemplatePayload = {
+  id?: string | null;
+  nome?: string | null;
+  assunto?: string | null;
+  mensagem?: string | null;
+  ativo?: boolean | null;
+  sender_key: string;
+  [key: string]: unknown;
+};
+
 const PERMISSION_VALUES = new Set(['none', 'view', 'create', 'edit', 'delete', 'admin']);
 
 export const DEFAULT_FROM_EMAILS = {
@@ -938,14 +948,14 @@ export async function saveSystemModuleSettings(
   }
 }
 
-export async function loadAvisoTemplates(client: SupabaseClient) {
+export async function loadAvisoTemplates(client: SupabaseClient): Promise<AvisoTemplatePayload[]> {
   const { data, error: queryError } = await client
     .from('admin_avisos_templates')
     .select('id, nome, assunto, mensagem, ativo, sender_key')
     .order('nome', { ascending: true });
 
   if (!queryError) {
-    return (data || []).map((row: any) => ({
+    return ((data || []) as Array<Omit<AvisoTemplatePayload, 'sender_key'> & { sender_key?: string | null }>).map((row) => ({
       ...row,
       sender_key: row.sender_key || 'avisos'
     }));
@@ -963,7 +973,7 @@ export async function loadAvisoTemplates(client: SupabaseClient) {
 
   if (fallback.error) throw fallback.error;
 
-  return (fallback.data || []).map((row: any) => ({
+  return ((fallback.data || []) as Array<Omit<AvisoTemplatePayload, 'sender_key'>>).map((row) => ({
     ...row,
     sender_key: 'avisos'
   }));

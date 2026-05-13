@@ -11,6 +11,11 @@ import { chunkArray } from '$lib/utils/array';
 
 const PT_BR_COLLATOR = new Intl.Collator('pt-BR');
 
+type GestorEquipeUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -26,7 +31,7 @@ export async function GET(event) {
       return json({ items: [] }, { headers: DYNAMIC_READ_HEADERS });
     }
 
-    const rows: any[] = [];
+    const rows: GestorEquipeUserRow[] = [];
     for (const batch of chunkArray(equipeIds)) {
       const { data, error: queryError } = await client
         .from('users')
@@ -36,21 +41,21 @@ export async function GET(event) {
         .order('nome_completo', { ascending: true });
 
       if (queryError) throw queryError;
-      rows.push(...(data || []));
+      rows.push(...((data || []) as GestorEquipeUserRow[]));
     }
 
-    const rowsById = new Map<string, any>();
+    const rowsById = new Map<string, GestorEquipeUserRow>();
     for (const row of rows) {
       rowsById.set(String(row?.id || ''), row);
     }
 
     const data = Array.from(rowsById.values())
-      .sort((left: any, right: any) =>
+      .sort((left, right) =>
         PT_BR_COLLATOR.compare(String(left?.nome_completo || ''), String(right?.nome_completo || ''))
       );
 
     return json({
-      items: data.map((row: any) => ({
+      items: data.map((row) => ({
         id: row.id,
         nome_completo: row.nome_completo || ''
       }))

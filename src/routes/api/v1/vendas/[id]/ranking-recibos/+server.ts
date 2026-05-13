@@ -18,6 +18,26 @@ import {
 import { buildVendaRankingConciliacaoSnapshot } from '$lib/conciliacao/vendaRanking';
 import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
+type VendaRankingSaleRow = {
+  company_id?: string | null;
+  cancelada?: boolean | null;
+};
+
+type RankingReciboRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+  valor_total?: number | string | null;
+  valor_taxas?: number | string | null;
+};
+
+function toNullableNumber(value: number | string | null | undefined) {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -46,14 +66,15 @@ export async function GET(event) {
     if (!vendaRaw) {
       return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
     }
-    if (vendaRaw.cancelada) {
+    const venda = vendaRaw as VendaRankingSaleRow;
+    if (venda.cancelada) {
       return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
     }
 
     // Verifica scope manualmente apenas para vendedor individual
     // (gestor/master/admin já foram liberados acima)
     if (!scope.isAdmin && !scope.isMaster && !scope.isGestor && !scope.isFinanceiro) {
-      const vendaCompanyId = String(vendaRaw.company_id || '').trim();
+      const vendaCompanyId = String(venda.company_id || '').trim();
       const scopeCompanyIds = new Set<string>();
       for (const companyId of scope.companyIds || []) {
         if (companyId) scopeCompanyIds.add(companyId);
@@ -63,8 +84,6 @@ export async function GET(event) {
       }
     }
 
-    const venda = vendaRaw;
-
     const { data: recibosData, error: recibosErr } = await client
       .from('vendas_recibos')
       .select('id, numero_recibo, numero_recibo_normalizado, numero_reserva, valor_total, valor_taxas')
@@ -72,28 +91,28 @@ export async function GET(event) {
 
     if (recibosErr) throw recibosErr;
 
-    const recibos = Array.isArray(recibosData) ? recibosData : [];
+    const recibos = Array.isArray(recibosData) ? (recibosData as RankingReciboRow[]) : [];
     if (recibos.length === 0) return json({ recibos: [], totais: null }, { headers: DYNAMIC_READ_HEADERS });
 
     // Resolve companyId: usa o da venda; fallback para o do scope (ex: admin sem company_id na venda)
-    const companyId = String((venda as any).company_id || scope.companyId || '');
+    const companyId = String(venda.company_id || scope.companyId || '');
 
     const snapshot = await buildVendaRankingConciliacaoSnapshot({
       client,
       vendaId: id,
       companyId,
-      recibos: recibos.map((recibo: any) => ({
+      recibos: recibos.map((recibo) => ({
         id: String(recibo.id),
         numero_recibo: recibo.numero_recibo ?? null,
         numero_recibo_normalizado: recibo.numero_recibo_normalizado ?? null,
         numero_reserva: recibo.numero_reserva ?? null,
-        valor_total: recibo.valor_total ?? null,
-        valor_taxas: recibo.valor_taxas ?? null
+        valor_total: toNullableNumber(recibo.valor_total),
+        valor_taxas: toNullableNumber(recibo.valor_taxas)
       }))
     });
 
     return json(snapshot, { headers: DYNAMIC_READ_HEADERS });
-  } catch (err: any) {
+  } catch (err) {
     logServerError('[ranking-recibos] erro ao carregar snapshot', err);
     return toErrorResponse(err, 'Erro ao carregar ranking de recibos.');
   }

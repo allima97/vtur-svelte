@@ -22,6 +22,10 @@ import {
   scopeCacheTags,
 } from "$lib/server/readModelCache";
 
+function getProdutoId(row: object) {
+  return (row as { produto_id?: unknown }).produto_id ?? null;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -81,6 +85,7 @@ export async function GET(event) {
         const byProduto = new Map<
           string,
           {
+            produto_id: unknown | null;
             produto: string;
             tipo: string;
             quantidade: number;
@@ -107,6 +112,7 @@ export async function GET(event) {
             const key = `${descriptor.produto}::${descriptor.tipo}`;
             const current = byProduto.get(key) || {
               produto: descriptor.produto,
+              produto_id: getProdutoId(row),
               tipo: descriptor.tipo,
               quantidade: 0,
               receita: 0,
@@ -115,18 +121,15 @@ export async function GET(event) {
 
             current.quantidade += 1;
             current.receita += receita;
-	            current.lucro += lucro;
-	            (current as any).produto_id = (row as any).produto_id ?? null;
-	            byProduto.set(key, current);
-	          }
-	        }
+            current.lucro += lucro;
+            current.produto_id = getProdutoId(row);
+            byProduto.set(key, current);
+          }
+        }
 
         const items = Array.from(byProduto.values())
           .map((item) => {
-            const produtoId =
-              typeof (item as any).produto_id !== "undefined"
-                ? (item as any).produto_id
-                : null;
+            const produtoId = item.produto_id ?? null;
             const produtoNameSlug = String(item.produto ?? "")
               .toLowerCase()
               .replace(/\s+/g, "-")
