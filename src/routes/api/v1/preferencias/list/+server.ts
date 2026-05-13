@@ -56,6 +56,16 @@ type PreferenciaSharedToMeRow = {
   preferencia?: unknown;
 };
 
+type PreferenciaListItem = {
+  preferencia?: (Record<string, unknown> & { created_at?: unknown }) | null;
+};
+
+function getPreferenciaCreatedAt(item: PreferenciaListItem) {
+  const preferencia = item?.preferencia;
+  if (!preferencia || typeof preferencia !== "object") return 0;
+  return preferencia.created_at || 0;
+}
+
 export async function GET(event) {
   try {
     const { client, user, scope } = await requirePreferenciasScope(event, 1);
@@ -162,12 +172,12 @@ export async function GET(event) {
           preferencia: s?.preferencia || null,
         }));
 
-        const all = [...owned, ...shared]
-          .filter((row: any) => matchesBusca(row?.preferencia, busca))
+        const all = ([...owned, ...shared] as PreferenciaListItem[])
+          .filter((row) => matchesBusca(row?.preferencia, busca))
           .sort(
-            (a: any, b: any) =>
-              new Date(b?.preferencia?.created_at || 0).getTime() -
-              new Date(a?.preferencia?.created_at || 0).getTime(),
+            (a, b) =>
+              new Date(getPreferenciaCreatedAt(b) as string | number | Date).getTime() -
+              new Date(getPreferenciaCreatedAt(a) as string | number | Date).getTime(),
           );
 
         return { items: all };
