@@ -27,13 +27,64 @@
     billing_proximo_vencimento: ''
   };
 
+  type BillingPlan = {
+    id: string;
+    nome?: string | null;
+    nome_plano?: string | null;
+  };
+
+  type MasterLink = {
+    id: string;
+    master_id?: string | null;
+    company_id?: string | null;
+    status?: string;
+    master_nome?: string | null;
+    nome?: string | null;
+    email?: string | null;
+    master?: {
+      nome_completo?: string | null;
+      email?: string | null;
+    } | null;
+  };
+
+  type MasterDisponivel = {
+    id: string;
+    nome?: string | null;
+    nome_completo?: string | null;
+    email?: string | null;
+  };
+
+  type EmpresaPayload = {
+    empresa: {
+      id: string;
+      nome_empresa?: string | null;
+      nome_fantasia?: string | null;
+      cnpj?: string | null;
+      telefone?: string | null;
+      endereco?: string | null;
+      cidade?: string | null;
+      estado?: string | null;
+      active?: boolean | null;
+    };
+    billing?: {
+      status?: string | null;
+      plan_id?: string | null;
+      valor_mensal?: number | string | null;
+      ultimo_pagamento?: string | null;
+      proximo_vencimento?: string | null;
+    } | null;
+    plans?: BillingPlan[] | null;
+    master_links?: MasterLink[] | null;
+    masters_disponiveis?: MasterDisponivel[] | null;
+  };
+
   let loading = true;
   let saving = false;
   let linkSaving = false;
   let form = { ...emptyForm };
-  let plans: any[] = [];
-  let masterLinks: any[] = [];
-  let mastersDisponiveis: any[] = [];
+  let plans: BillingPlan[] = [];
+  let masterLinks: MasterLink[] = [];
+  let mastersDisponiveis: MasterDisponivel[] = [];
   let newLink = {
     master_id: '',
     status: 'approved'
@@ -52,9 +103,9 @@
         masterLinks = [];
         mastersDisponiveis = [];
       } else {
-        let payload: any;
+        let payload: EmpresaPayload;
         try {
-          payload = await apiFetch(`/api/v1/admin/empresas/${$page.params.id}`, {
+          payload = await apiFetch<EmpresaPayload>(`/api/v1/admin/empresas/${$page.params.id}`, {
             redirectOnForbidden: false,
             redirectOnUnauthorized: false
           });
@@ -255,7 +306,7 @@
             id="link-master"
             label="Master"
             bind:value={newLink.master_id}
-            options={mastersDisponiveis.map((master) => ({ value: master.id, label: master.nome_completo }))}
+            options={mastersDisponiveis.map((master) => ({ value: master.id, label: master.nome_completo || master.nome || master.email || master.id }))}
             placeholder="Selecione uma opção"
             class_name="w-full"
           />
