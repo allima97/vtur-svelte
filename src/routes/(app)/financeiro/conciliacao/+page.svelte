@@ -813,10 +813,10 @@
       empresas = nextEmpresas;
       const currentCompany = String(data.company_id || '').trim();
       empresaId = currentCompany || nextEmpresas[0]?.id || '';
-    } catch (error: any) {
+    } catch (error: unknown) {
       empresas = [];
       empresaId = '';
-      toast.error(error?.message || 'Erro ao carregar empresas do usuário.');
+      toast.error(getErrorMessage(error, 'Erro ao carregar empresas do usuário.'));
     }
   }
 
