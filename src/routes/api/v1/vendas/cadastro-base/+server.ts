@@ -38,7 +38,10 @@ type CidadeRow = {
   subdivisao?: {
     nome?: string | null;
     codigo_admin1?: string | null;
-  } | null;
+  } | Array<{
+    nome?: string | null;
+    codigo_admin1?: string | null;
+  }> | null;
 };
 
 type CidadeOption = {
@@ -54,6 +57,24 @@ type EmpresaRow = {
   id?: string | null;
   nome_fantasia?: string | null;
   nome_empresa?: string | null;
+};
+
+type ClienteRow = {
+  id?: string | null;
+  nome?: string | null;
+  cpf?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  whatsapp?: string | null;
+  company_id?: string | null;
+};
+
+type FormaPagamentoRow = {
+  id?: string | null;
+  nome?: string | null;
+  paga_comissao?: boolean | null;
+  permite_desconto?: boolean | null;
+  desconto_padrao_pct?: number | string | null;
 };
 
 type ProdutoRow = {
@@ -151,7 +172,7 @@ export async function GET(event: RequestEvent) {
       if (!canLoadClientes) return { data: [], error: null };
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildClientesQuery(activeCompanyIds);
 
-      const rows: any[] = [];
+      const rows: ClienteRow[] = [];
       for (const batch of chunkArray(activeCompanyIds)) {
         const result = await buildClientesQuery(batch);
         if (result.error) return result;
@@ -219,7 +240,7 @@ export async function GET(event: RequestEvent) {
     const fetchFormasBase = async () => {
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildFormasQuery(activeCompanyIds);
 
-      const rows: any[] = [];
+      const rows: FormaPagamentoRow[] = [];
       for (const batch of chunkArray(activeCompanyIds)) {
         const result = await buildFormasQuery(batch);
         if (result.error) return result;
@@ -245,7 +266,7 @@ export async function GET(event: RequestEvent) {
       if (activeCompanyIds.length === 0) return { data: [], error: null };
       if (activeCompanyIds.length <= SUPABASE_IN_BATCH_SIZE) return buildEmpresasQuery(activeCompanyIds);
 
-      const rows: any[] = [];
+      const rows: EmpresaRow[] = [];
       for (const batch of chunkArray(activeCompanyIds)) {
         const result = await buildEmpresasQuery(batch);
         if (result.error) return result;
@@ -271,7 +292,7 @@ export async function GET(event: RequestEvent) {
       pacotesRes,
       formasRes,
       empresasRes
-    ] = (await Promise.all([
+    ] = await Promise.all([
       getCachedReadModel({
         key: buildReadModelCacheKey('vendas-cadastro-base:clientes', {
           companyIds: activeCompanyIds,
@@ -304,14 +325,14 @@ export async function GET(event: RequestEvent) {
         staleTtlMs: 120_000,
         loader: fetchEmpresasBase
       })
-    ])) as any[];
+    ]);
 
-    clientes = safeRows(clientesRes);
+    clientes = safeRows<ClienteRow>(clientesRes);
     const cidadesRaw = safeRows<CidadeRow>(cidadesRes);
     cidades = cidadesRaw
       .map((row) => {
       // subdivisoes.codigo_admin1 = state code (e.g. "SP"), subdivisoes.nome = state name
-        const sub = row?.subdivisao;
+        const sub = Array.isArray(row?.subdivisao) ? (row.subdivisao[0] ?? null) : (row?.subdivisao ?? null);
         const estado = sub?.codigo_admin1 || sub?.nome || null;
         return {
           id: row.id,
@@ -332,7 +353,7 @@ export async function GET(event: RequestEvent) {
     produtos = safeRows<ProdutoRow>(produtosRes);
     tipos = safeRows(tiposRes);
     tiposPacote = safeRows(pacotesRes);
-    formasPagamento = safeRows(formasRes);
+    formasPagamento = safeRows<FormaPagamentoRow>(formasRes);
     empresas = safeRows<EmpresaRow>(empresasRes).map((row) => ({
       id: row.id,
       nome: row.nome_fantasia || row.nome_empresa || 'Empresa sem nome'
