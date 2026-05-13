@@ -107,14 +107,22 @@
     return BRL_CURRENCY_FORMATTER.format(val);
   }
 
+  function getErrorMessage(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === 'object' && 'message' in err) {
+      return String((err as { message?: unknown }).message ?? err);
+    }
+    return String(err);
+  }
+
   async function loadConsultorias() {
     loading = true;
     try {
       consultorias = await apiGet<Consultoria[]>('/api/v1/consultorias', {
         status: statusFilter || undefined
       });
-    } catch (err: any) {
-      toast.error('Erro ao carregar consultorias: ' + (err?.message ?? err));
+    } catch (err) {
+      toast.error('Erro ao carregar consultorias: ' + getErrorMessage(err));
     } finally {
       loading = false;
     }
@@ -176,8 +184,8 @@
       toast.success(editingId ? 'Consultoria atualizada.' : 'Consultoria criada.');
       closeModal();
       await loadConsultorias();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Erro ao salvar consultoria.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar consultoria.');
     } finally {
       saving = false;
     }
@@ -192,8 +200,8 @@
       });
       toast.success(c.fechada ? 'Consultoria reaberta.' : 'Consultoria fechada.');
       await loadConsultorias();
-    } catch (err: any) {
-      toast.error('Erro: ' + (err?.message ?? err));
+    } catch (err) {
+      toast.error('Erro: ' + getErrorMessage(err));
     }
   }
 
