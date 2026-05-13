@@ -16,7 +16,19 @@ import type { RequestEvent } from '@sveltejs/kit';
 const ROTEIRO_SUGESTAO_SELECT = 'id, company_id, tipo, valor, uso_count, created_at, updated_at';
 const MAX_ROTEIRO_BODY_BYTES = 512 * 1024;
 
-function applyRoteiroScope<T>(
+type EqQueryable<T> = {
+  eq(column: string, value: string | null | undefined): T;
+};
+
+type UserCompanyRow = {
+  company_id?: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function applyRoteiroScope<T extends EqQueryable<T>>(
   query: T,
   scope: {
     isAdmin?: boolean;
@@ -27,19 +39,19 @@ function applyRoteiroScope<T>(
   }
 ) {
   if (!scope.isAdmin && !scope.isGestor && !scope.isMaster) {
-    return (query as any).eq('created_by', scope.userId);
+    return query.eq('created_by', scope.userId);
   }
 
   if (scope.companyId && !scope.isAdmin && !scope.isMaster) {
-    return (query as any).eq('company_id', scope.companyId);
+    return query.eq('company_id', scope.companyId);
   }
 
   return query;
 }
 
 function isMissingItinerarioConfigColumn(error: unknown) {
-  const code = String((error as any)?.code || '');
-  const message = String((error as any)?.message || '');
+  const code = isRecord(error) ? String(error.code || '') : '';
+  const message = isRecord(error) ? String(error.message || '') : '';
   return code === '42703' || /itinerario_config/i.test(message);
 }
 
@@ -84,9 +96,10 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as Record<string, unknown>)
         : {};
     const { id, nome, duracao, inicio_cidade, fim_cidade, dias, itinerario_config } = body;
+    const roteiroIdFromBody = typeof id === 'string' ? id : null;
 
     if (!String(nome || '').trim()) {
       return json({ error: 'Nome obrigatório.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -98,13 +111,13 @@ export async function POST(event: RequestEvent) {
       .select('company_id')
       .eq('id', user.id)
       .maybeSingle();
-    const companyId = (userProfile as any)?.company_id || null;
+    const companyId = (userProfile as UserCompanyRow | null)?.company_id || null;
 
     let roteiroId: string;
 
     const hasItinerarioConfig = Object.prototype.hasOwnProperty.call(body, 'itinerario_config');
 
-    if (id && isUuid(id)) {
+    if (roteiroIdFromBody && isUuid(roteiroIdFromBody)) {
       // Atualizar roteiro existente (RLS garante que só o dono pode atualizar)
       const updatePayload: Record<string, unknown> = {
         nome: String(nome).trim(),
@@ -120,7 +133,7 @@ export async function POST(event: RequestEvent) {
       let { error: updateError } = await supabase
         .from('roteiro_personalizado')
         .update(updatePayload)
-        .eq('id', id)
+        .eq('id', roteiroIdFromBody)
         .eq('created_by', user.id);
 
       if (updateError && hasItinerarioConfig && isMissingItinerarioConfigColumn(updateError)) {
@@ -128,12 +141,12 @@ export async function POST(event: RequestEvent) {
         ({ error: updateError } = await supabase
           .from('roteiro_personalizado')
           .update(updatePayload)
-          .eq('id', id)
+          .eq('id', roteiroIdFromBody)
           .eq('created_by', user.id));
       }
 
       if (updateError) throw updateError;
-      roteiroId = id;
+      roteiroId = roteiroIdFromBody;
     } else {
       // Inserir novo roteiro
       const insertPayload: Record<string, unknown> = {
