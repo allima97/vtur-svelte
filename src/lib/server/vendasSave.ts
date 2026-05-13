@@ -15,6 +15,22 @@ import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+type ReciboInput = {
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+};
+
+type AssignableSellerRow = {
+  id?: string | null;
+  company_id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
+  user_types?: { name?: string | null } | null;
+};
+
 function collapseSpaces(value?: string | null) {
   return String(value || "")
     .replace(/\s+/g, " ")
@@ -104,7 +120,7 @@ export async function ensureAssignableActiveSeller(
     .maybeSingle();
   if (error) throw error;
 
-  const vendedor = data as any;
+  const vendedor = data as AssignableSellerRow | null;
   if (!vendedor?.id) return "Vendedor informado nao encontrado.";
   if (!Boolean(vendedor?.active)) return "Vendedor informado esta inativo.";
   if (isEquipeVturNome(vendedor?.nome_completo))
@@ -201,7 +217,7 @@ export async function ensureReciboReservaUnicos(params: {
   companyId?: string | null;
   clienteId: string;
   ignoreVendaId?: string | null;
-  recibos: any[];
+  recibos: ReciboInput[];
 }) {
   const { client, companyId, clienteId, ignoreVendaId, recibos } = params;
 
