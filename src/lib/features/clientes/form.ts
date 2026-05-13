@@ -64,6 +64,9 @@ export const estadosBrasil = [
 export const classificacaoOptions = ['', 'A', 'B', 'C', 'D', 'E'];
 export const generoOptions = ['', 'Masculino', 'Feminino', 'Outros'];
 
+const REPEATED_DIGITS_PATTERN = /^(\d)\1+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function buildClienteSelectOptions(options: string[]) {
   return options.reduce<{ value: string; label: string }[]>((items, option) => {
     if (option) items.push({ value: option, label: option });
@@ -165,7 +168,7 @@ export function formatCep(value: string) {
 export function isValidCnpj(value: string) {
   const digits = onlyDigits(value);
   if (digits.length !== 14) return false;
-  if (/^(\d)\1+$/.test(digits)) return false;
+  if (REPEATED_DIGITS_PATTERN.test(digits)) return false;
 
   const calc = (base: string, factors: number[]) => {
     const sum = base
@@ -295,7 +298,7 @@ export function validateClienteForm(form: ClienteFormData): ClienteValidationRes
     errors.telefone = 'Telefone invalido. Informe DDD e numero.';
   }
 
-  if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+  if (form.email.trim() && !EMAIL_PATTERN.test(form.email.trim())) {
     errors.email = 'E-mail invalido.';
   }
 
