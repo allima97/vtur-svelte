@@ -53,6 +53,25 @@ type QuoteItemSegmentPayload = {
   order_index?: number | null;
 };
 
+type OrcamentoSaveBody = {
+  quote_id?: unknown;
+  items?: unknown;
+  removed_item_ids?: unknown;
+  client_id?: unknown;
+  client_name?: unknown;
+  cliente_nome?: unknown;
+  client_whatsapp?: unknown;
+  cliente_telefone?: unknown;
+  client_email?: unknown;
+  status?: unknown;
+  raw_json?: unknown;
+};
+
+type ClienteScopeRow = {
+  id?: unknown;
+  company_id?: unknown;
+};
+
 function normalizeLookupText(value: string) {
   return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
@@ -153,7 +172,7 @@ export async function POST(event: RequestEvent) {
 
     const body =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as OrcamentoSaveBody)
         : null;
     const quoteId = String(body?.quote_id || '').trim();
     if (!isUuid(quoteId)) return new Response('Quote invalido.', { status: 400, headers: NO_STORE_HEADERS });
@@ -191,8 +210,9 @@ export async function POST(event: RequestEvent) {
         .eq('id', clienteId)
         .maybeSingle();
       if (clienteErr) throw clienteErr;
-      if (!cliente?.id) return new Response('Cliente nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
-      const clienteCompanyId = String((cliente as any).company_id || '').trim();
+      const clienteRow = cliente as ClienteScopeRow | null;
+      if (!clienteRow?.id) return new Response('Cliente nao encontrado.', { status: 404, headers: NO_STORE_HEADERS });
+      const clienteCompanyId = String(clienteRow.company_id || '').trim();
       if (!scope.isAdmin && clienteCompanyId && !scope.companyIds.includes(clienteCompanyId)) {
         return new Response('Cliente fora do seu escopo.', { status: 403, headers: NO_STORE_HEADERS });
       }
@@ -335,7 +355,7 @@ export async function POST(event: RequestEvent) {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...NO_STORE_HEADERS },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logServerError('[orcamentos/save] falha ao salvar orcamento', err);
     return new Response('Erro ao salvar orcamento.', { status: 500, headers: NO_STORE_HEADERS });
   }
