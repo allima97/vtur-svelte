@@ -161,9 +161,10 @@ export function shouldUseMock(): boolean {
     if (key.includes('sua-anon-key') || key.includes('placeholder')) return true;
     
     return false;
-  } catch (e) {
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e || '');
     if (dev) console.error('[Supabase] Erro ao verificar mock', {
-      message: String((e as any)?.message || e || '')
+      message
     });
     return dev;
   }
