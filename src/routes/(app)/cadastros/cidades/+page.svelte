@@ -65,7 +65,7 @@
       key: 'subdivisao',
       label: 'Estado/Província',
       sortable: false,
-      formatter: (_: any, row: Cidade) => {
+      formatter: (_: unknown, row: Cidade) => {
         const sub = row.subdivisao?.nome || '-';
         const pais = row.subdivisao?.pais?.nome || '';
         return `<span>${pais ? `${escapeHtml(sub)} · ${escapeHtml(pais)}` : escapeHtml(sub)}</span>`;
