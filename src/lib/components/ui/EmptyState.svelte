@@ -1,9 +1,13 @@
 <script lang="ts">
+  import type { Component, ComponentType, SvelteComponent } from 'svelte';
   import Button from './Button.svelte';
+
+  type IconProps = { class?: string; size?: number | string };
+  type IconComponent = Component<IconProps> | ComponentType<SvelteComponent<IconProps>>;
 
   export let title = 'Nenhum resultado encontrado';
   export let message = 'Não há dados para exibir no momento.';
-  export let icon: any = null; // componente Lucide opcional
+  export let icon: IconComponent | null = null; // componente Lucide opcional
 
   // Ações opcionais — totalmente retrocompatível; sem estas props o componente
   // se comporta exatamente como antes (slot continua funcionando).
