@@ -42,7 +42,7 @@ export const DELETE: RequestHandler = async (event) => {
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_DELETE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
     const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, any>)
+      ? (bodyResult.data as Record<string, unknown>)
       : {};
     const id = String(body?.id || '').trim();
     if (!id) {
