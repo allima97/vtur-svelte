@@ -32,6 +32,23 @@ type DashboardViagemRow = {
   status: string | null;
 };
 
+type DashboardViagemClienteRow = {
+  id?: string | null;
+  nome?: string | null;
+  whatsapp?: string | null;
+  telefone?: string | null;
+};
+
+type DashboardViagemVendedorRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type DashboardViagemVendaRow = {
+  id?: string | null;
+  numero_venda?: string | number | null;
+};
+
 function isCancelledStatus(value?: string | null) {
   return normalizeViagemStatus(value) === "cancelada";
 }
@@ -152,12 +169,12 @@ async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: D
         .select("id, nome, whatsapp, telefone")
         .in("id", batch);
       if (error) throw error;
-      for (const row of data || []) {
-        const id = String((row as any)?.id || "").trim();
+      for (const row of (data || []) as DashboardViagemClienteRow[]) {
+        const id = String(row?.id || "").trim();
         if (!id) continue;
         clientesMap.set(id, {
-          nome: String((row as any)?.nome || "Cliente"),
-          contato: (row as any)?.whatsapp || (row as any)?.telefone || null,
+          nome: String(row?.nome || "Cliente"),
+          contato: row?.whatsapp || row?.telefone || null,
         });
       }
     }
@@ -172,9 +189,9 @@ async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: D
         .select("id, nome_completo")
         .in("id", batch);
       if (error) throw error;
-      for (const row of data || []) {
-        const id = String((row as any)?.id || "").trim();
-        if (id) vendedoresMap.set(id, String((row as any)?.nome_completo || ""));
+      for (const row of (data || []) as DashboardViagemVendedorRow[]) {
+        const id = String(row?.id || "").trim();
+        if (id) vendedoresMap.set(id, String(row?.nome_completo || ""));
       }
     }
   }
@@ -188,12 +205,12 @@ async function hydrateViagens(client: ReturnType<typeof getAdminClient>, rows: D
         .select("id, numero_venda")
         .in("id", batch);
       if (error) throw error;
-      for (const row of data || []) {
-        const id = String((row as any)?.id || "").trim();
+      for (const row of (data || []) as DashboardViagemVendaRow[]) {
+        const id = String(row?.id || "").trim();
         if (id)
           vendasMap.set(
             id,
-            (row as any)?.numero_venda ? String((row as any).numero_venda) : null,
+            row?.numero_venda ? String(row.numero_venda) : null,
           );
       }
     }
