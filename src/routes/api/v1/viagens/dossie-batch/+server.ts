@@ -1,4 +1,5 @@
 import { json, type RequestEvent } from "@sveltejs/kit";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ensureModuloAccess,
   getAdminClient,
@@ -29,6 +30,11 @@ type ViagemVendedorRelation = {
   vendedor_id: string | null;
 };
 
+type ViagemVendaDossieRelation = {
+  vendedor_id: string | null;
+  cliente_id?: string | null;
+};
+
 type ViagemDossieBatchRow = {
   id: string | null;
   company_id: string | null;
@@ -38,10 +44,12 @@ type ViagemDossieBatchRow = {
   data_inicio?: string | null;
   data_fim?: string | null;
   status?: string | null;
-  venda: ViagemVendedorRelation[] | null;
+  venda: ViagemVendaDossieRelation[] | null;
 };
 
-function firstVendedorRelation(venda: ViagemVendedorRelation[] | null | undefined) {
+function firstVendedorRelation<T extends { vendedor_id: string | null }>(
+  venda: T[] | null | undefined,
+) {
   return Array.isArray(venda) ? (venda[0] ?? null) : null;
 }
 
@@ -52,7 +60,7 @@ function vendedorOwnsViagem(userId: string, viagem: ViagemDossieBatchRow) {
 }
 
 async function loadDossie(
-  client: any,
+  client: SupabaseClient,
   viagemId: string,
   companyId: string,
   userId: string,
@@ -179,7 +187,7 @@ async function loadDossie(
     grau_parentesco?: string | null;
     data_nascimento?: string | null;
   }> = [];
-  const clienteBaseId = detalhe?.venda?.cliente_id || null;
+  const clienteBaseId = firstVendedorRelation(detalhe?.venda)?.cliente_id || null;
   if (clienteBaseId) {
     const { data } = await client
       .from("cliente_acompanhantes")
