@@ -12,6 +12,12 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 const MAX_CONVITE_SEND_BODY_BYTES = 64 * 1024;
 const TITLE_CASE_SMALL_WORDS = new Set(["de", "da", "do", "dos", "das", "e", "o", "a", "os", "as", "um", "uma", "uns", "umas"]);
 
+type IdRow = { id?: string | null };
+type UserTypeNameRow = { name?: string | null };
+type UserProfileNameRow = IdRow & { nome_completo?: string | null };
+type CompanyNameRow = { nome_fantasia?: string | null };
+type SharedGestorRow = { gestor_base_id?: string | null };
+
 function noStoreJson(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
   for (const [key, value] of Object.entries(NO_STORE_HEADERS)) headers.set(key, value);
@@ -99,7 +105,7 @@ async function getUserTypeNameById(client: ReturnType<typeof getAdminClient>, us
     .eq("id", userTypeId)
     .maybeSingle();
   if (error) throw error;
-  return String((data as any)?.name || "").toUpperCase();
+  return String((data as UserTypeNameRow | null)?.name || "").toUpperCase();
 }
 
 async function isRestrictedUserType(client: ReturnType<typeof getAdminClient>, userTypeId: string) {
@@ -333,7 +339,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw existingErr;
     }
 
-    let inviteId = String((existingInvite as any)?.id || "");
+    let inviteId = String((existingInvite as IdRow | null)?.id || "");
     if (inviteId) {
       const { error: updateErr } = await adminClient
         .from("user_convites")
@@ -381,7 +387,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
         throw insertErr;
       }
-      inviteId = String((createdInvite as any)?.id || "");
+      inviteId = String((createdInvite as IdRow | null)?.id || "");
     }
 
     const origin = new URL(request.url).origin;
@@ -411,7 +417,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         actionLink = String((inviteData as any)?.properties?.action_link || "");
         authUserId = String((inviteData as any)?.user?.id || "") || null;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logServerError("[convites/send] falha ao gerar link de convite", err);
       return noStoreJson({ error: "Falha ao gerar link de convite." }, { status: 500 });
     }
@@ -434,7 +440,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         const updates: Record<string, any> = { email };
         const normalizedNome = titleCaseWithExceptions(nomeCompletoRaw);
-        if (normalizedNome && !String((profileRow as any)?.nome_completo || "").trim()) {
+        if (normalizedNome && !String((profileRow as UserProfileNameRow | null)?.nome_completo || "").trim()) {
           updates.nome_completo = normalizedNome;
         }
         if (typeof activeRaw === "boolean") {
@@ -456,7 +462,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .select("nome_fantasia")
         .eq("id", companyId)
         .maybeSingle();
-      companyName = String((companyRow as any)?.nome_fantasia || "sua empresa");
+      companyName = String((companyRow as CompanyNameRow | null)?.nome_fantasia || "sua empresa");
     }
 
     const roleName = tipoNome;
@@ -514,8 +520,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           .select("gestor_base_id")
           .eq("gestor_id", user.id)
           .maybeSingle();
-        if (!sharedErr && (sharedRow as any)?.gestor_base_id) {
-          gestorEquipeId = String((sharedRow as any).gestor_base_id);
+        const sharedGestorBaseId = (sharedRow as SharedGestorRow | null)?.gestor_base_id;
+        if (!sharedErr && sharedGestorBaseId) {
+          gestorEquipeId = String(sharedGestorBaseId);
         }
 
         await adminClient
@@ -537,7 +544,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         expires_at: expiresAt,
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     logServerError("[convites/send] falha ao enviar convite", error);
     return noStoreJson({ error: "Erro interno ao enviar convite." }, { status: 500 });
   }
