@@ -1137,14 +1137,15 @@ export async function fetchVendasKpiReciboContributionsRaw(
   >();
 
   for (const row of rows) {
+    const rowExtra = row as VendaAggregateRowExtra;
     const syntheticKey = [
       toDateKey(row?.data_venda),
       toStr(row?.vendedor_id),
-      toStr((row as any)?.destino_id),
-      toStr((row as any)?.valor_total || (row as any)?.valor_total_bruto),
+      toStr(rowExtra.destino_id),
+      toStr(rowExtra.valor_total || rowExtra.valor_total_bruto),
     ].join("|");
     const vendaKey =
-      toStr((row as any)?.source_venda_id || row?.id) || `synt:${syntheticKey}`;
+      toStr(rowExtra.source_venda_id || row?.id) || `synt:${syntheticKey}`;
     const current = groupedByVenda.get(vendaKey) || {
       vendaRows: [],
       recibos: [],
@@ -1232,6 +1233,7 @@ export async function fetchVendasKpiReciboContributionsRaw(
     countAtivas += 1;
 
     for (const recibo of recibosPeriodo) {
+      const reciboExtra = recibo as ScopedReceiptRow;
       const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
@@ -1257,9 +1259,9 @@ export async function fetchVendasKpiReciboContributionsRaw(
         : sourceTaxas * rankingGrupo.fatorTaxas;
 
       const vendedorId =
-        toStr((recibo as any)?.rateio_scope_vendor_id) ||
-        toStr((recibo as any)?.vendedor_id) ||
-        toStr((vendaPrincipal as any)?.vendedor_id);
+        toStr(reciboExtra.rateio_scope_vendor_id) ||
+        toStr(reciboExtra.vendedor_id) ||
+        toStr(vendaPrincipalExtra.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&
@@ -1419,14 +1421,15 @@ export async function fetchAndComputeVendasTimeline(
   >();
 
   for (const row of rows) {
+    const rowExtra = row as VendaAggregateRowExtra;
     const syntheticKey = [
       toDateKey(row?.data_venda),
       toStr(row?.vendedor_id),
-      toStr((row as any)?.destino_id),
-      toStr((row as any)?.valor_total || (row as any)?.valor_total_bruto),
+      toStr(rowExtra.destino_id),
+      toStr(rowExtra.valor_total || rowExtra.valor_total_bruto),
     ].join("|");
     const vendaKey =
-      toStr((row as any)?.source_venda_id || row?.id) || `synt:${syntheticKey}`;
+      toStr(rowExtra.source_venda_id || row?.id) || `synt:${syntheticKey}`;
     const current = groupedByVenda.get(vendaKey) || {
       vendaRows: [],
       recibos: [],
@@ -1442,10 +1445,11 @@ export async function fetchAndComputeVendasTimeline(
     const vendaPrincipal =
       group.vendaRows.find((row) => toStr(row?.id) === vendaKey) ||
       group.vendaRows[0];
+    const vendaPrincipalExtra = vendaPrincipal as VendaAggregateRowExtra;
 
     if (
       isStatusCancelado(
-        (vendaPrincipal as any)?.status,
+        vendaPrincipalExtra.status,
         vendaPrincipal?.cancelada,
       )
     )
@@ -1507,6 +1511,7 @@ export async function fetchAndComputeVendasTimeline(
     });
 
     for (const recibo of recibosPeriodo) {
+      const reciboExtra = recibo as ScopedReceiptRow;
       const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
@@ -1527,9 +1532,9 @@ export async function fetchAndComputeVendasTimeline(
         : getReciboBruto(recibo) * fatorRecibo;
 
       const vendedorId =
-        toStr((recibo as any)?.rateio_scope_vendor_id) ||
-        toStr((recibo as any)?.vendedor_id) ||
-        toStr((vendaPrincipal as any)?.vendedor_id);
+        toStr(reciboExtra.rateio_scope_vendor_id) ||
+        toStr(reciboExtra.vendedor_id) ||
+        toStr(vendaPrincipalExtra.vendedor_id);
       const rateio = reciboId ? rateioMap.get(reciboId) : null;
       const baseAllocations =
         rateio &&
