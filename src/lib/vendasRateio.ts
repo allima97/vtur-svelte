@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   cleanStringSet,
   chunkArray,
@@ -85,7 +86,7 @@ export function cloneReciboWithFactor<T extends ReciboLike>(
   } as T;
 }
 
-export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
+export async function fetchRateioByReciboIds(client: SupabaseClient, reciboIds: string[]) {
   const ids = uniqueCleanStrings((reciboIds || []).map((id) => normalizeReciboLookupId(id)));
   if (ids.length === 0) return new Map<string, RateioRow>();
 
@@ -152,7 +153,7 @@ export async function fetchRateioByReciboIds(client: any, reciboIds: string[]) {
 }
 
 export async function fetchSplitSaleIdsForDestinationVendedores(
-  client: any,
+  client: SupabaseClient,
   options: {
     companyId?: string | null;
     companyIds?: string[] | null;
