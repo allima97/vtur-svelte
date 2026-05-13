@@ -21,6 +21,7 @@
   import type { ComponentType } from "svelte";
 
   type SortDirection = "asc" | "desc" | null;
+  type RowKey = string;
 
   interface Column<T = any> {
     key: string;
@@ -94,7 +95,7 @@
 
   export let extraSearchKeys: string[] = [];
   export let onRowClick: ((row: any) => void) | undefined = undefined;
-  export let onSelectionChange: ((selected: any[]) => void) | undefined =
+  export let onSelectionChange: ((selected: RowKey[]) => void) | undefined =
     undefined;
   export let onExport: (() => void) | undefined = undefined;
   export let onSearch: ((query: string) => void) | undefined = undefined;
