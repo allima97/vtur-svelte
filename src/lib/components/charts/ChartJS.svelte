@@ -54,21 +54,26 @@
     }
   };
   
+  type MergeableRecord = Record<string, unknown>;
+
+  function isMergeableRecord(value: unknown): value is MergeableRecord {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+  }
+
   // Merge profundo: override prevalece sobre defaults mas preserva sub-objetos não sobrescritos
-  function deepMerge(base: any, override: any): any {
-    if (!override || typeof override !== 'object') return base;
-    const result = { ...base };
+  function deepMerge<T extends MergeableRecord>(base: T, override: unknown): T {
+    if (!isMergeableRecord(override)) return base;
+    const result: MergeableRecord = { ...base };
     for (const key of Object.keys(override)) {
       const ov = override[key];
-      const bv = base?.[key];
-      if (ov !== null && typeof ov === 'object' && !Array.isArray(ov)
-          && bv !== null && typeof bv === 'object' && !Array.isArray(bv)) {
+      const bv = base[key];
+      if (isMergeableRecord(ov) && isMergeableRecord(bv)) {
         result[key] = deepMerge(bv, ov);
       } else {
         result[key] = ov;
       }
     }
-    return result;
+    return result as T;
   }
 
   onMount(() => {
@@ -80,7 +85,7 @@
     chart = new Chart(ctx, {
       type,
       data,
-      options: deepMerge(defaultOptions, options)
+      options: deepMerge(defaultOptions as MergeableRecord, options) as ChartOptions
     });
   });
   
