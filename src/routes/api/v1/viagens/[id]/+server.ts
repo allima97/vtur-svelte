@@ -16,6 +16,15 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 import { chunkArray } from "$lib/utils/array";
 
 const MAX_VIAGEM_UPDATE_BODY_BYTES = 256 * 1024;
+const VIAGEM_ALLOWED_UPDATE_FIELDS = [
+  "data_inicio",
+  "data_fim",
+  "status",
+  "observacoes",
+  "follow_up_text",
+  "follow_up_fechado",
+  "responsavel_user_id",
+];
 
 async function hasViagemAccessByResponsavel(
   client: any,
@@ -390,20 +399,10 @@ export async function PATCH(event) {
       }
     }
 
-    const allowedFields = [
-      "data_inicio",
-      "data_fim",
-      "status",
-      "observacoes",
-      "follow_up_text",
-      "follow_up_fechado",
-      "responsavel_user_id",
-    ];
-
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
-    for (const field of allowedFields) {
+    for (const field of VIAGEM_ALLOWED_UPDATE_FIELDS) {
       if (body[field] !== undefined) updateData[field] = body[field];
     }
     updateData.status = resolveViagemStatus({

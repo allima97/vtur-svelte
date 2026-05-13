@@ -15,6 +15,10 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_ADMIN_COMPANY_BODY_BYTES = 32 * 1024;
+const ADMIN_COMPANY_ALLOWED_UPDATE_FIELDS = [
+  'nome_empresa', 'nome_fantasia', 'cnpj', 'telefone',
+  'endereco', 'cidade', 'estado', 'active'
+] as const;
 
 export async function GET(event) {
   try {
@@ -129,14 +133,9 @@ export async function PATCH(event) {
         ? (bodyResult.data as Record<string, unknown>)
         : {};
 
-    // Apenas campos que existem na tabela companies
-    const ALLOWED = [
-      'nome_empresa', 'nome_fantasia', 'cnpj', 'telefone',
-      'endereco', 'cidade', 'estado', 'active'
-    ] as const;
-
     const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    for (const field of ALLOWED) {
+    // Apenas campos que existem na tabela companies
+    for (const field of ADMIN_COMPANY_ALLOWED_UPDATE_FIELDS) {
       if (body[field] !== undefined) updatePayload[field] = body[field];
     }
 

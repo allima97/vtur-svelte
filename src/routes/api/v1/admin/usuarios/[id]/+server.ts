@@ -33,6 +33,11 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/requestGuards';
 
 const MAX_ADMIN_USER_BODY_BYTES = 64 * 1024;
+const ADMIN_USER_ALLOWED_UPDATE_FIELDS = [
+  'nome_completo', 'telefone', 'cidade', 'estado',
+  'active', 'uso_individual', 'participa_ranking',
+  'user_type_id', 'company_id', 'cargo', 'birth_date'
+] as const;
 
 function invalidateManagedUserCache(params: {
   actorId?: string | null;
@@ -161,15 +166,9 @@ export async function PATCH(event) {
       }
     }
 
-    // Campos permitidos na tabela users
-    const ALLOWED_USER = [
-      'nome_completo', 'telefone', 'cidade', 'estado',
-      'active', 'uso_individual', 'participa_ranking',
-      'user_type_id', 'company_id', 'cargo', 'birth_date'
-    ] as const;
-
     const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    for (const field of ALLOWED_USER) {
+    // Campos permitidos na tabela users
+    for (const field of ADMIN_USER_ALLOWED_UPDATE_FIELDS) {
       if (body[field] !== undefined) updatePayload[field] = body[field];
     }
     const effectiveUsoIndividual =
