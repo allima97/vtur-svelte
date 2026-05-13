@@ -1402,7 +1402,9 @@
     reverting = true;
     operationMessage = 'Revertendo alterações pendentes da conciliação.';
     try {
-      const data = await apiPost<any>('/api/v1/conciliacao/revert', {
+      const data = await apiPost<{
+        reverted?: number | null;
+      }>('/api/v1/conciliacao/revert', {
         companyId: empresaId || undefined,
         revertAll: true,
         limit: 500
