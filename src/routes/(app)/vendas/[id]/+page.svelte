@@ -55,6 +55,12 @@
 
   type VendaPagamentoResumo = {
     valor_total?: number | string | null;
+    forma_nome?: string | null;
+    forma_pagamento?: { nome?: string | null } | null;
+    operacao?: string | null;
+    parcelas_qtd?: number | null;
+    parcelas?: Array<unknown> | null;
+    paga_comissao?: boolean | null;
   };
 
   type VendaDetalhePayload = {
@@ -68,7 +74,35 @@
     valor_taxas?: number | string | null;
     valor_total_pago?: number | string | null;
     destino_cidade?: { nome?: string | null } | null;
-    destino?: { nome?: string | null } | string | null;
+    destino?: { nome?: string | null } | null;
+  };
+
+  type VendaClienteResumo = {
+    nome?: string | null;
+    email?: string | null;
+    telefone?: string | null;
+  };
+
+  type VendaVendedorResumo = {
+    nome_completo?: string | null;
+  };
+
+  type VendaDetalheView = VendaDetalhePayload & {
+    codigo?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    data_lancamento?: string | null;
+    data_venda?: string | null;
+    vendedor_id?: string | null;
+    vendedor?: VendaVendedorResumo | null;
+    cliente?: VendaClienteResumo | null;
+    cliente_email?: string | null;
+    cliente_telefone?: string | null;
+    valor_total_bruto?: number | string | null;
+    valor_nao_comissionado?: number | string | null;
+    conciliado?: boolean | null;
+    notas?: string | null;
+    observacoes?: string | null;
   };
 
   type RankingReciboRateio = {
@@ -117,7 +151,7 @@
     totais?: RankingTotaisSnapshot | null;
   };
 
-  let venda: any = null;
+  let venda: VendaDetalheView | null = null;
   let loading = true;
   let loadingHint = 'Carregando os dados da venda...';
   let showLoadingRecovery = false;
@@ -364,7 +398,7 @@
     return err instanceof Error ? err.message : 'falha inesperada';
   }
 
-  async function applyVendaData(data: VendaDetalhePayload, opts: { loadProdutos?: boolean } = {}) {
+  async function applyVendaData(data: VendaDetalheView, opts: { loadProdutos?: boolean } = {}) {
     venda = data;
 
     // Normaliza status legado 'aberto' e deriva status baseado em datas (igual à lógica da listagem)
@@ -412,7 +446,7 @@
     if (isInitialLoad && fromRecentWrite) {
       try {
         loadingHint = fromImport ? 'Abrindo a venda importada...' : 'Abrindo a venda...';
-        const liteData = await apiFetch<VendaDetalhePayload>(`/api/v1/vendas/${vendaId}`, {
+        const liteData = await apiFetch<VendaDetalheView>(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 6_000,
@@ -436,7 +470,7 @@
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const data = await apiFetch<VendaDetalhePayload>(`/api/v1/vendas/${vendaId}`, {
+        const data = await apiFetch<VendaDetalheView>(`/api/v1/vendas/${vendaId}`, {
           redirectOnForbidden: false,
           redirectOnUnauthorized: false,
           timeoutMs: 15_000,
@@ -500,6 +534,7 @@
     processando = true;
     try {
       await apiPost('/api/v1/vendas/cancel', { venda_id: vendaId });
+      if (!venda) return;
       venda.status = 'cancelada';
       venda.cancelada = true;
       toast.success('Venda cancelada com sucesso!');
@@ -522,11 +557,11 @@
     }
   }
 
-  function formatCurrency(value: number): string {
-    return BRL_CURRENCY_FORMATTER.format(value || 0);
+  function formatCurrency(value: number | string | null | undefined): string {
+    return BRL_CURRENCY_FORMATTER.format(Number(value || 0));
   }
 
-  function formatDate(dateString: string | null): string {
+  function formatDate(dateString: string | null | undefined): string {
     return formatDateValue(dateString);
   }
 
@@ -534,7 +569,12 @@
     return String(recibo?.destino_cidade?.nome || venda?.destino_cidade?.nome || '').trim() || 'Não informada';
   }
 
-  function getStatusColor(status: string): string {
+  function getReciboProdutoNome(recibo: VendaReciboResumo): string {
+    const produtoId = String(recibo.produto_resolvido_id || recibo.produto_id || '').trim();
+    return produtosCache[produtoId]?.nome || recibo.produto_resolvido?.nome || 'N/A';
+  }
+
+  function getStatusColor(status: string | null | undefined): string {
     switch (status) {
       case 'confirmada': return 'bg-green-100 text-green-700 border-green-200';
       case 'pendente': return 'bg-amber-100 text-amber-700 border-amber-200';
@@ -544,14 +584,14 @@
     }
   }
 
-  function getStatusLabel(status: string): string {
+  function getStatusLabel(status: string | null | undefined): string {
     const labels: Record<string, string> = {
       confirmada: 'Confirmada',
       pendente: 'Pendente',
       cancelada: 'Cancelada',
       concluida: 'Concluída'
     };
-    return labels[status] || status;
+    return status ? labels[status] || status : 'Não informado';
   }
 
   $: valorTotal = Number(venda?.valor_total || 0);
@@ -933,7 +973,7 @@
                       <p class="font-medium">{recibo.numero_recibo || 'N/A'}</p>
                     </td>
                     <td class="py-3 px-3 text-slate-700" data-label="Produto">
-                      {produtosCache[recibo.produto_resolvido_id || recibo.produto_id]?.nome || recibo.produto_resolvido?.nome || 'N/A'}
+                      {getReciboProdutoNome(recibo)}
                     </td>
                     <td class="py-3 px-3 text-slate-700" data-label="Cidade">{getReciboCidade(recibo)}</td>
                     <td class="py-3 px-3 text-center text-slate-700" data-label="Reserva">{recibo.numero_reserva || '-'}</td>
