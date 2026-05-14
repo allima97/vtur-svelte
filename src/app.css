@@ -1717,6 +1717,8 @@ thead.bg-slate-50 td {
 .vtur-table__body td span,
 .vtur-table__body td p {
   line-height: 1.35 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
 }
 
 .vtur-table__body tr:hover {
