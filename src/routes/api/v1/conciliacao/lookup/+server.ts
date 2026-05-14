@@ -99,6 +99,27 @@ type LookupRequestBody = {
   }>;
 };
 
+function readLookupRequestBody(value: unknown): LookupRequestBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: LookupRequestBody = {};
+
+  if (typeof body.companyId === 'string') parsed.companyId = body.companyId;
+
+  if (Array.isArray(body.documentos)) {
+    parsed.documentos = body.documentos
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => ({
+        documento: typeof item.documento === 'string' ? item.documento : null,
+        valor_lancamentos: typeof item.valor_lancamentos === 'number' ? item.valor_lancamentos : null,
+        valor_taxas: typeof item.valor_taxas === 'number' ? item.valor_taxas : null
+      }));
+  }
+
+  return parsed;
+}
+
 async function fetchReciboCandidates(params: {
   client: LookupClient;
   numero: string;
@@ -248,10 +269,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
-    const body: LookupRequestBody =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as LookupRequestBody)
-        : {};
+    const body = readLookupRequestBody(bodyResult.data);
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     if (companyIds.length === 0) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
