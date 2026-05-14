@@ -11,6 +11,13 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_DOCUMENTO_VIAGEM_CREATE_BODY_BYTES = 64 * 1024;
 
+type DocumentoViagemCreateBody = {
+  file_name?: string;
+  display_name?: string;
+  mime_type?: string;
+  size_bytes?: number | string;
+};
+
 function sanitizeFileName(name: string) {
   const base = String(name || '').trim();
   if (!base) return 'arquivo';
@@ -20,6 +27,22 @@ function sanitizeFileName(name: string) {
     .replace(/[^a-zA-Z0-9._ -]/g, '')
     .slice(0, 120)
     .trim();
+}
+
+function readDocumentoViagemCreateBody(value: unknown): DocumentoViagemCreateBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: DocumentoViagemCreateBody = {};
+
+  if (typeof body.file_name === 'string') parsed.file_name = body.file_name;
+  if (typeof body.display_name === 'string') parsed.display_name = body.display_name;
+  if (typeof body.mime_type === 'string') parsed.mime_type = body.mime_type;
+  if (typeof body.size_bytes === 'number' || typeof body.size_bytes === 'string') {
+    parsed.size_bytes = body.size_bytes;
+  }
+
+  return parsed;
 }
 
 export async function POST(event: RequestEvent) {
@@ -37,10 +60,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 2, 'Sem permissao para enviar documentos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readDocumentoViagemCreateBody(bodyResult.data);
     const rawFileName = String(body?.file_name || '').trim();
     if (!rawFileName) return json({ error: 'file_name obrigatorio.' }, { status: 400, headers: NO_STORE_HEADERS });
 
