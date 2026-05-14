@@ -20,6 +20,13 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_CIDADES_BODY_BYTES = 64 * 1024;
 
+type CidadeBody = {
+  id?: unknown;
+  nome?: unknown;
+  descricao?: unknown;
+  subdivisao_id?: unknown;
+};
+
 type CidadeListRow = {
   id: string;
   nome: string | null;
@@ -32,6 +39,17 @@ type CidadeListRow = {
     pais_id: string | null;
   }[] | null;
 };
+
+function readCidadeBody(value: unknown): CidadeBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    descricao: body.descricao,
+    subdivisao_id: body.subdivisao_id
+  };
+}
 
 export async function GET(event) {
   try {
@@ -109,10 +127,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Cidades'], 2, 'Sem permissão para salvar cidades.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readCidadeBody(bodyResult.data);
     const { nome, descricao } = body;
     const id = String(body.id || '').trim();
     const subdivisaoId = String(body.subdivisao_id || '').trim();
