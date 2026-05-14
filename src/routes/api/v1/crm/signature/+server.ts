@@ -23,6 +23,34 @@ type AssinaturaForm = {
   linha3_italic?: boolean | null;
 };
 
+function readAssinaturaForm(value: unknown): AssinaturaForm {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    linha1: typeof body.linha1 === 'string' ? body.linha1 : null,
+    linha1_font_size: typeof body.linha1_font_size === 'number' ? body.linha1_font_size : null,
+    linha1_italic: typeof body.linha1_italic === 'boolean' ? body.linha1_italic : null,
+    linha2: typeof body.linha2 === 'string' ? body.linha2 : null,
+    linha2_font_size: typeof body.linha2_font_size === 'number' ? body.linha2_font_size : null,
+    linha2_italic: typeof body.linha2_italic === 'boolean' ? body.linha2_italic : null,
+    linha3: typeof body.linha3 === 'string' ? body.linha3 : null,
+    linha3_font_size: typeof body.linha3_font_size === 'number' ? body.linha3_font_size : null,
+    linha3_italic: typeof body.linha3_italic === 'boolean' ? body.linha3_italic : null,
+  };
+}
+
+function readCrmSignatureBody(value: unknown): { assinatura: AssinaturaForm } {
+  if (!value || typeof value !== 'object') {
+    return { assinatura: {} };
+  }
+
+  const body = value as Record<string, unknown>;
+  const assinaturaSource =
+    body.assinatura && typeof body.assinatura === 'object' ? body.assinatura : body;
+
+  return { assinatura: readAssinaturaForm(assinaturaSource) };
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -32,13 +60,7 @@ export async function POST(event) {
 
     const user = await requireAuthenticatedUser(event);
     const client = event.locals.supabase;
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
-    const assinatura = (
-      body?.assinatura && typeof body.assinatura === 'object' ? body.assinatura : body
-    ) as AssinaturaForm;
+    const { assinatura } = readCrmSignatureBody(bodyResult.data);
 
     const row = {
       user_id: user.id,
