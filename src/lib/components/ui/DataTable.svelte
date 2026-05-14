@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="T extends object">
   import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
   import {
     ChevronLeft,
@@ -22,8 +22,9 @@
 
   type SortDirection = "asc" | "desc" | null;
   type RowKey = string;
+  type DataTableRow = Record<string, unknown>;
 
-  interface Column<T = any> {
+  interface Column<TRow = T> {
     key: string;
     label: string;
     sortable?: boolean;
@@ -31,9 +32,9 @@
     align?: "left" | "center" | "right";
     headerClass?: string;
     cellClass?: string;
-    formatter?: (value: any, row: T) => string;
+    formatter?: (value: never, row: TRow) => string;
     component?: ComponentType;
-    componentProps?: (row: T) => Record<string, any>;
+    componentProps?: (row: TRow) => Record<string, unknown>;
   }
 
   interface FilterOption {
@@ -43,22 +44,27 @@
     options?: { value: string; label: string }[];
   }
 
-  function defaultKeyExtractor(row: any): string {
+  function getRowRecord(row: T): DataTableRow {
+    return row as DataTableRow;
+  }
+
+  function defaultKeyExtractor(row: T): string {
+    const rowRecord = getRowRecord(row);
     const directKey =
-      row?.id ??
-      row?.uuid ??
-      row?._id ??
-      row?.key ??
-      row?.vendedor_id ??
-      row?.cliente_id ??
-      row?.numero_recibo;
+      rowRecord.id ??
+      rowRecord.uuid ??
+      rowRecord._id ??
+      rowRecord.key ??
+      rowRecord.vendedor_id ??
+      rowRecord.cliente_id ??
+      rowRecord.numero_recibo;
 
     if (directKey != null && String(directKey).trim() !== "") {
       return String(directKey);
     }
 
     // Fallback determinístico para evitar chaves voláteis no #each.
-    return JSON.stringify(row ?? {});
+    return JSON.stringify(rowRecord);
   }
 
   function normalizeSearchText(value: unknown) {
@@ -69,8 +75,8 @@
       .trim();
   }
 
-  export let data: any[] = [];
-  export let columns: Column[] = [];
+  export let data: T[] = [];
+  export let columns: Column<T>[] = [];
   export let color: ModuleColor = "clientes";
   $: color;
   export let loading: boolean = false;
@@ -90,16 +96,16 @@
   export let filters: FilterOption[] = [];
   export let title: string = "";
   export let emptyMessage: string = "Nenhum registro encontrado";
-  export let keyExtractor: (row: any) => string = defaultKeyExtractor;
-  export let rowClass: ((row: any) => string) | undefined = undefined;
+  export let keyExtractor: (row: T) => string = defaultKeyExtractor;
+  export let rowClass: ((row: T) => string) | undefined = undefined;
 
   export let extraSearchKeys: string[] = [];
-  export let onRowClick: ((row: any) => void) | undefined = undefined;
+  export let onRowClick: ((row: T) => void) | undefined = undefined;
   export let onSelectionChange: ((selected: RowKey[]) => void) | undefined =
     undefined;
   export let onExport: (() => void) | undefined = undefined;
   export let onSearch: ((query: string) => void) | undefined = undefined;
-  export let onFilterChange: ((key: string, value: any) => void) | undefined =
+  export let onFilterChange: ((key: string, value: string) => void) | undefined =
     undefined;
   export let onPageChange: ((page: number) => void) | undefined = undefined;
   export let onPageSizeChange: ((pageSize: number) => void) | undefined =
@@ -109,7 +115,7 @@
     | undefined = undefined;
 
   let searchQuery = "";
-  let activeFilters: Record<string, any> = {};
+  let activeFilters: Record<string, string> = {};
   let showFilters = false;
   let showFilterSheet = false;
   let currentPage = 1;
@@ -134,16 +140,17 @@
     let result = [...data];
 
     if (searchQuery) {
-      const query = normalizeSearchText(searchQuery);
-      result = result.filter((row) => {
+        const query = normalizeSearchText(searchQuery);
+        result = result.filter((row) => {
+        const rowRecord = getRowRecord(row);
         const matchesColumn = columns.some((col) => {
-          const value = row[col.key];
+          const value = rowRecord[col.key];
           if (value == null) return false;
           return normalizeSearchText(value).includes(query);
         });
         if (matchesColumn) return true;
         return extraSearchKeys.some((key) => {
-          const value = row[key];
+          const value = rowRecord[key];
           if (value == null) return false;
           return normalizeSearchText(value).includes(query);
         });
@@ -153,18 +160,15 @@
     for (const [key, value] of Object.entries(activeFilters)) {
       if (value === "" || value == null) continue;
       result = result.filter((row) => {
-        const rowValue = row[key];
-        if (Array.isArray(value)) {
-          return value.includes(String(rowValue));
-        }
+        const rowValue = getRowRecord(row)[key];
         return normalizeSearchText(rowValue).includes(normalizeSearchText(value));
       });
     }
 
     if (sortKey && sortDirection) {
       result.sort((a, b) => {
-        const aVal = a[sortKey!];
-        const bVal = b[sortKey!];
+        const aVal = getRowRecord(a)[sortKey!];
+        const bVal = getRowRecord(b)[sortKey!];
 
         if (aVal == null && bVal == null) return 0;
         if (aVal == null) return sortDirection === "asc" ? -1 : 1;
@@ -247,7 +251,7 @@
     onSelectionChange?.([...selectedRows]);
   }
 
-  function toggleRowSelection(row: any) {
+  function toggleRowSelection(row: T) {
     const key = keyExtractor(row);
     if (selectedRows.has(key)) {
       selectedRows.delete(key);
@@ -270,7 +274,7 @@
     }
   }
 
-  function applyFilter(key: string, value: any) {
+  function applyFilter(key: string, value: string) {
     activeFilters = { ...activeFilters, [key]: value };
     if (serverSide) {
       currentPage = 1;
@@ -300,10 +304,10 @@
     onPageChange?.(1);
   }
 
-  function getCellValue(row: any, column: Column): string {
-    const value = row[column.key];
+  function getCellValue(row: T, column: Column<T>): string {
+    const value = getRowRecord(row)[column.key];
     if (column.formatter) {
-      return column.formatter(value, row);
+      return column.formatter(value as never, row);
     }
     return value != null ? String(value) : "-";
   }
@@ -337,7 +341,7 @@
 
   $: pageSizeValue = String(currentPageSize);
   $: activeFilterCount = Object.values(activeFilters).reduce(
-    (total, value) => total + (value !== "" && value != null ? 1 : 0),
+    (total: number, value) => total + (value !== "" && value != null ? 1 : 0),
     0,
   );
   $: skeletonRowCount = Math.max(4, Math.min(Number(currentPageSize) || 6, 8));
