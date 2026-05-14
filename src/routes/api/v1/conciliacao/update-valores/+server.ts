@@ -35,6 +35,32 @@ type UpdateValoresBody = {
   valores?: Partial<Record<(typeof ALLOWED_FIELDS)[number], number | string | null>>;
 };
 
+function readUpdateValoresBody(value: unknown): UpdateValoresBody {
+  if (!value || typeof value !== "object") return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: UpdateValoresBody = {};
+
+  if (typeof body.conciliacaoId === "string") parsed.conciliacaoId = body.conciliacaoId;
+  if (typeof body.companyId === "string") parsed.companyId = body.companyId;
+
+  if (body.valores && typeof body.valores === "object") {
+    const valores = body.valores as Record<string, unknown>;
+    const parsedValores: Partial<Record<(typeof ALLOWED_FIELDS)[number], number | string | null>> = {};
+
+    for (const field of ALLOWED_FIELDS) {
+      const raw = valores[field];
+      if (raw === null || typeof raw === "number" || typeof raw === "string") {
+        parsedValores[field] = raw;
+      }
+    }
+
+    parsed.valores = parsedValores;
+  }
+
+  return parsed;
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -61,10 +87,7 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body: UpdateValoresBody | null =
-      bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as UpdateValoresBody)
-        : null;
+    const body = readUpdateValoresBody(bodyResult.data);
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
     if (!isUuid(conciliacaoId)) {
