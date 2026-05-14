@@ -63,6 +63,8 @@ import { toCleanString as toStr, toFiniteNumber as toNum } from "$lib/utils/valu
 
 const PT_BR_COLLATOR = new Intl.Collator("pt-BR");
 
+type AdminClient = ReturnType<typeof getAdminClient>;
+
 type PagamentoNaoComissionavelInput = {
   venda_id?: string | null;
   venda_recibo_id?: string | null;
@@ -80,6 +82,25 @@ type PagamentosNaoComissionaveisResumo = {
   porVenda: Map<string, number>;
   porVendaSemRecibo: Map<string, number>;
   porRecibo: Map<string, number>;
+};
+
+type VendedorLookupRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+};
+
+type ParametroNaoComissionavelRow = {
+  termo?: string | null;
+  termo_normalizado?: string | null;
+};
+
+type ReportSalesRowLike = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  data_venda?: string | null;
+  recibos?: ReportReceiptRow[] | null;
+  vendas_recibos?: ReportReceiptRow[] | null;
 };
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
@@ -155,7 +176,7 @@ function addToMap(map: Map<string, number>, key: string, value: number) {
   map.set(key, (map.get(key) || 0) + value);
 }
 
-async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
+async function fetchVendedoresByIds(client: AdminClient, vendedorIds: string[]) {
   const ids = uniqueCleanStrings(vendedorIds);
   const vendedorMap = new Map<
     string,
@@ -183,7 +204,10 @@ async function fetchVendedoresByIds(client: any, vendedorIds: string[]) {
   return vendedorMap;
 }
 
-async function hydrateMissingVendedores(client: any, rows: any[]) {
+async function hydrateMissingVendedores(
+  client: AdminClient,
+  rows: ReportSalesRowLike[],
+) {
   const vendedorIds = uniqueCleanStrings(rows.map((row) => row?.vendedor_id));
 
   if (vendedorIds.length === 0) return rows;
@@ -238,7 +262,7 @@ function calcularNaoComissionavelResumo(
   return { porVenda, porVendaSemRecibo, porRecibo };
 }
 
-async function carregarTermosNaoComissionaveis(client: any) {
+async function carregarTermosNaoComissionaveis(client: AdminClient) {
   try {
     const { data, error } = await client
       .from("parametros_pagamentos_nao_comissionaveis")
@@ -247,8 +271,8 @@ async function carregarTermosNaoComissionaveis(client: any) {
       .order("termo", { ascending: true });
     if (error) throw error;
 
-    const termos = (data || [])
-      .map((row: any) =>
+    const termos = ((data || []) as ParametroNaoComissionavelRow[])
+      .map((row) =>
         normalizeTextValue(row?.termo_normalizado || row?.termo),
       )
       .filter(Boolean);
@@ -267,7 +291,10 @@ async function carregarTermosNaoComissionaveis(client: any) {
   ).filter(Boolean);
 }
 
-async function fetchNaoComissionadoPorVenda(client: any, vendaIds: string[]) {
+async function fetchNaoComissionadoPorVenda(
+  client: AdminClient,
+  vendaIds: string[],
+) {
   if (vendaIds.length === 0) {
     return {
       porVenda: new Map<string, number>(),
@@ -294,16 +321,16 @@ async function fetchNaoComissionadoPorVenda(client: any, vendaIds: string[]) {
   return calcularNaoComissionavelResumo(pagamentos, termos);
 }
 
-function getRecibosAtivos(row: any) {
+function getRecibosAtivos(row: ReportSalesRowLike) {
   const recibos = Array.isArray(row?.recibos)
     ? row.recibos
     : Array.isArray(row?.vendas_recibos)
       ? row.vendas_recibos
       : [];
-  return recibos.filter((recibo: any) => !recibo?.cancelado_por_conciliacao_em);
+  return recibos.filter((recibo) => !recibo?.cancelado_por_conciliacao_em);
 }
 
-function getVendaValorExibicao(row: any) {
+function getVendaValorExibicao(row: ReportSalesRowLike) {
   const recibos = getRecibosAtivos(row);
   if (recibos.length === 0) return 0;
   return Number(
@@ -317,7 +344,7 @@ function getVendaValorExibicao(row: any) {
   );
 }
 
-function getVendaTaxasExibicao(row: any) {
+function getVendaTaxasExibicao(row: ReportSalesRowLike) {
   const recibos = getRecibosAtivos(row);
   if (recibos.length === 0) return 0;
   return Number(
@@ -332,7 +359,7 @@ function getVendaTaxasExibicao(row: any) {
 }
 
 function computeReceiptRankingEntries(
-  rowsInput: any[],
+  rowsInput: ReportSalesRowLike[],
   naoComissionadoPorVenda: PagamentosNaoComissionaveisResumo,
 ) {
   const entries: Array<{ date: string; value: number }> = [];
