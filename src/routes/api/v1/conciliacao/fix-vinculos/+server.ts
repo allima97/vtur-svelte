@@ -13,6 +13,7 @@
  * revisao manual: o erro pode estar na venda, na conciliacao ou em um rateio.
  */
 import { json } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildConciliacaoMetrics } from '$lib/conciliacao/business';
 import { normalizeReceiptKey } from '$lib/conciliacao/receiptNormalize';
 import {
@@ -50,6 +51,24 @@ type AuditIssue = {
   message: string;
   expected?: string | number | null;
   actual?: string | number | null;
+};
+
+type ConciliacaoAuditRow = {
+  documento?: string | null;
+  numero_reserva?: string | null;
+};
+
+type ReceiptAuditRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+};
+
+type UserLookupRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
 };
 
 function roundMoney(value: number) {
@@ -155,7 +174,7 @@ function hasAutoFixIssue(issues: AuditIssue[]) {
   return issues.some((item) => AUTO_FIX_CODES.has(item.code));
 }
 
-function receiptMatchesDocument(row: any, recibo: any) {
+function receiptMatchesDocument(row: ConciliacaoAuditRow, recibo: ReceiptAuditRow) {
   if (isRexturDocumento(row?.documento)) {
     const rowReserva = normalizeRexturLocalizador(row?.numero_reserva);
     const reciboReserva = normalizeRexturLocalizador(recibo?.numero_reserva);
@@ -168,13 +187,13 @@ function receiptMatchesDocument(row: any, recibo: any) {
   );
 }
 
-function receiptLabel(recibo: any) {
+function receiptLabel(recibo: ReceiptAuditRow) {
   const numero = toStr(recibo?.numero_recibo) || toStr(recibo?.numero_recibo_normalizado) || '-';
   const reserva = toStr(recibo?.numero_reserva);
   return reserva ? `${numero} / ${reserva}` : numero;
 }
 
-async function fetchUsersMap(client: any, ids: string[]) {
+async function fetchUsersMap(client: SupabaseClient, ids: string[]) {
   const uniqueIds = uniqueCleanStrings(ids);
   const map = new Map<string, string>();
   for (let index = 0; index < uniqueIds.length; index += 200) {
@@ -184,7 +203,7 @@ async function fetchUsersMap(client: any, ids: string[]) {
       .select('id, nome_completo, email')
       .in('id', batch);
     if (error) throw error;
-    for (const row of data || []) {
+    for (const row of (data || []) as UserLookupRow[]) {
       const id = toStr(row?.id);
       if (!id) continue;
       map.set(id, toStr(row?.nome_completo) || toStr(row?.email) || id);
