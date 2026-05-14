@@ -13,6 +13,20 @@ const MAX_EMAIL_SETTINGS_BODY_BYTES = 16 * 1024;
 
 const MASKED = '••••••';
 
+type AdminEmailSettingsBody = {
+  smtp_host?: unknown;
+  smtp_port?: unknown;
+  smtp_secure?: unknown;
+  smtp_user?: unknown;
+  smtp_pass?: unknown;
+  resend_api_key?: unknown;
+  alerta_from_email?: unknown;
+  admin_from_email?: unknown;
+  avisos_from_email?: unknown;
+  financeiro_from_email?: unknown;
+  suporte_from_email?: unknown;
+};
+
 function ensureAdminOnly(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   if (!scope.isAdmin) {
     throw httpError(403, 'Somente ADMIN pode editar configuracoes globais.');
@@ -25,6 +39,24 @@ function maskSettings(settings: EmailSettingsPayload | null) {
     ...settings,
     smtp_pass: settings.smtp_pass ? MASKED : '',
     resend_api_key: settings.resend_api_key ? MASKED : ''
+  };
+}
+
+function readAdminEmailSettingsBody(value: unknown): AdminEmailSettingsBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    smtp_host: body.smtp_host,
+    smtp_port: body.smtp_port,
+    smtp_secure: body.smtp_secure,
+    smtp_user: body.smtp_user,
+    smtp_pass: body.smtp_pass,
+    resend_api_key: body.resend_api_key,
+    alerta_from_email: body.alerta_from_email,
+    admin_from_email: body.admin_from_email,
+    avisos_from_email: body.avisos_from_email,
+    financeiro_from_email: body.financeiro_from_email,
+    suporte_from_email: body.suporte_from_email
   };
 }
 
@@ -69,10 +101,7 @@ export async function POST(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readAdminEmailSettingsBody(bodyResult.data);
 
     ensureAdminOnly(scope);
 
