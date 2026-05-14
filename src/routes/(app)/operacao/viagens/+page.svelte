@@ -185,17 +185,15 @@
       sortable: true,
       width: '120px'
     },
-    { 
-      key: 'cliente', 
-      label: 'Cliente / Destino', 
+    {
+      key: 'cliente',
+      label: 'Cliente / Destino',
       sortable: true,
+      cellClass: 'max-w-xs',
       formatter: (value: string, row: Viagem) => {
-        const dotClass = row.status === 'cancelada'
-          ? 'bg-red-400'
-          : row.tipo === 'internacional'
-            ? 'bg-purple-400'
-            : 'bg-green-400';
-        return `<div><div class="font-medium text-slate-900">${escapeHtml(value)}</div><div class="text-xs text-slate-500"><span class="inline-block w-2 h-2 rounded-full ${dotClass} mr-1"></span>${escapeHtml(row.destino)}</div></div>`;
+        const dotColor = row.status === 'cancelada' ? '#f87171' : row.tipo === 'internacional' ? '#a78bfa' : '#4ade80';
+        const destino = escapeHtml(row.destino || '');
+        return `<div><div class="font-semibold text-slate-900">${escapeHtml(value)}</div><div class="text-xs text-slate-500" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle;flex-shrink:0;"></span>${destino}</div></div>`;
       }
     },
     { 
@@ -216,7 +214,7 @@
           if (dias <= 7) alerta = `<span class="text-red-600 font-medium">• Falta ${dias}d</span>`;
         }
         
-        return `<div><div class="text-sm">${formatDate(value)} - ${formatDate(row.data_fim)}</div><div class="text-xs text-slate-500">${row.dias_viagem} dias ${alerta}</div></div>`;
+        return `<div><div>${formatDate(value)} - ${formatDate(row.data_fim)}</div><div class="text-xs text-slate-500">${row.dias_viagem} dias ${alerta}</div></div>`;
       }
     },
     { 
