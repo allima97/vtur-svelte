@@ -83,6 +83,7 @@ type FixVinculosBody = {
 type ConciliacaoRow = ConciliacaoAuditRow & {
   id?: string | null;
   movimento_data?: string | null;
+  status?: string | null;
   descricao?: string | null;
   valor_lancamentos?: number | null;
   valor_taxas?: number | null;
@@ -144,6 +145,72 @@ type RateioRow = {
   percentual_destino?: number | null;
   ativo?: boolean | null;
   observacao?: string | null;
+};
+
+type AuditCandidate = {
+  venda_recibo_id: string | null;
+  venda_id: string | null;
+  numero_recibo: string;
+  vendedor_nome: string | null;
+  data_venda: string | null;
+  valor_total: number;
+  valor_taxas: number;
+};
+
+type AuditDetail = {
+  id: string;
+  documento: string;
+  movimento_data: string | null;
+  status: string | null;
+  severity: 'ok' | AuditSeverity;
+  fixable: boolean;
+  fixAction: 'clear_link' | null;
+  issues: AuditIssue[];
+  conciliacao: {
+    venda_id: string | null;
+    venda_recibo_id: string | null;
+    ranking_vendedor_id: string | null;
+    ranking_vendedor_nome: string | null;
+    valor_venda_real: number;
+    valor_taxas: number;
+  };
+  sistema:
+    | {
+        venda_id: string | null;
+        venda_recibo_id: string | null;
+        numero_recibo: string;
+        vendedor_id: string | null;
+        vendedor_nome: string | null;
+        data_venda: string | null;
+        data_lancamento: string | null;
+        valor_total: number;
+        valor_rav: number;
+        valor_ranking: number;
+        valor_taxas: number;
+        cancelada: boolean;
+        produto: string | null;
+        rateio:
+          | {
+              vendedor_origem_id: string | null;
+              vendedor_origem_nome: string | null;
+              vendedor_destino_id: string | null;
+              vendedor_destino_nome: string | null;
+              percentual_origem: number;
+              percentual_destino: number;
+            }
+          | null;
+      }
+    | null;
+  candidatos: AuditCandidate[];
+};
+
+type AuditSummary = {
+  critical: number;
+  warnings: number;
+  infos: number;
+  rowsWithIssues: number;
+  corrigiveis: number;
+  fixableIds: string[];
 };
 
 function firstJoinedVenda(value?: ReceiptJoinedVendaRow | ReceiptJoinedVendaRow[] | null) {
@@ -516,7 +583,7 @@ export async function POST(event) {
     }
     const userNameById = await fetchUsersMap(client, Array.from(userIds));
 
-    const detalhes = rows.map((row: any) => {
+    const detalhes: AuditDetail[] = rows.map((row) => {
       const issues: AuditIssue[] = [];
       const rowId = toStr(row?.id);
       const documento = toStr(row?.documento);
@@ -524,8 +591,10 @@ export async function POST(event) {
       const linkedVendaId = toStr(row?.venda_id);
       const rankingVendedorId = toStr(row?.ranking_vendedor_id);
       const linkedRecibo = linkedReciboId ? receiptById.get(linkedReciboId) : null;
-      const candidates = allReceipts.filter((recibo: any) => receiptMatchesDocument(row, recibo));
-      const uniqueCandidates = Array.from(new Map(candidates.map((recibo: any) => [toStr(recibo?.id), recibo])).values());
+      const candidates = allReceipts.filter((recibo) => receiptMatchesDocument(row, recibo));
+      const uniqueCandidates = Array.from(
+        new Map(candidates.map((recibo) => [toStr(recibo?.id), recibo])).values()
+      );
 
       const metrics = buildConciliacaoMetrics({
         descricao: row?.descricao,
@@ -793,7 +862,7 @@ export async function POST(event) {
                 : null
             }
           : null,
-        candidatos: uniqueCandidates.slice(0, 5).map((recibo: any) => ({
+        candidatos: uniqueCandidates.slice(0, 5).map((recibo) => ({
           venda_recibo_id: toStr(recibo?.id),
           venda_id: toStr(recibo?.venda_id),
           numero_recibo: receiptLabel(recibo),
@@ -809,7 +878,7 @@ export async function POST(event) {
     });
 
     const diagnostico = detalhes.reduce(
-      (summary: any, item: any) => {
+      (summary: AuditSummary, item: AuditDetail) => {
         if (item.severity === 'critical') summary.critical += 1;
         if (item.severity === 'warning') summary.warnings += 1;
         if (item.severity === 'info') summary.infos += 1;
@@ -870,7 +939,7 @@ export async function POST(event) {
       corrigidos,
       dryRun,
       detalhes: detalhes
-        .filter((item: any) => item.issues.length > 0)
+        .filter((item) => item.issues.length > 0)
         .slice(0, 200)
     }, { headers: NO_STORE_HEADERS });
   } catch (err) {
