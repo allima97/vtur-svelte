@@ -9,6 +9,24 @@ import type { RequestHandler } from './$types';
 
 const MAX_LOGIN_BODY_BYTES = 8 * 1024;
 
+type LoginRequestBody = {
+  email?: string;
+  password?: string;
+  turnstile_token?: string;
+  turnstileToken?: string;
+};
+
+function readLoginBody(value: unknown): LoginRequestBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  return {
+    email: typeof body.email === 'string' ? body.email : undefined,
+    password: typeof body.password === 'string' ? body.password : undefined,
+    turnstile_token: typeof body.turnstile_token === 'string' ? body.turnstile_token : undefined,
+    turnstileToken: typeof body.turnstileToken === 'string' ? body.turnstileToken : undefined
+  };
+}
+
 export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
   try {
     const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
@@ -23,14 +41,14 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 
     const bodyResult = await readJsonBodyLimited(request, MAX_LOGIN_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data as Record<string, unknown> | null;
-    if (!body || typeof body !== 'object') {
+    const body = readLoginBody(bodyResult.data);
+    if (!body) {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const email = String(body?.email || '').trim();
-    const password = String(body?.password || '');
-    const turnstileToken = String(body?.turnstile_token || body?.turnstileToken || '').trim();
+    const email = String(body.email || '').trim();
+    const password = String(body.password || '');
+    const turnstileToken = String(body.turnstile_token || body.turnstileToken || '').trim();
 
     if (!email || !password) {
       return json({ error: 'Email e senha obrigatorios.' }, { status: 400, headers: NO_STORE_HEADERS });
