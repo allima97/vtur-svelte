@@ -17,6 +17,30 @@ import { invalidateSalesReadModels } from "$lib/server/readModelCache";
 
 const MAX_CONCILIACAO_RUN_BODY_BYTES = 32 * 1024;
 
+type ConciliacaoRunBody = {
+  companyId?: string;
+  limit?: number | string;
+  conciliacaoReciboId?: string;
+  recalculateMonth?: string;
+  recalculateAllMonth?: boolean;
+  cleanupDuplicatesOnly?: boolean;
+};
+
+function readConciliacaoRunBody(value: unknown): ConciliacaoRunBody {
+  if (!value || typeof value !== "object") return {};
+  const body = value as Record<string, unknown>;
+  const parsed: ConciliacaoRunBody = {};
+
+  if (typeof body.companyId === "string") parsed.companyId = body.companyId;
+  if (typeof body.limit === "number" || typeof body.limit === "string") parsed.limit = body.limit;
+  if (typeof body.conciliacaoReciboId === "string") parsed.conciliacaoReciboId = body.conciliacaoReciboId;
+  if (typeof body.recalculateMonth === "string") parsed.recalculateMonth = body.recalculateMonth;
+  if (typeof body.recalculateAllMonth === "boolean") parsed.recalculateAllMonth = body.recalculateAllMonth;
+  if (typeof body.cleanupDuplicatesOnly === "boolean") parsed.cleanupDuplicatesOnly = body.cleanupDuplicatesOnly;
+
+  return parsed;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -37,10 +61,7 @@ export async function POST(event) {
       );
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readConciliacaoRunBody(bodyResult.data);
     const companyId = resolveScopedCompanyId(scope, String(body?.companyId || ""));
 
     if (!companyId)
