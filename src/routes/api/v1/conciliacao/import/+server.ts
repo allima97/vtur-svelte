@@ -163,6 +163,68 @@ type ConciliacaoImportBody = {
   linhas?: ConciliacaoLinhaInput[];
 };
 
+function readConciliacaoLinhaInput(value: unknown): ConciliacaoLinhaInput | null {
+  if (!value || typeof value !== "object") return null;
+
+  const row = value as Record<string, unknown>;
+  if (typeof row.documento !== "string") return null;
+
+  const parsed: ConciliacaoLinhaInput = {
+    documento: row.documento,
+  };
+
+  if (typeof row.numero_reserva === "string") parsed.numero_reserva = row.numero_reserva;
+  if (typeof row.movimento_data === "string") parsed.movimento_data = row.movimento_data;
+  if (typeof row.status === "string") parsed.status = row.status as ConciliacaoLinhaInput["status"];
+  if (typeof row.descricao === "string") parsed.descricao = row.descricao;
+  if (typeof row.descricao_chave === "string") parsed.descricao_chave = row.descricao_chave;
+  if (typeof row.origem === "string") parsed.origem = row.origem;
+  if (typeof row.ranking_vendedor_id === "string") parsed.ranking_vendedor_id = row.ranking_vendedor_id;
+  if (typeof row.ranking_produto_id === "string") parsed.ranking_produto_id = row.ranking_produto_id;
+  if (typeof row.is_seguro_viagem === "boolean") parsed.is_seguro_viagem = row.is_seguro_viagem;
+  parsed.raw = row.raw;
+
+  const numericFields = [
+    "valor_lancamentos",
+    "valor_taxas",
+    "valor_descontos",
+    "valor_abatimentos",
+    "valor_calculada_loja",
+    "valor_visao_master",
+    "valor_opfax",
+    "valor_saldo",
+    "valor_venda_real",
+    "valor_comissao_loja",
+    "percentual_comissao_loja",
+    "valor_nao_comissionavel",
+  ] as const;
+
+  for (const field of numericFields) {
+    const raw = row[field];
+    if (raw === null || typeof raw === "number") {
+      parsed[field] = raw;
+    }
+  }
+
+  return parsed;
+}
+
+function readConciliacaoImportBody(value: unknown): ConciliacaoImportBody {
+  if (!value || typeof value !== "object") return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: ConciliacaoImportBody = {};
+
+  if (typeof body.companyId === "string") parsed.companyId = body.companyId;
+  if (Array.isArray(body.linhas)) {
+    parsed.linhas = body.linhas
+      .map(readConciliacaoLinhaInput)
+      .filter((linha): linha is ConciliacaoLinhaInput => Boolean(linha));
+  }
+
+  return parsed;
+}
+
 type ConciliacaoLinhaLinkInput = ConciliacaoLinhaInput & {
   venda_id?: string | null;
   venda_recibo_id?: string | null;
@@ -475,10 +537,7 @@ export async function POST(event) {
       );
     }
 
-    const body: ConciliacaoImportBody =
-      bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as ConciliacaoImportBody)
-        : {};
+    const body = readConciliacaoImportBody(bodyResult.data);
     const companyId = resolveScopedCompanyId(scope, body?.companyId);
 
     if (!companyId)
