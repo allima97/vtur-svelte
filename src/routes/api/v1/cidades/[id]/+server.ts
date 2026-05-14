@@ -13,6 +13,20 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_CIDADE_UPDATE_BODY_BYTES = 64 * 1024;
 
+type CidadeUpdateBody = {
+  nome?: unknown;
+  descricao?: unknown;
+};
+
+function readCidadeUpdateBody(value: unknown): CidadeUpdateBody {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const body = value as Record<string, unknown>;
+  return {
+    nome: body.nome,
+    descricao: body.descricao
+  };
+}
+
 const CIDADE_SELECT_FIELDS = `
   id, nome, subdivisao_id, descricao, created_at,
   subdivisao:subdivisoes!subdivisao_id(id, nome, pais_id, pais:paises!pais_id(id, nome))
@@ -67,10 +81,7 @@ export async function PATCH(event) {
 
     const cidadeId = String(event.params.id || '').trim();
     if (!isUuid(cidadeId)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readCidadeUpdateBody(bodyResult.data);
 
     const updateData: Record<string, string | null> = {};
     
