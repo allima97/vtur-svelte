@@ -10,6 +10,15 @@ const USER_PROFILE_ALLOWED_UPDATE_FIELDS = [
   'complemento', 'cidade', 'estado'
 ];
 
+type UserProfileBody = Record<string, unknown> & {
+  uso_individual?: boolean;
+};
+
+function readUserProfileBody(value: unknown): UserProfileBody {
+  if (!value || typeof value !== 'object') return {};
+  return value as UserProfileBody;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -45,10 +54,7 @@ export async function PATCH(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readUserProfileBody(bodyResult.data);
 
     const payload: Record<string, unknown> = {};
     // Campos que o usuário pode editar no próprio perfil (apenas colunas que existem no schema)
