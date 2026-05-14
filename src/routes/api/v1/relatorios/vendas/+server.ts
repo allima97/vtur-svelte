@@ -121,7 +121,7 @@ type SplitConciliacaoRow = {
 
 type ReportSalesViewRow = ReportVendaRow & {
   conciliacao_ids?: string[] | null;
-  vendas_recibos: ReportReceiptItem[];
+  vendas_recibos?: ReportReceiptItem[] | null;
   recibos?: ReportReceiptItem[] | null;
   linked_venda_id?: string | null;
   linked_recibo_id?: string | null;
@@ -130,6 +130,39 @@ type ReportSalesViewRow = ReportVendaRow & {
 type SyntheticConciliacaoVendaRow = ReturnType<
   typeof buildConciliacaoSyntheticVendas
 >[number];
+
+type ConsultaReceiptRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+  destino_cidade?: { id?: string | null; nome?: string | null } | null;
+  tipo_pacote?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+  valor_du?: number | null;
+  valor_rav?: number | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  tipo_produtos?: { id?: string | null; nome?: string | null; tipo?: string | null } | null;
+  produto_resolvido?: { id?: string | null; nome?: string | null } | null;
+  vendedor_id?: string | null;
+  rateio_scope_vendor_id?: string | null;
+};
+
+type ConsultaVendaRow = ReportVendaRow & {
+  clientes?: {
+    nome?: string | null;
+    whatsapp?: string | null;
+  } | null;
+  recibos: ConsultaReceiptRow[];
+  vendas_recibos?: ConsultaReceiptRow[] | null;
+};
+
+function isReportReceiptItem(
+  recibo: ReportReceiptRow,
+): recibo is ReportReceiptItem {
+  return Boolean(recibo);
+}
 
 const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito diversos",
@@ -232,9 +265,9 @@ async function fetchVendedoresByIds(client: AdminClient, vendedorIds: string[]) 
   return vendedorMap;
 }
 
-async function hydrateMissingVendedores(
+async function hydrateMissingVendedores<T extends ReportSalesRowLike>(
   client: AdminClient,
-  rows: ReportSalesRowLike[],
+  rows: T[],
 ) {
   const vendedorIds = uniqueCleanStrings(rows.map((row) => row?.vendedor_id));
 
@@ -243,7 +276,7 @@ async function hydrateMissingVendedores(
   const vendedorMap = await fetchVendedoresByIds(client, vendedorIds);
   return rows.map((row) => {
     const vendedor = vendedorMap.get(toStr(row.vendedor_id));
-    return vendedor ? { ...row, vendedor } : row;
+    return vendedor ? ({ ...row, vendedor } as T) : row;
   });
 }
 
@@ -972,7 +1005,7 @@ export async function GET(event) {
       periodEnd: string,
       clientIdsFilter?: string[],
     ) => {
-      const rows: any[] = [];
+      const rows: ConsultaVendaRow[] = [];
       const companyBatches = companyIds.length > 0 ? chunkArray(companyIds) : [null];
       const vendedorBatches =
         vendedorIds.length > 0 ? chunkArray(vendedorIds) : [null];
@@ -998,6 +1031,7 @@ export async function GET(event) {
           data_final,
           valor_total,
           valor_total_bruto,
+          valor_nao_comissionado,
           valor_taxas,
           cancelada,
           clientes (nome, whatsapp),
@@ -1039,7 +1073,7 @@ export async function GET(event) {
 
             const { data, error } = await query;
             if (error) throw error;
-            rows.push(...(data || []));
+            rows.push(...((data || []) as ConsultaVendaRow[]));
           }
         }
       }
@@ -1047,7 +1081,7 @@ export async function GET(event) {
       return dedupeRowsById(rows).map((row) => ({
         ...row,
         recibos: Array.isArray(row?.recibos) ? row.recibos : [],
-      }));
+      })) as ConsultaVendaRow[];
     };
 
     const loadConsultaRowsForPeriod = async (
@@ -1060,7 +1094,7 @@ export async function GET(event) {
         vendedorIds.length === 0 &&
         accessibleClientIds.length > SUPABASE_IN_BATCH_SIZE
       ) {
-        const rows: any[] = [];
+        const rows: ConsultaVendaRow[] = [];
         for (const batch of chunkArray(accessibleClientIds)) {
           rows.push(
             ...(await loadConsultaRowsBatch(periodStart, periodEnd, batch)),
@@ -1080,7 +1114,7 @@ export async function GET(event) {
       return loadConsultaRowsBatch(periodStart, periodEnd, clientIdsFilter);
     };
 
-    const computeConsultaKpiTotalFromRows = (rowsInput: any[]) => {
+    const computeConsultaKpiTotalFromRows = (rowsInput: ConsultaVendaRow[]) => {
       const filtered = filterRowsForReport(rowsInput);
       let total = 0;
 
@@ -1093,7 +1127,7 @@ export async function GET(event) {
         const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
         if (recibos.length > 0) {
           total += recibos.reduce(
-            (sum: number, recibo: any) =>
+            (sum: number, recibo) =>
               sum + Number(recibo?.valor_total || 0),
             0,
           );
@@ -1106,7 +1140,7 @@ export async function GET(event) {
       return Number(total.toFixed(2));
     };
 
-    const rowsViewRaw = await getCachedReadModel({
+    const rowsViewRaw = (await getCachedReadModel({
       key: buildReadModelCacheKey("relatorios:vendas:rows-view", {
         userId: user.id,
         dataInicio,
@@ -1125,10 +1159,19 @@ export async function GET(event) {
       ttlMs: 45_000,
       staleTtlMs: 120_000,
       loader: () => loadRowsViewForPeriod(dataInicio, dataFim),
-    });
+    })) as ReportSalesViewRow[];
     const hydratedRowsView = await hydrateMissingVendedores(client, rowsViewRaw);
-    const getReciboVendedorId = (row: any, recibo: any) =>
-      toStr(recibo?.rateio_scope_vendor_id) ||
+    const getReciboRateioScopeVendorId = (
+      recibo: ReportReceiptItem | ConsultaReceiptRow,
+    ) =>
+      "rateio_scope_vendor_id" in recibo
+        ? toStr(recibo.rateio_scope_vendor_id)
+        : null;
+    const getReciboVendedorId = (
+      row: ReportSalesViewRow | ConsultaVendaRow,
+      recibo: ReportReceiptItem | ConsultaReceiptRow,
+    ) =>
+      getReciboRateioScopeVendorId(recibo) ||
       toStr(recibo?.vendedor_id) ||
       toStr(row?.vendedor_id) ||
       null;
@@ -1138,9 +1181,11 @@ export async function GET(event) {
         : null;
     const rowsView = reportVendedorSet
       ? hydratedRowsView
-          .map((row: any) => {
-            const recibos = Array.isArray(row?.recibos) ? row.recibos : [];
-            const recibosDoVendedor = recibos.filter((recibo: any) => {
+          .map((row) => {
+            const recibos = Array.isArray(row?.recibos)
+              ? row.recibos.filter(isReportReceiptItem)
+              : [];
+            const recibosDoVendedor = recibos.filter((recibo) => {
               const vendedorId = getReciboVendedorId(row, recibo);
               return Boolean(vendedorId && reportVendedorSet.has(vendedorId));
             });
@@ -1160,14 +1205,16 @@ export async function GET(event) {
 
             return null;
           })
-          .filter(Boolean)
+          .filter((row): row is ReportSalesViewRow => Boolean(row))
       : hydratedRowsView;
     const reciboVendedorIds = Array.from(
       new Set(
         rowsView
-          .flatMap((row: any) =>
-            (Array.isArray(row?.recibos) ? row.recibos : []).map(
-              (recibo: any) => getReciboVendedorId(row, recibo),
+          .flatMap((row) =>
+            (Array.isArray(row?.recibos)
+              ? row.recibos.filter(isReportReceiptItem)
+              : []).map(
+              (recibo) => getReciboVendedorId(row, recibo),
             ),
           )
           .filter(Boolean),
