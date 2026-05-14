@@ -189,11 +189,10 @@
       key: 'cliente',
       label: 'Cliente / Destino',
       sortable: true,
-      cellClass: 'max-w-xs',
       formatter: (value: string, row: Viagem) => {
         const dotColor = row.status === 'cancelada' ? '#f87171' : row.tipo === 'internacional' ? '#a78bfa' : '#4ade80';
         const destino = escapeHtml(row.destino || '');
-        return `<div><div class="font-semibold text-slate-900">${escapeHtml(value)}</div><div class="text-xs text-slate-500" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle;flex-shrink:0;"></span>${destino}</div></div>`;
+        return `<div class="font-semibold text-slate-900">${escapeHtml(value)}</div><div class="text-xs text-slate-500 truncate max-w-[320px]"><span class="inline-block h-2 w-2 rounded-full mr-1 align-middle flex-shrink-0" style="background:${dotColor};"></span>${destino}</div>`;
       }
     },
     { 
@@ -463,7 +462,7 @@
   data={viagensFiltradas}
   color="clientes"
   {loading}
-  compact={true}
+  compact={false}
   title="Lista de viagens por embarque"
   searchable={true}
   filterable={false}
