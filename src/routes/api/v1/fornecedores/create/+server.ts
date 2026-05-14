@@ -14,6 +14,11 @@ import { invalidateCatalogReadModels } from '$lib/server/readModelCache';
 const MAX_FORNECEDOR_CREATE_BODY_BYTES = 128 * 1024;
 const validationError = (message: string) => json({ error: message }, { status: 400, headers: NO_STORE_HEADERS });
 
+function readFornecedorCreateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  return value as Record<string, unknown>;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -29,10 +34,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Fornecedores'], 2, 'Sem permissão para criar fornecedores.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readFornecedorCreateBody(bodyResult.data);
     const payload = sanitizeFornecedorPayload(body, scope);
 
     if (!payload.company_id) {
