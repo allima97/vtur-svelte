@@ -6,10 +6,20 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PUSH_UNSUBSCRIBE_BODY_BYTES = 8 * 1024;
 
+type PushUnsubscribeBody = {
+  endpoint?: string;
+};
+
 type PushSubscriptionUpdate = {
   active: boolean;
   updated_at: string;
 };
+
+function readPushUnsubscribeBody(value: unknown): PushUnsubscribeBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return typeof body.endpoint === 'string' ? { endpoint: body.endpoint } : {};
+}
 
 export const POST: RequestHandler = async (event) => {
   try {
@@ -22,10 +32,7 @@ export const POST: RequestHandler = async (event) => {
     const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readPushUnsubscribeBody(bodyResult.data);
     const endpoint = String(body?.endpoint || "").trim();
 
     if (!endpoint) {
