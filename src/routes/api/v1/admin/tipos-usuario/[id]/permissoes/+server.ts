@@ -22,6 +22,18 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_TIPO_USUARIO_PERMISSOES_BODY_BYTES = 256 * 1024;
 
+type UserTypePermissionsBody = {
+  permissions?: unknown;
+};
+
+function readUserTypePermissionsBody(value: unknown): UserTypePermissionsBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    permissions: body.permissions
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -60,10 +72,7 @@ export async function POST(event) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
     const userTypeId = String(event.params.id || '').trim();
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readUserTypePermissionsBody(bodyResult.data);
 
     ensureCanManagePermissions(scope);
 
