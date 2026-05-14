@@ -82,6 +82,36 @@ type RankingDebugConcEntry = RankingDebugConcRow & {
   _estornado?: boolean;
 };
 
+type RankingDebugAuditoriaEntry = RankingDebugConcEntry & {
+  _bruto: number;
+  _isSeguro: boolean;
+};
+
+type RankingDebugSemVendedorEntry = {
+  documento: string | null | undefined;
+  bruto: number;
+  motivo: 'uso_individual' | 'sem_ranking_vendedor_id';
+  ranking_vendedor_nome?: string;
+  movimento_data?: string | null;
+};
+
+type RankingDebugDocumentoRow = RankingDebugConcRow & {
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
+type RankingDebugDocumentoResumo = {
+  documento: string;
+  core_numerico: string;
+  movimento_data: string | null | undefined;
+  status: string | null | undefined;
+  valor_lancamentos: number | null | undefined;
+  valor_bruto_calculado: number;
+  valor_taxas: number | null | undefined;
+  linked_venda_id: string | null | undefined;
+  linked_recibo_id: string | null | undefined;
+};
+
 type VendaDebugReciboRow = {
   id?: string | null;
   numero_recibo?: string | null;
@@ -496,8 +526,8 @@ export async function GET(event) {
       if (concErr) throw concErr;
 
       // Agrupar por documento (pegar único por documento, somando estornos)
-      const porDocumento = new Map<string, any>();
-      for (const r of (concRows || [])) {
+      const porDocumento = new Map<string, RankingDebugConcEntry>();
+      for (const r of (concRows || []) as RankingDebugConcRow[]) {
         const doc = String(r.documento || '').trim();
         if (!doc) continue;
         const status = String(r.status || '').toUpperCase();
@@ -511,7 +541,7 @@ export async function GET(event) {
       }
 
       // Filtrar estornados e calcular valor_bruto para cada um
-      const recibosAtivos: any[] = [];
+      const recibosAtivos: RankingDebugAuditoriaEntry[] = [];
       for (const r of porDocumento.values()) {
         if (r._estornado) continue;
         const lancamentos = Number(r.valor_lancamentos || 0);
@@ -554,7 +584,7 @@ export async function GET(event) {
       let semVendedorBruto = 0;
       let semVendedorQtd = 0;
       let invalidVendedorBruto = 0;
-      const semVendedorRecibos: any[] = [];
+      const semVendedorRecibos: RankingDebugSemVendedorEntry[] = [];
 
       for (const r of recibosAtivos) {
         const vid = String(r.ranking_vendedor_id || '').trim();
@@ -648,7 +678,10 @@ export async function GET(event) {
         .limit(5);
       usersQuery2 = applyCompanyScope(usersQuery2, scope, event.url.searchParams.get('empresa_id'));
       const { data: usersData2 } = await usersQuery2;
-      const userIds2 = (usersData2 || []).map((u: any) => u.id);
+      const users2 = (usersData2 || []) as DebugUserRow[];
+      const userIds2 = users2
+        .map((u) => String(u.id || '').trim())
+        .filter(Boolean);
       if (userIds2.length === 0) return debugJson({ erro: `Nenhum usuário encontrado com nome "${docsPorVendedor}"` });
 
       // Buscar TODOS os registros de conciliação do período com ranking_vendedor_id desse usuário
@@ -663,8 +696,8 @@ export async function GET(event) {
       if (concErr2) throw concErr2;
 
       // Agrupar por documento, dedup (ignorar ESTORNO)
-      const docMap2 = new Map<string, any>();
-      for (const r of (concRows2 || [])) {
+      const docMap2 = new Map<string, RankingDebugDocumentoRow & { _estornado?: boolean }>();
+      for (const r of (concRows2 || []) as RankingDebugDocumentoRow[]) {
         const doc = String(r.documento || '').trim();
         const status = String(r.status || '').toUpperCase();
         if (!doc) continue;
@@ -675,11 +708,10 @@ export async function GET(event) {
           if (status === 'ESTORNO') existing._estornado = true;
         }
       }
-      const recibosAtivos2 = Array.from(docMap2.values()).filter(r => !r._estornado);
+      const recibosAtivos2 = Array.from(docMap2.values()).filter((r) => !r._estornado);
 
       // Extrair o "core" numérico de cada documento para comparação
-      const { receiptNumberCore: coreFn } = await import('$lib/conciliacao/receiptNumber');
-      const resultado = recibosAtivos2.map((r: any) => {
+      const resultado: RankingDebugDocumentoResumo[] = recibosAtivos2.map((r) => {
         const doc = String(r.documento || '').trim();
         const digits = doc.replace(/\D/g, '');
         const core = digits.length >= 10 ? digits.slice(-10).replace(/^0+/, '') || digits.slice(-10)
@@ -702,7 +734,7 @@ export async function GET(event) {
         };
       });
 
-      const totalBruto2 = resultado.reduce((s: number, r: any) => s + r.valor_bruto_calculado, 0);
+      const totalBruto2 = resultado.reduce((s: number, r) => s + r.valor_bruto_calculado, 0);
 
       return debugJson({
         vendedor_buscado: docsPorVendedor,
@@ -756,9 +788,12 @@ export async function GET(event) {
       }
     }
 
-    const enrichedRows = (concRows || []).map((r: any) => ({
+    const enrichedRows = ((concRows || []) as RankingDebugConcRow[]).map((r) => ({
       ...r,
-      ranking_vendedor_nome: vendedorNomes[r.ranking_vendedor_id] || r.ranking_vendedor_id || '(sem vendedor)',
+      ranking_vendedor_nome:
+        vendedorNomes[String(r.ranking_vendedor_id || '')] ||
+        r.ranking_vendedor_id ||
+        '(sem vendedor)',
     }));
 
     return debugJson(
