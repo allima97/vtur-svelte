@@ -544,7 +544,6 @@
   subtitle="Crie um voucher completo em 4 etapas"
   color="clientes"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Vouchers', href: '/operacao/vouchers' },
     { label: 'Novo' }
   ]}

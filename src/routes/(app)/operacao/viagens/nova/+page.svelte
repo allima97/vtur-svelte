@@ -190,7 +190,6 @@
   subtitle="Cadastre uma viagem operacional com cliente, roteiro base e acompanhamento."
   color="clientes"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Viagens', href: '/operacao/viagens' },
     { label: 'Nova viagem' }
   ]}

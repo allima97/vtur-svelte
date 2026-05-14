@@ -206,7 +206,6 @@
     : 'Visualize campanhas promocionais, links e regras de validade.'}
   color="operacao"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Campanhas' }
   ]}
   actions={[

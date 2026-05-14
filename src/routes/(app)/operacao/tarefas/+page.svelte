@@ -525,7 +525,6 @@
   subtitle="Crie, categorize e acompanhe suas tarefas no board operacional do legado."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operacao', href: '/operacao' },
     { label: 'Tarefas' }
   ]}
   actions={[

@@ -225,7 +225,6 @@
   subtitle="Gerencie solicitações de atendimento ao cliente e acompanhe o status de cada caso."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Controle SAC' }
   ]}
   actions={[

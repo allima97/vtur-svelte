@@ -125,7 +125,6 @@
   subtitle="Biblioteca de documentos e templates para uso nas viagens dos clientes."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Documentos de Viagens' }
   ]}
   actions={[

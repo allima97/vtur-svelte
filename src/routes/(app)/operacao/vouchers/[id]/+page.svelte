@@ -240,7 +240,6 @@
     : ""}
   color="clientes"
   breadcrumbs={[
-    { label: "Operação", href: "/operacao" },
     { label: "Vouchers", href: "/operacao/vouchers" },
     { label: voucher?.nome || "Detalhes" },
   ]}

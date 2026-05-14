@@ -493,7 +493,6 @@
   subtitle="Agenda operacional pessoal, com eventos reais e aniversarios da empresa como no fluxo legado."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operacao', href: '/operacao' },
     { label: 'Agenda' }
   ]}
   actions={[

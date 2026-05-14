@@ -255,7 +255,6 @@
   subtitle="Follow-up operacional derivado de viagens e vendas, respeitando escopo por perfil."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operacao', href: '/operacao' },
     { label: 'Acompanhamento' }
   ]}
   actions={[

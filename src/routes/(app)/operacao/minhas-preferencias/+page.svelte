@@ -211,7 +211,6 @@
   subtitle="Cadastre seus destinos e produtos favoritos para agilizar a criação de orçamentos."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Minhas Preferências' }
   ]}
   actions={[

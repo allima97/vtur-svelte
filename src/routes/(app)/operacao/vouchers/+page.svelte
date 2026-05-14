@@ -177,7 +177,6 @@
   subtitle="Gerenciamento de vouchers Special Tours, Europamundo e Sato Tours"
   color="clientes"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Vouchers' }
   ]}
   actions={[

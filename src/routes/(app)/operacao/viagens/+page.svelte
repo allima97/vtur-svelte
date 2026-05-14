@@ -282,7 +282,6 @@
   subtitle="Gerencie viagens pendentes, confirmadas, em andamento e concluídas"
   color="clientes"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Viagens' }
   ]}
   actions={[

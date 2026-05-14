@@ -403,7 +403,6 @@
     subtitle={viagem?.cliente ? `Cliente: ${viagem.cliente.nome}` : ""}
     color="clientes"
     breadcrumbs={[
-      { label: "Operação", href: "/operacao" },
       { label: "Viagens", href: "/operacao/viagens" },
       { label: "Detalhe" },
     ]}

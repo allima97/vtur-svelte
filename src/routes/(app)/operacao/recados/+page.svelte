@@ -363,7 +363,6 @@
   subtitle="Troca de mensagens internas com navegação no padrão do mural do VTUR."
   color="operacao"
   breadcrumbs={[
-    { label: 'Operação', href: '/operacao' },
     { label: 'Recados' }
   ]}
   actions={[{ label: 'Atualizar', onClick: loadRecados, variant: 'secondary', icon: RefreshCw }]}
