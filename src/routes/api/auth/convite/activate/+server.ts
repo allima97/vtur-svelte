@@ -9,10 +9,10 @@ const MAX_CONVITE_ACTIVATE_BODY_BYTES = 32 * 1024;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type InviteActivateBody = {
-  invite_id?: unknown;
-  email?: unknown;
-  password?: unknown;
-  nome?: unknown;
+  invite_id?: string;
+  email?: string;
+  password?: string;
+  nome?: string;
 };
 
 type UserInviteRow = {
@@ -39,6 +39,17 @@ function isEmailLike(value: string) {
   return EMAIL_PATTERN.test(value);
 }
 
+function readInviteActivateBody(value: unknown): InviteActivateBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    invite_id: typeof body.invite_id === 'string' ? body.invite_id : undefined,
+    email: typeof body.email === 'string' ? body.email : undefined,
+    password: typeof body.password === 'string' ? body.password : undefined,
+    nome: typeof body.nome === 'string' ? body.nome : undefined
+  };
+}
+
 function authAlreadyExists(error: unknown) {
   const anyError = error as Record<string, unknown>;
   const message = String(anyError?.message || anyError?.error_description || '').toLowerCase();
@@ -53,9 +64,7 @@ export const POST: RequestHandler = async (event) => {
 
     const bodyResult = await readJsonBodyLimited(event.request, MAX_CONVITE_ACTIVATE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as InviteActivateBody)
-      : {};
+    const body = readInviteActivateBody(bodyResult.data);
     const inviteId = String(body.invite_id || '').trim();
     const email = normalizeEmail(body.email);
     const password = String(body.password || '');
