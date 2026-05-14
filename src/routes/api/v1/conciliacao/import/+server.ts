@@ -237,12 +237,12 @@ async function fetchReciboCandidates(params: {
       .in("id", batch)
       .eq("company_id", companyId);
 
-    for (const row of vendas || []) {
-      const id = String((row as any)?.id || "").trim();
+    for (const row of (vendas || []) as VendaLookupRow[]) {
+      const id = String(row?.id || "").trim();
       if (!id) continue;
       vendaMap.set(id, {
-        company_id: String((row as any)?.company_id || "").trim() || null,
-        vendedor_id: String((row as any)?.vendedor_id || "").trim() || null,
+        company_id: String(row?.company_id || "").trim() || null,
+        vendedor_id: String(row?.vendedor_id || "").trim() || null,
       });
     }
   }
