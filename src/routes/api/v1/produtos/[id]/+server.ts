@@ -14,6 +14,11 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PRODUTO_UPDATE_BODY_BYTES = 128 * 1024;
 
+function readProdutoUpdateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -56,10 +61,7 @@ export async function PATCH(event) {
     if (!id) throw error(400, 'ID do produto é obrigatório.');
     if (!isUuid(id)) return json({ error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readProdutoUpdateBody(bodyResult.data);
     const payload = sanitizeProdutoPayload(body);
 
     if (!payload.nome) {
