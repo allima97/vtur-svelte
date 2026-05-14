@@ -15,12 +15,46 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 const MAX_EMAIL_TEST_BODY_BYTES = 4 * 1024;
 const MASKED = '••••••';
 
+type AdminEmailTestBody = {
+  to?: unknown;
+  smtp_host?: unknown;
+  smtp_port?: unknown;
+  smtp_secure?: unknown;
+  smtp_user?: unknown;
+  smtp_pass?: unknown;
+  resend_api_key?: unknown;
+  alerta_from_email?: unknown;
+  admin_from_email?: unknown;
+  avisos_from_email?: unknown;
+  financeiro_from_email?: unknown;
+  suporte_from_email?: unknown;
+};
+
 function cleanText(value: unknown) {
   return String(value || '').trim();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function readAdminEmailTestBody(value: unknown): AdminEmailTestBody {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const body = value as Record<string, unknown>;
+  return {
+    to: body.to,
+    smtp_host: body.smtp_host,
+    smtp_port: body.smtp_port,
+    smtp_secure: body.smtp_secure,
+    smtp_user: body.smtp_user,
+    smtp_pass: body.smtp_pass,
+    resend_api_key: body.resend_api_key,
+    alerta_from_email: body.alerta_from_email,
+    admin_from_email: body.admin_from_email,
+    avisos_from_email: body.avisos_from_email,
+    financeiro_from_email: body.financeiro_from_email,
+    suporte_from_email: body.suporte_from_email
+  };
 }
 
 function providerPayloadMessage(payload: unknown) {
@@ -66,10 +100,7 @@ export async function POST(event: RequestEvent) {
     }
 
     const scope = await resolveUserScope(client, user.id);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readAdminEmailTestBody(bodyResult.data);
 
     if (!scope.isAdmin) {
       return new Response('Somente ADMIN pode enviar teste de e-mail.', { status: 403, headers: NO_STORE_HEADERS });
