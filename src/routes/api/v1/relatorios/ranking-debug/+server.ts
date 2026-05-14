@@ -112,6 +112,19 @@ type RankingDebugDocumentoResumo = {
   linked_recibo_id: string | null | undefined;
 };
 
+type RankingDebugPostBody = {
+  action?: string;
+  id?: string;
+  vendedor_id?: string;
+  valor_lancamentos?: number | string | null;
+  valor_venda_real?: number | string | null;
+};
+
+type RankingDebugValorUpdate = {
+  valor_lancamentos?: number;
+  valor_venda_real?: number;
+};
+
 type VendaDebugReciboRow = {
   id?: string | null;
   numero_recibo?: string | null;
@@ -831,9 +844,9 @@ export async function POST(event) {
       return debugJson({ error: 'Sem acesso.' }, { status: 403 });
     }
 
-    const body =
+    const body: RankingDebugPostBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as RankingDebugPostBody)
         : {};
     const { action, id } = body;
 
@@ -887,7 +900,7 @@ export async function POST(event) {
       return debugJson({ ok: true, updated: data });
 
     } else if (action === 'fix_valor') {
-      const updates: Record<string, any> = {};
+      const updates: RankingDebugValorUpdate = {};
       if (body.valor_lancamentos != null) updates.valor_lancamentos = Number(body.valor_lancamentos);
       if (body.valor_venda_real != null) updates.valor_venda_real = Number(body.valor_venda_real);
       if (Object.keys(updates).length === 0) {
