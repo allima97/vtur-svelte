@@ -13,6 +13,24 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_NAO_COMISSIONAVEIS_BODY_BYTES = 32 * 1024;
 
+type NaoComissionaveisBody = {
+  id?: unknown;
+  termo?: unknown;
+  descricao?: unknown;
+  ativo?: unknown;
+};
+
+function readNaoComissionaveisBody(value: unknown): NaoComissionaveisBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    termo: body.termo,
+    descricao: body.descricao,
+    ativo: body.ativo
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -52,10 +70,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Admin'], 2, 'Sem permissão.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readNaoComissionaveisBody(bodyResult.data);
     const { id, termo, descricao, ativo } = body;
     const itemId = String(id || '').trim();
 
