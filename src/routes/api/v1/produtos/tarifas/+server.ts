@@ -7,6 +7,11 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PRODUTO_TARIFAS_BODY_BYTES = 256 * 1024;
 
+function readProdutoTarifasBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  return value as Record<string, unknown>;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -42,10 +47,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Produtos'], 3, 'Sem permissão para editar produtos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readProdutoTarifasBody(bodyResult.data);
     const produtoId = String(body?.produto_id || '').trim();
     if (!produtoId) throw error(400, 'produto_id é obrigatório.');
 
