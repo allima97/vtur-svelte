@@ -24,11 +24,40 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
   'credito'
 ];
 
+type LegacyConciliacaoRow = {
+  id?: string | null;
+  company_id?: string | null;
+  movimento_data?: string | null;
+  documento?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_saldo?: number | null;
+  valor_opfax?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+  conciliado?: boolean | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
+type LegacyOptionRow = {
+  id?: string | null;
+};
+
 export function normalizeStatus(value?: string | null) {
   return String(value || '').trim().toUpperCase() || 'OUTRO';
 }
 
-function buildCleanIdSet(rows: any[]) {
+function buildCleanIdSet(rows: LegacyOptionRow[]) {
   const ids = new Set<string>();
   for (const item of rows) {
     const id = String(item?.id || '').trim();
@@ -58,7 +87,7 @@ export function isFormaNaoComissionavel(nome?: string | null, termos?: string[])
 // DEDUPLICAÇÃO
 // ---------------------------------------------------------------------------
 
-function rankDuplicateRow(row: any) {
+function rankDuplicateRow(row: LegacyConciliacaoRow) {
   const metrics = buildConciliacaoMetrics({
     descricao: row?.descricao,
     valorLancamentos: row?.valor_lancamentos,
@@ -89,8 +118,8 @@ function rankDuplicateRow(row: any) {
   };
 }
 
-export function dedupeConciliacaoRows(rows: any[]) {
-  const grouped = new Map<string, any[]>();
+export function dedupeConciliacaoRows(rows: LegacyConciliacaoRow[]) {
+  const grouped = new Map<string, LegacyConciliacaoRow[]>();
 
   for (const row of rows) {
     const key = [
@@ -120,7 +149,7 @@ export function dedupeConciliacaoRows(rows: any[]) {
 // NORMALIZAÇÃO DE CAMPOS COMPUTADOS
 // ---------------------------------------------------------------------------
 
-export function normalizeComputedFields(row: any) {
+export function normalizeComputedFields(row: LegacyConciliacaoRow) {
   const statusResolvido = resolveConciliacaoStatus({
     status: row?.status,
     descricao: row?.descricao
@@ -160,7 +189,7 @@ export function normalizeComputedFields(row: any) {
   };
 }
 
-export function isRankingEligibleStatus(row: any) {
+export function isRankingEligibleStatus(row: LegacyConciliacaoRow) {
   return isConciliacaoEfetivada({
     status: row?.status,
     descricao: row?.descricao
