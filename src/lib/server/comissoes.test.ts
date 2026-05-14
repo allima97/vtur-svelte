@@ -6,6 +6,10 @@ import {
   resolveVendaCommissions,
   type CommissionContext
 } from '$lib/server/comissoes';
+import type { ReportReceiptRow, ReportVendaRow } from '$lib/server/relatorios';
+
+type TestReceiptRow = Exclude<ReportReceiptRow, null>;
+type TestVendaRow = ReportVendaRow & { recibos: TestReceiptRow[] };
 
 function buildContext(overrides: Partial<CommissionContext> = {}): CommissionContext {
   return {
@@ -29,6 +33,41 @@ function buildContext(overrides: Partial<CommissionContext> = {}): CommissionCon
     tipoProdutoMap: {},
     metaPlanejada: 100000,
     metaProdutoMap: {},
+    ...overrides
+  };
+}
+
+function buildReceipt(overrides: Partial<TestReceiptRow> = {}): TestReceiptRow {
+  return {
+    id: 'recibo',
+    produto_id: null,
+    valor_total: 0,
+    valor_taxas: 0,
+    valor_rav: 0,
+    tipo_pacote: null,
+    tipo_produtos: null,
+    ...overrides
+  };
+}
+
+function buildVenda(overrides: Partial<TestVendaRow> = {}): TestVendaRow {
+  return {
+    id: 'venda',
+    numero_venda: null,
+    cliente_id: null,
+    vendedor_id: null,
+    company_id: null,
+    data_venda: null,
+    data_embarque: null,
+    data_final: null,
+    valor_total: 0,
+    valor_total_bruto: 0,
+    valor_total_pago: 0,
+    desconto_comercial_valor: 0,
+    valor_nao_comissionado: 0,
+    valor_taxas: 0,
+    cancelada: false,
+    recibos: [],
     ...overrides
   };
 }
@@ -60,7 +99,7 @@ describe('resolveVendaCommission', () => {
     });
 
     const resultado = resolveVendaCommission(
-      {
+      buildVenda({
         company_id: 'empresa-1',
         valor_total: 10000,
         valor_total_bruto: 10000,
@@ -70,7 +109,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-10',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-1',
             produto_id: produtoId,
             valor_total: 10000,
@@ -87,9 +126,9 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: false,
               exibe_kpi_comissao: false
             }
-          }
+          })
         ]
-      } as any,
+      }),
       context
     );
 
@@ -124,7 +163,7 @@ describe('resolveVendaCommission', () => {
     });
 
     const resultado = resolveVendaCommission(
-      {
+      buildVenda({
         company_id: 'empresa-1',
         valor_total: 3000,
         valor_total_bruto: 3000,
@@ -134,7 +173,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-10',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-2',
             produto_id: produtoId,
             valor_total: 3000,
@@ -151,9 +190,9 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: true,
               exibe_kpi_comissao: true
             }
-          }
+          })
         ]
-      } as any,
+      }),
       context
     );
 
@@ -199,8 +238,8 @@ describe('resolveVendaCommission', () => {
       }
     });
 
-    const rows = [
-      {
+    const rows: TestVendaRow[] = [
+      buildVenda({
         id: 'venda-1',
         company_id: 'empresa-1',
         valor_total: 600,
@@ -211,7 +250,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-10',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-1',
             produto_id: produtoId,
             valor_total: 600,
@@ -227,10 +266,10 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: false,
               exibe_kpi_comissao: false
             }
-          }
+          })
         ]
-      },
-      {
+      }),
+      buildVenda({
         id: 'venda-2',
         company_id: 'empresa-1',
         valor_total: 500,
@@ -241,7 +280,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-12',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-2',
             produto_id: produtoId,
             valor_total: 500,
@@ -257,10 +296,10 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: false,
               exibe_kpi_comissao: false
             }
-          }
+          })
         ]
-      }
-    ] as any[];
+      })
+    ];
 
     const isolated = resolveVendaCommission(rows[0], context);
     const grouped = resolveVendaCommissions(rows, context);
@@ -308,8 +347,8 @@ describe('resolveVendaCommission', () => {
       }
     });
 
-    const rows = [
-      {
+    const rows: TestVendaRow[] = [
+      buildVenda({
         id: 'venda-1',
         company_id: 'empresa-1',
         valor_total: 700,
@@ -320,7 +359,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-10',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-1',
             produto_id: produtoId,
             valor_total: 700,
@@ -336,10 +375,10 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: false,
               exibe_kpi_comissao: false
             }
-          }
+          })
         ]
-      },
-      {
+      }),
+      buildVenda({
         id: 'venda-2',
         company_id: 'empresa-1',
         valor_total: 600,
@@ -350,7 +389,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-12',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-2',
             produto_id: produtoId,
             valor_total: 600,
@@ -366,10 +405,10 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: false,
               exibe_kpi_comissao: false
             }
-          }
+          })
         ]
-      }
-    ] as any[];
+      })
+    ];
 
     const grouped = resolveVendaCommissions(rows, context);
 
@@ -417,8 +456,8 @@ describe('resolveVendaCommission', () => {
       }
     });
 
-    const rows = [
-      {
+    const rows: TestVendaRow[] = [
+      buildVenda({
         id: 'venda-seguro',
         company_id: 'empresa-1',
         valor_total: 1000,
@@ -429,7 +468,7 @@ describe('resolveVendaCommission', () => {
         data_venda: '2026-04-10',
         vendedor_id: 'vendedor-1',
         recibos: [
-          {
+          buildReceipt({
             id: 'recibo-seguro',
             produto_id: produtoId,
             valor_total: 1000,
@@ -447,10 +486,10 @@ describe('resolveVendaCommission', () => {
               descontar_meta_geral: true,
               exibe_kpi_comissao: true
             }
-          }
+          })
         ]
-      }
-    ] as any[];
+      })
+    ];
 
     const receipt = resolveReceiptCommissions(rows, context).get('recibo-seguro');
 
