@@ -103,6 +103,23 @@ type ReportSalesRowLike = {
   vendas_recibos?: ReportReceiptRow[] | null;
 };
 
+type ParametrosComissaoRow = {
+  company_id?: string | null;
+  conciliacao_sobrepoe_vendas?: boolean | null;
+};
+
+type ReportSalesRowWithRateio = ReportSalesRowLike & {
+  conciliacao_ids?: string[] | null;
+};
+
+type ConciliacaoReceiptView = Awaited<
+  ReturnType<typeof fetchEffectiveConciliacaoReceipts>
+>[number];
+
+type SplitConciliacaoRow = {
+  conciliacao_recibo_id?: string | null;
+};
+
 const DEFAULT_NAO_COMISSIONAVEIS = [
   "credito diversos",
   "credito pax",
@@ -545,7 +562,7 @@ export async function GET(event) {
 
     let conciliacaoSobrepoeVendas = false;
     if (companyIds.length > 0) {
-      const parametrosRows: any[] = [];
+      const parametrosRows: ParametrosComissaoRow[] = [];
       for (const companyBatch of chunkArray(companyIds)) {
         const { data, error: parametrosError } = await client
           .from("parametros_comissao")
@@ -553,16 +570,19 @@ export async function GET(event) {
           .in("company_id", companyBatch)
           .limit(1000);
         if (!parametrosError) {
-          parametrosRows.push(...(data || []));
+          parametrosRows.push(...((data || []) as ParametrosComissaoRow[]));
         }
       }
-      conciliacaoSobrepoeVendas = parametrosRows.some((row: any) =>
+      conciliacaoSobrepoeVendas = parametrosRows.some((row) =>
         Boolean(row?.conciliacao_sobrepoe_vendas),
       );
     }
 
-    const mergeRowsById = (baseRows: any[], extraRows: any[]) => {
-      const map = new Map<string, any>();
+    const mergeRowsById = <T extends { id?: string | null }>(
+      baseRows: T[],
+      extraRows: T[],
+    ) => {
+      const map = new Map<string, T>();
       for (const row of [...baseRows, ...extraRows]) {
         const id = String(row?.id || "").trim();
         if (!id) continue;
@@ -571,7 +591,7 @@ export async function GET(event) {
       return Array.from(map.values());
     };
 
-    const toRateioShape = (rows: any[]) =>
+    const toRateioShape = <T extends ReportSalesRowLike>(rows: T[]) =>
       rows.map((row) => ({
         ...row,
         vendas_recibos: Array.isArray(row?.recibos)
@@ -581,10 +601,10 @@ export async function GET(event) {
             : [],
       }));
 
-    const getConciliacaoIds = (item: any) => {
+    const getConciliacaoIds = (item: ReportSalesRowWithRateio) => {
       const ids = Array.isArray(item?.conciliacao_ids)
         ? item.conciliacao_ids
-            .map((value: any) => String(value || "").trim())
+            .map((value) => String(value || "").trim())
             .filter(Boolean)
         : [];
       if (ids.length > 0) return ids;
@@ -592,7 +612,7 @@ export async function GET(event) {
       return id ? [id] : [];
     };
 
-    const toRecibosView = (row: any) => {
+    const toRecibosView = (row: ReportSalesRowLike) => {
       if (Array.isArray(row?.vendas_recibos)) return row.vendas_recibos;
       if (Array.isArray(row?.recibos)) return row.recibos;
       return [];
@@ -644,7 +664,7 @@ export async function GET(event) {
         }
       }
 
-      let concReceipts: any[] = [];
+      let concReceipts: ConciliacaoReceiptView[] = [];
       try {
         concReceipts = await fetchEffectiveConciliacaoReceipts({
           client,
@@ -662,7 +682,7 @@ export async function GET(event) {
         );
         concReceipts = [];
       }
-      let concReceiptsAllCache: any[] | null = null;
+      let concReceiptsAllCache: ConciliacaoReceiptView[] | null = null;
       const loadConcReceiptsAll = async () => {
         if (concReceiptsAllCache) return concReceiptsAllCache;
         try {
@@ -692,7 +712,7 @@ export async function GET(event) {
           : null;
 
       if (vendedorIds.length > 0) {
-        const splitConcRows: any[] = [];
+        const splitConcRows: SplitConciliacaoRow[] = [];
         const splitConcCompanyBatches =
           companyIds.length > 0 ? chunkArray(companyIds) : [null];
         const splitConcVendedorBatches = chunkArray(vendedorIds);
@@ -723,13 +743,13 @@ export async function GET(event) {
         }
 
         const splitConcIdSet = cleanStringSet(
-          ((splitConcRows as any[]) || []).map((row: any) => row?.conciliacao_recibo_id),
+          (splitConcRows || []).map((row) => row?.conciliacao_recibo_id),
         );
 
         if (splitConcIdSet.size > 0) {
           const concAll = await loadConcReceiptsAll();
           const seenConcIds = new Set(
-            (concReceipts || []).flatMap((item: any) =>
+            (concReceipts || []).flatMap((item) =>
               getConciliacaoIds(item),
             ),
           );
