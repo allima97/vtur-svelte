@@ -7,6 +7,18 @@ import type { RequestHandler } from './$types';
 
 const MAX_PASSKEY_OPTIONS_BODY_BYTES = 8 * 1024;
 
+type PasskeyLoginOptionsBody = {
+  email?: string;
+};
+
+function readPasskeyLoginOptionsBody(value: unknown): PasskeyLoginOptionsBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    email: typeof body.email === 'string' ? body.email : undefined
+  };
+}
+
 export const POST: RequestHandler = async (event) => {
   try {
     const originError = rejectCrossOriginRequest(event.request, 'Origem inválida.');
@@ -14,9 +26,7 @@ export const POST: RequestHandler = async (event) => {
 
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_OPTIONS_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, unknown>)
-      : {};
+    const body = readPasskeyLoginOptionsBody(bodyResult.data);
     const email = String(body?.email || '').trim();
     const remoteIp = event.getClientAddress?.() || 'unknown';
 
