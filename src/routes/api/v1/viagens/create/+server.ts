@@ -15,6 +15,36 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from "$lib/server/reque
 
 const MAX_VIAGEM_CREATE_BODY_BYTES = 256 * 1024;
 
+type ViagemCreateBody = {
+  origem?: unknown;
+  destino?: unknown;
+  data_inicio?: unknown;
+  data_fim?: unknown;
+  status?: unknown;
+  cliente_id?: unknown;
+  observacoes?: unknown;
+  follow_up_text?: unknown;
+  follow_up_fechado?: unknown;
+  company_id?: unknown;
+};
+
+function readViagemCreateBody(value: unknown): ViagemCreateBody {
+  if (!value || typeof value !== "object") return {};
+  const body = value as Record<string, unknown>;
+  return {
+    origem: body.origem,
+    destino: body.destino,
+    data_inicio: body.data_inicio,
+    data_fim: body.data_fim,
+    status: body.status,
+    cliente_id: body.cliente_id,
+    observacoes: body.observacoes,
+    follow_up_text: body.follow_up_text,
+    follow_up_fechado: body.follow_up_fechado,
+    company_id: body.company_id,
+  };
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -35,10 +65,7 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readViagemCreateBody(bodyResult.data);
     const origem = String(body?.origem || "").trim();
     const destino = String(body?.destino || "").trim();
     const dataInicio = String(body?.data_inicio || "").trim();
