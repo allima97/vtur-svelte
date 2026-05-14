@@ -6,6 +6,10 @@ import { env } from '$env/dynamic/private';
 
 const MAX_CRON_BODY_BYTES = 4 * 1024;
 
+type CronConsultoriaBody = {
+  dryRun?: boolean;
+};
+
 function secretMatches(expected: string, received: string | null) {
   const actual = String(received || "");
   if (!expected || actual.length !== expected.length) return false;
@@ -14,6 +18,12 @@ function secretMatches(expected: string, received: string | null) {
     diff |= expected.charCodeAt(i) ^ actual.charCodeAt(i);
   }
   return diff === 0;
+}
+
+function readCronConsultoriaBody(value: unknown): CronConsultoriaBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return typeof body.dryRun === 'boolean' ? { dryRun: body.dryRun } : {};
 }
 
 function disabledCronResponse(dryRun: boolean) {
@@ -41,10 +51,7 @@ async function handleCronRequest(request: Request) {
   const bodyResult = await readJsonBodyLimited(request, MAX_CRON_BODY_BYTES);
   if (!bodyResult.ok) return bodyResult.response;
 
-  const body =
-    bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, unknown>)
-      : {};
+  const body = readCronConsultoriaBody(bodyResult.data);
   return disabledCronResponse(Boolean(body.dryRun));
 }
 
