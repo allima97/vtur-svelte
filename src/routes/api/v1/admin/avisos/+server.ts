@@ -11,6 +11,30 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_AVISO_TEMPLATE_BODY_BYTES = 64 * 1024;
 
+type AvisoTemplateBody = {
+  action?: unknown;
+  id?: unknown;
+  nome?: unknown;
+  assunto?: unknown;
+  mensagem?: unknown;
+  ativo?: unknown;
+  sender_key?: unknown;
+};
+
+function readAvisoTemplateBody(value: unknown): AvisoTemplateBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    action: body.action,
+    id: body.id,
+    nome: body.nome,
+    assunto: body.assunto,
+    mensagem: body.mensagem,
+    ativo: body.ativo,
+    sender_key: body.sender_key
+  };
+}
+
 function canManageTemplates(scope: Awaited<ReturnType<typeof resolveUserScope>>) {
   return scope.isAdmin || scope.isMaster || scope.isGestor || Boolean(scope.permissoes.admin) || Boolean(scope.permissoes.admin_users);
 }
@@ -42,10 +66,7 @@ export async function POST(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readAvisoTemplateBody(bodyResult.data);
 
     if (!canManageTemplates(scope)) {
       return new Response('Sem acesso aos templates de aviso.', { status: 403, headers: NO_STORE_HEADERS });
