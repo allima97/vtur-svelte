@@ -7,6 +7,11 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PRODUTO_CREATE_BODY_BYTES = 128 * 1024;
 
+function readProdutoCreateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  return value as Record<string, unknown>;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -22,10 +27,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Produtos'], 2, 'Sem permissão para criar produtos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readProdutoCreateBody(bodyResult.data);
     const payload = sanitizeProdutoPayload(body);
 
     if (!payload.nome) {
