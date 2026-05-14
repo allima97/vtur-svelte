@@ -37,6 +37,51 @@ const DEFAULT_NAO_COMISSIONAVEIS = [
 
 const SUPABASE_IN_BATCH_SIZE = 150;
 
+type ConciliacaoListRow = {
+  id?: string | null;
+  company_id?: string | null;
+  documento?: string | null;
+  numero_reserva?: string | null;
+  movimento_data?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_opfax?: number | null;
+  valor_saldo?: number | null;
+  valor_venda_real?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  faixa_comissao?: string | null;
+  is_seguro_viagem?: boolean | null;
+  origem?: string | null;
+  conciliado?: boolean | null;
+  match_total?: boolean | null;
+  match_taxas?: boolean | null;
+  sistema_valor_total?: number | null;
+  sistema_valor_taxas?: number | null;
+  diff_total?: number | null;
+  diff_taxas?: number | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+  ranking_vendedor_id?: string | null;
+  ranking_produto_id?: string | null;
+  ranking_assigned_at?: string | null;
+  is_baixa_rac?: boolean | null;
+  last_checked_at?: string | null;
+  conciliado_em?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type NormalizedConciliacaoListRow = ConciliacaoListRow &
+  ReturnType<typeof normalizeComputedFields>;
+
 async function fetchBatched<T>(
   values: string[],
   loader: (
@@ -90,7 +135,7 @@ export async function GET(event) {
     ).trim();
     const baixaRac = searchParams.get('baixa_rac') === '1';
 
-    const rows = await getCachedReadModel<any[]>({
+    const rows = await getCachedReadModel<ConciliacaoListRow[]>({
       key: buildReadModelCacheKey('conciliacao:list:legacy', {
         companyId,
         somentePendentes,
@@ -139,12 +184,12 @@ export async function GET(event) {
         const { data, error } = await query;
         if (error) throw error;
 
-        let rows = dedupeConciliacaoRows(Array.isArray(data) ? data : []).map(
-          normalizeComputedFields,
-        );
+        let rows: NormalizedConciliacaoListRow[] = dedupeConciliacaoRows(
+          Array.isArray(data) ? (data as ConciliacaoListRow[]) : [],
+        ).map((row) => normalizeComputedFields(row) as NormalizedConciliacaoListRow);
 
         if (rankingPending) {
-          rows = rows.filter((row: any) => {
+          rows = rows.filter((row) => {
             const status = String(row?.status || '')
               .trim()
               .toUpperCase();
@@ -159,7 +204,7 @@ export async function GET(event) {
         }
 
         if (somentePendentes) {
-          rows = rows.filter((row: any) => {
+          rows = rows.filter((row) => {
             const isBaixaRac =
               Boolean(row?.is_baixa_rac) ||
               String(row?.ranking_vendedor_id || '').trim() === 'BAIXA_RAC';
@@ -168,7 +213,7 @@ export async function GET(event) {
         }
 
         if (baixaRac) {
-          rows = rows.filter((row: any) => {
+          rows = rows.filter((row) => {
             const isBaixaRac =
               Boolean(row?.is_baixa_rac) ||
               String(row?.ranking_vendedor_id || '').trim() === 'BAIXA_RAC';
@@ -177,7 +222,7 @@ export async function GET(event) {
         }
 
         if (rankingStatus === 'pending') {
-          rows = rows.filter((row: any) => {
+          rows = rows.filter((row) => {
             const vendaId = String(row?.venda_id || '').trim();
             const rankingVendedorId = String(
               row?.ranking_vendedor_id || '',
@@ -187,7 +232,7 @@ export async function GET(event) {
             );
           });
         } else if (rankingStatus === 'assigned') {
-          rows = rows.filter((row: any) => {
+          rows = rows.filter((row) => {
             if (!isRankingEligibleStatus(row)) return false;
             const vendaId = String(row?.venda_id || '').trim();
             const rankingVendedorId = String(
@@ -199,7 +244,7 @@ export async function GET(event) {
           });
         } else if (rankingStatus === 'system') {
           rows = rows.filter(
-            (row: any) =>
+            (row) =>
               isRankingEligibleStatus(row) &&
               Boolean(String(row?.venda_id || '').trim()),
           );
@@ -208,7 +253,7 @@ export async function GET(event) {
         const vendaIds = Array.from(
           new Set(
             rows
-              .map((row: any) => String(row?.venda_id || '').trim())
+              .map((row) => String(row?.venda_id || '').trim())
               .filter(Boolean),
           ),
         );
@@ -223,7 +268,7 @@ export async function GET(event) {
               .eq('ativo', true)
               .order('termo', { ascending: true });
             const termos = (termosData || [])
-              .map((row: any) =>
+              .map((row) =>
                 normalizeTerm(row?.termo_normalizado || row?.termo),
               )
               .filter(Boolean);
