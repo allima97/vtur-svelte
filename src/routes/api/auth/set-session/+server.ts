@@ -8,6 +8,20 @@ import type { RequestHandler } from './$types';
 
 const MAX_SET_SESSION_BODY_BYTES = 16 * 1024;
 
+type SetSessionBody = {
+  access_token?: string;
+  refresh_token?: string;
+};
+
+function readSetSessionBody(value: unknown): SetSessionBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  return {
+    access_token: typeof body.access_token === 'string' ? body.access_token : undefined,
+    refresh_token: typeof body.refresh_token === 'string' ? body.refresh_token : undefined
+  };
+}
+
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
     const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
@@ -15,12 +29,12 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const bodyResult = await readJsonBodyLimited(request, MAX_SET_SESSION_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data as Record<string, unknown> | null;
-    if (!body || typeof body !== 'object') {
+    const body = readSetSessionBody(bodyResult.data);
+    if (!body) {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
-    const { access_token, refresh_token } = body as { access_token?: string; refresh_token?: string };
+    const { access_token, refresh_token } = body;
     
     if (!access_token || !refresh_token) {
       return json({ error: 'Tokens obrigatorios' }, { status: 400, headers: NO_STORE_HEADERS });
