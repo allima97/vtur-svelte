@@ -15,6 +15,20 @@ const MAX_DOCUMENTACAO_BODY_BYTES = 512 * 1024;
 const VALID_ROLES = new Set(['all', 'vendedor', 'gestor', 'master', 'admin']);
 const VALID_TONES = new Set(['default', 'info', 'config', 'teal', 'green']);
 
+type DocumentacaoBody = {
+  id?: string;
+  slug?: string;
+  role_scope?: string;
+  module_key?: string;
+  route_pattern?: string;
+  title?: string;
+  summary?: string;
+  content_markdown?: string;
+  tone?: string;
+  sort_order?: number | string;
+  is_active?: boolean;
+};
+
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -37,6 +51,28 @@ function normalizeModuleKey(value: unknown) {
       .replace(/[^a-z0-9_-]+/g, '_')
       .replace(/^_+|_+$/g, '') || 'geral'
   );
+}
+
+function readDocumentacaoBody(value: unknown): DocumentacaoBody {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  const body: DocumentacaoBody = {};
+
+  if (typeof record.id === 'string') body.id = record.id;
+  if (typeof record.slug === 'string') body.slug = record.slug;
+  if (typeof record.role_scope === 'string') body.role_scope = record.role_scope;
+  if (typeof record.module_key === 'string') body.module_key = record.module_key;
+  if (typeof record.route_pattern === 'string') body.route_pattern = record.route_pattern;
+  if (typeof record.title === 'string') body.title = record.title;
+  if (typeof record.summary === 'string') body.summary = record.summary;
+  if (typeof record.content_markdown === 'string') body.content_markdown = record.content_markdown;
+  if (typeof record.tone === 'string') body.tone = record.tone;
+  if (typeof record.sort_order === 'number' || typeof record.sort_order === 'string') {
+    body.sort_order = record.sort_order;
+  }
+  if (typeof record.is_active === 'boolean') body.is_active = record.is_active;
+
+  return body;
 }
 
 async function requireAdmin(event: Parameters<RequestHandler>[0]) {
@@ -132,7 +168,7 @@ export const POST: RequestHandler = async (event) => {
     const admin = await requireAdmin(event);
     if (!admin.ok) return admin.response;
 
-    const body = bodyResult.data && typeof bodyResult.data === 'object' ? (bodyResult.data as Record<string, unknown>) : {};
+    const body = readDocumentacaoBody(bodyResult.data);
     const id = String(body.id || '').trim();
     const role_scope = VALID_ROLES.has(String(body.role_scope || 'all')) ? String(body.role_scope || 'all') : 'all';
     const tone = VALID_TONES.has(String(body.tone || 'info')) ? String(body.tone || 'info') : 'info';
