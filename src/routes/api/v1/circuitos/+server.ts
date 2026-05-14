@@ -12,6 +12,28 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_CIRCUITO_BODY_BYTES = 128 * 1024;
 
+type CircuitoBody = {
+  id?: unknown;
+  nome?: unknown;
+  codigo?: unknown;
+  operador?: unknown;
+  resumo?: unknown;
+  ativo?: unknown;
+};
+
+function readCircuitoBody(value: unknown): CircuitoBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    codigo: body.codigo,
+    operador: body.operador,
+    resumo: body.resumo,
+    ativo: body.ativo
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -55,10 +77,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Circuitos'], 2, 'Sem permissão para salvar circuitos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readCircuitoBody(bodyResult.data);
     const id = String(body.id || '').trim();
 
     const payload = {
