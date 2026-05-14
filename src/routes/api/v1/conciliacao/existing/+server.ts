@@ -35,6 +35,22 @@ type ExistingConciliacaoRow = {
 
 type ExistingRecord = Omit<ExistingConciliacaoRow, 'id' | 'documento' | 'movimento_data'>;
 
+function readExistingRequestBody(value: unknown): ExistingRequestBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  const parsed: ExistingRequestBody = {};
+
+  if (typeof body.companyId === 'string') {
+    parsed.companyId = body.companyId;
+  }
+  if (Array.isArray(body.documentos)) {
+    parsed.documentos = body.documentos
+      .filter((item): item is string => typeof item === 'string');
+  }
+
+  return parsed;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -50,10 +66,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 1, 'Sem acesso à Conciliação.');
     }
 
-    const body: ExistingRequestBody =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as ExistingRequestBody)
-        : {};
+    const body = readExistingRequestBody(bodyResult.data);
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId || null);
     const companyId = companyIds[0] || null;
     if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
