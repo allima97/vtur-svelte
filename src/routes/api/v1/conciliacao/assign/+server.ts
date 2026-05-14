@@ -93,6 +93,31 @@ type ConciliacaoAssignUpdate = {
   descricao_chave?: string | null;
 };
 
+function readAssignRequestBody(value: unknown): AssignRequestBody {
+  if (!value || typeof value !== "object") return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: AssignRequestBody = {};
+
+  if (typeof body.companyId === "string") parsed.companyId = body.companyId;
+  if (typeof body.conciliacaoId === "string") parsed.conciliacaoId = body.conciliacaoId;
+  if (typeof body.rankingVendedorId === "string") parsed.rankingVendedorId = body.rankingVendedorId;
+  if (typeof body.rankingProdutoId === "string") parsed.rankingProdutoId = body.rankingProdutoId;
+  if (typeof body.vendaId === "string") parsed.vendaId = body.vendaId;
+  if (typeof body.vendaReciboId === "string") parsed.vendaReciboId = body.vendaReciboId;
+  if (typeof body.isBaixaRac === "boolean") parsed.isBaixaRac = body.isBaixaRac;
+  if (typeof body.conciliado === "boolean") parsed.conciliado = body.conciliado;
+
+  for (const field of CONCILIACAO_VALOR_PAYLOAD_FIELDS) {
+    const raw = body[field];
+    if (raw === null || typeof raw === "number" || typeof raw === "string") {
+      parsed[field] = raw;
+    }
+  }
+
+  return parsed;
+}
+
 // ---------------------------------------------------------------------------
 // Auditoria de troca de vendedor
 // ---------------------------------------------------------------------------
@@ -296,10 +321,7 @@ export async function POST(event) {
       );
     }
 
-    const body: AssignRequestBody =
-      bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as AssignRequestBody)
-        : {};
+    const body = readAssignRequestBody(bodyResult.data);
     const companyIds = resolveScopedCompanyIds(scope, body?.companyId);
 
     const conciliacaoId = String(body?.conciliacaoId || "").trim();
