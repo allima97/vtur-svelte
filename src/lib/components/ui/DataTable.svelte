@@ -561,21 +561,21 @@
             {#each Array(skeletonRowCount) as _, rowIndex}
               <tr class="animate-pulse">
                 {#if selectable}
-                  <td class="px-4 py-4">
+                  <td class="px-4 py-2">
                     <div
                       class="h-4 w-4 rounded border border-slate-200 bg-slate-100"
                     ></div>
                   </td>
                 {/if}
                 {#each columns as column, colIndex}
-                  <td class="px-6 py-4" data-label={column.label}>
+                  <td class="px-6 py-2" data-label={column.label}>
                     <div
                       class={`h-3 rounded-full bg-slate-100 ${skeletonWidths[(rowIndex + colIndex) % skeletonWidths.length]}`}
                     ></div>
                   </td>
                 {/each}
                 {#if $$slots["row-actions"] || $$slots.actions}
-                  <td class="px-6 py-4">
+                  <td class="px-6 py-2">
                     <div class="ml-auto h-8 w-20 rounded-lg bg-slate-100"></div>
                   </td>
                 {/if}
@@ -598,7 +598,7 @@
                 on:click={() => onRowClick?.(row)}
               >
                 {#if selectable}
-                  <td class="px-4 py-4" on:click|stopPropagation>
+                  <td class="px-4 py-2" on:click|stopPropagation>
                     <Checkbox
                       checked={selectedRows.has(keyExtractor(row))}
                       {color}
@@ -610,7 +610,7 @@
                 {/if}
                 {#each columns as column}
                   <td
-                    class={`px-6 py-4 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ""}`}
+                    class={`px-6 py-2 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ""}`}
                     data-label={column.label}
                   >
                     {#if column.component}
@@ -630,7 +630,7 @@
                 {/each}
                 {#if $$slots["row-actions"] || $$slots.actions}
                   <td
-                    class="px-6 py-4 text-right td-actions"
+                    class="px-6 py-2 text-right td-actions"
                     on:click|stopPropagation
                   >
                     <slot name="row-actions" {row} />
