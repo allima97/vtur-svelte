@@ -51,6 +51,49 @@ const UNFILTERED_VENDEDOR_VALUES = new Set([
 ]);
 const SEGURO_FAIXAS_COMISSAO = new Set(['SEGURO_32_35', 'SEGURO_35_38']);
 
+type DebugUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+};
+
+type RankingDebugConcRow = {
+  id?: string | null;
+  documento?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  movimento_data?: string | null;
+  valor_lancamentos?: number | null;
+  valor_venda_real?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  is_seguro_viagem?: boolean | null;
+  faixa_comissao?: string | null;
+  ranking_vendedor_id?: string | null;
+  company_id?: string | null;
+};
+
+type RankingDebugConcEntry = RankingDebugConcRow & {
+  _estornado?: boolean;
+};
+
+type VendaDebugReciboRow = {
+  id?: string | null;
+  numero_recibo?: string | null;
+  data_venda?: string | null;
+};
+
+type VendaDebugRow = {
+  id?: string | null;
+  vendedor_id?: string | null;
+  vendas_recibos?: VendaDebugReciboRow[] | null;
+};
+
 function debugJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   for (const [key, value] of Object.entries(DEBUG_HEADERS)) headers.set(key, value);
@@ -143,7 +186,7 @@ export async function GET(event) {
         const companyUsers = await fetchRankingVendedoresByCompanyIds(client, companyIds);
 
         vendedorIds = (companyUsers || [])
-          .map((row: any) => String(row?.id || '').trim())
+          .map((row) => String(row?.id || '').trim())
           .filter(Boolean);
       }
 
@@ -232,8 +275,13 @@ export async function GET(event) {
         .limit(5);
       usersQuery = applyCompanyScope(usersQuery, scope, event.url.searchParams.get('empresa_id'));
       const { data: usersData } = await usersQuery;
-      const userIds = (usersData || []).map((u: any) => u.id);
-      const userNomes: Record<string, string> = Object.fromEntries((usersData || []).map((u: any) => [u.id, u.nome_completo]));
+      const users = (usersData || []) as DebugUserRow[];
+      const userIds = users
+        .map((u) => String(u.id || '').trim())
+        .filter(Boolean);
+      const userNomes: Record<string, string> = Object.fromEntries(
+        users.map((u) => [String(u.id || ''), String(u.nome_completo || '')]),
+      );
 
       if (userIds.length === 0) return debugJson({ erro: `Nenhum usuário encontrado com nome "${vendedorBusca}"` });
 
@@ -248,8 +296,8 @@ export async function GET(event) {
       if (concErr) throw concErr;
 
       // Agrupa por documento (dedup — pega o mais recente por documento, ignora ESTORNO)
-      const docMapVendedor = new Map<string, any>();
-      for (const r of (concRows || [])) {
+      const docMapVendedor = new Map<string, RankingDebugConcEntry>();
+      for (const r of (concRows || []) as RankingDebugConcRow[]) {
         const doc = String(r.documento || '').trim();
         const status = String(r.status || '').toUpperCase();
         if (!doc) continue;
@@ -260,27 +308,27 @@ export async function GET(event) {
           if (status === 'ESTORNO') existing._estornado = true;
         }
       }
-      const recibosVendedor = Array.from(docMapVendedor.values()).filter(r => !r._estornado);
+      const recibosVendedor = Array.from(docMapVendedor.values()).filter((r) => !r._estornado);
 
-      const calcBruto = (r: any) => {
+      const calcBruto = (r: RankingDebugConcEntry) => {
         const lanc = Number(r.valor_lancamentos || 0);
         const desc = Number(r.valor_descontos || 0);
         const abat = Number(r.valor_abatimentos || 0);
         const naoC = Math.max(0, Number(r.valor_nao_comissionavel || 0));
         return Math.max(0, lanc - desc - abat - naoC);
       };
-      const isSeguro = (r: any) =>
+      const isSeguro = (r: RankingDebugConcEntry) =>
         Boolean(r.is_seguro_viagem) ||
         SEGURO_FAIXAS_COMISSAO.has(String(r.faixa_comissao || ''));
 
-      const totalBruto = recibosVendedor.reduce((s: number, r: any) => s + calcBruto(r), 0);
-      const totalSeguro = recibosVendedor.filter(isSeguro).reduce((s: number, r: any) => s + calcBruto(r), 0);
-      const totalReal = recibosVendedor.reduce((s: number, r: any) => s + Number(r.valor_venda_real || 0), 0);
+      const totalBruto = recibosVendedor.reduce((s: number, r) => s + calcBruto(r), 0);
+      const totalSeguro = recibosVendedor.filter(isSeguro).reduce((s: number, r) => s + calcBruto(r), 0);
+      const totalReal = recibosVendedor.reduce((s: number, r) => s + Number(r.valor_venda_real || 0), 0);
 
       // 3. Buscar também registros onde o documento aparece mas está atribuído a OUTRO vendedor
       // — para detectar se recibos que deveriam ser do Leonardo foram para o Márcio
       // Primeiro pegar os documentos das vendas do usuário via vendas_recibos
-      const vendasRows: any[] = [];
+      const vendasRows: VendaDebugRow[] = [];
       for (const userBatch of chunkArray(userIds)) {
         const { data } = await client
           .from('vendas')
@@ -289,20 +337,22 @@ export async function GET(event) {
           .gte('created_at', `${inicio}T00:00:00`)
           .lte('created_at', `${fim}T23:59:59`)
           .limit(200);
-        vendasRows.push(...(data || []));
+        vendasRows.push(...((data || []) as VendaDebugRow[]));
       }
 
       const docsDasVendas: string[] = [];
       for (const v of (vendasRows || [])) {
-        for (const r of ((v as any).vendas_recibos || [])) {
+        for (const r of v.vendas_recibos || []) {
           if (r.numero_recibo) docsDasVendas.push(String(r.numero_recibo));
         }
       }
 
       // 4. Para esses documentos, ver quem está atribuído na conciliação
-      let concAtribuicaoOutros: any[] = [];
+      let concAtribuicaoOutros: Array<
+        RankingDebugConcRow & { ranking_vendedor_nome: string }
+      > = [];
       if (docsDasVendas.length > 0) {
-        const outrosRawRows: any[] = [];
+        const outrosRawRows: RankingDebugConcRow[] = [];
         const userIdSet = new Set(userIds);
         for (const docsBatch of chunkArray(docsDasVendas)) {
           const { data } = await client
@@ -312,10 +362,10 @@ export async function GET(event) {
             .gte('movimento_data', inicio)
             .lte('movimento_data', fim)
             .limit(100);
-          outrosRawRows.push(...(data || []));
+          outrosRawRows.push(...((data || []) as RankingDebugConcRow[]));
         }
         const outrosRows = outrosRawRows.filter(
-          (row: any) => !userIdSet.has(String(row?.ranking_vendedor_id || '').trim())
+          (row) => !userIdSet.has(String(row.ranking_vendedor_id || '').trim())
         );
         // Resolver nomes dos outros vendedores
         const outrosIdSet = new Set<string>();
@@ -323,15 +373,20 @@ export async function GET(event) {
           if (row.ranking_vendedor_id) outrosIdSet.add(row.ranking_vendedor_id);
         }
         const outrosIds = Array.from(outrosIdSet);
-        const outrosUsers: any[] = [];
+        const outrosUsers: DebugUserRow[] = [];
         for (const outrosBatch of chunkArray(outrosIds)) {
           const { data } = await client.from('users').select('id, nome_completo').in('id', outrosBatch);
-          outrosUsers.push(...(data || []));
+          outrosUsers.push(...((data || []) as DebugUserRow[]));
         }
-        const outrosNomes: Record<string, string> = Object.fromEntries((outrosUsers || []).map((u: any) => [u.id, u.nome_completo]));
-        concAtribuicaoOutros = (outrosRows || []).map((r: any) => ({
+        const outrosNomes: Record<string, string> = Object.fromEntries(
+          outrosUsers.map((u) => [String(u.id || ''), String(u.nome_completo || '')]),
+        );
+        concAtribuicaoOutros = (outrosRows || []).map((r) => ({
           ...r,
-          ranking_vendedor_nome: outrosNomes[r.ranking_vendedor_id] || r.ranking_vendedor_id || '(sem vendedor)',
+          ranking_vendedor_nome:
+            outrosNomes[String(r.ranking_vendedor_id || '')] ||
+            String(r.ranking_vendedor_id || '') ||
+            '(sem vendedor)',
         }));
       }
 
@@ -342,7 +397,7 @@ export async function GET(event) {
         total_bruto_conciliacao: Math.round(totalBruto * 100) / 100,
         total_seguro_conciliacao: Math.round(totalSeguro * 100) / 100,
         total_real_conciliacao: Math.round(totalReal * 100) / 100,
-        recibos_atribuidos_ao_vendedor: recibosVendedor.map((r: any) => ({
+        recibos_atribuidos_ao_vendedor: recibosVendedor.map((r) => ({
           id: r.id,
           documento: r.documento,
           status: r.status,
@@ -355,7 +410,8 @@ export async function GET(event) {
           valor_taxas: r.valor_taxas,
           is_seguro: isSeguro(r),
           ranking_vendedor_id: r.ranking_vendedor_id,
-          ranking_vendedor_nome: userNomes[r.ranking_vendedor_id] || r.ranking_vendedor_id,
+          ranking_vendedor_nome:
+            userNomes[String(r.ranking_vendedor_id || '')] || r.ranking_vendedor_id,
           company_id: r.company_id,
         })),
         possiveis_recibos_desviados: concAtribuicaoOutros,
