@@ -18,6 +18,13 @@ import { chunkArray } from '$lib/utils/array';
 
 const MAX_TIPO_USUARIO_BODY_BYTES = 32 * 1024;
 
+type UserTypeBody = {
+  action?: unknown;
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+};
+
 type DefaultPermissionRow = {
   user_type_id?: string | null;
   ativo?: boolean | null;
@@ -26,6 +33,17 @@ type DefaultPermissionRow = {
 type UserTypeUserRow = {
   user_type_id?: string | null;
 };
+
+function readUserTypeBody(value: unknown): UserTypeBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    action: body.action,
+    id: body.id,
+    name: body.name,
+    description: body.description
+  };
+}
 
 export async function GET(event: RequestEvent) {
   try {
@@ -99,10 +117,7 @@ export async function POST(event: RequestEvent) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readUserTypeBody(bodyResult.data);
 
     ensureCanManagePermissions(scope);
 
