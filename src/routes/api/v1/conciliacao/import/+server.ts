@@ -158,6 +158,16 @@ type ConciliacaoExistenteRow = {
   venda_recibo_id?: string | null;
 };
 
+type ConciliacaoImportBody = {
+  companyId?: string | null;
+  linhas?: ConciliacaoLinhaInput[];
+};
+
+type ConciliacaoLinhaLinkInput = ConciliacaoLinhaInput & {
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+};
+
 async function fetchReciboCandidates(params: {
   client: SupabaseClient;
   numero: string;
@@ -433,6 +443,14 @@ function buildImportFallbackKey(
   ].join("::");
 }
 
+function getLinhaLinkFields(linha: ConciliacaoLinhaInput) {
+  const value = linha as ConciliacaoLinhaLinkInput;
+  return {
+    vendaId: String(value.venda_id || "").trim() || null,
+    vendaReciboId: String(value.venda_recibo_id || "").trim() || null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Handler principal
 // ---------------------------------------------------------------------------
@@ -457,9 +475,9 @@ export async function POST(event) {
       );
     }
 
-    const body =
+    const body: ConciliacaoImportBody =
       bodyResult.data && typeof bodyResult.data === "object"
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as ConciliacaoImportBody)
         : {};
     const companyId = resolveScopedCompanyId(scope, body?.companyId);
 
@@ -645,9 +663,9 @@ export async function POST(event) {
       });
 
       let rankingVendedorId = sanitizeRankingVendedorId(l.ranking_vendedor_id);
-      let vendaId = String((l as any).venda_id || "").trim() || null;
-      let vendaReciboId =
-        String((l as any).venda_recibo_id || "").trim() || null;
+      const linkedFields = getLinhaLinkFields(l);
+      let vendaId = linkedFields.vendaId;
+      let vendaReciboId = linkedFields.vendaReciboId;
 
       if (!rankingVendedorId || !vendaReciboId || !vendaId) {
         const found = isRexturImportLine(l)
@@ -711,9 +729,21 @@ export async function POST(event) {
       };
     };
 
+    type ImportRowDraft = Awaited<ReturnType<typeof buildRow>>;
+    type ImportRowUpdateValues = Omit<ImportRowDraft, "company_id"> & {
+      match_total: null;
+      match_taxas: null;
+      sistema_valor_total: null;
+      sistema_valor_taxas: null;
+      diff_total: null;
+      diff_taxas: null;
+      last_checked_at: null;
+      conciliado_em: null;
+    };
+
     const usedExistingIds = new Set<string>();
-    const rowsToInsert: any[] = [];
-    const rowsToUpdate: Array<{ id: string; values: Record<string, any> }> = [];
+    const rowsToInsert: ImportRowDraft[] = [];
+    const rowsToUpdate: Array<{ id: string; values: ImportRowUpdateValues }> = [];
     const diferencas: Array<{
       documento: string;
       movimento_data: string;
@@ -746,7 +776,7 @@ export async function POST(event) {
             l.numero_reserva,
           )
         : "";
-      let existing: any =
+      let existing: ConciliacaoExistenteRow | null =
         (rexturKey ? existentesRexturByKey.get(rexturKey) : null) ||
         existentesByKey.get(
           buildImportKey(companyId, l.movimento_data, l.documento, l.descricao),
@@ -761,7 +791,7 @@ export async function POST(event) {
           l.documento,
         );
         const candidates = (existentesByFallbackKey.get(fk) || []).filter(
-          (c: any) => !usedExistingIds.has(String(c.id)),
+          (candidate) => !usedExistingIds.has(String(candidate.id)),
         );
         if (candidates.length > 0) {
           // Prefere o registro com mesmos valores financeiros; fallback: o mais recente (primeiro)
@@ -771,8 +801,7 @@ export async function POST(event) {
 
       if (existing?.id) {
         usedExistingIds.add(String(existing.id));
-        const values = { ...row };
-        delete (values as any).company_id;
+        const { company_id: _companyId, ...values } = row;
         rowsToUpdate.push({
           id: String(existing.id),
           values: {
