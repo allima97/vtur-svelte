@@ -80,6 +80,22 @@ type FixVinculosBody = {
   conciliacaoId?: string | null;
 };
 
+function readFixVinculosBody(value: unknown): FixVinculosBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: FixVinculosBody = {};
+
+  if (typeof body.companyId === 'string') parsed.companyId = body.companyId;
+  if (typeof body.dryRun === 'boolean') parsed.dryRun = body.dryRun;
+  if (typeof body.limit === 'number' || typeof body.limit === 'string') parsed.limit = body.limit;
+  if (typeof body.month === 'string') parsed.month = body.month;
+  if (typeof body.conciliacaoReciboId === 'string') parsed.conciliacaoReciboId = body.conciliacaoReciboId;
+  if (typeof body.conciliacaoId === 'string') parsed.conciliacaoId = body.conciliacaoId;
+
+  return parsed;
+}
+
 type ConciliacaoRow = ConciliacaoAuditRow & {
   id?: string | null;
   movimento_data?: string | null;
@@ -453,10 +469,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissao para auditar vinculos.');
     }
 
-    const body: FixVinculosBody =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as FixVinculosBody)
-        : {};
+    const body = readFixVinculosBody(bodyResult.data);
     const companyId = resolveScopedCompanyId(scope, body?.companyId);
     if (!companyId) return json({ error: 'Selecione uma empresa para auditar vínculos.' }, { status: 400, headers: NO_STORE_HEADERS });
 
