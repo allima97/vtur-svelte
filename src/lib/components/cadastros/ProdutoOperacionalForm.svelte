@@ -475,7 +475,7 @@
           label="Valor líquido"
           type="number"
           step="0.01"
-          bind:value={form.valor_neto as any}
+          bind:value={form.valor_neto}
           class_name="w-full"
         />
         <FieldInput
@@ -483,7 +483,7 @@
           label="Margem"
           type="number"
           step="0.01"
-          bind:value={form.margem as any}
+          bind:value={form.margem}
           class_name="w-full"
         />
         <FieldInput
@@ -491,7 +491,7 @@
           label="Valor de venda"
           type="number"
           step="0.01"
-          bind:value={form.valor_venda as any}
+          bind:value={form.valor_venda}
           class_name="w-full"
         />
         <FieldSelect
@@ -511,7 +511,7 @@
           label="Câmbio"
           type="number"
           step="0.0001"
-          bind:value={form.cambio as any}
+          bind:value={form.cambio}
           disabled={form.moeda === 'BRL'}
           class_name="w-full"
         />
@@ -520,7 +520,7 @@
           label="Valor em reais"
           type="number"
           step="0.01"
-          bind:value={form.valor_em_reais as any}
+          bind:value={form.valor_em_reais}
           disabled
           class_name="w-full"
         />
@@ -590,7 +590,7 @@
                 <FieldInput
                   type="number"
                   min="0"
-                  value={tarifa.qte_pax as any}
+                  value={tarifa.qte_pax}
                   placeholder="Qtd pax"
                   class_name="w-full"
                   on:input={(e) => updateTarifa(index, 'qte_pax', Number((e.target as HTMLInputElement).value || 0))}
@@ -620,7 +620,7 @@
                 <FieldInput
                   type="number"
                   step="0.01"
-                  value={tarifa.valor_neto as any}
+                  value={tarifa.valor_neto}
                   placeholder="Valor líquido"
                   class_name="w-full"
                   on:input={(e) => updateTarifa(index, 'valor_neto', Number((e.target as HTMLInputElement).value || 0))}
@@ -628,7 +628,7 @@
                 <FieldInput
                   type="number"
                   step="0.01"
-                  value={tarifa.margem as any}
+                  value={tarifa.margem ?? ''}
                   placeholder="Margem"
                   class_name="w-full"
                   on:input={(e) => {
@@ -639,7 +639,7 @@
                 <FieldInput
                   type="number"
                   step="0.01"
-                  value={tarifa.valor_venda as any}
+                  value={tarifa.valor_venda}
                   placeholder="Valor de venda"
                   class_name="w-full"
                   on:input={(e) => updateTarifa(index, 'valor_venda', Number((e.target as HTMLInputElement).value || 0))}
@@ -658,7 +658,7 @@
                 <FieldInput
                   type="number"
                   step="0.0001"
-                  value={tarifa.cambio as any}
+                  value={tarifa.cambio}
                   placeholder="Câmbio"
                   disabled={tarifa.moeda === 'BRL'}
                   class_name="w-full"
@@ -667,7 +667,7 @@
                 <FieldInput
                   type="number"
                   step="0.01"
-                  value={tarifa.valor_em_reais as any}
+                  value={tarifa.valor_em_reais}
                   placeholder="Valor em reais"
                   disabled={true}
                   class_name="w-full"
