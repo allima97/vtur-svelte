@@ -79,6 +79,62 @@ type OcrRegionResult = {
   confidence: number;
 };
 
+type OcrWorkerLike = {
+  setParameters?: (params: Record<string, string>) => Promise<void> | void;
+  recognize: (
+    image: HTMLCanvasElement,
+    options?: Record<string, unknown>,
+    output?: Record<string, boolean>
+  ) => Promise<{
+    data?: {
+      text?: string;
+      confidence?: number;
+      blocks?: Array<{
+        paragraphs?: Array<{
+          lines?: Array<{
+            text?: string;
+            bbox?: { x0: number; y0: number; x1: number; y1: number };
+          }>;
+        }>;
+      }>;
+    };
+  }>;
+};
+
+type PdfViewportLike = {
+  width: number;
+  height: number;
+  scale: number;
+  transform: number[];
+};
+
+type PdfPageLike = {
+  getTextContent: () => Promise<{
+    items?: Array<{ str?: string; transform?: number[]; width?: number; height?: number }>;
+  }>;
+  getViewport: (params: { scale: number }) => PdfViewportLike;
+  render: (params: { canvasContext: CanvasRenderingContext2D; viewport: PdfViewportLike }) => {
+    promise: Promise<void>;
+  };
+};
+
+type PdfDocumentLike = {
+  numPages: number;
+  getPage: (pageNumber: number) => Promise<PdfPageLike>;
+};
+
+type PdfJsLike = {
+  Util: {
+    transform: (a: number[], b: number[]) => number[];
+  };
+  GlobalWorkerOptions?: {
+    workerSrc?: string;
+  };
+  getDocument: (params: { data: ArrayBuffer; disableWorker?: boolean }) => {
+    promise: Promise<PdfDocumentLike>;
+  };
+};
+
 const OCR_CARD_REGIONS = {
   titleLeft: { x1: 0, y1: 0, x2: 0.7, y2: 0.35 },
   topRight: { x1: 0.7, y1: 0, x2: 1, y2: 0.45 },
@@ -1771,7 +1827,7 @@ function preprocessOcrCanvas(input: HTMLCanvasElement, mode: "text" | "numbers")
   return canvas;
 }
 
-async function ocrCanvasRegion(worker: any, canvas: HTMLCanvasElement, mode: "text" | "numbers") {
+async function ocrCanvasRegion(worker: OcrWorkerLike, canvas: HTMLCanvasElement, mode: "text" | "numbers") {
   if (typeof worker.setParameters === "function") {
     await worker.setParameters({
       tessedit_pageseg_mode: "6",
@@ -1787,7 +1843,7 @@ async function ocrCanvasRegion(worker: any, canvas: HTMLCanvasElement, mode: "te
   };
 }
 
-async function ocrCanvasLines(worker: any, canvas: HTMLCanvasElement): Promise<TextItemBox[]> {
+async function ocrCanvasLines(worker: OcrWorkerLike, canvas: HTMLCanvasElement): Promise<TextItemBox[]> {
   if (typeof worker.setParameters === "function") {
     await worker.setParameters({
       tessedit_pageseg_mode: "6",
@@ -1835,8 +1891,12 @@ async function ocrCanvasLines(worker: any, canvas: HTMLCanvasElement): Promise<T
     .filter((line) => line.text);
 }
 
-function extractTextItemsFromPdfPage(page: any, viewport: any, pdfjsLib: any): Promise<TextItemBox[]> {
-  return page.getTextContent().then((content: any) => {
+function extractTextItemsFromPdfPage(
+  page: PdfPageLike,
+  viewport: PdfViewportLike,
+  pdfjsLib: PdfJsLike
+): Promise<TextItemBox[]> {
+  return page.getTextContent().then((content) => {
     const items = (content.items || []) as Array<{ str?: string; transform?: number[]; width?: number; height?: number }>;
     const boxes: TextItemBox[] = [];
     for (const item of items) {
@@ -2132,7 +2192,13 @@ function buildTempId() {
   return Math.random().toString(36).slice(2);
 }
 
-async function shouldSkipPage(page: any, viewport: any, canvas: HTMLCanvasElement, pdfjsLib: any, worker: any) {
+async function shouldSkipPage(
+  page: PdfPageLike,
+  viewport: PdfViewportLike,
+  canvas: HTMLCanvasElement,
+  pdfjsLib: PdfJsLike,
+  worker: OcrWorkerLike
+) {
   try {
     const textBoxes = await extractTextItemsFromPdfPage(page, viewport, pdfjsLib);
     const topLimit = canvas.height * 0.45;
@@ -2159,7 +2225,7 @@ async function shouldSkipPage(page: any, viewport: any, canvas: HTMLCanvasElemen
 async function extractItemsFromCards(
   canvas: HTMLCanvasElement,
   cards: CardBBox[],
-  worker: any,
+  worker: OcrWorkerLike,
   baseYear: number,
   pageNumber: number,
   debug: boolean,
@@ -3484,7 +3550,7 @@ export async function extractCvcQuoteFromPdf(file: File, options: ExtractOptions
   }
 
   const data = await file.arrayBuffer();
-  let pdf: any;
+  let pdf: PdfDocumentLike;
   try {
     pdf = await pdfjsLib.getDocument({ data }).promise;
   } catch (err) {
