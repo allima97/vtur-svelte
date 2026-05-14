@@ -8,6 +8,20 @@ import type { RequestHandler } from './$types';
 
 const MAX_TURNSTILE_BODY_BYTES = 4 * 1024;
 
+type TurnstileVerifyBody = {
+  turnstile_token?: string;
+  turnstileToken?: string;
+};
+
+function readTurnstileVerifyBody(value: unknown): TurnstileVerifyBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  return {
+    turnstile_token: typeof body.turnstile_token === 'string' ? body.turnstile_token : undefined,
+    turnstileToken: typeof body.turnstileToken === 'string' ? body.turnstileToken : undefined
+  };
+}
+
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
   try {
     const originError = rejectCrossOriginRequest(request, 'Origem inválida.');
@@ -36,8 +50,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
     const bodyResult = await readJsonBodyLimited(request, MAX_TURNSTILE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data as Record<string, unknown> | null;
-    if (!body || typeof body !== 'object') {
+    const body = readTurnstileVerifyBody(bodyResult.data);
+    if (!body) {
       return json({ error: 'Payload invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
     }
 
