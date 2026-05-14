@@ -109,7 +109,9 @@ type ParametrosComissaoRow = {
   conciliacao_sobrepoe_vendas?: boolean | null;
 };
 
-type ReportReceiptItem = NonNullable<ReportReceiptRow>;
+type ReportReceiptItem = NonNullable<ReportReceiptRow> & {
+  numero_recibo_normalizado?: string | null;
+};
 
 type ConciliacaoReceiptView = Awaited<
   ReturnType<typeof fetchEffectiveConciliacaoReceipts>
@@ -388,7 +390,10 @@ function getRecibosAtivos(row: ReportSalesRowLike) {
     : Array.isArray(row?.vendas_recibos)
       ? row.vendas_recibos
       : [];
-  return recibos.filter((recibo) => !recibo?.cancelado_por_conciliacao_em);
+  return recibos.filter(
+    (recibo): recibo is ReportReceiptItem =>
+      isReportReceiptItem(recibo) && !recibo.cancelado_por_conciliacao_em,
+  );
 }
 
 function getVendaValorExibicao(row: ReportSalesRowLike) {
@@ -455,10 +460,10 @@ function computeReceiptRankingEntries(
     });
 
     for (const recibo of receiptRows) {
-      const date = toStr((recibo as any)?.data_venda || row?.data_venda);
+      const date = toStr(recibo?.data_venda || row?.data_venda);
       if (!date) continue;
 
-      const reciboId = toStr((recibo as any)?.id);
+      const reciboId = toStr(recibo?.id);
       const reciboJaAjustadoPorConciliacao = hasConciliacaoOverride(recibo);
       const naoComissionadoRecibo =
         usarModoPorRecibo && reciboId && !reciboJaAjustadoPorConciliacao
@@ -1254,7 +1259,7 @@ export async function GET(event) {
       client,
       {
         companyIds,
-        rows: filteredRows as any,
+        rows: filteredRows,
       },
     );
 
@@ -1287,7 +1292,7 @@ export async function GET(event) {
         valorNaoComissionado: usarModoPorRecibo ? 0 : linkedNaoComissionado,
       });
 
-      const recibos = receiptRows.map((recibo: any) => {
+      const recibos = receiptRows.map((recibo: ReportReceiptItem) => {
         const descriptor = getReceiptProductDescriptor(recibo, row);
         const reciboVendedorId = getReciboVendedorId(row, recibo);
         const reciboVendedorNome = getVendedorNomeById(
@@ -1383,13 +1388,13 @@ export async function GET(event) {
         data_final: row.data_final,
         cliente_id: row.cliente_id,
         cliente_nome: getVendaClienteNome(row),
-        cliente_cpf: (row.clientes as any)?.cpf || null,
+        cliente_cpf: row.clientes?.cpf || null,
         vendedor_id: row.vendedor_id,
         vendedor_nome: vendaVendedorNome,
-        destino_id: (row.destinos as any)?.id || null,
+        destino_id: row.destinos?.id || null,
         destino_nome: getVendaDestino(row),
-        destino_cidade_id: (row.destino_cidade as any)?.id || null,
-        destino_cidade_nome: (row.destino_cidade as any)?.nome || null,
+        destino_cidade_id: row.destino_cidade?.id || null,
+        destino_cidade_nome: row.destino_cidade?.nome || null,
         valor_total: Number(
           recibos
             .reduce(
@@ -1499,7 +1504,7 @@ export async function GET(event) {
     const seriesRowsRaw = rowsView;
     const seriesNaoComissionadoPorVenda = naoComissionadoPorVenda;
     const seriesRankingEntries = computeReceiptRankingEntries(
-      seriesRowsRaw as any[],
+      seriesRowsRaw,
       seriesNaoComissionadoPorVenda,
     );
 
