@@ -7,6 +7,22 @@ import type { RequestHandler } from './$types';
 const MAX_PASSKEY_REGISTER_BODY_BYTES = 32 * 1024;
 type RegistrationResponsePayload = Parameters<typeof verifyRegistration>[0]['response'];
 
+type PasskeyRegisterVerifyBody = {
+  challengeId?: string;
+  response?: RegistrationResponsePayload;
+  name?: string;
+};
+
+function readPasskeyRegisterVerifyBody(value: unknown): PasskeyRegisterVerifyBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    challengeId: typeof body.challengeId === 'string' ? body.challengeId : undefined,
+    response: body.response as RegistrationResponsePayload | undefined,
+    name: typeof body.name === 'string' ? body.name : undefined
+  };
+}
+
 export const POST: RequestHandler = async (event) => {
   try {
     const originError = rejectCrossOriginRequest(event.request, 'Origem inválida.');
@@ -19,11 +35,9 @@ export const POST: RequestHandler = async (event) => {
 
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_REGISTER_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, unknown>)
-      : {};
+    const body = readPasskeyRegisterVerifyBody(bodyResult.data);
     const challengeId = String(body?.challengeId || '').trim();
-    const response = body?.response as RegistrationResponsePayload | undefined;
+    const response = body?.response;
     const name = String(body?.name || 'Passkey').trim();
 
     if (!challengeId || !response) {
