@@ -18,7 +18,7 @@ type PushSubscriptionBody = {
   keys?: PushSubscriptionKeysBody | null;
 };
 
-type PushSubscribeRequestBody = {
+type PushSubscribeRequestBody = PushSubscriptionBody & {
   subscription?: PushSubscriptionBody | null;
 };
 
@@ -32,6 +32,34 @@ type PushSubscriptionUpsert = {
   updated_at: string;
 };
 
+function readPushSubscriptionKeysBody(value: unknown): PushSubscriptionKeysBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  const keys: PushSubscriptionKeysBody = {};
+  if (typeof body.p256dh === 'string') keys.p256dh = body.p256dh;
+  if (typeof body.auth === 'string') keys.auth = body.auth;
+  return keys;
+}
+
+function readPushSubscriptionBody(value: unknown): PushSubscriptionBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  const subscription: PushSubscriptionBody = {};
+  if (typeof body.endpoint === 'string') subscription.endpoint = body.endpoint;
+  const keys = readPushSubscriptionKeysBody(body.keys);
+  if (keys) subscription.keys = keys;
+  return subscription;
+}
+
+function readPushSubscribeRequestBody(value: unknown): PushSubscribeRequestBody {
+  const subscription = readPushSubscriptionBody(value);
+  if (!subscription) return {};
+
+  const body = value as Record<string, unknown>;
+  const nestedSubscription = readPushSubscriptionBody(body.subscription);
+  return nestedSubscription ? { ...subscription, subscription: nestedSubscription } : subscription;
+}
+
 export const POST: RequestHandler = async (event) => {
   try {
     const { request, locals } = event;
@@ -43,11 +71,8 @@ export const POST: RequestHandler = async (event) => {
     const user = await requireAuthenticatedUser(event);
     const client = locals.supabase;
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as PushSubscribeRequestBody)
-        : {};
-    const subscription = (body.subscription || body) as PushSubscriptionBody;
+    const body = readPushSubscribeRequestBody(bodyResult.data);
+    const subscription = body.subscription || readPushSubscriptionBody(bodyResult.data);
     const endpoint = String(subscription?.endpoint || "").trim();
     const keys = subscription?.keys || {};
     const p256dh = String(keys?.p256dh || "").trim();
