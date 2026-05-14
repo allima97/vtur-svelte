@@ -1712,6 +1712,15 @@ thead.bg-slate-50 td {
   transition: background-color 140ms ease;
 }
 
+.vtur-table__body td {
+  line-height: 1.4 !important;
+}
+
+.vtur-table__body td div,
+.vtur-table__body td span {
+  line-height: 1.4 !important;
+}
+
 .vtur-table__body tr:hover {
   background: rgba(238, 242, 255, 0.45);
 }
