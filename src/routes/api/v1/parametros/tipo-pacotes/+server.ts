@@ -25,6 +25,22 @@ type TipoPacoteRow = {
   ativo?: boolean | null;
 };
 
+type TipoPacoteBody = {
+  id?: unknown;
+  nome?: unknown;
+  ativo?: unknown;
+};
+
+function readTipoPacoteBody(value: unknown): TipoPacoteBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    ativo: body.ativo
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -72,10 +88,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros'], 2, 'Sem permissão para salvar tipos de pacote.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readTipoPacoteBody(bodyResult.data);
     const { id, nome, ativo } = body;
     const idRaw = String(id || '').trim();
 
