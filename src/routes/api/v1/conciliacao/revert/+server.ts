@@ -26,6 +26,13 @@ type ConciliacaoRevertBody = {
   changeIds?: unknown;
 };
 
+type ParsedConciliacaoRevertBody = {
+  companyId?: string;
+  revertAll?: boolean;
+  limit?: number | string;
+  changeIds?: unknown[];
+};
+
 function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -47,6 +54,20 @@ function collectChangeIds(rows: ConciliacaoChangeLookupRow[]) {
   return ids;
 }
 
+function readConciliacaoRevertBody(value: unknown): ParsedConciliacaoRevertBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as ConciliacaoRevertBody;
+  const parsed: ParsedConciliacaoRevertBody = {};
+
+  if (typeof body.companyId === 'string') parsed.companyId = body.companyId;
+  if (typeof body.revertAll === 'boolean') parsed.revertAll = body.revertAll;
+  if (typeof body.limit === 'number' || typeof body.limit === 'string') parsed.limit = body.limit;
+  if (Array.isArray(body.changeIds)) parsed.changeIds = body.changeIds;
+
+  return parsed;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -62,19 +83,15 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem acesso à Conciliação.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as ConciliacaoRevertBody)
-        : null;
-    const requestedCompanyId =
-      typeof body?.companyId === 'string' ? body.companyId : null;
+    const body = readConciliacaoRevertBody(bodyResult.data);
+    const requestedCompanyId = body.companyId || null;
     const companyIds = resolveScopedCompanyIds(scope, requestedCompanyId);
     const companyId = companyIds[0] || null;
     if (!companyId) return json({ error: 'Company invalida.' }, { status: 400, headers: NO_STORE_HEADERS });
 
     const revertAll = Boolean(body?.revertAll);
     const limit = Math.max(1, Math.min(500, Number(body?.limit || 200)));
-    const ids = Array.isArray(body?.changeIds)
+    const ids = Array.isArray(body.changeIds)
       ? body.changeIds
           .map((v: unknown) => String(v || '').trim())
           .filter((v: string) => isUuid(v))
