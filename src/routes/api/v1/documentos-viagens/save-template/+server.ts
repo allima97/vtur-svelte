@@ -19,6 +19,13 @@ type TemplateField = {
   type: 'text' | 'date' | 'signature';
 };
 
+type DocumentoViagemTemplateBody = {
+  id?: unknown;
+  title?: unknown;
+  template_text?: unknown;
+  template_fields?: unknown;
+};
+
 function clampText(value: unknown, max = 120_000) {
   const s = String(value ?? '');
   return s.length <= max ? s : s.slice(0, max);
@@ -32,6 +39,17 @@ function readRecordValue(value: unknown, key: string) {
   return value && typeof value === 'object'
     ? (value as Record<string, unknown>)[key]
     : undefined;
+}
+
+function readDocumentoViagemTemplateBody(value: unknown): DocumentoViagemTemplateBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    title: body.title,
+    template_text: body.template_text,
+    template_fields: body.template_fields
+  };
 }
 
 function normalizeFields(raw: unknown): TemplateField[] {
@@ -68,10 +86,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 3, 'Sem permissao para editar documentos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readDocumentoViagemTemplateBody(bodyResult.data);
     const id = String(body?.id || '').trim();
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
