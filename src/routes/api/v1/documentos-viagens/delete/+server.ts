@@ -13,6 +13,16 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_DOCUMENTO_VIAGEM_DELETE_BODY_BYTES = 32 * 1024;
 
+type DocumentoViagemDeleteBody = {
+  id?: unknown;
+};
+
+function readDocumentoViagemDeleteBody(value: unknown): DocumentoViagemDeleteBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return { id: body.id };
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -28,10 +38,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 4, 'Sem permissao para excluir documentos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readDocumentoViagemDeleteBody(bodyResult.data);
     const id = String(body?.id || '').trim();
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
