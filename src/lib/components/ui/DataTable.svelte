@@ -98,6 +98,7 @@
   export let emptyMessage: string = "Nenhum registro encontrado";
   export let keyExtractor: (row: T) => string = defaultKeyExtractor;
   export let rowClass: ((row: T) => string) | undefined = undefined;
+  export let compact: boolean = false;
 
   export let extraSearchKeys: string[] = [];
   export let onRowClick: ((row: T) => void) | undefined = undefined;
@@ -610,7 +611,7 @@
                 {/if}
                 {#each columns as column}
                   <td
-                    class={`px-6 py-3 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ""}`}
+                    class={`px-6 whitespace-nowrap text-sm text-slate-900 ${compact ? 'py-1.5 leading-tight' : 'py-3'} ${column.cellClass || ""}`}
                     data-label={column.label}
                   >
                     {#if column.component}

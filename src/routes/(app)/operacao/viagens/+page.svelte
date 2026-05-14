@@ -463,6 +463,7 @@
   data={viagensFiltradas}
   color="clientes"
   {loading}
+  compact={true}
   title="Lista de viagens por embarque"
   searchable={true}
   filterable={false}
