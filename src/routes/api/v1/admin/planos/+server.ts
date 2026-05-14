@@ -11,6 +11,28 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PLAN_BODY_BYTES = 16 * 1024;
 
+type PlanBody = {
+  id?: unknown;
+  nome?: unknown;
+  descricao?: unknown;
+  valor_mensal?: unknown;
+  moeda?: unknown;
+  ativo?: unknown;
+};
+
+function readPlanBody(value: unknown): PlanBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    descricao: body.descricao,
+    valor_mensal: body.valor_mensal,
+    moeda: body.moeda,
+    ativo: body.ativo
+  };
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -49,10 +71,7 @@ export async function POST(event) {
       return json({ error: 'Somente administradores podem gerenciar planos.' }, { status: 403, headers: NO_STORE_HEADERS });
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readPlanBody(bodyResult.data);
     const { id, nome, descricao, valor_mensal, moeda, ativo } = body;
     const planId = String(id || '').trim();
 
