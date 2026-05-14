@@ -6,6 +6,18 @@ import type { RequestHandler } from './$types';
 
 const MAX_PASSKEY_DELETE_BODY_BYTES = 8 * 1024;
 
+type PasskeyDeleteBody = {
+  id?: string;
+};
+
+function readPasskeyDeleteBody(value: unknown): PasskeyDeleteBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: typeof body.id === 'string' ? body.id : undefined
+  };
+}
+
 async function getCurrentUser(event: Parameters<RequestHandler>[0]) {
   const { session, user } = await event.locals.safeGetSession();
   if (!session || !user) {
@@ -41,9 +53,7 @@ export const DELETE: RequestHandler = async (event) => {
 
     const bodyResult = await readJsonBodyLimited(event.request, MAX_PASSKEY_DELETE_BODY_BYTES);
     if (!bodyResult.ok) return bodyResult.response;
-    const body = bodyResult.data && typeof bodyResult.data === 'object'
-      ? (bodyResult.data as Record<string, unknown>)
-      : {};
+    const body = readPasskeyDeleteBody(bodyResult.data);
     const id = String(body?.id || '').trim();
     if (!id) {
       return json({ error: 'Passkey obrigatoria.' }, { status: 400, headers: NO_STORE_HEADERS });
