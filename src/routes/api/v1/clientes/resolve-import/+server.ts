@@ -17,8 +17,43 @@ import { chunkArray, SUPABASE_IN_BATCH_SIZE } from '$lib/utils/array';
 
 const MAX_CLIENTE_RESOLVE_IMPORT_BODY_BYTES = 128 * 1024;
 
+type ClienteResolveImportBody = {
+  cpf?: string;
+  nome?: string;
+  nascimento?: string;
+  endereco?: string;
+  numero?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  rg?: string;
+  company_id?: string;
+  empresa_id?: string;
+};
+
 function normalizeCpf(value?: string | null) {
   return String(value || '').replace(/\D/g, '');
+}
+
+function readClienteResolveImportBody(value: unknown): ClienteResolveImportBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: ClienteResolveImportBody = {};
+
+  if (typeof body.cpf === 'string') parsed.cpf = body.cpf;
+  if (typeof body.nome === 'string') parsed.nome = body.nome;
+  if (typeof body.nascimento === 'string') parsed.nascimento = body.nascimento;
+  if (typeof body.endereco === 'string') parsed.endereco = body.endereco;
+  if (typeof body.numero === 'string') parsed.numero = body.numero;
+  if (typeof body.cidade === 'string') parsed.cidade = body.cidade;
+  if (typeof body.estado === 'string') parsed.estado = body.estado;
+  if (typeof body.cep === 'string') parsed.cep = body.cep;
+  if (typeof body.rg === 'string') parsed.rg = body.rg;
+  if (typeof body.company_id === 'string') parsed.company_id = body.company_id;
+  if (typeof body.empresa_id === 'string') parsed.empresa_id = body.empresa_id;
+
+  return parsed;
 }
 
 export async function POST(event) {
@@ -41,10 +76,7 @@ export async function POST(event) {
       );
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readClienteResolveImportBody(bodyResult.data);
     const cpf = normalizeCpf(String(body.cpf || ''));
     const nome = titleCaseNome(sanitizeImportedClienteNome(String(body.nome || ''))) || null;
     const nascimento = String(body.nascimento || '').trim() || null;
