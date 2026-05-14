@@ -19,6 +19,24 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PAISES_BODY_BYTES = 64 * 1024;
 
+type PaisBody = {
+  id?: unknown;
+  nome?: unknown;
+  codigo_iso?: unknown;
+  continente?: unknown;
+};
+
+function readPaisBody(value: unknown): PaisBody {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    codigo_iso: body.codigo_iso,
+    continente: body.continente
+  };
+}
+
 type PaisRow = {
   id: string;
   nome: string | null;
@@ -87,10 +105,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['Paises'], 2, 'Sem permissão para salvar países.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readPaisBody(bodyResult.data);
     const { nome, codigo_iso, continente } = body;
     const id = String(body.id || '').trim();
 
