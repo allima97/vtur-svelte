@@ -84,6 +84,15 @@ type FixReciboCandidateItem = {
   vendedor_nome: string;
 };
 
+type FixReciboBody = {
+  action?: string;
+  id?: string;
+  vendedor_id?: string;
+  venda_recibo_id?: string;
+  valor_lancamentos?: number | string | null;
+  valor_venda_real?: number | string | null;
+};
+
 function adminJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   for (const [key, value] of Object.entries(NO_STORE_HEADERS)) headers.set(key, value);
@@ -560,9 +569,9 @@ export async function POST(event: RequestEvent) {
     const denied = requireAdmin(scope);
     if (denied) return denied;
 
-    const body =
+    const body: FixReciboBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
+        ? (bodyResult.data as FixReciboBody)
         : {};
     const action = String(body.action || '').trim();
     const id = String(body.id || '').trim();
@@ -654,13 +663,13 @@ export async function POST(event: RequestEvent) {
       if (candidatoError) throw candidatoError;
       if (!candidato) return adminJson({ error: 'Recibo de venda não encontrado.' }, { status: 404 });
 
-      const venda = firstRelation<any>((candidato as any).vendas);
+      const venda = firstRelation<FixReciboVendaRelation>(candidato.vendas);
       if (!venda || String(venda.company_id || '') !== companyId) {
         return adminJson({ error: 'Recibo de venda fora da empresa da conciliação.' }, { status: 422 });
       }
 
       const registroDocumentKey = documentKey(registro.documento);
-      const candidatoKeys = candidateDocumentKeys(candidato as any);
+      const candidatoKeys = candidateDocumentKeys(candidato);
       if (
         !candidatoKeys.has(registroDocumentKey) &&
         !candidateMatchesVariant(candidato, String(registro.documento || ''))
@@ -689,14 +698,14 @@ export async function POST(event: RequestEvent) {
         valorDescontos: Number(registro.valor_descontos || 0),
         valorAbatimentos: Number(registro.valor_abatimentos || 0)
       });
-      const sistemaTotal = Number((candidato as any).valor_total || 0);
-      const sistemaTaxas = Number((candidato as any).valor_taxas || 0);
+      const sistemaTotal = Number(candidato.valor_total || 0);
+      const sistemaTaxas = Number(candidato.valor_taxas || 0);
 
       const { data, error } = await client
         .from('conciliacao_recibos')
         .update({
-          venda_id: (candidato as any).venda_id,
-          venda_recibo_id: (candidato as any).id,
+          venda_id: candidato.venda_id,
+          venda_recibo_id: candidato.id,
           ranking_vendedor_id: rankingVendedorId,
           ranking_assigned_by: null,
           ranking_assigned_at: null,
