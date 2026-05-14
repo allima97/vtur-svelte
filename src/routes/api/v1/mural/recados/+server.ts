@@ -19,6 +19,24 @@ import {
 
 const MAX_MURAL_RECADO_BODY_BYTES = 64 * 1024;
 
+type MuralRecadoBody = {
+  company_id?: unknown;
+  receiver_id?: unknown;
+  conteudo?: unknown;
+  assunto?: unknown;
+};
+
+function readMuralRecadoBody(value: unknown): MuralRecadoBody {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const body = value as Record<string, unknown>;
+  return {
+    company_id: body.company_id,
+    receiver_id: body.receiver_id,
+    conteudo: body.conteudo,
+    assunto: body.assunto,
+  };
+}
+
 export async function GET(event: RequestEvent) {
   try {
     const companyId = String(
@@ -65,10 +83,7 @@ export async function POST(event: RequestEvent) {
     if (!bodyResult.ok) return bodyResult.response;
 
     const { client, scope } = await requireMuralScope(event, 2);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readMuralRecadoBody(bodyResult.data);
 
     const rawCompanyId = String(body?.company_id || "").trim();
     const companyId = rawCompanyId || String(scope.companyId || "").trim();
