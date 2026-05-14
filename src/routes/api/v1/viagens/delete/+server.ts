@@ -29,6 +29,17 @@ type ViagemDeleteRow = {
   venda: { vendedor_id: string | null }[] | null;
 };
 
+function readViagemDeleteBody(value: unknown): ViagemDeleteBody {
+  if (!value || typeof value !== "object") return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: typeof body.id === "string" ? body.id : null,
+    venda_id: typeof body.venda_id === "string" ? body.venda_id : null,
+    company_id: typeof body.company_id === "string" ? body.company_id : null,
+    empresa_id: typeof body.empresa_id === "string" ? body.empresa_id : null,
+  };
+}
+
 function vendedorOwnsViagem(userId: string, viagem: ViagemDeleteRow) {
   const responsavelId = String(viagem.responsavel_user_id || "").trim();
   const vendaRow = Array.isArray(viagem.venda) ? (viagem.venda[0] ?? null) : null;
@@ -56,10 +67,7 @@ export async function POST(event: RequestEvent) {
       );
     }
 
-    const body: ViagemDeleteBody =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as ViagemDeleteBody)
-        : {};
+    const body = readViagemDeleteBody(bodyResult.data);
     const id = String(body?.id || "").trim();
     const vendaId = String(body?.venda_id || "").trim();
 
