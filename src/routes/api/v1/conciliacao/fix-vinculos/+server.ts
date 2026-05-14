@@ -71,6 +71,102 @@ type UserLookupRow = {
   email?: string | null;
 };
 
+type FixVinculosBody = {
+  companyId?: string | null;
+  dryRun?: boolean | null;
+  limit?: number | string | null;
+  month?: string | null;
+  conciliacaoReciboId?: string | null;
+  conciliacaoId?: string | null;
+};
+
+type ConciliacaoRow = ConciliacaoAuditRow & {
+  id?: string | null;
+  movimento_data?: string | null;
+  descricao?: string | null;
+  valor_lancamentos?: number | null;
+  valor_taxas?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_nao_comissionavel?: number | null;
+  valor_calculada_loja?: number | null;
+  valor_visao_master?: number | null;
+  valor_opfax?: number | null;
+  valor_saldo?: number | null;
+  valor_comissao_loja?: number | null;
+  percentual_comissao_loja?: number | null;
+  venda_recibo_id?: string | null;
+  venda_id?: string | null;
+  ranking_vendedor_id?: string | null;
+};
+
+type ReceiptJoinedVendaRow = {
+  id?: string | null;
+  company_id?: string | null;
+  vendedor_id?: string | null;
+  cliente_id?: string | null;
+  data_venda?: string | null;
+  data_lancamento?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+  cancelada?: boolean | null;
+};
+
+type ReceiptRow = ReceiptAuditRow & {
+  venda_id?: string | null;
+  data_venda?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+  valor_rav?: number | null;
+  tipo_pacote?: string | null;
+  produto_id?: string | null;
+  tipo_produtos?:
+    | {
+        id?: string | null;
+        nome?: string | null;
+        tipo?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        nome?: string | null;
+        tipo?: string | null;
+      }>
+    | null;
+  venda?: ReceiptJoinedVendaRow | ReceiptJoinedVendaRow[] | null;
+};
+
+type RateioRow = {
+  id?: string | null;
+  venda_recibo_id?: string | null;
+  vendedor_origem_id?: string | null;
+  vendedor_destino_id?: string | null;
+  percentual_origem?: number | null;
+  percentual_destino?: number | null;
+  ativo?: boolean | null;
+  observacao?: string | null;
+};
+
+function firstJoinedVenda(value?: ReceiptJoinedVendaRow | ReceiptJoinedVendaRow[] | null) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+function firstTipoProduto(
+  value?:
+    | {
+        id?: string | null;
+        nome?: string | null;
+        tipo?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        nome?: string | null;
+        tipo?: string | null;
+      }>
+    | null,
+) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -290,9 +386,9 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissao para auditar vinculos.');
     }
 
-    const body =
+    const body: FixVinculosBody =
       bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, any>)
+        ? (bodyResult.data as FixVinculosBody)
         : {};
     const companyId = resolveScopedCompanyId(scope, body?.companyId);
     if (!companyId) return json({ error: 'Selecione uma empresa para auditar vínculos.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -319,7 +415,7 @@ export async function POST(event) {
     const { data: rowsData, error: rowsErr } = await query;
     if (rowsErr) throw rowsErr;
 
-    const rows = Array.isArray(rowsData) ? rowsData : [];
+    const rows: ConciliacaoRow[] = Array.isArray(rowsData) ? (rowsData as ConciliacaoRow[]) : [];
     if (rows.length === 0) {
       return json({
         ok: true,
@@ -335,8 +431,8 @@ export async function POST(event) {
       });
     }
 
-    const linkedReciboIds = uniqueCleanStrings(rows.map((row: any) => row?.venda_recibo_id));
-    const receiptById = new Map<string, any>();
+    const linkedReciboIds = uniqueCleanStrings(rows.map((row) => row?.venda_recibo_id));
+    const receiptById = new Map<string, ReceiptRow>();
 
     for (let index = 0; index < linkedReciboIds.length; index += 200) {
       const batch = linkedReciboIds.slice(index, index + 200);
@@ -345,7 +441,7 @@ export async function POST(event) {
         .select(RECIBO_SELECT)
         .in('id', batch);
       if (error) throw error;
-      for (const recibo of data || []) {
+      for (const recibo of (data || []) as ReceiptRow[]) {
         const id = toStr(recibo?.id);
         if (id) receiptById.set(id, recibo);
       }
@@ -376,7 +472,7 @@ export async function POST(event) {
 
     const { data: candidateData, error: candidateErr } = await candidateQuery;
     if (candidateErr) throw candidateErr;
-    for (const recibo of candidateData || []) {
+    for (const recibo of (candidateData || []) as ReceiptRow[]) {
       const id = toStr(recibo?.id);
       if (id) receiptById.set(id, recibo);
     }
@@ -387,7 +483,7 @@ export async function POST(event) {
       const id = toStr(recibo?.id);
       if (id) allReceiptIds.push(id);
     }
-    const rateioByReciboId = new Map<string, any>();
+    const rateioByReciboId = new Map<string, RateioRow>();
 
     for (let index = 0; index < allReceiptIds.length; index += 200) {
       const batch = allReceiptIds.slice(index, index + 200);
@@ -397,7 +493,7 @@ export async function POST(event) {
         .eq('ativo', true)
         .in('venda_recibo_id', batch);
       if (error) throw error;
-      for (const rateio of data || []) {
+      for (const rateio of (data || []) as RateioRow[]) {
         const reciboId = toStr(rateio?.venda_recibo_id);
         if (reciboId) rateioByReciboId.set(reciboId, rateio);
       }
@@ -409,7 +505,7 @@ export async function POST(event) {
       if (rankingId) userIds.add(rankingId);
     }
     for (const recibo of allReceipts) {
-      const vendedorId = toStr(recibo?.venda?.vendedor_id);
+      const vendedorId = toStr(firstJoinedVenda(recibo?.venda)?.vendedor_id);
       if (vendedorId) userIds.add(vendedorId);
     }
     for (const rateio of rateioByReciboId.values()) {
@@ -489,7 +585,7 @@ export async function POST(event) {
       }
 
       if (linkedRecibo) {
-        const venda = linkedRecibo.venda || null;
+        const venda = firstJoinedVenda(linkedRecibo.venda);
         const rateio = rateioByReciboId.get(toStr(linkedRecibo.id)) || null;
         const reciboNumero = receiptLabel(linkedRecibo);
 
@@ -649,7 +745,8 @@ export async function POST(event) {
 
       const severity = maxSeverity(issues);
       const fixable = hasAutoFixIssue(issues);
-      const linkedVenda = linkedRecibo?.venda || null;
+      const linkedVenda = firstJoinedVenda(linkedRecibo?.venda);
+      const linkedTipoProduto = firstTipoProduto(linkedRecibo?.tipo_produtos);
       const rateio = linkedRecibo ? rateioByReciboId.get(toStr(linkedRecibo.id)) : null;
 
       return {
@@ -683,7 +780,7 @@ export async function POST(event) {
               valor_ranking: roundMoney(Math.max(0, toNumber(linkedRecibo?.valor_total) - Math.max(0, toNumber(linkedRecibo?.valor_rav)))),
               valor_taxas: roundMoney(toNumber(linkedRecibo?.valor_taxas)),
               cancelada: Boolean(linkedVenda?.cancelada),
-              produto: linkedRecibo?.tipo_produtos?.nome || linkedRecibo?.tipo_pacote || null,
+              produto: linkedTipoProduto?.nome || linkedRecibo?.tipo_pacote || null,
               rateio: rateio
                 ? {
                     vendedor_origem_id: toStr(rateio?.vendedor_origem_id) || null,
@@ -700,8 +797,11 @@ export async function POST(event) {
           venda_recibo_id: toStr(recibo?.id),
           venda_id: toStr(recibo?.venda_id),
           numero_recibo: receiptLabel(recibo),
-          vendedor_nome: userNameById.get(toStr(recibo?.venda?.vendedor_id)) || toStr(recibo?.venda?.vendedor_id) || null,
-          data_venda: recibo?.data_venda || recibo?.venda?.data_venda || null,
+          vendedor_nome:
+            userNameById.get(toStr(firstJoinedVenda(recibo?.venda)?.vendedor_id)) ||
+            toStr(firstJoinedVenda(recibo?.venda)?.vendedor_id) ||
+            null,
+          data_venda: recibo?.data_venda || firstJoinedVenda(recibo?.venda)?.data_venda || null,
           valor_total: roundMoney(toNumber(recibo?.valor_total)),
           valor_taxas: roundMoney(toNumber(recibo?.valor_taxas))
         }))
