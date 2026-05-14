@@ -598,7 +598,7 @@
                 on:click={() => onRowClick?.(row)}
               >
                 {#if selectable}
-                  <td class="px-4 py-2" on:click|stopPropagation>
+                  <td class="px-4 py-3" on:click|stopPropagation>
                     <Checkbox
                       checked={selectedRows.has(keyExtractor(row))}
                       {color}
@@ -610,7 +610,7 @@
                 {/if}
                 {#each columns as column}
                   <td
-                    class={`px-6 py-2 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ""}`}
+                    class={`px-6 py-3 whitespace-nowrap text-sm text-slate-900 ${column.cellClass || ""}`}
                     data-label={column.label}
                   >
                     {#if column.component}
@@ -630,7 +630,7 @@
                 {/each}
                 {#if $$slots["row-actions"] || $$slots.actions}
                   <td
-                    class="px-6 py-2 text-right td-actions"
+                    class="px-6 py-3 text-right td-actions"
                     on:click|stopPropagation
                   >
                     <slot name="row-actions" {row} />

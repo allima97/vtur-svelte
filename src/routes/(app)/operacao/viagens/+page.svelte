@@ -195,7 +195,7 @@
           : row.tipo === 'internacional'
             ? 'bg-purple-400'
             : 'bg-green-400';
-        return `<div class="flex flex-col">
+        return `<div class="flex flex-col leading-tight gap-0.5">
           <span class="font-medium text-slate-900">${escapeHtml(value)}</span>
           <span class="text-xs text-slate-500 flex items-center gap-1">
             <span class="w-2 h-2 rounded-full ${dotClass}"></span>
@@ -222,9 +222,9 @@
           if (dias <= 7) alerta = `<span class="text-red-600 font-medium">• Falta ${dias}d</span>`;
         }
         
-        return `<div class="text-sm">
+        return `<div class="text-sm leading-tight flex flex-col gap-0.5">
           <div>${formatDate(value)} - ${formatDate(row.data_fim)}</div>
-          <div class="text-xs">${row.dias_viagem} dias ${alerta}</div>
+          <div class="text-xs text-slate-500">${row.dias_viagem} dias ${alerta}</div>
         </div>`;
       }
     },
