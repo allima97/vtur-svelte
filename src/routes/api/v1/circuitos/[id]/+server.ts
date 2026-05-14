@@ -13,6 +13,11 @@ import { DYNAMIC_READ_HEADERS, NO_STORE_HEADERS } from '$lib/server/httpCache';
 const MAX_CIRCUITO_UPDATE_BODY_BYTES = 128 * 1024;
 const CIRCUITO_ALLOWED_UPDATE_FIELDS = ['nome', 'codigo', 'operador', 'resumo', 'ativo'];
 
+function readCircuitoUpdateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -63,10 +68,7 @@ export async function PATCH(event) {
     const id = String(event.params.id || '').trim();
     if (!isUuid(id)) return json({ success: false, error: 'ID inválido.' }, { status: 400, headers: NO_STORE_HEADERS });
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readCircuitoUpdateBody(bodyResult.data);
 
     // Apenas colunas reais da tabela circuitos
     const payload: Record<string, unknown> = {};
