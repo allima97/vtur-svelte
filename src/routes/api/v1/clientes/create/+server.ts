@@ -22,6 +22,11 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_CLIENTE_CREATE_BODY_BYTES = 128 * 1024;
 
+function readClienteCreateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  return value as Record<string, unknown>;
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -35,10 +40,7 @@ export async function POST(event) {
 
     if (!scope.isAdmin) ensureClienteModuloAccess(scope, 2, 'Sem permissao para criar clientes.');
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readClienteCreateBody(bodyResult.data);
 
     // ✅ Valida company_id contra o escopo do usuário
     const requestedCompanyId = String(body?.company_id || '').trim();
