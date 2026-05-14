@@ -13,6 +13,20 @@ import { cleanStringSet } from '$lib/utils/array';
 
 const MAX_DOCUMENTO_VIAGEM_UPDATE_BODY_BYTES = 64 * 1024;
 
+type DocumentoViagemUpdateBody = {
+  id?: unknown;
+  display_name?: unknown;
+};
+
+function readDocumentoViagemUpdateBody(value: unknown): DocumentoViagemUpdateBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    display_name: body.display_name
+  };
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -28,10 +42,7 @@ export async function POST(event: RequestEvent) {
       ensureModuloAccess(scope, ['operacao_documentos_viagens', 'documentos_viagens', 'operacao'], 3, 'Sem permissao para editar documentos.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readDocumentoViagemUpdateBody(bodyResult.data);
     const id = String(body?.id || '').trim();
     const displayName = String(body?.display_name || '').trim();
     if (!isUuid(id)) return json({ error: 'id invalido.' }, { status: 400, headers: NO_STORE_HEADERS });
