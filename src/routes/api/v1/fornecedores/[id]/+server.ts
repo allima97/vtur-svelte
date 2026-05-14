@@ -16,6 +16,11 @@ import { cleanStringSet } from '$lib/utils/array';
 const MAX_FORNECEDOR_UPDATE_BODY_BYTES = 128 * 1024;
 const validationError = (message: string) => json({ error: message }, { status: 400, headers: NO_STORE_HEADERS });
 
+function readFornecedorUpdateBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -71,10 +76,7 @@ export async function PUT(event) {
       throw error(403, 'Sem acesso a este fornecedor.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readFornecedorUpdateBody(bodyResult.data);
     const payload = sanitizeFornecedorPayload(body, scope);
 
     if (!payload.nome_completo) {
