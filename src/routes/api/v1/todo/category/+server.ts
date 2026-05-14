@@ -13,6 +13,22 @@ import {
 
 const MAX_TODO_CATEGORY_BODY_BYTES = 16 * 1024;
 
+type TodoCategoryBody = {
+  id?: unknown;
+  nome?: unknown;
+  cor?: unknown;
+};
+
+function readTodoCategoryBody(value: unknown): TodoCategoryBody {
+  if (!value || typeof value !== "object") return {};
+  const body = value as Record<string, unknown>;
+  return {
+    id: body.id,
+    nome: body.nome,
+    cor: body.cor,
+  };
+}
+
 export async function POST(event) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -23,10 +39,7 @@ export async function POST(event) {
     const client = getAdminClient();
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readTodoCategoryBody(bodyResult.data);
 
     const id = String(body?.id || "").trim();
     const isEdit = Boolean(id);
