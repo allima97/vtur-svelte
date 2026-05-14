@@ -13,6 +13,29 @@ import { resolveThemeAssetMeta } from '$lib/cards/themeAssetMeta';
 
 const MAX_ADMIN_CRM_BODY_BYTES = 256 * 1024;
 
+type AdminCrmBody = {
+  entity?: unknown;
+  action?: unknown;
+  id?: unknown;
+  data?: unknown;
+};
+
+function readAdminCrmBody(value: unknown): AdminCrmBody {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const body = value as Record<string, unknown>;
+  return {
+    entity: body.entity,
+    action: body.action,
+    id: body.id,
+    data: body.data
+  };
+}
+
+function readAdminCrmPayload(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
 export async function GET(event) {
   try {
     const client = getAdminClient();
@@ -75,16 +98,12 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['admin', 'parametros_avisos', 'avisos', 'parametros'], 3, 'Sem permissão para editar CRM Admin.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readAdminCrmBody(bodyResult.data);
     const { data: payload } = body;
     const entity = String(body.entity || '').trim();
     const action = String(body.action || '').trim();
     const id = String(body.id || '').trim();
-    const payloadObject =
-      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+    const payloadObject = readAdminCrmPayload(payload);
 
     const tableMap: Record<string, string> = {
       categoria: 'crm_template_categories',
