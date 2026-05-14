@@ -37,6 +37,18 @@ type ClienteResumoRow = {
   company_id?: string | null;
 };
 
+function readGerarOrcamentoBody(value: unknown): GerarOrcamentoBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  return {
+    roteiro_id: body.roteiro_id,
+    client_name: body.client_name,
+    client_whatsapp: body.client_whatsapp,
+    client_email: body.client_email,
+    client_id: body.client_id
+  };
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -50,10 +62,7 @@ export async function POST(event: RequestEvent) {
 
     ensureModuloAccess(scope, ['Orcamentos'], 2, 'Sem acesso para criar Orcamentos.');
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as GerarOrcamentoBody)
-        : null;
+    const body = readGerarOrcamentoBody(bodyResult.data);
     if (!body) return new Response('Body invalido.', { status: 400, headers: NO_STORE_HEADERS });
 
     const roteiroId = String(body.roteiro_id || '').trim();
