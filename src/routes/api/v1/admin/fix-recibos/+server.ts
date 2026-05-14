@@ -21,6 +21,69 @@ const MAX_DOC_VARIANTS = 200;
 const MAX_FIX_BODY_BYTES = 16 * 1024;
 const MONEY_EPS = 0.009;
 
+type AdminClient = ReturnType<typeof getAdminClient>;
+
+type FixReciboUserRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+  email?: string | null;
+  company_id?: string | null;
+  active?: boolean | null;
+  uso_individual?: boolean | null;
+  participa_ranking?: boolean | null;
+  user_types?: { name?: string | null }[] | { name?: string | null } | null;
+};
+
+type FixReciboConcRow = {
+  id?: string | null;
+  documento?: string | null;
+  status?: string | null;
+  descricao?: string | null;
+  movimento_data?: string | null;
+  valor_lancamentos?: number | null;
+  valor_descontos?: number | null;
+  valor_abatimentos?: number | null;
+  valor_venda_real?: number | null;
+  venda_id?: string | null;
+  venda_recibo_id?: string | null;
+  ranking_vendedor_id?: string | null;
+  company_id?: string | null;
+};
+
+type FixReciboVendaRelation = {
+  id?: string | null;
+  company_id?: string | null;
+  vendedor_id?: string | null;
+  data_venda?: string | null;
+};
+
+type FixReciboCandidateRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  numero_recibo_normalizado?: string | null;
+  numero_reserva?: string | null;
+  data_venda?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+  produto_id?: string | null;
+  vendas?: FixReciboVendaRelation[] | FixReciboVendaRelation | null;
+};
+
+type FixReciboCandidateItem = {
+  id: string | null | undefined;
+  venda_id: string | null | undefined;
+  numero_recibo: string | null | undefined;
+  numero_recibo_normalizado: string | null | undefined;
+  numero_reserva: string | null | undefined;
+  data_venda: string | null;
+  valor_total: number;
+  valor_taxas: number;
+  company_id: string | null | undefined;
+  vendedor_id: string | null;
+  vendedor_nome: string;
+};
+
 function adminJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   for (const [key, value] of Object.entries(NO_STORE_HEADERS)) headers.set(key, value);
@@ -126,7 +189,7 @@ function numeroReciboMatches(left?: string | null, right?: string | null) {
   return true;
 }
 
-function candidateMatchesVariant(row: any, variant: string) {
+function candidateMatchesVariant(row: FixReciboCandidateRow, variant: string) {
   return (
     numeroReciboMatches(variant, row?.numero_recibo) ||
     numeroReciboMatches(variant, row?.numero_recibo_normalizado) ||
@@ -154,13 +217,13 @@ function buildDocumentSearchPatterns(input: string) {
   return Array.from(patterns).slice(0, 40);
 }
 
-function firstRelation<T = any>(value: T | T[] | null | undefined): T | null {
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] || null;
   return value || null;
 }
 
 async function insertFixAudit(params: {
-  client: any;
+  client: AdminClient;
   companyId: string;
   conciliacaoReciboId: string;
   vendaId?: string | null;
@@ -286,8 +349,8 @@ async function searchDocuments(event: RequestEvent) {
   const { data: rows, error } = await query;
   if (error) throw error;
 
-  const rowMap = new Map<string, any>();
-  for (const row of rows || []) {
+  const rowMap = new Map<string, FixReciboConcRow>();
+  for (const row of (rows || []) as FixReciboConcRow[]) {
     if (row?.id) rowMap.set(String(row.id), row);
   }
 
@@ -306,7 +369,7 @@ async function searchDocuments(event: RequestEvent) {
     const { data: fuzzyRows, error: fuzzyError } = await fuzzyQuery;
     if (fuzzyError) throw fuzzyError;
 
-    for (const row of fuzzyRows || []) {
+    for (const row of (fuzzyRows || []) as FixReciboConcRow[]) {
       if (!docVariants.some((variant) => numeroReciboMatches(variant, row?.documento))) continue;
       if (row?.id) rowMap.set(String(row.id), row);
     }
@@ -323,9 +386,9 @@ async function searchDocuments(event: RequestEvent) {
   }
   const companyIds = Array.from(companyIdSet);
 
-  let candidatos: any[] = [];
+  let candidatos: FixReciboCandidateRow[] = [];
   if (companyIds.length > 0) {
-    const candidateMap = new Map<string, any>();
+    const candidateMap = new Map<string, FixReciboCandidateRow>();
     const normalizedVariantSet = new Set<string>();
     for (const variant of docVariants) {
       const normalized = normalizeReceiptNumber(variant);
@@ -363,7 +426,11 @@ async function searchDocuments(event: RequestEvent) {
     if (exactError) throw exactError;
     if (normalizedError) throw normalizedError;
     if (reservaError) throw reservaError;
-    for (const row of [...(exactRows || []), ...(normalizedRows || []), ...(reservaRows || [])]) {
+    for (const row of [
+      ...((exactRows || []) as FixReciboCandidateRow[]),
+      ...((normalizedRows || []) as FixReciboCandidateRow[]),
+      ...((reservaRows || []) as FixReciboCandidateRow[])
+    ]) {
       if (row?.id) candidateMap.set(String(row.id), row);
     }
 
@@ -382,7 +449,7 @@ async function searchDocuments(event: RequestEvent) {
         .limit(150);
       if (fuzzyCandidateError) throw fuzzyCandidateError;
 
-      for (const row of fuzzyCandidates || []) {
+      for (const row of (fuzzyCandidates || []) as FixReciboCandidateRow[]) {
         if (!docVariants.some((variant) => candidateMatchesVariant(row, variant))) continue;
         if (row?.id) candidateMap.set(String(row.id), row);
       }
@@ -390,13 +457,13 @@ async function searchDocuments(event: RequestEvent) {
 
     const companySet = new Set(companyIds);
     candidatos = Array.from(candidateMap.values()).filter((row) => {
-      const venda = firstRelation<any>(row.vendas);
+      const venda = firstRelation<FixReciboVendaRelation>(row.vendas);
       return companySet.has(String(venda?.company_id || '').trim());
     });
   }
 
   const candidatoVendedorIds = collectUniqueUuidValues(
-    candidatos.map((row) => firstRelation<any>(row.vendas)?.vendedor_id),
+    candidatos.map((row) => firstRelation<FixReciboVendaRelation>(row.vendas)?.vendedor_id),
   );
 
   const vendedorIds = collectUniqueUuidValues(
@@ -413,17 +480,17 @@ async function searchDocuments(event: RequestEvent) {
         .select('id, nome_completo, email')
         .in('id', vendedorBatch);
       if (usersError) throw usersError;
-      for (const row of usersRows || []) {
+      for (const row of (usersRows || []) as FixReciboUserRow[]) {
         vendedorNomes.set(String(row.id), String(row.nome_completo || row.email || row.id));
       }
     }
   }
 
-  const candidatosPorDocumento = new Map<string, any[]>();
+  const candidatosPorDocumento = new Map<string, FixReciboCandidateItem[]>();
   for (const row of candidatos) {
-    const venda = firstRelation<any>(row.vendas);
+    const venda = firstRelation<FixReciboVendaRelation>(row.vendas);
     const vendedorId = String(venda?.vendedor_id || '').trim();
-    const item = {
+    const item: FixReciboCandidateItem = {
       id: row.id,
       venda_id: row.venda_id,
       numero_recibo: row.numero_recibo,
