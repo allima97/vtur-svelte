@@ -11,6 +11,16 @@ import { invalidateMuralReadModels } from "$lib/server/readModelCache";
 
 const MAX_MURAL_READ_BODY_BYTES = 8 * 1024;
 
+type MuralReadBody = {
+  id?: string;
+};
+
+function readMuralReadBody(value: unknown): MuralReadBody {
+  if (!value || typeof value !== "object") return {};
+  const body = value as Record<string, unknown>;
+  return typeof body.id === "string" ? { id: body.id } : {};
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -19,10 +29,7 @@ export async function POST(event: RequestEvent) {
     if (!bodyResult.ok) return bodyResult.response;
 
     const { client, user, scope } = await requireMuralScope(event);
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readMuralReadBody(bodyResult.data);
     const id = String(body?.id || "").trim();
     if (!isUuid(id)) return noStoreTextResponse("ID inválido.", 400);
 
