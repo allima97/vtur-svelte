@@ -82,6 +82,59 @@ type ConciliacaoListRow = {
 type NormalizedConciliacaoListRow = ConciliacaoListRow &
   ReturnType<typeof normalizeComputedFields>;
 
+type PagamentoLookupRow = {
+  venda_id?: string | null;
+  forma_nome?: string | null;
+  paga_comissao?: boolean | null;
+};
+
+type ReciboAuditRow = {
+  id?: string | null;
+  valor_total?: number | null;
+  valor_taxas?: number | null;
+};
+
+type VendaLinkedRow = {
+  id?: string | null;
+  numero_venda?: string | null;
+  cliente_id?: string | null;
+  vendedor_id?: string | null;
+};
+
+type ClienteLinkedRow = {
+  id?: string | null;
+  nome?: string | null;
+};
+
+type VendedorLinkedRow = {
+  id?: string | null;
+  nome_completo?: string | null;
+};
+
+type ReciboLinkedRow = {
+  id?: string | null;
+  venda_id?: string | null;
+  numero_recibo?: string | null;
+  numero_reserva?: string | null;
+};
+
+type AuditUpdate = {
+  sistema_valor_total?: number;
+  sistema_valor_taxas?: number;
+  match_total?: boolean;
+  match_taxas?: boolean;
+  diff_total?: number;
+  diff_taxas?: number;
+};
+
+type EnrichedConciliacaoListRow = NormalizedConciliacaoListRow & {
+  is_nao_comissionavel?: boolean;
+  venda_numero?: string | null;
+  venda_cliente_nome?: string | null;
+  venda_vendedor_nome?: string | null;
+  recibo_numero?: string | null;
+};
+
 async function fetchBatched<T>(
   values: string[],
   loader: (
@@ -278,7 +331,9 @@ export async function GET(event) {
             // Optional configuration may be absent; keep default terms.
           }
 
-          const pagamentos = await fetchBatched<any>(vendaIds, (batch) =>
+          const pagamentos = await fetchBatched<PagamentoLookupRow>(
+            vendaIds,
+            (batch) =>
             client
               .from('vendas_pagamentos')
               .select('venda_id, forma_nome, paga_comissao')
@@ -306,13 +361,13 @@ export async function GET(event) {
         const reciboIdsForAudit = Array.from(
           new Set(
             rows
-              .map((row: any) => String(row?.venda_recibo_id || '').trim())
+              .map((row) => String(row?.venda_recibo_id || '').trim())
               .filter(Boolean),
           ),
         );
 
         if (reciboIdsForAudit.length > 0) {
-          const recibosAudit = await fetchBatched<any>(
+          const recibosAudit = await fetchBatched<ReciboAuditRow>(
             reciboIdsForAudit,
             (batch) =>
               client
@@ -331,14 +386,14 @@ export async function GET(event) {
           }
         }
 
-        rows = rows.map((row: any) => {
+        let enrichedRows: EnrichedConciliacaoListRow[] = rows.map((row) => {
           const vendaId = String(row?.venda_id || '').trim();
           const reciboId = String(row?.venda_recibo_id || '').trim();
           const reciboData = reciboId
             ? recibosByIdForAudit.get(reciboId)
             : null;
 
-          let auditUpdate = {};
+          let auditUpdate: AuditUpdate = {};
           if (reciboData) {
             const sistemaTotal = reciboData.valor_total ?? 0;
             const sistemaTaxas = reciboData.valor_taxas ?? 0;
@@ -369,31 +424,33 @@ export async function GET(event) {
 
         const vendaIdsLinked = Array.from(
           new Set(
-            rows
-              .map((row: any) => String(row?.venda_id || '').trim())
+            enrichedRows
+              .map((row) => String(row?.venda_id || '').trim())
               .filter(Boolean),
           ),
         );
         const reciboIdsLinked = Array.from(
           new Set(
-            rows
-              .map((row: any) => String(row?.venda_recibo_id || '').trim())
+            enrichedRows
+              .map((row) => String(row?.venda_recibo_id || '').trim())
               .filter(Boolean),
           ),
         );
 
-        const vendasById = new Map<string, any>();
+        const vendasById = new Map<string, VendaLinkedRow>();
         const clientesById = new Map<string, string>();
         const vendedoresById = new Map<string, string>();
-        const recibosById = new Map<string, any>();
+        const recibosById = new Map<string, ReciboLinkedRow>();
 
         if (vendaIdsLinked.length > 0) {
-          const vendasData = await fetchBatched<any>(vendaIdsLinked, (batch) =>
-            client
-              .from('vendas')
-              .select('id, numero_venda, cliente_id, vendedor_id')
-              .eq('company_id', companyId)
-              .in('id', batch),
+          const vendasData = await fetchBatched<VendaLinkedRow>(
+            vendaIdsLinked,
+            (batch) =>
+              client
+                .from('vendas')
+                .select('id, numero_venda, cliente_id, vendedor_id')
+                .eq('company_id', companyId)
+                .in('id', batch),
           );
 
           for (const item of vendasData) {
@@ -404,21 +461,23 @@ export async function GET(event) {
           const clienteIds = Array.from(
             new Set(
               vendasData
-                .map((item: any) => String(item?.cliente_id || '').trim())
+                .map((item) => String(item?.cliente_id || '').trim())
                 .filter(Boolean),
             ),
           );
           const vendedorIds = Array.from(
             new Set(
               vendasData
-                .map((item: any) => String(item?.vendedor_id || '').trim())
+                .map((item) => String(item?.vendedor_id || '').trim())
                 .filter(Boolean),
             ),
           );
 
           if (clienteIds.length > 0) {
-            const clientesData = await fetchBatched<any>(clienteIds, (batch) =>
-              client.from('clientes').select('id, nome').in('id', batch),
+            const clientesData = await fetchBatched<ClienteLinkedRow>(
+              clienteIds,
+              (batch) =>
+                client.from('clientes').select('id, nome').in('id', batch),
             );
             for (const cliente of clientesData) {
               const id = String(cliente?.id || '').trim();
@@ -428,7 +487,7 @@ export async function GET(event) {
           }
 
           if (vendedorIds.length > 0) {
-            const vendedoresData = await fetchBatched<any>(
+            const vendedoresData = await fetchBatched<VendedorLinkedRow>(
               vendedorIds,
               (batch) =>
                 client
@@ -445,7 +504,7 @@ export async function GET(event) {
         }
 
         if (reciboIdsLinked.length > 0) {
-          const recibosData = await fetchBatched<any>(
+          const recibosData = await fetchBatched<ReciboLinkedRow>(
             reciboIdsLinked,
             (batch) =>
               client
@@ -459,7 +518,7 @@ export async function GET(event) {
           }
         }
 
-        rows = rows.map((row: any) => {
+        enrichedRows = enrichedRows.map((row) => {
           const vendaId = String(row?.venda_id || '').trim();
           const reciboId = String(row?.venda_recibo_id || '').trim();
           const venda = vendaId ? vendasById.get(vendaId) : null;
@@ -489,7 +548,7 @@ export async function GET(event) {
           };
         });
 
-        return rows;
+        return enrichedRows;
       },
     });
 
