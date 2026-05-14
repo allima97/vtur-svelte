@@ -23,6 +23,16 @@ type CountResult = {
   count?: number | null;
 };
 
+function readSemMovimentoBody(value: unknown): SemMovimentoBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  const parsed: SemMovimentoBody = {};
+  if (typeof body.companyId === 'string') parsed.companyId = body.companyId;
+  if (typeof body.data === 'string') parsed.data = body.data;
+  if (typeof body.observacao === 'string') parsed.observacao = body.observacao;
+  return parsed;
+}
+
 function isTableMissingError(error: unknown, tableName: string) {
   const errorRecord = typeof error === 'object' && error !== null ? (error as Record<string, unknown>) : null;
   const msg = String(errorRecord?.message || error || '').toLowerCase();
@@ -85,10 +95,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as SemMovimentoBody)
-        : {};
+    const body = readSemMovimentoBody(bodyResult.data);
     const companyId = resolveScopedCompanyId(scope, String(body.companyId || '').trim() || null);
     const dataStr = String(body?.data || '').trim();
     const observacao = String(body?.observacao || '').trim() || null;
@@ -158,10 +165,7 @@ export async function DELETE(event) {
       ensureModuloAccess(scope, ['operacao_conciliacao', 'conciliacao'], 3, 'Sem permissão.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as SemMovimentoBody)
-        : {};
+    const body = readSemMovimentoBody(bodyResult.data);
     const companyId = resolveScopedCompanyId(scope, String(body.companyId || '').trim() || null);
     const dataStr = String(body?.data || '').trim();
 
