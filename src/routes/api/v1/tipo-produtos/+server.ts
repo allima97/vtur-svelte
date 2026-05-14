@@ -22,6 +22,14 @@ type TipoProdutoRow = {
   created_at?: string | null;
 };
 
+type TipoProdutosBody = {
+  id?: string;
+  nome?: string;
+  tipo?: string;
+  descricao?: string;
+  ativo?: boolean;
+};
+
 function isMissingColumnError(err: unknown) {
   const error = err as Partial<PostgrestError> | null | undefined;
   const code = String(error?.code || '');
@@ -35,6 +43,21 @@ function isMissingColumnError(err: unknown) {
     message.includes('could not find') ||
     details.includes('could not find')
   );
+}
+
+function readTipoProdutosBody(value: unknown): TipoProdutosBody {
+  if (!value || typeof value !== 'object') return {};
+
+  const body = value as Record<string, unknown>;
+  const parsed: TipoProdutosBody = {};
+
+  if (typeof body.id === 'string') parsed.id = body.id;
+  if (typeof body.nome === 'string') parsed.nome = body.nome;
+  if (typeof body.tipo === 'string') parsed.tipo = body.tipo;
+  if (typeof body.descricao === 'string') parsed.descricao = body.descricao;
+  if (typeof body.ativo === 'boolean') parsed.ativo = body.ativo;
+
+  return parsed;
 }
 
 export async function GET(event) {
@@ -105,10 +128,7 @@ export async function POST(event) {
       ensureModuloAccess(scope, ['parametros'], 2, 'Sem permissão para salvar tipos de produto.');
     }
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readTipoProdutosBody(bodyResult.data);
     const { id, nome, tipo, descricao, ativo } = body;
     const idRaw = String(id || '').trim();
 
