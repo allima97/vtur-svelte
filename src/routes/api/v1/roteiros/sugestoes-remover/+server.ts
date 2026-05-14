@@ -10,6 +10,20 @@ import { NO_STORE_HEADERS } from '$lib/server/httpCache';
 
 const MAX_ROTEIRO_SUGESTAO_REMOVE_BODY_BYTES = 16 * 1024;
 
+type RoteiroSugestaoRemoveBody = {
+  tipo?: unknown;
+  valor?: unknown;
+};
+
+function readRoteiroSugestaoRemoveBody(value: unknown): RoteiroSugestaoRemoveBody | null {
+  if (!value || typeof value !== 'object') return null;
+  const body = value as Record<string, unknown>;
+  return {
+    tipo: body.tipo,
+    valor: body.valor
+  };
+}
+
 export async function POST(event: RequestEvent) {
   try {
     const originError = rejectCrossOriginRequest(event.request);
@@ -21,10 +35,7 @@ export async function POST(event: RequestEvent) {
     const user = await requireAuthenticatedUser(event);
     const scope = await resolveUserScope(client, user.id);
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : null;
+    const body = readRoteiroSugestaoRemoveBody(bodyResult.data);
     if (!body || !body.tipo || !body.valor) {
       return new Response('Dados invalidos.', { status: 400, headers: NO_STORE_HEADERS });
     }
