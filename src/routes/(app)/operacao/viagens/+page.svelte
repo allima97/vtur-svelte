@@ -183,7 +183,7 @@
       key: 'codigo', 
       label: 'Código', 
       sortable: true,
-      width: '120px'
+      width: '100px'
     },
     {
       key: 'cliente',
@@ -192,14 +192,13 @@
       formatter: (value: string, row: Viagem) => {
         const dotColor = row.status === 'cancelada' ? '#f87171' : row.tipo === 'internacional' ? '#a78bfa' : '#4ade80';
         const destino = escapeHtml(row.destino || '');
-        return `<div class="font-semibold text-slate-900">${escapeHtml(value)}</div><div class="text-xs text-slate-500 truncate max-w-[320px]"><span class="inline-block h-2 w-2 rounded-full mr-1 align-middle flex-shrink-0" style="background:${dotColor};"></span>${destino}</div>`;
+        return `<div class="font-semibold text-slate-900 leading-tight">${escapeHtml(value)}</div><div class="text-xs text-slate-500 leading-tight"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle;"></span>${destino}</div>`;
       }
     },
     { 
       key: 'data_inicio', 
       label: 'Período', 
       sortable: true,
-      width: '150px',
       formatter: (value: string, row: Viagem) => {
         const hoje = todayISODateLocal();
         let alerta = '';
@@ -213,23 +212,21 @@
           if (dias <= 7) alerta = `<span class="text-red-600 font-medium">• Falta ${dias}d</span>`;
         }
         
-        return `<div><div>${formatDate(value)} - ${formatDate(row.data_fim)}</div><div class="text-xs text-slate-500">${row.dias_viagem} dias ${alerta}</div></div>`;
+        return `<div class="leading-tight">${formatDate(value)} - ${formatDate(row.data_fim)}</div><div class="text-xs text-slate-500 leading-tight">${row.dias_viagem} dias ${alerta}</div>`;
       }
     },
     { 
       key: 'numero_pessoas', 
       label: 'Viajantes', 
       sortable: true,
-      width: '90px',
+      width: '80px',
       align: 'center' as const,
-      formatter: (value: number) =>
-        `<span class="inline-flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> ${escapeHtml(String(value ?? 0))}</span>`
+      formatter: (value: number) => escapeHtml(String(value ?? 0))
     },
     { 
       key: 'valor_total', 
       label: 'Valor', 
       sortable: true,
-      width: '120px',
       align: 'right' as const,
       formatter: (value: number) => {
         return BRL_CURRENCY_FORMATTER.format(value || 0);
@@ -239,7 +236,6 @@
       key: 'status', 
       label: 'Status', 
       sortable: true,
-      width: '130px',
       formatter: (value: string) => {
         const styles: Record<string, string> = {
           pendente: 'bg-slate-100 text-slate-700',
@@ -248,14 +244,13 @@
           concluida: 'bg-green-100 text-green-700',
           cancelada: 'bg-red-100 text-red-700'
         };
-        return `<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[value] || styles.pendente}">${escapeHtml(formatViagemStatus(value))}</span>`;
+        return `<span class="px-2 py-0.5 text-xs font-medium rounded-full ${styles[value] || styles.pendente}">${escapeHtml(formatViagemStatus(value))}</span>`;
       }
     },
     {
       key: 'responsavel',
       label: 'Responsável',
       sortable: true,
-      width: '130px'
     }
   ];
 
@@ -463,6 +458,7 @@
   color="clientes"
   {loading}
   compact={false}
+  dense={true}
   title="Lista de viagens por embarque"
   searchable={true}
   filterable={false}
