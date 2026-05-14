@@ -13,6 +13,20 @@ import { readJsonBodyLimited, rejectCrossOriginRequest } from '$lib/server/reque
 
 const MAX_PROFILE_SIGNATURE_BODY_BYTES = 32 * 1024;
 
+type ProfileSignatureBody = {
+  signature?: string;
+  assinatura?: string;
+};
+
+function readProfileSignatureBody(value: unknown): ProfileSignatureBody {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  return {
+    signature: typeof body.signature === 'string' ? body.signature : undefined,
+    assinatura: typeof body.assinatura === 'string' ? body.assinatura : undefined
+  };
+}
+
 export const GET: RequestHandler = async (event) => {
   try {
     const client = getAdminClient();
@@ -63,10 +77,7 @@ export const PATCH: RequestHandler = async (event) => {
     const user = await requireAuthenticatedUser(event);
     await resolveUserScope(client, user.id);
 
-    const body =
-      bodyResult.data && typeof bodyResult.data === 'object'
-        ? (bodyResult.data as Record<string, unknown>)
-        : {};
+    const body = readProfileSignatureBody(bodyResult.data);
     const signature = String(body?.signature || body?.assinatura || '').trim();
 
     const { data: userRow, error: userErr } = await client
