@@ -55,11 +55,7 @@
     maximumFractionDigits: 2
   });
 
-  function getErrorMessage(error: unknown, fallback: string): string {
-    return toUserMessage(error, fallback);
-  }
-
-  type ConciliacaoItem = {
+    type ConciliacaoItem = {
     id: string;
     company_id?: string;
     documento: string;
@@ -728,7 +724,7 @@
         importParseError = '';
         result = parseRexturConciliacaoImportText(importText, importFallbackDate || todayISODateLocal());
       } catch (error: unknown) {
-        importParseError = getErrorMessage(error, 'Não foi possível ler a Reserva Fácil Rextur.');
+        importParseError = toUserMessage(error, 'Não foi possível ler a Reserva Fácil Rextur.');
         result = { linhas: [] as ConciliacaoLinhaInput[], ignored: 0 };
       }
     }
@@ -817,7 +813,7 @@
     } catch (error: unknown) {
       empresas = [];
       empresaId = '';
-      toast.error(getErrorMessage(error, 'Erro ao carregar empresas do usuário.'));
+      toast.error(toUserMessage(error, 'Erro ao carregar empresas do usuário.'));
     }
   }
 
@@ -872,7 +868,7 @@
       await Promise.all([loadSummary(), loadRegistros()]);
       void Promise.allSettled([loadOptions(), loadChanges(), loadExecutions(), loadDiasSemMovimento()]);
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Erro ao atualizar dados da conciliação.'));
+      toast.error(toUserMessage(err, 'Erro ao atualizar dados da conciliação.'));
     } finally {
       loading = false;
       operationMessage = '';
@@ -1174,7 +1170,7 @@
       showDetailsDialog = false;
       await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Erro ao salvar atribuição.'));
+      toast.error(toUserMessage(error, 'Erro ao salvar atribuição.'));
     } finally {
       saving = false;
     }
@@ -1221,7 +1217,7 @@
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao executar conciliação.');
+      const message = toUserMessage(error, 'Erro ao executar conciliação.');
       addOperationLog({
         action: actionLabel,
         status: 'error',
@@ -1274,7 +1270,7 @@
       );
       await Promise.all([loadRegistros(), loadSummary(), loadExecutions(), loadChanges()]);
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao forçar recálculo.');
+      const message = toUserMessage(error, 'Erro ao forçar recálculo.');
       addOperationLog({
         action: 'Recalcular mês',
         status: 'error',
@@ -1315,7 +1311,7 @@
       toast.success(`Saneamento concluído: ${duplicateGroups} grupo(s), ${duplicatesRemoved} duplicado(s) removido(s).`);
       await Promise.all([loadRegistros(), loadSummary(), loadChanges()]);
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao sanear duplicados.');
+      const message = toUserMessage(error, 'Erro ao sanear duplicados.');
       addOperationLog({
         action: 'Sanear duplicados',
         status: 'error',
@@ -1384,7 +1380,7 @@
         toast.warning(`Auditoria concluída: ${critical} crítico(s), ${warnings} alerta(s).`);
       }
     } catch (error: unknown) {
-      const message = getErrorMessage(error, 'Erro ao auditar vínculos.');
+      const message = toUserMessage(error, 'Erro ao auditar vínculos.');
       addOperationLog({
         action: apply ? 'Corrigir vínculos críticos' : 'Auditar vínculos',
         status: 'error',
@@ -1413,7 +1409,7 @@
       toast.success(`Alterações revertidas: ${Number(data.reverted || 0)} recibos atualizados.`);
       await Promise.all([loadRegistros(), loadChanges()]);
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Erro ao reverter alterações.'));
+      toast.error(toUserMessage(error, 'Erro ao reverter alterações.'));
     } finally {
       reverting = false;
       operationMessage = '';
@@ -1529,7 +1525,7 @@
       await Promise.all([loadRegistros(), loadSummary()]);
       activeTab = 'registros';
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Erro ao importar conciliação.'));
+      toast.error(toUserMessage(error, 'Erro ao importar conciliação.'));
     } finally {
       importing = false;
       operationMessage = '';
@@ -1559,7 +1555,7 @@
       importLookupMatches = {};
       importLookupSignature = '';
       importParseError = '';
-      toast.error(getErrorMessage(error, 'Não foi possível ler o arquivo selecionado.'));
+      toast.error(toUserMessage(error, 'Não foi possível ler o arquivo selecionado.'));
     }
   }
 
@@ -1599,7 +1595,7 @@
       await loadDiasSemMovimento();
       await loadSummary();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Erro ao marcar dia sem movimento.'));
+      toast.error(toUserMessage(error, 'Erro ao marcar dia sem movimento.'));
     } finally {
       semMovimentoLoading = false;
     }
