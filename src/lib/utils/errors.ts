@@ -82,6 +82,17 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (errorCause) return errorCause;
   }
 
+  if (
+    error &&
+    typeof error === 'object' &&
+    'error' in error &&
+    (error as { error?: unknown }).error instanceof Error
+  ) {
+    const nestedError = (error as { error: Error }).error;
+    const nestedMessage = String(nestedError.message || '').trim();
+    if (nestedMessage) return nestedMessage;
+  }
+
   if (error && typeof error === 'object' && 'message' in error) {
     const message = readField(error, 'message');
     if (message) return message;
