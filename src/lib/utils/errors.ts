@@ -3,6 +3,8 @@
  * Prioriza conteúdos explícitos do erro e usa fallback quando nada útil é encontrado.
  */
 export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): string {
+  const safeFallback = String(fallback || 'Erro inesperado.').trim() || 'Erro inesperado.';
+
   if (
     typeof error === 'number' ||
     typeof error === 'boolean' ||
@@ -65,5 +67,5 @@ export function toUserMessage(error: unknown, fallback = 'Erro inesperado.'): st
     if (message) return message;
   }
 
-  return fallback;
+  return safeFallback;
 }
