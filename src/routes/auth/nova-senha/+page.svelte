@@ -5,6 +5,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Card from '$lib/components/ui/Card.svelte';
   import FieldInput from '$lib/components/ui/form/FieldInput.svelte';
+  import { toUserMessage } from '$lib/utils/errors';
   import { Lock, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-svelte';
 
   let password = '';
@@ -57,7 +58,7 @@
         error = 'Link de recuperação inválido ou expirado. Solicite um novo.';
       }
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Link inválido ou expirado.';
+      error = toUserMessage(err, 'Link inválido ou expirado.');
     } finally {
       validating = false;
     }
@@ -77,7 +78,7 @@
       success = true;
       setTimeout(() => goto('/auth/login'), 2500);
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Erro ao redefinir senha.';
+      error = toUserMessage(err, 'Erro ao redefinir senha.');
     } finally {
       loading = false;
     }
